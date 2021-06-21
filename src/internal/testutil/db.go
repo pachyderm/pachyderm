@@ -34,7 +34,7 @@ var maxOpenConnsPerPool = postgresMaxConnections / runtime.GOMAXPROCS(0)
 // TestDatabaseDeployment represents a deployment of postgres, and databases may
 // be created for individual tests.
 type TestDatabaseDeployment interface {
-	NewDatabase(t testing.TB) (*sqlx.DB, *col.PostgresListener)
+	NewDatabase(t testing.TB) (*sqlx.DB, col.PostgresListener)
 	NewDatabaseConfig(t testing.TB) serviceenv.ConfigOption
 }
 
@@ -174,7 +174,7 @@ func (pd *postgresDeployment) NewDatabaseConfig(t testing.TB) serviceenv.ConfigO
 	}
 }
 
-func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, *col.PostgresListener) {
+func (pd *postgresDeployment) NewDatabase(t testing.TB) (*sqlx.DB, col.PostgresListener) {
 	dbName := pd.newDatabase(t)
 	options := []dbutil.Option{
 		dbutil.WithHostPort(pd.address, pd.port),

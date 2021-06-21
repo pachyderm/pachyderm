@@ -24,7 +24,7 @@ import (
 type postgresCollection struct {
 	table    string
 	db       *sqlx.DB
-	listener *PostgresListener
+	listener PostgresListener
 	template proto.Message
 	indexes  []*Index
 	keyCheck func(string) error
@@ -43,7 +43,7 @@ type model struct {
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(name string, db *sqlx.DB, listener *PostgresListener, template proto.Message, indexes []*Index, keyCheck func(string) error) PostgresCollection {
+func NewPostgresCollection(name string, db *sqlx.DB, listener PostgresListener, template proto.Message, indexes []*Index, keyCheck func(string) error) PostgresCollection {
 	return &postgresCollection{
 		table:    name,
 		db:       db,
@@ -378,10 +378,7 @@ func (c *postgresReadOnlyCollection) Count() (int64, error) {
 func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
 
-	watcher, err := c.listener.listen(c.db, c.tableWatchChannel(), c.template, nil, nil, options)
-	if err != nil {
-		return nil, err
-	}
+	watcher := NewPostgresWatcher(c.db, c.listener, c.tableWatchChannel(), c.template, nil, nil, options)
 
 	go func() {
 		// Do a list of the collection to get the initial state
@@ -405,7 +402,7 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 		}); err != nil {
 			// Ignore any additional error here - we're already attempting to send an error to the user
 			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
-			watcher.listener.unregister(watcher)
+			watcher.listener.Unregister(watcher)
 			return
 		}
 
@@ -428,10 +425,7 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
 
-	watcher, err := c.listener.listen(c.db, c.indexWatchChannel("key", key), c.template, nil, nil, options)
-	if err != nil {
-		return nil, err
-	}
+	watcher := NewPostgresWatcher(c.db, c.listener, c.indexWatchChannel("key", key), c.template, nil, nil, options)
 
 	go func() {
 		// Load the initial state of the row
@@ -439,7 +433,7 @@ func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) 
 		if m, err := c.get(c.ctx, key, c.db); err != nil {
 			if !errors.Is(err, ErrNotFound{}) {
 				watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
-				watcher.listener.unregister(watcher)
+				watcher.listener.Unregister(watcher)
 				return
 			}
 		} else {
@@ -450,7 +444,7 @@ func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) 
 				Type:     watch.EventPut,
 				Template: c.template,
 			}); err != nil {
-				watcher.listener.unregister(watcher)
+				watcher.listener.Unregister(watcher)
 				return
 			}
 		}
@@ -478,10 +472,7 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 	options := watch.SumOptions(opts...)
 
 	channelName := c.indexWatchChannel(indexFieldName(index), indexVal)
-	watcher, err := c.listener.listen(c.db, channelName, c.template, nil, nil, options)
-	if err != nil {
-		return nil, err
-	}
+	watcher := NewPostgresWatcher(c.db, c.listener, channelName, c.template, nil, nil, options)
 
 	go func() {
 		// Do a list of the collection to get the initial state
@@ -507,7 +498,7 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 		}); err != nil {
 			// Ignore any additional error here - we're already attempting to send an error to the user
 			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
-			watcher.listener.unregister(watcher)
+			watcher.listener.Unregister(watcher)
 			return
 		}
 

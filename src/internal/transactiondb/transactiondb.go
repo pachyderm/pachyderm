@@ -16,7 +16,7 @@ const (
 var transactionsIndexes = []*col.Index{}
 
 // Transactions returns a collection of open transactions
-func Transactions(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func Transactions(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		transactionsCollectionName,
 		db,

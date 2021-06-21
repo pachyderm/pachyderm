@@ -19,6 +19,7 @@ import (
 	authtesting "github.com/pachyderm/pachyderm/v2/src/server/auth/testing"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 )
 
@@ -33,6 +34,7 @@ type RealEnv struct {
 	AuthServer               authapi.APIServer
 	PFSServer                pfsapi.APIServer
 	TransactionServer        txnserver.APIServer
+	ProxyServer              *proxyserver.APIServer
 	MockPPSTransactionServer *MockPPSTransactionServer
 }
 
@@ -96,6 +98,8 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	realEnv.TransactionServer, err = txnserver.NewAPIServer(realEnv.ServiceEnv, txnEnv)
 	require.NoError(t, err)
 
+	realEnv.ProxyServer = proxyserver.NewAPIServer(realEnv.ServiceEnv)
+
 	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
 
 	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetAuthServer(realEnv.AuthServer)
@@ -107,6 +111,7 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
 	linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
+	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
 
 	return realEnv
 }

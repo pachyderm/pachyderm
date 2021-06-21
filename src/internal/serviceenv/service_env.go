@@ -5,6 +5,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -50,7 +51,7 @@ type ServiceEnv interface {
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *sqlx.DB
-	GetPostgresListener() *col.PostgresListener
+	GetPostgresListener() col.PostgresListener
 	GetDexDB() dex_storage.Storage
 	ClusterID() string
 	Context() context.Context
@@ -76,6 +77,14 @@ type NonblockingServiceEnv struct {
 	// and pachd/main.go couldn't start the pachd server until GetEtcdClient() had
 	// returned, then pachd would be unable to start)
 	pachEg errgroup.Group
+
+	// servicePachClient is the "template" service pach client (client connected through the pachd service)
+	// other clients returned by this library are based on. It contains the original GRPC client
+	// connection and has no ctx and therefore no auth credentials or cancellation.
+	servicePachClient *client.APIClient
+	// servicePachEg coordinates the initialization of servicePachClient (see pachdEg)
+	servicePachEg   errgroup.Group
+	servicePachOnce sync.Once
 
 	// etcdAddress is the domain name or hostport where etcd can be reached
 	etcdAddress string
@@ -109,7 +118,7 @@ type NonblockingServiceEnv struct {
 	dbEg errgroup.Group
 
 	// listener is a special database client for listening for changes
-	listener *col.PostgresListener
+	listener col.PostgresListener
 	// listenerEg coordinates the initialization of listener (see pachdEg)
 	listenerEg errgroup.Group
 
@@ -211,7 +220,7 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 func (env *NonblockingServiceEnv) initEtcdClient() error {
 	// validate argument
 	if env.etcdAddress == "" {
-		return errors.New("cannot initialize pach client with empty pach address")
+		return errors.New("cannot initialize etcd client with empty etcd address")
 	}
 	// Initialize etcd
 	return backoff.Retry(func() error {
@@ -281,6 +290,11 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 }
 
 func (env *NonblockingServiceEnv) initListener() error {
+	// TODO: Change this to be based on whether a direct connection to postgres is available.
+	// A direct connection will not be available in the workers when the PG bouncer changes are in.
+	if env.Config().PPSPipelineName != "" {
+		return env.initProxyListener()
+	}
 	dsn := dbutil.GetDSN(
 		dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
 		dbutil.WithDBName(env.config.PostgresDBName),
@@ -290,6 +304,30 @@ func (env *NonblockingServiceEnv) initListener() error {
 		// postgres resources by having idle client connections, so construction
 		// can't fail
 		env.listener = col.NewPostgresListener(dsn)
+		return nil
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+}
+
+func (env *NonblockingServiceEnv) initProxyListener() error {
+	env.servicePachOnce.Do(func() {
+		env.servicePachEg.Go(env.initServicePachClient)
+	})
+	if err := env.servicePachEg.Wait(); err != nil {
+		panic(err) // If env can't connect, there's no sensible way to recover
+	}
+	return backoff.Retry(func() error {
+		env.listener = client.NewProxyPostgresListener(env.servicePachClient.ProxyClient)
+		return nil
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+}
+
+func (env *NonblockingServiceEnv) initServicePachClient() error {
+	return backoff.Retry(func() error {
+		var err error
+		env.servicePachClient, err = client.NewFromURI(net.JoinHostPort(env.config.PachdServiceHost, env.config.PachdServicePort))
+		if err != nil {
+			return errors.Wrapf(err, "failed to initialize service pach client")
+		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
@@ -357,7 +395,7 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 // GetPostgresListener returns the already constructed database client dedicated
 // for listen operations without modification. Note that this listener lazily
 // connects to the database on the first listen operation.
-func (env *NonblockingServiceEnv) GetPostgresListener() *col.PostgresListener {
+func (env *NonblockingServiceEnv) GetPostgresListener() col.PostgresListener {
 	if err := env.listenerEg.Wait(); err != nil {
 		panic(err)
 	}

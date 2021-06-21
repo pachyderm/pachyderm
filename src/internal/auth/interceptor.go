@@ -205,6 +205,12 @@ var authHandlers = map[string]authHandler{
 	//
 
 	"/versionpb_v2.API/GetVersion": unauthenticated,
+
+	//
+	// Proxy API
+	//
+
+	"/proxy.API/Listen": authDisabledOr(authenticated),
 }
 
 // NewInterceptor instantiates a new Interceptor

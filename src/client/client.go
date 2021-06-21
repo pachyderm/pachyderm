@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
@@ -81,6 +82,9 @@ type TransactionAPIClient transaction.APIClient
 // DebugClient is an alias of debug.DebugClient
 type DebugClient debug.DebugClient
 
+// ProxyClient is an alias of proxy.APIClient
+type ProxyClient proxy.APIClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
@@ -91,6 +95,7 @@ type APIClient struct {
 	AdminAPIClient
 	TransactionAPIClient
 	DebugClient
+	ProxyClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 	License    license.APIClient
 
@@ -809,6 +814,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
 	c.DebugClient = debug.NewDebugClient(clientConn)
+	c.ProxyClient = proxy.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = grpc_health_v1.NewHealthClient(clientConn)
 	return nil
