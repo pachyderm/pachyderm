@@ -1,9 +1,10 @@
-FROM python:3 as mkdocs
+FROM python:3.7 as mkdocs
+RUN apt-get clean && apt-get update 
+
 WORKDIR /usr/src/app/doc
 COPY doc/requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
-RUN apt-get update 
 RUN apt-get install -y mkdocs
 
 COPY . /usr/src/app/
