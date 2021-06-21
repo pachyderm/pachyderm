@@ -1262,9 +1262,10 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
 
 	// Anon (non-logged-in user) calls ListRepo, and must receive an error
-	c, _ := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
+	c, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
 		&pfs.ListRepoRequest{})
-	_, err := clientsdk.ListRepoInfo(c)
+	require.NoError(t, err)
+	_, err = clientsdk.ListRepoInfo(c)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 }
