@@ -7,11 +7,12 @@ const postcssNormalize = require('postcss-normalize');
 const getCSSModuleLocalIdent = require('react-dev-utils/getCSSModuleLocalIdent');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 
-const styleLoader =  process.env.NODE_ENV === 'production'
-? {
-    loader: MiniCssExtractPlugin.loader,
-  }
-: require.resolve('style-loader');
+const styleLoader =
+  process.env.NODE_ENV === 'production'
+    ? {
+        loader: MiniCssExtractPlugin.loader,
+      }
+    : require.resolve('style-loader');
 
 const postcssLoader = {
   loader: require.resolve('postcss-loader'),

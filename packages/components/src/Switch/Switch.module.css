@@ -1,0 +1,39 @@
+.base {
+  background-color: transparent;
+  border: 0;
+  cursor: pointer;
+  height: 20px;
+  padding: 0;
+  width:  2.625rem;
+}
+
+.base:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.track {
+  background-color: var(--border-grey);
+  border-radius: 1.25rem;
+  height: 1.25rem;
+  position: relative;
+  width: 2.625rem;
+}
+
+.thumb {
+  background-color: var(--white);
+  border-radius: 50%;
+  height: 1rem;
+  left: 0.125rem;
+  position: absolute;
+  top: 0.125rem;
+  width: 1rem;
+  transition: background-color 0.25s ease, transform 0.25s ease;
+}
+
+.checked .track {
+  background-color: var(--pachyderm-green);
+}
+
+.checked .thumb {
+  transform: translateX(1.375rem);
+}

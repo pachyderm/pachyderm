@@ -33,6 +33,7 @@ export * from './SkeletonBodyText';
 export * from './SkeletonDisplayText';
 export * from './SuccessCheckmark';
 export * from './Svg';
+export * from './Switch';
 export * from './Table';
 export * from './TableView';
 export * from './Tabs';
