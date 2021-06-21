@@ -3,10 +3,11 @@ package clientsdk
 import (
 	"io"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-func ForEachPipelineInfo(client pps.API_ListPipelineClient, cb func(*pps.PipelineInfo) error) (retErr error) {
+func ForEachPipelineInfo(client pps.API_ListPipelineClient, cb func(*pps.PipelineInfo) error) error {
 	for {
 		x, err := client.Recv()
 		if err != nil {
@@ -16,6 +17,9 @@ func ForEachPipelineInfo(client pps.API_ListPipelineClient, cb func(*pps.Pipelin
 			return err
 		}
 		if err := cb(x); err != nil {
+			if err == pacherr.ErrBreak {
+				err = nil
+			}
 			return err
 		}
 	}

@@ -3,10 +3,11 @@ package clientsdk
 import (
 	"io"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-func ForEachBranchInfo(client pfs.API_ListBranchClient, cb func(*pfs.BranchInfo) error) (retErr error) {
+func ForEachBranchInfo(client pfs.API_ListBranchClient, cb func(*pfs.BranchInfo) error) error {
 	for {
 		x, err := client.Recv()
 		if err != nil {
@@ -16,6 +17,9 @@ func ForEachBranchInfo(client pfs.API_ListBranchClient, cb func(*pfs.BranchInfo)
 			return err
 		}
 		if err := cb(x); err != nil {
+			if err == pacherr.ErrBreak {
+				err = nil
+			}
 			return err
 		}
 	}
@@ -33,7 +37,7 @@ func ListBranchInfo(client pfs.API_ListBranchClient) ([]*pfs.BranchInfo, error) 
 	return results, nil
 }
 
-func ForEachRepoInfo(client pfs.API_ListRepoClient, cb func(*pfs.RepoInfo) error) (retErr error) {
+func ForEachRepoInfo(client pfs.API_ListRepoClient, cb func(*pfs.RepoInfo) error) error {
 	for {
 		x, err := client.Recv()
 		if err != nil {
@@ -43,6 +47,9 @@ func ForEachRepoInfo(client pfs.API_ListRepoClient, cb func(*pfs.RepoInfo) error
 			return err
 		}
 		if err := cb(x); err != nil {
+			if err == pacherr.ErrBreak {
+				err = nil
+			}
 			return err
 		}
 	}
