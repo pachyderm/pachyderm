@@ -66,4 +66,6 @@
 
 .nodeGroup.interactive:not(.showLeaveJob):hover .tooltipText {
   opacity: 1;
+  -webkit-backface-visibility: visible;
+  backface-visibility: hidden;
 }
