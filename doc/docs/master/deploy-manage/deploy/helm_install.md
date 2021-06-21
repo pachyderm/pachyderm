@@ -1,13 +1,9 @@
 # Helm Deployment
 
-Currently, the `pachctl deploy` command is the authoritative deployment method for Pachyderm.
-However, you can now deploy Pachyderm using the package manager [Helm](https://helm.sh/docs/intro/install/#helm).
+The package manager [Helm](https://helm.sh/docs/intro/install/#helm) is the authoritative deployment method for Pachyderm.
 
-!!! Note
-     - Helm support for Pachyderm is a **beta** release. 
-        See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details.
-     - Changes coming with Helm:
-        For improved security, **Pachyderm services are now exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)**. These changes do not apply to LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations)
+!!! Reminder
+    For improved security, **Pachyderm services are now exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)**. These changes do not apply to LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations)
 
 This page gives you a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) or in our [GitHub repository](https://github.com/pachyderm/helmchart).
 
