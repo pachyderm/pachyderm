@@ -443,33 +443,6 @@ func GetBackendSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) 
 		}
 }
 
-// GetSecretEnvVars returns the environment variable specs for the storage secret.
-func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
-	var envVars []v1.EnvVar
-	if storageBackend != "" {
-		envVars = append(envVars, v1.EnvVar{
-			Name:  obj.StorageBackendEnvVar,
-			Value: storageBackend,
-		})
-	}
-	trueVal := true
-	for _, e := range obj.EnvVarToSecretKey {
-		envVars = append(envVars, v1.EnvVar{
-			Name: e.Key,
-			ValueFrom: &v1.EnvVarSource{
-				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
-						Name: client.StorageSecretName,
-					},
-					Key:      e.Value,
-					Optional: &trueVal,
-				},
-			},
-		})
-	}
-	return envVars
-}
-
 func getStorageEnvVars(opts *AssetOpts) []v1.EnvVar {
 	return []v1.EnvVar{
 		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.UploadConcurrencyLimit)},
@@ -630,7 +603,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 			Value: "80",
 		},
 	}
-	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)
 
 	name := pachdName
@@ -648,6 +620,15 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		}
 	}
 
+	envFrom := []v1.EnvFromSource{
+		{
+			SecretRef: &v1.SecretEnvSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: client.StorageSecretName,
+				},
+			},
+		},
+	}
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -669,6 +650,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 							Image:   image,
 							Command: command,
 							Env:     envVars,
+							EnvFrom: envFrom,
 							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: opts.PachdPort, // also set in cmd/pachd/main.go
@@ -818,12 +800,12 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 		s3V2 = "1"
 	}
 	return map[string][]byte{
-		"minio-bucket":    []byte(bucket),
-		"minio-id":        []byte(id),
-		"minio-secret":    []byte(secret),
-		"minio-endpoint":  []byte(endpoint),
-		"minio-secure":    []byte(secureV),
-		"minio-signature": []byte(s3V2),
+		obj.MinioBucketEnvVar:    []byte(bucket),
+		obj.MinioIDEnvVar:        []byte(id),
+		obj.MinioSecretEnvVar:    []byte(secret),
+		obj.MinioEndpointEnvVar:  []byte(endpoint),
+		obj.MinioSecureEnvVar:    []byte(secureV),
+		obj.MinioSignatureEnvVar: []byte(s3V2),
 	}
 }
 
@@ -857,10 +839,10 @@ func LocalSecret() map[string][]byte {
 //   advancedConfig - advanced configuration
 func AmazonSecret(region, bucket, id, secret, token, distribution, endpoint string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
 	s := amazonBasicSecret(region, bucket, distribution, advancedConfig)
-	s["amazon-id"] = []byte(id)
-	s["amazon-secret"] = []byte(secret)
-	s["amazon-token"] = []byte(token)
-	s["custom-endpoint"] = []byte(endpoint)
+	s[obj.AmazonIDEnvVar] = []byte(id)
+	s[obj.AmazonSecretEnvVar] = []byte(secret)
+	s[obj.AmazonTokenEnvVar] = []byte(token)
+	s[obj.CustomEndpointEnvVar] = []byte(endpoint)
 	return s
 }
 
@@ -875,25 +857,25 @@ func AmazonIAMRoleSecret(region, bucket, distribution string, advancedConfig *ob
 
 func amazonBasicSecret(region, bucket, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
 	return map[string][]byte{
-		"amazon-region":       []byte(region),
-		"amazon-bucket":       []byte(bucket),
-		"amazon-distribution": []byte(distribution),
-		"retries":             []byte(strconv.Itoa(advancedConfig.Retries)),
-		"timeout":             []byte(advancedConfig.Timeout),
-		"upload-acl":          []byte(advancedConfig.UploadACL),
-		"part-size":           []byte(strconv.FormatInt(advancedConfig.PartSize, 10)),
-		"max-upload-parts":    []byte(strconv.Itoa(advancedConfig.MaxUploadParts)),
-		"disable-ssl":         []byte(strconv.FormatBool(advancedConfig.DisableSSL)),
-		"no-verify-ssl":       []byte(strconv.FormatBool(advancedConfig.NoVerifySSL)),
-		"log-options":         []byte(advancedConfig.LogOptions),
+		obj.AmazonRegionEnvVar:       []byte(region),
+		obj.AmazonBucketEnvVar:       []byte(bucket),
+		obj.AmazonDistributionEnvVar: []byte(distribution),
+		obj.RetriesEnvVar:            []byte(strconv.Itoa(advancedConfig.Retries)),
+		obj.TimeoutEnvVar:            []byte(advancedConfig.Timeout),
+		obj.UploadACLEnvVar:          []byte(advancedConfig.UploadACL),
+		obj.PartSizeEnvVar:           []byte(strconv.FormatInt(advancedConfig.PartSize, 10)),
+		obj.MaxUploadPartsEnvVar:     []byte(strconv.Itoa(advancedConfig.MaxUploadParts)),
+		obj.DisableSSLEnvVar:         []byte(strconv.FormatBool(advancedConfig.DisableSSL)),
+		obj.NoVerifySSLEnvVar:        []byte(strconv.FormatBool(advancedConfig.NoVerifySSL)),
+		obj.LogOptionsEnvVar:         []byte(advancedConfig.LogOptions),
 	}
 }
 
 // GoogleSecret creates a google secret with a bucket name.
 func GoogleSecret(bucket string, cred string) map[string][]byte {
 	return map[string][]byte{
-		"google-bucket": []byte(bucket),
-		"google-cred":   []byte(cred),
+		obj.GoogleBucketEnvVar: []byte(bucket),
+		obj.GoogleCredEnvVar:   []byte(cred),
 	}
 }
 
@@ -903,9 +885,9 @@ func GoogleSecret(bucket string, cred string) map[string][]byte {
 //   secret    - Azure storage account key
 func MicrosoftSecret(container string, id string, secret string) map[string][]byte {
 	return map[string][]byte{
-		"microsoft-container": []byte(container),
-		"microsoft-id":        []byte(id),
-		"microsoft-secret":    []byte(secret),
+		obj.MicrosoftContainerEnvVar: []byte(container),
+		obj.MicrosoftIDEnvVar:        []byte(id),
+		obj.MicrosoftSecretEnvVar:    []byte(secret),
 	}
 }
 
