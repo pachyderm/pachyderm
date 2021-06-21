@@ -56,7 +56,6 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
         window.localStorage.getItem('auth-token') || '',
         {
           expires: COOKIE_EXPIRES,
-          httpOnly: !IS_DEV && true,
           sameSite: IS_DEV ? 'lax' : 'strict',
           secure: true,
         },
