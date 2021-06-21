@@ -1812,14 +1812,15 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 	})
 }
 
-func (d *driver) deleteAll(txnCtx *txncontext.TransactionContext) error {
-	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
-	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	return d.listRepo(txnCtx.ClientContext, !includeAuth, "", func(repoInfo *pfs.RepoInfo) error {
-		if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
-			return err
-		}
-		return nil
+func (d *driver) deleteAll(ctx context.Context) error {
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		// the list does not use the transaction
+		return d.listRepo(ctx, !includeAuth, "", func(repoInfo *pfs.RepoInfo) error {
+			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
+				return err
+			}
+			return nil
+		})
 	})
 }
 
