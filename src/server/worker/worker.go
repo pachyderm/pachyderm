@@ -61,7 +61,7 @@ func NewWorker(
 		return nil, err
 	}
 
-	if pipelineInfo.Transform.Image != "" && pipelineInfo.Transform.Cmd == nil {
+	if pipelineInfo.Details.Transform.Image != "" && pipelineInfo.Details.Transform.Cmd == nil {
 		ppsutil.FailPipeline(env.Context(), env.GetDBClient(), driver.Pipelines(),
 			pipelineInfo.Pipeline.Name,
 			"nothing to run: no transform.cmd")
@@ -112,7 +112,7 @@ func (w *Worker) worker() {
 func (w *Worker) master(env serviceenv.ServiceEnv) {
 	pipelineInfo := w.driver.PipelineInfo()
 	logger := logs.NewMasterLogger(pipelineInfo)
-	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, pipelineInfo.Pipeline.Name, pipelineInfo.Salt)
+	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, pipelineInfo.Pipeline.Name, pipelineInfo.Details.Salt)
 	masterLock := dlock.NewDLock(env.GetEtcdClient(), lockPath)
 
 	b := backoff.NewInfiniteBackOff()
@@ -161,9 +161,9 @@ type spawnerFunc func(driver.Driver, logs.TaggedLogger) error
 func runSpawner(driver driver.Driver, logger logs.TaggedLogger) error {
 	pipelineType, runFn := func() (string, spawnerFunc) {
 		switch {
-		case driver.PipelineInfo().Service != nil:
+		case driver.PipelineInfo().Details.Service != nil:
 			return "service", service.Run
-		case driver.PipelineInfo().Spout != nil:
+		case driver.PipelineInfo().Details.Spout != nil:
 			return "spout", spout.Run
 		default:
 			return "transform", transform.Run

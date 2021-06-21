@@ -235,10 +235,11 @@ message GPUSpec {
   int64 number = 2;
 }
 
-// StoredJobInfo is the portion of the JobInfo that gets stored
-// in the database during job execution. It contains fields which change over
-// the lifetime of the job but aren't used in the execution of the job.
-message StoredJobInfo {
+// JobInfo is the data stored in the database regarding a given job.  The
+// 'details' field contains more information about the job which is expensive to
+// fetch, requiring querying workers or loading the pipeline spec from object
+// storage.
+message JobInfo {
   Job job = 1;
   uint64 pipeline_version = 2;
   pfs_v2.Commit output_commit = 3;
@@ -256,48 +257,31 @@ message StoredJobInfo {
   ProcessStats stats = 10;
 
   JobState state = 11;
-  string reason = 12;
+  string reason = 12; // reason explains why the job is in the current state
   google.protobuf.Timestamp started = 13;
   google.protobuf.Timestamp finished = 14;
-}
 
-message JobInfo {
-  Job job = 1;
-  Transform transform = 2;                     // requires ListJobRequest.Full
-  uint64 pipeline_version = 3;
-  ParallelismSpec parallelism_spec = 4;       // requires ListJobRequest.Full
-  Egress egress = 5;                          // requires ListJobRequest.Full
-  Job parent_job = 6;
-  google.protobuf.Timestamp started = 7;
-  google.protobuf.Timestamp finished = 8;
-  pfs_v2.Commit output_commit = 9;
-  JobState state = 10;
-  string reason = 11;  // reason explains why the job is in the current state
-  Service service = 12;                        // requires ListJobRequest.Full
-  Spout spout = 13;                            // requires ListJobRequest.Full
-  pfs_v2.Repo output_repo = 14;
-  string output_branch = 15;                   // requires ListJobRequest.Full
-  uint64 restart = 16;
-  int64 data_processed = 17;
-  int64 data_skipped = 18;
-  int64 data_failed = 19;
-  int64 data_recovered = 20;
-  int64 data_total = 21;
-  ProcessStats stats = 22;
-  repeated WorkerStatus worker_status = 23;
-  ResourceSpec resource_requests = 24;         // requires ListJobRequest.Full
-  ResourceSpec resource_limits = 25;           // requires ListJobRequest.Full
-  ResourceSpec sidecar_resource_limits = 26;   // requires ListJobRequest.Full
-  Input input = 27;                            // requires ListJobRequest.Full
-  pfs_v2.BranchInfo new_branch = 28;
-  string salt = 30;                            // requires ListJobRequest.Full
-  DatumSetSpec datum_set_spec = 31;                   // requires ListJobRequest.Full
-  google.protobuf.Duration datum_timeout = 32; // requires ListJobRequest.Full
-  google.protobuf.Duration job_timeout = 33;   // requires ListJobRequest.Full
-  int64 datum_tries = 34;                      // requires ListJobRequest.Full
-  SchedulingSpec scheduling_spec = 35;         // requires ListJobRequest.Full
-  string pod_spec = 36;                        // requires ListJobRequest.Full
-  string pod_patch = 37;                       // requires ListJobRequest.Full
+  message Details {
+    Transform transform = 1;
+    ParallelismSpec parallelism_spec = 2;
+    Egress egress = 3;
+    Service service = 4;
+    Spout spout = 5;
+    repeated WorkerStatus worker_status = 6;
+    ResourceSpec resource_requests = 7;
+    ResourceSpec resource_limits = 8;
+    ResourceSpec sidecar_resource_limits = 9;
+    Input input = 10;
+    string salt = 11;
+    DatumSetSpec datum_set_spec = 12;
+    google.protobuf.Duration datum_timeout = 13;
+    google.protobuf.Duration job_timeout = 14;
+    int64 datum_tries = 15;
+    SchedulingSpec scheduling_spec = 16;
+    string pod_spec = 17;
+    string pod_patch = 18;
+  }
+  Details details = 15;
 }
 
 enum WorkerState {
@@ -316,14 +300,14 @@ message Pipeline {
 }
 
 enum PipelineState {
-  // There is a StoredPipelineInfo + spec commit, but no RC
+  // There is a PipelineInfo + spec commit, but no RC
   // This happens when a pipeline has been created but not yet picked up by a
   // PPS server.
   PIPELINE_STARTING = 0;
   // A pipeline has a spec commit and a service + RC
   // This is the normal state of a pipeline.
   PIPELINE_RUNNING = 1;
-  // Equivalent to STARTING (there is a StoredPipelineInfo + commit, but no RC)
+  // Equivalent to STARTING (there is a PipelineInfo + commit, but no RC)
   // After some error caused runPipeline to exit, but before the pipeline is
   // re-run. This is when the exponential backoff is in effect.
   PIPELINE_RESTARTING = 2;
@@ -341,95 +325,88 @@ enum PipelineState {
   PIPELINE_CRASHING = 6;
 }
 
-// StoredPipelineInfo is proto for each pipeline that Pachd stores in the
+// PipelineInfo is proto for each pipeline that Pachd stores in the
 // database. It tracks the state of the pipeline, and points to its metadata in
 // PFS (and, by pointing to a PFS commit, de facto tracks the pipeline's
-// version)
-message StoredPipelineInfo {
+// version).  Any information about the pipeline _not_ stored in the database is
+// in the Details object, which requires fetching the spec from PFS or other
+// potentially expensive operations.
+message PipelineInfo {
   Pipeline pipeline = 1;
   uint64 version = 2;
   pfs_v2.Commit spec_commit = 3; // The first spec commit for this version of the pipeline
   bool stopped = 4;
+
+  // state indicates the current state of the pipeline
   PipelineState state = 5;
+  // reason includes any error messages associated with a failed pipeline
   string reason = 6;
+
+  // job_counts and last_job_state indicates the number of jobs within this
+  // pipeline in a given state and the state of the most recently created job,
+  // respectively.
   map<int32, int32> job_counts = 7;
-  string auth_token = 8;
-  JobState last_job_state = 9;
+  JobState last_job_state = 8;
 
   // parallelism tracks the literal number of workers that this pipeline should
   // run.
-  uint64 parallelism = 10;
+  uint64 parallelism = 9;
 
   // The pipeline type is stored here so that we can internally know the type of
-  // the pipeline without loading the spec from PFS - this field is not in the
-  // full PipelineInfo as that would be redundant.
+  // the pipeline without loading the spec from PFS.
   enum PipelineType {
     PIPELINE_TYPE_TRANSFORM = 0;
     PIPELINE_TYPE_SPOUT = 1;
     PIPELINE_TYPE_SERVICE = 2;
   }
-  PipelineType type = 11;
-}
+  PipelineType type = 10;
 
-message PipelineInfo {
-  Pipeline pipeline = 1;
-  uint64 version = 2;
-  Transform transform = 3;
-  // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
-  // when running in a kubernetes cluster on which kubeflow has been installed.
-  // Exactly one of 'tf_job' and 'transform' should be set
-  TFJob tf_job = 4 [(gogoproto.customname) = "TFJob"];
-  ParallelismSpec parallelism_spec = 5;
-  Egress egress = 6;
-  google.protobuf.Timestamp created_at = 7;
+  string auth_token = 11;
 
-  // state indicates the current state of the pipeline. This is not stored in
-  // PFS along with the rest of this data structure--PPS.InspectPipeline fills
-  // it in
-  PipelineState state = 8;
-  // same for stopped field
-  bool stopped = 9;
-  string recent_error = 10;
+  message Details {
+    Transform transform = 1;
+    // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
+    // when running in a kubernetes cluster on which kubeflow has been installed.
+    // Exactly one of 'tf_job' and 'transform' should be set
+    TFJob tf_job = 2 [(gogoproto.customname) = "TFJob"];
+    ParallelismSpec parallelism_spec = 3;
+    Egress egress = 4;
+    google.protobuf.Timestamp created_at = 5;
 
-  int64 workers_requested = 11;
-  int64 workers_available = 12;
+    string recent_error = 6;
 
-  // job_counts and last_job_state indicates the number of jobs within this
-  // pipeline in a given state and the state of the most recently created job,
-  // respectively. This is not stored in PFS along with the rest of this data
-  // structure--PPS.InspectPipeline fills it in from the StoredPipelineInfo.
-  map<int32, int32> job_counts = 13;
-  JobState last_job_state = 14;
+    int64 workers_requested = 7;
+    int64 workers_available = 8;
 
-  string output_branch = 15;
-  ResourceSpec resource_requests = 16;
-  ResourceSpec resource_limits = 17;
-  ResourceSpec sidecar_resource_limits = 18;
-  Input input = 19;
-  string description = 20;
-  string cache_size = 21;
-  string salt = 23;
+    string output_branch = 9;
+    ResourceSpec resource_requests = 10;
+    ResourceSpec resource_limits = 11;
+    ResourceSpec sidecar_resource_limits = 12;
+    Input input = 13;
+    string description = 14;
+    string cache_size = 15;
+    string salt = 16;
 
-  // reason includes any error messages associated with a failed pipeline
-  string reason = 24;
-  int64 max_queue_size = 25;
-  Service service = 26;
-  Spout spout = 27;
-  DatumSetSpec datum_set_spec = 28;
-  google.protobuf.Duration datum_timeout = 29;
-  google.protobuf.Duration job_timeout = 30;
-  bool standby = 31;
-  int64 datum_tries = 32;
-  SchedulingSpec scheduling_spec = 33;
-  string pod_spec = 34;
-  string pod_patch = 35;
-  bool s3_out = 36;
-  Metadata metadata = 37;
-  string reprocess_spec = 38;
-  // Set at call time, not stored in etcd
-  int64 unclaimed_tasks = 39;
-  string worker_rc = 40;
-  bool autoscaling = 41;
+    string reason = 17;
+    int64 max_queue_size = 18;
+    Service service = 19;
+    Spout spout = 20;
+    DatumSetSpec datum_set_spec = 21;
+    google.protobuf.Duration datum_timeout = 22;
+    google.protobuf.Duration job_timeout = 23;
+    bool standby = 24;
+    int64 datum_tries = 25;
+    SchedulingSpec scheduling_spec = 26;
+    string pod_spec = 27;
+    string pod_patch = 28;
+    bool s3_out = 29;
+    Metadata metadata = 30;
+    string reprocess_spec = 31;
+    int64 unclaimed_tasks = 32;
+    string worker_rc = 33;
+    bool autoscaling = 34;
+  }
+  Details details = 12;
 }
 
 message PipelineInfos {
@@ -443,13 +420,14 @@ message JobSet {
 message InspectJobSetRequest {
   JobSet job_set = 1;
   bool wait = 2; // When true, wait until all jobs in the set are finished
+  bool details = 3;
 }
 
 message InspectJobRequest {
   // Callers should set either Job or OutputCommit, not both.
   Job job = 1;
   bool wait = 2; // wait until state is either FAILURE or SUCCESS
-  bool full = 3;
+  bool details = 3;
 }
 
 message ListJobRequest {
@@ -464,13 +442,13 @@ message ListJobRequest {
   //-1: Return jobs from all historical versions.
   int64 history = 4;
 
-  // Full indicates whether the result should include all pipeline details in
+  // Details indicates whether the result should include all pipeline details in
   // each JobInfo, or limited information including name and status, but
   // excluding information in the pipeline spec. Leaving this "false" can make
   // the call significantly faster in clusters with a large number of pipelines
   // and jobs.
   // Note that if 'input_commit' is set, this field is coerced to "true"
-  bool full = 5;
+  bool details = 5;
 
   // A jq program string for additional result filtering
   string jqFilter = 6;
@@ -479,7 +457,7 @@ message ListJobRequest {
 // Streams open jobs until canceled
 message SubscribeJobRequest {
   Pipeline pipeline = 1;
-  bool full = 2; // Same as ListJobRequest.Full
+  bool details = 2; // Same as ListJobRequest.Details
 }
 
 message DeleteJobRequest {
@@ -653,6 +631,9 @@ message CreatePipelineRequest {
 
 message InspectPipelineRequest {
   Pipeline pipeline = 1;
+  // When true, return PipelineInfos with the details field, which requires
+  // loading the pipeline spec from PFS.
+  bool details = 2;
 }
 
 message ListPipelineRequest {
@@ -667,10 +648,9 @@ message ListPipelineRequest {
   //-1: Return all historical versions.
   int64 history = 2;
 
-  // Return PipelineInfos with incomplete data if the pipeline spec cannot be
-  // retrieved. Incomplete PipelineInfos will have a nil Transform field, but
-  // will have the fields present in StoredPipelineInfo.
-  bool allow_incomplete = 3;
+  // When true, return PipelineInfos with the details field, which requires
+  // loading the pipeline spec from PFS.
+  bool details = 3;
 
   // A jq program string for additional result filtering
   string jqFilter = 4;

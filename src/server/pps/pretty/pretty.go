@@ -72,24 +72,24 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 
 // PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTimestamps bool) {
-	if pipelineInfo.Transform == nil {
+	if pipelineInfo.Details == nil {
 		fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
 		fmt.Fprint(w, "-\t")
 		fmt.Fprint(w, "-\t")
 		fmt.Fprint(w, "-\t")
 		fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
-		fmt.Fprint(w, "could not retrieve pipeline spec\t")
+		fmt.Fprint(w, "pipeline details unavailable\t")
 	} else {
 		fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
 		fmt.Fprintf(w, "%d\t", pipelineInfo.Version)
-		fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
+		fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Details.Input))
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", pipelineInfo.CreatedAt.String())
+			fmt.Fprintf(w, "%s\t", pipelineInfo.Details.CreatedAt.String())
 		} else {
-			fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
+			fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.Details.CreatedAt))
 		}
 		fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
-		fmt.Fprintf(w, "%s\t", pipelineInfo.Description)
+		fmt.Fprintf(w, "%s\t", pipelineInfo.Details.Description)
 	}
 	fmt.Fprintln(w)
 }
@@ -136,8 +136,7 @@ func NewPrintableJobInfo(ji *ppsclient.JobInfo) *PrintableJobInfo {
 func PrintDetailedJobInfo(w io.Writer, jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}}
-Pipeline: {{.Job.Pipeline.Name}}{{if .ParentJob}}
-Parent: {{.ParentJob.ID}} {{end}}{{if .FullTimestamps}}
+Pipeline: {{.Job.Pipeline.Name}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}} {{end}}{{if .Finished}}
 Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
@@ -153,31 +152,31 @@ Data Uploaded: {{prettySize .Stats.UploadBytes}}
 Download Time: {{prettyDuration .Stats.DownloadTime}}
 Process Time: {{prettyDuration .Stats.ProcessTime}}
 Upload Time: {{prettyDuration .Stats.UploadTime}}
-Datum Timeout: {{.DatumTimeout}}
-Job Timeout: {{.JobTimeout}}
+Datum Timeout: {{.Details.DatumTimeout}}
+Job Timeout: {{.Details.JobTimeout}}
 Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
-ParallelismSpec: {{.ParallelismSpec}}
-{{ if .ResourceRequests }}ResourceRequests:
-  CPU: {{ .ResourceRequests.Cpu }}
-  Memory: {{ .ResourceRequests.Memory }} {{end}}
-{{ if .ResourceLimits }}ResourceLimits:
-  CPU: {{ .ResourceLimits.Cpu }}
-  Memory: {{ .ResourceLimits.Memory }}
-  {{ if .ResourceLimits.Gpu }}GPU:
-    Type: {{ .ResourceLimits.Gpu.Type }}
-    Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
-{{ if .SidecarResourceLimits }}SidecarResourceLimits:
-  CPU: {{ .SidecarResourceLimits.Cpu }}
-  Memory: {{ .SidecarResourceLimits.Memory }} {{end}}
-{{ if .Service }}Service:
-	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
-	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}Input:
+ParallelismSpec: {{.Details.ParallelismSpec}}
+{{ if .Details.ResourceRequests }}ResourceRequests:
+  CPU: {{ .Details.ResourceRequests.Cpu }}
+  Memory: {{ .Details.ResourceRequests.Memory }} {{end}}
+{{ if .Details.ResourceLimits }}ResourceLimits:
+  CPU: {{ .Details.ResourceLimits.Cpu }}
+  Memory: {{ .Details.ResourceLimits.Memory }}
+  {{ if .Details.ResourceLimits.Gpu }}GPU:
+    Type: {{ .Details.ResourceLimits.Gpu.Type }}
+    Number: {{ .Details.ResourceLimits.Gpu.Number }} {{end}} {{end}}
+{{ if .Details.SidecarResourceLimits }}SidecarResourceLimits:
+  CPU: {{ .Details.SidecarResourceLimits.Cpu }}
+  Memory: {{ .Details.SidecarResourceLimits.Memory }} {{end}}
+{{ if .Details.Service }}Service:
+	{{ if .Details.Service.InternalPort }}InternalPort: {{ .Details.Service.InternalPort }} {{end}}
+	{{ if .Details.Service.ExternalPort }}ExternalPort: {{ .Details.Service.ExternalPort }} {{end}} {{end}}Input:
 {{jobInput .}}
 Transform:
-{{prettyTransform .Transform}} {{if .OutputCommit}}
-Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Egress }}
-Egress: {{.Egress.URL}} {{end}}
+{{prettyTransform .Details.Transform}} {{if .OutputCommit}}
+Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Details.Egress }}
+Egress: {{.Details.Egress.URL}} {{end}}
 `)
 	if err != nil {
 		return err
@@ -202,33 +201,33 @@ func NewPrintablePipelineInfo(pi *ppsclient.PipelineInfo) *PrintablePipelineInfo
 // PrintDetailedPipelineInfo pretty-prints detailed pipeline info.
 func PrintDetailedPipelineInfo(w io.Writer, pipelineInfo *PrintablePipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
-		`Name: {{.Pipeline.Name}}{{if .Description}}
-Description: {{.Description}}{{end}}{{if .FullTimestamps }}
-Created: {{.CreatedAt}}{{ else }}
-Created: {{prettyAgo .CreatedAt}} {{end}}
+		`Name: {{.Pipeline.Name}}{{if .Details.Description}}
+Description: {{.Details.Description}}{{end}}{{if .FullTimestamps }}
+Created: {{.Details.CreatedAt}}{{ else }}
+Created: {{prettyAgo .Details.CreatedAt}} {{end}}
 State: {{pipelineState .State}}
 Reason: {{.Reason}}
-Workers Available: {{.WorkersAvailable}}/{{.WorkersRequested}}
+Workers Available: {{.Details.WorkersAvailable}}/{{.Details.WorkersRequested}}
 Stopped: {{ .Stopped }}
-Parallelism Spec: {{.ParallelismSpec}}
-{{ if .ResourceRequests }}ResourceRequests:
-  CPU: {{ .ResourceRequests.Cpu }}
-  Memory: {{ .ResourceRequests.Memory }} {{end}}
-{{ if .ResourceLimits }}ResourceLimits:
-  CPU: {{ .ResourceLimits.Cpu }}
-  Memory: {{ .ResourceLimits.Memory }}
-  {{ if .ResourceLimits.Gpu }}GPU:
-    Type: {{ .ResourceLimits.Gpu.Type }} 
-    Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
-Datum Timeout: {{.DatumTimeout}}
-Job Timeout: {{.JobTimeout}}
+Parallelism Spec: {{.Details.ParallelismSpec}}
+{{ if .Details.ResourceRequests }}ResourceRequests:
+  CPU: {{ .Details.ResourceRequests.Cpu }}
+  Memory: {{ .Details.ResourceRequests.Memory }} {{end}}
+{{ if .Details.ResourceLimits }}ResourceLimits:
+  CPU: {{ .Details.ResourceLimits.Cpu }}
+  Memory: {{ .Details.ResourceLimits.Memory }}
+  {{ if .Details.ResourceLimits.Gpu }}GPU:
+    Type: {{ .Details.ResourceLimits.Gpu.Type }} 
+    Number: {{ .Details.ResourceLimits.Gpu.Number }} {{end}} {{end}}
+Datum Timeout: {{.Details.DatumTimeout}}
+Job Timeout: {{.Details.JobTimeout}}
 Input:
 {{pipelineInput .PipelineInfo}}
-Output Branch: {{.OutputBranch}}
+Output Branch: {{.Details.OutputBranch}}
 Transform:
-{{prettyTransform .Transform}}
-{{ if .Egress }}Egress: {{.Egress.URL}} {{end}}
-{{if .RecentError}} Recent Error: {{.RecentError}} {{end}}
+{{prettyTransform .Details.Transform}}
+{{ if .Details.Egress }}Egress: {{.Details.Egress.URL}} {{end}}
+{{if .Details.RecentError}} Recent Error: {{.Details.RecentError}} {{end}}
 Job Counts:
 {{jobCounts .JobCounts}}
 `)
@@ -400,10 +399,10 @@ func pipelineState(pipelineState ppsclient.PipelineState) string {
 }
 
 func jobInput(pji PrintableJobInfo) string {
-	if pji.Input == nil {
+	if pji.Details.Input == nil {
 		return ""
 	}
-	input, err := json.MarshalIndent(pji.Input, "", "  ")
+	input, err := json.MarshalIndent(pji.Details.Input, "", "  ")
 	if err != nil {
 		panic(errors.Wrapf(err, "error marshalling input"))
 	}
@@ -414,7 +413,7 @@ func workerStatus(pji PrintableJobInfo) string {
 	var buffer bytes.Buffer
 	writer := ansiterm.NewTabWriter(&buffer, 20, 1, 3, ' ', 0)
 	PrintWorkerStatusHeader(writer)
-	for _, workerStatus := range pji.WorkerStatus {
+	for _, workerStatus := range pji.Details.WorkerStatus {
 		PrintWorkerStatus(writer, workerStatus, pji.FullTimestamps)
 	}
 	// can't error because buffer can't error on Write
@@ -423,10 +422,10 @@ func workerStatus(pji PrintableJobInfo) string {
 }
 
 func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
-	if pipelineInfo.Input == nil {
+	if pipelineInfo.Details.Input == nil {
 		return ""
 	}
-	input, err := json.MarshalIndent(pipelineInfo.Input, "", "  ")
+	input, err := json.MarshalIndent(pipelineInfo.Details.Input, "", "  ")
 	if err != nil {
 		panic(errors.Wrapf(err, "error marshalling input"))
 	}

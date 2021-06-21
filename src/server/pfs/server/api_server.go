@@ -519,7 +519,6 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 			return err
 		})
 		return bytesWritten, err
-
 	})
 }
 
@@ -545,7 +544,11 @@ func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
 		}); err != nil {
 			return err
 		}
-		bytesWritten += int64(fi.SizeBytes)
+		// TODO(2.0 required) - SizeBytes requires constructing the src with
+		// `WithDetails` which we don't do here, so we can't get the size from here
+		// that easily.  One option is to always calculate the size of files in the
+		// source.
+		// bytesWritten += int64(fi.Details.SizeBytes)
 		return nil
 	})
 	return bytesWritten, err
@@ -599,7 +602,7 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.listFile(server.Context(), request.File, request.Full, func(fi *pfs.FileInfo) error {
+	return a.driver.listFile(server.Context(), request.File, request.Details, func(fi *pfs.FileInfo) error {
 		sent++
 		return server.Send(fi)
 	})

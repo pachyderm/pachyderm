@@ -658,7 +658,6 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			ParentCommit:     parent,
 			ChildCommits:     []*pfs.Commit{},
 			Started:          txnCtx.Timestamp,
-			SizeBytes:        parentCommitInfo.SizeBytes,
 			DirectProvenance: branchInfo.DirectProvenance,
 		}
 		if parentCommitInfo.Finished != nil {
@@ -923,7 +922,10 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 		if err != nil {
 			return nil, err
 		}
-		commitInfo.SizeBytes = uint64(size)
+		if commitInfo.Details == nil {
+			commitInfo.Details = &pfs.CommitInfo_Details{}
+		}
+		commitInfo.Details.SizeBytes = uint64(size)
 	}
 	return commitInfo, nil
 }

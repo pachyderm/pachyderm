@@ -208,12 +208,12 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 }
 
 // InspectJob returns info about a specific job.
-// full indicates that the full job info should be returned.
-func (c APIClient) InspectJob(pipelineName string, jobID string, full bool) (_ *pps.JobInfo, retErr error) {
+// 'details' indicates that the JobInfo.Details field should be filled out.
+func (c APIClient) InspectJob(pipelineName string, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	req := &pps.InspectJobRequest{
-		Job:  NewJob(pipelineName, jobID),
-		Full: full,
+		Job:     NewJob(pipelineName, jobID),
+		Details: details,
 	}
 	jobInfo, err := c.PpsAPIClient.InspectJob(c.Ctx(), req)
 	return jobInfo, grpcutil.ScrubGRPC(err)
@@ -221,21 +221,22 @@ func (c APIClient) InspectJob(pipelineName string, jobID string, full bool) (_ *
 
 // WaitJob is a blocking version on InspectJob that will wait
 // until the job has reached a terminal state.
-func (c APIClient) WaitJob(pipelineName string, jobID string, full bool) (_ *pps.JobInfo, retErr error) {
+func (c APIClient) WaitJob(pipelineName string, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	req := &pps.InspectJobRequest{
-		Job:  NewJob(pipelineName, jobID),
-		Wait: true,
-		Full: full,
+		Job:     NewJob(pipelineName, jobID),
+		Wait:    true,
+		Details: details,
 	}
 	jobInfo, err := c.PpsAPIClient.InspectJob(c.Ctx(), req)
 	return jobInfo, grpcutil.ScrubGRPC(err)
 }
 
-func (c APIClient) inspectJobSet(id string, wait bool, cb func(*pps.JobInfo) error) (retErr error) {
+func (c APIClient) inspectJobSet(id string, wait bool, details bool, cb func(*pps.JobInfo) error) (retErr error) {
 	req := &pps.InspectJobSetRequest{
-		JobSet: NewJobSet(id),
-		Wait:   wait,
+		JobSet:  NewJobSet(id),
+		Wait:    wait,
+		Details: details,
 	}
 	client, err := c.PpsAPIClient.InspectJobSet(c.Ctx(), req)
 	if err != nil {
@@ -258,10 +259,10 @@ func (c APIClient) inspectJobSet(id string, wait bool, cb func(*pps.JobInfo) err
 	}
 }
 
-func (c APIClient) InspectJobSet(id string) (_ []*pps.JobInfo, retErr error) {
+func (c APIClient) InspectJobSet(id string, details bool) (_ []*pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pps.JobInfo{}
-	if err := c.inspectJobSet(id, false, func(ji *pps.JobInfo) error {
+	if err := c.inspectJobSet(id, false, details, func(ji *pps.JobInfo) error {
 		result = append(result, ji)
 		return nil
 	}); err != nil {
@@ -270,10 +271,10 @@ func (c APIClient) InspectJobSet(id string) (_ []*pps.JobInfo, retErr error) {
 	return result, nil
 }
 
-func (c APIClient) WaitJobSetAll(id string) (_ []*pps.JobInfo, retErr error) {
+func (c APIClient) WaitJobSetAll(id string, details bool) (_ []*pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pps.JobInfo{}
-	if err := c.WaitJobSet(id, func(ji *pps.JobInfo) error {
+	if err := c.WaitJobSet(id, details, func(ji *pps.JobInfo) error {
 		result = append(result, ji)
 		return nil
 	}); err != nil {
@@ -282,9 +283,9 @@ func (c APIClient) WaitJobSetAll(id string) (_ []*pps.JobInfo, retErr error) {
 	return result, nil
 }
 
-func (c APIClient) WaitJobSet(id string, cb func(*pps.JobInfo) error) (retErr error) {
+func (c APIClient) WaitJobSet(id string, details bool, cb func(*pps.JobInfo) error) (retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
-	return c.inspectJobSet(id, true, cb)
+	return c.inspectJobSet(id, true, details, cb)
 }
 
 // ListJob returns info about all jobs.
@@ -297,13 +298,13 @@ func (c APIClient) WaitJobSet(id string, cb func(*pps.JobInfo) error) (retErr er
 // 1: Return the above and jobs from the next most recent version
 // 2: etc.
 //-1: Return jobs from all historical versions.
-// 'full' controls whether the JobInfo passed to 'f' includes details fromt the
-// pipeline spec (e.g. the transform). Leaving this 'false' can improve
+// 'details' controls whether the JobInfo passed to 'f' includes details from
+// the pipeline spec (e.g. the transform). Leaving this 'false' can improve
 // performance.
-func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, history int64, full bool) ([]*pps.JobInfo, error) {
+func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, history int64, details bool) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
-	if err := c.ListJobF(pipelineName, inputCommit, history,
-		full, func(ji *pps.JobInfo) error {
+	if err := c.ListJobF(pipelineName, inputCommit, history, details,
+		func(ji *pps.JobInfo) error {
 			result = append(result, ji)
 			return nil
 		}); err != nil {
@@ -315,9 +316,9 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, histo
 // ListJobF is a previous version of ListJobFilterF, returning info about all jobs
 // and calling f on each JobInfo
 func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
-	history int64, full bool,
+	history int64, details bool,
 	f func(*pps.JobInfo) error) error {
-	return c.ListJobFilterF(pipelineName, inputCommit, history, full, "", f)
+	return c.ListJobFilterF(pipelineName, inputCommit, history, details, "", f)
 }
 
 // ListJobFilterF returns info about all jobs, calling f with each JobInfo.
@@ -333,10 +334,10 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 // 1: Return the above and jobs from the next most recent version
 // 2: etc.
 //-1: Return jobs from all historical versions.
-// 'full' controls whether the JobInfo passed to 'f' includes details fromt the
+// 'details' controls whether the JobInfo passed to 'f' includes details from the
 // pipeline spec--setting this to 'false' can improve performance.
 func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit,
-	history int64, full bool, jqFilter string,
+	history int64, details bool, jqFilter string,
 	f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
@@ -348,7 +349,7 @@ func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit
 			Pipeline:    pipeline,
 			InputCommit: inputCommit,
 			History:     history,
-			Full:        full,
+			Details:     details,
 			JqFilter:    jqFilter,
 		})
 	if err != nil {
@@ -372,12 +373,12 @@ func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit
 
 // SubscribeJob calls the given callback with each open job in the given
 // pipeline until canceled.
-func (c APIClient) SubscribeJob(pipelineName string, full bool, cb func(*pps.JobInfo) error) error {
+func (c APIClient) SubscribeJob(pipelineName string, details bool, cb func(*pps.JobInfo) error) error {
 	client, err := c.PpsAPIClient.SubscribeJob(
 		c.Ctx(),
 		&pps.SubscribeJobRequest{
 			Pipeline: NewPipeline(pipelineName),
-			Full:     full,
+			Details:  details,
 		})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -678,21 +679,22 @@ func (c APIClient) CreatePipeline(
 }
 
 // InspectPipeline returns info about a specific pipeline.
-func (c APIClient) InspectPipeline(pipelineName string) (*pps.PipelineInfo, error) {
+func (c APIClient) InspectPipeline(pipelineName string, details bool) (*pps.PipelineInfo, error) {
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
 		c.Ctx(),
 		&pps.InspectPipelineRequest{
 			Pipeline: NewPipeline(pipelineName),
+			Details:  details,
 		},
 	)
 	return pipelineInfo, grpcutil.ScrubGRPC(err)
 }
 
 // ListPipeline returns info about all pipelines.
-func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
+func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
 	pipelineInfos, err := c.PpsAPIClient.ListPipeline(
 		c.Ctx(),
-		&pps.ListPipelineRequest{},
+		&pps.ListPipelineRequest{Details: details},
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -709,7 +711,7 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 // 1: Return the above and the next most recent version
 // 2: etc.
 //-1: Return all historical versions.
-func (c APIClient) ListPipelineHistory(pipeline string, history int64) ([]*pps.PipelineInfo, error) {
+func (c APIClient) ListPipelineHistory(pipeline string, history int64, details bool) ([]*pps.PipelineInfo, error) {
 	var _pipeline *pps.Pipeline
 	if pipeline != "" {
 		_pipeline = NewPipeline(pipeline)
@@ -719,6 +721,7 @@ func (c APIClient) ListPipelineHistory(pipeline string, history int64) ([]*pps.P
 		&pps.ListPipelineRequest{
 			Pipeline: _pipeline,
 			History:  history,
+			Details:  details,
 		},
 	)
 	if err != nil {

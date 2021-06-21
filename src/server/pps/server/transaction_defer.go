@@ -67,7 +67,7 @@ func (t *JobStopper) StopJobs(commitset *pfs.CommitSet) {
 func (t *JobStopper) Run() error {
 	if len(t.commitsets) > 0 {
 		for _, commitset := range t.commitsets {
-			jobInfo := &pps.StoredJobInfo{}
+			jobInfo := &pps.JobInfo{}
 			if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ppsdb.JobsJobSetIndex, commitset.ID, jobInfo, col.DefaultOptions(), func(string) error {
 				return t.a.stopJob(t.txnCtx, jobInfo.Job, "output commit removed")
 			}); err != nil {

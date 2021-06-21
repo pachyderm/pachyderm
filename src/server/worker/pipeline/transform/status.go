@@ -25,7 +25,7 @@ func convertInputs(inputs []*common.Input) []*pps.InputFile {
 	for _, input := range inputs {
 		result = append(result, &pps.InputFile{
 			Path: input.FileInfo.File.Path,
-			Hash: input.FileInfo.Hash,
+			Hash: input.FileInfo.Details.Hash,
 		})
 	}
 	return result
