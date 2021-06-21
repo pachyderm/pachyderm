@@ -603,8 +603,8 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 			Value: "",
 		},
 		{
-			Name:  "PG_HOST",
-			Value: "postgres.default.svc.cluster.local", // PG_HOST may be override for an external postgres deployment
+			Name:  "POSTGRES_HOST",
+			Value: "postgres.default.svc.cluster.local", // POSTGRES_HOST may be override for an external postgres deployment
 		},
 		{
 			Name:  "PG_PORT",

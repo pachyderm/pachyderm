@@ -128,6 +128,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "POSTGRES_DATABASE_NAME",
 		Value: a.env.Config().PostgresDBName,
 	}, {
+		Name:  "POSTGRES_HOST",
+		Value: a.env.Config().PostgresHost,
+	}, {
 		Name:  "METRICS",
 		Value: strconv.FormatBool(a.env.Config().Metrics),
 	}}
