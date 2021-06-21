@@ -1813,14 +1813,21 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
+	var repoInfos []*pfs.RepoInfo
+	if err := d.listRepo(ctx, !includeAuth, "", func(repoInfo *pfs.RepoInfo) error {
+		repoInfos = append(repoInfos, repoInfo)
+		return nil
+	}); err != nil {
+		return err
+	}
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction
-		return d.listRepo(ctx, !includeAuth, "", func(repoInfo *pfs.RepoInfo) error {
+		for _, repoInfo := range repoInfos {
 			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
 				return err
 			}
-			return nil
-		})
+		}
+		return nil
 	})
 }
 

@@ -274,6 +274,9 @@ func (c *postgresCollection) list(
 			}
 			results = append(results, result)
 		}
+		if err := rows.Err(); err != nil {
+			return errors.EnsureStack(err)
+		}
 		if err := rows.Close(); err != nil {
 			return c.mapSQLError(err, "")
 		}
@@ -301,6 +304,9 @@ func (c *postgresCollection) list(
 			}
 			return err
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return errors.EnsureStack(err)
 	}
 
 	return c.mapSQLError(rows.Close(), "")
