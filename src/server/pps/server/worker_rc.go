@@ -131,6 +131,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "POSTGRES_HOST",
 		Value: a.env.Config().PostgresHost,
 	}, {
+		Name:  "POSTGRES_PORT",
+		Value: strconv.FormatInt(int64(a.env.Config().PostgresPort), 10),
+	}, {
 		Name:  "METRICS",
 		Value: strconv.FormatBool(a.env.Config().Metrics),
 	}}
