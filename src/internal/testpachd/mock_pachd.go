@@ -720,7 +720,7 @@ func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRe
 /* PPS Server Mocks */
 
 type inspectJobFunc func(context.Context, *pps.InspectJobRequest) (*pps.JobInfo, error)
-type inspectJobsetFunc func(*pps.InspectJobsetRequest, pps.API_InspectJobsetServer) error
+type inspectJobSetFunc func(*pps.InspectJobSetRequest, pps.API_InspectJobSetServer) error
 type listJobFunc func(*pps.ListJobRequest, pps.API_ListJobServer) error
 type subscribeJobFunc func(*pps.SubscribeJobRequest, pps.API_SubscribeJobServer) error
 type deleteJobFunc func(context.Context, *pps.DeleteJobRequest) (*types.Empty, error)
@@ -746,7 +746,7 @@ type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
 
 type mockInspectJob struct{ handler inspectJobFunc }
-type mockInspectJobset struct{ handler inspectJobsetFunc }
+type mockInspectJobSet struct{ handler inspectJobSetFunc }
 type mockListJob struct{ handler listJobFunc }
 type mockSubscribeJob struct{ handler subscribeJobFunc }
 type mockDeleteJob struct{ handler deleteJobFunc }
@@ -772,7 +772,7 @@ type mockGetLogs struct{ handler getLogsFunc }
 type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)           { mock.handler = cb }
-func (mock *mockInspectJobset) Use(cb inspectJobsetFunc)     { mock.handler = cb }
+func (mock *mockInspectJobSet) Use(cb inspectJobSetFunc)     { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                 { mock.handler = cb }
 func (mock *mockSubscribeJob) Use(cb subscribeJobFunc)       { mock.handler = cb }
 func (mock *mockDeleteJob) Use(cb deleteJobFunc)             { mock.handler = cb }
@@ -804,7 +804,7 @@ type ppsServerAPI struct {
 type mockPPSServer struct {
 	api             ppsServerAPI
 	InspectJob      mockInspectJob
-	InspectJobset   mockInspectJobset
+	InspectJobSet   mockInspectJobSet
 	ListJob         mockListJob
 	SubscribeJob    mockSubscribeJob
 	DeleteJob       mockDeleteJob
@@ -836,11 +836,11 @@ func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequ
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.InspectJob")
 }
-func (api *ppsServerAPI) InspectJobset(req *pps.InspectJobsetRequest, serv pps.API_InspectJobsetServer) error {
-	if api.mock.InspectJobset.handler != nil {
-		return api.mock.InspectJobset.handler(req, serv)
+func (api *ppsServerAPI) InspectJobSet(req *pps.InspectJobSetRequest, serv pps.API_InspectJobSetServer) error {
+	if api.mock.InspectJobSet.handler != nil {
+		return api.mock.InspectJobSet.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pps.InspectJobset")
+	return errors.Errorf("unhandled pachd mock pps.InspectJobSet")
 }
 func (api *ppsServerAPI) ListJob(req *pps.ListJobRequest, serv pps.API_ListJobServer) error {
 	if api.mock.ListJob.handler != nil {

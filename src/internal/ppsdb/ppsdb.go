@@ -51,14 +51,14 @@ var JobsTerminalIndex = &col.Index{
 	},
 }
 
-var JobsJobsetIndex = &col.Index{
+var JobsJobSetIndex = &col.Index{
 	Name: "jobset",
 	Extract: func(val proto.Message) string {
 		return val.(*pps.StoredJobInfo).Job.ID
 	},
 }
 
-var jobsIndexes = []*col.Index{JobsPipelineIndex, JobsTerminalIndex, JobsJobsetIndex}
+var jobsIndexes = []*col.Index{JobsPipelineIndex, JobsTerminalIndex, JobsJobSetIndex}
 
 var JobKey = ppsutil.JobKey
 

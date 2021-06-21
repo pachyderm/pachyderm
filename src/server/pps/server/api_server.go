@@ -552,8 +552,8 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	return jobInfo, nil
 }
 
-// InspectJobset implements the protobuf pps.InspectJobset RPC
-func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.API_InspectJobsetServer) (retErr error) {
+// InspectJobSet implements the protobuf pps.InspectJobSet RPC
+func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.API_InspectJobSetServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(server.Context())
@@ -577,9 +577,9 @@ func (a *apiServer) InspectJobset(request *pps.InspectJobsetRequest, server pps.
 	// commitset, it will block on commits that don't have a job associated with
 	// them (aliases and input commits, for example).
 	if request.Wait {
-		return pachClient.WaitCommitSet(request.Jobset.ID, cb)
+		return pachClient.WaitCommitSet(request.JobSet.ID, cb)
 	}
-	commitInfos, err := pachClient.InspectCommitSet(request.Jobset.ID)
+	commitInfos, err := pachClient.InspectCommitSet(request.JobSet.ID)
 	if err != nil {
 		return err
 	}
