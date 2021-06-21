@@ -46,11 +46,7 @@ import (
 const (
 	// MaxListItemsLog specifies the maximum number of items we log in response to a List* API
 	MaxListItemsLog = 10
-	// StorageSecretName is the name of the Kubernetes secret in which
-	// storage credentials are stored.
-	// TODO: The value "pachyderm-storage-secret" is hardcoded in the obj package to avoid a
-	// obj -> client dependency, so any changes to this variable need to be applied there.
-	// The obj package should eventually get refactored so that it does not have this dependency.
+	// StorageSecretName is the name of the Kubernetes secret in which storage credentials are stored.
 	StorageSecretName = "pachyderm-storage-secret"
 	// PachctlSecretName is the name of the Kubernetes secret in which
 	// pachctl credentials are stored.

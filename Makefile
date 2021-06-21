@@ -112,9 +112,6 @@ docker-gpu: docker-build-gpu docker-push-gpu
 
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
-docker-build-test-entrypoint:
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_entrypoint etc/testing/entrypoint
-
 docker-tag:
 	docker tag pachyderm/pachd pachyderm/pachd:$(VERSION)
 	docker tag pachyderm/worker pachyderm/worker:$(VERSION)
@@ -241,7 +238,7 @@ test-pfs-storage: test-postgres
 	go test -count=1 ./src/internal/storage/... -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -count=1 ./src/internal/migrations/... $(TESTFLAGS)
 
-test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
+test-pps: launch-stats docker-build-spout-test 
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)

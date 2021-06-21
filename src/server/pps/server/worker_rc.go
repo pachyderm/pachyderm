@@ -125,7 +125,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "METRICS",
 		Value: strconv.FormatBool(a.env.Config().Metrics),
 	}}
-	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+
 	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
 
 	// Set up worker env vars
@@ -134,6 +134,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		{
 			Name:  "PACH_ROOT",
 			Value: a.storageRoot,
+		},
+		{
+			Name:  "STORAGE_BACKEND",
+			Value: a.storageBackend,
 		},
 		{
 			Name:  "PACH_NAMESPACE",
@@ -186,7 +190,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 			Value: strconv.FormatBool(a.env.Config().Metrics),
 		},
 	}...)
-	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 
 	// Set S3GatewayPort in the worker (for user code) and sidecar (for serving)
 	if options.s3GatewayPort != 0 {
@@ -279,20 +282,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 			ContainerPort: options.s3GatewayPort,
 		})
 	}
-	if !a.noExposeDockerSocket {
-		options.volumes = append(options.volumes, v1.Volume{
-			Name: "docker",
-			VolumeSource: v1.VolumeSource{
-				HostPath: &v1.HostPathVolumeSource{
-					Path: "/var/run/docker.sock",
-				},
-			},
-		})
-		userVolumeMounts = append(userVolumeMounts, v1.VolumeMount{
-			Name:      "docker",
-			MountPath: "/var/run/docker.sock",
-		})
-	}
+
 	zeroVal := int64(0)
 	workerImage := a.workerImage
 	var securityContext *v1.PodSecurityContext
@@ -305,6 +295,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}
 	if resp.State != enterprise.State_ACTIVE {
 		workerImage = assets.AddRegistry("", workerImage)
+	}
+	envFrom := []v1.EnvFromSource{
+		{
+			SecretRef: &v1.SecretEnvSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: client.StorageSecretName,
+				},
+			},
+		},
 	}
 	podSpec := v1.PodSpec{
 		InitContainers: []v1.Container{
@@ -329,6 +328,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 				Command:         []string{"/pach-bin/worker"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             workerEnv,
+				EnvFrom:         envFrom,
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceCPU:    cpuZeroQuantity,
@@ -343,6 +343,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 				Command:         []string{"/pachd", "--mode", "sidecar"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
+				EnvFrom:         envFrom,
 				VolumeMounts:    sidecarVolumeMounts,
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
