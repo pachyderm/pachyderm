@@ -405,8 +405,8 @@ func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTest
 	return nil, unsupportedError("RunLoadTest")
 }
 
-func (c *ppsBuilderClient) InspectJobset(ctx context.Context, req *pps.InspectJobsetRequest, opts ...grpc.CallOption) (pps.API_InspectJobsetClient, error) {
-	return nil, unsupportedError("InspectJobset")
+func (c *ppsBuilderClient) InspectJobSet(ctx context.Context, req *pps.InspectJobSetRequest, opts ...grpc.CallOption) (pps.API_InspectJobSetClient, error) {
+	return nil, unsupportedError("InspectJobSet")
 }
 func (c *ppsBuilderClient) InspectJob(ctx context.Context, req *pps.InspectJobRequest, opts ...grpc.CallOption) (*pps.JobInfo, error) {
 	return nil, unsupportedError("InspectJob")

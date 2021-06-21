@@ -413,12 +413,12 @@ message PipelineInfos {
   repeated PipelineInfo pipeline_info = 1;
 }
 
-message Jobset {
+message JobSet {
   string id = 1 [(gogoproto.customname) = "ID"];
 }
 
-message InspectJobsetRequest {
-  Jobset jobset = 1;
+message InspectJobSetRequest {
+  JobSet job_set = 1;
   bool wait = 2; // When true, wait until all jobs in the set are finished
   bool details = 3;
 }
@@ -712,7 +712,7 @@ message ActivateAuthResponse {}
 
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
-  rpc InspectJobset(InspectJobsetRequest) returns (stream JobInfo) {}
+  rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
   // ListJob returns information about current and past Pachyderm jobs.
   rpc ListJob(ListJobRequest) returns (stream JobInfo) {}
   rpc SubscribeJob(SubscribeJobRequest) returns (stream JobInfo) {}
