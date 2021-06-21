@@ -574,6 +574,45 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, err)
 	})
 
+	suite.Run("CreateBranchHeadOnOtherRepo", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		// create two repos, and create a branch on one that tries to point on another's existing branch
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		_, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		masterCommit := client.NewCommit(repo, "master", "")
+
+		otherRepo := "other"
+		require.NoError(t, env.PachClient.CreateRepo(otherRepo))
+		_, err = env.PachClient.StartCommit(otherRepo, "master")
+		require.NoError(t, err)
+		otherMasterCommit := client.NewCommit(otherRepo, "master", "")
+
+		mfc, err := env.PachClient.NewModifyFileClient(masterCommit)
+		require.NoError(t, err)
+		require.NoError(t, mfc.PutFile("/foo", strings.NewReader("foo\n")))
+		require.NoError(t, mfc.Close())
+
+		mfc, err = env.PachClient.NewModifyFileClient(otherMasterCommit)
+		require.NoError(t, err)
+		require.NoError(t, mfc.PutFile("/bar", strings.NewReader("bar\n")))
+		require.NoError(t, mfc.Close())
+
+		// Create a branch on one repo that points to a branch on another repo
+		_, err = env.PachClient.PfsAPIClient.CreateBranch(
+			env.PachClient.Ctx(),
+			&pfs.CreateBranchRequest{
+				Branch: client.NewBranch(repo, "test"),
+				Head:   client.NewCommit(otherRepo, "master", ""),
+			},
+		)
+		require.YesError(t, err)
+		require.True(t, strings.Contains(err.Error(), "branch and head commit must belong to the same repo"))
+	})
+
 	suite.Run("DeleteRepo", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -3539,7 +3578,7 @@ func TestPFS(suite *testing.T) {
 						for _, b := range bi.Provenance {
 							i := sort.SearchStrings(expectedProv, b.Name)
 							if i >= len(expectedProv) || expectedProv[i] != b.Name {
-								t.Fatalf("provenance for %s contains: %s, but should only contain: %v", repo, pfsdb.BranchKey(b), expectedProv)
+								t.Fatalf("provenance for %s contains: %s, but should only contain: %v", repo, b, expectedProv)
 							}
 						}
 					}
@@ -3551,7 +3590,7 @@ func TestPFS(suite *testing.T) {
 						for _, b := range bi.Subvenance {
 							i := sort.SearchStrings(expectedSubv, b.Name)
 							if i >= len(expectedSubv) || expectedSubv[i] != b.Name {
-								t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", repo, pfsdb.BranchKey(b), expectedSubv)
+								t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", repo, b, expectedSubv)
 							}
 						}
 					}

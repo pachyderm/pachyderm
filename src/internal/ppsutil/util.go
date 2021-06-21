@@ -38,7 +38,7 @@ import (
 
 // JobKey is the string representation of a Job suitable for use as an indexing key
 func JobKey(job *pps.Job) string {
-	return fmt.Sprintf("%s@%s", job.Pipeline.Name, job.ID)
+	return job.String()
 }
 
 // PipelineRepo creates a pfs repo for a given pipeline.

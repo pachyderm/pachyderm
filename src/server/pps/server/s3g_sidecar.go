@@ -207,11 +207,11 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		server.Addr = ":" + strport
 		return nil
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error creating sidecar s3 gateway handler for %q: %v; retrying in %v", ppsdb.JobKey(job), err, d)
+		logrus.Errorf("error creating sidecar s3 gateway handler for %q: %v; retrying in %v", job, err, d)
 		return nil
 	})
 	if err != nil {
-		logrus.Errorf("permanent error creating sidecar s3 gateway handler for %q: %v", ppsdb.JobKey(job), err)
+		logrus.Errorf("permanent error creating sidecar s3 gateway handler for %q: %v", job, err)
 		return // give up. Worker will fail the job
 	}
 	go func() {
@@ -220,7 +220,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			if err == nil || errors.Is(err, http.ErrServerClosed) {
 				break // server was shutdown/closed
 			}
-			logrus.Errorf("error serving sidecar s3 gateway handler for %q: %v; strike %d/3", ppsdb.JobKey(job), err, i+1)
+			logrus.Errorf("error serving sidecar s3 gateway handler for %q: %v; strike %d/3", job, err, i+1)
 		}
 	}()
 	s.s.servers[job.ID] = server
@@ -243,7 +243,7 @@ func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *
 		defer cancel()
 		return server.Shutdown(timeoutCtx)
 	}, b, func(err error, d time.Duration) error {
-		logrus.Errorf("could not kill sidecar s3 gateway server for job %q: %v; retrying in %v", ppsdb.JobKey(job), err, d)
+		logrus.Errorf("could not kill sidecar s3 gateway server for job %q: %v; retrying in %v", job, err, d)
 		return nil
 	}); err != nil {
 		// last chance -- try calling Close(), and if that doesn't work, force
@@ -252,7 +252,7 @@ func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *
 			// panic here instead of ignoring the error and moving on because
 			// otherwise the worker process won't release the s3 gateway port and
 			// all future s3 jobs will fail.
-			panic(fmt.Sprintf("could not kill sidecar s3 gateway server for job %q: %v; giving up", ppsdb.JobKey(job), err))
+			panic(fmt.Sprintf("could not kill sidecar s3 gateway server for job %q: %v; giving up", job, err))
 		}
 	}
 	delete(s.s.servers, job.ID) // remove server from map no matter what
@@ -327,10 +327,10 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(_ context.Context, job *pps.J
 		}
 		return err
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error deleting kubernetes service for s3 %q gateway sidecar: %v; retrying in %v", ppsdb.JobKey(job), err, d)
+		logrus.Errorf("error deleting kubernetes service for s3 %q gateway sidecar: %v; retrying in %v", job, err, d)
 		return nil
 	}); err != nil {
-		logrus.Errorf("permanent error deleting kubernetes service for %q s3 gateway sidecar: %v", ppsdb.JobKey(job), err)
+		logrus.Errorf("permanent error deleting kubernetes service for %q s3 gateway sidecar: %v", job, err)
 	}
 }
 
@@ -417,7 +417,7 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	// 'e' is a Put event (new or updated job)
 	pachClient := h.s.pachClient.WithCtx(jobCtx)
 	// Inspect the job and make sure it's relevant, as this worker may be old
-	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin serving inputs over s3 gateway", ppsdb.JobKey(job))
+	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin serving inputs over s3 gateway", job)
 
 	var jobInfo *pps.JobInfo
 	if err := backoff.RetryNotify(func() error {
@@ -428,27 +428,27 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 				// TODO(msteffen): I'm not sure what this means--maybe that the service
 				// was created and immediately deleted, and there's a pending deletion
 				// event? In any case, without a job that exists there's nothing to act on
-				logrus.Errorf("sidecar s3 gateway: job %q not found", ppsdb.JobKey(job))
+				logrus.Errorf("sidecar s3 gateway: job %q not found", job)
 				return nil
 			}
 			return err
 		}
 		return nil
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error inspecting job %q: %v; retrying in %v", ppsdb.JobKey(job), err, d)
+		logrus.Errorf("error inspecting job %q: %v; retrying in %v", job, err, d)
 		return nil
 	}); err != nil {
-		logrus.Errorf("permanent error inspecting job %q: %v", ppsdb.JobKey(job), err)
+		logrus.Errorf("permanent error inspecting job %q: %v", job, err)
 		return // leak the job; better than getting stuck?
 	}
 	if jobInfo.PipelineVersion < h.s.pipelineInfo.Version {
-		logrus.Infof("skipping job %v as it uses old pipeline version %d", ppsdb.JobKey(job), jobInfo.PipelineVersion)
+		logrus.Infof("skipping job %v as it uses old pipeline version %d", job, jobInfo.PipelineVersion)
 		return
 	}
 	if jobInfo.PipelineVersion > h.s.pipelineInfo.Version {
 		logrus.Infof("skipping job %q as its pipeline version version %d is "+
 			"greater than this worker's pipeline version (%d), this should "+
-			"automatically resolve when the worker is updated", ppsdb.JobKey(job),
+			"automatically resolve when the worker is updated", job,
 			jobInfo.PipelineVersion, h.s.pipelineInfo.Version)
 		return
 	}

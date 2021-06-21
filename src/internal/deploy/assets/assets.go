@@ -39,7 +39,6 @@ var (
 
 	pachdImage  = "pachyderm/pachd"
 	workerImage = "pachyderm/worker"
-	pauseImage  = "gcr.io/google_containers/pause-amd64:3.0"
 
 	// ServiceAccountName is the name of Pachyderm's service account.
 	// It's public because it's needed by pps.APIServer to create the RCs for
@@ -84,6 +83,8 @@ var (
 
 	// OidcPort is the port where OIDC ID Providers can send auth assertions
 	OidcPort = int32(1657)
+
+	IdentityPort = int32(1658)
 )
 
 // Backend is the type used to enumerate what system provides object storage or
@@ -684,6 +685,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 									Name:          "peer-port",
 								},
 								{
+									ContainerPort: IdentityPort,
+									Protocol:      "TCP",
+									Name:          "identity-port",
+								},
+								{
 									ContainerPort: OidcPort,
 									Protocol:      "TCP",
 									Name:          "oidc-port",
@@ -747,7 +753,7 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					NodePort: 30657,
 				},
 				{
-					Port:     1658,
+					Port:     IdentityPort,
 					Name:     "identity-port",
 					NodePort: 30658,
 				},
@@ -1108,17 +1114,6 @@ func WriteMicrosoftAssets(encoder serde.Encoder, opts *AssetOpts, container stri
 		return err
 	}
 	return WriteSecret(encoder, MicrosoftSecret(container, id, secret), opts)
-}
-
-// Images returns a list of all the images that are used by a pachyderm deployment.
-func Images(opts *AssetOpts) []string {
-	return []string{
-		versionedWorkerImage(opts),
-		etcdImage,
-		postgresImage,
-		pauseImage,
-		versionedPachdImage(opts),
-	}
 }
 
 // AddRegistry switches the registry that an image is targeting, unless registry is blank

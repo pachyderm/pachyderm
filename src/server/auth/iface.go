@@ -14,6 +14,7 @@ type APIServer interface {
 	auth_client.APIServer
 
 	CheckRepoIsAuthorized(context.Context, string, ...auth_client.Permission) error
+	CheckClusterIsAuthorized(ctx context.Context, p ...auth_client.Permission) error
 	CheckClusterIsAuthorizedInTransaction(*txncontext.TransactionContext, ...auth_client.Permission) error
 	CheckRepoIsAuthorizedInTransaction(*txncontext.TransactionContext, string, ...auth_client.Permission) error
 
