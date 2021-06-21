@@ -1,3 +1,4 @@
+import {PROJECTS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
 import {useProjectDetailsQuery} from '@dash-frontend/generated/hooks';
 import {Project} from '@graphqlTypes';
 
@@ -12,7 +13,7 @@ export const useProjectDetails = (
         jobsLimit,
       },
     },
-    pollInterval: 5000,
+    pollInterval: PROJECTS_POLL_INTERVAL_MS,
   });
 
   return {

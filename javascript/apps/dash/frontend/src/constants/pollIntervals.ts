@@ -1,0 +1,2 @@
+export const JOBS_POLL_INTERVAL_MS = 5000;
+export const PROJECTS_POLL_INTERVAL_MS = 5000;

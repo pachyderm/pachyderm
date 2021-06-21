@@ -6,7 +6,12 @@ import {
   toGQLJobState,
   toGQLPipelineState,
 } from '@dash-backend/lib/gqlEnumMappers';
-import {Job, Pipeline, PipelineType} from '@graphqlTypes';
+import {
+  Job,
+  Pipeline,
+  PipelineType,
+  JobState as GQLJobState,
+} from '@graphqlTypes';
 
 const derivePipelineType = (pipelineInfo: PipelineInfo.AsObject) => {
   if (pipelineInfo.service) {
@@ -95,5 +100,29 @@ export const repoInfoToGQLRepo = (repoInfo: RepoInfo.AsObject) => {
     name: repoInfo.repo?.name || '',
     sizeInBytes: repoInfo.sizeBytes,
     id: repoInfo?.repo?.name || '',
+  };
+};
+
+const getAggregateJobState = (jobs: Job[]) => {
+  for (let i = 0; i < jobs.length; i++) {
+    if (jobs[i].state !== GQLJobState.JOB_SUCCESS) {
+      return jobs[i].state;
+    }
+  }
+
+  return GQLJobState.JOB_SUCCESS;
+};
+
+export const jobInfosToGQLJobset = (jobInfos: JobInfo.AsObject[]) => {
+  const jobs = jobInfos
+    .map(jobInfoToGQLJob)
+    .sort((a, b) => (a.finishedAt || 0) - (b.finishedAt || 0));
+
+  return {
+    id: jobs[0].id,
+    // grab the oldest jobs createdAt date
+    createdAt: jobs[jobs.length - 1].createdAt,
+    state: getAggregateJobState(jobs),
+    jobs,
   };
 };

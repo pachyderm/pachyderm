@@ -6,5 +6,6 @@ export const JobOverviewFragment = gql`
     state
     createdAt
     finishedAt
+    pipelineName
   }
 `;

@@ -13,6 +13,8 @@ const NO_AUTHENTICATION_METADATA_MESSAGE = 'no authentication metadata';
 // see: https://github.com/pachyderm/pachyderm/blob/a2d9ffbff33597be6038decc7c022bdc953dc8b6/src/auth/auth.go#L206-L223
 const NOT_AUTHORIZED_MESSAGE = 'not authorized';
 
+const NOT_FOUND_MESSAGES = ['not found', 'no commits found'];
+
 const errorPlugin: GRPCPlugin = {
   onError: ({error, requestName}) => {
     // grpc has a set of "canonical" error codes that we use in pachd,
@@ -38,7 +40,7 @@ const errorPlugin: GRPCPlugin = {
       //TODO: temporary fix until Status.NOT_FOUND is added to pachyderm
       if (
         error.code === Status.UNKNOWN &&
-        error.details.includes('not found')
+        NOT_FOUND_MESSAGES.includes(error.details)
       ) {
         throw new NotFoundError(error.details);
       }

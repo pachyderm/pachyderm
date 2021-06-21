@@ -3,7 +3,9 @@ import classnames from 'classnames';
 import React from 'react';
 import {NavLink, Redirect, Route} from 'react-router-dom';
 
+import {useJobset} from '@dash-frontend/hooks/useJobset';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import readableJobState from '@dash-frontend/lib/readableJobState';
 import {PIPELINE_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {
   pipelineJobRoute,
@@ -13,21 +15,46 @@ import {JobState} from '@graphqlTypes';
 
 import InfoPanel from './components/InfoPanel';
 import styles from './JobDetails.module.css';
-import pipelineJobs from './mock/pipelineJobs';
+
+type JobVisualState = 'BUSY' | 'ERROR' | 'SUCCESS';
+
+const getVisualJobState = (state: JobState): JobVisualState => {
+  switch (state) {
+    case JobState.JOB_CREATED:
+    case JobState.JOB_EGRESSING:
+    case JobState.JOB_RUNNING:
+    case JobState.JOB_STARTING:
+      return 'BUSY';
+    case JobState.JOB_FAILURE:
+    case JobState.JOB_KILLED:
+      return 'ERROR';
+    default:
+      return 'SUCCESS';
+  }
+};
+
+const getJobStateHref = (state: JobVisualState) => {
+  switch (state) {
+    case 'BUSY':
+      return '/dag_busy.svg';
+    case 'ERROR':
+      return '/dag_error.svg';
+    default:
+      return '/dag_success.svg';
+  }
+};
 
 const JobDetails = () => {
-  const {jobId, projectId, pipelineJobId} = useUrlState();
+  const {jobId, projectId, pipelineId} = useUrlState();
+  const {jobset} = useJobset({id: jobId, projectId});
 
-  // Replace pipelineJob mocks with data from useJob (which should contain a jobSet)
-
-  if (!pipelineJobId) {
+  if (!pipelineId && jobset && jobset.jobs.length > 0) {
     return (
       <Redirect
         to={pipelineJobRoute({
           projectId,
           jobId,
-          pipelineJobId: pipelineJobs[0].id,
-          pipelineId: pipelineJobs[0].pipelineName,
+          pipelineId: jobset.jobs[0].pipelineName,
         })}
       />
     );
@@ -42,53 +69,49 @@ const JobDetails = () => {
           </Link>
         </nav>
 
-        <h2 className={styles.heading}>Job {jobId}</h2>
+        <h2 className={styles.heading}>Job {jobset?.id}</h2>
       </section>
 
       <section className={styles.pipelineSection}>
         <nav>
           <ol className={styles.pipelineList}>
-            {pipelineJobs.map((job) => (
-              <li key={job.id}>
-                <Tooltip
-                  tooltipText={job.pipelineName}
-                  tooltipKey={job.id}
-                  size="large"
-                  placement="right"
-                >
-                  <NavLink
-                    aria-current="true"
-                    activeClassName={styles.active}
-                    exact={true}
-                    to={pipelineJobRoute({
-                      projectId,
-                      jobId,
-                      pipelineJobId: job.id,
-                      pipelineId: job.pipelineName,
-                    })}
-                    className={classnames(styles.pipelineLink, {
-                      [styles.error]: job.state === JobState.JOB_FAILURE,
-                      [styles.success]: job.state === JobState.JOB_SUCCESS,
-                    })}
+            {jobset?.jobs.map((job) => {
+              const jobVisualState = getVisualJobState(job.state);
+
+              return (
+                <li key={job.pipelineName}>
+                  <Tooltip
+                    tooltipText={job.pipelineName}
+                    tooltipKey={job.pipelineName}
+                    size="large"
+                    placement="right"
                   >
-                    <img
-                      alt={`Job ${job.id} ${
-                        job.state === JobState.JOB_FAILURE
-                          ? 'failed'
-                          : 'succeeded'
-                      }`}
-                      className={styles.pipelineIcon}
-                      src={
-                        job.state === JobState.JOB_SUCCESS
-                          ? '/dag_success.svg'
-                          : '/dag_error.svg'
-                      }
-                    />
-                    {job.pipelineName}
-                  </NavLink>
-                </Tooltip>
-              </li>
-            ))}
+                    <NavLink
+                      aria-current="true"
+                      activeClassName={styles.active}
+                      exact={true}
+                      to={pipelineJobRoute({
+                        projectId,
+                        jobId,
+                        pipelineId: job.pipelineName,
+                      })}
+                      className={classnames(styles.pipelineLink, {
+                        [styles.error]: jobVisualState === 'ERROR',
+                        [styles.success]: jobVisualState === 'SUCCESS',
+                        [styles.busy]: jobVisualState === 'BUSY',
+                      })}
+                    >
+                      <img
+                        alt={`Job ${job.id} ${readableJobState(job.state)}`}
+                        className={styles.pipelineIcon}
+                        src={getJobStateHref(jobVisualState)}
+                      />
+                      {job.pipelineName}
+                    </NavLink>
+                  </Tooltip>
+                </li>
+              );
+            })}
           </ol>
         </nav>
 

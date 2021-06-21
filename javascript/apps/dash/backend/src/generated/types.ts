@@ -152,6 +152,12 @@ export type Job = {
   inputBranch?: Maybe<Scalars['String']>;
 };
 
+export type JobQueryArgs = {
+  id: Scalars['ID'];
+  projectId: Scalars['String'];
+  pipelineName: Scalars['String'];
+};
+
 export enum JobState {
   JOB_CREATED = 'JOB_CREATED',
   JOB_STARTING = 'JOB_STARTING',
@@ -166,6 +172,19 @@ export type JobsQueryArgs = {
   projectId: Scalars['ID'];
   limit?: Maybe<Scalars['Int']>;
   pipelineId?: Maybe<Scalars['String']>;
+};
+
+export type Jobset = {
+  __typename?: 'Jobset';
+  id: Scalars['ID'];
+  createdAt: Scalars['Int'];
+  state: JobState;
+  jobs: Array<Job>;
+};
+
+export type JobsetQueryArgs = {
+  id: Scalars['ID'];
+  projectId: Scalars['String'];
 };
 
 export type Link = {
@@ -318,7 +337,9 @@ export type Query = {
   authConfig: AuthConfig;
   dag: Dag;
   files: Array<File>;
+  job: Job;
   jobs: Array<Job>;
+  jobset: Jobset;
   loggedIn: Scalars['Boolean'];
   pipeline: Pipeline;
   project: Project;
@@ -336,8 +357,16 @@ export type QueryFilesArgs = {
   args: FileQueryArgs;
 };
 
+export type QueryJobArgs = {
+  args: JobQueryArgs;
+};
+
 export type QueryJobsArgs = {
   args: JobsQueryArgs;
+};
+
+export type QueryJobsetArgs = {
+  args: JobsetQueryArgs;
 };
 
 export type QueryPipelineArgs = {
@@ -394,7 +423,7 @@ export type SearchResults = {
   __typename?: 'SearchResults';
   pipelines: Array<Pipeline>;
   repos: Array<Repo>;
-  job?: Maybe<Job>;
+  jobset?: Maybe<Jobset>;
 };
 
 export type Subscription = {
@@ -564,8 +593,11 @@ export type ResolversTypes = ResolversObject<{
   InputPipeline: ResolverTypeWrapper<InputPipeline>;
   InputType: InputType;
   Job: ResolverTypeWrapper<Job>;
+  JobQueryArgs: JobQueryArgs;
   JobState: JobState;
   JobsQueryArgs: JobsQueryArgs;
+  Jobset: ResolverTypeWrapper<Jobset>;
+  JobsetQueryArgs: JobsetQueryArgs;
   Link: ResolverTypeWrapper<Link>;
   Mutation: ResolverTypeWrapper<{}>;
   Node: ResolverTypeWrapper<Node>;
@@ -614,7 +646,10 @@ export type ResolversParentTypes = ResolversObject<{
   Input: Input;
   InputPipeline: InputPipeline;
   Job: Job;
+  JobQueryArgs: JobQueryArgs;
   JobsQueryArgs: JobsQueryArgs;
+  Jobset: Jobset;
+  JobsetQueryArgs: JobsetQueryArgs;
   Link: Link;
   Mutation: {};
   Node: Node;
@@ -815,6 +850,17 @@ export type JobResolvers<
     ParentType,
     ContextType
   >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobsetResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Jobset'] = ResolversParentTypes['Jobset'],
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
+  jobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1028,11 +1074,23 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryFilesArgs, 'args'>
   >;
+  job?: Resolver<
+    ResolversTypes['Job'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryJobArgs, 'args'>
+  >;
   jobs?: Resolver<
     Array<ResolversTypes['Job']>,
     ParentType,
     ContextType,
     RequireFields<QueryJobsArgs, 'args'>
+  >;
+  jobset?: Resolver<
+    ResolversTypes['Jobset'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryJobsetArgs, 'args'>
   >;
   loggedIn?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   pipeline?: Resolver<
@@ -1119,7 +1177,7 @@ export type SearchResultsResolvers<
     ContextType
   >;
   repos?: Resolver<Array<ResolversTypes['Repo']>, ParentType, ContextType>;
-  job?: Resolver<Maybe<ResolversTypes['Job']>, ParentType, ContextType>;
+  jobset?: Resolver<Maybe<ResolversTypes['Jobset']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1175,6 +1233,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Input?: InputResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
   Job?: JobResolvers<ContextType>;
+  Jobset?: JobsetResolvers<ContextType>;
   Link?: LinkResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   Node?: NodeResolvers<ContextType>;
@@ -1203,7 +1262,7 @@ export type IResolvers<ContextType = Context> = Resolvers<ContextType>;
 
 export type JobOverviewFragment = {__typename?: 'Job'} & Pick<
   Job,
-  'id' | 'state' | 'createdAt' | 'finishedAt'
+  'id' | 'state' | 'createdAt' | 'finishedAt' | 'pipelineName'
 >;
 
 export type ExchangeCodeMutationVariables = Exact<{
@@ -1334,21 +1393,49 @@ export type GetFilesQuery = {__typename?: 'Query'} & {
   >;
 };
 
+export type JobQueryVariables = Exact<{
+  args: JobQueryArgs;
+}>;
+
+export type JobQuery = {__typename?: 'Query'} & {
+  job: {__typename?: 'Job'} & Pick<Job, 'inputString' | 'inputBranch'> & {
+      transform?: Maybe<
+        {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
+      >;
+    } & JobOverviewFragment;
+};
+
 export type JobsQueryVariables = Exact<{
   args: JobsQueryArgs;
 }>;
 
 export type JobsQuery = {__typename?: 'Query'} & {
   jobs: Array<
-    {__typename?: 'Job'} & Pick<
-      Job,
-      'pipelineName' | 'inputString' | 'inputBranch'
-    > & {
+    {__typename?: 'Job'} & Pick<Job, 'inputString' | 'inputBranch'> & {
         transform?: Maybe<
           {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
         >;
       } & JobOverviewFragment
   >;
+};
+
+export type JobsetQueryVariables = Exact<{
+  args: JobsetQueryArgs;
+}>;
+
+export type JobsetQuery = {__typename?: 'Query'} & {
+  jobset: {__typename?: 'Jobset'} & Pick<
+    Jobset,
+    'id' | 'state' | 'createdAt'
+  > & {
+      jobs: Array<
+        {__typename?: 'Job'} & Pick<Job, 'inputString' | 'inputBranch'> & {
+            transform?: Maybe<
+              {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
+            >;
+          } & JobOverviewFragment
+      >;
+    };
 };
 
 export type LoggedInQueryVariables = Exact<{[key: string]: never}>;
@@ -1462,6 +1549,6 @@ export type SearchResultsQuery = {__typename?: 'Query'} & {
   searchResults: {__typename?: 'SearchResults'} & {
     pipelines: Array<{__typename?: 'Pipeline'} & Pick<Pipeline, 'name' | 'id'>>;
     repos: Array<{__typename?: 'Repo'} & Pick<Repo, 'name' | 'id'>>;
-    job?: Maybe<{__typename?: 'Job'} & Pick<Job, 'id'>>;
+    jobset?: Maybe<{__typename?: 'Jobset'} & Pick<Jobset, 'id'>>;
   };
 };

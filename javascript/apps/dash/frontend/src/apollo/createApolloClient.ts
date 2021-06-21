@@ -45,6 +45,11 @@ const createApolloClient = (
           },
         },
       },
+      Job: {
+        // This is important, as a Job ID is not globally unique. However,
+        // the combination of both id and pipelineName is.
+        keyFields: ['id', 'pipelineName'],
+      },
     },
   });
   const {webSocketClient, split} = splitLink();

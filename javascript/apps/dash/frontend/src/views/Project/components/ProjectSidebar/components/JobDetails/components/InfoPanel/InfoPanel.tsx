@@ -5,32 +5,36 @@ import {useRouteMatch} from 'react-router';
 import Description from '@dash-frontend/components/Description';
 import JSONBlock from '@dash-frontend/components/JSONBlock';
 import PipelineInput from '@dash-frontend/components/PipelineInput';
+import {useJob} from '@dash-frontend/hooks/useJob';
+import readableJobState from '@dash-frontend/lib/readableJobState';
 import {ProjectRouteParams} from '@dash-frontend/lib/types';
-
-import pipelineJobs from '../../mock/pipelineJobs';
 
 import styles from './InfoPanel.module.css';
 
 interface InfoPanelParams extends ProjectRouteParams {
-  pipelineJobId: string;
+  jobId: string;
+  pipelineId: string;
 }
 
 const InfoPanel = () => {
   const {
-    params: {pipelineJobId, projectId},
+    params: {jobId, projectId, pipelineId},
   } = useRouteMatch<InfoPanelParams>();
 
-  // TODO: Replace with `usePipelineJob`
-  const pipelineJob = pipelineJobs.find((job) => job.id === pipelineJobId);
+  const {job} = useJob({
+    id: jobId,
+    pipelineName: pipelineId,
+    projectId,
+  });
 
   const transformString = useMemo(() => {
-    if (pipelineJob?.transform) {
+    if (job?.transform) {
       return (
         <JSONBlock>
           {JSON.stringify(
             {
-              image: pipelineJob.transform.image,
-              cmd: pipelineJob.transform.cmdList,
+              image: job.transform.image,
+              cmd: job.transform.cmdList,
             },
             null,
             2,
@@ -39,34 +43,36 @@ const InfoPanel = () => {
       );
     }
     return 'N/A';
-  }, [pipelineJob?.transform]);
+  }, [job?.transform]);
 
   const started = useMemo(() => {
-    return pipelineJob?.createdAt
-      ? formatDistanceToNow(fromUnixTime(pipelineJob.createdAt), {
+    return job?.createdAt
+      ? formatDistanceToNow(fromUnixTime(job.createdAt), {
           addSuffix: true,
         })
       : 'N/A';
-  }, [pipelineJob?.createdAt]);
+  }, [job?.createdAt]);
 
   const duration = useMemo(() => {
-    return pipelineJob?.finishedAt && pipelineJob?.createdAt
+    return job?.finishedAt && job?.createdAt
       ? formatDistance(
-          fromUnixTime(pipelineJob.finishedAt),
-          fromUnixTime(pipelineJob.createdAt),
+          fromUnixTime(job.finishedAt),
+          fromUnixTime(job.createdAt),
         )
       : 'N/A';
-  }, [pipelineJob?.createdAt, pipelineJob?.finishedAt]);
+  }, [job?.createdAt, job?.finishedAt]);
 
   return (
     <dl className={styles.base}>
       <Description term="Inputs" lines={9}>
-        {pipelineJob?.inputString && (
+        {job?.inputString ? (
           <PipelineInput
-            inputString={pipelineJob.inputString}
-            branchId={pipelineJob.inputBranch || 'master'}
+            inputString={job.inputString}
+            branchId={job.inputBranch || 'master'}
             projectId={projectId}
           />
+        ) : (
+          'N/A'
         )}
       </Description>
 
@@ -74,8 +80,11 @@ const InfoPanel = () => {
 
       <hr className={styles.divider} />
 
-      <Description term="ID">{pipelineJob?.id}</Description>
-      <Description term="Pipeline">{pipelineJob?.pipelineName}</Description>
+      <Description term="ID">{job?.id}</Description>
+      <Description term="Pipeline">{job?.pipelineName}</Description>
+      <Description term="State">
+        {job?.state ? readableJobState(job.state) : 'N/A'}
+      </Description>
       <Description term="Started">{started}</Description>
       <Description term="Duration">{duration}</Description>
     </dl>

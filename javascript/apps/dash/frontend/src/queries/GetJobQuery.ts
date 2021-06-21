@@ -2,9 +2,9 @@ import {gql} from '@apollo/client';
 
 import {JobOverviewFragment} from '@dash-frontend/fragments/JobOverview';
 
-export const JOBS_QUERY = gql`
-  query jobs($args: JobsQueryArgs!) {
-    jobs(args: $args) {
+export const JOB_QUERY = gql`
+  query job($args: JobQueryArgs!) {
+    job(args: $args) {
       ...JobOverview
       inputString
       inputBranch

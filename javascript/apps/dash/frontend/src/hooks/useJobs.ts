@@ -1,10 +1,11 @@
+import {JOBS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
 import {useJobsQuery} from '@dash-frontend/generated/hooks';
 import {JobsQueryArgs} from '@graphqlTypes';
 
 export const useJobs = (args: JobsQueryArgs) => {
   const {data, error, loading} = useJobsQuery({
     variables: {args},
-    pollInterval: 5000,
+    pollInterval: JOBS_POLL_INTERVAL_MS,
   });
 
   return {

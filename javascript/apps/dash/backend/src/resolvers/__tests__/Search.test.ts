@@ -15,7 +15,7 @@ describe('Search resolver', () => {
     const searchResults = data?.searchResults;
     expect(searchResults?.pipelines?.length).toBe(0);
     expect(searchResults?.repos?.length).toBe(0);
-    expect(searchResults?.job).toBe(null);
+    expect(searchResults?.jobset).toBe(null);
   });
 
   describe('Pipeline search', () => {
@@ -70,7 +70,9 @@ describe('Search resolver', () => {
       );
       expect(errors.length).toBe(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.job?.id).toBe('23b9af7d5d4343219bc8e02ff44cd55a');
+      expect(searchResults?.jobset?.id).toBe(
+        '23b9af7d5d4343219bc8e02ff44cd55a',
+      );
     });
 
     it('should not return job when a job id is not matched', async () => {
@@ -82,7 +84,7 @@ describe('Search resolver', () => {
       );
       expect(errors.length).toBe(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.job).toBe(null);
+      expect(searchResults?.jobset).toBe(null);
     });
   });
 

@@ -4,6 +4,7 @@ import {useHistory} from 'react-router';
 import {useSearchResults} from '@dash-frontend/hooks/useSearchResults';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
+  jobRoute,
   pipelineRoute,
   repoRoute,
 } from '@dash-frontend/views/Project/utils/routes';
@@ -69,7 +70,16 @@ const SearchResultsDropdown: React.FC = () => {
     [browserHistory, onResultSelect, projectId],
   );
 
-  const repoResults = () => {
+  const jobsetOnClick = useCallback(
+    (jobId) => {
+      onResultSelect(jobId);
+
+      browserHistory.push(jobRoute({projectId, jobId}));
+    },
+    [onResultSelect, projectId, browserHistory],
+  );
+
+  const repoResults = useCallback(() => {
     if (searchResults && searchResults.repos.length > 0) {
       return (
         <>
@@ -98,9 +108,9 @@ const SearchResultsDropdown: React.FC = () => {
         <NotFoundMessage>No matching repos found.</NotFoundMessage>
       </div>
     );
-  };
+  }, [debouncedValue, repoOnClick, searchResults]);
 
-  const pipelineResults = () => {
+  const pipelineResults = useCallback(() => {
     if (searchResults && searchResults.pipelines.length > 0) {
       return (
         <>
@@ -132,7 +142,34 @@ const SearchResultsDropdown: React.FC = () => {
         <NotFoundMessage>No matching pipelines found.</NotFoundMessage>
       </div>
     );
-  };
+  }, [debouncedValue, pipelineOnClick, searchResults]);
+
+  const jobsetResult = useCallback(() => {
+    if (searchResults && searchResults.jobset) {
+      const jobset = searchResults.jobset;
+
+      return (
+        <>
+          <div className={styles.sectionHeader}>
+            <SectionHeader>Jobs</SectionHeader>
+          </div>
+          <div className={styles.resultsContainer}>
+            <SearchResultItem
+              key={jobset.id}
+              title={jobset.id}
+              searchValue={debouncedValue}
+              onClick={() => jobsetOnClick(jobset.id)}
+            />
+          </div>
+        </>
+      );
+    }
+    return (
+      <div className={styles.margin}>
+        <NotFoundMessage>No matching pipelines found.</NotFoundMessage>
+      </div>
+    );
+  }, [searchResults, jobsetOnClick, debouncedValue]);
 
   if (loading || debouncedValue !== searchValue) {
     return <></>;
@@ -142,7 +179,7 @@ const SearchResultsDropdown: React.FC = () => {
     searchResults &&
     searchResults.pipelines.length === 0 &&
     searchResults.repos.length === 0 &&
-    !searchResults.job
+    !searchResults.jobset
   ) {
     return (
       <div className={styles.noResults}>
@@ -151,6 +188,10 @@ const SearchResultsDropdown: React.FC = () => {
         </NotFoundMessage>
       </div>
     );
+  }
+
+  if (searchResults?.jobset) {
+    return <div className={styles.base}>{jobsetResult()}</div>;
   }
 
   return (

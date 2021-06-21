@@ -40,13 +40,21 @@ const JobListBase: React.FC<JobListBaseProps> = ({
       <ListEmptyState title={emptyStateTitle} message={emptyStateMessage} />
     );
 
+  // deriving the 'key' field from pipelineName and ID should no longer be
+  // necessary once we are using jobsets and pipeline jobs. Currently,
+  // JobList is being used to display "all" pipeline jobs in the project
   return (
     <ul
       className={classnames(styles.base, {[styles.listScroll]: listScroll})}
       data-testid={`JobList__project${projectId}`}
     >
       {jobs?.map((job) => (
-        <JobListItem job={job} key={job.id} expandActions={expandActions} />
+        <JobListItem
+          job={job}
+          projectId={projectId}
+          key={`${job.id}__${job.pipelineName}`}
+          expandActions={expandActions}
+        />
       ))}
     </ul>
   );

@@ -74,6 +74,10 @@
   border-left: 2px solid var(--success-green);
 }
 
+.pipelineLink.active.busy {
+  border-left: 2px solid var(--border-grey);
+}
+
 .backArrow {
   transform: rotate(-90deg);
   margin-left: -0.875rem;

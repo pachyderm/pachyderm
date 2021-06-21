@@ -4,16 +4,22 @@ import {PipelineInfos} from '@pachyderm/proto/pb/pps/pps_pb';
 
 import jobs from '@dash-backend/mock/fixtures/jobs';
 import pipelines from '@dash-backend/mock/fixtures/pipelines';
+import {createServiceError} from '@dash-backend/testHelpers';
 
 import {
   jobInfoFromObject,
   pipelineInfoFromObject,
 } from '../../grpc/builders/pps';
+import jobsets from '../fixtures/jobsets';
 import runJQFilter from '../utils/runJQFilter';
 
 const pps: Pick<
   IAPIServer,
-  'listPipeline' | 'listJob' | 'inspectJob' | 'inspectPipeline'
+  | 'listPipeline'
+  | 'listJob'
+  | 'inspectJob'
+  | 'inspectPipeline'
+  | 'inspectJobset'
 > = {
   listPipeline: async (call, callback) => {
     const [projectId] = call.metadata.get('project-id');
@@ -68,8 +74,12 @@ const pps: Pick<
   inspectJob: (call, callback) => {
     const [projectId] = call.metadata.get('project-id');
     const replyJobs = projectId ? jobs[projectId.toString()] : jobs['1'];
+
     const foundJob = replyJobs.find(
-      (job) => job.getJob()?.getId() === call.request.getJob()?.getId(),
+      (job) =>
+        job.getJob()?.getId() === call.request.getJob()?.getId() &&
+        job.getJob()?.getPipeline()?.getName() ===
+          call.request.getJob()?.getPipeline()?.getName(),
     );
     if (foundJob) {
       callback(null, foundJob);
@@ -94,6 +104,22 @@ const pps: Pick<
     } else {
       callback({code: Status.NOT_FOUND, details: 'pipeline not found'});
     }
+  },
+  inspectJobset: (call) => {
+    const [projectId] = call.metadata.get('project-id');
+    const projectJobsets = jobsets[projectId.toString()] || jobsets['default'];
+
+    const foundJobset = projectJobsets[call.request.getJobset()?.getId() || ''];
+
+    if (!foundJobset) {
+      call.emit(
+        'error',
+        createServiceError({code: Status.UNKNOWN, details: 'no commits found'}),
+      );
+    } else {
+      foundJobset.forEach((job) => call.write(job));
+    }
+    call.end();
   },
 };
 

@@ -6,10 +6,13 @@ import {
   JobInfo,
   InspectJobRequest,
   InspectPipelineRequest,
+  Jobset,
+  InspectJobsetRequest,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 import streamToObjectArray from '@dash-backend/grpc/utils/streamToObjectArray';
 import {ServiceArgs} from '@dash-backend/lib/types';
+import {JobsetQueryArgs, JobQueryArgs} from '@graphqlTypes';
 
 import {jobFromObject, pipelineFromObject} from '../builders/pps';
 
@@ -46,10 +49,12 @@ const pps = ({
       return streamToObjectArray<JobInfo, JobInfo.AsObject>(stream, limit);
     },
 
-    inspectJob: (id: string) => {
-      return new Promise<JobInfo.AsObject>((resolve, reject) => {
-        client.inspectJob(
-          new InspectJobRequest().setJob(jobFromObject({id})),
+    inspectPipeline: (id: string) => {
+      return new Promise<PipelineInfo.AsObject>((resolve, reject) => {
+        client.inspectPipeline(
+          new InspectPipelineRequest().setPipeline(
+            pipelineFromObject({name: id}),
+          ),
           credentialMetadata,
           (error, res) => {
             if (error) {
@@ -61,11 +66,26 @@ const pps = ({
       });
     },
 
-    inspectPipeline: (id: string) => {
-      return new Promise<PipelineInfo.AsObject>((resolve, reject) => {
-        client.inspectPipeline(
-          new InspectPipelineRequest().setPipeline(
-            pipelineFromObject({name: id}),
+    inspectJobset: ({id}: JobsetQueryArgs) => {
+      const inspectJobsetRequest = new InspectJobsetRequest()
+        .setWait(false)
+        .setJobset(new Jobset().setId(id));
+
+      const stream = client.inspectJobset(
+        inspectJobsetRequest,
+        credentialMetadata,
+      );
+
+      return streamToObjectArray<JobInfo, JobInfo.AsObject>(stream);
+    },
+
+    inspectJob: ({id, pipelineName}: JobQueryArgs) => {
+      return new Promise<JobInfo.AsObject>((resolve, reject) => {
+        client.inspectJob(
+          new InspectJobRequest().setJob(
+            jobFromObject({id}).setPipeline(
+              pipelineFromObject({name: pipelineName}),
+            ),
           ),
           credentialMetadata,
           (error, res) => {

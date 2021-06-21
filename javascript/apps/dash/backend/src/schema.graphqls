@@ -288,13 +288,20 @@ type Account {
 type SearchResults {
   pipelines: [Pipeline!]!
   repos: [Repo!]!
-  job: Job
+  jobset: Jobset
 }
 
 type AuthConfig {
   authUrl: String!
   clientId: String!
   pachdClientId: String!
+}
+
+type Jobset {
+  id: ID!
+  createdAt: Int!
+  state: JobState!
+  jobs: [Job!]!
 }
 
 input PipelineQueryArgs {
@@ -313,6 +320,17 @@ input SearchResultQueryArgs {
   limit: Int
 }
 
+input JobsetQueryArgs {
+  id: ID!
+  projectId: String!
+}
+
+input JobQueryArgs {
+  id: ID!
+  projectId: String!
+  pipelineName: String!
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
@@ -320,11 +338,13 @@ type Query {
   repo(args: RepoQueryArgs!): Repo!
   projectDetails(args: ProjectDetailsQueryArgs!): ProjectDetails!
   jobs(args: JobsQueryArgs!): [Job!]!
+  job(args: JobQueryArgs!): Job!
   dag(args: DagQueryArgs!): Dag!
   files(args: FileQueryArgs!): [File!]!
   account: Account!
   searchResults(args: SearchResultQueryArgs!): SearchResults!
   authConfig: AuthConfig!
+  jobset(args: JobsetQueryArgs!): Jobset!
 }
 
 type Subscription {

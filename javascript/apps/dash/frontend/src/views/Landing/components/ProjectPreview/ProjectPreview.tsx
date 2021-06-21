@@ -12,6 +12,7 @@ import {
 } from '@dash-frontend/components/ListEmptyState/constants/ListEmptyStateConstants';
 import useIntersection from '@dash-frontend/hooks/useIntersection';
 import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
+import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
 import {Project} from '@graphqlTypes';
 
 import ProjectStatus from '../ProjectStatus';
@@ -61,8 +62,10 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
                     <span className={styles.extras}>
                       {/* TODO: add tooltip for unhealthy project details */}
                       <InfoSVG />
-                      {/* TODO: Link to jobs page */}
-                      <Link to={'/'} className={styles.link}>
+                      <Link
+                        to={jobsRoute({projectId: project.id})}
+                        className={styles.link}
+                      >
                         Inspect
                       </Link>
                     </span>

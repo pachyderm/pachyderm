@@ -5,7 +5,10 @@ import React, {useMemo} from 'react';
 import ListEmptyState from '@dash-frontend/components/ListEmptyState';
 import {LETS_START_TITLE} from '@dash-frontend/components/ListEmptyState/constants/ListEmptyStateConstants';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
+import {
+  fileBrowserRoute,
+  jobRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 import {RepoQuery} from '@graphqlTypes';
 
 import styles from './CommitBrowser.module.css';
@@ -54,7 +57,14 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                     Size {commit.sizeDisplay}
                   </dt>
                   <dt className={styles.commitData}>
-                    <a href="#TODO">Linked Job</a>
+                    <Link
+                      to={jobRoute({
+                        projectId,
+                        jobId: commit.id,
+                      })}
+                    >
+                      Linked Job
+                    </Link>
                   </dt>
                   <dt className={styles.commitData}>
                     <Link
