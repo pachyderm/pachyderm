@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 dash:
-  image:
-    tag: "0.5.58"
   # url is configured per workspace.
   url: "https://dash.test/"
   tls:
@@ -28,12 +26,9 @@ loadBalancer:
   ip: "192.0.2.3"
 
 pachd:
-  blockCacheBytes: "0G"
   exposeDockerSocket: true
   goMaxProcs: 3
-  image:
-    # tag is configured per workspace.
-    tag: "1.13.0"
+  # image.tag is configured per workspace.
   lokiLogging: true
   # metricsEndpoint is configured per Hub instance.
   metricsEndpoint: "https://metrics.test/api/v1/metrics"

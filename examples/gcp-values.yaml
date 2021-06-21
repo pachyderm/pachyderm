@@ -2,11 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 pachd:
-  image:
-    tag: 1.12.3
   storage:
     backend: GOOGLE
     google:
       bucket: "fake-bucket"
+      # You can also pass the creds on the command line using helm install --set-file storage.google.cred=creds.json 
       cred: |
         INSERT JSON HERE

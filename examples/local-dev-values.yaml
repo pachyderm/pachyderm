@@ -14,7 +14,6 @@ pachd:
     type: NodePort
   metrics:
     enabled: false
-  blockCacheBytes: 256M
   exposeDockerSocket: true
 
 dash:
