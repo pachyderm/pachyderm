@@ -27,6 +27,8 @@ type GlobalConfiguration struct {
 	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT"`
 	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
 	PostgresDBName      string `env:"POSTGRES_DATABASE_NAME"`
+	PostgresUser        string `env:"POSTGRES_USER,default=postgres"`
+	PostgresPassword    string `env:"POSTGRES_PASSWORD"`
 
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
