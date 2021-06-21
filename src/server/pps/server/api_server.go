@@ -2608,7 +2608,8 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		}
 	}
 
-	// Delete all of the pipeline's jobs
+	// Delete all of the pipeline's jobs - we shouldn't need to worry about any
+	// new jobs since the output repo has already been deleted or disconnected.
 	var eg errgroup.Group
 	jobInfo := &pps.JobInfo{}
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline.Name, jobInfo, col.DefaultOptions(), func(string) error {
