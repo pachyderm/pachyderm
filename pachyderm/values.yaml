@@ -297,8 +297,10 @@ worker:
     name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
 
 postgresql:
-  # Set to true if you are bringing your own PostgreSQL instance
-  external: false
+  # Set to false if you are bringing your own PostgreSQL instance
+  enabled: false
+  host: postgres
+  password: "plaintText"
   service:
     type: ClusterIP
   storageClass: ""
