@@ -61,6 +61,12 @@ func NewWorker(
 		return nil, err
 	}
 
+	if pipelineInfo.Transform.Image != "" && pipelineInfo.Transform.Cmd == nil {
+		ppsutil.FailPipeline(env.Context(), env.GetDBClient(), driver.Pipelines(),
+			pipelineInfo.Pipeline.Name,
+			"nothing to run: no transform.cmd")
+	}
+
 	worker := &Worker{
 		driver: driver,
 		status: &transform.Status{},
