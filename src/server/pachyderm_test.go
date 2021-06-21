@@ -7623,49 +7623,6 @@ func TestSquashCommitSetRunsJob(t *testing.T) {
 	require.Equal(t, "commit 3 data", buf.String())
 }
 
-func TestEntryPoint(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString(t.Name() + "-data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	commit1, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo")))
-	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
-
-	pipeline := tu.UniqueString(t.Name())
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"pachyderm_entrypoint",
-		nil,
-		nil,
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		&pps.Input{
-			Pfs: &pps.PFSInput{
-				Name: "in",
-				Repo: dataRepo,
-				Glob: "/*",
-			},
-		},
-		"",
-		false,
-	))
-
-	commitInfo, err := c.WaitCommit(pipeline, "master", "")
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfo.Commit, "file", &buf))
-	require.Equal(t, "foo", buf.String())
-}
-
 func TestDeleteSpecRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -7678,7 +7635,7 @@ func TestDeleteSpecRepo(t *testing.T) {
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
-		"pachyderm_entrypoint",
+		"",
 		[]string{"echo", "foo"},
 		nil,
 		&pps.ParallelismSpec{
@@ -7694,54 +7651,6 @@ func TestDeleteSpecRepo(t *testing.T) {
 			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
 		})
 	require.YesError(t, err)
-}
-
-func TestUserWorkingDir(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString("TestUserWorkingDir_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	commit, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
-
-	pipeline := tu.UniqueString("TestSimplePipeline")
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Image: "pachyderm_entrypoint",
-				Cmd:   []string{"bash"},
-				Stdin: []string{
-					"ls -lh /pfs",
-					"whoami >/pfs/out/whoami",
-					"pwd >/pfs/out/pwd",
-					fmt.Sprintf("cat /pfs/%s/file >/pfs/out/file", dataRepo),
-				},
-				User:       "test",
-				WorkingDir: "/home/test",
-			},
-			Input: client.NewPFSInput(dataRepo, "/"),
-		})
-	require.NoError(t, err)
-
-	commitInfo, err := c.WaitCommit(pipeline, "master", "")
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfo.Commit, "whoami", &buf))
-	require.Equal(t, "test\n", buf.String())
-	buf.Reset()
-	require.NoError(t, c.GetFile(commitInfo.Commit, "pwd", &buf))
-	require.Equal(t, "/home/test\n", buf.String())
 }
 
 func TestDontReadStdin(t *testing.T) {
