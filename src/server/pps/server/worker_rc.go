@@ -136,6 +136,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 			Value: a.storageRoot,
 		},
 		{
+			Name:  "STORAGE_BACKEND",
+			Value: a.storageBackend,
+		},
+		{
 			Name:  "PACH_NAMESPACE",
 			Value: a.namespace,
 		},
