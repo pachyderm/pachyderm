@@ -318,8 +318,11 @@ func IsTerminal(state pps.JobState) bool {
 
 // UpdateJobState performs the operations involved with a job state transition.
 func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
-	if IsTerminal(jobInfo.State) {
-		return ppsServer.ErrJobFinished{Job: jobInfo.Job}
+	// Check if this is a new job
+	if jobInfo.State != pps.JobState_JOB_STATE_UNKNOWN {
+		if IsTerminal(jobInfo.State) {
+			return ppsServer.ErrJobFinished{Job: jobInfo.Job}
+		}
 	}
 
 	// Update pipeline
@@ -330,8 +333,11 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 	if pipelineInfo.JobCounts == nil {
 		pipelineInfo.JobCounts = make(map[int32]int32)
 	}
-	if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
-		pipelineInfo.JobCounts[int32(jobInfo.State)]--
+	// If the old state is UNKNOWN, this is a new job, don't decrement the count
+	if jobInfo.State != pps.JobState_JOB_STATE_UNKNOWN {
+		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
+			pipelineInfo.JobCounts[int32(jobInfo.State)]--
+		}
 	}
 	pipelineInfo.JobCounts[int32(state)]++
 	pipelineInfo.LastJobState = state

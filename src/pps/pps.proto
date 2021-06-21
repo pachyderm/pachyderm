@@ -54,13 +54,14 @@ message Job {
 }
 
 enum JobState {
-  JOB_CREATED = 0;
-  JOB_STARTING = 1;
-  JOB_RUNNING = 2;
-  JOB_FAILURE = 3;
-  JOB_SUCCESS = 4;
-  JOB_KILLED = 5;
-  JOB_EGRESSING = 6;
+  JOB_STATE_UNKNOWN = 0;
+  JOB_CREATED = 1;
+  JOB_STARTING = 2;
+  JOB_RUNNING = 3;
+  JOB_FAILURE = 4;
+  JOB_SUCCESS = 5;
+  JOB_KILLED = 6;
+  JOB_EGRESSING = 7;
 }
 
 message Metadata {
@@ -157,12 +158,13 @@ message Datum {
 }
 
 enum DatumState {
-  FAILED = 0;
-  SUCCESS = 1;
-  SKIPPED = 2;
-  STARTING = 3;
-  RECOVERED = 4;
-  UNPROCESSED = 5;
+  DATUM_STATE_UNKNOWN = 0;
+  FAILED = 1;
+  SUCCESS = 2;
+  SKIPPED = 3;
+  STARTING = 4;
+  RECOVERED = 5;
+  UNPROCESSED = 6;
 }
 
 message DatumInfo {
@@ -285,9 +287,10 @@ message JobInfo {
 }
 
 enum WorkerState {
-  POD_RUNNING = 0;
-  POD_SUCCESS = 1;
-  POD_FAILED = 2;
+  WORKER_STATE_UNKNOWN = 0;
+  POD_RUNNING = 1;
+  POD_SUCCESS = 2;
+  POD_FAILED = 3;
 }
 
 message Worker {
@@ -300,29 +303,30 @@ message Pipeline {
 }
 
 enum PipelineState {
+  PIPELINE_STATE_UNKNOWN = 0;
   // There is a PipelineInfo + spec commit, but no RC
   // This happens when a pipeline has been created but not yet picked up by a
   // PPS server.
-  PIPELINE_STARTING = 0;
+  PIPELINE_STARTING = 1;
   // A pipeline has a spec commit and a service + RC
   // This is the normal state of a pipeline.
-  PIPELINE_RUNNING = 1;
+  PIPELINE_RUNNING = 2;
   // Equivalent to STARTING (there is a PipelineInfo + commit, but no RC)
   // After some error caused runPipeline to exit, but before the pipeline is
   // re-run. This is when the exponential backoff is in effect.
-  PIPELINE_RESTARTING = 2;
+  PIPELINE_RESTARTING = 3;
   // The pipeline has encountered unrecoverable errors and is no longer being
   // retried. It won't leave this state until the pipeline is updated.
-  PIPELINE_FAILURE = 3;
+  PIPELINE_FAILURE = 4;
   // The pipeline has been explicitly paused by the user (the pipeline spec's
   // Stopped field should be true if the pipeline is in this state)
-  PIPELINE_PAUSED = 4;
+  PIPELINE_PAUSED = 5;
   // The pipeline is fully functional, but there are no commits to process.
-  PIPELINE_STANDBY = 5;
+  PIPELINE_STANDBY = 6;
   // The pipeline's workers are crashing, or failing to come up, this may
   // resolve itself, the pipeline may make progress while in this state if the
   // problem is only being experienced by some workers.
-  PIPELINE_CRASHING = 6;
+  PIPELINE_CRASHING = 7;
 }
 
 // PipelineInfo is proto for each pipeline that Pachd stores in the
@@ -355,9 +359,10 @@ message PipelineInfo {
   // The pipeline type is stored here so that we can internally know the type of
   // the pipeline without loading the spec from PFS.
   enum PipelineType {
-    PIPELINE_TYPE_TRANSFORM = 0;
-    PIPELINE_TYPE_SPOUT = 1;
-    PIPELINE_TYPE_SERVICE = 2;
+    PIPELINT_TYPE_UNKNOWN = 0;
+    PIPELINE_TYPE_TRANSFORM = 1;
+    PIPELINE_TYPE_SPOUT = 2;
+    PIPELINE_TYPE_SERVICE = 3;
   }
   PipelineType type = 10;
 

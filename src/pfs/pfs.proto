@@ -92,10 +92,11 @@ message Trigger {
 
 // These are the different places where a commit may be originated from
 enum OriginKind {
-  USER = 0;
-  AUTO = 1;
-  FSCK = 2;
-  ALIAS = 3;
+  ORIGIN_KIND_UNKNOWN = 0;
+  USER = 1;
+  AUTO = 2;
+  FSCK = 3;
+  ALIAS = 4;
 }
 
 message CommitOrigin {
@@ -181,9 +182,10 @@ message DeleteRepoRequest {
 // CommitState describes the states a commit can be in.
 // The states are increasingly specific, i.e. a commit that is FINISHED also counts as STARTED.
 enum CommitState {
-  STARTED = 0; // The commit has been started, all commits satisfy this state.
-  READY = 1; // The commit has been started, and all of its provenant commits have been finished.
-  FINISHED = 2; // The commit has been finished.
+  COMMIT_STATE_UNKNOWN = 0;
+  STARTED = 1; // The commit has been started, all commits satisfy this state.
+  READY = 2; // The commit has been started, and all of its provenant commits have been finished.
+  FINISHED = 3; // The commit has been finished.
 }
 
 message StartCommitRequest {
