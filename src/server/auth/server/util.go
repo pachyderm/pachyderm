@@ -63,3 +63,22 @@ func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, r string, p ...au
 	}
 	return nil
 }
+
+// CheckClusterIsAuthorized returns an error if the current user doesn't have
+// the permissions in `p` on the cluster
+func (a *apiServer) CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error {
+	me, err := a.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	if auth.IsErrNotActivated(err) {
+		return nil
+	}
+
+	req := &auth.AuthorizeRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Permissions: p}
+	resp, err := a.Authorize(ctx, req)
+	if err != nil {
+		return err
+	}
+	if !resp.Authorized {
+		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: auth.Resource{Type: auth.ResourceType_CLUSTER}, Required: p}
+	}
+	return nil
+}

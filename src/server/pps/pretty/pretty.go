@@ -332,7 +332,7 @@ func PrintFileHeader(w io.Writer) {
 
 // PrintFile values for a pfs file.
 func PrintFile(w io.Writer, file *pfsclient.File) {
-	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", pfspretty.CompactPrintRepo(file.Commit.Branch.Repo), file.Commit.ID, file.Path)
+	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", file.Commit.Branch.Repo, file.Commit.ID, file.Path)
 }
 
 func datumState(datumState ppsclient.DatumState) string {
@@ -345,6 +345,8 @@ func datumState(datumState ppsclient.DatumState) string {
 		return color.New(color.FgYellow).SprintFunc()("recovered")
 	case ppsclient.DatumState_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
+	case ppsclient.DatumState_UNPROCESSED:
+		return color.New(color.FgGreen).SprintFunc()("-")
 	}
 	return "-"
 }

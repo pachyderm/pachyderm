@@ -39,7 +39,6 @@ func NewAPIServer(
 		jobs:                  ppsdb.Jobs(env.GetDBClient(), env.GetPostgresListener()),
 		workerGrpcPort:        env.Config().PPSWorkerPort,
 		port:                  env.Config().Port,
-		httpPort:              env.Config().HTTPPort,
 		peerPort:              env.Config().PeerPort,
 		gcPercent:             env.Config().GCPercent,
 	}
@@ -59,7 +58,6 @@ func NewSidecarAPIServer(
 	iamRole string,
 	reporter *metrics.Reporter,
 	workerGrpcPort uint16,
-	httpPort uint16,
 	peerPort uint16,
 ) (*apiServer, error) {
 	apiServer := &apiServer{
@@ -74,7 +72,6 @@ func NewSidecarAPIServer(
 		pipelines:      ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener()),
 		jobs:           ppsdb.Jobs(env.GetDBClient(), env.GetPostgresListener()),
 		workerGrpcPort: workerGrpcPort,
-		httpPort:       httpPort,
 		peerPort:       peerPort,
 	}
 	go apiServer.ServeSidecarS3G()

@@ -220,8 +220,8 @@ func withManifest(t *testing.T, backend assets.Backend, secrets map[string][]byt
 		Namespace:                  namespaceName,
 		RequireCriticalServersOnly: assets.DefaultRequireCriticalServersOnly,
 		WorkerServiceAccountName:   assets.DefaultWorkerServiceAccountName,
-		NoDash:                     true,
 		LocalRoles:                 true,
+		RunAsRoot:                  true,
 	}
 
 	manifest := makeManifest(t, backend, secrets, opts)

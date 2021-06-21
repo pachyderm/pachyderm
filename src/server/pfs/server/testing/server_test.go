@@ -574,6 +574,45 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, err)
 	})
 
+	suite.Run("CreateBranchHeadOnOtherRepo", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		// create two repos, and create a branch on one that tries to point on another's existing branch
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		_, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		masterCommit := client.NewCommit(repo, "master", "")
+
+		otherRepo := "other"
+		require.NoError(t, env.PachClient.CreateRepo(otherRepo))
+		_, err = env.PachClient.StartCommit(otherRepo, "master")
+		require.NoError(t, err)
+		otherMasterCommit := client.NewCommit(otherRepo, "master", "")
+
+		mfc, err := env.PachClient.NewModifyFileClient(masterCommit)
+		require.NoError(t, err)
+		require.NoError(t, mfc.PutFile("/foo", strings.NewReader("foo\n")))
+		require.NoError(t, mfc.Close())
+
+		mfc, err = env.PachClient.NewModifyFileClient(otherMasterCommit)
+		require.NoError(t, err)
+		require.NoError(t, mfc.PutFile("/bar", strings.NewReader("bar\n")))
+		require.NoError(t, mfc.Close())
+
+		// Create a branch on one repo that points to a branch on another repo
+		_, err = env.PachClient.PfsAPIClient.CreateBranch(
+			env.PachClient.Ctx(),
+			&pfs.CreateBranchRequest{
+				Branch: client.NewBranch(repo, "test"),
+				Head:   client.NewCommit(otherRepo, "master", ""),
+			},
+		)
+		require.YesError(t, err)
+		require.True(t, strings.Contains(err.Error(), "branch and head commit must belong to the same repo"))
+	})
+
 	suite.Run("DeleteRepo", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -3537,7 +3576,7 @@ func TestPFS(suite *testing.T) {
 						for _, b := range bi.Provenance {
 							i := sort.SearchStrings(expectedProv, b.Name)
 							if i >= len(expectedProv) || expectedProv[i] != b.Name {
-								t.Fatalf("provenance for %s contains: %s, but should only contain: %v", repo, pfsdb.BranchKey(b), expectedProv)
+								t.Fatalf("provenance for %s contains: %s, but should only contain: %v", repo, b, expectedProv)
 							}
 						}
 					}
@@ -3549,7 +3588,7 @@ func TestPFS(suite *testing.T) {
 						for _, b := range bi.Subvenance {
 							i := sort.SearchStrings(expectedSubv, b.Name)
 							if i >= len(expectedSubv) || expectedSubv[i] != b.Name {
-								t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", repo, pfsdb.BranchKey(b), expectedSubv)
+								t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", repo, b, expectedSubv)
 							}
 						}
 					}
@@ -5431,7 +5470,7 @@ func TestPFS(suite *testing.T) {
 			"file1.txt": tarutil.NewMemFile("file1.txt", data),
 			"file2.txt": tarutil.NewMemFile("file2.txt", data),
 		}
-		require.NoError(t, fsclient.PutFileTar(spec.makeTarStream()))
+		require.NoError(t, fsclient.PutFileTAR(spec.makeTarStream()))
 		resp, err := fsclient.Close()
 		require.NoError(t, err)
 		t.Logf("tmp fileset id: %s", resp.FileSetId)
@@ -5468,7 +5507,7 @@ func TestPFS(suite *testing.T) {
 				require.NoError(t, err)
 				fsSpec[hdr.Name] = file
 			}
-			require.NoError(t, env.PachClient.PutFileTar(commit1, fsSpec.makeTarStream()))
+			require.NoError(t, env.PachClient.PutFileTAR(commit1, fsSpec.makeTarStream()))
 			runtime.GC()
 		}
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
@@ -5485,16 +5524,16 @@ func TestPFS(suite *testing.T) {
 			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
 			require.NoError(t, err)
 			files := []string{"/empty-1", "/empty-2"}
+			require.NoError(t, c.Send(&pfs.ModifyFileRequest{
+				Body: &pfs.ModifyFileRequest_SetCommit{SetCommit: client.NewCommit(repo, "master", "")},
+			}))
 			for _, file := range files {
 				require.NoError(t, c.Send(&pfs.ModifyFileRequest{
-					Commit: client.NewCommit(repo, "master", ""),
-					Modification: &pfs.ModifyFileRequest_PutFile{
-						PutFile: &pfs.PutFile{
-							Source: &pfs.PutFile_RawFileSource{
-								RawFileSource: &pfs.RawFileSource{
-									Path: file,
-									EOF:  true,
-								},
+					Body: &pfs.ModifyFileRequest_AddFile{
+						AddFile: &pfs.AddFile{
+							Path: file,
+							Source: &pfs.AddFile_Raw{
+								Raw: &types.BytesValue{},
 							},
 						},
 					},
@@ -5520,15 +5559,14 @@ func TestPFS(suite *testing.T) {
 			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
 			require.NoError(t, err)
 			require.NoError(t, c.Send(&pfs.ModifyFileRequest{
-				Commit: client.NewCommit(repo, "master", ""),
-				Modification: &pfs.ModifyFileRequest_PutFile{
-					PutFile: &pfs.PutFile{
-						Source: &pfs.PutFile_RawFileSource{
-							RawFileSource: &pfs.RawFileSource{
-								Path: filePath,
-								Data: []byte(fileContent),
-								EOF:  true,
-							},
+				Body: &pfs.ModifyFileRequest_SetCommit{SetCommit: client.NewCommit(repo, "master", "")},
+			}))
+			require.NoError(t, c.Send(&pfs.ModifyFileRequest{
+				Body: &pfs.ModifyFileRequest_AddFile{
+					AddFile: &pfs.AddFile{
+						Path: filePath,
+						Source: &pfs.AddFile_Raw{
+							Raw: &types.BytesValue{Value: []byte(fileContent)},
 						},
 					},
 				},
@@ -5616,7 +5654,11 @@ func TestPFS(suite *testing.T) {
 			file.Tag = tag
 			return file
 		}
-		expected := []*pfs.File{newFile(repo, "master", "", "/bar", fileset.DefaultFileTag), newFile(repo, "master", "", "/foo", "tag1"), newFile(repo, "master", "", "/foo", "tag2")}
+		expected := []*pfs.File{
+			newFile(repo, "master", "", "/bar", fileset.DefaultFileTag),
+			newFile(repo, "master", "", "/foo", "tag1"),
+			newFile(repo, "master", "", "/foo", "tag2"),
+		}
 		require.NoError(t, env.PachClient.ListFile(masterCommit, "", func(fi *pfs.FileInfo) error {
 			require.Equal(t, expected[0].Path, fi.File.Path)
 			require.Equal(t, expected[0].Tag, fi.File.Tag)

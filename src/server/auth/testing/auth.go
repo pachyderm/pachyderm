@@ -189,6 +189,11 @@ func (a *InactiveAPIServer) CheckRepoIsAuthorized(context.Context, string, ...au
 	return nil
 }
 
+// CheckClusterIsAuthorized returns nil when auth is not activated
+func (a *InactiveAPIServer) CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error {
+	return nil
+}
+
 // CheckClusterIsAuthorizedInTransaction returns nil when auth is not activated
 func (a *InactiveAPIServer) CheckClusterIsAuthorizedInTransaction(*txncontext.TransactionContext, ...auth.Permission) error {
 	return nil
