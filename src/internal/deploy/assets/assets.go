@@ -631,7 +631,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		},
 		{
 			Name:  "POSTGRES_PASSWORD",
-			Value: "TEMPORARY_PLACEHOLDER",
+			Value: "",
 		},
 	}
 	envVars = append(envVars, GetSecretEnvVars("")...)
