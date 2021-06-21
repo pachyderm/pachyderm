@@ -211,9 +211,6 @@ type AssetOpts struct {
 	// Namespace is the kubernetes namespace to deploy to.
 	Namespace string
 
-	// NoExposeDockerSocket if true prevents pipelines from accessing the docker socket.
-	NoExposeDockerSocket bool
-
 	// If set, the files indictated by 'TLS.ServerCert' and 'TLS.ServerKey' are
 	// placed into a Kubernetes secret and used by pachd nodes to authenticate
 	// during TLS
@@ -593,7 +590,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
 		{Name: "LOG_LEVEL", Value: opts.LogLevel},
 		{Name: "IAM_ROLE", Value: opts.IAMRole},
-		{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
 		{
 			Name: "PACH_NAMESPACE",
 			ValueFrom: &v1.EnvVarSource{
