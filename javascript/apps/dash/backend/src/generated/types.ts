@@ -152,6 +152,13 @@ export type Job = {
   inputBranch?: Maybe<Scalars['String']>;
 };
 
+export type JobLogsArgs = {
+  projectId: Scalars['String'];
+  pipelineName: Scalars['String'];
+  jobId: Scalars['String'];
+  start?: Maybe<Scalars['Int']>;
+};
+
 export type JobQueryArgs = {
   id: Scalars['ID'];
   projectId: Scalars['String'];
@@ -199,6 +206,13 @@ export type Link = {
   startPoint: PointCoordinates;
   endPoint: PointCoordinates;
   transferring: Scalars['Boolean'];
+};
+
+export type Log = {
+  __typename?: 'Log';
+  message: Scalars['String'];
+  timestamp?: Maybe<Timestamp>;
+  user: Scalars['Boolean'];
 };
 
 export type Mutation = {
@@ -276,6 +290,12 @@ export type Pipeline = {
   schedulingSpec?: Maybe<SchedulingSpec>;
 };
 
+export type PipelineLogsArgs = {
+  projectId: Scalars['String'];
+  pipelineName: Scalars['String'];
+  start?: Maybe<Scalars['Int']>;
+};
+
 export type PipelineQueryArgs = {
   projectId: Scalars['String'];
   id: Scalars['ID'];
@@ -338,15 +358,18 @@ export type Query = {
   dag: Dag;
   files: Array<File>;
   job: Job;
+  jobLogs: Array<Maybe<Log>>;
   jobs: Array<Job>;
   jobset: Jobset;
   loggedIn: Scalars['Boolean'];
   pipeline: Pipeline;
+  pipelineLogs: Array<Maybe<Log>>;
   project: Project;
   projectDetails: ProjectDetails;
   projects: Array<Project>;
   repo: Repo;
   searchResults: SearchResults;
+  workspaceLogs: Array<Maybe<Log>>;
 };
 
 export type QueryDagArgs = {
@@ -361,6 +384,10 @@ export type QueryJobArgs = {
   args: JobQueryArgs;
 };
 
+export type QueryJobLogsArgs = {
+  args: JobLogsArgs;
+};
+
 export type QueryJobsArgs = {
   args: JobsQueryArgs;
 };
@@ -371,6 +398,10 @@ export type QueryJobsetArgs = {
 
 export type QueryPipelineArgs = {
   args: PipelineQueryArgs;
+};
+
+export type QueryPipelineLogsArgs = {
+  args: PipelineLogsArgs;
 };
 
 export type QueryProjectArgs = {
@@ -387,6 +418,10 @@ export type QueryRepoArgs = {
 
 export type QuerySearchResultsArgs = {
   args: SearchResultQueryArgs;
+};
+
+export type QueryWorkspaceLogsArgs = {
+  args: WorkspaceLogsArgs;
 };
 
 export type Repo = {
@@ -429,10 +464,25 @@ export type SearchResults = {
 export type Subscription = {
   __typename?: 'Subscription';
   dags: Array<Dag>;
+  workspaceLogs: Log;
+  pipelineLogs: Log;
+  jobLogs: Log;
 };
 
 export type SubscriptionDagsArgs = {
   args: DagQueryArgs;
+};
+
+export type SubscriptionWorkspaceLogsArgs = {
+  args: WorkspaceLogsArgs;
+};
+
+export type SubscriptionPipelineLogsArgs = {
+  args: PipelineLogsArgs;
+};
+
+export type SubscriptionJobLogsArgs = {
+  args: JobLogsArgs;
 };
 
 export type Timestamp = {
@@ -451,6 +501,10 @@ export type Transform = {
   __typename?: 'Transform';
   cmdList: Array<Scalars['String']>;
   image: Scalars['String'];
+};
+
+export type WorkspaceLogsArgs = {
+  start?: Maybe<Scalars['Int']>;
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -593,12 +647,14 @@ export type ResolversTypes = ResolversObject<{
   InputPipeline: ResolverTypeWrapper<InputPipeline>;
   InputType: InputType;
   Job: ResolverTypeWrapper<Job>;
+  JobLogsArgs: JobLogsArgs;
   JobQueryArgs: JobQueryArgs;
   JobState: JobState;
   JobsQueryArgs: JobsQueryArgs;
   Jobset: ResolverTypeWrapper<Jobset>;
   JobsetQueryArgs: JobsetQueryArgs;
   Link: ResolverTypeWrapper<Link>;
+  Log: ResolverTypeWrapper<Log>;
   Mutation: ResolverTypeWrapper<{}>;
   Node: ResolverTypeWrapper<Node>;
   NodeSelector: ResolverTypeWrapper<NodeSelector>;
@@ -606,6 +662,7 @@ export type ResolversTypes = ResolversObject<{
   PFSInput: ResolverTypeWrapper<PfsInput>;
   Pach: ResolverTypeWrapper<Pach>;
   Pipeline: ResolverTypeWrapper<Pipeline>;
+  PipelineLogsArgs: PipelineLogsArgs;
   PipelineQueryArgs: PipelineQueryArgs;
   PipelineState: PipelineState;
   PipelineType: PipelineType;
@@ -624,6 +681,7 @@ export type ResolversTypes = ResolversObject<{
   Timestamp: ResolverTypeWrapper<Timestamp>;
   Tokens: ResolverTypeWrapper<Tokens>;
   Transform: ResolverTypeWrapper<Transform>;
+  WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
@@ -646,17 +704,20 @@ export type ResolversParentTypes = ResolversObject<{
   Input: Input;
   InputPipeline: InputPipeline;
   Job: Job;
+  JobLogsArgs: JobLogsArgs;
   JobQueryArgs: JobQueryArgs;
   JobsQueryArgs: JobsQueryArgs;
   Jobset: Jobset;
   JobsetQueryArgs: JobsetQueryArgs;
   Link: Link;
+  Log: Log;
   Mutation: {};
   Node: Node;
   NodeSelector: NodeSelector;
   PFSInput: PfsInput;
   Pach: Pach;
   Pipeline: Pipeline;
+  PipelineLogsArgs: PipelineLogsArgs;
   PipelineQueryArgs: PipelineQueryArgs;
   PointCoordinates: PointCoordinates;
   Project: Project;
@@ -672,6 +733,7 @@ export type ResolversParentTypes = ResolversObject<{
   Timestamp: Timestamp;
   Tokens: Tokens;
   Transform: Transform;
+  WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
 
 export type AccountResolvers<
@@ -901,6 +963,20 @@ export type LinkResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type LogResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Log'] = ResolversParentTypes['Log'],
+> = ResolversObject<{
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  timestamp?: Resolver<
+    Maybe<ResolversTypes['Timestamp']>,
+    ParentType,
+    ContextType
+  >;
+  user?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type MutationResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
@@ -1080,6 +1156,12 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryJobArgs, 'args'>
   >;
+  jobLogs?: Resolver<
+    Array<Maybe<ResolversTypes['Log']>>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryJobLogsArgs, 'args'>
+  >;
   jobs?: Resolver<
     Array<ResolversTypes['Job']>,
     ParentType,
@@ -1098,6 +1180,12 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryPipelineArgs, 'args'>
+  >;
+  pipelineLogs?: Resolver<
+    Array<Maybe<ResolversTypes['Log']>>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryPipelineLogsArgs, 'args'>
   >;
   project?: Resolver<
     ResolversTypes['Project'],
@@ -1127,6 +1215,12 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QuerySearchResultsArgs, 'args'>
+  >;
+  workspaceLogs?: Resolver<
+    Array<Maybe<ResolversTypes['Log']>>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryWorkspaceLogsArgs, 'args'>
   >;
 }>;
 
@@ -1192,6 +1286,27 @@ export type SubscriptionResolvers<
     ContextType,
     RequireFields<SubscriptionDagsArgs, 'args'>
   >;
+  workspaceLogs?: SubscriptionResolver<
+    ResolversTypes['Log'],
+    'workspaceLogs',
+    ParentType,
+    ContextType,
+    RequireFields<SubscriptionWorkspaceLogsArgs, 'args'>
+  >;
+  pipelineLogs?: SubscriptionResolver<
+    ResolversTypes['Log'],
+    'pipelineLogs',
+    ParentType,
+    ContextType,
+    RequireFields<SubscriptionPipelineLogsArgs, 'args'>
+  >;
+  jobLogs?: SubscriptionResolver<
+    ResolversTypes['Log'],
+    'jobLogs',
+    ParentType,
+    ContextType,
+    RequireFields<SubscriptionJobLogsArgs, 'args'>
+  >;
 }>;
 
 export type TimestampResolvers<
@@ -1235,6 +1350,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Job?: JobResolvers<ContextType>;
   Jobset?: JobsetResolvers<ContextType>;
   Link?: LinkResolvers<ContextType>;
+  Log?: LogResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   Node?: NodeResolvers<ContextType>;
   NodeSelector?: NodeSelectorResolvers<ContextType>;
@@ -1264,6 +1380,15 @@ export type JobOverviewFragment = {__typename?: 'Job'} & Pick<
   Job,
   'id' | 'state' | 'createdAt' | 'finishedAt' | 'pipelineName'
 >;
+
+export type LogFieldsFragment = {__typename?: 'Log'} & Pick<
+  Log,
+  'user' | 'message'
+> & {
+    timestamp?: Maybe<
+      {__typename?: 'Timestamp'} & Pick<Timestamp, 'seconds' | 'nanos'>
+    >;
+  };
 
 export type ExchangeCodeMutationVariables = Exact<{
   code: Scalars['String'];
@@ -1441,6 +1566,54 @@ export type JobsetQuery = {__typename?: 'Query'} & {
 export type LoggedInQueryVariables = Exact<{[key: string]: never}>;
 
 export type LoggedInQuery = {__typename?: 'Query'} & Pick<Query, 'loggedIn'>;
+
+export type GetWorkspaceLogsQueryVariables = Exact<{
+  args: WorkspaceLogsArgs;
+}>;
+
+export type GetWorkspaceLogsQuery = {__typename?: 'Query'} & {
+  workspaceLogs: Array<Maybe<{__typename?: 'Log'} & LogFieldsFragment>>;
+};
+
+export type GetPipelineLogsQueryVariables = Exact<{
+  args: PipelineLogsArgs;
+}>;
+
+export type GetPipelineLogsQuery = {__typename?: 'Query'} & {
+  pipelineLogs: Array<Maybe<{__typename?: 'Log'} & LogFieldsFragment>>;
+};
+
+export type GetJobLogsQueryVariables = Exact<{
+  args: JobLogsArgs;
+}>;
+
+export type GetJobLogsQuery = {__typename?: 'Query'} & {
+  jobLogs: Array<Maybe<{__typename?: 'Log'} & LogFieldsFragment>>;
+};
+
+export type GetWorkspaceLogStreamSubscriptionVariables = Exact<{
+  args: WorkspaceLogsArgs;
+}>;
+
+export type GetWorkspaceLogStreamSubscription = {
+  __typename?: 'Subscription';
+} & {workspaceLogs: {__typename?: 'Log'} & LogFieldsFragment};
+
+export type GetPipelineLogStreamSubscriptionVariables = Exact<{
+  args: PipelineLogsArgs;
+}>;
+
+export type GetPipelineLogStreamSubscription = {__typename?: 'Subscription'} & {
+  pipelineLogs: {__typename?: 'Log'} & LogFieldsFragment;
+};
+
+export type GetJobLogStreamSubscriptionVariables = Exact<{
+  args: JobLogsArgs;
+}>;
+
+export type GetJobLogStreamSubscription = {__typename?: 'Subscription'} & {
+  jobLogs: {__typename?: 'Log'} & LogFieldsFragment;
+};
 
 export type PipelineQueryVariables = Exact<{
   args: PipelineQueryArgs;

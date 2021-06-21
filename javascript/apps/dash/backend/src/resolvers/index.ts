@@ -7,6 +7,7 @@ import authResolver from './Auth';
 import dagResolver from './Dag';
 import fileResolver from './File';
 import jobResolver from './Job';
+import logsResolver from './Logs';
 import pipelineResolver from './Pipeline';
 import projectsResolver from './Projects';
 import repoResolver from './Repo';
@@ -15,6 +16,7 @@ import searchResolver from './Search';
 const resolvers: Resolvers = merge(
   fileResolver,
   dagResolver,
+  logsResolver,
   repoResolver,
   authResolver,
   projectsResolver,

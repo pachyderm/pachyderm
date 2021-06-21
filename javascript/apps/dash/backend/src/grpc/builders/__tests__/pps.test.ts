@@ -17,6 +17,7 @@ import {
   transformFromObject,
   jobInfoFromObject,
   jobFromObject,
+  getLogsRequestFromObject,
 } from '@dash-backend/grpc/builders/pps';
 
 describe('grpc/builders/pps', () => {
@@ -561,4 +562,34 @@ it('should create JobInfo from an object', () => {
   expect(pipelineJob.getState()).toBe(1);
   expect(pipelineJob.getStarted()?.getSeconds()).toBe(564645);
   expect(pipelineJob.getJob()?.getId()).toBe('1');
+});
+
+it('should create GetLogsRequestObject from a pipeline request', () => {
+  const getLogsRequest = getLogsRequestFromObject({
+    pipelineName: 'PipelineName',
+    since: 564645,
+    follow: true,
+  });
+
+  expect(getLogsRequest.getPipeline()?.getName()).toBe('PipelineName');
+  expect(getLogsRequest.getJob()).toBe(undefined);
+  expect(getLogsRequest.getSince()?.getSeconds()).toBe(564645);
+  expect(getLogsRequest.getFollow()).toBe(true);
+});
+
+it('should create GetLogsRequestObject from a job request', () => {
+  const getLogsRequest = getLogsRequestFromObject({
+    pipelineName: 'PipelineName',
+    jobId: '2222222',
+    since: 564645,
+    follow: true,
+  });
+
+  expect(getLogsRequest.getPipeline()).toBe(undefined);
+  expect(getLogsRequest.getJob()?.getId()).toBe('2222222');
+  expect(getLogsRequest.getJob()?.getPipeline()?.getName()).toBe(
+    'PipelineName',
+  );
+  expect(getLogsRequest.getSince()?.getSeconds()).toBe(564645);
+  expect(getLogsRequest.getFollow()).toBe(true);
 });

@@ -20,6 +20,7 @@ import {
   Transform,
   Job,
   JobInfo,
+  GetLogsRequest,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 import {CommitObject, triggerFromObject, TriggerObject} from './pfs';
@@ -184,12 +185,20 @@ export type PipelineInfosObject = {
 
 export type JobObject = {
   id: Job.AsObject['id'];
+  pipeline?: Pipeline;
 };
 
 export type JobInfoObject = {
   job: Pick<Job.AsObject, 'id' | 'pipeline'>;
   createdAt: JobInfo.AsObject['started'];
   state: JobState;
+};
+
+export type GetLogsRequestObject = {
+  pipelineName?: string;
+  jobId?: string;
+  since?: number;
+  follow?: boolean;
 };
 
 export const pipelineFromObject = ({name}: PipelineObject) => {
@@ -569,9 +578,12 @@ export const pipelineInfosFromObject = ({
   return pipelineInfos;
 };
 
-export const jobFromObject = ({id}: JobObject) => {
+export const jobFromObject = ({id, pipeline}: JobObject) => {
   const job = new Job();
   job.setId(id);
+  if (pipeline) {
+    job.setPipeline(pipeline);
+  }
 
   return job;
 };
@@ -589,4 +601,31 @@ export const jobInfoFromObject = ({
     .setJob(new Job().setId(id).setPipeline(new Pipeline().setName(name)));
 
   return jobInfo;
+};
+
+export const getLogsRequestFromObject = ({
+  pipelineName,
+  jobId,
+  since,
+  follow = false,
+}: GetLogsRequestObject) => {
+  const getLogsRequest = new GetLogsRequest();
+  getLogsRequest.setFollow(follow);
+
+  if (pipelineName && jobId) {
+    getLogsRequest.setJob(
+      jobFromObject({
+        id: jobId,
+        pipeline: pipelineFromObject({name: pipelineName}),
+      }),
+    );
+  } else {
+    if (pipelineName) {
+      getLogsRequest.setPipeline(pipelineFromObject({name: pipelineName}));
+    }
+  }
+  if (since) {
+    getLogsRequest.setSince(durationFromObject({seconds: since, nanos: 0}));
+  }
+  return getLogsRequest;
 };

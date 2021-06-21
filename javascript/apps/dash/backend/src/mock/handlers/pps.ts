@@ -1,6 +1,6 @@
 import {Status} from '@grpc/grpc-js/build/src/constants';
 import {IAPIServer} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
-import {PipelineInfos} from '@pachyderm/proto/pb/pps/pps_pb';
+import {LogMessage, PipelineInfos} from '@pachyderm/proto/pb/pps/pps_pb';
 
 import jobs from '@dash-backend/mock/fixtures/jobs';
 import pipelines from '@dash-backend/mock/fixtures/pipelines';
@@ -11,7 +11,10 @@ import {
   pipelineInfoFromObject,
 } from '../../grpc/builders/pps';
 import jobsets from '../fixtures/jobsets';
+import {pipelineAndJobLogs, workspaceLogs} from '../fixtures/logs';
 import runJQFilter from '../utils/runJQFilter';
+
+const DEFAULT_SINCE_TIME = 86400;
 
 const pps: Pick<
   IAPIServer,
@@ -20,6 +23,7 @@ const pps: Pick<
   | 'inspectJob'
   | 'inspectPipeline'
   | 'inspectJobset'
+  | 'getLogs'
 > = {
   listPipeline: async (call, callback) => {
     const [projectId] = call.metadata.get('project-id');
@@ -120,6 +124,50 @@ const pps: Pick<
       foundJobset.forEach((job) => call.write(job));
     }
     call.end();
+  },
+  getLogs: async (call) => {
+    if (!call.request.getPipeline() && !call.request.getJob()) {
+      workspaceLogs.slice(-call.request.getTail() || 0).forEach((log) => {
+        call.write(log);
+      });
+    } else {
+      let filteredLogs: LogMessage[] = [];
+      const [projectId] = call.metadata.get('project-id');
+      const projectLogs = projectId
+        ? pipelineAndJobLogs[projectId.toString()]
+        : pipelineAndJobLogs['1'];
+
+      const pipelineName = call.request.getPipeline()?.getName();
+      if (pipelineName) {
+        filteredLogs = projectLogs.filter(
+          (log) => pipelineName && log.getPipelineName() === pipelineName,
+        );
+      } else {
+        const jobId = call.request.getJob()?.getId();
+        const pipelineJobName = call.request.getJob()?.getPipeline()?.getName();
+
+        filteredLogs = projectLogs.filter(
+          (log) =>
+            jobId &&
+            log.getJobId() === jobId &&
+            pipelineJobName &&
+            log.getPipelineName() === pipelineJobName,
+        );
+      }
+
+      filteredLogs.slice(-call.request.getTail() || 0).forEach((log) => {
+        const now = Math.floor(Date.now() / 1000);
+        const timeGap =
+          (call.request.getSince()?.getSeconds() || DEFAULT_SINCE_TIME) +
+          (log.getTs()?.getSeconds() || 0);
+        if (timeGap >= now) {
+          call.write(log);
+        }
+      });
+    }
+    if (!call.request.getFollow()) {
+      call.end();
+    }
   },
 };
 

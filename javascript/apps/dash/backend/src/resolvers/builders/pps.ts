@@ -1,5 +1,10 @@
 import {RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
-import {JobInfo, JobState, PipelineInfo} from '@pachyderm/proto/pb/pps/pps_pb';
+import {
+  JobInfo,
+  JobState,
+  PipelineInfo,
+  LogMessage,
+} from '@pachyderm/proto/pb/pps/pps_pb';
 import fromPairs from 'lodash/fromPairs';
 
 import {
@@ -124,5 +129,13 @@ export const jobInfosToGQLJobset = (jobInfos: JobInfo.AsObject[]) => {
     createdAt: jobs[jobs.length - 1].createdAt,
     state: getAggregateJobState(jobs),
     jobs,
+  };
+};
+
+export const logMessageToGQLLog = (logMessage: LogMessage.AsObject) => {
+  return {
+    message: logMessage.message,
+    timestamp: logMessage.ts,
+    user: logMessage.user,
   };
 };
