@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.3
+- Adds support to list files at a commit via S3 Gateway (#6293)
+- Fixes a bug that would crash pachd when writing a file larger than the requested memory (#6281)
+- Fixes a bug where pipelines could not be updated or deleted due to revoked auth tokens (#6276)
+- Fixes a bug that prevented the collection of metrics (#6266)
+- Fixes a bug that did not check for metrics (enable/disable) state in workers (#6225)
+
 ## 1.13.2
 
 - Fixes a bug that causes pipeline master to block after losing connection to etcd (#6042)
