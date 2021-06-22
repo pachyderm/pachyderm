@@ -9382,9 +9382,10 @@ proto.auth_v2.DeleteExpiredAuthTokensResponse.serializeBinaryToWriter = function
  * @enum {number}
  */
 proto.auth_v2.Permission = {
-  UNKNOWN: 0,
+  PERMISSION_UNKNOWN: 0,
   CLUSTER_MODIFY_BINDINGS: 100,
   CLUSTER_GET_BINDINGS: 101,
+  CLUSTER_GET_PACHD_LOGS: 148,
   CLUSTER_AUTH_ACTIVATE: 102,
   CLUSTER_AUTH_DEACTIVATE: 103,
   CLUSTER_AUTH_GET_CONFIG: 104,

@@ -784,108 +784,40 @@ export namespace GPUSpec {
     }
 }
 
-export class StoredJobInfo extends jspb.Message { 
-
-    hasJob(): boolean;
-    clearJob(): void;
-    getJob(): Job | undefined;
-    setJob(value?: Job): StoredJobInfo;
-    getPipelineVersion(): number;
-    setPipelineVersion(value: number): StoredJobInfo;
-
-    hasOutputCommit(): boolean;
-    clearOutputCommit(): void;
-    getOutputCommit(): pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: pfs_pfs_pb.Commit): StoredJobInfo;
-    getRestart(): number;
-    setRestart(value: number): StoredJobInfo;
-    getDataProcessed(): number;
-    setDataProcessed(value: number): StoredJobInfo;
-    getDataSkipped(): number;
-    setDataSkipped(value: number): StoredJobInfo;
-    getDataTotal(): number;
-    setDataTotal(value: number): StoredJobInfo;
-    getDataFailed(): number;
-    setDataFailed(value: number): StoredJobInfo;
-    getDataRecovered(): number;
-    setDataRecovered(value: number): StoredJobInfo;
-
-    hasStats(): boolean;
-    clearStats(): void;
-    getStats(): ProcessStats | undefined;
-    setStats(value?: ProcessStats): StoredJobInfo;
-    getState(): JobState;
-    setState(value: JobState): StoredJobInfo;
-    getReason(): string;
-    setReason(value: string): StoredJobInfo;
-
-    hasStarted(): boolean;
-    clearStarted(): void;
-    getStarted(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setStarted(value?: google_protobuf_timestamp_pb.Timestamp): StoredJobInfo;
-
-    hasFinished(): boolean;
-    clearFinished(): void;
-    getFinished(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setFinished(value?: google_protobuf_timestamp_pb.Timestamp): StoredJobInfo;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): StoredJobInfo.AsObject;
-    static toObject(includeInstance: boolean, msg: StoredJobInfo): StoredJobInfo.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: StoredJobInfo, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): StoredJobInfo;
-    static deserializeBinaryFromReader(message: StoredJobInfo, reader: jspb.BinaryReader): StoredJobInfo;
-}
-
-export namespace StoredJobInfo {
-    export type AsObject = {
-        job?: Job.AsObject,
-        pipelineVersion: number,
-        outputCommit?: pfs_pfs_pb.Commit.AsObject,
-        restart: number,
-        dataProcessed: number,
-        dataSkipped: number,
-        dataTotal: number,
-        dataFailed: number,
-        dataRecovered: number,
-        stats?: ProcessStats.AsObject,
-        state: JobState,
-        reason: string,
-        started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-        finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-    }
-}
-
 export class JobInfo extends jspb.Message { 
 
     hasJob(): boolean;
     clearJob(): void;
     getJob(): Job | undefined;
     setJob(value?: Job): JobInfo;
-
-    hasTransform(): boolean;
-    clearTransform(): void;
-    getTransform(): Transform | undefined;
-    setTransform(value?: Transform): JobInfo;
     getPipelineVersion(): number;
     setPipelineVersion(value: number): JobInfo;
 
-    hasParallelismSpec(): boolean;
-    clearParallelismSpec(): void;
-    getParallelismSpec(): ParallelismSpec | undefined;
-    setParallelismSpec(value?: ParallelismSpec): JobInfo;
+    hasOutputCommit(): boolean;
+    clearOutputCommit(): void;
+    getOutputCommit(): pfs_pfs_pb.Commit | undefined;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): JobInfo;
+    getRestart(): number;
+    setRestart(value: number): JobInfo;
+    getDataProcessed(): number;
+    setDataProcessed(value: number): JobInfo;
+    getDataSkipped(): number;
+    setDataSkipped(value: number): JobInfo;
+    getDataTotal(): number;
+    setDataTotal(value: number): JobInfo;
+    getDataFailed(): number;
+    setDataFailed(value: number): JobInfo;
+    getDataRecovered(): number;
+    setDataRecovered(value: number): JobInfo;
 
-    hasEgress(): boolean;
-    clearEgress(): void;
-    getEgress(): Egress | undefined;
-    setEgress(value?: Egress): JobInfo;
-
-    hasParentJob(): boolean;
-    clearParentJob(): void;
-    getParentJob(): Job | undefined;
-    setParentJob(value?: Job): JobInfo;
+    hasStats(): boolean;
+    clearStats(): void;
+    getStats(): ProcessStats | undefined;
+    setStats(value?: ProcessStats): JobInfo;
+    getState(): JobState;
+    setState(value: JobState): JobInfo;
+    getReason(): string;
+    setReason(value: string): JobInfo;
 
     hasStarted(): boolean;
     clearStarted(): void;
@@ -897,105 +829,10 @@ export class JobInfo extends jspb.Message {
     getFinished(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setFinished(value?: google_protobuf_timestamp_pb.Timestamp): JobInfo;
 
-    hasOutputCommit(): boolean;
-    clearOutputCommit(): void;
-    getOutputCommit(): pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: pfs_pfs_pb.Commit): JobInfo;
-    getState(): JobState;
-    setState(value: JobState): JobInfo;
-    getReason(): string;
-    setReason(value: string): JobInfo;
-
-    hasService(): boolean;
-    clearService(): void;
-    getService(): Service | undefined;
-    setService(value?: Service): JobInfo;
-
-    hasSpout(): boolean;
-    clearSpout(): void;
-    getSpout(): Spout | undefined;
-    setSpout(value?: Spout): JobInfo;
-
-    hasOutputRepo(): boolean;
-    clearOutputRepo(): void;
-    getOutputRepo(): pfs_pfs_pb.Repo | undefined;
-    setOutputRepo(value?: pfs_pfs_pb.Repo): JobInfo;
-    getOutputBranch(): string;
-    setOutputBranch(value: string): JobInfo;
-    getRestart(): number;
-    setRestart(value: number): JobInfo;
-    getDataProcessed(): number;
-    setDataProcessed(value: number): JobInfo;
-    getDataSkipped(): number;
-    setDataSkipped(value: number): JobInfo;
-    getDataFailed(): number;
-    setDataFailed(value: number): JobInfo;
-    getDataRecovered(): number;
-    setDataRecovered(value: number): JobInfo;
-    getDataTotal(): number;
-    setDataTotal(value: number): JobInfo;
-
-    hasStats(): boolean;
-    clearStats(): void;
-    getStats(): ProcessStats | undefined;
-    setStats(value?: ProcessStats): JobInfo;
-    clearWorkerStatusList(): void;
-    getWorkerStatusList(): Array<WorkerStatus>;
-    setWorkerStatusList(value: Array<WorkerStatus>): JobInfo;
-    addWorkerStatus(value?: WorkerStatus, index?: number): WorkerStatus;
-
-    hasResourceRequests(): boolean;
-    clearResourceRequests(): void;
-    getResourceRequests(): ResourceSpec | undefined;
-    setResourceRequests(value?: ResourceSpec): JobInfo;
-
-    hasResourceLimits(): boolean;
-    clearResourceLimits(): void;
-    getResourceLimits(): ResourceSpec | undefined;
-    setResourceLimits(value?: ResourceSpec): JobInfo;
-
-    hasSidecarResourceLimits(): boolean;
-    clearSidecarResourceLimits(): void;
-    getSidecarResourceLimits(): ResourceSpec | undefined;
-    setSidecarResourceLimits(value?: ResourceSpec): JobInfo;
-
-    hasInput(): boolean;
-    clearInput(): void;
-    getInput(): Input | undefined;
-    setInput(value?: Input): JobInfo;
-
-    hasNewBranch(): boolean;
-    clearNewBranch(): void;
-    getNewBranch(): pfs_pfs_pb.BranchInfo | undefined;
-    setNewBranch(value?: pfs_pfs_pb.BranchInfo): JobInfo;
-    getSalt(): string;
-    setSalt(value: string): JobInfo;
-
-    hasDatumSetSpec(): boolean;
-    clearDatumSetSpec(): void;
-    getDatumSetSpec(): DatumSetSpec | undefined;
-    setDatumSetSpec(value?: DatumSetSpec): JobInfo;
-
-    hasDatumTimeout(): boolean;
-    clearDatumTimeout(): void;
-    getDatumTimeout(): google_protobuf_duration_pb.Duration | undefined;
-    setDatumTimeout(value?: google_protobuf_duration_pb.Duration): JobInfo;
-
-    hasJobTimeout(): boolean;
-    clearJobTimeout(): void;
-    getJobTimeout(): google_protobuf_duration_pb.Duration | undefined;
-    setJobTimeout(value?: google_protobuf_duration_pb.Duration): JobInfo;
-    getDatumTries(): number;
-    setDatumTries(value: number): JobInfo;
-
-    hasSchedulingSpec(): boolean;
-    clearSchedulingSpec(): void;
-    getSchedulingSpec(): SchedulingSpec | undefined;
-    setSchedulingSpec(value?: SchedulingSpec): JobInfo;
-    getPodSpec(): string;
-    setPodSpec(value: string): JobInfo;
-    getPodPatch(): string;
-    setPodPatch(value: string): JobInfo;
+    hasDetails(): boolean;
+    clearDetails(): void;
+    getDetails(): JobInfo.Details | undefined;
+    setDetails(value?: JobInfo.Details): JobInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): JobInfo.AsObject;
@@ -1010,42 +847,135 @@ export class JobInfo extends jspb.Message {
 export namespace JobInfo {
     export type AsObject = {
         job?: Job.AsObject,
-        transform?: Transform.AsObject,
         pipelineVersion: number,
-        parallelismSpec?: ParallelismSpec.AsObject,
-        egress?: Egress.AsObject,
-        parentJob?: Job.AsObject,
-        started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-        finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         outputCommit?: pfs_pfs_pb.Commit.AsObject,
-        state: JobState,
-        reason: string,
-        service?: Service.AsObject,
-        spout?: Spout.AsObject,
-        outputRepo?: pfs_pfs_pb.Repo.AsObject,
-        outputBranch: string,
         restart: number,
         dataProcessed: number,
         dataSkipped: number,
+        dataTotal: number,
         dataFailed: number,
         dataRecovered: number,
-        dataTotal: number,
         stats?: ProcessStats.AsObject,
-        workerStatusList: Array<WorkerStatus.AsObject>,
-        resourceRequests?: ResourceSpec.AsObject,
-        resourceLimits?: ResourceSpec.AsObject,
-        sidecarResourceLimits?: ResourceSpec.AsObject,
-        input?: Input.AsObject,
-        newBranch?: pfs_pfs_pb.BranchInfo.AsObject,
-        salt: string,
-        datumSetSpec?: DatumSetSpec.AsObject,
-        datumTimeout?: google_protobuf_duration_pb.Duration.AsObject,
-        jobTimeout?: google_protobuf_duration_pb.Duration.AsObject,
-        datumTries: number,
-        schedulingSpec?: SchedulingSpec.AsObject,
-        podSpec: string,
-        podPatch: string,
+        state: JobState,
+        reason: string,
+        started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+        finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+        details?: JobInfo.Details.AsObject,
     }
+
+
+    export class Details extends jspb.Message { 
+
+        hasTransform(): boolean;
+        clearTransform(): void;
+        getTransform(): Transform | undefined;
+        setTransform(value?: Transform): Details;
+
+        hasParallelismSpec(): boolean;
+        clearParallelismSpec(): void;
+        getParallelismSpec(): ParallelismSpec | undefined;
+        setParallelismSpec(value?: ParallelismSpec): Details;
+
+        hasEgress(): boolean;
+        clearEgress(): void;
+        getEgress(): Egress | undefined;
+        setEgress(value?: Egress): Details;
+
+        hasService(): boolean;
+        clearService(): void;
+        getService(): Service | undefined;
+        setService(value?: Service): Details;
+
+        hasSpout(): boolean;
+        clearSpout(): void;
+        getSpout(): Spout | undefined;
+        setSpout(value?: Spout): Details;
+        clearWorkerStatusList(): void;
+        getWorkerStatusList(): Array<WorkerStatus>;
+        setWorkerStatusList(value: Array<WorkerStatus>): Details;
+        addWorkerStatus(value?: WorkerStatus, index?: number): WorkerStatus;
+
+        hasResourceRequests(): boolean;
+        clearResourceRequests(): void;
+        getResourceRequests(): ResourceSpec | undefined;
+        setResourceRequests(value?: ResourceSpec): Details;
+
+        hasResourceLimits(): boolean;
+        clearResourceLimits(): void;
+        getResourceLimits(): ResourceSpec | undefined;
+        setResourceLimits(value?: ResourceSpec): Details;
+
+        hasSidecarResourceLimits(): boolean;
+        clearSidecarResourceLimits(): void;
+        getSidecarResourceLimits(): ResourceSpec | undefined;
+        setSidecarResourceLimits(value?: ResourceSpec): Details;
+
+        hasInput(): boolean;
+        clearInput(): void;
+        getInput(): Input | undefined;
+        setInput(value?: Input): Details;
+        getSalt(): string;
+        setSalt(value: string): Details;
+
+        hasDatumSetSpec(): boolean;
+        clearDatumSetSpec(): void;
+        getDatumSetSpec(): DatumSetSpec | undefined;
+        setDatumSetSpec(value?: DatumSetSpec): Details;
+
+        hasDatumTimeout(): boolean;
+        clearDatumTimeout(): void;
+        getDatumTimeout(): google_protobuf_duration_pb.Duration | undefined;
+        setDatumTimeout(value?: google_protobuf_duration_pb.Duration): Details;
+
+        hasJobTimeout(): boolean;
+        clearJobTimeout(): void;
+        getJobTimeout(): google_protobuf_duration_pb.Duration | undefined;
+        setJobTimeout(value?: google_protobuf_duration_pb.Duration): Details;
+        getDatumTries(): number;
+        setDatumTries(value: number): Details;
+
+        hasSchedulingSpec(): boolean;
+        clearSchedulingSpec(): void;
+        getSchedulingSpec(): SchedulingSpec | undefined;
+        setSchedulingSpec(value?: SchedulingSpec): Details;
+        getPodSpec(): string;
+        setPodSpec(value: string): Details;
+        getPodPatch(): string;
+        setPodPatch(value: string): Details;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Details.AsObject;
+        static toObject(includeInstance: boolean, msg: Details): Details.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Details, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Details;
+        static deserializeBinaryFromReader(message: Details, reader: jspb.BinaryReader): Details;
+    }
+
+    export namespace Details {
+        export type AsObject = {
+            transform?: Transform.AsObject,
+            parallelismSpec?: ParallelismSpec.AsObject,
+            egress?: Egress.AsObject,
+            service?: Service.AsObject,
+            spout?: Spout.AsObject,
+            workerStatusList: Array<WorkerStatus.AsObject>,
+            resourceRequests?: ResourceSpec.AsObject,
+            resourceLimits?: ResourceSpec.AsObject,
+            sidecarResourceLimits?: ResourceSpec.AsObject,
+            input?: Input.AsObject,
+            salt: string,
+            datumSetSpec?: DatumSetSpec.AsObject,
+            datumTimeout?: google_protobuf_duration_pb.Duration.AsObject,
+            jobTimeout?: google_protobuf_duration_pb.Duration.AsObject,
+            datumTries: number,
+            schedulingSpec?: SchedulingSpec.AsObject,
+            podSpec: string,
+            podPatch: string,
+        }
+    }
+
 }
 
 export class Worker extends jspb.Message { 
@@ -1091,71 +1021,6 @@ export namespace Pipeline {
     }
 }
 
-export class StoredPipelineInfo extends jspb.Message { 
-
-    hasPipeline(): boolean;
-    clearPipeline(): void;
-    getPipeline(): Pipeline | undefined;
-    setPipeline(value?: Pipeline): StoredPipelineInfo;
-    getVersion(): number;
-    setVersion(value: number): StoredPipelineInfo;
-
-    hasSpecCommit(): boolean;
-    clearSpecCommit(): void;
-    getSpecCommit(): pfs_pfs_pb.Commit | undefined;
-    setSpecCommit(value?: pfs_pfs_pb.Commit): StoredPipelineInfo;
-    getStopped(): boolean;
-    setStopped(value: boolean): StoredPipelineInfo;
-    getState(): PipelineState;
-    setState(value: PipelineState): StoredPipelineInfo;
-    getReason(): string;
-    setReason(value: string): StoredPipelineInfo;
-
-    getJobCountsMap(): jspb.Map<number, number>;
-    clearJobCountsMap(): void;
-    getAuthToken(): string;
-    setAuthToken(value: string): StoredPipelineInfo;
-    getLastJobState(): JobState;
-    setLastJobState(value: JobState): StoredPipelineInfo;
-    getParallelism(): number;
-    setParallelism(value: number): StoredPipelineInfo;
-    getType(): StoredPipelineInfo.PipelineType;
-    setType(value: StoredPipelineInfo.PipelineType): StoredPipelineInfo;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): StoredPipelineInfo.AsObject;
-    static toObject(includeInstance: boolean, msg: StoredPipelineInfo): StoredPipelineInfo.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: StoredPipelineInfo, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): StoredPipelineInfo;
-    static deserializeBinaryFromReader(message: StoredPipelineInfo, reader: jspb.BinaryReader): StoredPipelineInfo;
-}
-
-export namespace StoredPipelineInfo {
-    export type AsObject = {
-        pipeline?: Pipeline.AsObject,
-        version: number,
-        specCommit?: pfs_pfs_pb.Commit.AsObject,
-        stopped: boolean,
-        state: PipelineState,
-        reason: string,
-
-        jobCountsMap: Array<[number, number]>,
-        authToken: string,
-        lastJobState: JobState,
-        parallelism: number,
-        type: StoredPipelineInfo.PipelineType,
-    }
-
-    export enum PipelineType {
-    PIPELINE_TYPE_TRANSFORM = 0,
-    PIPELINE_TYPE_SPOUT = 1,
-    PIPELINE_TYPE_SERVICE = 2,
-    }
-
-}
-
 export class PipelineInfo extends jspb.Message { 
 
     hasPipeline(): boolean;
@@ -1165,130 +1030,32 @@ export class PipelineInfo extends jspb.Message {
     getVersion(): number;
     setVersion(value: number): PipelineInfo;
 
-    hasTransform(): boolean;
-    clearTransform(): void;
-    getTransform(): Transform | undefined;
-    setTransform(value?: Transform): PipelineInfo;
-
-    hasTfJob(): boolean;
-    clearTfJob(): void;
-    getTfJob(): TFJob | undefined;
-    setTfJob(value?: TFJob): PipelineInfo;
-
-    hasParallelismSpec(): boolean;
-    clearParallelismSpec(): void;
-    getParallelismSpec(): ParallelismSpec | undefined;
-    setParallelismSpec(value?: ParallelismSpec): PipelineInfo;
-
-    hasEgress(): boolean;
-    clearEgress(): void;
-    getEgress(): Egress | undefined;
-    setEgress(value?: Egress): PipelineInfo;
-
-    hasCreatedAt(): boolean;
-    clearCreatedAt(): void;
-    getCreatedAt(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setCreatedAt(value?: google_protobuf_timestamp_pb.Timestamp): PipelineInfo;
-    getState(): PipelineState;
-    setState(value: PipelineState): PipelineInfo;
+    hasSpecCommit(): boolean;
+    clearSpecCommit(): void;
+    getSpecCommit(): pfs_pfs_pb.Commit | undefined;
+    setSpecCommit(value?: pfs_pfs_pb.Commit): PipelineInfo;
     getStopped(): boolean;
     setStopped(value: boolean): PipelineInfo;
-    getRecentError(): string;
-    setRecentError(value: string): PipelineInfo;
-    getWorkersRequested(): number;
-    setWorkersRequested(value: number): PipelineInfo;
-    getWorkersAvailable(): number;
-    setWorkersAvailable(value: number): PipelineInfo;
+    getState(): PipelineState;
+    setState(value: PipelineState): PipelineInfo;
+    getReason(): string;
+    setReason(value: string): PipelineInfo;
 
     getJobCountsMap(): jspb.Map<number, number>;
     clearJobCountsMap(): void;
     getLastJobState(): JobState;
     setLastJobState(value: JobState): PipelineInfo;
-    getOutputBranch(): string;
-    setOutputBranch(value: string): PipelineInfo;
+    getParallelism(): number;
+    setParallelism(value: number): PipelineInfo;
+    getType(): PipelineInfo.PipelineType;
+    setType(value: PipelineInfo.PipelineType): PipelineInfo;
+    getAuthToken(): string;
+    setAuthToken(value: string): PipelineInfo;
 
-    hasResourceRequests(): boolean;
-    clearResourceRequests(): void;
-    getResourceRequests(): ResourceSpec | undefined;
-    setResourceRequests(value?: ResourceSpec): PipelineInfo;
-
-    hasResourceLimits(): boolean;
-    clearResourceLimits(): void;
-    getResourceLimits(): ResourceSpec | undefined;
-    setResourceLimits(value?: ResourceSpec): PipelineInfo;
-
-    hasSidecarResourceLimits(): boolean;
-    clearSidecarResourceLimits(): void;
-    getSidecarResourceLimits(): ResourceSpec | undefined;
-    setSidecarResourceLimits(value?: ResourceSpec): PipelineInfo;
-
-    hasInput(): boolean;
-    clearInput(): void;
-    getInput(): Input | undefined;
-    setInput(value?: Input): PipelineInfo;
-    getDescription(): string;
-    setDescription(value: string): PipelineInfo;
-    getCacheSize(): string;
-    setCacheSize(value: string): PipelineInfo;
-    getSalt(): string;
-    setSalt(value: string): PipelineInfo;
-    getReason(): string;
-    setReason(value: string): PipelineInfo;
-    getMaxQueueSize(): number;
-    setMaxQueueSize(value: number): PipelineInfo;
-
-    hasService(): boolean;
-    clearService(): void;
-    getService(): Service | undefined;
-    setService(value?: Service): PipelineInfo;
-
-    hasSpout(): boolean;
-    clearSpout(): void;
-    getSpout(): Spout | undefined;
-    setSpout(value?: Spout): PipelineInfo;
-
-    hasDatumSetSpec(): boolean;
-    clearDatumSetSpec(): void;
-    getDatumSetSpec(): DatumSetSpec | undefined;
-    setDatumSetSpec(value?: DatumSetSpec): PipelineInfo;
-
-    hasDatumTimeout(): boolean;
-    clearDatumTimeout(): void;
-    getDatumTimeout(): google_protobuf_duration_pb.Duration | undefined;
-    setDatumTimeout(value?: google_protobuf_duration_pb.Duration): PipelineInfo;
-
-    hasJobTimeout(): boolean;
-    clearJobTimeout(): void;
-    getJobTimeout(): google_protobuf_duration_pb.Duration | undefined;
-    setJobTimeout(value?: google_protobuf_duration_pb.Duration): PipelineInfo;
-    getStandby(): boolean;
-    setStandby(value: boolean): PipelineInfo;
-    getDatumTries(): number;
-    setDatumTries(value: number): PipelineInfo;
-
-    hasSchedulingSpec(): boolean;
-    clearSchedulingSpec(): void;
-    getSchedulingSpec(): SchedulingSpec | undefined;
-    setSchedulingSpec(value?: SchedulingSpec): PipelineInfo;
-    getPodSpec(): string;
-    setPodSpec(value: string): PipelineInfo;
-    getPodPatch(): string;
-    setPodPatch(value: string): PipelineInfo;
-    getS3Out(): boolean;
-    setS3Out(value: boolean): PipelineInfo;
-
-    hasMetadata(): boolean;
-    clearMetadata(): void;
-    getMetadata(): Metadata | undefined;
-    setMetadata(value?: Metadata): PipelineInfo;
-    getReprocessSpec(): string;
-    setReprocessSpec(value: string): PipelineInfo;
-    getUnclaimedTasks(): number;
-    setUnclaimedTasks(value: number): PipelineInfo;
-    getWorkerRc(): string;
-    setWorkerRc(value: string): PipelineInfo;
-    getAutoscaling(): boolean;
-    setAutoscaling(value: boolean): PipelineInfo;
+    hasDetails(): boolean;
+    clearDetails(): void;
+    getDetails(): PipelineInfo.Details | undefined;
+    setDetails(value?: PipelineInfo.Details): PipelineInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): PipelineInfo.AsObject;
@@ -1304,46 +1071,195 @@ export namespace PipelineInfo {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
         version: number,
-        transform?: Transform.AsObject,
-        tfJob?: TFJob.AsObject,
-        parallelismSpec?: ParallelismSpec.AsObject,
-        egress?: Egress.AsObject,
-        createdAt?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-        state: PipelineState,
+        specCommit?: pfs_pfs_pb.Commit.AsObject,
         stopped: boolean,
-        recentError: string,
-        workersRequested: number,
-        workersAvailable: number,
+        state: PipelineState,
+        reason: string,
 
         jobCountsMap: Array<[number, number]>,
         lastJobState: JobState,
-        outputBranch: string,
-        resourceRequests?: ResourceSpec.AsObject,
-        resourceLimits?: ResourceSpec.AsObject,
-        sidecarResourceLimits?: ResourceSpec.AsObject,
-        input?: Input.AsObject,
-        description: string,
-        cacheSize: string,
-        salt: string,
-        reason: string,
-        maxQueueSize: number,
-        service?: Service.AsObject,
-        spout?: Spout.AsObject,
-        datumSetSpec?: DatumSetSpec.AsObject,
-        datumTimeout?: google_protobuf_duration_pb.Duration.AsObject,
-        jobTimeout?: google_protobuf_duration_pb.Duration.AsObject,
-        standby: boolean,
-        datumTries: number,
-        schedulingSpec?: SchedulingSpec.AsObject,
-        podSpec: string,
-        podPatch: string,
-        s3Out: boolean,
-        metadata?: Metadata.AsObject,
-        reprocessSpec: string,
-        unclaimedTasks: number,
-        workerRc: string,
-        autoscaling: boolean,
+        parallelism: number,
+        type: PipelineInfo.PipelineType,
+        authToken: string,
+        details?: PipelineInfo.Details.AsObject,
     }
+
+
+    export class Details extends jspb.Message { 
+
+        hasTransform(): boolean;
+        clearTransform(): void;
+        getTransform(): Transform | undefined;
+        setTransform(value?: Transform): Details;
+
+        hasTfJob(): boolean;
+        clearTfJob(): void;
+        getTfJob(): TFJob | undefined;
+        setTfJob(value?: TFJob): Details;
+
+        hasParallelismSpec(): boolean;
+        clearParallelismSpec(): void;
+        getParallelismSpec(): ParallelismSpec | undefined;
+        setParallelismSpec(value?: ParallelismSpec): Details;
+
+        hasEgress(): boolean;
+        clearEgress(): void;
+        getEgress(): Egress | undefined;
+        setEgress(value?: Egress): Details;
+
+        hasCreatedAt(): boolean;
+        clearCreatedAt(): void;
+        getCreatedAt(): google_protobuf_timestamp_pb.Timestamp | undefined;
+        setCreatedAt(value?: google_protobuf_timestamp_pb.Timestamp): Details;
+        getRecentError(): string;
+        setRecentError(value: string): Details;
+        getWorkersRequested(): number;
+        setWorkersRequested(value: number): Details;
+        getWorkersAvailable(): number;
+        setWorkersAvailable(value: number): Details;
+        getOutputBranch(): string;
+        setOutputBranch(value: string): Details;
+
+        hasResourceRequests(): boolean;
+        clearResourceRequests(): void;
+        getResourceRequests(): ResourceSpec | undefined;
+        setResourceRequests(value?: ResourceSpec): Details;
+
+        hasResourceLimits(): boolean;
+        clearResourceLimits(): void;
+        getResourceLimits(): ResourceSpec | undefined;
+        setResourceLimits(value?: ResourceSpec): Details;
+
+        hasSidecarResourceLimits(): boolean;
+        clearSidecarResourceLimits(): void;
+        getSidecarResourceLimits(): ResourceSpec | undefined;
+        setSidecarResourceLimits(value?: ResourceSpec): Details;
+
+        hasInput(): boolean;
+        clearInput(): void;
+        getInput(): Input | undefined;
+        setInput(value?: Input): Details;
+        getDescription(): string;
+        setDescription(value: string): Details;
+        getCacheSize(): string;
+        setCacheSize(value: string): Details;
+        getSalt(): string;
+        setSalt(value: string): Details;
+        getReason(): string;
+        setReason(value: string): Details;
+        getMaxQueueSize(): number;
+        setMaxQueueSize(value: number): Details;
+
+        hasService(): boolean;
+        clearService(): void;
+        getService(): Service | undefined;
+        setService(value?: Service): Details;
+
+        hasSpout(): boolean;
+        clearSpout(): void;
+        getSpout(): Spout | undefined;
+        setSpout(value?: Spout): Details;
+
+        hasDatumSetSpec(): boolean;
+        clearDatumSetSpec(): void;
+        getDatumSetSpec(): DatumSetSpec | undefined;
+        setDatumSetSpec(value?: DatumSetSpec): Details;
+
+        hasDatumTimeout(): boolean;
+        clearDatumTimeout(): void;
+        getDatumTimeout(): google_protobuf_duration_pb.Duration | undefined;
+        setDatumTimeout(value?: google_protobuf_duration_pb.Duration): Details;
+
+        hasJobTimeout(): boolean;
+        clearJobTimeout(): void;
+        getJobTimeout(): google_protobuf_duration_pb.Duration | undefined;
+        setJobTimeout(value?: google_protobuf_duration_pb.Duration): Details;
+        getStandby(): boolean;
+        setStandby(value: boolean): Details;
+        getDatumTries(): number;
+        setDatumTries(value: number): Details;
+
+        hasSchedulingSpec(): boolean;
+        clearSchedulingSpec(): void;
+        getSchedulingSpec(): SchedulingSpec | undefined;
+        setSchedulingSpec(value?: SchedulingSpec): Details;
+        getPodSpec(): string;
+        setPodSpec(value: string): Details;
+        getPodPatch(): string;
+        setPodPatch(value: string): Details;
+        getS3Out(): boolean;
+        setS3Out(value: boolean): Details;
+
+        hasMetadata(): boolean;
+        clearMetadata(): void;
+        getMetadata(): Metadata | undefined;
+        setMetadata(value?: Metadata): Details;
+        getReprocessSpec(): string;
+        setReprocessSpec(value: string): Details;
+        getUnclaimedTasks(): number;
+        setUnclaimedTasks(value: number): Details;
+        getWorkerRc(): string;
+        setWorkerRc(value: string): Details;
+        getAutoscaling(): boolean;
+        setAutoscaling(value: boolean): Details;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Details.AsObject;
+        static toObject(includeInstance: boolean, msg: Details): Details.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Details, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Details;
+        static deserializeBinaryFromReader(message: Details, reader: jspb.BinaryReader): Details;
+    }
+
+    export namespace Details {
+        export type AsObject = {
+            transform?: Transform.AsObject,
+            tfJob?: TFJob.AsObject,
+            parallelismSpec?: ParallelismSpec.AsObject,
+            egress?: Egress.AsObject,
+            createdAt?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+            recentError: string,
+            workersRequested: number,
+            workersAvailable: number,
+            outputBranch: string,
+            resourceRequests?: ResourceSpec.AsObject,
+            resourceLimits?: ResourceSpec.AsObject,
+            sidecarResourceLimits?: ResourceSpec.AsObject,
+            input?: Input.AsObject,
+            description: string,
+            cacheSize: string,
+            salt: string,
+            reason: string,
+            maxQueueSize: number,
+            service?: Service.AsObject,
+            spout?: Spout.AsObject,
+            datumSetSpec?: DatumSetSpec.AsObject,
+            datumTimeout?: google_protobuf_duration_pb.Duration.AsObject,
+            jobTimeout?: google_protobuf_duration_pb.Duration.AsObject,
+            standby: boolean,
+            datumTries: number,
+            schedulingSpec?: SchedulingSpec.AsObject,
+            podSpec: string,
+            podPatch: string,
+            s3Out: boolean,
+            metadata?: Metadata.AsObject,
+            reprocessSpec: string,
+            unclaimedTasks: number,
+            workerRc: string,
+            autoscaling: boolean,
+        }
+    }
+
+
+    export enum PipelineType {
+    PIPELINT_TYPE_UNKNOWN = 0,
+    PIPELINE_TYPE_TRANSFORM = 1,
+    PIPELINE_TYPE_SPOUT = 2,
+    PIPELINE_TYPE_SERVICE = 3,
+    }
+
 }
 
 export class PipelineInfos extends jspb.Message { 
@@ -1368,49 +1284,52 @@ export namespace PipelineInfos {
     }
 }
 
-export class Jobset extends jspb.Message { 
+export class JobSet extends jspb.Message { 
     getId(): string;
-    setId(value: string): Jobset;
+    setId(value: string): JobSet;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): Jobset.AsObject;
-    static toObject(includeInstance: boolean, msg: Jobset): Jobset.AsObject;
+    toObject(includeInstance?: boolean): JobSet.AsObject;
+    static toObject(includeInstance: boolean, msg: JobSet): JobSet.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: Jobset, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): Jobset;
-    static deserializeBinaryFromReader(message: Jobset, reader: jspb.BinaryReader): Jobset;
+    static serializeBinaryToWriter(message: JobSet, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): JobSet;
+    static deserializeBinaryFromReader(message: JobSet, reader: jspb.BinaryReader): JobSet;
 }
 
-export namespace Jobset {
+export namespace JobSet {
     export type AsObject = {
         id: string,
     }
 }
 
-export class InspectJobsetRequest extends jspb.Message { 
+export class InspectJobSetRequest extends jspb.Message { 
 
-    hasJobset(): boolean;
-    clearJobset(): void;
-    getJobset(): Jobset | undefined;
-    setJobset(value?: Jobset): InspectJobsetRequest;
+    hasJobSet(): boolean;
+    clearJobSet(): void;
+    getJobSet(): JobSet | undefined;
+    setJobSet(value?: JobSet): InspectJobSetRequest;
     getWait(): boolean;
-    setWait(value: boolean): InspectJobsetRequest;
+    setWait(value: boolean): InspectJobSetRequest;
+    getDetails(): boolean;
+    setDetails(value: boolean): InspectJobSetRequest;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): InspectJobsetRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: InspectJobsetRequest): InspectJobsetRequest.AsObject;
+    toObject(includeInstance?: boolean): InspectJobSetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: InspectJobSetRequest): InspectJobSetRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: InspectJobsetRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): InspectJobsetRequest;
-    static deserializeBinaryFromReader(message: InspectJobsetRequest, reader: jspb.BinaryReader): InspectJobsetRequest;
+    static serializeBinaryToWriter(message: InspectJobSetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InspectJobSetRequest;
+    static deserializeBinaryFromReader(message: InspectJobSetRequest, reader: jspb.BinaryReader): InspectJobSetRequest;
 }
 
-export namespace InspectJobsetRequest {
+export namespace InspectJobSetRequest {
     export type AsObject = {
-        jobset?: Jobset.AsObject,
+        jobSet?: JobSet.AsObject,
         wait: boolean,
+        details: boolean,
     }
 }
 
@@ -1422,8 +1341,8 @@ export class InspectJobRequest extends jspb.Message {
     setJob(value?: Job): InspectJobRequest;
     getWait(): boolean;
     setWait(value: boolean): InspectJobRequest;
-    getFull(): boolean;
-    setFull(value: boolean): InspectJobRequest;
+    getDetails(): boolean;
+    setDetails(value: boolean): InspectJobRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InspectJobRequest.AsObject;
@@ -1439,7 +1358,7 @@ export namespace InspectJobRequest {
     export type AsObject = {
         job?: Job.AsObject,
         wait: boolean,
-        full: boolean,
+        details: boolean,
     }
 }
 
@@ -1455,8 +1374,8 @@ export class ListJobRequest extends jspb.Message {
     addInputCommit(value?: pfs_pfs_pb.Commit, index?: number): pfs_pfs_pb.Commit;
     getHistory(): number;
     setHistory(value: number): ListJobRequest;
-    getFull(): boolean;
-    setFull(value: boolean): ListJobRequest;
+    getDetails(): boolean;
+    setDetails(value: boolean): ListJobRequest;
     getJqfilter(): string;
     setJqfilter(value: string): ListJobRequest;
 
@@ -1475,7 +1394,7 @@ export namespace ListJobRequest {
         pipeline?: Pipeline.AsObject,
         inputCommitList: Array<pfs_pfs_pb.Commit.AsObject>,
         history: number,
-        full: boolean,
+        details: boolean,
         jqfilter: string,
     }
 }
@@ -1486,8 +1405,8 @@ export class SubscribeJobRequest extends jspb.Message {
     clearPipeline(): void;
     getPipeline(): Pipeline | undefined;
     setPipeline(value?: Pipeline): SubscribeJobRequest;
-    getFull(): boolean;
-    setFull(value: boolean): SubscribeJobRequest;
+    getDetails(): boolean;
+    setDetails(value: boolean): SubscribeJobRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SubscribeJobRequest.AsObject;
@@ -1502,7 +1421,7 @@ export class SubscribeJobRequest extends jspb.Message {
 export namespace SubscribeJobRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
-        full: boolean,
+        details: boolean,
     }
 }
 
@@ -2013,6 +1932,8 @@ export class InspectPipelineRequest extends jspb.Message {
     clearPipeline(): void;
     getPipeline(): Pipeline | undefined;
     setPipeline(value?: Pipeline): InspectPipelineRequest;
+    getDetails(): boolean;
+    setDetails(value: boolean): InspectPipelineRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InspectPipelineRequest.AsObject;
@@ -2027,6 +1948,7 @@ export class InspectPipelineRequest extends jspb.Message {
 export namespace InspectPipelineRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
+        details: boolean,
     }
 }
 
@@ -2038,8 +1960,8 @@ export class ListPipelineRequest extends jspb.Message {
     setPipeline(value?: Pipeline): ListPipelineRequest;
     getHistory(): number;
     setHistory(value: number): ListPipelineRequest;
-    getAllowIncomplete(): boolean;
-    setAllowIncomplete(value: boolean): ListPipelineRequest;
+    getDetails(): boolean;
+    setDetails(value: boolean): ListPipelineRequest;
     getJqfilter(): string;
     setJqfilter(value: string): ListPipelineRequest;
 
@@ -2057,7 +1979,7 @@ export namespace ListPipelineRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
         history: number,
-        allowIncomplete: boolean,
+        details: boolean,
         jqfilter: string,
     }
 }
@@ -2371,35 +2293,40 @@ export namespace ActivateAuthResponse {
 }
 
 export enum JobState {
-    JOB_CREATED = 0,
-    JOB_STARTING = 1,
-    JOB_RUNNING = 2,
-    JOB_FAILURE = 3,
-    JOB_SUCCESS = 4,
-    JOB_KILLED = 5,
-    JOB_EGRESSING = 6,
+    JOB_STATE_UNKNOWN = 0,
+    JOB_CREATED = 1,
+    JOB_STARTING = 2,
+    JOB_RUNNING = 3,
+    JOB_FAILURE = 4,
+    JOB_SUCCESS = 5,
+    JOB_KILLED = 6,
+    JOB_EGRESSING = 7,
 }
 
 export enum DatumState {
-    FAILED = 0,
-    SUCCESS = 1,
-    SKIPPED = 2,
-    STARTING = 3,
-    RECOVERED = 4,
+    DATUM_STATE_UNKNOWN = 0,
+    FAILED = 1,
+    SUCCESS = 2,
+    SKIPPED = 3,
+    STARTING = 4,
+    RECOVERED = 5,
+    UNPROCESSED = 6,
 }
 
 export enum WorkerState {
-    POD_RUNNING = 0,
-    POD_SUCCESS = 1,
-    POD_FAILED = 2,
+    WORKER_STATE_UNKNOWN = 0,
+    POD_RUNNING = 1,
+    POD_SUCCESS = 2,
+    POD_FAILED = 3,
 }
 
 export enum PipelineState {
-    PIPELINE_STARTING = 0,
-    PIPELINE_RUNNING = 1,
-    PIPELINE_RESTARTING = 2,
-    PIPELINE_FAILURE = 3,
-    PIPELINE_PAUSED = 4,
-    PIPELINE_STANDBY = 5,
-    PIPELINE_CRASHING = 6,
+    PIPELINE_STATE_UNKNOWN = 0,
+    PIPELINE_STARTING = 1,
+    PIPELINE_RUNNING = 2,
+    PIPELINE_RESTARTING = 3,
+    PIPELINE_FAILURE = 4,
+    PIPELINE_PAUSED = 5,
+    PIPELINE_STANDBY = 6,
+    PIPELINE_CRASHING = 7,
 }

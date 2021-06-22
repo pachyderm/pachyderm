@@ -344,12 +344,15 @@ export class CommitInfo extends jspb.Message {
     clearFinished(): void;
     getFinished(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setFinished(value?: google_protobuf_timestamp_pb.Timestamp): CommitInfo;
-    getSizeBytes(): number;
-    setSizeBytes(value: number): CommitInfo;
     clearDirectProvenanceList(): void;
     getDirectProvenanceList(): Array<Branch>;
     setDirectProvenanceList(value: Array<Branch>): CommitInfo;
     addDirectProvenance(value?: Branch, index?: number): Branch;
+
+    hasDetails(): boolean;
+    clearDetails(): void;
+    getDetails(): CommitInfo.Details | undefined;
+    setDetails(value?: CommitInfo.Details): CommitInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CommitInfo.AsObject;
@@ -370,9 +373,31 @@ export namespace CommitInfo {
         childCommitsList: Array<Commit.AsObject>,
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-        sizeBytes: number,
         directProvenanceList: Array<Branch.AsObject>,
+        details?: CommitInfo.Details.AsObject,
     }
+
+
+    export class Details extends jspb.Message { 
+        getSizeBytes(): number;
+        setSizeBytes(value: number): Details;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Details.AsObject;
+        static toObject(includeInstance: boolean, msg: Details): Details.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Details, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Details;
+        static deserializeBinaryFromReader(message: Details, reader: jspb.BinaryReader): Details;
+    }
+
+    export namespace Details {
+        export type AsObject = {
+            sizeBytes: number,
+        }
+    }
+
 }
 
 export class CommitSet extends jspb.Message { 
@@ -403,17 +428,16 @@ export class FileInfo extends jspb.Message {
     setFile(value?: File): FileInfo;
     getFileType(): FileType;
     setFileType(value: FileType): FileInfo;
-    getSizeBytes(): number;
-    setSizeBytes(value: number): FileInfo;
 
     hasCommitted(): boolean;
     clearCommitted(): void;
     getCommitted(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setCommitted(value?: google_protobuf_timestamp_pb.Timestamp): FileInfo;
-    getHash(): Uint8Array | string;
-    getHash_asU8(): Uint8Array;
-    getHash_asB64(): string;
-    setHash(value: Uint8Array | string): FileInfo;
+
+    hasDetails(): boolean;
+    clearDetails(): void;
+    getDetails(): FileInfo.Details | undefined;
+    setDetails(value?: FileInfo.Details): FileInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): FileInfo.AsObject;
@@ -429,10 +453,36 @@ export namespace FileInfo {
     export type AsObject = {
         file?: File.AsObject,
         fileType: FileType,
-        sizeBytes: number,
         committed?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-        hash: Uint8Array | string,
+        details?: FileInfo.Details.AsObject,
     }
+
+
+    export class Details extends jspb.Message { 
+        getSizeBytes(): number;
+        setSizeBytes(value: number): Details;
+        getHash(): Uint8Array | string;
+        getHash_asU8(): Uint8Array;
+        getHash_asB64(): string;
+        setHash(value: Uint8Array | string): Details;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Details.AsObject;
+        static toObject(includeInstance: boolean, msg: Details): Details.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Details, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Details;
+        static deserializeBinaryFromReader(message: Details, reader: jspb.BinaryReader): Details;
+    }
+
+    export namespace Details {
+        export type AsObject = {
+            sizeBytes: number,
+            hash: Uint8Array | string,
+        }
+    }
+
 }
 
 export class CreateRepoRequest extends jspb.Message { 
@@ -1142,8 +1192,8 @@ export class ListFileRequest extends jspb.Message {
     clearFile(): void;
     getFile(): File | undefined;
     setFile(value?: File): ListFileRequest;
-    getFull(): boolean;
-    setFull(value: boolean): ListFileRequest;
+    getDetails(): boolean;
+    setDetails(value: boolean): ListFileRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListFileRequest.AsObject;
@@ -1158,7 +1208,7 @@ export class ListFileRequest extends jspb.Message {
 export namespace ListFileRequest {
     export type AsObject = {
         file?: File.AsObject,
-        full: boolean,
+        details: boolean,
     }
 }
 
@@ -1496,10 +1546,11 @@ export namespace RunLoadTestResponse {
 }
 
 export enum OriginKind {
-    USER = 0,
-    AUTO = 1,
-    FSCK = 2,
-    ALIAS = 3,
+    ORIGIN_KIND_UNKNOWN = 0,
+    USER = 1,
+    AUTO = 2,
+    FSCK = 3,
+    ALIAS = 4,
 }
 
 export enum FileType {
@@ -1509,9 +1560,10 @@ export enum FileType {
 }
 
 export enum CommitState {
-    STARTED = 0,
-    READY = 1,
-    FINISHED = 2,
+    COMMIT_STATE_UNKNOWN = 0,
+    STARTED = 1,
+    READY = 2,
+    FINISHED = 3,
 }
 
 export enum Delimiter {

@@ -141,15 +141,15 @@ function deserialize_pps_v2_InspectJobRequest(buffer_arg) {
   return pps_pps_pb.InspectJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_v2_InspectJobsetRequest(arg) {
-  if (!(arg instanceof pps_pps_pb.InspectJobsetRequest)) {
-    throw new Error('Expected argument of type pps_v2.InspectJobsetRequest');
+function serialize_pps_v2_InspectJobSetRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.InspectJobSetRequest)) {
+    throw new Error('Expected argument of type pps_v2.InspectJobSetRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_pps_v2_InspectJobsetRequest(buffer_arg) {
-  return pps_pps_pb.InspectJobsetRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_pps_v2_InspectJobSetRequest(buffer_arg) {
+  return pps_pps_pb.InspectJobSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_v2_InspectPipelineRequest(arg) {
@@ -374,14 +374,14 @@ var APIService = exports.APIService = {
     responseSerialize: serialize_pps_v2_JobInfo,
     responseDeserialize: deserialize_pps_v2_JobInfo,
   },
-  inspectJobset: {
-    path: '/pps_v2.API/InspectJobset',
+  inspectJobSet: {
+    path: '/pps_v2.API/InspectJobSet',
     requestStream: false,
     responseStream: true,
-    requestType: pps_pps_pb.InspectJobsetRequest,
+    requestType: pps_pps_pb.InspectJobSetRequest,
     responseType: pps_pps_pb.JobInfo,
-    requestSerialize: serialize_pps_v2_InspectJobsetRequest,
-    requestDeserialize: deserialize_pps_v2_InspectJobsetRequest,
+    requestSerialize: serialize_pps_v2_InspectJobSetRequest,
+    requestDeserialize: deserialize_pps_v2_InspectJobSetRequest,
     responseSerialize: serialize_pps_v2_JobInfo,
     responseDeserialize: deserialize_pps_v2_JobInfo,
   },
