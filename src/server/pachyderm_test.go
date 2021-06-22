@@ -40,6 +40,7 @@ import (
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	globlib "github.com/pachyderm/ohmyglob"
 	"golang.org/x/sync/errgroup"
@@ -105,14 +106,16 @@ func TestSimplePipeline(t *testing.T) {
 	for _, info := range commitInfos {
 		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
 	}
-	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
-	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
-	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
-	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+	require.ElementsEqual(t, commitRepos[:2], []*pfs.Repo{client.NewRepo(dataRepo), client.NewSystemRepo(pipeline, pfs.SpecRepoType)})
+	require.ElementsEqual(t, commitRepos[:2], []*pfs.Repo{client.NewRepo(pipeline), client.NewSystemRepo(pipeline, pfs.MetaRepoType)})
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[2].Commit, "file", &buf))
-	require.Equal(t, "foo", buf.String())
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	}
 }
 
 func TestRepoSize(t *testing.T) {
