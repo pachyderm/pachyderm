@@ -602,6 +602,14 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 			Name:  "POSTGRES_PASSWORD",
 			Value: "",
 		},
+		{
+			Name:  "POSTGRES_HOST",
+			Value: "postgres", // refers to "postgres" service, may be overriden for an external postgres deployment
+		},
+		{
+			Name:  "POSTGRES_PORT",
+			Value: "5432",
+		},
 	}
 	envVars = append(envVars, getStorageEnvVars(opts)...)
 

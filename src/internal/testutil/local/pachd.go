@@ -56,7 +56,7 @@ func RunLocal() (retErr error) {
 	config := &serviceenv.PachdFullConfiguration{}
 	cmdutil.Populate(config)
 
-	config.PostgresServiceSSL = "disable"
+	config.PostgresSSL = "disable"
 
 	f, err := os.OpenFile("/tmp/pach/pachd-log", os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
