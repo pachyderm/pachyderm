@@ -98,12 +98,17 @@ func TestSimplePipeline(t *testing.T) {
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 	// The commitset should have a commit in: data, spec, pipeline, meta
+	// the last two are dependent upon the first two, so should come later
+	// in topological ordering
 	require.Equal(t, 4, len(commitInfos))
-	// First two are not deterministically ordered
-	require.Equal(t, pipeline, commitInfos[2].Commit.Branch.Repo.Name)
-	require.Equal(t, pfs.UserRepoType, commitInfos[2].Commit.Branch.Repo.Type)
-	require.Equal(t, pipeline, commitInfos[3].Commit.Branch.Repo.Name)
-	require.Equal(t, pfs.MetaRepoType, commitInfos[3].Commit.Branch.Repo.Type)
+	var commitRepos []*pfs.Repo
+	for _, info := range commitInfos {
+		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+	}
+	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
 
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfos[2].Commit, "file", &buf))
