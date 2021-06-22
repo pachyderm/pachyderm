@@ -838,6 +838,7 @@ from commits with 'get file'.`,
 	var appendFile bool
 	var compress bool
 	var enableProgress bool
+	var fullPath bool
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
@@ -952,7 +953,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if source == "-" {
 							return errors.Errorf("must specify filename when reading data from stdin")
 						}
-						if err := putFileHelper(mf, joinPaths("", source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					} else if len(sources) == 1 {
@@ -964,7 +969,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 					} else {
 						// We have multiple sources and the user has specified a path,
 						// we use that path as a prefix for the filepaths.
-						if err := putFileHelper(mf, joinPaths(file.Path, source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					}
@@ -980,6 +989,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
+	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
