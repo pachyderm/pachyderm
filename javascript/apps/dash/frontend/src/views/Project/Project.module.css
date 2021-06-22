@@ -35,24 +35,18 @@
   margin-left: 1rem;
 }
 
-.controlButton.UP, .controlButton.DOWN, .controlButton.RIGHT, .controlButton.LEFT {
-  margin-top: -0.5rem;
-}
+.controlButton.DOWN, .controlButton.RIGHT {
+  margin-top: -0.4rem;
 
-.controlButton.UP {
-  transform: scaleX(-1) rotate(0deg);
-}
-
-.controlButton.RIGHT {
-  transform: scaleX(-1) rotate(270deg);
 }
 
 .controlButton.DOWN {
-  transform: scaleX(-1) rotate(180deg);
+  transform: scaleX(1) rotate(-90deg);
+  margin-left: 0.9rem;
 }
 
-.controlButton.LEFT {
-  transform: scaleX(-1) rotate(90deg);
+.controlButton.RIGHT {
+  transform: scaleX(-1) rotate(-90deg);
 }
 
 .svgControl {

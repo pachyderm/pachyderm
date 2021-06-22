@@ -39,8 +39,7 @@ const useDag = ({
 
   // left align dag or vertically align dag
   useEffect(() => {
-    const horizontal =
-      dagDirection === DagDirection.LEFT || dagDirection === DagDirection.RIGHT;
+    const horizontal = dagDirection === DagDirection.RIGHT;
     const yExtent = extent(data.nodes, (d) => d.y);
     const xExtent = extent(data.nodes, (d) => d.x);
     const minY = yExtent[0] || 0;

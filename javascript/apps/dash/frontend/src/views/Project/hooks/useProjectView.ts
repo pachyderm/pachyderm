@@ -87,21 +87,11 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
 
   const rotateDag = useCallback(() => {
     // Reset interaction on rotations, in the future we might want to look into
-    // adjusting the current translation on roatation.
+    // adjusting the current translation on rotation.
     dispatch({type: 'ROTATE'});
 
     switch (dagDirection) {
       case DagDirection.DOWN:
-        setUrlFromViewState({
-          dagDirection: DagDirection.LEFT,
-        });
-        break;
-      case DagDirection.LEFT:
-        setUrlFromViewState({
-          dagDirection: DagDirection.UP,
-        });
-        break;
-      case DagDirection.UP:
         setUrlFromViewState({
           dagDirection: DagDirection.RIGHT,
         });
@@ -172,9 +162,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const centerDag = useCallback(() => {
     if (zoomRef.current) {
       const svg = select<SVGSVGElement, unknown>('#Svg');
-      const horizontal =
-        dagDirection === DagDirection.RIGHT ||
-        dagDirection === DagDirection.LEFT;
+      const horizontal = dagDirection === DagDirection.RIGHT;
       const {xMin, xMax, yMin, yMax} = graphExtents;
 
       const yTranslate = horizontal

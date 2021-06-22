@@ -241,8 +241,7 @@ const normalizeDAGData = async (
     height: nodeHeight,
   }));
 
-  const horizontal =
-    direction === DagDirection.RIGHT || direction === DagDirection.LEFT;
+  const horizontal = direction === DagDirection.RIGHT;
 
   await elk.layout(
     {id: 'root', children: elkChildren, edges: elkEdges},

@@ -70,9 +70,7 @@ export type Dag = {
 };
 
 export enum DagDirection {
-  UP = 'UP',
   DOWN = 'DOWN',
-  LEFT = 'LEFT',
   RIGHT = 'RIGHT',
 }
 
