@@ -32,6 +32,7 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/itchyny/gojq"
 	"github.com/sirupsen/logrus"
@@ -673,6 +674,80 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
 	inspectPipeline.Flags().AddFlagSet(fullTimestampsFlags)
 	commands = append(commands, cmdutil.CreateAlias(inspectPipeline, "inspect pipeline"))
+
+	var editor string
+	var editorArgs []string
+	editPipeline := &cobra.Command{
+		Use:   "{{alias}} <pipeline>",
+		Short: "Edit the manifest for a pipeline in your text editor.",
+		Long:  "Edit the manifest for a pipeline in your text editor.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+		
+			pipelineInfo, err := client.InspectPipeline(args[0])
+			if err != nil {
+				return err
+			}
+
+			createPipelineRequest := ppsutil.PipelineReqFromInfo(pipelineInfo)
+			f, err := ioutil.TempFile("", args[0])
+			if err != nil {
+				return err
+			}
+			if err := encoder(output, f).EncodeProto(createPipelineRequest); err != nil {
+				return err
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			if editor == "" {
+				editor = os.Getenv("EDITOR")
+			}
+			if editor == "" {
+				editor = "vim"
+			}
+			editorArgs = strings.Split(editor, " ")
+			editorArgs = append(editorArgs, f.Name())
+			if err := cmdutil.RunIO(cmdutil.IO{
+				Stdin:  os.Stdin,
+				Stdout: os.Stdout,
+				Stderr: os.Stderr,
+			}, editorArgs...); err != nil {
+				return err
+			}
+			pipelineReader, err := ppsutil.NewPipelineManifestReader(f.Name())
+			if err != nil {
+				return err
+			}
+			request, err := pipelineReader.NextCreatePipelineRequest()
+			if err != nil {
+				return err
+			}
+			if proto.Equal(createPipelineRequest, request) {
+				fmt.Println("Pipeline unchanged, no update will be performed.")
+				return nil
+			}
+			request.Update = true
+			request.Reprocess = reprocess
+			return txncmds.WithActiveTransaction(client, func(txClient *pachdclient.APIClient) error {
+				_, err := txClient.PpsAPIClient.CreatePipeline(
+					txClient.Ctx(),
+					request,
+				)
+				return grpcutil.ScrubGRPC(err)
+			})
+		}),
+	}
+	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
+	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
+	editPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
+	commands = append(commands, cmdutil.CreateAlias(editPipeline, "edit pipeline"))
 
 	var spec bool
 	listPipeline := &cobra.Command{
