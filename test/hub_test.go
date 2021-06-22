@@ -4,6 +4,7 @@
 package helmtest
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
@@ -16,13 +17,13 @@ func TestHub(t *testing.T) {
 	var (
 		objects []interface{}
 		checks  = map[string]bool{
-			"ingress":         false,
-			"metricsEndpoint": false,
-			"dash limits":     false,
-			"etcd limits":     false,
-			"loki logging":    false,
-			"docker socket":   false,
-			//		"postgres password":      false,
+			"ingress":                false,
+			"metricsEndpoint":        false,
+			"dash limits":            false,
+			"etcd limits":            false,
+			"loki logging":           false,
+			"docker socket":          false,
+			"postgres host":          false,
 			"pachd service type":     false,
 			"etcd prometheus port":   false,
 			"etcd prometheus scrape": false,
@@ -30,6 +31,12 @@ func TestHub(t *testing.T) {
 		}
 		err error
 	)
+	render := helm.RenderTemplate(t,
+		&helm.Options{
+			ValuesFiles: []string{"../examples/hub-values.yaml"},
+		},
+		"../pachyderm/", "pachd", nil)
+	fmt.Println(render)
 
 	if objects, err = manifestToObjects(helm.RenderTemplate(t,
 		&helm.Options{
@@ -71,11 +78,11 @@ func TestHub(t *testing.T) {
 								t.Error("Docker socket should be exposed")
 							}
 							checks["docker socket"] = true
-							//case "POSTGRES_PASSWORD":
-							//	if v.Value != "Example-Password" {
-							//		t.Error("Postgres Password should be exposed")
-							//	}
-							//	checks["postgres password"] = true
+						case "POSTGRES_HOST":
+							if v.Value != "169.254.169.254" {
+								t.Error("Postgres Host should be set")
+							}
+							checks["postgres host"] = true
 						}
 					}
 				}
@@ -119,23 +126,25 @@ func TestHub(t *testing.T) {
 				}
 			}
 		case *appsV1.StatefulSet:
-			if object.Name != "etcd" {
-				continue
-			}
-			for _, pvc := range object.Spec.VolumeClaimTemplates {
-				if *pvc.Spec.StorageClassName != "ssd-storage-class" {
-					t.Errorf("storage class is %q, not ssd-storage-class", *pvc.Spec.StorageClassName)
+			switch object.Name {
+			case "etcd":
+				for _, pvc := range object.Spec.VolumeClaimTemplates {
+					if *pvc.Spec.StorageClassName != "ssd-storage-class" {
+						t.Errorf("storage class is %q, not ssd-storage-class", *pvc.Spec.StorageClassName)
+					}
+					checks["etcd storage class"] = true
 				}
-				checks["etcd storage class"] = true
-			}
-			for _, cc := range object.Spec.Template.Spec.Containers {
-				if cc.Name != "etcd" {
-					continue
+				for _, cc := range object.Spec.Template.Spec.Containers {
+					if cc.Name != "etcd" {
+						continue
+					}
+					if len(cc.Resources.Limits) > 0 {
+						t.Errorf("etcd should have no resource limits")
+					}
+					checks["etcd limits"] = true
 				}
-				if len(cc.Resources.Limits) > 0 {
-					t.Errorf("etcd should have no resource limits")
-				}
-				checks["etcd limits"] = true
+			case "postgres":
+				t.Errorf("there should be no postgres statefulset")
 			}
 		}
 	}

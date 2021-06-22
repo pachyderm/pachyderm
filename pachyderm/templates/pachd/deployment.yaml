@@ -39,11 +39,11 @@ spec:
         - /pachd
         env:
         {{- if .Values.postgresql.host }}
-        - name: POSTGRES_SERVICE_HOST
+        - name: POSTGRES_HOST
           value: {{ .Values.postgresql.host | quote}}
         {{- end }}
         {{- if .Values.postgresql.port }}
-        - name: POSTGRES_SERVICE_PORT
+        - name: POSTGRES_PORT
           value:  {{ .Values.postgresql.port | quote}}
         {{- end }}
         {{- if .Values.postgresql.user }}
