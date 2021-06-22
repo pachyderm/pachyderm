@@ -72,7 +72,6 @@ type PachdSpecificConfiguration struct {
 	WorkerImage                string `env:"WORKER_IMAGE,default="`
 	WorkerSidecarImage         string `env:"WORKER_SIDECAR_IMAGE,default="`
 	WorkerImagePullPolicy      string `env:"WORKER_IMAGE_PULL_POLICY,default="`
-	IAMRole                    string `env:"IAM_ROLE,default="`
 	ImagePullSecret            string `env:"IMAGE_PULL_SECRET,default="`
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`

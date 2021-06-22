@@ -414,7 +414,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 			txnEnv,
 			path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
 			env.Config().Namespace,
-			env.Config().IAMRole,
 			reporter,
 			env.Config().PPSWorkerPort,
 			env.Config().PeerPort,

@@ -99,7 +99,6 @@ type apiServer struct {
 	storageRoot           string
 	storageBackend        string
 	storageHostPath       string
-	iamRole               string
 	imagePullSecret       string
 	reporter              *metrics.Reporter
 	workerUsesRoot        bool
