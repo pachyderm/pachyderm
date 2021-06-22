@@ -705,8 +705,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-		
-			pipelineInfo, err := client.InspectPipeline(args[0])
+
+			pipelineInfo, err := client.InspectPipeline(args[0], true)
 			if err != nil {
 				return err
 			}
