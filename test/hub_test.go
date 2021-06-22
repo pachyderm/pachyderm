@@ -4,7 +4,6 @@
 package helmtest
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
@@ -31,12 +30,6 @@ func TestHub(t *testing.T) {
 		}
 		err error
 	)
-	render := helm.RenderTemplate(t,
-		&helm.Options{
-			ValuesFiles: []string{"../examples/hub-values.yaml"},
-		},
-		"../pachyderm/", "pachd", nil)
-	fmt.Println(render)
 
 	if objects, err = manifestToObjects(helm.RenderTemplate(t,
 		&helm.Options{
