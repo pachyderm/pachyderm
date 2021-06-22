@@ -56,11 +56,6 @@ func deduceActiveEnterpriseContext(cfg *config.Config) (string, error) {
 
 // Cmds returns a slice containing admin commands.
 func Cmds() []*cobra.Command {
-	marshaller := &jsonpb.Marshaler{
-		Indent:   "  ",
-		OrigName: true,
-	}
-
 	var commands []*cobra.Command
 
 	getMetrics := &cobra.Command{
@@ -197,7 +192,7 @@ func Cmds() []*cobra.Command {
 				return errors.Errorf("context does not exist: %s", args[0])
 			}
 
-			if err = marshaller.Marshal(os.Stdout, context); err != nil {
+			if err = cmdutil.Encoder("json").EncodeProto(context); err != nil {
 				return err
 			}
 

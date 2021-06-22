@@ -41,7 +41,6 @@ import (
 	"github.com/juju/ansiterm"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/grpclog"
@@ -319,9 +318,9 @@ func newClient(enterprise bool, options ...client.Option) (*client.APIClient, er
 func PachctlCmd() *cobra.Command {
 	var verbose bool
 
-	raw := false
-	rawFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	rawFlags.BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+	var raw bool
+	var output string
+	outputFlags := cmdutil.OutputFlags(&raw, &output)
 
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
@@ -439,9 +438,9 @@ Environment variables:
 
 			// print server version
 			if raw {
-				if err := marshaller.Marshal(os.Stdout, version); err != nil {
-					return err
-				}
+				return cmdutil.Encoder(output).EncodeProto(version)
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			} else {
 				printVersion(writer, "pachd", version)
 				if err := writer.Flush(); err != nil {
@@ -461,7 +460,7 @@ Environment variables:
 		"default timeout; if set to 0s, the call will never time out.")
 	versionCmd.Flags().BoolVar(&enterprise, "enterprise", false, "If set, "+
 		"'pachctl version' will run on the active enterprise context.")
-	versionCmd.Flags().AddFlagSet(rawFlags)
+	versionCmd.Flags().AddFlagSet(outputFlags)
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
 	exitCmd := &cobra.Command{
 		Short: "Exit the pachctl shell.",

@@ -14,12 +14,10 @@ import (
 	"strings"
 
 	prompt "github.com/c-bata/go-prompt"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -29,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -46,19 +45,15 @@ const (
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
-	raw := false
-	rawFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	rawFlags.BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+	var raw bool
+	var output string
+	outputFlags := cmdutil.OutputFlags(&raw, &output)
 
-	fullTimestamps := false
-	fullTimestampsFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	fullTimestampsFlags.BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
+	var fullTimestamps bool
+	timestampFlags := cmdutil.TimestampFlags(&fullTimestamps)
 
-	noPager := false
-	noPagerFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	noPagerFlags.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager (i.e. less).")
-
-	marshaller := &jsonpb.Marshaler{Indent: "  "}
+	var noPager bool
+	pagerFlags := cmdutil.PagerFlags(&noPager)
 
 	repoDocs := &cobra.Command{
 		Short: "Docs for repos.",
@@ -144,7 +139,9 @@ or type (e.g. csv, binary, images, etc).`,
 				return errors.Errorf("repo %s not found", args[0])
 			}
 			if raw {
-				return marshaller.Marshal(os.Stdout, repoInfo)
+				return cmdutil.Encoder(output).EncodeProto(repoInfo)
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
 			ri := &pretty.PrintableRepoInfo{
 				RepoInfo:       repoInfo,
@@ -153,8 +150,8 @@ or type (e.g. csv, binary, images, etc).`,
 			return pretty.PrintDetailedRepoInfo(ri)
 		}),
 	}
-	inspectRepo.Flags().AddFlagSet(rawFlags)
-	inspectRepo.Flags().AddFlagSet(fullTimestampsFlags)
+	inspectRepo.Flags().AddFlagSet(outputFlags)
+	inspectRepo.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectRepo, "inspect repo"))
 
@@ -181,12 +178,15 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			}
 			if raw {
+				encoder := cmdutil.Encoder(output)
 				for _, repoInfo := range repoInfos {
-					if err := marshaller.Marshal(os.Stdout, repoInfo); err != nil {
+					if err := encoder.EncodeProto(repoInfo); err != nil {
 						return err
 					}
 				}
 				return nil
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
 
 			header := pretty.RepoHeader
@@ -200,8 +200,8 @@ or type (e.g. csv, binary, images, etc).`,
 			return writer.Flush()
 		}),
 	}
-	listRepo.Flags().AddFlagSet(rawFlags)
-	listRepo.Flags().AddFlagSet(fullTimestampsFlags)
+	listRepo.Flags().AddFlagSet(outputFlags)
+	listRepo.Flags().AddFlagSet(timestampFlags)
 	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
 	listRepo.Flags().StringVar(&repoType, "type", "", "only include repos of the given type")
 	commands = append(commands, cmdutil.CreateAlias(listRepo, "list repo"))
@@ -386,7 +386,9 @@ $ {{alias}} test -p XXX`,
 				return errors.Errorf("commit %s not found", commit.ID)
 			}
 			if raw {
-				return marshaller.Marshal(os.Stdout, commitInfo)
+				return cmdutil.Encoder(output).EncodeProto(commitInfo)
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
 			ci := &pretty.PrintableCommitInfo{
 				CommitInfo:     commitInfo,
@@ -395,8 +397,8 @@ $ {{alias}} test -p XXX`,
 			return pretty.PrintDetailedCommitInfo(os.Stdout, ci)
 		}),
 	}
-	inspectCommit.Flags().AddFlagSet(rawFlags)
-	inspectCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	inspectCommit.Flags().AddFlagSet(outputFlags)
+	inspectCommit.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectCommit, "inspect commit"))
 
@@ -441,9 +443,12 @@ $ {{alias}} foo@master --from XXX`,
 			}
 
 			if raw {
+				encoder := cmdutil.Encoder(output)
 				return c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
-					return marshaller.Marshal(os.Stdout, ci)
+					return encoder.EncodeProto(ci)
 				})
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
 			if err := c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
@@ -458,8 +463,8 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
 	listCommit.Flags().IntVarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
-	listCommit.Flags().AddFlagSet(rawFlags)
-	listCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	listCommit.Flags().AddFlagSet(outputFlags)
+	listCommit.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
@@ -503,10 +508,17 @@ $ {{alias}} foo@XXX -b bar@baz`,
 			}
 			defer c.Close()
 
+			var encoder serde.Encoder
+			if raw {
+				encoder = cmdutil.Encoder(output)
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+			}
+
 			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
 			writeCommitInfo := func(ci *pfs.CommitInfo) error {
 				if raw {
-					return marshaller.Marshal(os.Stdout, ci)
+					return encoder.EncodeProto(ci)
 				}
 				pretty.PrintCommitInfo(w, ci, fullTimestamps)
 				return nil
@@ -569,8 +581,8 @@ $ {{alias}} foo@XXX -b bar@baz`,
 	}
 	waitCommit.Flags().VarP(&branches, "branch", "b", "Wait only for commits in the specified set of branches")
 	waitCommit.MarkFlagCustom("branch", "__pachctl_get_branch")
-	waitCommit.Flags().AddFlagSet(rawFlags)
-	waitCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	waitCommit.Flags().AddFlagSet(outputFlags)
+	waitCommit.Flags().AddFlagSet(timestampFlags)
 	commands = append(commands, cmdutil.CreateAlias(waitCommit, "wait commit"))
 
 	var newCommits bool
@@ -612,9 +624,15 @@ $ {{alias}} test@master --new`,
 					retErr = err
 				}
 			}()
+			var encoder serde.Encoder
+			if raw {
+				encoder = cmdutil.Encoder(output)
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+			}
 			return c.SubscribeCommit(branch.Repo, branch.Name, from, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 				if raw {
-					return marshaller.Marshal(os.Stdout, ci)
+					return encoder.EncodeProto(ci)
 				}
 				pretty.PrintCommitInfo(w, ci, fullTimestamps)
 				return nil
@@ -624,10 +642,59 @@ $ {{alias}} test@master --new`,
 	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
 	subscribeCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
-	subscribeCommit.Flags().AddFlagSet(rawFlags)
-	subscribeCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	subscribeCommit.Flags().AddFlagSet(outputFlags)
+	subscribeCommit.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
+
+	var wait bool
+	inspectCommitSet := &cobra.Command{
+		Use:   "{{alias}} <job-id>",
+		Short: "Return info about all the jobs in a commitset.",
+		Long:  "Return info about all the jobs in a commitset.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			var commitInfos []*pfs.CommitInfo
+			if wait {
+				commitInfos, err = client.WaitCommitSetAll(args[0])
+			} else {
+				commitInfos, err = client.InspectCommitSet(args[0])
+			}
+			if err != nil {
+				cmdutil.ErrorAndExit("error from InspectCommitSet: %s", err.Error())
+			}
+
+			if raw {
+				encoder := cmdutil.Encoder(output)
+				for _, commitInfo := range commitInfos {
+					if err := encoder.EncodeProto(commitInfo); err != nil {
+						return err
+					}
+				}
+				return nil
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+			}
+
+			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+				writer := tabwriter.NewWriter(w, pretty.CommitHeader)
+				for _, commitInfo := range commitInfos {
+					pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
+				}
+				return writer.Flush()
+			})
+		}),
+	}
+	inspectCommitSet.Flags().BoolVarP(&wait, "wait", "w", false, "wait until each job has either succeeded or failed")
+	inspectCommitSet.Flags().AddFlagSet(outputFlags)
+	inspectCommitSet.Flags().AddFlagSet(timestampFlags)
+	shell.RegisterCompletionFunc(inspectCommitSet, shell.JobCompletion)
+	commands = append(commands, cmdutil.CreateAlias(inspectCommitSet, "inspect commitset"))
 
 	squashCommitSet := &cobra.Command{
 		Use:   "{{alias}} <commitset>",
@@ -751,14 +818,16 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return errors.Errorf("branch %s not found", args[0])
 			}
 			if raw {
-				return marshaller.Marshal(os.Stdout, branchInfo)
+				return cmdutil.Encoder(output).EncodeProto(branchInfo)
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
 
 			return pretty.PrintDetailedBranchInfo(branchInfo)
 		}),
 	}
-	inspectBranch.Flags().AddFlagSet(rawFlags)
-	inspectBranch.Flags().AddFlagSet(fullTimestampsFlags)
+	inspectBranch.Flags().AddFlagSet(outputFlags)
+	inspectBranch.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectBranch, "inspect branch"))
 
@@ -778,12 +847,15 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 			branches := branchInfos.BranchInfo
 			if raw {
+				encoder := cmdutil.Encoder(output)
 				for _, branch := range branches {
-					if err := marshaller.Marshal(os.Stdout, branch); err != nil {
+					if err := encoder.EncodeProto(branch); err != nil {
 						return err
 					}
 				}
 				return nil
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
 			for _, branch := range branches {
@@ -792,7 +864,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			return writer.Flush()
 		}),
 	}
-	listBranch.Flags().AddFlagSet(rawFlags)
+	listBranch.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listBranch, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listBranch, "list branch"))
 
@@ -1110,12 +1182,14 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				return errors.Errorf("file %s not found", file.Path)
 			}
 			if raw {
-				return marshaller.Marshal(os.Stdout, fileInfo)
+				return cmdutil.Encoder(output).EncodeProto(fileInfo)
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
 			return pretty.PrintDetailedFileInfo(fileInfo)
 		}),
 	}
-	inspectFile.Flags().AddFlagSet(rawFlags)
+	inspectFile.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(inspectFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectFile, "inspect file"))
 
@@ -1163,9 +1237,12 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			}
 			defer c.Close()
 			if raw {
+				encoder := cmdutil.Encoder(output)
 				return c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
-					return marshaller.Marshal(os.Stdout, fi)
+					return encoder.EncodeProto(fi)
 				})
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
 			header := pretty.FileHeader
 			if history != 0 {
@@ -1181,8 +1258,8 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			return writer.Flush()
 		}),
 	}
-	listFile.Flags().AddFlagSet(rawFlags)
-	listFile.Flags().AddFlagSet(fullTimestampsFlags)
+	listFile.Flags().AddFlagSet(outputFlags)
+	listFile.Flags().AddFlagSet(timestampFlags)
 	listFile.Flags().StringVar(&history, "history", "none", "Return revision history for files.")
 	shell.RegisterCompletionFunc(listFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
@@ -1214,12 +1291,15 @@ $ {{alias}} "foo@master:data/*"`,
 				return err
 			}
 			if raw {
+				encoder := cmdutil.Encoder(output)
 				for _, fileInfo := range fileInfos {
-					if err := marshaller.Marshal(os.Stdout, fileInfo); err != nil {
+					if err := encoder.EncodeProto(fileInfo); err != nil {
 						return err
 					}
 				}
 				return nil
+			} else if output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
@@ -1228,8 +1308,8 @@ $ {{alias}} "foo@master:data/*"`,
 			return writer.Flush()
 		}),
 	}
-	globFile.Flags().AddFlagSet(rawFlags)
-	globFile.Flags().AddFlagSet(fullTimestampsFlags)
+	globFile.Flags().AddFlagSet(outputFlags)
+	globFile.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(globFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(globFile, "glob file"))
 
@@ -1332,8 +1412,8 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Don't descend into sub directories.")
 	diffFile.Flags().BoolVar(&nameOnly, "name-only", false, "Show only the names of changed files.")
 	diffFile.Flags().StringVar(&diffCmdArg, "diff-command", "", "Use a program other than git to diff files.")
-	diffFile.Flags().AddFlagSet(fullTimestampsFlags)
-	diffFile.Flags().AddFlagSet(noPagerFlags)
+	diffFile.Flags().AddFlagSet(timestampFlags)
+	diffFile.Flags().AddFlagSet(pagerFlags)
 	shell.RegisterCompletionFunc(diffFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(diffFile, "diff file"))
 
@@ -1422,7 +1502,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 			if err != nil {
 				return err
 			}
-			return marshaller.Marshal(os.Stdout, resp)
+			return cmdutil.Encoder(output).EncodeProto(resp)
 		}),
 	}
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
