@@ -29,7 +29,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -141,7 +140,7 @@ or type (e.g. csv, binary, images, etc).`,
 			if raw {
 				return cmdutil.Encoder(output).EncodeProto(repoInfo)
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			ri := &pretty.PrintableRepoInfo{
 				RepoInfo:       repoInfo,
@@ -186,7 +185,7 @@ or type (e.g. csv, binary, images, etc).`,
 				}
 				return nil
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 
 			header := pretty.RepoHeader
@@ -388,7 +387,7 @@ $ {{alias}} test -p XXX`,
 			if raw {
 				return cmdutil.Encoder(output).EncodeProto(commitInfo)
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			ci := &pretty.PrintableCommitInfo{
 				CommitInfo:     commitInfo,
@@ -448,7 +447,7 @@ $ {{alias}} foo@master --from XXX`,
 					return encoder.EncodeProto(ci)
 				})
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
 			if err := c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
@@ -470,9 +469,9 @@ $ {{alias}} foo@master --from XXX`,
 
 	var branches cmdutil.RepeatedStringArg
 	waitCommit := &cobra.Command{
-		Use:   "{{alias}} ( <commitset-id> | <repo>@<branch-or-commit> )",
-		Short: "Wait for the specified commit(s) to finish and return them.",
-		Long:  "Wait for the specified commit(s) to finish and return them.",
+		Use:   "{{alias}} <repo>@<branch-or-commit>",
+		Short: "Wait for the specified commit to finish and return it.",
+		Long:  "Wait for the specified commit to finish and return it.",
 		Example: `
 # return commits in the same commit set as foo@XXX
 $ {{alias}} XXX
@@ -480,26 +479,9 @@ $ {{alias}} XXX
 # return commits caused by foo@XXX leading to branch bar@baz
 $ {{alias}} foo@XXX -b bar@baz`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			// Parse args before connecting
-			var commitsetID string
-			var commit *pfs.Commit
-			if uuid.IsUUIDWithoutDashes(args[0]) {
-				commitsetID = args[0]
-			} else {
-				var err error
-				commit, err = cmdutil.ParseCommit(args[0])
-				if err != nil {
-					return err
-				}
-			}
-
-			toBranches := []*pfs.Branch{}
-			for _, arg := range branches {
-				branch, err := cmdutil.ParseBranch(arg)
-				if err != nil {
-					return err
-				}
-				toBranches = append(toBranches, branch)
+			commit, err := cmdutil.ParseCommit(args[0])
+			if err != nil {
+				return err
 			}
 
 			c, err := client.NewOnUserMachine("user")
@@ -508,79 +490,24 @@ $ {{alias}} foo@XXX -b bar@baz`,
 			}
 			defer c.Close()
 
-			var encoder serde.Encoder
+			commitInfo, err := c.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			if err != nil {
+				return err
+			}
+
 			if raw {
-				encoder = cmdutil.Encoder(output)
+				return cmdutil.Encoder(output).EncodeProto(commitInfo)
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			writeCommitInfo := func(ci *pfs.CommitInfo) error {
-				if raw {
-					return encoder.EncodeProto(ci)
-				}
-				pretty.PrintCommitInfo(w, ci, fullTimestamps)
-				return nil
+			ci := &pretty.PrintableCommitInfo{
+				CommitInfo:     commitInfo,
+				FullTimestamps: fullTimestamps,
 			}
-			defer func() {
-				if err := w.Flush(); retErr == nil {
-					retErr = err
-				}
-			}()
-
-			waitCommit := func(commit *pfs.Commit) error {
-				ci, err := c.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
-				if err != nil {
-					return err
-				}
-				return writeCommitInfo(ci)
-			}
-
-			waitBranches := func(commitsetID string) error {
-				for _, branch := range toBranches {
-					if err := waitCommit(client.NewCommit(branch.Repo.Name, branch.Name, commitsetID)); err != nil {
-						return err
-					}
-				}
-				return nil
-			}
-
-			// There are separate codepaths for whether or not we are waiting on a
-			// commit or commitset and whether we are interested in all the commits in
-			// the set or only specific branches.
-			if commit != nil {
-				if len(toBranches) != 0 {
-					// We just want to resolve the commit to get the ID and wait on the downstream branches
-					ci, err := c.InspectCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
-					if err != nil {
-						return err
-					}
-					return waitBranches(ci.Commit.ID)
-				}
-				// We are just waiting on a single commit, block on it and exit
-				return waitCommit(commit)
-			} else {
-				if len(toBranches) == 0 {
-					return waitBranches(commitsetID)
-				}
-				// We are waiting for the entire commitset to finish
-				commitInfos, err := c.WaitCommitSetAll(commitsetID)
-				if err != nil {
-					return err
-				}
-				for _, commitInfo := range commitInfos {
-					if err := writeCommitInfo(commitInfo); err != nil {
-						return err
-					}
-				}
-			}
-
-			return nil
+			return pretty.PrintDetailedCommitInfo(os.Stdout, ci)
 		}),
 	}
-	waitCommit.Flags().VarP(&branches, "branch", "b", "Wait only for commits in the specified set of branches")
-	waitCommit.MarkFlagCustom("branch", "__pachctl_get_branch")
 	waitCommit.Flags().AddFlagSet(outputFlags)
 	waitCommit.Flags().AddFlagSet(timestampFlags)
 	commands = append(commands, cmdutil.CreateAlias(waitCommit, "wait commit"))
@@ -628,7 +555,7 @@ $ {{alias}} test@master --new`,
 			if raw {
 				encoder = cmdutil.Encoder(output)
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			return c.SubscribeCommit(branch.Repo, branch.Name, from, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 				if raw {
@@ -647,12 +574,42 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	var wait bool
-	inspectCommitSet := &cobra.Command{
-		Use:   "{{alias}} <job-id>",
-		Short: "Return info about all the jobs in a commitset.",
-		Long:  "Return info about all the jobs in a commitset.",
+	writeCommitTable := func(commitInfos []*pfs.CommitInfo) error {
+		if raw {
+			encoder := cmdutil.Encoder(output)
+			for _, commitInfo := range commitInfos {
+				if err := encoder.EncodeProto(commitInfo); err != nil {
+					return err
+				}
+			}
+			return nil
+		} else if output != "" {
+			return errors.New("cannot set --output (-o) without --raw")
+		}
+
+		return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+			writer := tabwriter.NewWriter(w, pretty.CommitHeader)
+			for _, commitInfo := range commitInfos {
+				pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
+			}
+			return writer.Flush()
+		})
+	}
+
+	waitCommitSet := &cobra.Command{
+		Use:   "{{alias}} <commitset-id>",
+		Short: "Return info about the commits in a commitset.",
+		Long:  "Return info about the commits in a commitset.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			toBranches := []*pfs.Branch{}
+			for _, arg := range branches {
+				branch, err := cmdutil.ParseBranch(arg)
+				if err != nil {
+					return err
+				}
+				toBranches = append(toBranches, branch)
+			}
+
 			client, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -660,37 +617,48 @@ $ {{alias}} test@master --new`,
 			defer client.Close()
 
 			var commitInfos []*pfs.CommitInfo
-			if wait {
-				commitInfos, err = client.WaitCommitSetAll(args[0])
-			} else {
-				commitInfos, err = client.InspectCommitSet(args[0])
-			}
-			if err != nil {
-				cmdutil.ErrorAndExit("error from InspectCommitSet: %s", err.Error())
-			}
-
-			if raw {
-				encoder := cmdutil.Encoder(output)
-				for _, commitInfo := range commitInfos {
-					if err := encoder.EncodeProto(commitInfo); err != nil {
-						return err
+			if len(toBranches) != 0 {
+				for _, branch := range toBranches {
+					ci, err := client.WaitCommit(branch.Repo.Name, branch.Name, args[0])
+					if err != nil {
+						return errors.Wrap(err, "error from InspectCommit")
 					}
+					commitInfos = append(commitInfos, ci)
 				}
-				return nil
-			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+			} else {
+				commitInfos, err = client.WaitCommitSetAll(args[0])
+				if err != nil {
+					return errors.Wrap(err, "error from InspectCommitSet")
+				}
 			}
-
-			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
-				writer := tabwriter.NewWriter(w, pretty.CommitHeader)
-				for _, commitInfo := range commitInfos {
-					pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
-				}
-				return writer.Flush()
-			})
+			return writeCommitTable(commitInfos)
 		}),
 	}
-	inspectCommitSet.Flags().BoolVarP(&wait, "wait", "w", false, "wait until each job has either succeeded or failed")
+	waitCommitSet.Flags().VarP(&branches, "branch", "b", "Wait only for commits in the specified set of branches")
+	waitCommitSet.MarkFlagCustom("branch", "__pachctl_get_branch")
+	waitCommitSet.Flags().AddFlagSet(outputFlags)
+	waitCommitSet.Flags().AddFlagSet(timestampFlags)
+	shell.RegisterCompletionFunc(waitCommitSet, shell.JobCompletion)
+	commands = append(commands, cmdutil.CreateAlias(waitCommitSet, "wait commitset"))
+
+	inspectCommitSet := &cobra.Command{
+		Use:   "{{alias}} <job-id>",
+		Short: "Return info about all the commits in a commitset.",
+		Long:  "Return info about all the commits in a commitset.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			commitInfos, err := client.InspectCommitSet(args[0])
+			if err != nil {
+				return errors.Wrap(err, "error from InspectCommitSet")
+			}
+			return writeCommitTable(commitInfos)
+		}),
+	}
 	inspectCommitSet.Flags().AddFlagSet(outputFlags)
 	inspectCommitSet.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectCommitSet, shell.JobCompletion)
@@ -820,7 +788,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			if raw {
 				return cmdutil.Encoder(output).EncodeProto(branchInfo)
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 
 			return pretty.PrintDetailedBranchInfo(branchInfo)
@@ -855,7 +823,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				}
 				return nil
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
 			for _, branch := range branches {
@@ -1184,7 +1152,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 			if raw {
 				return cmdutil.Encoder(output).EncodeProto(fileInfo)
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			return pretty.PrintDetailedFileInfo(fileInfo)
 		}),
@@ -1242,7 +1210,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 					return encoder.EncodeProto(fi)
 				})
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			header := pretty.FileHeader
 			if history != 0 {
@@ -1299,7 +1267,7 @@ $ {{alias}} "foo@master:data/*"`,
 				}
 				return nil
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
