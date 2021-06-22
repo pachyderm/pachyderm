@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -567,7 +566,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		})
 	rootClient.Enterprise.Activate(rootClient.Ctx(),
 		&enterprise.ActivateRequest{
-			LicenseServer: "localhost:650",
+			LicenseServer: "localhost:1650",
 			Id:            "localhost",
 			Secret:        "localhost",
 		})
@@ -1100,7 +1099,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 		return err
 	})
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -1121,139 +1120,6 @@ func TestDeleteRCInStandby(t *testing.T) {
 		_, err := c.WaitCommit(pipeline, "master", "")
 		return err
 	})
-}
-
-// TestNoOutputRepoDoesntCrashPPSMaster creates a pipeline, then deletes its
-// output repo while it's running (failing the pipeline and preventing the PPS
-// master from finishing the pipeline's output commit) and makes sure new
-// pipelines can be created (i.e. that the PPS master doesn't crashloop due to
-// the missing output repo). This test also exists in pachyderm_test.go, but
-// duplicating it here ensures that Pachyderm handles this case correctly even
-// when the missing output repo yields "access denied" instead of "not found"
-// errors.
-//
-// Note: arguably deleting the output repo of a pipeline, even one that's
-// stopped, should be prevented. However, the way that PPS currently uses PFS
-// (stopping a pipeline = removing output branch subvenance) we have no way to
-// prevent that. Thus, this test at least makes sure that doing such a thing
-// doesn't break the PPS master.
-//
-// Note: This test actually doesn't use the admin client or admin privileges
-// anywhere. However, it restarts pachd, so it shouldn't be run in parallel with
-// any other test (which is expected of tests in auth_test.go)
-func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
-	// TODO(required 2.0)
-	t.Skip("Broken as of global IDs, needs investigation")
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
-
-	// Create input repo w/ initial commit
-	repo := tu.UniqueString(t.Name())
-	masterCommit := client.NewCommit(repo, "master", "")
-	require.NoError(t, aliceClient.CreateRepo(repo))
-	err := aliceClient.PutFile(masterCommit, "/file.1", strings.NewReader("1"))
-	require.NoError(t, err)
-
-	// Create pipeline
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
-		pipeline,
-		"", // default image: DefaultUserImage
-		[]string{"bash"},
-		[]string{
-			"sleep 10",
-			"cp /pfs/*/* /pfs/out/",
-		},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
-		"", // default output branch: master
-		false,
-	))
-
-	// force-delete output repo while 'sleep 10' is running, failing the pipeline
-	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
-
-	// make sure the pipeline is failed
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		// use list pipeline instead of inspect pipeline because we expect
-		// the spec repo to be gone, which will cause GetPipelineInfo to fail
-		resp, err := aliceClient.PpsAPIClient.ListPipeline(
-			aliceClient.Ctx(),
-			&pps.ListPipelineRequest{
-				AllowIncomplete: true,
-			},
-		)
-		if err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-		var pi *pps.PipelineInfo
-		for _, info := range resp.PipelineInfo {
-			if info.Pipeline.Name == pipeline {
-				pi = info
-				break
-			}
-		}
-		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
-			return errors.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
-		}
-		return nil
-	})
-
-	// Delete the pachd pod, so that it restarts and the PPS master has to process
-	// the failed pipeline
-	tu.DeletePachdPod(t) // delete the pachd pod
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		_, err := aliceClient.Version() // wait for pachd to come back
-		return err
-	})
-
-	// Create a new input commit, and flush its output to 'pipeline', to make sure
-	// the pipeline either restarts the RC and recreates the output repo, or fails
-	err = aliceClient.PutFile(masterCommit, "/file.2", strings.NewReader("2"))
-	require.NoError(t, err)
-	require.NoErrorWithinT(t, time.Minute, func() error {
-		// TODO(msteffen): While not currently possible, PFS could return
-		// CommitDeleted here. This should detect that error, but first:
-		// - src/server/pfs/pfs.go should be moved to src/client/pfs (w/ other err
-		//   handling code)
-		// - packages depending on that code should be migrated
-		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
-		if _, err := aliceClient.WaitCommit(pipeline, "master", masterCommit.ID); err != nil {
-			return errors.Wrapf(err, "unexpected error value")
-		}
-		return nil
-	})
-
-	// Create a new pipeline, make sure FlushJob eventually returns, and check
-	// pipeline output (i.e. the PPS master does not crashloop--pipeline2
-	// eventually starts successfully)
-	pipeline2 := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
-		pipeline2,
-		"", // default image: DefaultUserImage
-		[]string{"bash"},
-		[]string{"cp /pfs/*/* /pfs/out/"},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
-		"", // default output branch: master
-		false,
-	))
-	require.NoErrorWithinT(t, time.Minute, func() error {
-		_, err := aliceClient.WaitCommit(pipeline2, "master", "")
-		return err
-	})
-	pipelineCommit := client.NewCommit(pipeline2, "master", "")
-	buf := &bytes.Buffer{}
-	require.NoError(t, aliceClient.GetFile(pipelineCommit, "/file.1", buf))
-	require.Equal(t, "1", buf.String())
-	buf.Reset()
-	require.NoError(t, aliceClient.GetFile(pipelineCommit, "/file.2", buf))
-	require.Equal(t, "2", buf.String())
 }
 
 // TestPipelineFailingWithOpenCommit creates a pipeline, then revokes its access
@@ -1309,7 +1175,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	})
 
 	// make sure the pipeline is failed
-	pi, err := rootClient.InspectPipeline(pipeline)
+	pi, err := rootClient.InspectPipeline(pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
 }

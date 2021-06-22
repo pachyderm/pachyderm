@@ -598,7 +598,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 			}
 		}()
 		if state < full {
-			return f.Truncate(int64(fi.SizeBytes))
+			return f.Truncate(int64(fi.Details.SizeBytes))
 		}
 		if err := n.c().GetFile(fi.File.Commit, fi.File.Path, f); err != nil {
 			return err

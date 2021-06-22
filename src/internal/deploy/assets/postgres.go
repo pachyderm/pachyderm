@@ -236,7 +236,7 @@ func PostgresHeadlessService(opts *AssetOpts) *v1.Service {
 	return makeHeadlessService(opts, postgresName, postgresHeadlessServiceName, ports)
 }
 
-// PostgresStatefulSet returns a stateful set that manages an etcd cluster
+// PostgresStatefulSet returns a stateful set
 func PostgresStatefulSet(opts *AssetOpts, backend Backend, diskSpace int) interface{} {
 	mem := resource.MustParse(opts.PostgresOpts.MemRequest)
 	cpu := resource.MustParse(opts.PostgresOpts.CPURequest)

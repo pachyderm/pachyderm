@@ -5,9 +5,7 @@ import (
 	"regexp"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 )
 
 // ErrFileNotFound represents a file-not-found error.
@@ -35,9 +33,9 @@ type ErrCommitNotFound struct {
 	Commit *pfs.Commit
 }
 
-// ErrCommitsetNotFound represents a commitset-not-found error.
-type ErrCommitsetNotFound struct {
-	Commitset *pfs.Commitset
+// ErrCommitSetNotFound represents a commitset-not-found error.
+type ErrCommitSetNotFound struct {
+	CommitSet *pfs.CommitSet
 }
 
 // ErrCommitExists represents an error where the commit already exists.
@@ -80,7 +78,7 @@ type ErrAmbiguousCommit struct {
 }
 
 // ErrInconsistentCommit represents an error where a transaction attempts to
-// create a Commitset with multiple commits in the same branch, which would
+// create a CommitSet with multiple commits in the same branch, which would
 // result in inconsistent data dependencies.
 type ErrInconsistentCommit struct {
 	Branch *pfs.Branch
@@ -96,43 +94,43 @@ type ErrCommitOnOutputBranch struct {
 }
 
 func (e ErrFileNotFound) Error() string {
-	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, pretty.CompactPrintRepo(e.File.Commit.Branch.Repo), e.File.Commit.ID)
+	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo, e.File.Commit.ID)
 }
 
 func (e ErrRepoNotFound) Error() string {
-	return fmt.Sprintf("repo %v not found", pretty.CompactPrintRepo(e.Repo))
+	return fmt.Sprintf("repo %v not found", e.Repo)
 }
 
 func (e ErrRepoExists) Error() string {
-	return fmt.Sprintf("repo %v already exists", pretty.CompactPrintRepo(e.Repo))
+	return fmt.Sprintf("repo %v already exists", e.Repo)
 }
 
 func (e ErrRepoDeleted) Error() string {
-	return fmt.Sprintf("repo %v was deleted", pretty.CompactPrintRepo(e.Repo))
+	return fmt.Sprintf("repo %v was deleted", e.Repo)
 }
 
 func (e ErrCommitNotFound) Error() string {
-	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
+	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo)
 }
 
-func (e ErrCommitsetNotFound) Error() string {
-	return fmt.Sprintf("no commits found for commitset %v", e.Commitset.ID)
+func (e ErrCommitSetNotFound) Error() string {
+	return fmt.Sprintf("no commits found for commitset %v", e.CommitSet.ID)
 }
 
 func (e ErrCommitExists) Error() string {
-	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
+	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, e.Commit.Branch.Repo)
 }
 
 func (e ErrCommitFinished) Error() string {
-	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
+	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, e.Commit.Branch.Repo)
 }
 
 func (e ErrCommitDeleted) Error() string {
-	return fmt.Sprintf("commit %v@%v was deleted", pretty.CompactPrintRepo(e.Commit.Branch.Repo), e.Commit.ID)
+	return fmt.Sprintf("commit %v@%v was deleted", e.Commit.Branch.Repo, e.Commit.ID)
 }
 
 func (e ErrParentCommitNotFound) Error() string {
-	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, pretty.CompactPrintRepo(e.Commit.Branch.Repo))
+	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo)
 }
 
 func (e ErrOutputCommitNotFinished) Error() string {
@@ -148,11 +146,11 @@ func (e ErrAmbiguousCommit) Error() string {
 }
 
 func (e ErrInconsistentCommit) Error() string {
-	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", pfsdb.CommitKey(e.Commit), e.Branch.Name)
+	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", e.Commit, e.Branch.Name)
 }
 
 func (e ErrCommitOnOutputBranch) Error() string {
-	return fmt.Sprintf("cannot start a commit on an output branch: %s", pfsdb.BranchKey(e.Branch))
+	return fmt.Sprintf("cannot start a commit on an output branch: %s", e.Branch)
 }
 
 var (
@@ -180,9 +178,9 @@ func IsCommitNotFoundErr(err error) bool {
 	return commitNotFoundRe.MatchString(grpcutil.ScrubGRPC(err).Error())
 }
 
-// IsCommitsetNotFoundErr returns true if 'err' has an error message that matches
-// ErrCommitsetNotFound
-func IsCommitsetNotFoundErr(err error) bool {
+// IsCommitSetNotFoundErr returns true if 'err' has an error message that matches
+// ErrCommitSetNotFound
+func IsCommitSetNotFoundErr(err error) bool {
 	if err == nil {
 		return false
 	}

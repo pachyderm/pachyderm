@@ -27,8 +27,8 @@ echo '{"pachd_address": "grpc://localhost:650", "source": 2}' | pachctl config s
 
 export ETCD_SERVICE_HOST="127.0.0.1"
 export ETCD_SERVICE_PORT=2379
-export POSTGRES_SERVICE_HOST="127.0.0.1"
-export POSTGRES_SERVICE_PORT=32228
+export POSTGRES_HOST="127.0.0.1"
+export POSTGRES_PORT=32228
 export POSTGRES_SERVICE_SSL=disable
 export STORAGE_BACKEND=LOCAL
 export WORKER_IMAGE=pachyderm/worker:local

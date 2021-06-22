@@ -50,20 +50,19 @@ func (m *ppsMaster) cancelPipelinePodsPoller() {
 	}
 }
 
-// startPipelineEtcdPoller starts a new goroutine running
-// pollPipelinesEtcd
-func (m *ppsMaster) startPipelineEtcdPoller() {
+// startPipelineDBPoller starts a new goroutine running watchPipelines
+func (m *ppsMaster) startPipelineWatcher() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.pollEtcdCancel = m.startMonitorThread("pollPipelinesEtcd", m.pollPipelinesEtcd)
+	m.watchCancel = m.startMonitorThread("watchPipelines", m.watchPipelines)
 }
 
-func (m *ppsMaster) cancelPipelineEtcdPoller() {
+func (m *ppsMaster) cancelPipelineWatcher() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	if m.pollEtcdCancel != nil {
-		m.pollEtcdCancel()
-		m.pollEtcdCancel = nil
+	if m.watchCancel != nil {
+		m.watchCancel()
+		m.watchCancel = nil
 	}
 }
 
@@ -74,21 +73,22 @@ func (m *ppsMaster) cancelPipelineEtcdPoller() {
 //////////////////////////////////////////////////////////////////////////////
 
 // pollPipelines generates regular updateEv and deleteEv events for each
-// pipeline and sends them to ppsMaster.Run(). By scanning etcd and k8s
-// regularly and generating events for them, it prevents pipelines from
-// getting orphaned.
+// pipeline and sends them to ppsMaster.Run(). By scanning the database and k8s
+// regularly and generating events for them, it prevents pipelines from getting
+// orphaned.
 func (m *ppsMaster) pollPipelines(ctx context.Context) {
-	etcdPipelines := map[string]bool{}
+	dbPipelines := map[string]bool{}
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
-		if len(etcdPipelines) == 0 {
+		if len(dbPipelines) == 0 {
 			// 1. Get the current set of pipeline RCs.
 			//
 			// We'll delete any RCs that don't correspond to a live pipeline after
-			// querying etcd to determine the set of live pipelines, but we query k8s
-			// first to avoid a race (if we were to query etcd first, and
-			// CreatePipeline(foo) were to run between querying etcd and querying k8s,
-			// then we might delete the RC for brand-new pipeline 'foo'). Even if we
-			// do delete a live pipeline's RC, it'll be fixed in the next cycle)
+			// querying the database to determine the set of live pipelines, but we
+			// query k8s first to avoid a race (if we were to query the database
+			// first, and CreatePipeline(foo) were to run between querying the
+			// database and querying k8s, then we might delete the RC for brand-new
+			// pipeline 'foo'). Even if we do delete a live pipeline's RC, it'll be
+			// fixed in the next cycle)
 			kc := m.a.env.GetKubeClient().CoreV1().ReplicationControllers(m.a.env.Config().Namespace)
 			rcs, err := kc.List(metav1.ListOptions{
 				LabelSelector: "suite=pachyderm,pipelineName",
@@ -99,16 +99,16 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 				log.Errorf("error polling pipeline RCs: %v", err)
 			}
 
-			// 2. Replenish 'etcdPipelines' with the set of pipelines currently in
-			// etcd. Note that there may be zero, and etcdPipelines may be empty
-			if err := m.a.listPipelinePtr(ctx, nil, 0,
-				func(ptr *pps.StoredPipelineInfo) error {
-					etcdPipelines[ptr.Pipeline.Name] = true
+			// 2. Replenish 'dbPipelines' with the set of pipelines currently in
+			// the database. Note that there may be zero, and dbPipelines may be empty
+			if err := m.a.listPipelineInfo(ctx, nil, 0,
+				func(ptr *pps.PipelineInfo) error {
+					dbPipelines[ptr.Pipeline.Name] = true
 					return nil
 				}); err != nil {
-				// listPipelinePtr results (etcdPipelines) are used by all remaining
+				// listPipelineInfo results (dbPipelines) are used by all remaining
 				// steps, so if that didn't work, start over and try again
-				etcdPipelines = map[string]bool{}
+				dbPipelines = map[string]bool{}
 				return errors.Wrap(err, "error polling pipelines")
 			}
 
@@ -119,32 +119,32 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 					if !ok {
 						return errors.New("'pipelineName' label missing from rc " + rc.Name)
 					}
-					if !etcdPipelines[pipeline] {
+					if !dbPipelines[pipeline] {
 						m.eventCh <- &pipelineEvent{eventType: deleteEv, pipeline: pipeline}
 					}
 				}
 			}
 
-			// 4. Retry if there are no etcd pipelines to read/write
-			if len(etcdPipelines) == 0 {
+			// 4. Retry if there are no pipelines to read/write
+			if len(dbPipelines) == 0 {
 				return backoff.ErrContinue
 			}
 		}
 
-		// Generate one etcd event for a pipeline (to trigger the pipeline
-		// controller) and remove this pipeline from etcdPipelines. Always choose
-		// the lexicographically smallest pipeline so that pipelines are always
+		// Generate one event for a pipeline (to trigger the pipeline controller)
+		// and remove this pipeline from dbPipelines. Always choose the
+		// lexicographically smallest pipeline so that pipelines are always
 		// traversed in the same order and the period between polls is stable across
 		// all pipelines.
 		var pipeline string
-		for p := range etcdPipelines {
+		for p := range dbPipelines {
 			if pipeline == "" || p < pipeline {
 				pipeline = p
 			}
 		}
 
 		// always rm 'pipeline', to advance loop
-		delete(etcdPipelines, pipeline)
+		delete(dbPipelines, pipeline)
 
 		// generate a pipeline event for 'pipeline'
 		log.Debugf("PPS master: polling pipeline %q", pipeline)
@@ -184,64 +184,67 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 			return errors.Wrap(err, "failed to watch kubernetes pods")
 		}
 		defer kubePipelineWatch.Stop()
-		for event := range kubePipelineWatch.ResultChan() {
-			// if we get an error we restart the watch
-			if event.Type == kube_watch.Error {
-				return errors.Wrap(kube_err.FromObject(event.Object), "error while watching kubernetes pods")
-			} else if event.Type == "" {
-				// k8s watches seem to sometimes get stuck in a loop returning events
-				// with Type = "". We treat these as errors as otherwise we get an
-				// endless stream of them and can't do anything.
-				return errors.New("error while watching kubernetes pods: empty event type")
-			}
-			pod, ok := event.Object.(*v1.Pod)
-			if !ok {
-				continue // irrelevant event
-			}
-			if pod.Status.Phase == v1.PodFailed {
-				log.Errorf("pod failed because: %s", pod.Status.Message)
-			}
-			pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
-			for _, status := range pod.Status.ContainerStatuses {
-				if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
-					if err := m.a.setPipelineCrashing(ctx, pipelineName, status.State.Waiting.Message); err != nil {
-						return errors.Wrap(err, "error moving pipeline to CRASHING")
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case event := <-kubePipelineWatch.ResultChan():
+				// if we get an error we restart the watch
+				if event.Type == kube_watch.Error {
+					return errors.Wrap(kube_err.FromObject(event.Object), "error while watching kubernetes pods")
+				} else if event.Type == "" {
+					// k8s watches seem to sometimes get stuck in a loop returning events
+					// with Type = "". We treat these as errors as otherwise we get an
+					// endless stream of them and can't do anything.
+					return errors.New("error while watching kubernetes pods: empty event type")
+				}
+				pod, ok := event.Object.(*v1.Pod)
+				if !ok {
+					continue // irrelevant event
+				}
+				if pod.Status.Phase == v1.PodFailed {
+					log.Errorf("pod failed because: %s", pod.Status.Message)
+				}
+				pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
+				for _, status := range pod.Status.ContainerStatuses {
+					if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
+						if err := m.a.setPipelineCrashing(ctx, pipelineName, status.State.Waiting.Message); err != nil {
+							return errors.Wrap(err, "error moving pipeline to CRASHING")
+						}
 					}
 				}
-			}
-			for _, condition := range pod.Status.Conditions {
-				if condition.Type == v1.PodScheduled &&
-					condition.Status != v1.ConditionTrue && failures[condition.Reason] {
-					if err := m.a.setPipelineCrashing(ctx, pipelineName, condition.Message); err != nil {
-						return errors.Wrap(err, "error moving pipeline to CRASHING")
+				for _, condition := range pod.Status.Conditions {
+					if condition.Type == v1.PodScheduled &&
+						condition.Status != v1.ConditionTrue && failures[condition.Reason] {
+						if err := m.a.setPipelineCrashing(ctx, pipelineName, condition.Message); err != nil {
+							return errors.Wrap(err, "error moving pipeline to CRASHING")
+						}
 					}
 				}
 			}
 		}
-		return backoff.ErrContinue // keep polling until cancelled (RetryUntilCancel)
 	}), backoff.NewInfiniteBackOff(), backoff.NotifyContinue("pollPipelinePods"),
 	); err != nil && ctx.Err() == nil {
 		log.Fatalf("pollPipelinePods is exiting prematurely which should not happen (error: %v); restarting container...", err)
 	}
 }
 
-// pollPipelinesEtcd watches the 'pipelines' collection in etcd and sends
+// watchPipelines watches the 'pipelines' collection in the database and sends
 // writeEv and deleteEv events to the PPS master when it sees them.
 //
-// pollPipelinesEtcd is unlike the other poll and monitor goroutines in that it
-// sees the result of other poll/monitor goroutines' writes. For example, when
+// watchPipelines is unlike the other poll and monitor goroutines in that it sees
+// the result of other poll/monitor goroutines' writes. For example, when
 // pollPipelinePods (above) observes that a pipeline is crashing and updates its
-// state in etcd, the flow for starting monitorPipelineCrashing is:
+// state in the database, the flow for starting monitorPipelineCrashing is:
 //
-//  k8s watch ─> pollPipelinePods  ╭──> pollPipelinesEtcd  ╭──> m.run()
+//  k8s watch ─> pollPipelinePods  ╭───> watchPipelines    ╭──> m.run()
 //                      │          │            │          │      │
 //                      ↓          │            ↓          │      ↓
-//                  etcd write─────╯       m.eventCh ──────╯   m.step()
+//                   db write──────╯       m.eventCh ──────╯   m.step()
 //
-// most of the other poll/monitor goroutines actually go through
-// pollPipelinesEtcd (by writing to etcd, which is then observed by the etcd
-// watch below)
-func (m *ppsMaster) pollPipelinesEtcd(ctx context.Context) {
+// most of the other poll/monitor goroutines actually go through pollPipelines
+// (by writing to the database, which is then observed by the watch below)
+func (m *ppsMaster) watchPipelines(ctx context.Context) {
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
@@ -273,8 +276,8 @@ func (m *ppsMaster) pollPipelinesEtcd(ctx context.Context) {
 			}
 		}
 		return nil // reset until ctx is cancelled (RetryUntilCancel)
-	}), &backoff.ZeroBackOff{}, backoff.NotifyContinue("pollPipelinesEtcd"),
+	}), &backoff.ZeroBackOff{}, backoff.NotifyContinue("watchPipelines"),
 	); err != nil && ctx.Err() == nil {
-		log.Fatalf("pollPipelinesEtcd is exiting prematurely which should not happen (error: %v); restarting container...", err)
+		log.Fatalf("watchPipelines is exiting prematurely which should not happen (error: %v); restarting container...", err)
 	}
 }

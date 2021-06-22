@@ -33,7 +33,7 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 	return status.withJob(datumSet.JobID, func() error {
 		logger = logger.WithJob(datumSet.JobID)
 		if err := logger.LogStep("datum task", func() error {
-			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Input) || driver.PipelineInfo().S3Out {
+			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Details.Input) || driver.PipelineInfo().Details.S3Out {
 				if err := checkS3Gateway(driver, logger); err != nil {
 					return err
 				}
@@ -75,9 +75,9 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup file operation client for output meta commit.
-	resp, err := pachClient.WithCreateFilesetClient(func(mfMeta client.ModifyFile) error {
+	resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
 		// Setup file operation client for output PFS commit.
-		resp, err := pachClient.WithCreateFilesetClient(func(mfPFS client.ModifyFile) (retErr error) {
+		resp, err := pachClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) (retErr error) {
 			opts := []datum.SetOption{
 				datum.WithMetaOutput(mfMeta),
 				datum.WithPFSOutput(mfPFS),
@@ -85,7 +85,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 			}
 			// Setup datum set for processing.
 			return datum.WithSet(pachClient, storageRoot, func(s *datum.Set) error {
-				di := datum.NewFileSetIterator(pachClient, datumSet.FilesetId)
+				di := datum.NewFileSetIterator(pachClient, datumSet.FileSetId)
 				// Process each datum in the assigned datum set.
 				return di.Iterate(func(meta *datum.Meta) error {
 					ctx := pachClient.Ctx()
@@ -93,17 +93,17 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 					logger = logger.WithData(inputs)
 					env := driver.UserCodeEnv(logger.JobID(), datumSet.OutputCommit, inputs)
 					var opts []datum.Option
-					if driver.PipelineInfo().DatumTimeout != nil {
-						timeout, err := types.DurationFromProto(driver.PipelineInfo().DatumTimeout)
+					if driver.PipelineInfo().Details.DatumTimeout != nil {
+						timeout, err := types.DurationFromProto(driver.PipelineInfo().Details.DatumTimeout)
 						if err != nil {
 							return err
 						}
 						opts = append(opts, datum.WithTimeout(timeout))
 					}
-					if driver.PipelineInfo().DatumTries > 0 {
-						opts = append(opts, datum.WithRetry(int(driver.PipelineInfo().DatumTries)-1))
+					if driver.PipelineInfo().Details.DatumTries > 0 {
+						opts = append(opts, datum.WithRetry(int(driver.PipelineInfo().Details.DatumTries)-1))
 					}
-					if driver.PipelineInfo().Transform.ErrCmd != nil {
+					if driver.PipelineInfo().Details.Transform.ErrCmd != nil {
 						opts = append(opts, datum.WithRecoveryCallback(func(runCtx context.Context) error {
 							return driver.RunUserErrorHandlingCode(runCtx, logger, env)
 						}))
@@ -125,12 +125,12 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 		if err != nil {
 			return err
 		}
-		datumSet.OutputFilesetId = resp.FilesetId
+		datumSet.OutputFileSetId = resp.FileSetId
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	datumSet.MetaFilesetId = resp.FilesetId
+	datumSet.MetaFileSetId = resp.FileSetId
 	return nil
 }

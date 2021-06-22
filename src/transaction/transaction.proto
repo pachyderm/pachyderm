@@ -20,7 +20,7 @@ message TransactionRequest {
   pfs_v2.DeleteRepoRequest delete_repo = 2;
   pfs_v2.StartCommitRequest start_commit = 3;
   pfs_v2.FinishCommitRequest finish_commit = 4;
-  pfs_v2.SquashCommitsetRequest squash_commitset = 5;
+  pfs_v2.SquashCommitSetRequest squash_commit_set = 5;
   pfs_v2.CreateBranchRequest create_branch = 6;
   pfs_v2.DeleteBranchRequest delete_branch = 7;
   pps_v2.UpdateJobStateRequest update_job_state = 8;
@@ -36,7 +36,7 @@ message TransactionResponse {
 }
 
 message CreatePipelineTransactionResponse {
-  string fileset_id = 1; // The fileset ID that the pipeline info was written to outside of the transaction
+  string file_set_id = 1; // The fileset ID that the pipeline info was written to outside of the transaction
   uint64 prev_pipeline_version = 2; // The version of the pipeline spec that the fileset was based off of
 }
 

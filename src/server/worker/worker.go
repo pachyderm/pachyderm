@@ -3,11 +3,9 @@ package worker
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"time"
 
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
@@ -53,11 +51,6 @@ func NewWorker(
 ) (*Worker, error) {
 	stats.InitPrometheus()
 
-	hasDocker := true
-	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
-		hasDocker = false
-	}
-
 	driver, err := driver.NewDriver(
 		env,
 		pachClient,
@@ -68,29 +61,10 @@ func NewWorker(
 		return nil, err
 	}
 
-	if pipelineInfo.Transform.Image != "" && hasDocker {
-		docker, err := docker.NewClientFromEnv()
-		if err != nil {
-			return nil, err
-		}
-		image, err := docker.InspectImage(pipelineInfo.Transform.Image)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error inspecting image %s", pipelineInfo.Transform.Image)
-		}
-		if pipelineInfo.Transform.User == "" {
-			pipelineInfo.Transform.User = image.Config.User
-		}
-		if pipelineInfo.Transform.WorkingDir == "" {
-			pipelineInfo.Transform.WorkingDir = image.Config.WorkingDir
-		}
-		if pipelineInfo.Transform.Cmd == nil {
-			if len(image.Config.Entrypoint) == 0 {
-				ppsutil.FailPipeline(env.Context(), env.GetDBClient(), driver.Pipelines(),
-					pipelineInfo.Pipeline.Name,
-					"nothing to run: no transform.cmd and no entrypoint")
-			}
-			pipelineInfo.Transform.Cmd = image.Config.Entrypoint
-		}
+	if pipelineInfo.Details.Transform.Image != "" && pipelineInfo.Details.Transform.Cmd == nil {
+		ppsutil.FailPipeline(env.Context(), env.GetDBClient(), driver.Pipelines(),
+			pipelineInfo.Pipeline.Name,
+			"nothing to run: no transform.cmd")
 	}
 
 	worker := &Worker{
@@ -138,7 +112,7 @@ func (w *Worker) worker() {
 func (w *Worker) master(env serviceenv.ServiceEnv) {
 	pipelineInfo := w.driver.PipelineInfo()
 	logger := logs.NewMasterLogger(pipelineInfo)
-	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, pipelineInfo.Pipeline.Name, pipelineInfo.Salt)
+	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, pipelineInfo.Pipeline.Name, pipelineInfo.Details.Salt)
 	masterLock := dlock.NewDLock(env.GetEtcdClient(), lockPath)
 
 	b := backoff.NewInfiniteBackOff()
@@ -187,9 +161,9 @@ type spawnerFunc func(driver.Driver, logs.TaggedLogger) error
 func runSpawner(driver driver.Driver, logger logs.TaggedLogger) error {
 	pipelineType, runFn := func() (string, spawnerFunc) {
 		switch {
-		case driver.PipelineInfo().Service != nil:
+		case driver.PipelineInfo().Details.Service != nil:
 			return "service", service.Run
-		case driver.PipelineInfo().Spout != nil:
+		case driver.PipelineInfo().Details.Spout != nil:
 			return "spout", spout.Run
 		default:
 			return "transform", transform.Run

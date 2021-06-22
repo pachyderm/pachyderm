@@ -10,30 +10,30 @@ type Configuration struct {
 // GlobalConfiguration contains the global configuration.
 type GlobalConfiguration struct {
 	FeatureFlags
-	EtcdHost            string `env:"ETCD_SERVICE_HOST,required"`
-	EtcdPort            string `env:"ETCD_SERVICE_PORT,required"`
-	PPSWorkerPort       uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
-	Port                uint16 `env:"PORT,default=650"`
-	HTTPPort            uint16 `env:"HTTP_PORT,default=652"`
-	PeerPort            uint16 `env:"PEER_PORT,default=653"`
-	S3GatewayPort       uint16 `env:"S3GATEWAY_PORT,default=600"`
-	PPSEtcdPrefix       string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace           string `env:"PACH_NAMESPACE,default=default"`
-	StorageRoot         string `env:"PACH_ROOT,default=/pach"`
-	GCPercent           int    `env:"GC_PERCENT,default=50"`
-	LokiHost            string `env:"LOKI_SERVICE_HOST"`
-	LokiPort            string `env:"LOKI_SERVICE_PORT"`
-	OidcPort            uint16 `env:"OIDC_PORT,default=657"`
-	PostgresServiceHost string `env:"POSTGRES_SERVICE_HOST"`
-	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT"`
-	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
-	PostgresDBName      string `env:"POSTGRES_DATABASE_NAME"`
+
+	EtcdHost         string `env:"ETCD_SERVICE_HOST,required"`
+	EtcdPort         string `env:"ETCD_SERVICE_PORT,required"`
+	PPSWorkerPort    uint16 `env:"PPS_WORKER_GRPC_PORT,default=1080"`
+	Port             uint16 `env:"PORT,default=1650"`
+	PeerPort         uint16 `env:"PEER_PORT,default=1653"`
+	S3GatewayPort    uint16 `env:"S3GATEWAY_PORT,default=1600"`
+	PPSEtcdPrefix    string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
+	Namespace        string `env:"PACH_NAMESPACE,default=default"`
+	StorageRoot      string `env:"PACH_ROOT,default=/pach"`
+	GCPercent        int    `env:"GC_PERCENT,default=50"`
+	LokiHost         string `env:"LOKI_SERVICE_HOST"`
+	LokiPort         string `env:"LOKI_SERVICE_PORT"`
+	OidcPort         uint16 `env:"OIDC_PORT,default=1657"`
+	PostgresHost     string `env:"POSTGRES_HOST"`
+	PostgresPort     int    `env:"POSTGRES_PORT"`
+	PostgresSSL      string `env:"POSTGRES_SSL,default=disable"`
+	PostgresDBName   string `env:"POSTGRES_DATABASE_NAME"`
+	PostgresUser     string `env:"POSTGRES_USER,default=postgres"`
+	PostgresPassword string `env:"POSTGRES_PASSWORD"`
 
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
 	LogLevel             string `env:"LOG_LEVEL,default=info"`
-	AuthEtcdPrefix       string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
-	IdentityEtcdPrefix   string `env:"PACHYDERM_IDENTITY_ETCD_PREFIX,default=pachyderm_identity"`
 	EnterpriseEtcdPrefix string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	Metrics              bool   `env:"METRICS,default=true"`
 	MetricsEndpoint      string `env:"METRICS_ENDPOINT,default="`
@@ -74,7 +74,6 @@ type PachdSpecificConfiguration struct {
 	WorkerImagePullPolicy      string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	IAMRole                    string `env:"IAM_ROLE,default="`
 	ImagePullSecret            string `env:"IMAGE_PULL_SECRET,default="`
-	NoExposeDockerSocket       bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`

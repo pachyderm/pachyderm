@@ -62,7 +62,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 	result := s2.GetObjectResult{
 		ModTime:      modTime,
 		Content:      content,
-		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
+		ETag:         fmt.Sprintf("%x", fileInfo.Details.Hash),
 		Version:      commitID,
 		DeleteMarker: false,
 	}
@@ -167,7 +167,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 
 	result := s2.PutObjectResult{}
 	if fileInfo != nil {
-		result.ETag = fmt.Sprintf("%x", fileInfo.Hash)
+		result.ETag = fmt.Sprintf("%x", fileInfo.Details.Hash)
 		result.Version = fileInfo.File.Commit.ID
 	}
 

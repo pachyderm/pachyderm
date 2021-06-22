@@ -90,7 +90,7 @@ type Driver interface {
 
 	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
-	DeleteJob(*sqlx.Tx, *pps.StoredJobInfo) error
+	DeleteJob(*sqlx.Tx, *pps.JobInfo) error
 	UpdateJobState(*pps.Job, pps.JobState, string) error
 
 	// TODO: figure out how to not expose this - currently only used for a few
@@ -148,8 +148,8 @@ func NewDriver(
 		rootDir:         rootPath,
 		inputDir:        pfsPath,
 	}
-	if pipelineInfo.Transform.User != "" {
-		user, err := lookupDockerUser(pipelineInfo.Transform.User)
+	if pipelineInfo.Details.Transform.User != "" {
+		user, err := lookupDockerUser(pipelineInfo.Details.Transform.User)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return nil, errors.EnsureStack(err)
 		}
@@ -273,11 +273,11 @@ func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {
-	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := d.Pipelines().ReadOnly(d.ctx).Get(d.PipelineInfo().Pipeline.Name, pipelinePtr); err != nil {
+	latestPipelineInfo := &pps.PipelineInfo{}
+	if err := d.Pipelines().ReadOnly(d.ctx).Get(d.PipelineInfo().Pipeline.Name, latestPipelineInfo); err != nil {
 		return 0, errors.EnsureStack(err)
 	}
-	numWorkers := pipelinePtr.Parallelism
+	numWorkers := latestPipelineInfo.Parallelism
 	if numWorkers == 0 {
 		numWorkers = 1
 	}
@@ -317,14 +317,14 @@ func (d *driver) RunUserCode(
 			logger.Logf("finished running user code after %v", time.Since(start))
 		}
 	}(time.Now())
-	if len(d.pipelineInfo.Transform.Cmd) == 0 {
+	if len(d.pipelineInfo.Details.Transform.Cmd) == 0 {
 		return errors.New("invalid pipeline transform, no command specified")
 	}
 
 	// Run user code
-	cmd := exec.CommandContext(ctx, d.pipelineInfo.Transform.Cmd[0], d.pipelineInfo.Transform.Cmd[1:]...)
-	if d.pipelineInfo.Transform.Stdin != nil {
-		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Transform.Stdin, "\n") + "\n")
+	cmd := exec.CommandContext(ctx, d.pipelineInfo.Details.Transform.Cmd[0], d.pipelineInfo.Details.Transform.Cmd[1:]...)
+	if d.pipelineInfo.Details.Transform.Stdin != nil {
+		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Details.Transform.Stdin, "\n") + "\n")
 	}
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
@@ -332,7 +332,7 @@ func (d *driver) RunUserCode(
 	if d.uid != nil && d.gid != nil {
 		cmd.SysProcAttr = makeCmdCredentials(*d.uid, *d.gid)
 	}
-	cmd.Dir = filepath.Join(d.rootDir, d.pipelineInfo.Transform.WorkingDir)
+	cmd.Dir = filepath.Join(d.rootDir, d.pipelineInfo.Details.Transform.WorkingDir)
 	err := cmd.Start()
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -364,7 +364,7 @@ func (d *driver) RunUserCode(
 		exiterr := &exec.ExitError{}
 		if errors.As(err, &exiterr) {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				for _, returnCode := range d.pipelineInfo.Transform.AcceptReturnCode {
+				for _, returnCode := range d.pipelineInfo.Details.Transform.AcceptReturnCode {
 					if int(returnCode) == status.ExitStatus() {
 						return nil
 					}
@@ -390,9 +390,9 @@ func (d *driver) RunUserErrorHandlingCode(
 		}
 	}(time.Now())
 
-	cmd := exec.CommandContext(ctx, d.pipelineInfo.Transform.ErrCmd[0], d.pipelineInfo.Transform.ErrCmd[1:]...)
-	if d.pipelineInfo.Transform.ErrStdin != nil {
-		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Transform.ErrStdin, "\n") + "\n")
+	cmd := exec.CommandContext(ctx, d.pipelineInfo.Details.Transform.ErrCmd[0], d.pipelineInfo.Details.Transform.ErrCmd[1:]...)
+	if d.pipelineInfo.Details.Transform.ErrStdin != nil {
+		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Details.Transform.ErrStdin, "\n") + "\n")
 	}
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
@@ -400,7 +400,7 @@ func (d *driver) RunUserErrorHandlingCode(
 	if d.uid != nil && d.gid != nil {
 		cmd.SysProcAttr = makeCmdCredentials(*d.uid, *d.gid)
 	}
-	cmd.Dir = d.pipelineInfo.Transform.WorkingDir
+	cmd.Dir = d.pipelineInfo.Details.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -431,7 +431,7 @@ func (d *driver) RunUserErrorHandlingCode(
 		exiterr := &exec.ExitError{}
 		if errors.As(err, &exiterr) {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				for _, returnCode := range d.pipelineInfo.Transform.AcceptReturnCode {
+				for _, returnCode := range d.pipelineInfo.Details.Transform.AcceptReturnCode {
 					if int(returnCode) == status.ExitStatus() {
 						return nil
 					}
@@ -445,31 +445,31 @@ func (d *driver) RunUserErrorHandlingCode(
 
 func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return d.NewSQLTx(func(sqlTx *sqlx.Tx) error {
-		jobPtr := &pps.StoredJobInfo{}
-		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobPtr); err != nil {
+		jobInfo := &pps.JobInfo{}
+		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
 			return err
 		}
-		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobPtr, state, reason))
+		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))
 	})
 }
 
-// DeleteJob is identical to updateJobState, except that jobPtr points to a job
+// DeleteJob is identical to updateJobState, except that jobInfo points to a job
 // that should be deleted rather than marked failed.  Jobs may be deleted if
 // their output commit is deleted.
-func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobPtr *pps.StoredJobInfo) error {
-	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := d.Pipelines().ReadWrite(sqlTx).Update(jobPtr.Job.Pipeline.Name, pipelinePtr, func() error {
-		if pipelinePtr.JobCounts == nil {
-			pipelinePtr.JobCounts = make(map[int32]int32)
+func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobInfo *pps.JobInfo) error {
+	pipelineInfo := &pps.PipelineInfo{}
+	if err := d.Pipelines().ReadWrite(sqlTx).Update(jobInfo.Job.Pipeline.Name, pipelineInfo, func() error {
+		if pipelineInfo.JobCounts == nil {
+			pipelineInfo.JobCounts = make(map[int32]int32)
 		}
-		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-			pipelinePtr.JobCounts[int32(jobPtr.State)]--
+		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
+			pipelineInfo.JobCounts[int32(jobInfo.State)]--
 		}
 		return nil
 	}); err != nil {
 		return err
 	}
-	return d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobPtr.Job))
+	return d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
@@ -502,7 +502,7 @@ func (d *driver) UserCodeEnv(
 
 	if jobID != "" {
 		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
-		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Input) || d.PipelineInfo().S3Out {
+		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Details.Input) || d.PipelineInfo().Details.S3Out {
 			// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
 			// should pass its ServiceEnv to worker.NewAPIServer, which should store it
 			// in 'a'. However, requiring worker.APIServer to have a ServiceEnv would

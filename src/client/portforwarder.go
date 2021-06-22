@@ -173,34 +173,14 @@ func (f *PortForwarder) RunForDex(localPort, remotePort uint16) (uint16, error) 
 	return f.Run("pachd", localPort, remotePort)
 }
 
-// RunForDashUI creates a port forwarder for the dash UI.
-func (f *PortForwarder) RunForDashUI(localPort uint16) (uint16, error) {
-	return f.Run("dash", localPort, 8080)
-}
-
 // RunForEnterpriseServer creates a port forwarder for the enterprise server
 func (f *PortForwarder) RunForEnterpriseServer(localPort, remotePort uint16) (uint16, error) {
 	return f.Run("pach-enterprise", localPort, remotePort)
 }
 
-// RunForDashWebSocket creates a port forwarder for the dash websocket.
-func (f *PortForwarder) RunForDashWebSocket(localPort uint16) (uint16, error) {
-	return f.Run("dash", localPort, 8081)
-}
-
-// RunForPFS creates a port forwarder for PFS over HTTP.
-func (f *PortForwarder) RunForPFS(localPort uint16) (uint16, error) {
-	return f.Run("pachd", localPort, 30652)
-}
-
 // RunForS3Gateway creates a port forwarder for the s3gateway.
-func (f *PortForwarder) RunForS3Gateway(localPort uint16) (uint16, error) {
-	return f.Run("pachd", localPort, 600)
-}
-
-// RunForIDE creates a port forwarder for the IDE
-func (f *PortForwarder) RunForIDE(localPort, remotePort uint16) (uint16, error) {
-	return f.Run("jupyterhub", localPort, remotePort, "component", "proxy")
+func (f *PortForwarder) RunForS3Gateway(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("pachd", localPort, remotePort)
 }
 
 // Close shuts down port forwarding.

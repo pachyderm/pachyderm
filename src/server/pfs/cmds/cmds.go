@@ -293,7 +293,7 @@ $ {{alias}} test -p XXX`,
 			if parent != "" {
 				// We don't know if the parent is a commit ID, branch, or ancestry, so
 				// construct a string to parse.
-				parentCommit, err = cmdutil.ParseCommit(pretty.CompactPrintRepo(branch.Repo) + "@" + parent)
+				parentCommit, err = cmdutil.ParseCommit(fmt.Sprintf("%s@%s", branch.Repo, parent))
 				if err != nil {
 					return err
 				}
@@ -473,7 +473,7 @@ $ {{alias}} foo@master --from XXX`,
 $ {{alias}} XXX
 
 # return commits caused by foo@XXX leading to branch bar@baz
-$ {{alias}} XXX -b bar@baz`,
+$ {{alias}} foo@XXX -b bar@baz`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			// Parse args before connecting
 			var commitsetID string
@@ -553,7 +553,7 @@ $ {{alias}} XXX -b bar@baz`,
 					return waitBranches(commitsetID)
 				}
 				// We are waiting for the entire commitset to finish
-				commitInfos, err := c.WaitCommitsetAll(commitsetID)
+				commitInfos, err := c.WaitCommitSetAll(commitsetID)
 				if err != nil {
 					return err
 				}
@@ -629,7 +629,7 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	squashCommitset := &cobra.Command{
+	squashCommitSet := &cobra.Command{
 		Use:   "{{alias}} <commitset>",
 		Short: "Squash the commits of a commitset.",
 		Long:  "Squash the commits of a commitset.  The data in the commits will remain in their child commits unless there are no children.",
@@ -641,12 +641,12 @@ $ {{alias}} test@master --new`,
 			defer c.Close()
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				return c.SquashCommitset(args[0])
+				return c.SquashCommitSet(args[0])
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(squashCommitset, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(squashCommitset, "squash commitset"))
+	shell.RegisterCompletionFunc(squashCommitSet, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(squashCommitSet, "squash commitset"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
@@ -687,13 +687,14 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 			var headCommit *pfs.Commit
 			if head != "" {
-				if uuid.IsUUIDWithoutDashes(head) {
-					headCommit = branch.Repo.NewCommit("", head)
-				} else {
+				if strings.Contains(head, "@") {
 					headCommit, err = cmdutil.ParseCommit(head)
 					if err != nil {
 						return err
 					}
+				} else {
+					// treat head as the commitID or branch name
+					headCommit = branch.Repo.NewCommit("", head)
 				}
 			}
 
@@ -718,7 +719,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	}
 	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch. format: <repo>@<branch-or-commit>")
 	createBranch.MarkFlagCustom("provenance", "__pachctl_get_repo_commit")
-	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
+	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch. Either pass the commit with format: <branch-or-commit>, or fully-qualified as <repo>@<branch>=<id>")
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	createBranch.Flags().StringVarP(&trigger.Branch, "trigger", "t", "", "The branch to trigger this branch on.")
 	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "The cron spec to use in triggering.")
@@ -837,6 +838,7 @@ from commits with 'get file'.`,
 	var appendFile bool
 	var compress bool
 	var enableProgress bool
+	var fullPath bool
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
@@ -951,7 +953,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if source == "-" {
 							return errors.Errorf("must specify filename when reading data from stdin")
 						}
-						if err := putFileHelper(mf, joinPaths("", source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					} else if len(sources) == 1 {
@@ -963,7 +969,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 					} else {
 						// We have multiple sources and the user has specified a path,
 						// we use that path as a prefix for the filepaths.
-						if err := putFileHelper(mf, joinPaths(file.Path, source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					}
@@ -979,6 +989,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
+	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
@@ -1072,7 +1083,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				if err != nil {
 					return err
 				}
-				f, err := progress.Create(outputPath, int64(fi.SizeBytes))
+				f, err := progress.Create(outputPath, int64(fi.Details.SizeBytes))
 				if err != nil {
 					return err
 				}
@@ -1435,12 +1446,8 @@ Objects are a low-level resource and should not be accessed directly by most use
 }
 
 func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendFile bool) (retErr error) {
-	// Resolve the path, then trim any prefixed '../' to avoid sending bad paths
-	// to the server, and convert to unix path in case we're on windows.
+	// Resolve the path and convert to unix path in case we're on windows.
 	path = filepath.ToSlash(filepath.Clean(path))
-	for strings.HasPrefix(path, "../") {
-		path = strings.TrimPrefix(path, "../")
-	}
 	var opts []client.PutFileOption
 	if appendFile {
 		opts = append(opts, client.WithAppendPutFile())
@@ -1457,6 +1464,8 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 		defer stdin.Finish()
 		return mf.PutFile(path, stdin, opts...)
 	}
+	// Resolve the source and convert to unix path in case we're on windows.
+	source = filepath.ToSlash(filepath.Clean(source))
 	if recursive {
 		return filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
 			// file doesn't exist

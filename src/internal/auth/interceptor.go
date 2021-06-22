@@ -131,8 +131,8 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/ListCommit":       authDisabledOr(authenticated),
 	"/pfs_v2.API/SubscribeCommit":  authDisabledOr(authenticated),
 	"/pfs_v2.API/ClearCommit":      authDisabledOr(authenticated),
-	"/pfs_v2.API/InspectCommitset": authDisabledOr(authenticated),
-	"/pfs_v2.API/SquashCommitset":  authDisabledOr(authenticated),
+	"/pfs_v2.API/InspectCommitSet": authDisabledOr(authenticated),
+	"/pfs_v2.API/SquashCommitSet":  authDisabledOr(authenticated),
 	"/pfs_v2.API/CreateBranch":     authDisabledOr(authenticated),
 	"/pfs_v2.API/InspectBranch":    authDisabledOr(authenticated),
 	"/pfs_v2.API/ListBranch":       authDisabledOr(authenticated),
@@ -146,10 +146,10 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/DiffFile":         authDisabledOr(authenticated),
 	"/pfs_v2.API/DeleteAll":        authDisabledOr(authenticated),
 	"/pfs_v2.API/Fsck":             authDisabledOr(authenticated),
-	"/pfs_v2.API/CreateFileset":    authDisabledOr(authenticated),
-	"/pfs_v2.API/GetFileset":       authDisabledOr(authenticated),
-	"/pfs_v2.API/AddFileset":       authDisabledOr(authenticated),
-	"/pfs_v2.API/RenewFileset":     authDisabledOr(authenticated),
+	"/pfs_v2.API/CreateFileSet":    authDisabledOr(authenticated),
+	"/pfs_v2.API/GetFileSet":       authDisabledOr(authenticated),
+	"/pfs_v2.API/AddFileSet":       authDisabledOr(authenticated),
+	"/pfs_v2.API/RenewFileSet":     authDisabledOr(authenticated),
 	"/pfs_v2.API/RunLoadTest":      authDisabledOr(authenticated),
 
 	//
@@ -159,7 +159,7 @@ var authHandlers = map[string]authHandler{
 	// TODO: Add per-repo permissions checks for these
 	// TODO: split GetLogs into master and not-master and add check for pipeline permissions
 	"/pps_v2.API/InspectJob":      authDisabledOr(authenticated),
-	"/pps_v2.API/InspectJobset":   authDisabledOr(authenticated),
+	"/pps_v2.API/InspectJobSet":   authDisabledOr(authenticated),
 	"/pps_v2.API/ListJob":         authDisabledOr(authenticated),
 	"/pps_v2.API/ListJobStream":   authDisabledOr(authenticated),
 	"/pps_v2.API/SubscribeJob":    authDisabledOr(authenticated),

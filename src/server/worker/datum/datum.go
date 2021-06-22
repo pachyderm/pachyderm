@@ -18,7 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -84,7 +84,7 @@ func shouldCreateSetFunc(setSpec *SetSpec) func(*Meta) bool {
 		var size int64
 		return func(meta *Meta) bool {
 			for _, input := range meta.Inputs {
-				size += int64(input.FileInfo.SizeBytes)
+				size += int64(input.FileInfo.Details.SizeBytes)
 			}
 			if size >= setSpec.SizeBytes {
 				size = 0
@@ -357,7 +357,7 @@ func (d *Datum) uploadOutput() error {
 }
 
 func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar.Header) error) (retErr error) {
-	if err := obj.WithPipe(func(w io.Writer) (retErr error) {
+	if err := miscutil.WithPipe(func(w io.Writer) (retErr error) {
 		bufW := bufio.NewWriterSize(w, grpcutil.MaxMsgPayloadSize)
 		defer func() {
 			if err := bufW.Flush(); retErr == nil {
@@ -370,7 +370,7 @@ func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar
 		}
 		return tarutil.Export(storageRoot, bufW, opts...)
 	}, func(r io.Reader) error {
-		return mf.PutFileTar(r, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
+		return mf.PutFileTAR(r, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
 	}); err != nil {
 		return err
 	}

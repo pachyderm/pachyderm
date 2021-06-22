@@ -64,7 +64,7 @@ const scaleUpInterval = time.Second * 30
 // corresponding goroutine running monitorPipeline() that puts the pipeline in
 // and out of standby in response to new output commits appearing in that
 // pipeline's output repo.
-func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo, ptr *pps.StoredPipelineInfo) {
+func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	m.monitorCancelsMu.Lock()
 	defer m.monitorCancelsMu.Unlock()
@@ -74,7 +74,7 @@ func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo, ptr *pps.Stored
 				// monitorPipeline needs auth privileges to call subscribeCommit and
 				// inspectCommit
 				pachClient := m.a.env.GetPachClient(ctx)
-				pachClient.SetAuthToken(ptr.AuthToken)
+				pachClient.SetAuthToken(pipelineInfo.AuthToken)
 				m.monitorPipeline(pachClient.Ctx(), pipelineInfo)
 			})
 	}
@@ -97,7 +97,7 @@ func (m *ppsMaster) cancelMonitor(pipeline string) {
 // Every crashing pipeline has a corresponding goro running
 // monitorCrashingPipeline that checks to see if the issues have resolved
 // themselves and moves the pipeline out of crashing if they have.
-func (m *ppsMaster) startCrashingMonitor(parallelism uint64, pipelineInfo *pps.PipelineInfo) {
+func (m *ppsMaster) startCrashingMonitor(pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	m.monitorCancelsMu.Lock()
 	defer m.monitorCancelsMu.Unlock()
@@ -105,7 +105,7 @@ func (m *ppsMaster) startCrashingMonitor(parallelism uint64, pipelineInfo *pps.P
 		m.crashingMonitorCancels[pipeline] = m.startMonitorThread(
 			"monitorCrashingPipeline for "+pipeline,
 			func(ctx context.Context) {
-				m.monitorCrashingPipeline(ctx, parallelism, pipelineInfo)
+				m.monitorCrashingPipeline(ctx, pipelineInfo)
 			})
 	}
 }
@@ -129,7 +129,7 @@ func (m *ppsMaster) cancelCrashingMonitor(pipeline string) {
 //
 // 'leave' indicates pipelines whose monitorPipeline goros shouldn't be
 // cancelled. It's set by pollPipelines, which does not cancel any pipeline in
-// etcd at the time that it runs
+// the database at the time that it runs
 func (m *ppsMaster) cancelAllMonitorsAndCrashingMonitors() {
 	m.monitorCancelsMu.Lock()
 	defer m.monitorCancelsMu.Unlock()
@@ -182,7 +182,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 	pipeline := pipelineInfo.Pipeline.Name
 	log.Printf("PPS master: monitoring pipeline %q", pipeline)
 	var eg errgroup.Group
-	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) error {
+	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error {
 		if in.Cron != nil {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
@@ -193,7 +193,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 		return nil
 	})
-	if pipelineInfo.Standby || pipelineInfo.Autoscaling {
+	if pipelineInfo.Details.Standby || pipelineInfo.Details.Autoscaling {
 		// Capacity 1 gives us a bit of buffer so we don't needlessly go into
 		// standby when SubscribeCommit takes too long to return.
 		ciChan := make(chan *pfs.CommitInfo, 1)
@@ -327,7 +327,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 			}, backoff.NewInfiniteBackOff(),
 				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipeline))
 		})
-		if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant > 1 && pipelineInfo.Autoscaling {
+		if pipelineInfo.Details.ParallelismSpec != nil && pipelineInfo.Details.ParallelismSpec.Constant > 1 && pipelineInfo.Details.Autoscaling {
 			eg.Go(func() error {
 				pachClient := m.a.env.GetPachClient(ctx)
 				return backoff.RetryUntilCancel(ctx, func() error {
@@ -345,22 +345,22 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 							kubeClient := m.a.env.GetKubeClient()
 							namespace := m.a.namespace
 							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
-							scale, err := rc.GetScale(pipelineInfo.WorkerRc, metav1.GetOptions{})
+							scale, err := rc.GetScale(pipelineInfo.Details.WorkerRc, metav1.GetOptions{})
 							n := nTasks
-							if n > int64(pipelineInfo.ParallelismSpec.Constant) {
-								n = int64(pipelineInfo.ParallelismSpec.Constant)
+							if n > int64(pipelineInfo.Details.ParallelismSpec.Constant) {
+								n = int64(pipelineInfo.Details.ParallelismSpec.Constant)
 							}
 							if err != nil {
 								return err
 							}
 							if int64(scale.Spec.Replicas) < n {
 								scale.Spec.Replicas = int32(n)
-								if _, err := rc.UpdateScale(pipelineInfo.WorkerRc, scale); err != nil {
+								if _, err := rc.UpdateScale(pipelineInfo.Details.WorkerRc, scale); err != nil {
 									return err
 								}
 							}
 							// We've already attained max scale, no reason to keep polling.
-							if n == int64(pipelineInfo.ParallelismSpec.Constant) {
+							if n == int64(pipelineInfo.Details.ParallelismSpec.Constant) {
 								return nil
 							}
 						}
@@ -380,9 +380,10 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 	}
 }
 
-func (m *ppsMaster) monitorCrashingPipeline(ctx context.Context, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
+func (m *ppsMaster) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	ctx, cancelInner := context.WithCancel(ctx)
+	parallelism := pipelineInfo.Parallelism
 	if parallelism == 0 {
 		parallelism = 1
 	}
@@ -425,7 +426,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		return err
 	} else if commitInfo != nil && commitInfo.Finished == nil {
 		// and if there is, delete it
-		if err = pachClient.SquashCommitset(commitInfo.Commit.ID); err != nil {
+		if err = pachClient.SquashCommitSet(commitInfo.Commit.ID); err != nil {
 			return err
 		}
 	}

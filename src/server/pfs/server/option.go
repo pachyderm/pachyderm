@@ -6,16 +6,17 @@ import "github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 type SourceOption func(*sourceConfig)
 
 type sourceConfig struct {
-	full   bool
-	filter func(fileset.FileSet) fileset.FileSet
+	details bool
+	filter  func(fileset.FileSet) fileset.FileSet
 }
 
-// WithFull sets the source to generate the full metadata for the returned files.
-// This means resolving the indexes for computing the true hashes of the files,
-// and computing the directory hashes / sizes by scanning ahead in a parallel iteration.
-func WithFull() SourceOption {
+// WithDetails sets the source to populate the 'Details' field of the returned
+// files.  This means resolving the indexes for computing the true hashes of the
+// files, and computing the directory hashes / sizes by scanning ahead in a
+// parallel iteration.
+func WithDetails() SourceOption {
 	return func(sc *sourceConfig) {
-		sc.full = true
+		sc.details = true
 	}
 }
 

@@ -321,15 +321,12 @@ each datum.`,
 	}
 	commands = append(commands, cmdutil.CreateAlias(restartDatum, "restart datum"))
 
+	var pipelineInputPath string
 	listDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			job, err := cmdutil.ParseJob(args[0])
-			if err != nil {
-				return err
-			}
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -356,9 +353,30 @@ each datum.`,
 					return e.EncodeProto(di)
 				}
 			}
-			return client.ListDatum(job.Pipeline.Name, job.ID, printF)
+			if pipelineInputPath != "" && len(args) == 1 {
+				return errors.Errorf("can't specify both a job and a pipeline spec")
+			} else if pipelineInputPath != "" {
+				pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineInputPath)
+				if err != nil {
+					return err
+				}
+				request, err := pipelineReader.NextCreatePipelineRequest()
+				if err != nil {
+					return err
+				}
+				return client.ListDatumInput(request.Input, printF)
+			} else if len(args) == 1 {
+				job, err := cmdutil.ParseJob(args[0])
+				if err != nil {
+					return err
+				}
+				return client.ListDatum(job.Pipeline.Name, job.ID, printF)
+			} else {
+				return errors.Errorf("must specify either a job or a pipeline spec")
+			}
 		}),
 	}
+	listDatum.Flags().StringVarP(&pipelineInputPath, "file", "f", "", "The JSON file containing the pipeline to list datums from, the pipeline need not exist")
 	listDatum.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
@@ -606,7 +624,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			prov, err := cmdutil.ParseCommitProvenances(args[1:])
+			prov, err := cmdutil.ParseCommits(args[1:])
 			if err != nil {
 				return err
 			}
@@ -652,7 +670,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			pipelineInfo, err := client.InspectPipeline(args[0])
+			pipelineInfo, err := client.InspectPipeline(args[0], true)
 			if err != nil {
 				return err
 			}
@@ -782,7 +800,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			request := &ppsclient.ListPipelineRequest{History: history, AllowIncomplete: true, JqFilter: filter}
+			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewPipeline(pipeline)
 			}

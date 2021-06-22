@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -38,7 +37,7 @@ import (
 // TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
 
 const (
-	defaultChunksPerWorker int64 = 4
+	defaultDatumSetsPerWorker int64 = 4
 )
 
 type hasher struct {
@@ -179,10 +178,10 @@ func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 		pi := reg.driver.PipelineInfo()
 		hasher := &hasher{
 			name: pi.Pipeline.Name,
-			salt: pi.Salt,
+			salt: pi.Details.Salt,
 		}
 		var opts []chain.JobChainOption
-		if pi.ReprocessSpec == client.ReprocessSpecEveryJob || pi.S3Out {
+		if pi.Details.ReprocessSpec == client.ReprocessSpecEveryJob || pi.Details.S3Out {
 			opts = append(opts, chain.WithNoSkip())
 		}
 		pachClient := reg.driver.PachClient()
@@ -274,19 +273,19 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 	// in the chain package (timeouts for example).
 	// TODO: I use the registry pachclient for the iterators, so I can reuse across jobs for skipping.
 	pachClient := reg.driver.PachClient()
-	dit, err := datum.NewIterator(pachClient, pj.ji.Input)
+	dit, err := datum.NewIterator(pachClient, pj.ji.Details.Input)
 	if err != nil {
 		return err
 	}
 	outputDit := datum.NewCommitIterator(pachClient, pj.metaCommitInfo.Commit)
 	pj.jdit = reg.jobChain.CreateJob(pj.driver.PachClient().Ctx(), pj.ji.Job, dit, outputDit)
 	var afterTime time.Duration
-	if pj.ji.JobTimeout != nil {
+	if pj.ji.Details.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(pj.ji.Started)
 		if err != nil {
 			return err
 		}
-		timeout, err := types.DurationFromProto(pj.ji.JobTimeout)
+		timeout, err := types.DurationFromProto(pj.ji.Details.JobTimeout)
 		if err != nil {
 			return err
 		}
@@ -299,7 +298,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 
 	asyncEg.Go(func() error {
 		defer pj.cancel()
-		if pj.ji.JobTimeout != nil {
+		if pj.ji.Details.JobTimeout != nil {
 			pj.logger.Logf("cancelling job at: %+v", afterTime)
 			timer := time.AfterFunc(afterTime, func() {
 				reg.killJob(pj, "job timed out")
@@ -422,11 +421,11 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 			// Output commit was deleted. Delete job as well
 			if err := pj.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 				// Delete the job if no other worker has deleted it yet
-				jobPtr := &pps.StoredJobInfo{}
-				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobPtr); err != nil {
+				jobInfo := &pps.JobInfo{}
+				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobInfo); err != nil {
 					return err
 				}
-				return pj.driver.DeleteJob(sqlTx, jobPtr)
+				return pj.driver.DeleteJob(sqlTx, jobInfo)
 			}); err != nil && !col.IsErrNotFound(err) {
 				return err
 			}
@@ -485,7 +484,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	// TODO: We need to delete the output for S3Out since we don't have a clear way to track the output in the stats commit (which means datums cannot be skipped with S3Out).
 	// If we had a way to map the output added through the S3 gateway back to the datums, and stored this in the appropriate place in the stats commit, then we would be able
 	// handle datums the same way we handle normal pipelines.
-	if pj.driver.PipelineInfo().S3Out {
+	if pj.driver.PipelineInfo().Details.S3Out {
 		if err := pachClient.DeleteFile(pj.commitInfo.Commit, "/"); err != nil {
 			return err
 		}
@@ -509,16 +508,16 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	// Set up the datum set spec for the job.
 	// When the datum set spec is not set, evenly distribute the datums.
 	var setSpec *datum.SetSpec
-	chunksPerWorker := defaultChunksPerWorker
-	if pj.driver.PipelineInfo().ChunkSpec != nil {
+	datumSetsPerWorker := defaultDatumSetsPerWorker
+	if pj.driver.PipelineInfo().Details.DatumSetSpec != nil {
 		setSpec = &datum.SetSpec{
-			Number:    pj.driver.PipelineInfo().ChunkSpec.Number,
-			SizeBytes: pj.driver.PipelineInfo().ChunkSpec.SizeBytes,
+			Number:    pj.driver.PipelineInfo().Details.DatumSetSpec.Number,
+			SizeBytes: pj.driver.PipelineInfo().Details.DatumSetSpec.SizeBytes,
 		}
-		chunksPerWorker = pj.driver.PipelineInfo().ChunkSpec.ChunksPerWorker
+		datumSetsPerWorker = pj.driver.PipelineInfo().Details.DatumSetSpec.PerWorker
 	}
 	if setSpec == nil || (setSpec.Number == 0 && setSpec.SizeBytes == 0) {
-		setSpec = &datum.SetSpec{Number: numDatums / (int64(reg.concurrency) * chunksPerWorker)}
+		setSpec = &datum.SetSpec{Number: numDatums / (int64(reg.concurrency) * datumSetsPerWorker)}
 		if setSpec.Number == 0 {
 			setSpec.Number = 1
 		}
@@ -556,21 +555,21 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 						if err != nil {
 							return err
 						}
-						renewer.Remove(data.FilesetId)
-						if _, err := pachClient.PfsAPIClient.AddFileset(
+						renewer.Remove(data.FileSetId)
+						if _, err := pachClient.PfsAPIClient.AddFileSet(
 							pachClient.Ctx(),
-							&pfs.AddFilesetRequest{
+							&pfs.AddFileSetRequest{
 								Commit:    pj.commitInfo.Commit,
-								FilesetId: data.OutputFilesetId,
+								FileSetId: data.OutputFileSetId,
 							},
 						); err != nil {
 							return grpcutil.ScrubGRPC(err)
 						}
-						if _, err := pachClient.PfsAPIClient.AddFileset(
+						if _, err := pachClient.PfsAPIClient.AddFileSet(
 							pachClient.Ctx(),
-							&pfs.AddFilesetRequest{
+							&pfs.AddFileSetRequest{
 								Commit:    pj.metaCommitInfo.Commit,
-								FilesetId: data.MetaFilesetId,
+								FileSetId: data.MetaFileSetId,
 							},
 						); err != nil {
 							return grpcutil.ScrubGRPC(err)
@@ -597,7 +596,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	if stats.FailedID != "" {
 		return reg.failJob(pj, fmt.Sprintf("datum %v failed", stats.FailedID))
 	}
-	if pj.ji.Egress != nil {
+	if pj.ji.Details.Egress != nil {
 		pj.ji.State = pps.JobState_JOB_EGRESSING
 		return pj.writeJobInfo()
 	}
@@ -605,19 +604,19 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 }
 
 func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(client.ModifyFile) error, renewer *renew.StringSet) (*work.Task, error) {
-	resp, err := pachClient.WithCreateFilesetClient(func(mf client.ModifyFile) error {
+	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 		return upload(mf)
 	})
 	if err != nil {
 		return nil, err
 	}
-	renewer.Add(resp.FilesetId)
+	renewer.Add(resp.FileSetId)
 	data, err := serializeDatumSet(&DatumSet{
 		JobID:        pj.ji.Job.ID,
 		OutputCommit: pj.commitInfo.Commit,
 		// TODO: It might make sense for this to be a hash of the constituent datums?
 		// That could make it possible to recover from a master restart.
-		FilesetId: resp.FilesetId,
+		FileSetId: resp.FileSetId,
 	})
 	if err != nil {
 		return nil, err
@@ -646,7 +645,7 @@ func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
 }
 
 func (reg *registry) processJobEgressing(pj *pendingJob) error {
-	url := pj.ji.Egress.URL
+	url := pj.ji.Details.Egress.URL
 	if err := pj.driver.PachClient().GetFileURL(pj.commitInfo.Commit, "/", url); err != nil {
 		return err
 	}
@@ -658,14 +657,14 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 	waitCommit := func(name string, commit *pfs.Commit) error {
 		ci, err := pachClient.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 		if err != nil {
-			return errors.Wrapf(err, "error blocking on commit %s", pfsdb.CommitKey(commit))
+			return errors.Wrapf(err, "error blocking on commit %s", commit)
 		}
 		if strings.Contains(ci.Description, pfs.EmptyStr) {
 			failed = append(failed, name)
 		}
 		return nil
 	}
-	visitErr := pps.VisitInput(jobInfo.Input, func(input *pps.Input) error {
+	visitErr := pps.VisitInput(jobInfo.Details.Input, func(input *pps.Input) error {
 		if input.Pfs != nil && input.Pfs.Commit != "" {
 			if err := waitCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, input.Pfs.Commit)); err != nil {
 				return err
