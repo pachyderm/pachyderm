@@ -57,12 +57,12 @@ const TooltipContent: React.FC<TooltipContentProps> = ({
 
 interface NodeTooltipProps {
   node: Node;
-  textClassName?: string;
+  show: boolean;
 }
 
 const NodeTooltip: React.FC<NodeTooltipProps> = ({
   node: {type, name, state, access},
-  textClassName = '',
+  show,
 }) => {
   const isEgress = type === NodeType.EGRESS;
 
@@ -76,8 +76,9 @@ const NodeTooltip: React.FC<NodeTooltipProps> = ({
     >
       <span>
         <p
-          className={classnames(styles.text, textClassName, {
+          className={classnames(styles.text, {
             [styles.noCaps]: isEgress || !access,
+            [styles.show]: show,
           })}
           style={{minHeight: `${NODE_TOOLTIP_HEIGHT - 9}px`}}
         >

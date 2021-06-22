@@ -13,6 +13,12 @@
   opacity: 0;
 }
 
+.base .text.show {
+  opacity: 1;
+  -webkit-backface-visibility: visible;
+  backface-visibility: hidden;
+}
+
 .base .text.noCaps {
   text-transform: none;
 }

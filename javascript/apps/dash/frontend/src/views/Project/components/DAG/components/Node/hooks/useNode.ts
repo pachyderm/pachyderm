@@ -111,8 +111,13 @@ const useNode = (
 
   const normalizedNodeName = deriveRepoNameFromNode(node);
 
+  const isHovered = useMemo(
+    () => hoveredNode === node.name,
+    [hoveredNode, node.name],
+  );
+
   return {
-    hoveredNode,
+    isHovered,
     onClick,
     onMouseOut,
     onMouseOver,

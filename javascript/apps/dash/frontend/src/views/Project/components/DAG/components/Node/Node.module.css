@@ -63,9 +63,3 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-
-.nodeGroup.interactive:not(.showLeaveJob):hover .tooltipText {
-  opacity: 1;
-  -webkit-backface-visibility: visible;
-  backface-visibility: hidden;
-}

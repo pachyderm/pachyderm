@@ -35,7 +35,7 @@ const Node: React.FC<NodeProps> = ({
   offset,
 }) => {
   const {
-    hoveredNode,
+    isHovered,
     onClick,
     onMouseOut,
     onMouseOver,
@@ -52,7 +52,7 @@ const Node: React.FC<NodeProps> = ({
 
   const classes = classNames(styles.nodeGroup, {
     [styles.interactive]: isInteractive,
-    [styles.selected]: [selectedNode, hoveredNode].includes(node.name),
+    [styles.selected]: selectedNode === node.name || isHovered,
     [styles.access]: node.access,
     [styles.showLeaveJob]: showLeaveJob,
   });
@@ -110,9 +110,7 @@ const Node: React.FC<NodeProps> = ({
         </span>
       </foreignObject>
 
-      <NodeTooltip node={node} textClassName={styles.tooltipText} />
-
-      {showLeaveJob && (
+      {showLeaveJob ? (
         <LeaveJobButton
           onClick={handleLeaveJobClick}
           onClose={closeLeaveJob}
@@ -121,6 +119,8 @@ const Node: React.FC<NodeProps> = ({
             node.type === NodeType.INPUT_REPO
           }
         />
+      ) : (
+        <NodeTooltip node={node} show={isHovered && isInteractive} />
       )}
 
       <image

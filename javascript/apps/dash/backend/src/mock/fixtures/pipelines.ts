@@ -185,7 +185,7 @@ const traitDiscovery = [
       new Input().setCrossList([
         new Input().setPfs(new PFSInput().setRepo('pachy_atg_fasta')),
         new Input().setPfs(
-          new PFSInput().setRepo('pachy_trait_candidates_fasta'),
+          new PFSInput().setRepo('pachy_trait_candidate_fasta'),
         ),
       ]),
     ),
