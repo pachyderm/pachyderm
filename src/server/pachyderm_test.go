@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -106,8 +107,8 @@ func TestSimplePipeline(t *testing.T) {
 	for _, info := range commitInfos {
 		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
 	}
-	require.ElementsEqual(t, commitRepos[:2], []*pfs.Repo{client.NewRepo(dataRepo), client.NewSystemRepo(pipeline, pfs.SpecRepoType)})
-	require.ElementsEqual(t, commitRepos[:2], []*pfs.Repo{client.NewRepo(pipeline), client.NewSystemRepo(pipeline, pfs.MetaRepoType)})
+	require.ElementsEqualUnderFn(t, commitRepos[:2], []*pfs.Repo{client.NewRepo(dataRepo), client.NewSystemRepo(pipeline, pfs.SpecRepoType)}, pfsdb.RepoKey)
+	require.ElementsEqualUnderFn(t, commitRepos[2:], []*pfs.Repo{client.NewRepo(pipeline), client.NewSystemRepo(pipeline, pfs.MetaRepoType)}, pfsdb.RepoKey)
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
