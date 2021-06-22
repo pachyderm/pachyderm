@@ -119,6 +119,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "GC_PERCENT",
 		Value: strconv.FormatInt(int64(a.gcPercent), 10),
 	}, {
+		Name:  "POSTGRES_USER",
+		Value: a.env.Config().PostgresUser,
+	}, {
+		Name:  "POSTGRES_PASSWORD",
+		Value: a.env.Config().PostgresPassword,
+	}, {
 		Name:  "POSTGRES_DATABASE_NAME",
 		Value: a.env.Config().PostgresDBName,
 	}, {
