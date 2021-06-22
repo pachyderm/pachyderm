@@ -24,7 +24,7 @@ func Encoder(format string) serde.Encoder {
 		serde.WithOrigName(true),
 	)
 	if err != nil {
-		ErrorAndExit(err.Error())
+		ErrorAndExit("%s", err.Error())
 	}
 	return e
 }
