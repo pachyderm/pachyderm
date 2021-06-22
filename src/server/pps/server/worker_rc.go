@@ -85,8 +85,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		pullPolicy = "IfNotPresent"
 	}
 
-	// Set up sidecar env vars
-	sidecarEnv := []v1.EnvVar{{
+	// Environment variables that are shared between both containers
+	commonEnv := []v1.EnvVar{{
 		Name:  "PACH_ROOT",
 		Value: a.storageRoot,
 	}, {
@@ -95,29 +95,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
-	}, {
-		Name:  "PORT",
-		Value: strconv.FormatUint(uint64(a.port), 10),
-	}, {
-		Name:  "PEER_PORT",
-		Value: strconv.FormatUint(uint64(a.peerPort), 10),
-	}, {
-		Name:  client.PPSSpecCommitEnv,
-		Value: options.specCommit,
-	}, {
-		Name:  client.PPSPipelineNameEnv,
-		Value: pipelineInfo.Pipeline.Name,
-	}, {
-		Name: "PACHD_POD_NAME",
-		ValueFrom: &v1.EnvVarSource{
-			FieldRef: &v1.ObjectFieldSelector{
-				APIVersion: "v1",
-				FieldPath:  "metadata.name",
-			},
-		},
-	}, {
-		Name:  "GC_PERCENT",
-		Value: strconv.FormatInt(int64(a.gcPercent), 10),
 	}, {
 		Name:  "POSTGRES_USER",
 		Value: a.env.Config().PostgresUser,
@@ -134,27 +111,40 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "POSTGRES_PORT",
 		Value: strconv.FormatInt(int64(a.env.Config().PostgresPort), 10),
 	}, {
-		Name:  "METRICS",
-		Value: strconv.FormatBool(a.env.Config().Metrics),
+		Name:  client.PeerPortEnv,
+		Value: strconv.FormatUint(uint64(a.peerPort), 10),
+	}, {
+		Name:  client.PPSSpecCommitEnv,
+		Value: options.specCommit,
+	}, {
+		Name:  client.PPSPipelineNameEnv,
+		Value: pipelineInfo.Pipeline.Name,
+	},
+	}
+
+	// Set up sidecar env vars
+	sidecarEnv := []v1.EnvVar{{
+		Name:  "PORT",
+		Value: strconv.FormatUint(uint64(a.port), 10),
+	}, {
+		Name: "PACHD_POD_NAME",
+		ValueFrom: &v1.EnvVarSource{
+			FieldRef: &v1.ObjectFieldSelector{
+				APIVersion: "v1",
+				FieldPath:  "metadata.name",
+			},
+		},
+	}, {
+		Name:  "GC_PERCENT",
+		Value: strconv.FormatInt(int64(a.gcPercent), 10),
 	}}
 
 	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
+	sidecarEnv = append(sidecarEnv, commonEnv...)
 
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
 		// Set core pach env vars
-		{
-			Name:  "PACH_ROOT",
-			Value: a.storageRoot,
-		},
-		{
-			Name:  "STORAGE_BACKEND",
-			Value: a.storageBackend,
-		},
-		{
-			Name:  "PACH_NAMESPACE",
-			Value: a.namespace,
-		},
 		{
 			Name:  "PACH_IN_WORKER",
 			Value: "true",
@@ -186,22 +176,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 			},
 		},
 		{
-			Name:  client.PPSSpecCommitEnv,
-			Value: options.specCommit,
-		},
-		{
 			Name:  client.PPSWorkerPortEnv,
 			Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
 		},
-		{
-			Name:  client.PeerPortEnv,
-			Value: strconv.FormatUint(uint64(a.peerPort), 10),
-		},
-		{
-			Name:  "METRICS",
-			Value: strconv.FormatBool(a.env.Config().Metrics),
-		},
 	}...)
+	workerEnv = append(workerEnv, commonEnv...)
 
 	// Set S3GatewayPort in the worker (for user code) and sidecar (for serving)
 	if options.s3GatewayPort != 0 {
