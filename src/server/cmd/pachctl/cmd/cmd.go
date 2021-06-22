@@ -578,7 +578,7 @@ This resets the cluster to its initial state.`,
 			successCount := 0
 
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-			port, err := fw.RunForDaemon(port, remotePort)
+			port, err := fw.RunForPachd(port, remotePort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -588,7 +588,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the OIDC callback port...")
-			port, err = fw.RunForOIDCCallback(oidcPort, remoteOidcPort)
+			port, err = fw.RunForPachd(oidcPort, remoteOidcPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -598,7 +598,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the s3gateway port...")
-			port, err = fw.RunForS3Gateway(s3gatewayPort, remoteS3gatewayPort)
+			port, err = fw.RunForPachd(s3gatewayPort, remoteS3gatewayPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -608,7 +608,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the identity service port...")
-			port, err = fw.RunForDex(dexPort, remoteDexPort)
+			port, err = fw.RunForPachd(dexPort, remoteDexPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
