@@ -16,12 +16,13 @@ func TestHub(t *testing.T) {
 	var (
 		objects []interface{}
 		checks  = map[string]bool{
-			"ingress":                false,
-			"metricsEndpoint":        false,
-			"dash limits":            false,
-			"etcd limits":            false,
-			"loki logging":           false,
-			"docker socket":          false,
+			"ingress":         false,
+			"metricsEndpoint": false,
+			"dash limits":     false,
+			"etcd limits":     false,
+			"loki logging":    false,
+			"docker socket":   false,
+			//		"postgres password":      false,
 			"pachd service type":     false,
 			"etcd prometheus port":   false,
 			"etcd prometheus scrape": false,
@@ -70,6 +71,11 @@ func TestHub(t *testing.T) {
 								t.Error("Docker socket should be exposed")
 							}
 							checks["docker socket"] = true
+							//case "POSTGRES_PASSWORD":
+							//	if v.Value != "Example-Password" {
+							//		t.Error("Postgres Password should be exposed")
+							//	}
+							//	checks["postgres password"] = true
 						}
 					}
 				}

@@ -297,10 +297,14 @@ worker:
     name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
 
 postgresql:
-  # Set to false if you are bringing your own PostgreSQL instance
-  enabled: false
-  host: postgres
-  password: "plaintText"
+  # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
+  enabled: true
+  host: ""
+  port: ""
+  ssl: ""
+  user: ""
+  password: ""
+
   service:
     type: ClusterIP
   storageClass: ""

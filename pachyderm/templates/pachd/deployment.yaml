@@ -38,6 +38,32 @@ spec:
       - command:
         - /pachd
         env:
+        {{- if .Values.postgresql.host }}
+        - name: POSTGRES_SERVICE_HOST
+          value: {{ .Values.postgresql.host | quote}}
+        {{- end }}
+        {{- if .Values.postgresql.port }}
+        - name: POSTGRES_SERVICE_PORT
+          value:  {{ .Values.postgresql.port | quote}}
+        {{- end }}
+        {{- if .Values.postgresql.user }}
+        - name: POSTGRES_USER
+          value: {{ .Values.postgresql.user | quote}}
+        {{- end }}
+        {{- if .Values.postgresql.password }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_PASSWORD
+              name: pachyderm-storage-secret
+              optional: true
+        {{- end }}
+        {{- if .Values.postgresql.ssl }}
+        - name: POSTGRES_SERVICE_SSL
+          value: {{ .Values.postgresql.ssl | quote }}
+        {{- end}}
+        - name: PACH_ROOT_2
+          value: "/pach"
         - name: LOKI_LOGGING
           value: {{ .Values.pachd.lokiLogging | quote}}
         - name: PACH_ROOT

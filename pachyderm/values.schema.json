@@ -410,6 +410,9 @@
                 "password": {
                     "type": "string"
                 },
+                "port": {
+                    "type": "string"
+                },
                 "service": {
                     "type": "object",
                     "properties": {
@@ -419,6 +422,12 @@
                     }
                 },
                 "storageClass": {
+                    "type": "string"
+                },
+                "ssl": {
+                    "type": "string"
+                },
+                "user": {
                     "type": "string"
                 }
             }

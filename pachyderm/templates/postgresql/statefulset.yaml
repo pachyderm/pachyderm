@@ -2,7 +2,7 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{- if .Values.postgresql.external }}
+{{- if .Values.postgresql.enabled }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -31,6 +31,7 @@ spec:
         - name: POSTGRES_DB
           value: pgc
         - name: POSTGRES_HOST_AUTH_METHOD
+          # TODO: Remove trust as auth method
           value: trust
         image: postgres:13.0-alpine
         imagePullPolicy: IfNotPresent
