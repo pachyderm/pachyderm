@@ -138,7 +138,7 @@ or type (e.g. csv, binary, images, etc).`,
 				return errors.Errorf("repo %s not found", args[0])
 			}
 			if raw {
-				return cmdutil.Encoder(output).EncodeProto(repoInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(repoInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -177,7 +177,7 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			}
 			if raw {
-				encoder := cmdutil.Encoder(output)
+				encoder := cmdutil.Encoder(output, os.Stdout)
 				for _, repoInfo := range repoInfos {
 					if err := encoder.EncodeProto(repoInfo); err != nil {
 						return err
@@ -385,7 +385,7 @@ $ {{alias}} test -p XXX`,
 				return errors.Errorf("commit %s not found", commit.ID)
 			}
 			if raw {
-				return cmdutil.Encoder(output).EncodeProto(commitInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -442,7 +442,7 @@ $ {{alias}} foo@master --from XXX`,
 			}
 
 			if raw {
-				encoder := cmdutil.Encoder(output)
+				encoder := cmdutil.Encoder(output, os.Stdout)
 				return c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
 					return encoder.EncodeProto(ci)
 				})
@@ -496,7 +496,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 			}
 
 			if raw {
-				return cmdutil.Encoder(output).EncodeProto(commitInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -553,7 +553,7 @@ $ {{alias}} test@master --new`,
 			}()
 			var encoder serde.Encoder
 			if raw {
-				encoder = cmdutil.Encoder(output)
+				encoder = cmdutil.Encoder(output, os.Stdout)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -576,7 +576,7 @@ $ {{alias}} test@master --new`,
 
 	writeCommitTable := func(commitInfos []*pfs.CommitInfo) error {
 		if raw {
-			encoder := cmdutil.Encoder(output)
+			encoder := cmdutil.Encoder(output, os.Stdout)
 			for _, commitInfo := range commitInfos {
 				if err := encoder.EncodeProto(commitInfo); err != nil {
 					return err
@@ -786,7 +786,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return errors.Errorf("branch %s not found", args[0])
 			}
 			if raw {
-				return cmdutil.Encoder(output).EncodeProto(branchInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(branchInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -815,7 +815,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 			branches := branchInfos.BranchInfo
 			if raw {
-				encoder := cmdutil.Encoder(output)
+				encoder := cmdutil.Encoder(output, os.Stdout)
 				for _, branch := range branches {
 					if err := encoder.EncodeProto(branch); err != nil {
 						return err
@@ -1150,7 +1150,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				return errors.Errorf("file %s not found", file.Path)
 			}
 			if raw {
-				return cmdutil.Encoder(output).EncodeProto(fileInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(fileInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -1205,7 +1205,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			}
 			defer c.Close()
 			if raw {
-				encoder := cmdutil.Encoder(output)
+				encoder := cmdutil.Encoder(output, os.Stdout)
 				return c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
 					return encoder.EncodeProto(fi)
 				})
@@ -1259,7 +1259,7 @@ $ {{alias}} "foo@master:data/*"`,
 				return err
 			}
 			if raw {
-				encoder := cmdutil.Encoder(output)
+				encoder := cmdutil.Encoder(output, os.Stdout)
 				for _, fileInfo := range fileInfos {
 					if err := encoder.EncodeProto(fileInfo); err != nil {
 						return err
@@ -1470,7 +1470,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 			if err != nil {
 				return err
 			}
-			return cmdutil.Encoder(output).EncodeProto(resp)
+			return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
 		}),
 	}
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")

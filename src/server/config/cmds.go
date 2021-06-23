@@ -192,7 +192,7 @@ func Cmds() []*cobra.Command {
 				return errors.Errorf("context does not exist: %s", args[0])
 			}
 
-			if err = cmdutil.Encoder("json").EncodeProto(context); err != nil {
+			if err = cmdutil.Encoder("json", os.Stdout).EncodeProto(context); err != nil {
 				return err
 			}
 

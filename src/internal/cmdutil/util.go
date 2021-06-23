@@ -14,12 +14,12 @@ import (
 // serialization format 'format'.  If the 'format' passed is unrecognized
 // (currently, 'format' must be 'json' or 'yaml') then pachctl exits
 // immediately.
-func Encoder(format string) serde.Encoder {
+func Encoder(format string, w io.Writer) serde.Encoder {
 	format = strings.ToLower(format)
 	if format == "" {
 		format = "json"
 	}
-	e, err := serde.GetEncoder(format, os.Stdout,
+	e, err := serde.GetEncoder(format, w,
 		serde.WithIndent(2),
 		serde.WithOrigName(true),
 	)

@@ -438,16 +438,12 @@ Environment variables:
 
 			// print server version
 			if raw {
-				return cmdutil.Encoder(output).EncodeProto(version)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(version)
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
-			} else {
-				printVersion(writer, "pachd", version)
-				if err := writer.Flush(); err != nil {
-					return err
-				}
+				return errors.New("cannot set --output (-o) without --raw")
 			}
-			return nil
+			printVersion(writer, "pachd", version)
+			return writer.Flush()
 		}),
 	}
 	versionCmd.Flags().BoolVar(&clientOnly, "client-only", false, "If set, "+

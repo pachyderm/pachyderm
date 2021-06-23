@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	_metrics "github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	clientcmd "k8s.io/client-go/tools/clientcmd/api/v1"
 
@@ -68,7 +67,7 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 		}
 
 		var buf bytes.Buffer
-		if err := encoder("yaml", &buf).Encode(config); err != nil {
+		if err := cmdutil.Encoder("yaml", &buf).Encode(config); err != nil {
 			return errors.Wrapf(err, "failed to encode config")
 		}
 
@@ -108,23 +107,6 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 
 	args = append([]string{"kubectl"}, args...)
 	return cmdutil.RunIO(ioObj, args...)
-}
-
-// Return the appropriate encoder for the given output format.
-func encoder(output string, w io.Writer) serde.Encoder {
-	if output == "" {
-		output = "json"
-	} else {
-		output = strings.ToLower(output)
-	}
-	e, err := serde.GetEncoder(output, w,
-		serde.WithIndent(2),
-		serde.WithOrigName(true),
-	)
-	if err != nil {
-		cmdutil.ErrorAndExit(err.Error())
-	}
-	return e
 }
 
 func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
@@ -479,7 +461,7 @@ func standardDeployCmds() []*cobra.Command {
 
 			var buf bytes.Buffer
 			if err := assets.WriteLocalAssets(
-				encoder(outputFormat, &buf), opts, hostPath,
+				cmdutil.Encoder(outputFormat, &buf), opts, hostPath,
 			); err != nil {
 				return err
 			}
@@ -543,7 +525,7 @@ func standardDeployCmds() []*cobra.Command {
 				cred = string(credBytes)
 			}
 			if err = assets.WriteGoogleAssets(
-				encoder(outputFormat, &buf), opts, bucket, cred, volumeSize,
+				cmdutil.Encoder(outputFormat, &buf), opts, bucket, cred, volumeSize,
 			); err != nil {
 				return err
 			}
@@ -602,7 +584,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
 			if err := assets.WriteCustomAssets(
-				encoder(outputFormat, &buf), opts, args, objectStoreBackend,
+				cmdutil.Encoder(outputFormat, &buf), opts, args, objectStoreBackend,
 				persistentDiskBackend, secure, isS3V2, advancedConfig,
 			); err != nil {
 				return err
@@ -739,7 +721,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
 			if err = assets.WriteAmazonAssets(
-				encoder(outputFormat, &buf), opts, region, bucket, volumeSize,
+				cmdutil.Encoder(outputFormat, &buf), opts, region, bucket, volumeSize,
 				amazonCreds, cloudfrontDistribution, advancedConfig,
 			); err != nil {
 				return err
@@ -813,7 +795,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 			var buf bytes.Buffer
 			if err = assets.WriteMicrosoftAssets(
-				encoder(outputFormat, &buf), opts, container, accountName, accountKey, volumeSize,
+				cmdutil.Encoder(outputFormat, &buf), opts, container, accountName, accountKey, volumeSize,
 			); err != nil {
 				return err
 			}

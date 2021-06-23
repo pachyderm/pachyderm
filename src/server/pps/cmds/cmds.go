@@ -80,22 +80,14 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			var jobInfo *pps.JobInfo
-			if wait {
-				jobInfo, err = client.WaitJob(job.Pipeline.Name, job.ID, true)
-			} else {
-				jobInfo, err = client.InspectJob(job.Pipeline.Name, job.ID, true)
-			}
+			jobInfo, err := client.InspectJob(job.Pipeline.Name, job.ID, true)
 			if err != nil {
-				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
-			}
-			if jobInfo == nil {
-				cmdutil.ErrorAndExit("job %s not found.", args[0])
+				return errors.Wrap(err, "error from InspectJob")
 			}
 			if raw {
-				return cmdutil.Encoder(output).EncodeProto(jobInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(jobInfo)
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			pji := &pretty.PrintableJobInfo{
 				JobInfo:        jobInfo,
@@ -104,11 +96,45 @@ If the job fails, the output commit will not be populated with data.`,
 			return pretty.PrintDetailedJobInfo(os.Stdout, pji)
 		}),
 	}
-	inspectJob.Flags().BoolVarP(&wait, "wait", "w", false, "wait until the job has either succeeded or failed")
 	inspectJob.Flags().AddFlagSet(outputFlags)
 	inspectJob.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectJob, "inspect job"))
+
+	waitJob := &cobra.Command{
+		Use:   "{{alias}} <pipeline>@<job>",
+		Short: "Wait for a job to finish then return info about the job.",
+		Long:  "Wait for a job to finish then return info about the job.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			job, err := cmdutil.ParseJob(args[0])
+			if err != nil {
+				return err
+			}
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			jobInfo, err := client.WaitJob(job.Pipeline.Name, job.ID, true)
+			if err != nil {
+				errors.Wrap(err, "error from InspectJob")
+			}
+			if raw {
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(jobInfo)
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+			pji := &pretty.PrintableJobInfo{
+				JobInfo:        jobInfo,
+				FullTimestamps: fullTimestamps,
+			}
+			return pretty.PrintDetailedJobInfo(os.Stdout, pji)
+		}),
+	}
+	waitJob.Flags().AddFlagSet(outputFlags)
+	waitJob.Flags().AddFlagSet(timestampFlags)
+	shell.RegisterCompletionFunc(waitJob, shell.JobCompletion)
+	commands = append(commands, cmdutil.CreateAlias(waitJob, "wait job"))
 
 	inspectJobSet := &cobra.Command{
 		Use:   "{{alias}} <job-id>",
@@ -128,11 +154,11 @@ If the job fails, the output commit will not be populated with data.`,
 				jobInfos, err = client.InspectJobSet(args[0], false)
 			}
 			if err != nil {
-				cmdutil.ErrorAndExit("error from InspectJobSet: %s", err.Error())
+				return errors.Wrap(err, "error from InspectJobSet")
 			}
 
 			if raw {
-				e := cmdutil.Encoder(output)
+				e := cmdutil.Encoder(output, os.Stdout)
 				for _, jobInfo := range jobInfos {
 					if err := e.EncodeProto(jobInfo); err != nil {
 						return err
@@ -140,7 +166,7 @@ If the job fails, the output commit will not be populated with data.`,
 				}
 				return nil
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
@@ -204,15 +230,16 @@ $ {{alias}} -p foo -i bar@YYY`,
 			}
 			defer client.Close()
 
+			if raw {
+				e := cmdutil.Encoder(output, os.Stdout)
+				return client.ListJobFilterF(pipelineName, commits, history, true, filter, func(ji *ppsclient.JobInfo) error {
+					return e.EncodeProto(ji)
+				})
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
-				if raw {
-					e := cmdutil.Encoder(output)
-					return client.ListJobFilterF(pipelineName, commits, history, true, filter, func(ji *ppsclient.JobInfo) error {
-						return e.EncodeProto(ji)
-					})
-				} else if output != "" {
-					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
-				}
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
 				if err := client.ListJobFilterF(pipelineName, commits, history, false, filter, func(ji *ppsclient.JobInfo) error {
 					pretty.PrintJobInfo(writer, ji, fullTimestamps)
@@ -258,7 +285,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			}
 			defer client.Close()
 			if err := client.DeleteJob(job.Pipeline.Name, job.ID); err != nil {
-				cmdutil.ErrorAndExit("error from DeleteJob: %s", err.Error())
+				return errors.Wrap(err, "error from DeleteJob")
 			}
 			return nil
 		}),
@@ -281,7 +308,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			}
 			defer client.Close()
 			if err := client.StopJob(job.Pipeline.Name, job.ID); err != nil {
-				cmdutil.ErrorAndExit("error from StopJob: %s", err.Error())
+				return errors.Wrap(err, "error from StopJob")
 			}
 			return nil
 		}),
@@ -346,7 +373,7 @@ each datum.`,
 			var printF func(*ppsclient.DatumInfo) error
 			if !raw {
 				if output != "" {
-					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+					return errors.New("cannot set --output (-o) without --raw")
 				}
 				writer := tabwriter.NewWriter(os.Stdout, pretty.DatumHeader)
 				printF = func(di *ppsclient.DatumInfo) error {
@@ -359,7 +386,7 @@ each datum.`,
 					}
 				}()
 			} else {
-				e := cmdutil.Encoder(output)
+				e := cmdutil.Encoder(output, os.Stdout)
 				printF = func(di *ppsclient.DatumInfo) error {
 					return e.EncodeProto(di)
 				}
@@ -411,9 +438,9 @@ each datum.`,
 				return err
 			}
 			if raw {
-				return cmdutil.Encoder(output).EncodeProto(datumInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(datumInfo)
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			pretty.PrintDetailedDatumInfo(os.Stdout, datumInfo)
 			return nil
@@ -685,13 +712,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return err
 			}
-			if pipelineInfo == nil {
-				return errors.Errorf("pipeline %s not found", args[0])
-			}
 			if raw {
-				return cmdutil.Encoder(output).EncodeProto(pipelineInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(pipelineInfo)
 			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			pi := &pretty.PrintablePipelineInfo{
 				PipelineInfo:   pipelineInfo,
@@ -714,7 +738,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if raw && spec {
 				return errors.Errorf("cannot set both --raw and --spec")
 			} else if !raw && !spec && output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw or --spec")
+				return errors.New("cannot set --output (-o) without --raw or --spec")
 			}
 			history, err := cmdutil.ParseHistory(history)
 			if err != nil {
@@ -747,7 +771,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			pipelineInfos := response.PipelineInfo
 			if raw {
-				e := cmdutil.Encoder(output)
+				e := cmdutil.Encoder(output, os.Stdout)
 				for _, pipelineInfo := range pipelineInfos {
 					if err := e.EncodeProto(pipelineInfo); err != nil {
 						return err
@@ -755,7 +779,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				}
 				return nil
 			} else if spec {
-				e := cmdutil.Encoder(output)
+				e := cmdutil.Encoder(output, os.Stdout)
 				for _, pipelineInfo := range pipelineInfos {
 					if err := e.EncodeProto(ppsutil.PipelineReqFromInfo(pipelineInfo)); err != nil {
 						return err
@@ -834,7 +858,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			defer client.Close()
 			if err := client.StartPipeline(args[0]); err != nil {
-				cmdutil.ErrorAndExit("error from StartPipeline: %s", err.Error())
+				return errors.Wrap(err, "error from StartPipeline")
 			}
 			return nil
 		}),
@@ -852,7 +876,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			defer client.Close()
 			if err := client.StopPipeline(args[0]); err != nil {
-				cmdutil.ErrorAndExit("error from StopPipeline: %s", err.Error())
+				return errors.Wrap(err, "error from StopPipeline")
 			}
 			return nil
 		}),
