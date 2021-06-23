@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -772,24 +773,28 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return err
 			}
 			defer c.Close()
-			branchInfos, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
+			branchClient, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
-			branches := branchInfos.BranchInfo
-			if raw {
-				for _, branch := range branches {
-					if err := marshaller.Marshal(os.Stdout, branch); err != nil {
-						return err
-					}
+			var writer *tabwriter.Writer
+			if !raw {
+				writer = tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
+			}
+			if err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+				if raw {
+					return marshaller.Marshal(os.Stdout, branch)
+				} else {
+					pretty.PrintBranch(writer, branch)
+					return nil
 				}
-				return nil
+			}); err != nil {
+				return grpcutil.ScrubGRPC(err)
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
-			for _, branch := range branches {
-				pretty.PrintBranch(writer, branch)
+			if writer != nil {
+				return writer.Flush()
 			}
-			return writer.Flush()
+			return nil
 		}),
 	}
 	listBranch.Flags().AddFlagSet(rawFlags)
