@@ -360,36 +360,38 @@ describe('grpc/builders/pps', () => {
 
     expect(pipelineInfo.getPipeline()?.getName()).toBe('testPipeline');
     expect(pipelineInfo.getVersion()).toBe(1);
-    expect(pipelineInfo.getTransform()).toBe(undefined);
-    expect(pipelineInfo.getTfJob()).toBe(undefined);
-    expect(pipelineInfo.getParallelismSpec()).toBe(undefined);
-    expect(pipelineInfo.getEgress()).toBe(undefined);
-    expect(pipelineInfo.getCreatedAt()).toBe(undefined);
     expect(pipelineInfo.getState()).toBe(0);
     expect(pipelineInfo.getStopped()).toBe(false);
-    expect(pipelineInfo.getRecentError()).toBe('');
-    expect(pipelineInfo.getWorkersRequested()).toBe(0);
-    expect(pipelineInfo.getWorkersAvailable()).toBe(0);
     expect(pipelineInfo.getLastJobState()).toBe(0);
-    expect(pipelineInfo.getOutputBranch()).toBe('master');
-    expect(pipelineInfo.getResourceRequests()).toBe(undefined);
-    expect(pipelineInfo.getResourceLimits()).toBe(undefined);
-    expect(pipelineInfo.getSidecarResourceLimits()).toBe(undefined);
-    expect(pipelineInfo.getInput()).toBe(undefined);
-    expect(pipelineInfo.getDescription()).toBe('');
-    expect(pipelineInfo.getCacheSize()).toBe('');
-    expect(pipelineInfo.getSalt()).toBe('');
-    expect(pipelineInfo.getReason()).toBe('');
-    expect(pipelineInfo.getMaxQueueSize()).toBe(1);
-    expect(pipelineInfo.getService()).toBe(undefined);
-    expect(pipelineInfo.getSpout()).toBe(undefined);
-    expect(pipelineInfo.getDatumSetSpec()).toBe(undefined);
-    expect(pipelineInfo.getDatumTimeout()).toBe(undefined);
-    expect(pipelineInfo.getJobTimeout()).toBe(undefined);
-    expect(pipelineInfo.getDatumTries()).toBe(0);
-    expect(pipelineInfo.getPodSpec()).toBe('');
-    expect(pipelineInfo.getPodPatch()).toBe('');
-    expect(pipelineInfo.getS3Out()).toBe(false);
+    expect(pipelineInfo.getDetails()?.getTransform()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getTfJob()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getParallelismSpec()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getEgress()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getCreatedAt()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getRecentError()).toBe('');
+    expect(pipelineInfo.getDetails()?.getWorkersRequested()).toBe(0);
+    expect(pipelineInfo.getDetails()?.getWorkersAvailable()).toBe(0);
+    expect(pipelineInfo.getDetails()?.getOutputBranch()).toBe('master');
+    expect(pipelineInfo.getDetails()?.getResourceRequests()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getResourceLimits()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getSidecarResourceLimits()).toBe(
+      undefined,
+    );
+    expect(pipelineInfo.getDetails()?.getInput()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getDescription()).toBe('');
+    expect(pipelineInfo.getDetails()?.getCacheSize()).toBe('');
+    expect(pipelineInfo.getDetails()?.getSalt()).toBe('');
+    expect(pipelineInfo.getDetails()?.getReason()).toBe('');
+    expect(pipelineInfo.getDetails()?.getMaxQueueSize()).toBe(1);
+    expect(pipelineInfo.getDetails()?.getService()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getSpout()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getDatumSetSpec()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getDatumTimeout()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getJobTimeout()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getDatumTries()).toBe(0);
+    expect(pipelineInfo.getDetails()?.getPodSpec()).toBe('');
+    expect(pipelineInfo.getDetails()?.getPodPatch()).toBe('');
+    expect(pipelineInfo.getDetails()?.getS3Out()).toBe(false);
   });
 
   it('should create PipelineInfo from an object with defaults', () => {
@@ -488,34 +490,54 @@ describe('grpc/builders/pps', () => {
 
     expect(pipelineInfo.getPipeline()?.getName()).toBe('testPipeline');
     expect(pipelineInfo.getVersion()).toBe(4);
-    expect(pipelineInfo.getTransform()?.getImage()).toBe('pachyderm/opencv');
-    expect(pipelineInfo.getTfJob()?.getTfJob()).toBe('example-job');
-    expect(pipelineInfo.getEgress()?.getUrl()).toBe('s3://bucket/dir');
-    expect(pipelineInfo.getCreatedAt()?.getSeconds()).toBe(1614736724);
     expect(pipelineInfo.getState()).toBe(3);
     expect(pipelineInfo.getStopped()).toBe(true);
-    expect(pipelineInfo.getRecentError()).toBe('err');
-    expect(pipelineInfo.getWorkersRequested()).toBe(23);
-    expect(pipelineInfo.getWorkersAvailable()).toBe(2);
     expect(pipelineInfo.getLastJobState()).toBe(3);
-    expect(pipelineInfo.getOutputBranch()).toBe('testBranch');
-    expect(pipelineInfo.getResourceRequests()?.getCpu()).toBe(8);
-    expect(pipelineInfo.getResourceLimits()?.getCpu()).toBe(5);
-    expect(pipelineInfo.getSidecarResourceLimits()?.getCpu()).toBe(12);
-    expect(pipelineInfo.getInput()?.getPfs()?.getName()).toBe('imagesPfs');
-    expect(pipelineInfo.getDescription()).toBe('yo yo yo!');
-    expect(pipelineInfo.getCacheSize()).toBe('12mb');
-    expect(pipelineInfo.getSalt()).toBe('d5631d7df40d4b1195bc46f1f146d6a5');
+    expect(pipelineInfo.getDetails()?.getTransform()?.getImage()).toBe(
+      'pachyderm/opencv',
+    );
+    expect(pipelineInfo.getDetails()?.getTfJob()?.getTfJob()).toBe(
+      'example-job',
+    );
+    expect(pipelineInfo.getDetails()?.getEgress()?.getUrl()).toBe(
+      's3://bucket/dir',
+    );
+    expect(pipelineInfo.getDetails()?.getCreatedAt()?.getSeconds()).toBe(
+      1614736724,
+    );
+    expect(pipelineInfo.getDetails()?.getRecentError()).toBe('err');
+    expect(pipelineInfo.getDetails()?.getWorkersRequested()).toBe(23);
+    expect(pipelineInfo.getDetails()?.getWorkersAvailable()).toBe(2);
+    expect(pipelineInfo.getDetails()?.getOutputBranch()).toBe('testBranch');
+    expect(pipelineInfo.getDetails()?.getResourceRequests()?.getCpu()).toBe(8);
+    expect(pipelineInfo.getDetails()?.getResourceLimits()?.getCpu()).toBe(5);
+    expect(
+      pipelineInfo.getDetails()?.getSidecarResourceLimits()?.getCpu(),
+    ).toBe(12);
+    expect(pipelineInfo.getDetails()?.getInput()?.getPfs()?.getName()).toBe(
+      'imagesPfs',
+    );
+    expect(pipelineInfo.getDetails()?.getDescription()).toBe('yo yo yo!');
+    expect(pipelineInfo.getDetails()?.getCacheSize()).toBe('12mb');
+    expect(pipelineInfo.getDetails()?.getSalt()).toBe(
+      'd5631d7df40d4b1195bc46f1f146d6a5',
+    );
     expect(pipelineInfo.getReason()).toBe('because');
-    expect(pipelineInfo.getMaxQueueSize()).toBe(11);
-    expect(pipelineInfo.getService()?.getIp()).toBe('172.16.254.1');
-    expect(pipelineInfo.getDatumSetSpec()?.getNumber()).toBe(123);
-    expect(pipelineInfo.getDatumTimeout()?.getSeconds()).toBe(23424);
-    expect(pipelineInfo.getJobTimeout()?.getSeconds()).toBe(564645);
-    expect(pipelineInfo.getDatumTries()).toBe(12);
-    expect(pipelineInfo.getPodSpec()).toBe('podSpec');
-    expect(pipelineInfo.getPodPatch()).toBe('podPatch');
-    expect(pipelineInfo.getS3Out()).toBe(true);
+    expect(pipelineInfo.getDetails()?.getMaxQueueSize()).toBe(11);
+    expect(pipelineInfo.getDetails()?.getService()?.getIp()).toBe(
+      '172.16.254.1',
+    );
+    expect(pipelineInfo.getDetails()?.getDatumSetSpec()?.getNumber()).toBe(123);
+    expect(pipelineInfo.getDetails()?.getDatumTimeout()?.getSeconds()).toBe(
+      23424,
+    );
+    expect(pipelineInfo.getDetails()?.getJobTimeout()?.getSeconds()).toBe(
+      564645,
+    );
+    expect(pipelineInfo.getDetails()?.getDatumTries()).toBe(12);
+    expect(pipelineInfo.getDetails()?.getPodSpec()).toBe('podSpec');
+    expect(pipelineInfo.getDetails()?.getPodPatch()).toBe('podPatch');
+    expect(pipelineInfo.getDetails()?.getS3Out()).toBe(true);
   });
 
   it('should create PipelineInfos from an object', () => {

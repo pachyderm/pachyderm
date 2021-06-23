@@ -15,7 +15,7 @@ describe('Search resolver', () => {
     const searchResults = data?.searchResults;
     expect(searchResults?.pipelines?.length).toBe(0);
     expect(searchResults?.repos?.length).toBe(0);
-    expect(searchResults?.jobset).toBe(null);
+    expect(searchResults?.jobSet).toBe(null);
   });
 
   describe('Pipeline search', () => {
@@ -26,6 +26,7 @@ describe('Search resolver', () => {
           args: {query: 'mon', projectId},
         },
       );
+
       expect(errors.length).toBe(0);
       const searchResults = data?.searchResults;
       expect(searchResults?.pipelines?.length).toBe(1);
@@ -70,7 +71,7 @@ describe('Search resolver', () => {
       );
       expect(errors.length).toBe(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.jobset?.id).toBe(
+      expect(searchResults?.jobSet?.id).toBe(
         '23b9af7d5d4343219bc8e02ff44cd55a',
       );
     });
@@ -84,7 +85,7 @@ describe('Search resolver', () => {
       );
       expect(errors.length).toBe(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.jobset).toBe(null);
+      expect(searchResults?.jobSet).toBe(null);
     });
   });
 

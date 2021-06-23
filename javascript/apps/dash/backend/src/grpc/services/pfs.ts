@@ -34,6 +34,7 @@ const pfs = ({
       const file = fileFromObject(params);
 
       listFileRequest.setFile(file);
+      listFileRequest.setDetails(true);
 
       const stream = client.listFile(listFileRequest, credentialMetadata);
 

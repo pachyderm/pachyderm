@@ -530,9 +530,9 @@ export type JobsQueryResult = Apollo.QueryResult<
   Types.JobsQuery,
   Types.JobsQueryVariables
 >;
-export const JobsetDocument = gql`
-  query jobset($args: JobsetQueryArgs!) {
-    jobset(args: $args) {
+export const JobSetDocument = gql`
+  query jobSet($args: JobSetQueryArgs!) {
+    jobSet(args: $args) {
       id
       state
       createdAt
@@ -551,50 +551,50 @@ export const JobsetDocument = gql`
 `;
 
 /**
- * __useJobsetQuery__
+ * __useJobSetQuery__
  *
- * To run a query within a React component, call `useJobsetQuery` and pass it any options that fit your needs.
- * When your component renders, `useJobsetQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * To run a query within a React component, call `useJobSetQuery` and pass it any options that fit your needs.
+ * When your component renders, `useJobSetQuery` returns an object from Apollo Client that contains loading, error, and data properties
  * you can use to render your UI.
  *
  * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
  *
  * @example
- * const { data, loading, error } = useJobsetQuery({
+ * const { data, loading, error } = useJobSetQuery({
  *   variables: {
  *      args: // value for 'args'
  *   },
  * });
  */
-export function useJobsetQuery(
+export function useJobSetQuery(
   baseOptions: Apollo.QueryHookOptions<
-    Types.JobsetQuery,
-    Types.JobsetQueryVariables
+    Types.JobSetQuery,
+    Types.JobSetQueryVariables
   >,
 ) {
   const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useQuery<Types.JobsetQuery, Types.JobsetQueryVariables>(
-    JobsetDocument,
+  return Apollo.useQuery<Types.JobSetQuery, Types.JobSetQueryVariables>(
+    JobSetDocument,
     options,
   );
 }
-export function useJobsetLazyQuery(
+export function useJobSetLazyQuery(
   baseOptions?: Apollo.LazyQueryHookOptions<
-    Types.JobsetQuery,
-    Types.JobsetQueryVariables
+    Types.JobSetQuery,
+    Types.JobSetQueryVariables
   >,
 ) {
   const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useLazyQuery<Types.JobsetQuery, Types.JobsetQueryVariables>(
-    JobsetDocument,
+  return Apollo.useLazyQuery<Types.JobSetQuery, Types.JobSetQueryVariables>(
+    JobSetDocument,
     options,
   );
 }
-export type JobsetQueryHookResult = ReturnType<typeof useJobsetQuery>;
-export type JobsetLazyQueryHookResult = ReturnType<typeof useJobsetLazyQuery>;
-export type JobsetQueryResult = Apollo.QueryResult<
-  Types.JobsetQuery,
-  Types.JobsetQueryVariables
+export type JobSetQueryHookResult = ReturnType<typeof useJobSetQuery>;
+export type JobSetLazyQueryHookResult = ReturnType<typeof useJobSetLazyQuery>;
+export type JobSetQueryResult = Apollo.QueryResult<
+  Types.JobSetQuery,
+  Types.JobSetQueryVariables
 >;
 export const LoggedInDocument = gql`
   query loggedIn {
@@ -1298,7 +1298,7 @@ export const SearchResultsDocument = gql`
         name
         id
       }
-      jobset {
+      jobSet {
         id
       }
     }

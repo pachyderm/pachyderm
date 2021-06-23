@@ -56,7 +56,7 @@ const customerTeam = {
   ],
 };
 
-const jobsets: {[projectId: string]: {[id: string]: JobInfo[]}} = {
+const jobSets: {[projectId: string]: {[id: string]: JobInfo[]}} = {
   '1': tutorial,
   '2': customerTeam,
   '3': tutorial,
@@ -66,4 +66,4 @@ const jobsets: {[projectId: string]: {[id: string]: JobInfo[]}} = {
   default: tutorial,
 };
 
-export default jobsets;
+export default jobSets;

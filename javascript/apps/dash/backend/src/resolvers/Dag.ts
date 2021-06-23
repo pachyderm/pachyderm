@@ -114,13 +114,13 @@ const deriveVertices = (
             )
           : false,
         jobState,
-        parents: p.input ? flattenPipelineInput(p.input) : [],
+        parents: p.details?.input ? flattenPipelineInput(p.details?.input) : [],
       },
     ];
 
-    if (p.egress) {
+    if (p.details?.egress) {
       nodes.push({
-        name: p.egress.url,
+        name: p.details.egress.url,
         type: NodeType.EGRESS,
         access: true,
         parents: [`${pipelineName}_repo`],
@@ -182,6 +182,7 @@ const normalizeDAGData = async (
           const parentName = `${parent.repo}_repo`;
           const sourceIndex = correspondingIndex[parentName];
           const state = vertices[sourceIndex].jobState;
+
           return [
             ...acc,
             {
@@ -273,6 +274,7 @@ const normalizeDAGData = async (
       layoutOptions,
       ...rest
     } = edge;
+
     return {
       ...rest,
       source: sources[0],
@@ -320,6 +322,7 @@ const dagResolver: DagResolver = {
         event: 'deriving vertices for dag',
         meta: {projectId},
       });
+
       const allVertices = deriveVertices(repos, pipelines);
 
       const id = minBy(repos, (r) => r.created?.seconds)?.repo?.name || '';

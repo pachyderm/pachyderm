@@ -51,8 +51,8 @@ describe('grpc/builders/pfs', () => {
     ).toBe('neato');
     expect(fileInfo.getFile()?.getPath()).toBe('/assets');
     expect(fileInfo.getFileType()).toBe(2);
-    expect(fileInfo.getHash()).toBe('abcde12345');
-    expect(fileInfo.getSizeBytes()).toBe(123);
+    expect(fileInfo.getDetails()?.getHash()).toBe('abcde12345');
+    expect(fileInfo.getDetails()?.getSizeBytes()).toBe(123);
     expect(fileInfo.getCommitted()?.getSeconds()).toBe(1615922718);
     expect(fileInfo.getCommitted()?.getNanos()).toBe(449796812);
   });
@@ -76,8 +76,8 @@ describe('grpc/builders/pfs', () => {
     ).toBe('neato');
     expect(fileInfo.getFile()?.getPath()).toBe('/assets');
     expect(fileInfo.getFileType()).toBe(2);
-    expect(fileInfo.getHash()).toBe('abcde12345');
-    expect(fileInfo.getSizeBytes()).toBe(123);
+    expect(fileInfo.getDetails()?.getHash()).toBe('abcde12345');
+    expect(fileInfo.getDetails()?.getSizeBytes()).toBe(123);
     expect(fileInfo.getCommitted()?.getSeconds()).toBe(undefined);
     expect(fileInfo.getCommitted()?.getNanos()).toBe(undefined);
   });

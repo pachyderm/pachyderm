@@ -45,8 +45,8 @@ const repoResolver: RepoResolver = {
             finished: commit.finished?.seconds || 0,
             id: commit.commit?.id || '',
             started: commit.started?.seconds || 0,
-            sizeBytes: commit.sizeBytes || 0,
-            sizeDisplay: formatBytes(commit.sizeBytes || 0),
+            sizeBytes: commit.details?.sizeBytes || 0,
+            sizeDisplay: formatBytes(commit.details?.sizeBytes || 0),
           }))
           .reverse();
       } catch (err) {

@@ -10,7 +10,7 @@ import {
   jobInfoFromObject,
   pipelineInfoFromObject,
 } from '../../grpc/builders/pps';
-import jobsets from '../fixtures/jobsets';
+import jobSets from '../fixtures/jobSets';
 import {pipelineAndJobLogs, workspaceLogs} from '../fixtures/logs';
 import runJQFilter from '../utils/runJQFilter';
 
@@ -22,7 +22,7 @@ const pps: Pick<
   | 'listJob'
   | 'inspectJob'
   | 'inspectPipeline'
-  | 'inspectJobset'
+  | 'inspectJobSet'
   | 'getLogs'
 > = {
   listPipeline: async (call, callback) => {
@@ -109,19 +109,19 @@ const pps: Pick<
       callback({code: Status.NOT_FOUND, details: 'pipeline not found'});
     }
   },
-  inspectJobset: (call) => {
+  inspectJobSet: (call) => {
     const [projectId] = call.metadata.get('project-id');
-    const projectJobsets = jobsets[projectId.toString()] || jobsets['default'];
+    const projectJobSets = jobSets[projectId.toString()] || jobSets['default'];
 
-    const foundJobset = projectJobsets[call.request.getJobset()?.getId() || ''];
+    const foundJobSet = projectJobSets[call.request.getJobSet()?.getId() || ''];
 
-    if (!foundJobset) {
+    if (!foundJobSet) {
       call.emit(
         'error',
         createServiceError({code: Status.UNKNOWN, details: 'no commits found'}),
       );
     } else {
-      foundJobset.forEach((job) => call.write(job));
+      foundJobSet.forEach((job) => call.write(job));
     }
     call.end();
   },

@@ -11,7 +11,7 @@ export const GET_SEARCH_RESULTS_QUERY = gql`
         name
         id
       }
-      jobset {
+      jobSet {
         id
       }
     }

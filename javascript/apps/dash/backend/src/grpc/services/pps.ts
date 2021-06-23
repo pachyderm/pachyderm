@@ -7,14 +7,14 @@ import {
   JobInfo,
   InspectJobRequest,
   InspectPipelineRequest,
-  Jobset,
-  InspectJobsetRequest,
+  JobSet,
+  InspectJobSetRequest,
   LogMessage,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 import streamToObjectArray from '@dash-backend/grpc/utils/streamToObjectArray';
 import {ServiceArgs} from '@dash-backend/lib/types';
-import {JobsetQueryArgs, JobQueryArgs} from '@graphqlTypes';
+import {JobSetQueryArgs, JobQueryArgs} from '@graphqlTypes';
 
 import {
   jobFromObject,
@@ -36,7 +36,7 @@ const pps = ({
     listPipeline: (jq = '') => {
       return new Promise<PipelineInfo.AsObject[]>((resolve, reject) => {
         client.listPipeline(
-          new ListPipelineRequest().setJqfilter(jq),
+          new ListPipelineRequest().setJqfilter(jq).setDetails(true),
           credentialMetadata,
           (error, res) => {
             if (error) {
@@ -50,7 +50,9 @@ const pps = ({
     },
 
     listJobs: ({limit = DEFAULT_JOBS_LIMIT, jq = ''} = {}) => {
-      const listJobRequest = new ListJobRequest().setJqfilter(jq);
+      const listJobRequest = new ListJobRequest()
+        .setJqfilter(jq)
+        .setDetails(true);
       const stream = client.listJob(listJobRequest, credentialMetadata);
 
       return streamToObjectArray<JobInfo, JobInfo.AsObject>(stream, limit);
@@ -59,9 +61,9 @@ const pps = ({
     inspectPipeline: (id: string) => {
       return new Promise<PipelineInfo.AsObject>((resolve, reject) => {
         client.inspectPipeline(
-          new InspectPipelineRequest().setPipeline(
-            pipelineFromObject({name: id}),
-          ),
+          new InspectPipelineRequest()
+            .setPipeline(pipelineFromObject({name: id}))
+            .setDetails(true),
           credentialMetadata,
           (error, res) => {
             if (error) {
@@ -73,13 +75,14 @@ const pps = ({
       });
     },
 
-    inspectJobset: ({id}: JobsetQueryArgs) => {
-      const inspectJobsetRequest = new InspectJobsetRequest()
+    inspectJobSet: ({id}: JobSetQueryArgs) => {
+      const inspectJobSetRequest = new InspectJobSetRequest()
         .setWait(false)
-        .setJobset(new Jobset().setId(id));
+        .setJobSet(new JobSet().setId(id))
+        .setDetails(true);
 
-      const stream = client.inspectJobset(
-        inspectJobsetRequest,
+      const stream = client.inspectJobSet(
+        inspectJobSetRequest,
         credentialMetadata,
       );
 
@@ -89,11 +92,13 @@ const pps = ({
     inspectJob: ({id, pipelineName}: JobQueryArgs) => {
       return new Promise<JobInfo.AsObject>((resolve, reject) => {
         client.inspectJob(
-          new InspectJobRequest().setJob(
-            jobFromObject({id}).setPipeline(
-              pipelineFromObject({name: pipelineName}),
-            ),
-          ),
+          new InspectJobRequest()
+            .setJob(
+              jobFromObject({id}).setPipeline(
+                pipelineFromObject({name: pipelineName}),
+              ),
+            )
+            .setDetails(true),
           credentialMetadata,
           (error, res) => {
             if (error) {

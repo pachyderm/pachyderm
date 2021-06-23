@@ -14,7 +14,7 @@ const tutorial = [
         ),
     )
     .setDescription('added shinra hq building specs')
-    .setSizeBytes(543211)
+    .setDetails(new CommitInfo.Details().setSizeBytes(543211))
     .setStarted(timestampFromObject({seconds: 1614136189, nanos: 0}))
     .setFinished(timestampFromObject({seconds: 1614136191, nanos: 0})),
   new CommitInfo()
@@ -26,7 +26,7 @@ const tutorial = [
         ),
     )
     .setDescription('added fire materia')
-    .setSizeBytes(34371)
+    .setDetails(new CommitInfo.Details().setSizeBytes(34371))
     .setStarted(timestampFromObject({seconds: 1614136289, nanos: 0}))
     .setFinished(timestampFromObject({seconds: 1614136291, nanos: 0})),
   new CommitInfo()
@@ -38,7 +38,7 @@ const tutorial = [
         ),
     )
     .setDescription('added mako')
-    .setSizeBytes(44276)
+    .setDetails(new CommitInfo.Details().setSizeBytes(44276))
     .setStarted(timestampFromObject({seconds: 1614136389, nanos: 0}))
     .setFinished(timestampFromObject({seconds: 1614136391, nanos: 0})),
 ];

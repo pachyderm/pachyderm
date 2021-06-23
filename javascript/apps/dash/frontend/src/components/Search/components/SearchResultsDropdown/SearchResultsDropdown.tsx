@@ -70,7 +70,7 @@ const SearchResultsDropdown: React.FC = () => {
     [browserHistory, onResultSelect, projectId],
   );
 
-  const jobsetOnClick = useCallback(
+  const jobSetOnClick = useCallback(
     (jobId) => {
       onResultSelect(jobId);
 
@@ -144,9 +144,9 @@ const SearchResultsDropdown: React.FC = () => {
     );
   }, [debouncedValue, pipelineOnClick, searchResults]);
 
-  const jobsetResult = useCallback(() => {
-    if (searchResults && searchResults.jobset) {
-      const jobset = searchResults.jobset;
+  const jobSetResult = useCallback(() => {
+    if (searchResults && searchResults.jobSet) {
+      const jobSet = searchResults.jobSet;
 
       return (
         <>
@@ -155,10 +155,10 @@ const SearchResultsDropdown: React.FC = () => {
           </div>
           <div className={styles.resultsContainer}>
             <SearchResultItem
-              key={jobset.id}
-              title={jobset.id}
+              key={jobSet.id}
+              title={jobSet.id}
               searchValue={debouncedValue}
-              onClick={() => jobsetOnClick(jobset.id)}
+              onClick={() => jobSetOnClick(jobSet.id)}
             />
           </div>
         </>
@@ -169,7 +169,7 @@ const SearchResultsDropdown: React.FC = () => {
         <NotFoundMessage>No matching pipelines found.</NotFoundMessage>
       </div>
     );
-  }, [searchResults, jobsetOnClick, debouncedValue]);
+  }, [searchResults, jobSetOnClick, debouncedValue]);
 
   if (loading || debouncedValue !== searchValue) {
     return <></>;
@@ -179,7 +179,7 @@ const SearchResultsDropdown: React.FC = () => {
     searchResults &&
     searchResults.pipelines.length === 0 &&
     searchResults.repos.length === 0 &&
-    !searchResults.jobset
+    !searchResults.jobSet
   ) {
     return (
       <div className={styles.noResults}>
@@ -190,8 +190,8 @@ const SearchResultsDropdown: React.FC = () => {
     );
   }
 
-  if (searchResults?.jobset) {
-    return <div className={styles.base}>{jobsetResult()}</div>;
+  if (searchResults?.jobSet) {
+    return <div className={styles.base}>{jobSetResult()}</div>;
   }
 
   return (

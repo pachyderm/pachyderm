@@ -3,7 +3,7 @@ import classnames from 'classnames';
 import React from 'react';
 import {NavLink, Redirect, Route} from 'react-router-dom';
 
-import {useJobset} from '@dash-frontend/hooks/useJobset';
+import {useJobSet} from '@dash-frontend/hooks/useJobSet';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {PIPELINE_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
@@ -46,15 +46,15 @@ const getJobStateHref = (state: JobVisualState) => {
 
 const JobDetails = () => {
   const {jobId, projectId, pipelineId} = useUrlState();
-  const {jobset} = useJobset({id: jobId, projectId});
+  const {jobSet} = useJobSet({id: jobId, projectId});
 
-  if (!pipelineId && jobset && jobset.jobs.length > 0) {
+  if (!pipelineId && jobSet && jobSet.jobs.length > 0) {
     return (
       <Redirect
         to={pipelineJobRoute({
           projectId,
           jobId,
-          pipelineId: jobset.jobs[0].pipelineName,
+          pipelineId: jobSet.jobs[0].pipelineName,
         })}
       />
     );
@@ -69,13 +69,13 @@ const JobDetails = () => {
           </Link>
         </nav>
 
-        <h2 className={styles.heading}>Job {jobset?.id}</h2>
+        <h2 className={styles.heading}>Job {jobSet?.id}</h2>
       </section>
 
       <section className={styles.pipelineSection}>
         <nav>
           <ol className={styles.pipelineList}>
-            {jobset?.jobs.map((job) => {
+            {jobSet?.jobs.map((job) => {
               const jobVisualState = getVisualJobState(job.state);
 
               return (

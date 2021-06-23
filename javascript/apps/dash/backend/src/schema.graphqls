@@ -34,6 +34,7 @@ type Input {
 
 # This enum is replaced with the one from pps on type generation
 enum PipelineState {
+  PIPELINE_STATE_UNKNOWN
   PIPELINE_STARTING
   PIPELINE_RUNNING
   PIPELINE_RESTARTING
@@ -45,6 +46,7 @@ enum PipelineState {
 
 # This enum is replaced with the one from pps on type generation
 enum JobState {
+  JOB_STATE_UNKNOWN
   JOB_CREATED
   JOB_STARTING
   JOB_RUNNING
@@ -286,7 +288,7 @@ type Account {
 type SearchResults {
   pipelines: [Pipeline!]!
   repos: [Repo!]!
-  jobset: Jobset
+  jobSet: JobSet
 }
 
 type AuthConfig {
@@ -295,7 +297,7 @@ type AuthConfig {
   pachdClientId: String!
 }
 
-type Jobset {
+type JobSet {
   id: ID!
   createdAt: Int!
   state: JobState!
@@ -318,7 +320,7 @@ input SearchResultQueryArgs {
   limit: Int
 }
 
-input JobsetQueryArgs {
+input JobSetQueryArgs {
   id: ID!
   projectId: String!
 }
@@ -365,7 +367,7 @@ type Query {
   account: Account!
   searchResults(args: SearchResultQueryArgs!): SearchResults!
   authConfig: AuthConfig!
-  jobset(args: JobsetQueryArgs!): Jobset!
+  jobSet(args: JobSetQueryArgs!): JobSet!
   workspaceLogs(args: WorkspaceLogsArgs!): [Log]!
   pipelineLogs(args: PipelineLogsArgs!): [Log]!
   jobLogs(args: JobLogsArgs!): [Log]!

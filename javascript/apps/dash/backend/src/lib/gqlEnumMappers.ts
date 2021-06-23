@@ -20,6 +20,8 @@ export const toGQLPipelineState = (
   pipelineState: PipelineState,
 ): GQLPipelineState => {
   switch (pipelineState) {
+    case PipelineState.PIPELINE_STATE_UNKNOWN:
+      return GQLPipelineState.PIPELINE_STATE_UNKNOWN;
     case PipelineState.PIPELINE_CRASHING:
       return GQLPipelineState.PIPELINE_CRASHING;
     case PipelineState.PIPELINE_FAILURE:
@@ -41,6 +43,8 @@ export const toGQLPipelineState = (
 
 export const toGQLJobState = (jobState: JobState) => {
   switch (jobState) {
+    case JobState.JOB_STATE_UNKNOWN:
+      return GQLJobState.JOB_STATE_UNKNOWN;
     case JobState.JOB_CREATED:
       return GQLJobState.JOB_CREATED;
     case JobState.JOB_EGRESSING:

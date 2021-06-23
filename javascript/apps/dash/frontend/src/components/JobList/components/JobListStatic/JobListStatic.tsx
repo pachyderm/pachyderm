@@ -41,7 +41,7 @@ const JobListBase: React.FC<JobListBaseProps> = ({
     );
 
   // deriving the 'key' field from pipelineName and ID should no longer be
-  // necessary once we are using jobsets and pipeline jobs. Currently,
+  // necessary once we are using jobSets and pipeline jobs. Currently,
   // JobList is being used to display "all" pipeline jobs in the project
   return (
     <ul

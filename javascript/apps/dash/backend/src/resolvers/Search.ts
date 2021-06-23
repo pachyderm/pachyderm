@@ -6,7 +6,7 @@ import hasRepoReadPermissions from '@dash-backend/lib/hasRepoReadPermissions';
 import {QueryResolvers} from '@graphqlTypes';
 
 import {
-  jobInfosToGQLJobset,
+  jobInfosToGQLJobSet,
   pipelineInfoToGQLPipeline,
   repoInfoToGQLRepo,
 } from './builders/pps';
@@ -28,21 +28,21 @@ const searchResolver: SearchResolver = {
         //Check if query is commit or job id
         if (UUID_WITHOUT_DASHES_REGEX.test(query)) {
           try {
-            const jobset = jobInfosToGQLJobset(
-              await pachClient.pps().inspectJobset({id: query, projectId}),
+            const jobSet = jobInfosToGQLJobSet(
+              await pachClient.pps().inspectJobSet({id: query, projectId}),
             );
 
             return {
               pipelines: [],
               repos: [],
-              jobset,
+              jobSet,
             };
           } catch (e) {
             if ((e as ApolloError).extensions.code === 'NOT_FOUND') {
               return {
                 pipelines: [],
                 repos: [],
-                jobset: null,
+                jobSet: null,
               };
             }
             return e;
@@ -84,14 +84,14 @@ const searchResolver: SearchResolver = {
           repos: filteredRepos
             .slice(0, limit || repos.length)
             .map(repoInfoToGQLRepo),
-          jobset: null,
+          jobSet: null,
         };
       }
 
       return {
         pipelines: [],
         repos: [],
-        jobset: null,
+        jobSet: null,
       };
     },
   },

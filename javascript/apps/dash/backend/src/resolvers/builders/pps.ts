@@ -19,11 +19,11 @@ import {
 } from '@graphqlTypes';
 
 const derivePipelineType = (pipelineInfo: PipelineInfo.AsObject) => {
-  if (pipelineInfo.service) {
+  if (pipelineInfo.details?.service) {
     return PipelineType.SERVICE;
   }
 
-  if (pipelineInfo.spout) {
+  if (pipelineInfo.details?.spout) {
     return PipelineType.SPOUT;
   }
 
@@ -40,12 +40,12 @@ export const pipelineInfoToGQLPipeline = (
     // name as the global identifier
     id: pipelineInfo.pipeline?.name || '',
     name: pipelineInfo.pipeline?.name || '',
-    description: pipelineInfo.description || '',
+    description: pipelineInfo.details?.description || '',
     version: pipelineInfo.version,
-    createdAt: pipelineInfo.createdAt?.seconds || 0,
+    createdAt: pipelineInfo.details?.createdAt?.seconds || 0,
     state: toGQLPipelineState(pipelineInfo.state),
     stopped: pipelineInfo.stopped,
-    recentError: pipelineInfo.recentError,
+    recentError: pipelineInfo.details?.recentError,
     numOfJobsCreated: jobStates[JobState.JOB_CREATED] || 0,
     numOfJobsStarting: jobStates[JobState.JOB_STARTING] || 0,
     numOfJobsRunning: jobStates[JobState.JOB_RUNNING] || 0,
@@ -55,29 +55,31 @@ export const pipelineInfoToGQLPipeline = (
     numOfJobsEgressing: jobStates[JobState.JOB_EGRESSING] || 0,
     lastJobState: toGQLJobState(pipelineInfo.lastJobState),
     type: derivePipelineType(pipelineInfo),
-    transform: pipelineInfo.transform,
-    inputString: pipelineInfo.input
-      ? JSON.stringify(pipelineInfo.input, null, 2)
+    transform: pipelineInfo.details?.transform,
+    inputString: pipelineInfo.details?.input
+      ? JSON.stringify(pipelineInfo.details?.input, null, 2)
       : '',
-    cacheSize: pipelineInfo.cacheSize,
-    datumTimeoutS: pipelineInfo.datumTimeout?.seconds,
-    datumTries: pipelineInfo.datumTries,
-    jobTimeoutS: pipelineInfo.jobTimeout?.seconds,
-    outputBranch: pipelineInfo.outputBranch,
+    cacheSize: pipelineInfo.details?.cacheSize || '',
+    datumTimeoutS: pipelineInfo.details?.datumTimeout?.seconds,
+    datumTries: pipelineInfo.details?.datumTries || 0,
+    jobTimeoutS: pipelineInfo.details?.jobTimeout?.seconds,
+    outputBranch: pipelineInfo.details?.outputBranch || '',
     s3OutputRepo:
-      pipelineInfo.s3Out && pipelineInfo.pipeline
+      pipelineInfo.details?.s3Out && pipelineInfo.pipeline
         ? `s3//${pipelineInfo.pipeline.name}`
         : undefined,
-    egress: Boolean(pipelineInfo.egress),
-    schedulingSpec: pipelineInfo.schedulingSpec
+    egress: Boolean(pipelineInfo.details?.egress),
+    schedulingSpec: pipelineInfo.details?.schedulingSpec
       ? {
-          nodeSelectorMap: pipelineInfo.schedulingSpec.nodeSelectorMap.map(
-            ([key, value]) => ({
-              key,
-              value,
-            }),
-          ),
-          priorityClassName: pipelineInfo.schedulingSpec.priorityClassName,
+          nodeSelectorMap:
+            pipelineInfo.details?.schedulingSpec.nodeSelectorMap.map(
+              ([key, value]) => ({
+                key,
+                value,
+              }),
+            ),
+          priorityClassName:
+            pipelineInfo.details?.schedulingSpec.priorityClassName,
         }
       : undefined,
   };
@@ -90,11 +92,11 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
     createdAt: jobInfo.started?.seconds || 0,
     finishedAt: jobInfo.finished?.seconds,
     pipelineName: jobInfo.job?.pipeline?.name || '',
-    transform: jobInfo.transform,
-    inputString: jobInfo.input
-      ? JSON.stringify(jobInfo.input, null, 2)
+    transform: jobInfo.details?.transform,
+    inputString: jobInfo.details?.input
+      ? JSON.stringify(jobInfo.details?.input, null, 2)
       : undefined,
-    inputBranch: jobInfo.input?.pfs?.branch,
+    inputBranch: jobInfo.details?.input?.pfs?.branch,
   };
 };
 
@@ -118,7 +120,7 @@ const getAggregateJobState = (jobs: Job[]) => {
   return GQLJobState.JOB_SUCCESS;
 };
 
-export const jobInfosToGQLJobset = (jobInfos: JobInfo.AsObject[]) => {
+export const jobInfosToGQLJobSet = (jobInfos: JobInfo.AsObject[]) => {
   const jobs = jobInfos
     .map(jobInfoToGQLJob)
     .sort((a, b) => (a.finishedAt || 0) - (b.finishedAt || 0));

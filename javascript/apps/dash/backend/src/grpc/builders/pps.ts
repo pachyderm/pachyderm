@@ -147,34 +147,34 @@ export type PipelineInfoObject = {
   createdAt?: TimestampObject;
   state?: PipelineState;
   stopped?: PipelineInfo.AsObject['stopped'];
-  recentError?: PipelineInfo.AsObject['recentError'];
-  workersRequested?: PipelineInfo.AsObject['workersRequested'];
-  workersAvailable?: PipelineInfo.AsObject['workersAvailable'];
+  recentError?: PipelineInfo.Details.AsObject['recentError'];
+  workersRequested?: PipelineInfo.Details.AsObject['workersRequested'];
+  workersAvailable?: PipelineInfo.Details.AsObject['workersAvailable'];
   //TODO: Proto Map does not have a setter
   // jobCountsMap: jspb.Map<number, number>;
   lastJobState?: JobState;
-  outputBranch?: PipelineInfo.AsObject['outputBranch'];
+  outputBranch?: PipelineInfo.Details.AsObject['outputBranch'];
   resourceRequests?: ResourceSpecObject;
   resourceLimits?: ResourceSpecObject;
   sidecarResourceLimits?: ResourceSpecObject;
   input?: InputObject;
-  description?: PipelineInfo.AsObject['description'];
-  cacheSize?: PipelineInfo.AsObject['cacheSize'];
-  salt?: PipelineInfo.AsObject['salt'];
+  description?: PipelineInfo.Details.AsObject['description'];
+  cacheSize?: PipelineInfo.Details.AsObject['cacheSize'];
+  salt?: PipelineInfo.Details.AsObject['salt'];
   reason?: PipelineInfo.AsObject['reason'];
-  maxQueueSize?: PipelineInfo.AsObject['maxQueueSize'];
+  maxQueueSize?: PipelineInfo.Details.AsObject['maxQueueSize'];
   service?: ServiceObject;
   spout?: SpoutObject;
   chunkSpec?: DatumSetSpecObject;
   datumTimeout?: DurationObject;
   jobTimeout?: DurationObject;
   specCommit?: CommitObject;
-  standby?: PipelineInfo.AsObject['standby'];
-  datumTries?: PipelineInfo.AsObject['datumTries'];
+  standby?: PipelineInfo.Details.AsObject['standby'];
+  datumTries?: PipelineInfo.Details.AsObject['datumTries'];
   schedulingSpec?: SchedulingSpecObject;
-  podSpec?: PipelineInfo.AsObject['podSpec'];
-  podPatch?: PipelineInfo.AsObject['podPatch'];
-  s3Out?: PipelineInfo.AsObject['s3Out'];
+  podSpec?: PipelineInfo.Details.AsObject['podSpec'];
+  podPatch?: PipelineInfo.Details.AsObject['podPatch'];
+  s3Out?: PipelineInfo.Details.AsObject['s3Out'];
   //TODO: Proto Map does not have a setter
   // metadata?: Metadata.AsObject,
 };
@@ -491,75 +491,77 @@ export const pipelineInfoFromObject = ({
   s3Out = false,
 }: PipelineInfoObject) => {
   const pipelineInfo = new PipelineInfo();
+  const details = new PipelineInfo.Details();
 
   if (pipeline) {
     pipelineInfo.setPipeline(pipelineFromObject(pipeline));
   }
   pipelineInfo.setVersion(version);
   if (transform) {
-    pipelineInfo.setTransform(transformFromObject(transform));
+    details.setTransform(transformFromObject(transform));
   }
   if (tfJob) {
-    pipelineInfo.setTfJob(tfJobFromObject(tfJob));
+    details.setTfJob(tfJobFromObject(tfJob));
   }
   if (parallelismSpec) {
-    pipelineInfo.setParallelismSpec(parallelismSpecFromObject(parallelismSpec));
+    details.setParallelismSpec(parallelismSpecFromObject(parallelismSpec));
   }
   if (egress) {
-    pipelineInfo.setEgress(egressFromObject(egress));
+    details.setEgress(egressFromObject(egress));
   }
   if (createdAt) {
-    pipelineInfo.setCreatedAt(timestampFromObject(createdAt));
+    details.setCreatedAt(timestampFromObject(createdAt));
   }
 
   pipelineInfo.setState(state);
   pipelineInfo.setStopped(stopped);
-  pipelineInfo.setRecentError(recentError);
-  pipelineInfo.setWorkersRequested(workersRequested);
-  pipelineInfo.setWorkersAvailable(workersAvailable);
   pipelineInfo.setLastJobState(lastJobState);
-  pipelineInfo.setOutputBranch(outputBranch);
+  details.setRecentError(recentError);
+  details.setWorkersRequested(workersRequested);
+  details.setWorkersAvailable(workersAvailable);
+  details.setOutputBranch(outputBranch);
 
   if (resourceRequests) {
-    pipelineInfo.setResourceRequests(resourceSpecFromObject(resourceRequests));
+    details.setResourceRequests(resourceSpecFromObject(resourceRequests));
   }
   if (resourceLimits) {
-    pipelineInfo.setResourceLimits(resourceSpecFromObject(resourceLimits));
+    details.setResourceLimits(resourceSpecFromObject(resourceLimits));
   }
   if (sidecarResourceLimits) {
-    pipelineInfo.setSidecarResourceLimits(
+    details.setSidecarResourceLimits(
       resourceSpecFromObject(sidecarResourceLimits),
     );
   }
   if (input) {
-    pipelineInfo.setInput(inputFromObject(input));
+    details.setInput(inputFromObject(input));
   }
   if (service) {
-    pipelineInfo.setService(serviceFromObject(service));
+    details.setService(serviceFromObject(service));
   }
   if (spout) {
-    pipelineInfo.setSpout(spoutFromObject(spout));
+    details.setSpout(spoutFromObject(spout));
   }
   if (chunkSpec) {
-    pipelineInfo.setDatumSetSpec(chunkSpecFromObject(chunkSpec));
+    details.setDatumSetSpec(chunkSpecFromObject(chunkSpec));
   }
   if (datumTimeout) {
-    pipelineInfo.setDatumTimeout(durationFromObject(datumTimeout));
+    details.setDatumTimeout(durationFromObject(datumTimeout));
   }
   if (jobTimeout) {
-    pipelineInfo.setJobTimeout(durationFromObject(jobTimeout));
+    details.setJobTimeout(durationFromObject(jobTimeout));
   }
 
-  pipelineInfo.setDescription(description);
-  pipelineInfo.setCacheSize(cacheSize);
-  pipelineInfo.setSalt(salt);
+  details.setDescription(description);
+  details.setCacheSize(cacheSize);
+  details.setSalt(salt);
+  details.setMaxQueueSize(maxQueueSize);
+  details.setStandby(standby);
+  details.setDatumTries(datumTries);
+  details.setPodSpec(podSpec);
+  details.setPodPatch(podPatch);
+  details.setS3Out(s3Out);
   pipelineInfo.setReason(reason);
-  pipelineInfo.setMaxQueueSize(maxQueueSize);
-  pipelineInfo.setStandby(standby);
-  pipelineInfo.setDatumTries(datumTries);
-  pipelineInfo.setPodSpec(podSpec);
-  pipelineInfo.setPodPatch(podPatch);
-  pipelineInfo.setS3Out(s3Out);
+  pipelineInfo.setDetails(details);
 
   return pipelineInfo;
 };
