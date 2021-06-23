@@ -36,7 +36,6 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
 	log "github.com/sirupsen/logrus"
@@ -322,8 +321,6 @@ func PachctlCmd() *cobra.Command {
 	var output string
 	outputFlags := cmdutil.OutputFlags(&raw, &output)
 
-	marshaller := &jsonpb.Marshaler{Indent: "  "}
-
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
 		Long: `Access the Pachyderm API.
@@ -374,14 +371,15 @@ Environment variables:
 		Short: "Print Pachyderm version information.",
 		Long:  "Print Pachyderm version information.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			if !raw && output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+
 			if clientOnly {
 				if raw {
-					if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
-						return err
-					}
-				} else {
-					fmt.Println(version.PrettyPrintVersion(version.Version))
+					return cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version)
 				}
+				fmt.Println(version.PrettyPrintVersion(version.Version))
 				return nil
 			}
 
@@ -396,7 +394,7 @@ Environment variables:
 			// Print header + client version
 			writer := ansiterm.NewTabWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			if raw {
-				if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
+				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version); err != nil {
 					return err
 				}
 			} else {
@@ -439,8 +437,6 @@ Environment variables:
 			// print server version
 			if raw {
 				return cmdutil.Encoder(output, os.Stdout).EncodeProto(version)
-			} else if output != "" {
-				return errors.New("cannot set --output (-o) without --raw")
 			}
 			printVersion(writer, "pachd", version)
 			return writer.Flush()
