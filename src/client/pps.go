@@ -240,6 +240,7 @@ func (c APIClient) inspectJobSet(id string, wait bool, details bool, cb func(*pp
 	req := &pps.InspectJobSetRequest{
 		JobSet: NewJobSet(id),
 		Wait:   wait,
+		Details: details,
 	}
 	client, err := c.PpsAPIClient.InspectJobSet(ctx, req)
 	if err != nil {
