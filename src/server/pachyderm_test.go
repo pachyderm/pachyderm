@@ -6480,7 +6480,6 @@ func TestMaxQueueSize(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 2,
 			},
-			MaxQueueSize: 1,
 			DatumSetSpec: &pps.DatumSetSpec{
 				Number: 10,
 			},

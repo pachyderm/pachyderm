@@ -612,11 +612,9 @@ message CreatePipelineRequest {
   ResourceSpec sidecar_resource_limits = 11;
   Input input = 12;
   string description = 13;
-  string cache_size = 14;
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
   bool reprocess = 16;
-  int64 max_queue_size = 17;
   Service service = 18;
   Spout spout = 19;
   DatumSetSpec datum_set_spec = 20;

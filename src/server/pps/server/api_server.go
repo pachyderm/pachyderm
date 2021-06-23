@@ -1423,12 +1423,6 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 
 // TODO: Implement the appropriate features.
 func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps.CreatePipelineRequest, error) {
-	if request.CacheSize != "" {
-		return nil, errors.Errorf("CacheSize not implemented")
-	}
-	if request.MaxQueueSize != 0 {
-		return nil, errors.Errorf("MaxQueueSize not implemented")
-	}
 	return request, nil
 }
 
@@ -1802,9 +1796,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			ResourceLimits:        request.ResourceLimits,
 			SidecarResourceLimits: request.SidecarResourceLimits,
 			Description:           request.Description,
-			CacheSize:             request.CacheSize,
 			Salt:                  request.Salt,
-			MaxQueueSize:          request.MaxQueueSize,
 			Service:               request.Service,
 			Spout:                 request.Spout,
 			DatumSetSpec:          request.DatumSetSpec,
