@@ -609,7 +609,6 @@ func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOpt
 		volumes:               volumes,
 		volumeMounts:          volumeMounts,
 		imagePullSecrets:      imagePullSecrets,
-		cacheSize:             pipelineInfo.Details.CacheSize,
 		service:               service,
 		schedulingSpec:        pipelineInfo.Details.SchedulingSpec,
 		podSpec:               pipelineInfo.Details.PodSpec,

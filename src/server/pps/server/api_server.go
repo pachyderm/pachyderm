@@ -24,7 +24,6 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 
@@ -1494,9 +1493,6 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Details.OutputBranch == "" {
 		return errors.New("pipeline needs to specify an output branch")
 	}
-	if _, err := resource.ParseQuantity(pipelineInfo.Details.CacheSize); err != nil {
-		return errors.Wrapf(err, "could not parse cacheSize '%s'", pipelineInfo.Details.CacheSize)
-	}
 	if pipelineInfo.Details.JobTimeout != nil {
 		_, err := types.DurationFromProto(pipelineInfo.Details.JobTimeout)
 		if err != nil {
@@ -2222,12 +2218,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Details.OutputBranch == "" {
 		// Output branches default to master
 		pipelineInfo.Details.OutputBranch = "master"
-	}
-	if pipelineInfo.Details.CacheSize == "" {
-		pipelineInfo.Details.CacheSize = "64M"
-	}
-	if pipelineInfo.Details.MaxQueueSize < 1 {
-		pipelineInfo.Details.MaxQueueSize = 1
 	}
 	if pipelineInfo.Details.DatumTries == 0 {
 		pipelineInfo.Details.DatumTries = DefaultDatumTries

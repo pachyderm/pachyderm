@@ -389,11 +389,9 @@ message PipelineInfo {
     ResourceSpec sidecar_resource_limits = 12;
     Input input = 13;
     string description = 14;
-    string cache_size = 15;
     string salt = 16;
 
     string reason = 17;
-    int64 max_queue_size = 18;
     Service service = 19;
     Spout spout = 20;
     DatumSetSpec datum_set_spec = 21;
