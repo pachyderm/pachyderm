@@ -41,7 +41,6 @@ import (
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	globlib "github.com/pachyderm/ohmyglob"
 	"golang.org/x/sync/errgroup"
