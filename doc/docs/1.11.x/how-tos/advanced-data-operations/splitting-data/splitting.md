@@ -33,7 +33,7 @@ head user_data.csv
 ```
 
 If you put this data into Pachyderm as a single
-file, Pachyderm processes them a single datum.
+file, Pachyderm processes them as a single datum.
 It cannot process each of
 these user records in parallel as separate `datums`.
 Potentially, you can manually separate
