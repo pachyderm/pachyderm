@@ -719,11 +719,7 @@ func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
 // 1: Return the above and the next most recent version
 // 2: etc.
 //-1: Return all historical versions.
-<<<<<<< HEAD
 func (c APIClient) ListPipelineHistory(pipeline string, history int64, details bool) ([]*pps.PipelineInfo, error) {
-=======
-func (c APIClient) ListPipelineHistory(pipeline string, history int64) ([]*pps.PipelineInfo, error) {
->>>>>>> e41c2c3b5 (pr feedback)
 	var _pipeline *pps.Pipeline
 	if pipeline != "" {
 		_pipeline = NewPipeline(pipeline)
