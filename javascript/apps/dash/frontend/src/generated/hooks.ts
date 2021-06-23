@@ -1218,6 +1218,7 @@ export const RepoDocument = gql`
         name
       }
       commits {
+        repoName
         branch {
           id
           name

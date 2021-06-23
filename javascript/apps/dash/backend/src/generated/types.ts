@@ -47,6 +47,7 @@ export type Branch = {
 
 export type Commit = {
   __typename?: 'Commit';
+  repoName: Scalars['String'];
   branch?: Maybe<Branch>;
   description?: Maybe<Scalars['String']>;
   id: Scalars['ID'];
@@ -769,6 +770,7 @@ export type CommitResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Commit'] = ResolversParentTypes['Commit'],
 > = ResolversObject<{
+  repoName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   branch?: Resolver<Maybe<ResolversTypes['Branch']>, ParentType, ContextType>;
   description?: Resolver<
     Maybe<ResolversTypes['String']>,
@@ -1701,7 +1703,12 @@ export type RepoQuery = {__typename?: 'Query'} & {
       commits: Array<
         {__typename?: 'Commit'} & Pick<
           Commit,
-          'description' | 'id' | 'started' | 'finished' | 'sizeDisplay'
+          | 'repoName'
+          | 'description'
+          | 'id'
+          | 'started'
+          | 'finished'
+          | 'sizeDisplay'
         > & {
             branch?: Maybe<
               {__typename?: 'Branch'} & Pick<Branch, 'id' | 'name'>

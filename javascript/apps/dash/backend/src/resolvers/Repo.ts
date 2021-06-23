@@ -1,7 +1,7 @@
 import formatBytes from '@dash-backend/lib/formatBytes';
 import {QueryResolvers, RepoResolvers} from '@graphqlTypes';
 
-import {pipelineInfoToGQLPipeline} from './builders/pps';
+import {pipelineInfoToGQLPipeline, repoInfoToGQLRepo} from './builders/pps';
 
 interface RepoResolver {
   Query: {
@@ -15,21 +15,7 @@ const NUM_COMMITS = 100;
 const repoResolver: RepoResolver = {
   Query: {
     repo: async (_parent, {args: {id}}, {pachClient}) => {
-      const repo = await pachClient.pfs().inspectRepo(id);
-
-      return {
-        branches: repo?.branchesList.map((branch) => ({
-          id: branch.name,
-          name: branch.name,
-        })),
-        commits: [],
-        createdAt: repo?.created?.seconds || 0,
-        description: repo?.description || '',
-        id: repo?.repo?.name || '',
-        name: repo?.repo?.name || '',
-        sizeBytes: repo?.sizeBytes || 0,
-        sizeDisplay: formatBytes(repo?.sizeBytes || 0),
-      };
+      return repoInfoToGQLRepo(await pachClient.pfs().inspectRepo(id));
     },
   },
   Repo: {
@@ -37,6 +23,7 @@ const repoResolver: RepoResolver = {
       try {
         return (await pachClient.pfs().listCommit(repo.id, NUM_COMMITS))
           .map((commit) => ({
+            repoName: repo.name,
             branch: commit.commit?.branch && {
               id: commit.commit?.branch?.name,
               name: commit.commit?.branch?.name,

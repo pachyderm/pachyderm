@@ -1,13 +1,15 @@
 import {fromUnixTime, formatDistanceToNow, formatDistance} from 'date-fns';
 import React, {useMemo} from 'react';
-import {useRouteMatch} from 'react-router';
+import {useRouteMatch, Redirect} from 'react-router';
 
+import {NOT_FOUND_ERROR_CODE} from '@dash-backend/lib/types';
 import Description from '@dash-frontend/components/Description';
 import JSONBlock from '@dash-frontend/components/JSONBlock';
 import PipelineInput from '@dash-frontend/components/PipelineInput';
 import {useJob} from '@dash-frontend/hooks/useJob';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {ProjectRouteParams} from '@dash-frontend/lib/types';
+import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import styles from './InfoPanel.module.css';
 
@@ -21,7 +23,7 @@ const InfoPanel = () => {
     params: {jobId, projectId, pipelineId},
   } = useRouteMatch<InfoPanelParams>();
 
-  const {job} = useJob({
+  const {job, loading, error} = useJob({
     id: jobId,
     pipelineName: pipelineId,
     projectId,
@@ -62,9 +64,24 @@ const InfoPanel = () => {
       : 'N/A';
   }, [job?.createdAt, job?.finishedAt]);
 
+  if (
+    error?.graphQLErrors.some(
+      (err) => err.extensions?.code === NOT_FOUND_ERROR_CODE,
+    )
+  ) {
+    return (
+      <Redirect
+        to={jobRoute({
+          projectId,
+          jobId,
+        })}
+      />
+    );
+  }
+
   return (
     <dl className={styles.base}>
-      <Description term="Inputs" lines={9}>
+      <Description term="Inputs" lines={9} loading={loading}>
         {job?.inputString ? (
           <PipelineInput
             inputString={job.inputString}
@@ -76,17 +93,27 @@ const InfoPanel = () => {
         )}
       </Description>
 
-      <Description term="Transform">{transformString}</Description>
+      <Description term="Transform" loading={loading} lines={3}>
+        {transformString}
+      </Description>
 
       <hr className={styles.divider} />
 
-      <Description term="ID">{job?.id}</Description>
-      <Description term="Pipeline">{job?.pipelineName}</Description>
-      <Description term="State">
+      <Description term="ID" loading={loading}>
+        {job?.id}
+      </Description>
+      <Description term="Pipeline" loading={loading}>
+        {job?.pipelineName}
+      </Description>
+      <Description term="State" loading={loading}>
         {job?.state ? readableJobState(job.state) : 'N/A'}
       </Description>
-      <Description term="Started">{started}</Description>
-      <Description term="Duration">{duration}</Description>
+      <Description term="Started" loading={loading}>
+        {started}
+      </Description>
+      <Description term="Duration" loading={loading}>
+        {duration}
+      </Description>
     </dl>
   );
 };

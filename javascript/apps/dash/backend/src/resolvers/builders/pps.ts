@@ -1,4 +1,4 @@
-import {RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
+import {Branch, RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {
   JobInfo,
   JobState,
@@ -7,6 +7,7 @@ import {
 } from '@pachyderm/proto/pb/pps/pps_pb';
 import fromPairs from 'lodash/fromPairs';
 
+import formatBytes from '@dash-backend/lib/formatBytes';
 import {
   toGQLJobState,
   toGQLPipelineState,
@@ -16,6 +17,8 @@ import {
   Pipeline,
   PipelineType,
   JobState as GQLJobState,
+  Repo,
+  Branch as GQLBranch,
 } from '@graphqlTypes';
 
 const derivePipelineType = (pipelineInfo: PipelineInfo.AsObject) => {
@@ -100,13 +103,24 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
   };
 };
 
-export const repoInfoToGQLRepo = (repoInfo: RepoInfo.AsObject) => {
+const branchInfoToGQLBranch = (branch: Branch.AsObject): GQLBranch => {
+  return {
+    id: branch.name,
+    name: branch.name,
+  };
+};
+
+export const repoInfoToGQLRepo = (repoInfo: RepoInfo.AsObject): Repo => {
   return {
     createdAt: repoInfo.created?.seconds || 0,
     description: repoInfo.description,
     name: repoInfo.repo?.name || '',
-    sizeInBytes: repoInfo.sizeBytes,
+    sizeBytes: repoInfo.sizeBytes,
     id: repoInfo?.repo?.name || '',
+    branches: repoInfo.branchesList.map(branchInfoToGQLBranch),
+    // derived in field level resolver
+    commits: [],
+    sizeDisplay: formatBytes(repoInfo.sizeBytes),
   };
 };
 

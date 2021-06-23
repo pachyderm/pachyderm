@@ -1,6 +1,7 @@
 import {
   Branch,
   Commit,
+  CommitInfo,
   File,
   FileInfo,
   FileType,
@@ -8,7 +9,10 @@ import {
   Trigger,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
 
-import {timestampFromObject} from '@dash-backend/grpc/builders/protobuf';
+import {
+  timestampFromObject,
+  TimestampObject,
+} from '@dash-backend/grpc/builders/protobuf';
 
 export type FileObject = {
   commitId?: Commit.AsObject['id'];
@@ -44,6 +48,14 @@ export type BranchObject = {
 export type CommitObject = {
   id: Commit.AsObject['id'];
   branch?: BranchObject;
+};
+
+export type CommitInfoObject = {
+  commit: CommitObject;
+  description?: CommitInfo.AsObject['description'];
+  sizeBytes?: CommitInfo.Details.AsObject['sizeBytes'];
+  started?: TimestampObject;
+  finished?: TimestampObject;
 };
 
 export const fileFromObject = ({
@@ -140,3 +152,17 @@ export const commitFromObject = ({branch, id}: CommitObject) => {
 
   return commit;
 };
+
+export const commitInfoFromObject = ({
+  commit,
+  description = '',
+  sizeBytes = 0,
+  started,
+  finished,
+}: CommitInfoObject) =>
+  new CommitInfo()
+    .setCommit(commitFromObject(commit))
+    .setDescription(description)
+    .setDetails(new CommitInfo.Details().setSizeBytes(sizeBytes))
+    .setStarted(started ? timestampFromObject(started) : undefined)
+    .setFinished(finished ? timestampFromObject(finished) : undefined);

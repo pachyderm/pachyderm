@@ -1,4 +1,4 @@
-import {Link, ArrowSVG, Tooltip} from '@pachyderm/components';
+import {Link, ArrowSVG, Tooltip, LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import {NavLink, Redirect, Route} from 'react-router-dom';
@@ -46,7 +46,7 @@ const getJobStateHref = (state: JobVisualState) => {
 
 const JobDetails = () => {
   const {jobId, projectId, pipelineId} = useUrlState();
-  const {jobSet} = useJobSet({id: jobId, projectId});
+  const {jobSet, loading} = useJobSet({id: jobId, projectId});
 
   if (!pipelineId && jobSet && jobSet.jobs.length > 0) {
     return (
@@ -69,51 +69,61 @@ const JobDetails = () => {
           </Link>
         </nav>
 
-        <h2 className={styles.heading}>Job {jobSet?.id}</h2>
+        <h2 className={styles.heading}>Job {jobId}</h2>
       </section>
 
       <section className={styles.pipelineSection}>
-        <nav>
-          <ol className={styles.pipelineList}>
-            {jobSet?.jobs.map((job) => {
-              const jobVisualState = getVisualJobState(job.state);
+        {loading && (
+          <div className={styles.pipelineList}>
+            <LoadingDots />
+          </div>
+        )}
 
-              return (
-                <li key={job.pipelineName}>
-                  <Tooltip
-                    tooltipText={job.pipelineName}
-                    tooltipKey={job.pipelineName}
-                    size="large"
-                    placement="right"
-                  >
-                    <NavLink
-                      aria-current="true"
-                      activeClassName={styles.active}
-                      exact={true}
-                      to={pipelineJobRoute({
-                        projectId,
-                        jobId,
-                        pipelineId: job.pipelineName,
-                      })}
-                      className={classnames(styles.pipelineLink, {
-                        [styles.error]: jobVisualState === 'ERROR',
-                        [styles.success]: jobVisualState === 'SUCCESS',
-                        [styles.busy]: jobVisualState === 'BUSY',
-                      })}
+        {!loading && (
+          <nav>
+            <ol className={styles.pipelineList}>
+              {jobSet?.jobs.map((job) => {
+                const jobVisualState = getVisualJobState(job.state);
+
+                return (
+                  <li key={job.pipelineName}>
+                    <Tooltip
+                      tooltipText={job.pipelineName}
+                      tooltipKey={job.pipelineName}
+                      size="large"
+                      placement="right"
                     >
-                      <img
-                        alt={`Job ${job.id} ${readableJobState(job.state)}`}
-                        className={styles.pipelineIcon}
-                        src={getJobStateHref(jobVisualState)}
-                      />
-                      {job.pipelineName}
-                    </NavLink>
-                  </Tooltip>
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
+                      <NavLink
+                        aria-current="true"
+                        activeClassName={styles.active}
+                        exact={true}
+                        to={pipelineJobRoute({
+                          projectId,
+                          jobId,
+                          pipelineId: job.pipelineName,
+                        })}
+                        className={classnames(styles.pipelineLink, {
+                          [styles.error]: jobVisualState === 'ERROR',
+                          [styles.success]: jobVisualState === 'SUCCESS',
+                          [styles.busy]: jobVisualState === 'BUSY',
+                        })}
+                      >
+                        <img
+                          alt={`Job ${job.id} ${readableJobState(job.state)}`}
+                          className={styles.pipelineIcon}
+                          src={getJobStateHref(jobVisualState)}
+                        />
+                        <div className={styles.pipelineLinkText}>
+                          {job.pipelineName}
+                        </div>
+                      </NavLink>
+                    </Tooltip>
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
+        )}
 
         <div className={styles.pipelineSpec}>
           <Route path={PIPELINE_JOB_PATH}>

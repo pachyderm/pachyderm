@@ -16,7 +16,8 @@ export const errorLink = (browserHistory: BrowserHistory) =>
       }
 
       if (
-        graphQLErrors.some((error) => error.extensions?.code === 'NOT_FOUND')
+        graphQLErrors.some((error) => error.extensions?.code === 'NOT_FOUND') &&
+        operation.operationName !== 'job'
       ) {
         browserHistory.push('/not-found');
       }

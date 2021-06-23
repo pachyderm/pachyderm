@@ -39,8 +39,8 @@ const errorPlugin: GRPCPlugin = {
 
       //TODO: temporary fix until Status.NOT_FOUND is added to pachyderm
       if (
-        error.code === Status.UNKNOWN &&
-        NOT_FOUND_MESSAGES.includes(error.details)
+        (error.code === Status.UNKNOWN || error.code === Status.INTERNAL) &&
+        NOT_FOUND_MESSAGES.some((message) => error.details.includes(message))
       ) {
         throw new NotFoundError(error.details);
       }

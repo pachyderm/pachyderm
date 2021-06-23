@@ -61,6 +61,7 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                       to={jobRoute({
                         projectId,
                         jobId: commit.id,
+                        pipelineId: repo?.name,
                       })}
                     >
                       Linked Job

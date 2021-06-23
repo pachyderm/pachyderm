@@ -8,6 +8,7 @@ export const GET_REPO_QUERY = gql`
         name
       }
       commits {
+        repoName
         branch {
           id
           name

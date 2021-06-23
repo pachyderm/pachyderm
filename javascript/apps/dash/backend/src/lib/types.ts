@@ -64,9 +64,10 @@ export interface GRPCPlugin {
 export type ServiceHandlerFunction = (...args: never[]) => Promise<unknown>;
 export type ServiceDefinition = Record<string, ServiceHandlerFunction>;
 
+export const NOT_FOUND_ERROR_CODE = 'NOT_FOUND';
 export class NotFoundError extends ApolloError {
   constructor(message: string) {
-    super(message, 'NOT_FOUND');
+    super(message, NOT_FOUND_ERROR_CODE);
 
     // Note: We must redefine this property, as ApolloError's
     // "name" attribute is read-only by default

@@ -123,6 +123,7 @@ type Branch {
 }
 
 type Commit {
+  repoName: String!
   branch: Branch
   description: String
   id: ID!

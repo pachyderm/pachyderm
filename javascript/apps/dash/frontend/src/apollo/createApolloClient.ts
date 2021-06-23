@@ -50,6 +50,9 @@ const createApolloClient = (
         // the combination of both id and pipelineName is.
         keyFields: ['id', 'pipelineName'],
       },
+      Commit: {
+        keyFields: ['id', 'repoName'],
+      },
     },
   });
   const {webSocketClient, split} = splitLink();
