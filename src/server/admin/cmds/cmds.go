@@ -3,7 +3,6 @@ package cmds
 import (
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 
 	"github.com/spf13/cobra"
@@ -16,17 +15,12 @@ func Cmds() []*cobra.Command {
 	inspectCluster := &cobra.Command{
 		Short: "Returns info about the pachyderm cluster",
 		Long:  "Returns info about the pachyderm cluster",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			ci, err := env.Client("user").InspectCluster()
 			if err != nil {
 				return err
 			}
-			defer c.Close()
-			ci, err := c.InspectCluster()
-			if err != nil {
-				return err
-			}
-			fmt.Println(ci.ID)
+			fmt.Fprintln(env.Out(), ci.ID)
 			return nil
 		}),
 	}

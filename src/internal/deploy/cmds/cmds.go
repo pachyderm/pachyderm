@@ -403,11 +403,11 @@ func standardDeployCmds() []*cobra.Command {
 		}
 		return nil
 	}
-	deployPreRun := cmdutil.Run(func(args []string) error {
+	deployPreRun := cmdutil.Run(func(args []string, env cmdutil.Env) error {
 		if version.IsUnstable() {
 			fmt.Fprintf(os.Stderr, "WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
 
-			if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+			if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 				return err
 			} else if !ok {
 				return errors.New("deploy aborted")
@@ -420,10 +420,10 @@ func standardDeployCmds() []*cobra.Command {
 	var hostPath string
 	var rootless bool
 	deployLocal := &cobra.Command{
-		Short:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
-		Long:   "Deploy a single-node Pachyderm cluster with local metadata storage.",
-		PreRun: deployPreRun,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Short:   "Deploy a single-node Pachyderm cluster with local metadata storage.",
+		Long:    "Deploy a single-node Pachyderm cluster with local metadata storage.",
+		PreRunE: deployPreRun,
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) (retErr error) {
 			if !dev {
 				start := time.Now()
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -493,8 +493,8 @@ func standardDeployCmds() []*cobra.Command {
   <disk-size>: Size of Google Compute Engine persistent disks in GB (assumed to all be the same).
   <bucket-name>: A Google Cloud Storage bucket where Pachyderm will store PFS data.
   <credentials-file>: A file containing the private key for the account (downloaded from Google Compute Engine).`,
-		PreRun: deployPreRun,
-		Run: cmdutil.RunBoundedArgs(1, 3, func(args []string) (retErr error) {
+		PreRunE: deployPreRun,
+		RunE: cmdutil.RunBoundedArgs(1, 3, func(args []string, env cmdutil.Env) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()
@@ -558,8 +558,8 @@ func standardDeployCmds() []*cobra.Command {
 		Long: `Deploy a custom Pachyderm cluster configuration.
 If <object store backend> is \"s3\", then the arguments are:
     <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>`,
-		PreRun: deployPreRun,
-		Run: cmdutil.RunBoundedArgs(4, 7, func(args []string) (retErr error) {
+		PreRunE: deployPreRun,
+		RunE: cmdutil.RunBoundedArgs(4, 7, func(args []string, env cmdutil.Env) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()
@@ -627,8 +627,8 @@ If <object store backend> is \"s3\", then the arguments are:
   <region>: The AWS region where Pachyderm is being deployed (e.g. us-west-1)
   <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).
   <bucket-name>: An S3 bucket where Pachyderm will store PFS data.`,
-		PreRun: deployPreRun,
-		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
+		PreRunE: deployPreRun,
+		RunE: cmdutil.RunBoundedArgs(2, 3, func(args []string, env cmdutil.Env) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()
@@ -657,7 +657,7 @@ If <object store backend> is \"s3\", then the arguments are:
 
 				if !awsAccessKeyIDRE.MatchString(amazonCreds.ID) {
 					fmt.Fprintf(os.Stderr, "The AWS Access Key seems invalid (does not match %q)\n", awsAccessKeyIDRE)
-					if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 						return err
 					} else if !ok {
 						return errors.Errorf("aborted")
@@ -666,7 +666,7 @@ If <object store backend> is \"s3\", then the arguments are:
 
 				if !awsSecretRE.MatchString(amazonCreds.Secret) {
 					fmt.Fprintf(os.Stderr, "The AWS Secret seems invalid (does not match %q)\n", awsSecretRE)
-					if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 						return err
 					} else if !ok {
 						return errors.Errorf("aborted")
@@ -701,7 +701,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			region := args[0]
 			if !awsRegionRE.MatchString(region) {
 				fmt.Fprintf(os.Stderr, "The AWS region seems invalid (does not match %q)\n", awsRegionRE)
-				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+				if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 					return err
 				} else if !ok {
 					return errors.Errorf("aborted")
@@ -758,8 +758,8 @@ If <object store backend> is \"s3\", then the arguments are:
 		Long: `Deploy a Pachyderm cluster running on Microsoft Azure.
   <disk-size>: Size of persistent volumes, in GB (assumed to all be the same).
   <container>: An Azure container where Pachyderm will store PFS data.`,
-		PreRun: deployPreRun,
-		Run: cmdutil.RunBoundedArgs(1, 4, func(args []string) (retErr error) {
+		PreRunE: deployPreRun,
+		RunE: cmdutil.RunBoundedArgs(1, 4, func(args []string, env cmdutil.Env) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 			defer startMetricsWait()

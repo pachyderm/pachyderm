@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -25,12 +24,7 @@ func Cmds() []*cobra.Command {
 		Use:   "{{alias}} <profile> <file>",
 		Short: "Collect a set of pprof profiles.",
 		Long:  "Collect a set of pprof profiles.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine("debug-profile")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
+		RunE: cmdutil.RunFixedArgs(2, func(args []string, env cmdutil.Env) error {
 			var d *types.Duration
 			if duration != 0 {
 				d = types.DurationProto(duration)
@@ -44,7 +38,7 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			return withFile(args[1], func(f *os.File) error {
-				return client.Profile(p, filter, f)
+				return env.Client("debug-profile").Profile(p, filter, f)
 			})
 		}),
 	}
@@ -58,18 +52,13 @@ func Cmds() []*cobra.Command {
 		Use:   "{{alias}} <file>",
 		Short: "Collect a set of binaries.",
 		Long:  "Collect a set of binaries.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine("debug-binary")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			filter, err := createFilter(pachd, pipeline, worker)
 			if err != nil {
 				return err
 			}
 			return withFile(args[0], func(f *os.File) error {
-				return client.Binary(filter, f)
+				return env.Client("debug-binary").Binary(filter, f)
 			})
 		}),
 	}
@@ -83,18 +72,13 @@ func Cmds() []*cobra.Command {
 		Use:   "{{alias}} <file>",
 		Short: "Collect a standard set of debugging information.",
 		Long:  "Collect a standard set of debugging information.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine("debug-dump")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			filter, err := createFilter(pachd, pipeline, worker)
 			if err != nil {
 				return err
 			}
 			return withFile(args[0], func(f *os.File) error {
-				return client.Dump(filter, limit, f)
+				return env.Client("debug-dump").Dump(filter, limit, f)
 			})
 		}),
 	}

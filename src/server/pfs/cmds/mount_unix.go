@@ -75,12 +75,7 @@ func mountCmds() []*cobra.Command {
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("fuse")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			mountPoint := args[0]
 			repoOpts, err := parseRepoOpts(repoOpts)
 			if err != nil {
@@ -99,7 +94,7 @@ func mountCmds() []*cobra.Command {
 			}
 			// Prints a warning if we're on macOS
 			printWarning()
-			return fuse.Mount(c, mountPoint, opts)
+			return fuse.Mount(env.Client("fuse"), mountPoint, opts)
 		}),
 	}
 	mount.Flags().BoolVarP(&write, "write", "w", false, "Allow writing to pfs through the mount.")
@@ -113,7 +108,7 @@ func mountCmds() []*cobra.Command {
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Unmount pfs.",
 		Long:  "Unmount pfs.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+		RunE: cmdutil.RunBoundedArgs(0, 1, func(args []string, env cmdutil.Env) error {
 			if len(args) == 1 {
 				return syscall.Unmount(args[0], 0)
 			}
@@ -125,7 +120,7 @@ func mountCmds() []*cobra.Command {
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
 					Stdout: &stdout,
-					Stderr: os.Stderr,
+					Stderr: env.Err(),
 				}, "sh"); err != nil {
 					return err
 				}
@@ -135,18 +130,18 @@ func mountCmds() []*cobra.Command {
 					mounts = append(mounts, scanner.Text())
 				}
 				if len(mounts) == 0 {
-					fmt.Println("No mounts found.")
+					fmt.Fprintln(env.Err(), "No mounts found.")
 					return nil
 				}
-				fmt.Printf("This will unmount the following filesystems:\n")
+				fmt.Fprintf(env.Err(), "This will unmount the following filesystems:\n")
 				for _, mount := range mounts {
-					fmt.Printf("%s\n", mount)
+					fmt.Fprintf(env.Err(), "%s\n", mount)
 				}
 
 				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 					return err
 				} else if !ok {
-					return errors.New("deploy aborted")
+					return errors.New("unmount aborted")
 				}
 
 				for _, mount := range mounts {
@@ -155,7 +150,7 @@ func mountCmds() []*cobra.Command {
 					}
 				}
 			} else {
-				return errors.Errorf("nothing to unmount specify a mounted filesystem or --all")
+				return errors.Errorf("nothing to unmount, specify a mounted filesystem or --all")
 			}
 			return nil
 		}),

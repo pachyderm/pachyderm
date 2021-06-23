@@ -29,7 +29,6 @@ require (
 	github.com/golang/protobuf v1.3.3
 	github.com/google/go-cmp v0.5.0 // indirect
 	github.com/gorilla/mux v1.7.4
-	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0
 	github.com/hanwen/go-fuse/v2 v2.0.3
 	github.com/hashicorp/golang-lru v0.5.3
@@ -62,7 +61,7 @@ require (
 	github.com/segmentio/analytics-go v0.0.0-20160426181448-2d840d861c32
 	github.com/segmentio/backo-go v0.0.0-20160424052352-204274ad699c // indirect
 	github.com/sirupsen/logrus v1.6.0
-	github.com/spf13/cobra v0.0.6-0.20191202130430-b04b5bfc50cb
+	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
@@ -83,7 +82,7 @@ require (
 	google.golang.org/grpc v1.29.1
 	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.1.2
 	honnef.co/go/tools v0.1.4 // indirect
 	k8s.io/api v0.17.4

@@ -24,18 +24,14 @@ func GetConfigCmd() *cobra.Command {
 	getConfig := &cobra.Command{
 		Short: "Retrieve Pachyderm's current auth configuration",
 		Long:  "Retrieve Pachyderm's current auth configuration",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient(enterprise)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := newClient(env, enterprise)
 			resp, err := c.GetConfiguration(c.Ctx(), &auth.GetConfigurationRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 			if resp.Configuration == nil {
-				fmt.Println("no auth config set")
+				fmt.Fprintln(env.Err(), "no auth config set")
 				return nil
 			}
 
@@ -58,7 +54,7 @@ func GetConfigCmd() *cobra.Command {
 			if err := e.Encode(resp.Configuration); err != nil {
 				return err
 			}
-			fmt.Println(buf.String())
+			fmt.Fprintln(env.Out(), buf.String())
 			return nil
 		}),
 	}
@@ -76,12 +72,8 @@ func SetConfigCmd() *cobra.Command {
 	setConfig := &cobra.Command{
 		Short: "Set Pachyderm's current auth configuration",
 		Long:  "Set Pachyderm's current auth configuration",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient(enterprise)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := newClient(env, enterprise)
 			var rawConfigBytes []byte
 			if file == "-" {
 				var err error
@@ -105,7 +97,7 @@ func SetConfigCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not parse config")
 			}
 			// TODO(msteffen): try to handle empty config?
-			_, err = c.SetConfiguration(c.Ctx(), &auth.SetConfigurationRequest{
+			_, err := c.SetConfiguration(c.Ctx(), &auth.SetConfigurationRequest{
 				Configuration: &config,
 			})
 			return grpcutil.ScrubGRPC(err)

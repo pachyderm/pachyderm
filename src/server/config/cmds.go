@@ -61,12 +61,12 @@ func Cmds() []*cobra.Command {
 	getMetrics := &cobra.Command{
 		Short: "Gets whether metrics are enabled.",
 		Long:  "Gets whether metrics are enabled.",
-		Run: cmdutil.Run(func(args []string) (retErr error) {
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%v\n", cfg.V2.Metrics)
+			fmt.Fprintf(env.Out(), "%v\n", cfg.V2.Metrics)
 			return nil
 		}),
 	}
@@ -76,7 +76,7 @@ func Cmds() []*cobra.Command {
 		Use:   "{{alias}} (true | false)",
 		Short: "Sets whether metrics are enabled.",
 		Long:  "Sets whether metrics are enabled.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			metrics := true
 			if args[0] == "false" {
 				metrics = false
@@ -98,7 +98,7 @@ func Cmds() []*cobra.Command {
 	getActiveContext := &cobra.Command{
 		Short: "Gets the currently active context.",
 		Long:  "Gets the currently active context.",
-		Run: cmdutil.Run(func(args []string) (retErr error) {
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -108,9 +108,9 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			if activeContext == "" {
-				fmt.Println("NONE")
+				fmt.Fprintln(env.Out(), "NONE")
 			} else {
-				fmt.Printf("%s\n", activeContext)
+				fmt.Fprintf(env.Out(), "%s\n", activeContext)
 			}
 			return nil
 		}),
@@ -121,7 +121,7 @@ func Cmds() []*cobra.Command {
 		Use:   "{{alias}} <context>",
 		Short: "Sets the currently active context.",
 		Long:  "Sets the currently active context.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -139,7 +139,7 @@ func Cmds() []*cobra.Command {
 	getActiveEnterpriseContext := &cobra.Command{
 		Short: "Gets the currently active enterprise context.",
 		Long:  "Gets the currently active enterprise context.",
-		Run: cmdutil.Run(func(args []string) (retErr error) {
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -149,9 +149,9 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			if activeContext == "" {
-				fmt.Println("NONE")
+				fmt.Fprintln(env.Out(), "NONE")
 			} else {
-				fmt.Printf("%s\n", activeContext)
+				fmt.Fprintf(env.Out(), "%s\n", activeContext)
 			}
 			return nil
 		}),
@@ -162,7 +162,7 @@ func Cmds() []*cobra.Command {
 		Use:   "{{alias}} <context>",
 		Short: "Sets the currently active enterprise context.",
 		Long:  "Sets the currently active enterprise context.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -181,7 +181,7 @@ func Cmds() []*cobra.Command {
 		Use:   "{{alias}} <context>",
 		Short: "Gets a context.",
 		Long:  "Gets the config of a context by its name.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -192,11 +192,11 @@ func Cmds() []*cobra.Command {
 				return errors.Errorf("context does not exist: %s", args[0])
 			}
 
-			if err = cmdutil.Encoder("json", os.Stdout).EncodeProto(context); err != nil {
+			if err = cmdutil.Encoder("json", env.Out()).EncodeProto(context); err != nil {
 				return err
 			}
 
-			fmt.Println()
+			fmt.Fprintln(env.Out())
 			return nil
 		}),
 	}
@@ -209,7 +209,7 @@ func Cmds() []*cobra.Command {
 		Use:   "{{alias}} <context>",
 		Short: "Set a context.",
 		Long:  "Set a context config from a given name and either JSON stdin, or a given kubernetes context.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			name := args[0]
 
 			cfg, err := config.Read(false, false)
@@ -242,7 +242,7 @@ func Cmds() []*cobra.Command {
 					Namespace:   kubeContext.Namespace,
 				}
 			} else {
-				fmt.Println("Reading from stdin.")
+				fmt.Fprintln(env.Out(), "Reading from stdin.")
 
 				var buf bytes.Buffer
 				var decoder *json.Decoder
@@ -288,7 +288,7 @@ func Cmds() []*cobra.Command {
 		Short: "Updates a context.",
 		Long: "Updates an existing context config from a given name (or the " +
 			"currently-active context, if no name is given).",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
+		RunE: cmdutil.RunBoundedArgs(0, 1, func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -308,7 +308,7 @@ func Cmds() []*cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Printf("editing the currently active context %q\n", name)
+				fmt.Fprintf(env.Out(), "editing the currently active context %q\n", name)
 			}
 
 			// Use this method since we want to differentiate between no
@@ -359,7 +359,7 @@ func Cmds() []*cobra.Command {
 		Use:   "{{alias}} <context>",
 		Short: "Deletes a context.",
 		Long:  "Deletes a context.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -380,7 +380,7 @@ func Cmds() []*cobra.Command {
 	listContext := &cobra.Command{
 		Short: "Lists contexts.",
 		Long:  "Lists contexts.",
-		Run: cmdutil.Run(func(args []string) (retErr error) {
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -401,10 +401,10 @@ func Cmds() []*cobra.Command {
 
 			activeEnterpriseContext, err := deduceActiveEnterpriseContext(cfg)
 			if err != nil {
-				fmt.Printf("Unable to connect with server to deduce enterprise context: %v\n", err.Error())
+				fmt.Fprintf(env.Out(), "Unable to connect with server to deduce enterprise context: %v\n", err.Error())
 			}
 
-			fmt.Println(listContextHeader)
+			fmt.Fprintln(env.Out(), listContextHeader)
 			for _, key := range keys {
 				var activeMarker string
 				if key == activeContext {
@@ -414,7 +414,7 @@ func Cmds() []*cobra.Command {
 				if key == activeEnterpriseContext {
 					activeEnterpriseMarker = "E"
 				}
-				fmt.Printf("%s\t%s\n", activeEnterpriseMarker+activeMarker, key)
+				fmt.Fprintf(env.Out(), "%s\t%s\n", activeEnterpriseMarker+activeMarker, key)
 			}
 			return nil
 		}),

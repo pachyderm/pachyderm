@@ -1,9 +1,7 @@
 package cmds
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -55,16 +53,11 @@ func printRoleBinding(b *auth.RoleBinding) {
 	}
 }
 
-func newClient(enterprise bool) (*client.APIClient, error) {
+func newClient(env cmdutil.Env, enterprise bool) *client.APIClient {
 	if enterprise {
-		c, err := client.NewEnterpriseClientOnUserMachine("user")
-		if err != nil {
-			return nil, err
-		}
-		fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
-		return c, nil
+		return env.EnterpriseClient("user")
 	}
-	return client.NewOnUserMachine("user")
+	return env.Client("user")
 }
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
@@ -76,13 +69,10 @@ func ActivateCmd() *cobra.Command {
 		Short: "Activate Pachyderm's auth system",
 		Long: `
 Activate Pachyderm's auth system, and restrict access to existing data to the root user`[1:],
-		Run: cmdutil.Run(func(args []string) error {
-			c, err := newClient(enterprise)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
+			c := newClient(env, enterprise)
 
+			var err error
 			var rootToken string
 			if supplyRootToken {
 				rootToken, err = cmdutil.ReadPassword("")
@@ -185,10 +175,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 					return err
 				}
 			} else {
-				ec, err := newClient(true)
-				if err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get enterprise server client")
-				}
+				ec := env.EnterpriseClient("user")
 				idCfg, err := ec.GetIdentityServerConfig(ec.Ctx(), &identity.GetIdentityServerConfigRequest{})
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get identity server issuer")
@@ -251,27 +238,21 @@ func DeactivateCmd() *cobra.Command {
 		Long: "Deactivate Pachyderm's auth and identity systems, which will delete ALL auth " +
 			"tokens, ACLs and admins, IDP integrations and OIDC clients, and expose all data " +
 			"in the cluster to any user with cluster access. Use with caution.",
-		Run: cmdutil.Run(func(args []string) error {
-			fmt.Println("Are you sure you want to delete ALL auth information " +
-				"(ACLs, tokens, and admins) in this cluster, and expose ALL data? yN")
-			confirm, err := bufio.NewReader(os.Stdin).ReadString('\n')
-			if err != nil {
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
+			fmt.Println("You are about to delete ALL auth information " +
+				"(ACLs, tokens, and admins) in this cluster, and expose ALL data")
+			if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 				return err
-			}
-			if !strings.Contains("yY", confirm[:1]) {
+			} else if !ok {
 				return errors.Errorf("operation aborted")
 			}
-			c, err := newClient(enterprise)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+			c := newClient(env, enterprise)
 
 			// Delete any data from the identity server
 			if _, err := c.IdentityAPIClient.DeleteAll(c.Ctx(), &identity.DeleteAllRequest{}); err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			_, err = c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
+			_, err := c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -289,12 +270,8 @@ func LoginCmd() *cobra.Command {
 		Long: "Login to Pachyderm. Any resources that have been restricted to " +
 			"the account you have with your ID provider (e.g. GitHub, Okta) " +
 			"account will subsequently be accessible.",
-		Run: cmdutil.Run(func([]string) error {
-			c, err := newClient(enterprise)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
+			c := newClient(env, enterprise)
 
 			// Issue authentication request to Pachyderm and get response
 			var resp *auth.AuthenticateResponse
@@ -354,7 +331,7 @@ func LogoutCmd() *cobra.Command {
 			"it's not necessary to log out before logging in with another account " +
 			"(simply run 'pachctl auth login' twice) but 'logout' can be useful on " +
 			"shared workstations.",
-		Run: cmdutil.Run(func([]string) error {
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
@@ -388,12 +365,8 @@ func WhoamiCmd() *cobra.Command {
 	whoami := &cobra.Command{
 		Short: "Print your Pachyderm identity",
 		Long:  "Print your Pachyderm identity.",
-		Run: cmdutil.Run(func([]string) error {
-			c, err := newClient(enterprise)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
+			c := newClient(env, enterprise)
 			resp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
@@ -419,12 +392,8 @@ func GetRobotTokenCmd() *cobra.Command {
 		Use:   "{{alias}} [username]",
 		Short: "Get an auth token for a robot user with the specified name.",
 		Long:  "Get an auth token for a robot user with the specified name.",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
-			c, err := newClient(enterprise)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+		RunE: cmdutil.RunBoundedArgs(1, 1, func(args []string, env cmdutil.Env) error {
+			c := newClient(env, enterprise)
 
 			req := &auth.GetRobotTokenRequest{
 				Robot: args[0],
@@ -464,13 +433,10 @@ func GetGroupsCmd() *cobra.Command {
 		Use:   "{{alias}} [username]",
 		Short: "Get the list of groups a user belongs to",
 		Long:  "Get the list of groups a user belongs to. If no user is specified, the current user's groups are listed.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := newClient(enterprise)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+		RunE: cmdutil.RunBoundedArgs(0, 1, func(args []string, env cmdutil.Env) error {
+			c := newClient(env, enterprise)
 
+			var err error
 			var resp *auth.GetGroupsResponse
 			if len(args) == 1 {
 				resp, err = c.GetGroupsForPrincipal(c.Ctx(), &auth.GetGroupsForPrincipalRequest{Principal: args[0]})
@@ -498,7 +464,7 @@ func UseAuthTokenCmd() *cobra.Command {
 			"current user's Pachyderm config file",
 		Long: "Read a Pachyderm auth token from stdin, and write it to the " +
 			"current user's Pachyderm config file",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			fmt.Println("Please paste your Pachyderm auth token:")
 			token, err := cmdutil.ReadPassword("")
 			if err != nil {
@@ -519,14 +485,11 @@ func CheckRepoCmd() *cobra.Command {
 		Use:   "{{alias}} <repo> [<user>]",
 		Short: "Check the permissions a user has on 'repo'",
 		Long:  "Check the permissions a user has on 'repo'",
-		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
+		RunE: cmdutil.RunBoundedArgs(1, 2, func(args []string, env cmdutil.Env) error {
 			repo := args[0]
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+			c := env.Client("user")
 
+			var err error
 			var perms *auth.GetPermissionsResponse
 			if len(args) == 2 {
 				perms, err = c.GetPermissionsForPrincipal(c.Ctx(), &auth.GetPermissionsForPrincipalRequest{
@@ -554,7 +517,7 @@ func SetRepoRoleBindingCmd() *cobra.Command {
 		Use:   "{{alias}} <repo> [role1,role2 | none ] <subject>",
 		Short: "Set the roles that 'username' has on 'repo'",
 		Long:  "Set the roles that 'username' has on 'repo'",
-		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(3, func(args []string, env cmdutil.Env) error {
 			var roles []string
 			if args[1] == "none" {
 				roles = []string{}
@@ -563,12 +526,7 @@ func SetRepoRoleBindingCmd() *cobra.Command {
 			}
 
 			subject, repo := args[2], args[0]
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-			err = c.ModifyRepoRoleBinding(repo, subject, roles)
+			err := env.Client("user").ModifyRepoRoleBinding(repo, subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -581,14 +539,9 @@ func GetRepoRoleBindingCmd() *cobra.Command {
 		Use:   "{{alias}} <repo>",
 		Short: "Get the role bindings for 'repo'",
 		Long:  "Get the role bindings for 'repo'",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+		RunE: cmdutil.RunBoundedArgs(1, 1, func(args []string, env cmdutil.Env) error {
 			repo := args[0]
-			resp, err := c.GetRepoRoleBinding(repo)
+			resp, err := env.Client("user").GetRepoRoleBinding(repo)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -605,7 +558,7 @@ func SetClusterRoleBindingCmd() *cobra.Command {
 		Use:   "{{alias}} [role1,role2 | none ] subject",
 		Short: "Set the roles that 'username' has on the cluster",
 		Long:  "Set the roles that 'username' has on the cluster",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(2, func(args []string, env cmdutil.Env) error {
 			var roles []string
 			if args[0] == "none" {
 				roles = []string{}
@@ -614,12 +567,7 @@ func SetClusterRoleBindingCmd() *cobra.Command {
 			}
 
 			subject := args[1]
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-			err = c.ModifyClusterRoleBinding(subject, roles)
+			err := env.Client("user").ModifyClusterRoleBinding(subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -632,13 +580,8 @@ func GetClusterRoleBindingCmd() *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Get the role bindings for 'repo'",
 		Long:  "Get the role bindings for 'repo'",
-		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-			resp, err := c.GetClusterRoleBinding()
+		RunE: cmdutil.RunBoundedArgs(0, 0, func(args []string, env cmdutil.Env) error {
+			resp, err := env.Client("user").GetClusterRoleBinding()
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -653,10 +596,10 @@ func GetClusterRoleBindingCmd() *cobra.Command {
 // SetEnterpriseRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
 func SetEnterpriseRoleBindingCmd() *cobra.Command {
 	setScope := &cobra.Command{
-		Use:   "{{alias}} [role1,role2 | none ] subject",
+		Use:   "{{alias}} [ role1,role2 | none ] subject",
 		Short: "Set the roles that 'username' has on the enterprise server",
 		Long:  "Set the roles that 'username' has on the enterprise server",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(2, func(args []string, env cmdutil.Env) error {
 			var roles []string
 			if args[0] == "none" {
 				roles = []string{}
@@ -665,12 +608,7 @@ func SetEnterpriseRoleBindingCmd() *cobra.Command {
 			}
 
 			subject := args[1]
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-			err = c.ModifyClusterRoleBinding(subject, roles)
+			err := env.EnterpriseClient("user").ModifyClusterRoleBinding(subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -683,13 +621,8 @@ func GetEnterpriseRoleBindingCmd() *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Get the role bindings for the enterprise server",
 		Long:  "Get the role bindings for the enterprise server",
-		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-			resp, err := c.GetClusterRoleBinding()
+		RunE: cmdutil.RunBoundedArgs(0, 0, func(args []string, env cmdutil.Env) error {
+			resp, err := env.EnterpriseClient("user").GetClusterRoleBinding()
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -708,13 +641,8 @@ func RotateRootToken() *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Rotate the root user's auth token",
 		Long:  "Rotate the root user's auth token",
-		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
-			c, err := newClient(false)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunBoundedArgs(0, 0, func(args []string, env cmdutil.Env) error {
+			c := env.Client("user")
 			req := &auth.RotateRootTokenRequest{
 				RootToken: rootToken,
 			}

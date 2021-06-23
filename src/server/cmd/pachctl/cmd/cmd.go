@@ -300,16 +300,11 @@ __custom_func() {
 }`
 )
 
-func newClient(enterprise bool, options ...client.Option) (*client.APIClient, error) {
+func newClient(env cmdutil.Env, enterprise bool, options ...client.Option) *client.APIClient {
 	if enterprise {
-		c, err := client.NewEnterpriseClientOnUserMachine("user", options...)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
-		return c, nil
+		return env.EnterpriseClient("user", options...)
 	}
-	return client.NewOnUserMachine("user", options...)
+	return env.Client("user", options...)
 }
 
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
@@ -370,7 +365,7 @@ Environment variables:
 	versionCmd := &cobra.Command{
 		Short: "Print Pachyderm version information.",
 		Long:  "Print Pachyderm version information.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) (retErr error) {
 			if !raw && output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -407,21 +402,16 @@ Environment variables:
 
 			// Dial pachd & get server version
 			var pachClient *client.APIClient
-			var err error
+			clientOptions := []client.Option{}
 			if timeoutFlag != "default" {
-				var timeout time.Duration
-				timeout, err = time.ParseDuration(timeoutFlag)
+				timeout, err := time.ParseDuration(timeoutFlag)
 				if err != nil {
 					return errors.Wrapf(err, "could not parse timeout duration %q", timeout)
 				}
-				pachClient, err = newClient(enterprise, client.WithDialTimeout(timeout))
-			} else {
-				pachClient, err = newClient(enterprise)
+				clientOptions = append(clientOptions, client.WithDialTimeout(timeout))
 			}
-			if err != nil {
-				return err
-			}
-			defer pachClient.Close()
+			pachClient = newClient(env, enterprise, clientOptions...)
+
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			version, err := pachClient.GetVersion(ctx, &types.Empty{})
@@ -457,7 +447,7 @@ Environment variables:
 	exitCmd := &cobra.Command{
 		Short: "Exit the pachctl shell.",
 		Long:  "Exit the pachctl shell.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error { return nil }),
+		RunE:  cmdutil.RunFixedArgs(0, func([]string, cmdutil.Env) error { return nil }),
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(exitCmd, "exit"))
 
@@ -465,7 +455,7 @@ Environment variables:
 	shellCmd := &cobra.Command{
 		Short: "Run the pachyderm shell.",
 		Long:  "Run the pachyderm shell.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(true, false)
 			if err != nil {
 				return err
@@ -484,7 +474,7 @@ Environment variables:
 		Short: "Delete everything.",
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			client, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -513,10 +503,10 @@ This resets the cluster to its initial state.`,
 			if len(pipelines) > 0 {
 				fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
 			}
-			if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+			if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 				return err
 			} else if !ok {
-				return nil
+				return errors.New("operation aborted")
 			}
 
 			if err := client.DeleteAll(); err != nil {
@@ -541,7 +531,7 @@ This resets the cluster to its initial state.`,
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			// TODO(ys): remove the `--namespace` flag here eventually
 			if namespace != "" {
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
@@ -659,7 +649,7 @@ This resets the cluster to its initial state.`,
 	completionBash := &cobra.Command{
 		Short: "Print or install the bash completion code.",
 		Long:  "Print or install the bash completion code.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			return createCompletions(rootCmd, install, installPathBash, rootCmd.GenBashCompletion)
 		}),
 	}
@@ -671,7 +661,7 @@ This resets the cluster to its initial state.`,
 	completionZsh := &cobra.Command{
 		Short: "Print or install the zsh completion code.",
 		Long:  "Print or install the zsh completion code.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			return createCompletions(rootCmd, install, installPathZsh, rootCmd.GenZshCompletion)
 		}),
 	}

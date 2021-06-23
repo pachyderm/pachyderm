@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -52,20 +50,11 @@ func (c connectorConfig) toIDPConnector() (*identity.IDPConnector, error) {
 	}, nil
 }
 
-func newClient() (*client.APIClient, error) {
-	c, err := client.NewEnterpriseClientOnUserMachine("user")
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
-	return c, nil
-}
-
-func deserializeYAML(file string, target interface{}) error {
+func deserializeYAML(env cmdutil.Env, file string, target interface{}) error {
 	var rawConfigBytes []byte
 	if file == "-" {
 		var err error
-		rawConfigBytes, err = ioutil.ReadAll(os.Stdin)
+		rawConfigBytes, err = ioutil.ReadAll(env.In())
 		if err != nil {
 			return errors.Wrapf(err, "could not read config from stdin")
 		}
@@ -88,19 +77,14 @@ func SetIdentityServerConfigCmd() *cobra.Command {
 	setConfig := &cobra.Command{
 		Short: "Set the identity server config",
 		Long:  `Set the identity server config`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			var config identity.IdentityServerConfig
-			if err := deserializeYAML(file, &config); err != nil {
+			if err := deserializeYAML(env, file, &config); err != nil {
 				return errors.Wrapf(err, "unable to parse config")
 			}
 
-			_, err = c.SetIdentityServerConfig(c.Ctx(), &identity.SetIdentityServerConfigRequest{Config: &config})
+			c := env.EnterpriseClient("user")
+			_, err := c.SetIdentityServerConfig(c.Ctx(), &identity.SetIdentityServerConfigRequest{Config: &config})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -113,13 +97,8 @@ func GetIdentityServerConfigCmd() *cobra.Command {
 	getConfig := &cobra.Command{
 		Short: "Get the identity server config",
 		Long:  `Get the identity server config`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
 			resp, err := c.GetIdentityServerConfig(c.Ctx(), &identity.GetIdentityServerConfigRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -129,7 +108,7 @@ func GetIdentityServerConfigCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println(string(yamlStr))
+			fmt.Fprintln(env.Out(), string(yamlStr))
 			return nil
 		}),
 	}
@@ -142,15 +121,9 @@ func CreateIDPConnectorCmd() *cobra.Command {
 	createConnector := &cobra.Command{
 		Short: "Create a new identity provider connector.",
 		Long:  `Create a new identity provider connector.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			var connector connectorConfig
-			if err := deserializeYAML(file, &connector); err != nil {
+			if err := deserializeYAML(env, file, &connector); err != nil {
 				return errors.Wrapf(err, "unable to parse config")
 			}
 
@@ -159,6 +132,7 @@ func CreateIDPConnectorCmd() *cobra.Command {
 				return err
 			}
 
+			c := env.EnterpriseClient("user")
 			_, err = c.CreateIDPConnector(c.Ctx(), &identity.CreateIDPConnectorRequest{Connector: config})
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -174,15 +148,9 @@ func UpdateIDPConnectorCmd() *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Update an existing identity provider connector.",
 		Long:  `Update an existing identity provider connector. Only fields which are specified are updated.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			var connector connectorConfig
-			if err := deserializeYAML(file, &connector); err != nil {
+			if err := deserializeYAML(env, file, &connector); err != nil {
 				return errors.Wrapf(err, "unable to parse config")
 			}
 
@@ -193,6 +161,7 @@ func UpdateIDPConnectorCmd() *cobra.Command {
 
 			req := &identity.UpdateIDPConnectorRequest{Connector: config}
 
+			c := env.EnterpriseClient("user")
 			_, err = c.UpdateIDPConnector(c.Ctx(), req)
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -207,12 +176,8 @@ func GetIDPConnectorCmd() *cobra.Command {
 		Use:   "{{alias}} <connector id>",
 		Short: "Get the config for an identity provider connector.",
 		Long:  "Get the config for an identity provider connector.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
 			resp, err := c.GetIDPConnector(c.Ctx(), &identity.GetIDPConnectorRequest{Id: args[0]})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -225,7 +190,7 @@ func GetIDPConnectorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println(string(yamlStr))
+			fmt.Fprintln(env.Out(), string(yamlStr))
 			return nil
 		}),
 	}
@@ -237,14 +202,9 @@ func DeleteIDPConnectorCmd() *cobra.Command {
 	deleteConnector := &cobra.Command{
 		Short: "Delete an identity provider connector",
 		Long:  "Delete an identity provider connector",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
-			_, err = c.DeleteIDPConnector(c.Ctx(), &identity.DeleteIDPConnectorRequest{Id: args[0]})
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
+			_, err := c.DeleteIDPConnector(c.Ctx(), &identity.DeleteIDPConnectorRequest{Id: args[0]})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -256,20 +216,15 @@ func ListIDPConnectorsCmd() *cobra.Command {
 	listConnectors := &cobra.Command{
 		Short: "List identity provider connectors",
 		Long:  `List identity provider connectors`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
 			resp, err := c.ListIDPConnectors(c.Ctx(), &identity.ListIDPConnectorsRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 
 			for _, conn := range resp.Connectors {
-				fmt.Printf("%v - %v (%v)\n", conn.Id, conn.Name, conn.Type)
+				fmt.Fprintf(env.Out(), "%v - %v (%v)\n", conn.Id, conn.Name, conn.Type)
 			}
 			return nil
 		}),
@@ -283,24 +238,19 @@ func CreateOIDCClientCmd() *cobra.Command {
 	createClient := &cobra.Command{
 		Short: "Create a new OIDC client.",
 		Long:  `Create a new OIDC client.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			var client identity.OIDCClient
-			if err := deserializeYAML(file, &client); err != nil {
+			if err := deserializeYAML(env, file, &client); err != nil {
 				return errors.Wrapf(err, "unable to parse config")
 			}
 
+			c := env.EnterpriseClient("user")
 			resp, err := c.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{Client: &client})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 
-			fmt.Printf("Client secret: %q\n", resp.Client.Secret)
+			fmt.Fprintf(env.Out(), "Client secret: %q\n", resp.Client.Secret)
 			return nil
 		}),
 	}
@@ -314,14 +264,9 @@ func DeleteOIDCClientCmd() *cobra.Command {
 		Use:   "{{alias}} <client ID>",
 		Short: "Delete an OIDC client.",
 		Long:  `Delete an OIDC client.`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
-			_, err = c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: args[0]})
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
+			_, err := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: args[0]})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -334,13 +279,8 @@ func GetOIDCClientCmd() *cobra.Command {
 		Use:   "{{alias}} <client ID>",
 		Short: "Get an OIDC client.",
 		Long:  `Get an OIDC client.`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
 			resp, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: args[0]})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -350,7 +290,7 @@ func GetOIDCClientCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println(string(yamlStr))
+			fmt.Fprintln(env.Out(), string(yamlStr))
 			return nil
 		}),
 	}
@@ -364,19 +304,14 @@ func UpdateOIDCClientCmd() *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Update an OIDC client.",
 		Long:  `Update an OIDC client.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			var client identity.OIDCClient
-			if err := deserializeYAML(file, &client); err != nil {
+			if err := deserializeYAML(env, file, &client); err != nil {
 				return errors.Wrapf(err, "unable to parse config")
 			}
 
-			_, err = c.UpdateOIDCClient(c.Ctx(), &identity.UpdateOIDCClientRequest{Client: &client})
+			c := env.EnterpriseClient("user")
+			_, err := c.UpdateOIDCClient(c.Ctx(), &identity.UpdateOIDCClientRequest{Client: &client})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -390,20 +325,15 @@ func ListOIDCClientsCmd() *cobra.Command {
 	listConnectors := &cobra.Command{
 		Short: "List OIDC clients.",
 		Long:  `List OIDC clients.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
 			resp, err := c.ListOIDCClients(c.Ctx(), &identity.ListOIDCClientsRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 
 			for _, client := range resp.Clients {
-				fmt.Printf("%v\n", client.Id)
+				fmt.Fprintf(env.Out(), "%v\n", client.Id)
 			}
 			return nil
 		}),

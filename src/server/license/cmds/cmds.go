@@ -3,7 +3,6 @@ package cmds
 import (
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -13,15 +12,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 )
-
-func newClient() (*client.APIClient, error) {
-	c, err := client.NewEnterpriseClientOnUserMachine("user")
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
-	return c, nil
-}
 
 // ActivateCmd returns a cobra.Command to activate the license service,
 // register the current pachd and activate enterprise features.
@@ -34,24 +24,19 @@ func ActivateCmd() *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Activate the license server with an activation code",
 		Long:  "Activate the license server with an activation code",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			key, err := cmdutil.ReadPassword("Enterprise key: ")
 			if err != nil {
 				return errors.Wrapf(err, "could not read enterprise key")
 			}
 
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
 			// Activate the license server
 			req := &license.ActivateRequest{
 				ActivationCode: key,
 			}
+			c := env.EnterpriseClient("user")
 			if _, err := c.License.Activate(c.Ctx(), req); err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 
 			if onlyActivate {
@@ -61,7 +46,7 @@ func ActivateCmd() *cobra.Command {
 			// inspect the activated cluster for its Deployment Id
 			clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
 			if inspectErr != nil {
-				return errors.Wrapf(inspectErr, "could not inspect cluster")
+				return errors.Wrapf(grpcutil.ScrubGRPC(inspectErr), "could not inspect cluster")
 			}
 
 			// Register the localhost as a cluster
@@ -74,7 +59,7 @@ func ActivateCmd() *cobra.Command {
 					EnterpriseServer:    true,
 				})
 			if err != nil {
-				return errors.Wrapf(err, "could not register pachd with the license service")
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not register pachd with the license service")
 			}
 
 			// activate the Enterprise service
@@ -85,7 +70,7 @@ func ActivateCmd() *cobra.Command {
 					LicenseServer: "grpc://localhost:1653",
 				})
 			if err != nil {
-				return errors.Wrapf(err, "could not activate the enterprise service")
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not activate the enterprise service")
 			}
 
 			return nil
@@ -102,13 +87,9 @@ func AddClusterCmd() *cobra.Command {
 	addCluster := &cobra.Command{
 		Short: "Register a new cluster with the license server.",
 		Long:  "Register a new cluster with the license server.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 
+			c := env.EnterpriseClient("user")
 			resp, err := c.License.AddCluster(c.Ctx(), &license.AddClusterRequest{
 				Id:      id,
 				Address: address,
@@ -118,7 +99,7 @@ func AddClusterCmd() *cobra.Command {
 				return grpcutil.ScrubGRPC(err)
 			}
 
-			fmt.Printf("Shared secret: %v\n", resp.Secret)
+			fmt.Fprintf(env.Out(), "Shared secret: %v\n", resp.Secret)
 
 			return nil
 		}),
@@ -135,14 +116,9 @@ func UpdateClusterCmd() *cobra.Command {
 	updateCluster := &cobra.Command{
 		Short: "Update an existing cluster registered with the license server.",
 		Long:  "Update an existing cluster registered with the license server.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
-			_, err = c.License.UpdateCluster(c.Ctx(), &license.UpdateClusterRequest{
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
+			_, err := c.License.UpdateCluster(c.Ctx(), &license.UpdateClusterRequest{
 				Id:                  id,
 				Address:             address,
 				UserAddress:         userAddress,
@@ -164,14 +140,9 @@ func DeleteClusterCmd() *cobra.Command {
 	deleteCluster := &cobra.Command{
 		Short: "Delete a cluster registered with the license server.",
 		Long:  "Delete a cluster registered with the license server.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
-			_, err = c.License.DeleteCluster(c.Ctx(), &license.DeleteClusterRequest{
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
+			_, err := c.License.DeleteCluster(c.Ctx(), &license.DeleteClusterRequest{
 				Id: id,
 			})
 			return grpcutil.ScrubGRPC(err)
@@ -186,20 +157,15 @@ func ListClustersCmd() *cobra.Command {
 	listClusters := &cobra.Command{
 		Short: "List clusters registered with the license server.",
 		Long:  "List clusters registered with the license server.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
 			resp, err := c.License.ListClusters(c.Ctx(), &license.ListClustersRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 
 			for _, cluster := range resp.Clusters {
-				fmt.Printf("id: %v\naddress: %v\nversion: %v\nauth_enabled: %v\nlast_heartbeat: %v\n---\n", cluster.Id, cluster.Address, cluster.Version, cluster.AuthEnabled, cluster.LastHeartbeat)
+				fmt.Fprintf(env.Out(), "id: %v\naddress: %v\nversion: %v\nauth_enabled: %v\nlast_heartbeat: %v\n---\n", cluster.Id, cluster.Address, cluster.Version, cluster.AuthEnabled, cluster.LastHeartbeat)
 			}
 
 			return nil
@@ -215,17 +181,12 @@ func DeleteAllCmd() *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Delete all data from the license server",
 		Long:  "Delete all data from the license server",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
 			if _, err := c.License.DeleteAll(c.Ctx(), &license.DeleteAllRequest{}); err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
-			fmt.Printf("All data deleted from license server.")
+			fmt.Fprintf(env.Out(), "All data deleted from license server.")
 			return nil
 		}),
 	}
@@ -238,26 +199,21 @@ func GetStateCmd() *cobra.Command {
 	getState := &cobra.Command{
 		Short: "Get the configuration of the license service.",
 		Long:  "Get the configuration of the license service.",
-		Run: cmdutil.Run(func(args []string) error {
-			c, err := newClient()
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
+			c := env.EnterpriseClient("user")
 			resp, err := c.License.GetActivationCode(c.Ctx(), &license.GetActivationCodeRequest{})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			if resp.State == enterprise.State_NONE {
-				fmt.Println("No Pachyderm Enterprise license is configured")
+				fmt.Fprintln(env.Out(), "No Pachyderm Enterprise license is configured")
 				return nil
 			}
 			ts, err := types.TimestampFromProto(resp.Info.Expires)
 			if err != nil {
 				return errors.Wrapf(err, "expiration timestamp could not be parsed")
 			}
-			fmt.Printf("Pachyderm Enterprise token state: %s\nExpiration: %s\nLicense: %s\n",
+			fmt.Fprintf(env.Out(), "Pachyderm Enterprise token state: %s\nExpiration: %s\nLicense: %s\n",
 				resp.State.String(), ts.String(), resp.ActivationCode)
 			return nil
 		}),

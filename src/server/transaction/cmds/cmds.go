@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -51,13 +50,8 @@ transaction' or cancelled with 'delete transaction'.`,
 	listTransaction := &cobra.Command{
 		Short: "List transactions.",
 		Long:  "List transactions.",
-		Run: cmdutil.RunFixedArgs(0, func([]string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			transactions, err := c.ListTransaction()
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			transactions, err := env.Client("user").ListTransaction()
 			if err != nil {
 				return err
 			}
@@ -86,12 +80,7 @@ transaction' or cancelled with 'delete transaction'.`,
 	startTransaction := &cobra.Command{
 		Short: "Start a new transaction.",
 		Long:  "Start a new transaction.",
-		Run: cmdutil.RunFixedArgs(0, func([]string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			txn, err := getActiveTransaction()
 			if err != nil {
 				return err
@@ -100,7 +89,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return errors.Errorf("cannot start a new transaction, since transaction with ID %q already exists", txn.ID)
 			}
 
-			transaction, err := c.StartTransaction()
+			transaction, err := env.Client("user").StartTransaction()
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -119,7 +108,7 @@ transaction' or cancelled with 'delete transaction'.`,
 	stopTransaction := &cobra.Command{
 		Short: "Stop modifying the current transaction.",
 		Long:  "Stop modifying the current transaction.",
-		Run: cmdutil.RunFixedArgs(0, func([]string) error {
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
 			txn, err := requireActiveTransaction()
@@ -142,26 +131,21 @@ transaction' or cancelled with 'delete transaction'.`,
 		Use:   "{{alias}} [<transaction>]",
 		Short: "Execute and clear the currently active transaction.",
 		Long:  "Execute and clear the currently active transaction.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunBoundedArgs(0, 1, func(args []string, env cmdutil.Env) error {
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
 			var txn *transaction.Transaction
 			if len(args) > 0 {
 				txn = &transaction.Transaction{ID: args[0]}
 			} else {
+				var err error
 				txn, err = requireActiveTransaction()
 				if err != nil {
 					return err
 				}
 			}
 
-			info, err := c.FinishTransaction(txn)
+			info, err := env.Client("user").FinishTransaction(txn)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -181,13 +165,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Use:   "{{alias}} [<transaction>]",
 		Short: "Cancel and delete an existing transaction.",
 		Long:  "Cancel and delete an existing transaction.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunBoundedArgs(0, 1, func(args []string, env cmdutil.Env) error {
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
 			var txn *transaction.Transaction
@@ -202,6 +180,7 @@ transaction' or cancelled with 'delete transaction'.`,
 					isActive = txn.ID == activeTxn.ID
 				}
 			} else {
+				var err error
 				txn, err = requireActiveTransaction()
 				if err != nil {
 					return err
@@ -209,8 +188,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				isActive = true
 			}
 
-			err = c.DeleteTransaction(txn)
-			if err != nil {
+			if err := env.Client("user").DeleteTransaction(txn); err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 			if isActive {
@@ -227,24 +205,19 @@ transaction' or cancelled with 'delete transaction'.`,
 		Use:   "{{alias}} [<transaction>]",
 		Short: "Print information about an open transaction.",
 		Long:  "Print information about an open transaction.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunBoundedArgs(0, 1, func(args []string, env cmdutil.Env) error {
 			var txn *transaction.Transaction
 			if len(args) > 0 {
 				txn = &transaction.Transaction{ID: args[0]}
 			} else {
+				var err error
 				txn, err = requireActiveTransaction()
 				if err != nil {
 					return err
 				}
 			}
 
-			info, err := c.InspectTransaction(txn)
+			info, err := env.Client("user").InspectTransaction(txn)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -270,13 +243,8 @@ transaction' or cancelled with 'delete transaction'.`,
 		Use:   "{{alias}} <transaction>",
 		Short: "Set an existing transaction as active.",
 		Long:  "Set an existing transaction as active.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			info, err := c.InspectTransaction(&transaction.Transaction{ID: args[0]})
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			info, err := env.Client("user").InspectTransaction(&transaction.Transaction{ID: args[0]})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}

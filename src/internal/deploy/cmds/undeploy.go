@@ -2,11 +2,11 @@ package cmds
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/helm"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -20,19 +20,19 @@ func makeUndeployCmd() *cobra.Command {
 	undeploy := &cobra.Command{
 		Short: "Tear down a deployed Pachyderm cluster.",
 		Long:  "Tear down a deployed Pachyderm cluster.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			// TODO(ys): remove the `--namespace` flag here eventually
 			if namespace != "" {
-				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
+				fmt.Fprintf(env.Err(), "WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
 			}
 			// TODO(ys): remove the `--all` flag here eventually
 			if all {
-				fmt.Printf("WARNING: The `--all` flag is deprecated and will be removed in a future version. Please use `--metadata` instead.\n")
+				fmt.Fprintf(env.Err(), "WARNING: The `--all` flag is deprecated and will be removed in a future version. Please use `--metadata` instead.\n")
 				includingMetadata = true
 			}
 
 			if includingMetadata {
-				fmt.Fprintf(os.Stderr, `
+				fmt.Fprintf(env.Err(), `
 You are going to delete persistent volumes where metadata is stored. If your
 persistent volumes were dynamically provisioned (i.e. if you used the
 "--dynamic-etcd-nodes" flag), the underlying volumes will be removed, making
@@ -42,10 +42,10 @@ persistent volume was manually provisioned (i.e. if you used the
 `)
 			}
 
-			if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+			if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 				return err
 			} else if !ok {
-				return nil
+				return errors.New("operation aborted")
 			}
 
 			cfg, err := config.Read(false, false)

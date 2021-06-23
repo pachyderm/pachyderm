@@ -14,16 +14,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newClient(enterprise bool) (*client.APIClient, error) {
+func newClient(env cmdutil.Env, enterprise bool) *client.APIClient {
 	if enterprise {
-		c, err := client.NewEnterpriseClientOnUserMachine("user")
-		if err != nil {
-			return nil, err
-		}
-		fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
-		return c, nil
+		return env.EnterpriseClient("user")
 	}
-	return client.NewOnUserMachine("user")
+	return env.Client("user")
 }
 
 func getIsActiveContextEnterpriseServer() (bool, error) {
@@ -44,12 +39,8 @@ func DeactivateCmd() *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Deactivate the enterprise service",
 		Long:  "Deactivate the enterprise service",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := env.Client("user")
 
 			// Deactivate the enterprise server
 			req := &enterprise.DeactivateRequest{}
@@ -71,18 +62,9 @@ func RegisterCmd() *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Register the cluster with an enterprise license server",
 		Long:  "Register the cluster with an enterprise license server",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
-			ec, err := client.NewEnterpriseClientOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer ec.Close()
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := env.Client("user")
+			ec := env.EnterpriseClient("user")
 
 			if pachdUsrAddr == "" {
 				pachdUsrAddr = c.GetAddress().Qualified()
@@ -164,12 +146,8 @@ func GetStateCmd() *cobra.Command {
 			"activated",
 		Long: "Check whether the Pachyderm cluster has enterprise features " +
 			"activated",
-		Run: cmdutil.Run(func(args []string) error {
-			c, err := newClient(isEnterprise)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
+			c := newClient(env, isEnterprise)
 			resp, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			if err != nil {
 				return err
@@ -196,18 +174,13 @@ func SyncContextsCmd() *cobra.Command {
 	syncContexts := &cobra.Command{
 		Short: "Pull all available Pachyderm Cluster contexts into your pachctl config",
 		Long:  "Pull all available Pachyderm Cluster contexts into your pachctl config",
-		Run: cmdutil.Run(func(args []string) error {
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
 
-			ec, err := client.NewEnterpriseClientOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer ec.Close()
-
+			ec := env.EnterpriseClient("user")
 			resp, err := ec.License.ListUserClusters(ec.Ctx(), &license.ListUserClustersRequest{})
 			if err != nil {
 				return err

@@ -2,12 +2,15 @@ package cmdutil
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
@@ -15,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/spf13/cobra"
 )
@@ -23,73 +27,168 @@ import (
 // errors that are returned by the run commands.
 var PrintErrorStacks bool
 
-// RunFixedArgs wraps a function in a function
-// that checks its exact argument count.
-func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []string) {
-	return func(cmd *cobra.Command, args []string) {
-		if len(args) != numArgs {
-			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
-			cmd.Usage()
-		} else {
-			if err := run(args); err != nil {
-				ErrorAndExit("%v", err)
-			}
-		}
-	}
+type clientOnce struct {
+	once sync.Once
+	eg   errgroup.Group
+	c    *client.APIClient
 }
 
-// RunCmdFixedArgs wraps a function in a function that checks its exact
-// argument count. The only difference between this and RunFixedArgs is that
-// this passes in the cobra command.
-func RunCmdFixedArgs(numArgs int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
-	return func(cmd *cobra.Command, args []string) {
+func (c *clientOnce) Get(cb func() (*client.APIClient, error)) *client.APIClient {
+	c.once.Do(func() {
+		c.eg.Go(func() error {
+			var err error
+			c.c, err = cb()
+			return err
+		})
+	})
+	if err := c.eg.Wait(); err != nil {
+		ErrorAndExit("%v", errors.Wrap(err, "failed to connect"))
+	}
+	return c.c
+}
+
+func (c *clientOnce) Close() error {
+	c.eg.Wait()
+	if c.c != nil {
+		return c.c.Close()
+	}
+	return nil
+}
+
+// Env provides a mockable interface for testing pachctl commands
+type Env interface {
+	// Client returns the client for talking to pachd
+	Client(string, ...client.Option) *client.APIClient
+	// EnterpriseClient returns the client for talking to the enterprise server
+	EnterpriseClient(string, ...client.Option) *client.APIClient
+
+	// In returns the input reader (defaults to os.Stdin)
+	In() io.Reader
+	// Out returns the output writer (defaults to os.Stdout)
+	Out() io.Writer
+	// Err returns the error writer (defaults to os.Stderr)
+	Err() io.Writer
+
+	// Close is called automatically at the end of the Run function and closes any
+	// open connections.
+	Close() error
+}
+
+type realEnv struct {
+	cmd              *cobra.Command
+	pachClient       clientOnce
+	enterpriseClient clientOnce
+}
+
+func (env *realEnv) Client(name string, options ...client.Option) *client.APIClient {
+	return env.pachClient.Get(func() (*client.APIClient, error) {
+		if inWorkerStr, ok := os.LookupEnv("PACH_IN_WORKER"); ok {
+			inWorker, err := strconv.ParseBool(inWorkerStr)
+			if err != nil {
+				return nil, errors.Wrap(err, "couldn't parse PACH_IN_WORKER")
+			}
+			if inWorker {
+				return client.NewInWorker(options...)
+			}
+		}
+		return client.NewOnUserMachine(name, options...)
+	})
+}
+
+func (env *realEnv) EnterpriseClient(name string, options ...client.Option) *client.APIClient {
+	return env.enterpriseClient.Get(func() (*client.APIClient, error) {
+		c, err := client.NewEnterpriseClientOnUserMachine(name, client.WithDialTimeout(30*time.Second))
+		if err != nil {
+			return nil, err
+		}
+		fmt.Fprintf(env.Out(), "Using enterprise context: %v\n", c.ClientContextName())
+		return c, nil
+	})
+}
+
+func (env *realEnv) In() io.Reader {
+	return env.cmd.InOrStdin()
+}
+
+func (env *realEnv) Out() io.Writer {
+	return env.cmd.OutOrStdout()
+}
+
+func (env *realEnv) Err() io.Writer {
+	return env.cmd.ErrOrStderr()
+}
+
+func (env *realEnv) Close() (retErr error) {
+	setError := func(err error) {
+		if retErr == nil {
+			retErr = err
+		}
+	}
+	setError(env.pachClient.Close())
+	setError(env.enterpriseClient.Close())
+	return retErr
+}
+
+func envFromCommand(cmd *cobra.Command) Env {
+	if env := cmd.Context().Value("env"); env != nil {
+		return env.(Env)
+	}
+	return &realEnv{cmd: cmd}
+}
+
+func runInternal(cmd *cobra.Command, args []string, cb func([]string, Env) error) (retErr error) {
+	env := envFromCommand(cmd)
+	defer func() {
+		if err := env.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	return cb(args, env)
+}
+
+// RunFixedArgs wraps a function in a function
+// that checks its exact argument count.
+func RunFixedArgs(numArgs int, run func([]string, Env) error) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
 		if len(args) != numArgs {
 			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
 			cmd.Usage()
-		} else {
-			if err := run(cmd, args); err != nil {
-				ErrorAndExit("%v", err)
-			}
+			return nil
 		}
+		return runInternal(cmd, args, run)
 	}
 }
 
 // RunBoundedArgs wraps a function in a function
 // that checks its argument count is within a range.
-func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Command, []string) {
-	return func(cmd *cobra.Command, args []string) {
+func RunBoundedArgs(min int, max int, run func([]string, Env) error) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
 		if len(args) < min || len(args) > max {
 			fmt.Printf("expected %d to %d arguments, got %d\n\n", min, max, len(args))
 			cmd.Usage()
-		} else {
-			if err := run(args); err != nil {
-				ErrorAndExit("%v", err)
-			}
+			return nil
 		}
+		return runInternal(cmd, args, run)
 	}
 }
 
 // RunMinimumArgs wraps a function in a function
 // that checks its argument count is above a minimum amount
-func RunMinimumArgs(min int, run func([]string) error) func(*cobra.Command, []string) {
-	return func(cmd *cobra.Command, args []string) {
+func RunMinimumArgs(min int, run func([]string, Env) error) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
 		if len(args) < min {
 			fmt.Printf("expected at least %d arguments, got %d\n\n", min, len(args))
 			cmd.Usage()
-		} else {
-			if err := run(args); err != nil {
-				ErrorAndExit("%v", err)
-			}
+			return nil
 		}
+		return runInternal(cmd, args, run)
 	}
 }
 
 // Run makes a new cobra run function that wraps the given function.
-func Run(run func(args []string) error) func(*cobra.Command, []string) {
-	return func(_ *cobra.Command, args []string) {
-		if err := run(args); err != nil {
-			ErrorAndExit("%v", err)
-		}
+func Run(run func([]string, Env) error) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		return runInternal(cmd, args, run)
 	}
 }
 

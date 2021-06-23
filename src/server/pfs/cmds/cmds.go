@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	prompt "github.com/c-bata/go-prompt"
@@ -68,15 +67,9 @@ or type (e.g. csv, binary, images, etc).`,
 		Use:   "{{alias}} <repo>",
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
-			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				_, err = c.PfsAPIClient.CreateRepo(
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			err := txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
+				_, err := c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
 						Repo:        client.NewRepo(args[0]),
@@ -95,15 +88,9 @@ or type (e.g. csv, binary, images, etc).`,
 		Use:   "{{alias}} <repo>",
 		Short: "Update a repo.",
 		Long:  "Update a repo.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
-			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				_, err = c.PfsAPIClient.CreateRepo(
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			err := txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
+				_, err := c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
 						Repo:        cmdutil.ParseRepo(args[0]),
@@ -124,21 +111,17 @@ or type (e.g. csv, binary, images, etc).`,
 		Use:   "{{alias}} <repo>",
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			c := env.Client("user")
 			repoInfo, err := c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			if repoInfo == nil {
 				return errors.Errorf("repo %s not found", args[0])
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(repoInfo)
+				return cmdutil.Encoder(output, env.Out()).EncodeProto(repoInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -159,25 +142,20 @@ or type (e.g. csv, binary, images, etc).`,
 	listRepo := &cobra.Command{
 		Short: "Return a list of repos.",
 		Long:  "Return a list of repos. By default, only show user repos",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			if all && repoType != "" {
 				return errors.Errorf("cannot set a repo type with --all")
 			}
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 
 			if repoType == "" && !all {
 				repoType = pfs.UserRepoType // default to user
 			}
-			repoInfos, err := c.ListRepoByType(repoType)
+			repoInfos, err := env.Client("user").ListRepoByType(repoType)
 			if err != nil {
 				return err
 			}
 			if raw {
-				encoder := cmdutil.Encoder(output, os.Stdout)
+				encoder := cmdutil.Encoder(output, env.Out())
 				for _, repoInfo := range repoInfos {
 					if err := encoder.EncodeProto(repoInfo); err != nil {
 						return err
@@ -192,7 +170,7 @@ or type (e.g. csv, binary, images, etc).`,
 			if (len(repoInfos) > 0) && (repoInfos[0].AuthInfo != nil) {
 				header = pretty.RepoAuthHeader
 			}
-			writer := tabwriter.NewWriter(os.Stdout, header)
+			writer := tabwriter.NewWriter(env.Out(), header)
 			for _, repoInfo := range repoInfos {
 				pretty.PrintRepoInfo(writer, repoInfo, fullTimestamps)
 			}
@@ -210,13 +188,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunBoundedArgs(0, 1, func(args []string, env cmdutil.Env) error {
 			request := &pfs.DeleteRepoRequest{
 				Force: force,
 			}
@@ -229,7 +201,8 @@ or type (e.g. csv, binary, images, etc).`,
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
 
-			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+			err := txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
+				var err error
 				if all {
 					_, err = c.PfsAPIClient.DeleteAll(c.Ctx(), &types.Empty{})
 				} else {
@@ -277,16 +250,11 @@ $ {{alias}} test@patch -p master
 
 # Start a commit with XXX as the parent in repo "test", not on any branch
 $ {{alias}} test -p XXX`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
 			}
-			c, err := newClient("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 
 			var parentCommit *pfs.Commit
 			if parent != "" {
@@ -299,7 +267,7 @@ $ {{alias}} test -p XXX`,
 			}
 
 			var commit *pfs.Commit
-			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+			err = txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
 				var err error
 				commit, err = c.PfsAPIClient.StartCommit(
 					c.Ctx(),
@@ -312,7 +280,7 @@ $ {{alias}} test -p XXX`,
 				return err
 			})
 			if err == nil {
-				fmt.Println(commit.ID)
+				fmt.Fprintln(env.Out(), commit.ID)
 			}
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -328,18 +296,13 @@ $ {{alias}} test -p XXX`,
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			commit, err := cmdutil.ParseCommit(args[0])
 			if err != nil {
 				return err
 			}
-			c, err := newClient("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 
-			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+			err = txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.FinishCommit(
 					c.Ctx(),
 					&pfs.FinishCommitRequest{
@@ -361,17 +324,13 @@ $ {{alias}} test -p XXX`,
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			commit, err := cmdutil.ParseCommit(args[0])
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 
+			c := env.Client("user")
 			commitInfo, err := c.PfsAPIClient.InspectCommit(
 				c.Ctx(),
 				&pfs.InspectCommitRequest{
@@ -385,7 +344,7 @@ $ {{alias}} test -p XXX`,
 				return errors.Errorf("commit %s not found", commit.ID)
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo)
+				return cmdutil.Encoder(output, env.Out()).EncodeProto(commitInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -393,7 +352,7 @@ $ {{alias}} test -p XXX`,
 				CommitInfo:     commitInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedCommitInfo(os.Stdout, ci)
+			return pretty.PrintDetailedCommitInfo(env.Out(), ci)
 		}),
 	}
 	inspectCommit.Flags().AddFlagSet(outputFlags)
@@ -419,13 +378,7 @@ $ {{alias}} foo@master -n 20
 
 # return commits in repo "foo" since commit XXX
 $ {{alias}} foo@master --from XXX`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
@@ -442,15 +395,15 @@ $ {{alias}} foo@master --from XXX`,
 			}
 
 			if raw {
-				encoder := cmdutil.Encoder(output, os.Stdout)
-				return c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
+				encoder := cmdutil.Encoder(output, env.Out())
+				return env.Client("user").ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
 					return encoder.EncodeProto(ci)
 				})
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
+			writer := tabwriter.NewWriter(env.Out(), pretty.CommitHeader)
+			if err := env.Client("user").ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -478,25 +431,19 @@ $ {{alias}} XXX
 
 # return commits caused by foo@XXX leading to branch bar@baz
 $ {{alias}} foo@XXX -b bar@baz`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			commit, err := cmdutil.ParseCommit(args[0])
 			if err != nil {
 				return err
 			}
 
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
-			commitInfo, err := c.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			commitInfo, err := env.Client("user").WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 			if err != nil {
 				return err
 			}
 
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo)
+				return cmdutil.Encoder(output, env.Out()).EncodeProto(commitInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -505,7 +452,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 				CommitInfo:     commitInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedCommitInfo(os.Stdout, ci)
+			return pretty.PrintDetailedCommitInfo(env.Out(), ci)
 		}),
 	}
 	waitCommit.Flags().AddFlagSet(outputFlags)
@@ -526,16 +473,11 @@ $ {{alias}} test@master --from XXX
 
 # subscribe to commits in repo "test" on branch "master", but only for new commits created from now on.
 $ {{alias}} test@master --new`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) (retErr error) {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 
 			if newCommits && from != "" {
 				return errors.Errorf("--new and --from cannot be used together")
@@ -545,7 +487,7 @@ $ {{alias}} test@master --new`,
 				from = branch.Name
 			}
 
-			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
+			w := tabwriter.NewWriter(env.Out(), pretty.CommitHeader)
 			defer func() {
 				if err := w.Flush(); retErr == nil {
 					retErr = err
@@ -553,11 +495,11 @@ $ {{alias}} test@master --new`,
 			}()
 			var encoder serde.Encoder
 			if raw {
-				encoder = cmdutil.Encoder(output, os.Stdout)
+				encoder = cmdutil.Encoder(output, env.Out())
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			return c.SubscribeCommit(branch.Repo, branch.Name, from, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+			return env.Client("user").SubscribeCommit(branch.Repo, branch.Name, from, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 				if raw {
 					return encoder.EncodeProto(ci)
 				}
@@ -574,9 +516,9 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	writeCommitTable := func(commitInfos []*pfs.CommitInfo) error {
+	writeCommitTable := func(out io.Writer, commitInfos []*pfs.CommitInfo) error {
 		if raw {
-			encoder := cmdutil.Encoder(output, os.Stdout)
+			encoder := cmdutil.Encoder(output, out)
 			for _, commitInfo := range commitInfos {
 				if err := encoder.EncodeProto(commitInfo); err != nil {
 					return err
@@ -587,7 +529,7 @@ $ {{alias}} test@master --new`,
 			return errors.New("cannot set --output (-o) without --raw")
 		}
 
-		return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+		return pager.Page(noPager, out, func(w io.Writer) error {
 			writer := tabwriter.NewWriter(w, pretty.CommitHeader)
 			for _, commitInfo := range commitInfos {
 				pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
@@ -600,7 +542,7 @@ $ {{alias}} test@master --new`,
 		Use:   "{{alias}} <commitset-id>",
 		Short: "Return info about the commits in a commitset.",
 		Long:  "Return info about the commits in a commitset.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			toBranches := []*pfs.Branch{}
 			for _, arg := range branches {
 				branch, err := cmdutil.ParseBranch(arg)
@@ -631,7 +573,7 @@ $ {{alias}} test@master --new`,
 					return errors.Wrap(err, "error from InspectCommitSet")
 				}
 			}
-			return writeCommitTable(commitInfos)
+			return writeCommitTable(env.Out(), commitInfos)
 		}),
 	}
 	waitCommitSet.Flags().VarP(&branches, "branch", "b", "Wait only for commits in the specified set of branches")
@@ -645,18 +587,12 @@ $ {{alias}} test@master --new`,
 		Use:   "{{alias}} <job-id>",
 		Short: "Return info about all the commits in a commitset.",
 		Long:  "Return info about all the commits in a commitset.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-
-			commitInfos, err := client.InspectCommitSet(args[0])
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			commitInfos, err := env.Client("user").InspectCommitSet(args[0])
 			if err != nil {
 				return errors.Wrap(err, "error from InspectCommitSet")
 			}
-			return writeCommitTable(commitInfos)
+			return writeCommitTable(env.Out(), commitInfos)
 		}),
 	}
 	inspectCommitSet.Flags().AddFlagSet(outputFlags)
@@ -668,14 +604,8 @@ $ {{alias}} test@master --new`,
 		Use:   "{{alias}} <commitset>",
 		Short: "Squash the commits of a commitset.",
 		Long:  "Squash the commits of a commitset.  The data in the commits will remain in their child commits unless there are no children.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
-			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			return txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
 				return c.SquashCommitSet(args[0])
 			})
 		}),
@@ -702,7 +632,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Create a new branch, or update an existing branch, on a repo.",
 		Long:  "Create a new branch, or update an existing branch, on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
@@ -733,13 +663,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				}
 			}
 
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
-			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+			return txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.CreateBranch(
 					c.Ctx(),
 					&pfs.CreateBranchRequest{
@@ -767,17 +691,13 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 		Use:   "{{alias}}  <repo>@<branch>",
 		Short: "Return info about a branch.",
 		Long:  "Return info about a branch.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
 			}
 
+			c := env.Client("user")
 			branchInfo, err := c.PfsAPIClient.InspectBranch(c.Ctx(), &pfs.InspectBranchRequest{Branch: branch})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -786,7 +706,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return errors.Errorf("branch %s not found", args[0])
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(branchInfo)
+				return cmdutil.Encoder(output, env.Out()).EncodeProto(branchInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -803,19 +723,15 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 		Use:   "{{alias}} <repo>",
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			c := env.Client("user")
 			branchInfos, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			branches := branchInfos.BranchInfo
 			if raw {
-				encoder := cmdutil.Encoder(output, os.Stdout)
+				encoder := cmdutil.Encoder(output, env.Out())
 				for _, branch := range branches {
 					if err := encoder.EncodeProto(branch); err != nil {
 						return err
@@ -825,7 +741,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
+			writer := tabwriter.NewWriter(env.Out(), pretty.BranchHeader)
 			for _, branch := range branches {
 				pretty.PrintBranch(writer, branch)
 			}
@@ -840,20 +756,15 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Delete a branch",
 		Long:  "Delete a branch, while leaving the commits intact",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 
-			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+			return txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{Branch: branch, Force: force})
-				return err
+				return grpcutil.ScrubGRPC(err)
 			})
 		}),
 	}
@@ -921,7 +832,7 @@ $ {{alias}} repo@branch -i file
 # NOTE this URL can reference local files, so it could cause you to put sensitive
 # files into your Pachyderm cluster.
 $ {{alias}} repo@branch -i http://host/path`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) (retErr error) {
 			if !enableProgress {
 				progress.Disable()
 			}
@@ -933,11 +844,6 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if compress {
 				opts = append(opts, client.WithGZIPCompression())
 			}
-			c, err := newClient("user", opts...)
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 			defer progress.Wait()
 
 			// TODO: Rethink put file parallelism for 2.0.
@@ -948,7 +854,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 				// User has provided a file listing sources, one per line. Read sources
 				var r io.Reader
 				if inputFile == "-" {
-					r = os.Stdin
+					r = env.In()
 				} else if url, err := url.Parse(inputFile); err == nil && url.Scheme != "" {
 					resp, err := http.Get(url.String())
 					if err != nil {
@@ -984,7 +890,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 				sources = filePaths
 			}
 
-			return c.WithModifyFileClient(file.Commit, func(mf client.ModifyFile) error {
+			return env.Client("user").WithModifyFileClient(file.Commit, func(mf client.ModifyFile) error {
 				for _, source := range sources {
 					source := source
 					if file.Path == "" {
@@ -1037,7 +943,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 		Use:   "{{alias}} <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-branch-or-commit>:<dst-path>",
 		Short: "Copy files between pfs paths.",
 		Long:  "Copy files between pfs paths.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
+		RunE: cmdutil.RunFixedArgs(2, func(args []string, env cmdutil.Env) error {
 			srcFile, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -1046,17 +952,12 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user", client.WithMaxConcurrentStreams(parallelism))
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 
 			var opts []client.CopyFileOption
 			if appendFile {
 				opts = append(opts, client.WithAppendCopyFile())
 			}
-			return c.CopyFile(
+			return env.Client("user", client.WithMaxConcurrentStreams(parallelism)).CopyFile(
 				destFile.Commit, destFile.Path,
 				srcFile.Commit, srcFile.Path,
 				opts...,
@@ -1087,7 +988,7 @@ $ {{alias}} foo@master^2:XXX
 # get file "test[].txt" on branch "master" in repo "foo"
 # the path is interpreted as a glob pattern: quote and protect regex characters
 $ {{alias}} 'foo@master:/test\[\].txt'`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			if !enableProgress {
 				progress.Disable()
 			}
@@ -1095,21 +996,16 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 			if err != nil {
 				return err
 			}
-			c, err := newClient("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 			defer progress.Wait()
 			var w io.Writer
 			// If an output path is given, print the output to stdout
 			if outputPath == "" {
-				w = os.Stdout
+				w = env.Out()
 			} else {
 				if url, err := url.Parse(outputPath); err == nil && url.Scheme != "" {
-					return c.GetFileURL(file.Commit, file.Path, url.String())
+					return env.Client("user").GetFileURL(file.Commit, file.Path, url.String())
 				}
-				fi, err := c.InspectFile(file.Commit, file.Path)
+				fi, err := env.Client("user").InspectFile(file.Commit, file.Path)
 				if err != nil {
 					return err
 				}
@@ -1120,7 +1016,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				defer f.Close()
 				w = f
 			}
-			return c.GetFile(file.Commit, file.Path, w)
+			return env.Client("user").GetFile(file.Commit, file.Path, w)
 		}),
 	}
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
@@ -1132,17 +1028,12 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			fileInfo, err := c.InspectFile(file.Commit, file.Path)
+			fileInfo, err := env.Client("user").InspectFile(file.Commit, file.Path)
 			if err != nil {
 				return err
 			}
@@ -1150,7 +1041,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				return errors.Errorf("file %s not found", file.Path)
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(fileInfo)
+				return cmdutil.Encoder(output, env.Out()).EncodeProto(fileInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -1190,7 +1081,7 @@ $ {{alias}} foo@master --history all
 # list file under directory "dir[1]" on branch "master" in repo "foo"
 # the path is interpreted as a glob pattern: quote and protect regex characters
 $ {{alias}} 'foo@master:dir\[1\]'`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -1199,14 +1090,9 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			if err != nil {
 				return errors.Wrapf(err, "error parsing history flag")
 			}
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 			if raw {
-				encoder := cmdutil.Encoder(output, os.Stdout)
-				return c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
+				encoder := cmdutil.Encoder(output, env.Out())
+				return env.Client("user").ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
 					return encoder.EncodeProto(fi)
 				})
 			} else if output != "" {
@@ -1216,8 +1102,8 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			if history != 0 {
 				header = pretty.FileHeaderWithCommit
 			}
-			writer := tabwriter.NewWriter(os.Stdout, header)
-			if err := c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
+			writer := tabwriter.NewWriter(env.Out(), header)
+			if err := env.Client("user").ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
 				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
 				return nil
 			}); err != nil {
@@ -1244,22 +1130,17 @@ $ {{alias}} "foo@master:A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
 $ {{alias}} "foo@master:data/*"`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			fileInfos, err := c.GlobFileAll(file.Commit, file.Path)
+			fileInfos, err := env.Client("user").GlobFileAll(file.Commit, file.Path)
 			if err != nil {
 				return err
 			}
 			if raw {
-				encoder := cmdutil.Encoder(output, os.Stdout)
+				encoder := cmdutil.Encoder(output, env.Out())
 				for _, fileInfo := range fileInfos {
 					if err := encoder.EncodeProto(fileInfo); err != nil {
 						return err
@@ -1269,7 +1150,7 @@ $ {{alias}} "foo@master:data/*"`,
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
+			writer := tabwriter.NewWriter(env.Out(), pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
 				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 			}
@@ -1296,7 +1177,7 @@ $ {{alias}} foo@master:path
 # Return the diff between the master branches of input repos foo and bar at paths
 # path1 and path2, respectively.
 $ {{alias}} foo@master:path1 bar@master:path2`,
-		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
+		RunE: cmdutil.RunBoundedArgs(1, 2, func(args []string, env cmdutil.Env) error {
 			newFile, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -1308,13 +1189,8 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 					return err
 				}
 			}
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 
-			return pager.Page(noPager, os.Stdout, func(w io.Writer) (retErr error) {
+			return pager.Page(noPager, env.Out(), func(w io.Writer) (retErr error) {
 				var writer *tabwriter.Writer
 				if nameOnly {
 					writer = tabwriter.NewWriter(w, pretty.DiffFileHeader)
@@ -1325,7 +1201,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 					}()
 				}
 
-				newFiles, oldFiles, err := c.DiffFileAll(
+				newFiles, oldFiles, err := env.Client("user").DiffFileAll(
 					newFile.Commit, newFile.Path,
 					oldFile.Commit, oldFile.Path,
 					shallow,
@@ -1346,7 +1222,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 					}
 					nPath, oPath := "/dev/null", "/dev/null"
 					if nFI != nil {
-						nPath, err = dlFile(c, nFI.File)
+						nPath, err = dlFile(env.Client("user"), nFI.File)
 						if err != nil {
 							return err
 						}
@@ -1357,7 +1233,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 						}()
 					}
 					if oFI != nil {
-						oPath, err = dlFile(c, oFI.File)
+						oPath, err = dlFile(env.Client("user"), oFI.File)
 						defer func() {
 							if err := os.RemoveAll(oPath); err != nil && retErr == nil {
 								retErr = err
@@ -1366,7 +1242,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 					}
 					cmd := exec.Command(diffCmd[0], append(diffCmd[1:], oPath, nPath)...)
 					cmd.Stdout = w
-					cmd.Stderr = os.Stderr
+					cmd.Stderr = env.Err()
 					// Diff returns exit code 1 when it finds differences
 					// between the files, so we catch it.
 					if err := cmd.Run(); err != nil && cmd.ProcessState.ExitCode() != 1 {
@@ -1389,18 +1265,13 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
 
-			return c.DeleteFile(file.Commit, file.Path)
+			return env.Client("user").DeleteFile(file.Commit, file.Path)
 		}),
 	}
 	shell.RegisterCompletionFunc(deleteFile, shell.FileCompletion)
@@ -1419,26 +1290,21 @@ Objects are a low-level resource and should not be accessed directly by most use
 		Use:   "{{alias}}",
 		Short: "Run a file system consistency check on pfs.",
 		Long:  "Run a file system consistency check on the pachyderm file system, ensuring the correct provenance relationships are satisfied.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			errors := false
-			if err = c.Fsck(fix, func(resp *pfs.FsckResponse) error {
+			if err := env.Client("user").Fsck(fix, func(resp *pfs.FsckResponse) error {
 				if resp.Error != "" {
 					errors = true
-					fmt.Printf("Error: %s\n", resp.Error)
+					fmt.Fprintf(env.Out(), "Error: %s\n", resp.Error)
 				} else {
-					fmt.Printf("Fix applied: %v", resp.Fix)
+					fmt.Fprintf(env.Out(), "Fix applied: %v", resp.Fix)
 				}
 				return nil
 			}); err != nil {
 				return err
 			}
 			if !errors {
-				fmt.Println("No errors found.")
+				fmt.Fprintln(env.Out(), "No errors found.")
 			}
 			return nil
 		}),
@@ -1452,25 +1318,16 @@ Objects are a low-level resource and should not be accessed directly by most use
 		Short:   "Run a PFS load test.",
 		Long:    "Run a PFS load test.",
 		Example: pfsload.LoadSpecification,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := c.Close(); retErr == nil {
-					retErr = err
-				}
-			}()
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			spec, err := ioutil.ReadFile(args[0])
 			if err != nil {
 				return err
 			}
-			resp, err := c.RunPFSLoadTest(spec, seed)
+			resp, err := env.Client("user").RunPFSLoadTest(spec, seed)
 			if err != nil {
 				return err
 			}
-			return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
+			return cmdutil.Encoder(output, env.Out()).EncodeProto(resp)
 		}),
 	}
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
@@ -1498,6 +1355,7 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 		if recursive {
 			return errors.New("cannot set -r and read from stdin (must also set -f or -i)")
 		}
+		// TODO: this escapes the environment rather than using env.In(), so the behavior can't be tested
 		stdin := progress.Stdin()
 		defer stdin.Finish()
 		return mf.PutFile(path, stdin, opts...)
@@ -1606,17 +1464,4 @@ func forEachDiffFile(newFiles, oldFiles []*pfs.FileInfo, f func(newFile, oldFile
 			return err
 		}
 	}
-}
-
-func newClient(name string, options ...client.Option) (*client.APIClient, error) {
-	if inWorkerStr, ok := os.LookupEnv("PACH_IN_WORKER"); ok {
-		inWorker, err := strconv.ParseBool(inWorkerStr)
-		if err != nil {
-			return nil, errors.Wrap(err, "couldn't parse PACH_IN_WORKER")
-		}
-		if inWorker {
-			return client.NewInWorker(options...)
-		}
-	}
-	return client.NewOnUserMachine(name, options...)
 }
