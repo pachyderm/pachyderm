@@ -66,7 +66,7 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *renew.StringSet,
 		if err := d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
 			return err
 		}
-		return d.finishCommit(txnCtx, commit, "")
+		return d.finishCommit(txnCtx, commit, "", false)
 	})
 }
 
@@ -424,17 +424,29 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	if err != nil {
 		return nil, err
 	}
+	if commitInfo.Error {
+		return nil, pfsserver.ErrCommitError{Commit: commitInfo.Commit}
+	}
 	if commitInfo.Finished != nil {
 		return d.getOrComputeTotal(ctx, commitInfo.Commit)
 	}
 	var ids []fileset.ID
-	if commitInfo.ParentCommit != nil {
-		// ¯\_(ツ)_/¯
-		parentId, err := d.getFileSet(ctx, commitInfo.ParentCommit)
+	parentCommit := commitInfo.ParentCommit
+	for parentCommit != nil {
+		commitInfo, err := d.getCommit(ctx, parentCommit)
 		if err != nil {
 			return nil, err
 		}
-		ids = append(ids, *parentId)
+		if !commitInfo.Error {
+			// ¯\_(ツ)_/¯
+			parentId, err := d.getFileSet(ctx, parentCommit)
+			if err != nil {
+				return nil, err
+			}
+			ids = append(ids, *parentId)
+			break
+		}
+		parentCommit = commitInfo.ParentCommit
 	}
 	id, err := d.commitStore.GetDiffFileSet(ctx, commitInfo.Commit)
 	if err != nil {
@@ -487,6 +499,9 @@ func (d *driver) getOrComputeTotal(ctx context.Context, commit *pfs.Commit) (*fi
 func (d *driver) sizeOfCommit(ctx context.Context, commit *pfs.Commit) (int64, error) {
 	fsid, err := d.getFileSet(ctx, commit)
 	if err != nil {
+		if pfsserver.IsCommitErrorErr(err) {
+			return 0, nil
+		}
 		return 0, err
 	}
 	return d.storage.SizeOf(ctx, *fsid)
