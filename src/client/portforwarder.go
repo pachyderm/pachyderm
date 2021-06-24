@@ -159,28 +159,13 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16, select
 }
 
 // RunForDaemon creates a port forwarder for the pachd daemon.
-func (f *PortForwarder) RunForDaemon(localPort, remotePort uint16) (uint16, error) {
-	return f.Run("pachd", localPort, remotePort)
-}
-
-// RunForOIDCCallback creates a port forwarder for OIDC callback port.
-func (f *PortForwarder) RunForOIDCCallback(localPort, remotePort uint16) (uint16, error) {
-	return f.Run("pachd", localPort, remotePort)
-}
-
-// RunForDex creates a port forwarder for Dex.
-func (f *PortForwarder) RunForDex(localPort, remotePort uint16) (uint16, error) {
+func (f *PortForwarder) RunForPachd(localPort, remotePort uint16) (uint16, error) {
 	return f.Run("pachd", localPort, remotePort)
 }
 
 // RunForEnterpriseServer creates a port forwarder for the enterprise server
 func (f *PortForwarder) RunForEnterpriseServer(localPort, remotePort uint16) (uint16, error) {
 	return f.Run("pach-enterprise", localPort, remotePort)
-}
-
-// RunForS3Gateway creates a port forwarder for the s3gateway.
-func (f *PortForwarder) RunForS3Gateway(localPort, remotePort uint16) (uint16, error) {
-	return f.Run("pachd", localPort, remotePort)
 }
 
 // Close shuts down port forwarding.
