@@ -75,7 +75,7 @@ in your repositories because you want to commit your changes frequently
 without triggering jobs every time, then transactions can help you
 manage deferred processing with multiple inputs. You commit your
 changes to the staging branch and
-when needed, switch the `HEAD` of you master branch to a commit in the
+when needed, switch the `HEAD` of your master branch to a commit in the
 staging branch. To do this simultaneously, you can use transactions.
 
 For example, you have two repositories `data` and `parameters`, both

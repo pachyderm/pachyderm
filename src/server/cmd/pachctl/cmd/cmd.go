@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	deploycmds "github.com/pachyderm/pachyderm/v2/src/internal/deploy/cmds"
@@ -509,12 +510,15 @@ This resets the cluster to its initial state.`,
 			for _, ri := range repoInfos {
 				repos = append(repos, red(ri.Repo.Name))
 			}
-			resp, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
+			c, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{Details: false})
 			if err != nil {
 				return err
 			}
-			for _, pi := range resp.PipelineInfo {
+			if err := clientsdk.ForEachPipelineInfo(c, func(pi *pps.PipelineInfo) error {
 				pipelines = append(pipelines, red(pi.Pipeline.Name))
+				return nil
+			}); err != nil {
+				return err
 			}
 			fmt.Println("All ACLs, repos, commits, files, pipelines and jobs will be deleted.")
 			if len(repos) > 0 {
@@ -579,7 +583,7 @@ This resets the cluster to its initial state.`,
 			successCount := 0
 
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-			port, err := fw.RunForDaemon(port, remotePort)
+			port, err := fw.RunForPachd(port, remotePort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -589,7 +593,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the OIDC callback port...")
-			port, err = fw.RunForOIDCCallback(oidcPort, remoteOidcPort)
+			port, err = fw.RunForPachd(oidcPort, remoteOidcPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -599,7 +603,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the s3gateway port...")
-			port, err = fw.RunForS3Gateway(s3gatewayPort, remoteS3gatewayPort)
+			port, err = fw.RunForPachd(s3gatewayPort, remoteS3gatewayPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -609,7 +613,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the identity service port...")
-			port, err = fw.RunForDex(dexPort, remoteDexPort)
+			port, err = fw.RunForPachd(dexPort, remoteDexPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {

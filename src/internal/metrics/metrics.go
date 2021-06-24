@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -240,7 +241,8 @@ func inputMetrics(input *pps.Input, metrics *Metrics) {
 func (r *Reporter) internalMetrics(metrics *Metrics) {
 	// We should not return due to an error
 	// Activation code
-	ctx := context.Background()
+	ctx, cf := context.WithCancel(context.Background())
+	defer cf()
 	enterpriseState, err := r.env.EnterpriseServer().GetState(ctx, &enterprise.GetStateRequest{})
 	if err == nil {
 		metrics.ActivationCode = enterpriseState.ActivationCode
@@ -248,20 +250,27 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	metrics.EnterpriseFailures = enterprisemetrics.GetEnterpriseFailures()
 
 	// Pipeline info
-	resp, err := r.env.PpsServer().ListPipeline(ctx, &pps.ListPipelineRequest{AllowIncomplete: true})
-	if err == nil {
-		metrics.Pipelines = int64(len(resp.PipelineInfo)) // Number of pipelines
-		for _, pi := range resp.PipelineInfo {
-			if pi.ParallelismSpec != nil {
-				if metrics.MaxParallelism < pi.ParallelismSpec.Constant {
-					metrics.MaxParallelism = pi.ParallelismSpec.Constant
+	if err := func() error {
+		lpClient, err := r.env.GetPachClient(ctx).PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{Details: false})
+		if err != nil {
+			return err
+		}
+		pipelineInfos, err := clientsdk.ListPipelineInfo(lpClient)
+		if err != nil {
+			return err
+		}
+		metrics.Pipelines = int64(len(pipelineInfos)) // Number of pipelines
+		for _, pi := range pipelineInfos {
+			if pi.Details.ParallelismSpec != nil {
+				if metrics.MaxParallelism < pi.Details.ParallelismSpec.Constant {
+					metrics.MaxParallelism = pi.Details.ParallelismSpec.Constant
 				}
-				if metrics.MinParallelism > pi.ParallelismSpec.Constant {
-					metrics.MinParallelism = pi.ParallelismSpec.Constant
+				if metrics.MinParallelism > pi.Details.ParallelismSpec.Constant {
+					metrics.MinParallelism = pi.Details.ParallelismSpec.Constant
 				}
 				metrics.NumParallelism++
 			}
-			if pi.Egress != nil {
+			if pi.Details.Egress != nil {
 				metrics.CfgEgress++
 			}
 			if pi.JobCounts != nil {
@@ -273,78 +282,100 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 					metrics.Jobs = cnt
 				}
 			}
-			if pi.ResourceRequests != nil {
-				if pi.ResourceRequests.Cpu != 0 {
-					metrics.ResourceCpuReq += pi.ResourceRequests.Cpu
-					if metrics.ResourceCpuReqMax < pi.ResourceRequests.Cpu {
-						metrics.ResourceCpuReqMax = pi.ResourceRequests.Cpu
+			if details := pi.Details; details != nil {
+				if details.ParallelismSpec != nil {
+					if metrics.MaxParallelism < details.ParallelismSpec.Constant {
+						metrics.MaxParallelism = details.ParallelismSpec.Constant
+					}
+					if metrics.MinParallelism > details.ParallelismSpec.Constant {
+						metrics.MinParallelism = details.ParallelismSpec.Constant
+					}
+					metrics.NumParallelism++
+				}
+				if details.Egress != nil {
+					metrics.CfgEgress++
+				}
+				if details.ResourceRequests != nil {
+					if details.ResourceRequests.Cpu != 0 {
+						metrics.ResourceCpuReq += details.ResourceRequests.Cpu
+						if metrics.ResourceCpuReqMax < details.ResourceRequests.Cpu {
+							metrics.ResourceCpuReqMax = details.ResourceRequests.Cpu
+						}
+					}
+					if details.ResourceRequests.Memory != "" {
+						metrics.ResourceMemReq += (details.ResourceRequests.Memory + " ")
+					}
+					if details.ResourceRequests.Gpu != nil {
+						metrics.ResourceGpuReq += details.ResourceRequests.Gpu.Number
+						if metrics.ResourceGpuReqMax < details.ResourceRequests.Gpu.Number {
+							metrics.ResourceGpuReqMax = details.ResourceRequests.Gpu.Number
+						}
+					}
+					if details.ResourceRequests.Disk != "" {
+						metrics.ResourceDiskReq += (details.ResourceRequests.Disk + " ")
 					}
 				}
-				if pi.ResourceRequests.Memory != "" {
-					metrics.ResourceMemReq += (pi.ResourceRequests.Memory + " ")
-				}
-				if pi.ResourceRequests.Gpu != nil {
-					metrics.ResourceGpuReq += pi.ResourceRequests.Gpu.Number
-					if metrics.ResourceGpuReqMax < pi.ResourceRequests.Gpu.Number {
-						metrics.ResourceGpuReqMax = pi.ResourceRequests.Gpu.Number
+				if details.ResourceLimits != nil {
+					if details.ResourceLimits.Cpu != 0 {
+						metrics.ResourceCpuLimit += details.ResourceLimits.Cpu
+						if metrics.ResourceCpuLimitMax < details.ResourceLimits.Cpu {
+							metrics.ResourceCpuLimitMax = details.ResourceLimits.Cpu
+						}
+					}
+					if details.ResourceLimits.Memory != "" {
+						metrics.ResourceMemLimit += (details.ResourceLimits.Memory + " ")
+					}
+					if details.ResourceLimits.Gpu != nil {
+						metrics.ResourceGpuLimit += details.ResourceLimits.Gpu.Number
+						if metrics.ResourceGpuLimitMax < details.ResourceLimits.Gpu.Number {
+							metrics.ResourceGpuLimitMax = details.ResourceLimits.Gpu.Number
+						}
+					}
+					if details.ResourceLimits.Disk != "" {
+						metrics.ResourceDiskLimit += (details.ResourceLimits.Disk + " ")
 					}
 				}
-				if pi.ResourceRequests.Disk != "" {
-					metrics.ResourceDiskReq += (pi.ResourceRequests.Disk + " ")
+				if details.Input != nil {
+					inputMetrics(details.Input, metrics)
 				}
-			}
-			if pi.ResourceLimits != nil {
-				if pi.ResourceLimits.Cpu != 0 {
-					metrics.ResourceCpuLimit += pi.ResourceLimits.Cpu
-					if metrics.ResourceCpuLimitMax < pi.ResourceLimits.Cpu {
-						metrics.ResourceCpuLimitMax = pi.ResourceLimits.Cpu
+				if details.Service != nil {
+					metrics.CfgServices++
+				}
+				if details.Spout != nil {
+					metrics.PpsSpout++
+					if details.Spout.Service != nil {
+						metrics.PpsSpoutService++
 					}
 				}
-				if pi.ResourceLimits.Memory != "" {
-					metrics.ResourceMemLimit += (pi.ResourceLimits.Memory + " ")
+				if details.S3Out {
+					metrics.CfgS3Gateway++
 				}
-				if pi.ResourceLimits.Gpu != nil {
-					metrics.ResourceGpuLimit += pi.ResourceLimits.Gpu.Number
-					if metrics.ResourceGpuLimitMax < pi.ResourceLimits.Gpu.Number {
-						metrics.ResourceGpuLimitMax = pi.ResourceLimits.Gpu.Number
+				if details.Transform != nil {
+					if details.Transform.ErrCmd != nil {
+						metrics.CfgErrcmd++
 					}
 				}
-				if pi.ResourceLimits.Disk != "" {
-					metrics.ResourceDiskLimit += (pi.ResourceLimits.Disk + " ")
+				if details.TFJob != nil {
+					metrics.CfgTfjob++
 				}
-			}
-			if pi.Input != nil {
-				inputMetrics(pi.Input, metrics)
-			}
-			if pi.Service != nil {
-				metrics.CfgServices++
-			}
-			if pi.Spout != nil {
-				metrics.PpsSpout++
-				if pi.Spout.Service != nil {
-					metrics.PpsSpoutService++
-				}
-			}
-			if pi.S3Out {
-				metrics.CfgS3Gateway++
-			}
-			if pi.Transform != nil {
-				if pi.Transform.ErrCmd != nil {
-					metrics.CfgErrcmd++
-				}
-			}
-			if pi.TFJob != nil {
-				metrics.CfgTfjob++
 			}
 		}
-	} else {
+		return nil
+	}(); err != nil {
 		log.Errorf("Error getting pipeline metrics: %v", err)
 	}
 
-	ris, err := r.env.PfsServer().ListRepo(ctx, &pfs.ListRepoRequest{})
-	if err == nil {
+	if err := func() error {
+		rClient, err := r.env.GetPachClient(ctx).PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
+		if err != nil {
+			return err
+		}
+		repoInfos, err := clientsdk.ListRepoInfo(rClient)
+		if err != nil {
+			return err
+		}
 		var sz, mbranch uint64 = 0, 0
-		for _, ri := range ris.RepoInfo {
+		for _, ri := range repoInfos {
 			if (sz + ri.SizeBytes) < sz {
 				sz = 0xFFFFFFFFFFFFFFFF
 			} else {
@@ -354,11 +385,12 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 				mbranch = uint64(len(ri.Branches))
 			}
 		}
-		metrics.Repos = int64(len(ris.RepoInfo))
+		metrics.Repos = int64(len(repoInfos))
 		metrics.Bytes = sz
 		metrics.MaxBranches = mbranch
-	} else {
-		log.Errorf("Error getting repo metrics: %v", err)
+		return nil
+	}(); err != nil {
+		log.Errorf("Error getting repos: %v", err)
 	}
 	//log.Infof("Metrics logged: %v", metrics)
 }

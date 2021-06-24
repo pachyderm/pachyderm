@@ -55,7 +55,7 @@ func TestStripS3Prefix(t *testing.T) {
 
 	var manifestPiece struct {
 		Data struct {
-			AmazonBucket string `json:"amazon-bucket"`
+			AmazonBucket string `json:"AMAZON_BUCKET"`
 		} `json:"data"`
 	}
 

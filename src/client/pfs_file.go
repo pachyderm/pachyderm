@@ -468,7 +468,7 @@ func (c APIClient) GetFileReadSeeker(commit *pfs.Commit, path string) (io.ReadSe
 		c:      c,
 		file:   commit.NewFile(path),
 		offset: 0,
-		size:   int64(fi.SizeBytes),
+		size:   int64(fi.Details.SizeBytes),
 	}, nil
 }
 

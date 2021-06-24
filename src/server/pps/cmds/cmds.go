@@ -15,6 +15,7 @@ import (
 
 	"github.com/fatih/color"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -669,7 +670,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			pipelineInfo, err := client.InspectPipeline(args[0])
+			pipelineInfo, err := client.InspectPipeline(args[0], true)
 			if err != nil {
 				return err
 			}
@@ -725,15 +726,18 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			request := &ppsclient.ListPipelineRequest{History: history, AllowIncomplete: true, JqFilter: filter}
+			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewPipeline(pipeline)
 			}
-			response, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
+			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			pipelineInfos := response.PipelineInfo
+			pipelineInfos, err := clientsdk.ListPipelineInfo(lpClient)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
 			if raw {
 				e := encoder(output)
 				for _, pipelineInfo := range pipelineInfos {

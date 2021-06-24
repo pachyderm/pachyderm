@@ -398,7 +398,7 @@ func (api *enterpriseServerAPI) Heartbeat(ctx context.Context, req *enterprise.H
 type activateAuthPFSFunc func(context.Context, *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error)
 type createRepoFunc func(context.Context, *pfs.CreateRepoRequest) (*types.Empty, error)
 type inspectRepoFunc func(context.Context, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
-type listRepoFunc func(context.Context, *pfs.ListRepoRequest) (*pfs.ListRepoResponse, error)
+type listRepoFunc func(*pfs.ListRepoRequest, pfs.API_ListRepoServer) error
 type deleteRepoFunc func(context.Context, *pfs.DeleteRepoRequest) (*types.Empty, error)
 type startCommitFunc func(context.Context, *pfs.StartCommitRequest) (*pfs.Commit, error)
 type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*types.Empty, error)
@@ -410,7 +410,7 @@ type subscribeCommitFunc func(*pfs.SubscribeCommitRequest, pfs.API_SubscribeComm
 type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
 type createBranchFunc func(context.Context, *pfs.CreateBranchRequest) (*types.Empty, error)
 type inspectBranchFunc func(context.Context, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
-type listBranchFunc func(context.Context, *pfs.ListBranchRequest) (*pfs.BranchInfos, error)
+type listBranchFunc func(*pfs.ListBranchRequest, pfs.API_ListBranchServer) error
 type deleteBranchFunc func(context.Context, *pfs.DeleteBranchRequest) (*types.Empty, error)
 type modifyFileFunc func(pfs.API_ModifyFileServer) error
 type getFileTARFunc func(*pfs.GetFileRequest, pfs.API_GetFileTARServer) error
@@ -548,11 +548,11 @@ func (api *pfsServerAPI) InspectRepo(ctx context.Context, req *pfs.InspectRepoRe
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.InspectRepo")
 }
-func (api *pfsServerAPI) ListRepo(ctx context.Context, req *pfs.ListRepoRequest) (*pfs.ListRepoResponse, error) {
+func (api *pfsServerAPI) ListRepo(req *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) error {
 	if api.mock.ListRepo.handler != nil {
-		return api.mock.ListRepo.handler(ctx, req)
+		return api.mock.ListRepo.handler(req, srv)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.ListRepo")
+	return errors.Errorf("unhandled pachd mock pfs.ListRepo")
 }
 func (api *pfsServerAPI) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest) (*types.Empty, error) {
 	if api.mock.DeleteRepo.handler != nil {
@@ -620,11 +620,11 @@ func (api *pfsServerAPI) InspectBranch(ctx context.Context, req *pfs.InspectBran
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.InspectBranch")
 }
-func (api *pfsServerAPI) ListBranch(ctx context.Context, req *pfs.ListBranchRequest) (*pfs.BranchInfos, error) {
+func (api *pfsServerAPI) ListBranch(req *pfs.ListBranchRequest, srv pfs.API_ListBranchServer) error {
 	if api.mock.ListBranch.handler != nil {
-		return api.mock.ListBranch.handler(ctx, req)
+		return api.mock.ListBranch.handler(req, srv)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.ListBranch")
+	return errors.Errorf("unhandled pachd mock pfs.ListBranch")
 }
 func (api *pfsServerAPI) DeleteBranch(ctx context.Context, req *pfs.DeleteBranchRequest) (*types.Empty, error) {
 	if api.mock.DeleteBranch.handler != nil {
@@ -720,7 +720,7 @@ func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRe
 /* PPS Server Mocks */
 
 type inspectJobFunc func(context.Context, *pps.InspectJobRequest) (*pps.JobInfo, error)
-type inspectJobsetFunc func(*pps.InspectJobsetRequest, pps.API_InspectJobsetServer) error
+type inspectJobSetFunc func(*pps.InspectJobSetRequest, pps.API_InspectJobSetServer) error
 type listJobFunc func(*pps.ListJobRequest, pps.API_ListJobServer) error
 type subscribeJobFunc func(*pps.SubscribeJobRequest, pps.API_SubscribeJobServer) error
 type deleteJobFunc func(context.Context, *pps.DeleteJobRequest) (*types.Empty, error)
@@ -731,7 +731,7 @@ type listDatumFunc func(*pps.ListDatumRequest, pps.API_ListDatumServer) error
 type restartDatumFunc func(context.Context, *pps.RestartDatumRequest) (*types.Empty, error)
 type createPipelineFunc func(context.Context, *pps.CreatePipelineRequest) (*types.Empty, error)
 type inspectPipelineFunc func(context.Context, *pps.InspectPipelineRequest) (*pps.PipelineInfo, error)
-type listPipelineFunc func(context.Context, *pps.ListPipelineRequest) (*pps.PipelineInfos, error)
+type listPipelineFunc func(*pps.ListPipelineRequest, pps.API_ListPipelineServer) error
 type deletePipelineFunc func(context.Context, *pps.DeletePipelineRequest) (*types.Empty, error)
 type startPipelineFunc func(context.Context, *pps.StartPipelineRequest) (*types.Empty, error)
 type stopPipelineFunc func(context.Context, *pps.StopPipelineRequest) (*types.Empty, error)
@@ -746,7 +746,7 @@ type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
 
 type mockInspectJob struct{ handler inspectJobFunc }
-type mockInspectJobset struct{ handler inspectJobsetFunc }
+type mockInspectJobSet struct{ handler inspectJobSetFunc }
 type mockListJob struct{ handler listJobFunc }
 type mockSubscribeJob struct{ handler subscribeJobFunc }
 type mockDeleteJob struct{ handler deleteJobFunc }
@@ -772,7 +772,7 @@ type mockGetLogs struct{ handler getLogsFunc }
 type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)           { mock.handler = cb }
-func (mock *mockInspectJobset) Use(cb inspectJobsetFunc)     { mock.handler = cb }
+func (mock *mockInspectJobSet) Use(cb inspectJobSetFunc)     { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                 { mock.handler = cb }
 func (mock *mockSubscribeJob) Use(cb subscribeJobFunc)       { mock.handler = cb }
 func (mock *mockDeleteJob) Use(cb deleteJobFunc)             { mock.handler = cb }
@@ -804,7 +804,7 @@ type ppsServerAPI struct {
 type mockPPSServer struct {
 	api             ppsServerAPI
 	InspectJob      mockInspectJob
-	InspectJobset   mockInspectJobset
+	InspectJobSet   mockInspectJobSet
 	ListJob         mockListJob
 	SubscribeJob    mockSubscribeJob
 	DeleteJob       mockDeleteJob
@@ -836,11 +836,11 @@ func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequ
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.InspectJob")
 }
-func (api *ppsServerAPI) InspectJobset(req *pps.InspectJobsetRequest, serv pps.API_InspectJobsetServer) error {
-	if api.mock.InspectJobset.handler != nil {
-		return api.mock.InspectJobset.handler(req, serv)
+func (api *ppsServerAPI) InspectJobSet(req *pps.InspectJobSetRequest, serv pps.API_InspectJobSetServer) error {
+	if api.mock.InspectJobSet.handler != nil {
+		return api.mock.InspectJobSet.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pps.InspectJobset")
+	return errors.Errorf("unhandled pachd mock pps.InspectJobSet")
 }
 func (api *ppsServerAPI) ListJob(req *pps.ListJobRequest, serv pps.API_ListJobServer) error {
 	if api.mock.ListJob.handler != nil {
@@ -902,11 +902,11 @@ func (api *ppsServerAPI) InspectPipeline(ctx context.Context, req *pps.InspectPi
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.InspectPipeline")
 }
-func (api *ppsServerAPI) ListPipeline(ctx context.Context, req *pps.ListPipelineRequest) (*pps.PipelineInfos, error) {
+func (api *ppsServerAPI) ListPipeline(req *pps.ListPipelineRequest, srv pps.API_ListPipelineServer) error {
 	if api.mock.ListPipeline.handler != nil {
-		return api.mock.ListPipeline.handler(ctx, req)
+		return api.mock.ListPipeline.handler(req, srv)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pps.ListPipeline")
+	return errors.Errorf("unhandled pachd mock pps.ListPipeline")
 }
 func (api *ppsServerAPI) DeletePipeline(ctx context.Context, req *pps.DeletePipelineRequest) (*types.Empty, error) {
 	if api.mock.DeletePipeline.handler != nil {

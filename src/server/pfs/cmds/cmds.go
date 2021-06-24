@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -473,7 +474,7 @@ $ {{alias}} foo@master --from XXX`,
 $ {{alias}} XXX
 
 # return commits caused by foo@XXX leading to branch bar@baz
-$ {{alias}} XXX -b bar@baz`,
+$ {{alias}} foo@XXX -b bar@baz`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			// Parse args before connecting
 			var commitsetID string
@@ -687,13 +688,14 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 			var headCommit *pfs.Commit
 			if head != "" {
-				if uuid.IsUUIDWithoutDashes(head) {
-					headCommit = branch.Repo.NewCommit("", head)
-				} else {
+				if strings.Contains(head, "@") {
 					headCommit, err = cmdutil.ParseCommit(head)
 					if err != nil {
 						return err
 					}
+				} else {
+					// treat head as the commitID or branch name
+					headCommit = branch.Repo.NewCommit("", head)
 				}
 			}
 
@@ -718,7 +720,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	}
 	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch. format: <repo>@<branch-or-commit>")
 	createBranch.MarkFlagCustom("provenance", "__pachctl_get_repo_commit")
-	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
+	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch. Either pass the commit with format: <branch-or-commit>, or fully-qualified as <repo>@<branch>=<id>")
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	createBranch.Flags().StringVarP(&trigger.Branch, "trigger", "t", "", "The branch to trigger this branch on.")
 	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "The cron spec to use in triggering.")
@@ -771,24 +773,28 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return err
 			}
 			defer c.Close()
-			branchInfos, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
+			branchClient, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
-			branches := branchInfos.BranchInfo
-			if raw {
-				for _, branch := range branches {
-					if err := marshaller.Marshal(os.Stdout, branch); err != nil {
-						return err
-					}
+			var writer *tabwriter.Writer
+			if !raw {
+				writer = tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
+			}
+			if err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+				if raw {
+					return marshaller.Marshal(os.Stdout, branch)
+				} else {
+					pretty.PrintBranch(writer, branch)
+					return nil
 				}
-				return nil
+			}); err != nil {
+				return grpcutil.ScrubGRPC(err)
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
-			for _, branch := range branches {
-				pretty.PrintBranch(writer, branch)
+			if writer != nil {
+				return writer.Flush()
 			}
-			return writer.Flush()
+			return nil
 		}),
 	}
 	listBranch.Flags().AddFlagSet(rawFlags)
@@ -837,6 +843,7 @@ from commits with 'get file'.`,
 	var appendFile bool
 	var compress bool
 	var enableProgress bool
+	var fullPath bool
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
@@ -951,7 +958,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if source == "-" {
 							return errors.Errorf("must specify filename when reading data from stdin")
 						}
-						if err := putFileHelper(mf, joinPaths("", source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					} else if len(sources) == 1 {
@@ -963,7 +974,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 					} else {
 						// We have multiple sources and the user has specified a path,
 						// we use that path as a prefix for the filepaths.
-						if err := putFileHelper(mf, joinPaths(file.Path, source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					}
@@ -979,6 +994,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
+	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
@@ -1072,7 +1088,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				if err != nil {
 					return err
 				}
-				f, err := progress.Create(outputPath, int64(fi.SizeBytes))
+				f, err := progress.Create(outputPath, int64(fi.Details.SizeBytes))
 				if err != nil {
 					return err
 				}

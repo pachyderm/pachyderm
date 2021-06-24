@@ -44,7 +44,7 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 		return errors.Wrap(err, "error when linking active data directory")
 	}
 	defer func() {
-		if !d.PipelineInfo().S3Out {
+		if !d.PipelineInfo().Details.S3Out {
 			if err := d.rewriteSymlinks(dir); err != nil && retErr == nil {
 				retErr = errors.Wrap(err, "error when redirecting symlinks in the active data directory")
 			}
@@ -132,7 +132,7 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 		}
 	}
 
-	if !d.PipelineInfo().S3Out {
+	if !d.PipelineInfo().Details.S3Out {
 		if err := os.Symlink(filepath.Join(dir, "out"), filepath.Join(d.InputDir(), "out")); err != nil {
 			return errors.EnsureStack(err)
 		}
