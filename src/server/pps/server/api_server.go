@@ -2526,12 +2526,19 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 
 	if request.All {
 		request.Pipeline = &pps.Pipeline{}
+		pipelines := make([]string, 0)
 		pipelineInfo := &pps.PipelineInfo{}
 		if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
-			request.Pipeline.Name = pipelineInfo.Pipeline.Name
-			return a.deletePipeline(ctx, request)
+			pipelines = append(pipelines, pipelineInfo.Pipeline.Name)
+			return nil
 		}); err != nil {
 			return nil, err
+		}
+		for _, p := range pipelines {
+			request.Pipeline.Name = p
+			if err := a.deletePipeline(ctx, request); err != nil {
+				return nil, err
+			}
 		}
 	} else if err := a.deletePipeline(ctx, request); err != nil {
 		return nil, err
