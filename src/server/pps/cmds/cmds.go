@@ -693,16 +693,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	inspectPipeline.Flags().AddFlagSet(fullTimestampsFlags)
 	commands = append(commands, cmdutil.CreateAlias(inspectPipeline, "inspect pipeline"))
 
-	var spec bool
 	listPipeline := &cobra.Command{
 		Use:   "{{alias}} [<pipeline>]",
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			// validate flags
-			if raw && spec {
-				return errors.Errorf("cannot set both --raw and --spec")
-			} else if !raw && !spec && output != "" {
+			if !raw && output != "" {
 				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw or --spec")
 			}
 			history, err := cmdutil.ParseHistory(history)
@@ -746,14 +743,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 					}
 				}
 				return nil
-			} else if spec {
-				e := encoder(output)
-				for _, pipelineInfo := range pipelineInfos {
-					if err := e.EncodeProto(ppsutil.PipelineReqFromInfo(pipelineInfo)); err != nil {
-						return err
-					}
-				}
-				return nil
 			}
 			for _, pi := range pipelineInfos {
 				if ppsutil.ErrorState(pi.State) {
@@ -768,7 +757,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return writer.Flush()
 		}),
 	}
-	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output 'create pipeline' compatibility specs.")
 	listPipeline.Flags().AddFlagSet(outputFlags)
 	listPipeline.Flags().AddFlagSet(fullTimestampsFlags)
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")

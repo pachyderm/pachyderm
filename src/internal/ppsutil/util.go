@@ -269,39 +269,6 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Inp
 	return jobInput
 }
 
-// PipelineReqFromInfo converts a PipelineInfo into a CreatePipelineRequest.
-func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequest {
-	return &pps.CreatePipelineRequest{
-		Pipeline:              pipelineInfo.Pipeline,
-		Transform:             pipelineInfo.Details.Transform,
-		ParallelismSpec:       pipelineInfo.Details.ParallelismSpec,
-		Egress:                pipelineInfo.Details.Egress,
-		OutputBranch:          pipelineInfo.Details.OutputBranch,
-		ResourceRequests:      pipelineInfo.Details.ResourceRequests,
-		ResourceLimits:        pipelineInfo.Details.ResourceLimits,
-		SidecarResourceLimits: pipelineInfo.Details.SidecarResourceLimits,
-		Input:                 pipelineInfo.Details.Input,
-		Description:           pipelineInfo.Details.Description,
-		CacheSize:             pipelineInfo.Details.CacheSize,
-		MaxQueueSize:          pipelineInfo.Details.MaxQueueSize,
-		Service:               pipelineInfo.Details.Service,
-		DatumSetSpec:          pipelineInfo.Details.DatumSetSpec,
-		DatumTimeout:          pipelineInfo.Details.DatumTimeout,
-		JobTimeout:            pipelineInfo.Details.JobTimeout,
-		Salt:                  pipelineInfo.Details.Salt,
-		PodSpec:               pipelineInfo.Details.PodSpec,
-		PodPatch:              pipelineInfo.Details.PodPatch,
-		Spout:                 pipelineInfo.Details.Spout,
-		SchedulingSpec:        pipelineInfo.Details.SchedulingSpec,
-		DatumTries:            pipelineInfo.Details.DatumTries,
-		Standby:               pipelineInfo.Details.Standby,
-		S3Out:                 pipelineInfo.Details.S3Out,
-		Metadata:              pipelineInfo.Details.Metadata,
-		ReprocessSpec:         pipelineInfo.Details.ReprocessSpec,
-		Autoscaling:           pipelineInfo.Details.Autoscaling,
-	}
-}
-
 // IsTerminal returns 'true' if 'state' indicates that the job is done (i.e.
 // the state will not change later: SUCCESS, FAILURE, KILLED) and 'false'
 // otherwise.
