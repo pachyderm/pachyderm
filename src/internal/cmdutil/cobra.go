@@ -136,26 +136,28 @@ func envFromCommand(cmd *cobra.Command) Env {
 	return &realEnv{cmd: cmd}
 }
 
-func runInternal(cmd *cobra.Command, args []string, cb func([]string, Env) error) (retErr error) {
+func withEnv(cmd *cobra.Command, cb func(Env) error) (retErr error) {
 	env := envFromCommand(cmd)
 	defer func() {
 		if err := env.Close(); retErr == nil {
 			retErr = err
 		}
 	}()
-	return cb(args, env)
+	return cb(env)
 }
 
 // RunFixedArgs wraps a function in a function
 // that checks its exact argument count.
 func RunFixedArgs(numArgs int, run func([]string, Env) error) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		if len(args) != numArgs {
-			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
-			cmd.Usage()
-			return nil
-		}
-		return runInternal(cmd, args, run)
+		return withEnv(cmd, func(env Env) error {
+			if len(args) != numArgs {
+				fmt.Fprintf(env.Err(), "expected %d arguments, got %d\n\n", numArgs, len(args))
+				cmd.Usage()
+				return nil
+			}
+			return run(args, env)
+		})
 	}
 }
 
@@ -163,12 +165,14 @@ func RunFixedArgs(numArgs int, run func([]string, Env) error) func(*cobra.Comman
 // that checks its argument count is within a range.
 func RunBoundedArgs(min int, max int, run func([]string, Env) error) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		if len(args) < min || len(args) > max {
-			fmt.Printf("expected %d to %d arguments, got %d\n\n", min, max, len(args))
-			cmd.Usage()
-			return nil
-		}
-		return runInternal(cmd, args, run)
+		return withEnv(cmd, func(env Env) error {
+			if len(args) < min || len(args) > max {
+				fmt.Fprintf(env.Err(), "expected %d to %d arguments, got %d\n\n", min, max, len(args))
+				cmd.Usage()
+				return nil
+			}
+			return run(args, env)
+		})
 	}
 }
 
@@ -176,19 +180,23 @@ func RunBoundedArgs(min int, max int, run func([]string, Env) error) func(*cobra
 // that checks its argument count is above a minimum amount
 func RunMinimumArgs(min int, run func([]string, Env) error) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		if len(args) < min {
-			fmt.Printf("expected at least %d arguments, got %d\n\n", min, len(args))
-			cmd.Usage()
-			return nil
-		}
-		return runInternal(cmd, args, run)
+		return withEnv(cmd, func(env Env) error {
+			if len(args) < min {
+				fmt.Fprintf(env.Err(), "expected at least %d arguments, got %d\n\n", min, len(args))
+				cmd.Usage()
+				return nil
+			}
+			return run(args, env)
+		})
 	}
 }
 
 // Run makes a new cobra run function that wraps the given function.
 func Run(run func([]string, Env) error) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		return runInternal(cmd, args, run)
+		return withEnv(cmd, func(env Env) error {
+			return run(args, env)
+		})
 	}
 }
 

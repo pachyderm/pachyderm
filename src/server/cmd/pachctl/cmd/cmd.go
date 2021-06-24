@@ -317,7 +317,9 @@ func PachctlCmd() *cobra.Command {
 	outputFlags := cmdutil.OutputFlags(&raw, &output)
 
 	rootCmd := &cobra.Command{
-		Use: os.Args[0],
+		Use:           os.Args[0],
+		SilenceErrors: true, // We explicitly print errors
+		SilenceUsage:  true, // We explicitly call Usage()
 		Long: `Access the Pachyderm API.
 
 Environment variables:
