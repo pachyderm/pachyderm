@@ -188,13 +188,6 @@ type AssetOpts struct {
 	// pachd node. If empty, assets.go will choose a default size.
 	PachdNonCacheMemRequest string
 
-	// IAM role that the Pachyderm deployment should assume when talking to AWS
-	// services (if using kube2iam + metadata service + IAM role to delegate
-	// permissions to pachd via its instance).
-	// This is in AssetOpts rather than AmazonCreds because it must be passed
-	// as an annotation on the pachd pod rather than as a k8s secret
-	IAMRole string
-
 	// ImagePullSecret specifies an image pull secret that gets attached to the
 	// various deployments so that their images can be pulled from a private
 	// registry.
@@ -558,7 +551,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		{Name: WorkerServiceAccountEnvVar, Value: opts.WorkerServiceAccountName},
 		{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
 		{Name: "LOG_LEVEL", Value: opts.LogLevel},
-		{Name: "IAM_ROLE", Value: opts.IAMRole},
 		{
 			Name: "PACH_NAMESPACE",
 			ValueFrom: &v1.EnvVarSource{
@@ -649,8 +641,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 				MatchLabels: labels(name),
 			},
 			Template: v1.PodTemplateSpec{
-				ObjectMeta: objectMeta(name, labels(name),
-					map[string]string{IAMAnnotation: opts.IAMRole}, opts.Namespace),
+				ObjectMeta: objectMeta(name, labels(name), nil, opts.Namespace),
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
@@ -843,15 +834,6 @@ func AmazonSecret(region, bucket, id, secret, token, distribution, endpoint stri
 	s[obj.AmazonTokenEnvVar] = []byte(token)
 	s[obj.CustomEndpointEnvVar] = []byte(endpoint)
 	return s
-}
-
-// AmazonIAMRoleSecret creates an amazon secret with the following parameters:
-//   region         - AWS region
-//   bucket         - S3 bucket name
-//   distribution   - cloudfront distribution
-//   advancedConfig - advanced configuration
-func AmazonIAMRoleSecret(region, bucket, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
-	return amazonBasicSecret(region, bucket, distribution, advancedConfig)
 }
 
 func amazonBasicSecret(region, bucket, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
@@ -1073,9 +1055,7 @@ func WriteAmazonAssets(encoder serde.Encoder, opts *AssetOpts, region string, bu
 		return err
 	}
 	var secret map[string][]byte
-	if creds == nil {
-		secret = AmazonIAMRoleSecret(region, bucket, cloudfrontDistro, advancedConfig)
-	} else if creds.ID != "" {
+	if creds.ID != "" {
 		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro, "", advancedConfig)
 	}
 	return WriteSecret(encoder, secret, opts)

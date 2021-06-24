@@ -3,15 +3,10 @@ package errutil
 import (
 	"strings"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 )
 
-var (
-	// ErrBreak is an error used to break out of call back based iteration,
-	// should be swallowed by iteration functions and treated as successful
-	// iteration.
-	ErrBreak = errors.Errorf("BREAK")
-)
+var ErrBreak = pacherr.ErrBreak
 
 // IsAlreadyExistError returns true if err is due to trying to create a
 // resource that already exists. It uses simple string matching, it's not

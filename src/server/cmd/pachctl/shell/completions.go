@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
@@ -96,7 +97,7 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 	case repoPart:
 		return RepoCompletion(flag, text, maxCompletions)
 	case commitOrBranchPart:
-		bis, err := c.PfsAPIClient.ListBranch(
+		client, err := c.PfsAPIClient.ListBranch(
 			c.Ctx(),
 			&pfs.ListBranchRequest{
 				Repo: partialFile.Commit.Branch.Repo,
@@ -105,7 +106,7 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 		if err != nil {
 			return nil, CacheNone
 		}
-		for _, bi := range bis.BranchInfo {
+		if err := clientsdk.ForEachBranchInfo(client, func(bi *pfs.BranchInfo) error {
 			head := "-"
 			if bi.Head != nil {
 				head = bi.Head.ID
@@ -114,6 +115,9 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Branch.Repo, bi.Branch.Name),
 				Description: fmt.Sprintf("(%s)", head),
 			})
+			return nil
+		}); err != nil {
+			return nil, CacheNone
 		}
 		if len(result) == 0 {
 			// Master should show up even if it doesn't exist yet
@@ -194,16 +198,19 @@ func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Sugges
 // PipelineCompletion completes pipeline parameters of the form <pipeline>
 func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
-	pipelineInfos, err := c.ListPipeline(true)
+	client, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{Details: true})
 	if err != nil {
 		return nil, CacheNone
 	}
 	var result []prompt.Suggest
-	for _, pi := range pipelineInfos {
+	if err := clientsdk.ForEachPipelineInfo(client, func(pi *pps.PipelineInfo) error {
 		result = append(result, prompt.Suggest{
 			Text:        pi.Pipeline.Name,
 			Description: pi.Details.Description,
 		})
+		return nil
+	}); err != nil {
+		return nil, CacheNone
 	}
 	return result, CacheAll
 }

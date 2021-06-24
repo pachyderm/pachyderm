@@ -98,7 +98,6 @@ type apiServer struct {
 	storageRoot           string
 	storageBackend        string
 	storageHostPath       string
-	iamRole               string
 	imagePullSecret       string
 	reporter              *metrics.Reporter
 	workerUsesRoot        bool
@@ -2369,24 +2368,12 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 }
 
 // ListPipeline implements the protobuf pps.ListPipeline RPC
-func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, retErr error) {
+func (a *apiServer) ListPipeline(request *pps.ListPipelineRequest, srv pps.API_ListPipelineServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		if response != nil && len(response.PipelineInfo) > client.MaxListItemsLog {
-			logrus.Infof("Response contains %d objects; logging the first %d", len(response.PipelineInfo), client.MaxListItemsLog)
-			a.Log(request, &pps.PipelineInfos{PipelineInfo: response.PipelineInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
-		} else {
-			a.Log(request, response, retErr, time.Since(start))
-		}
+		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
-	pipelineInfos := &pps.PipelineInfos{}
-	if err := a.listPipeline(ctx, request, func(pi *pps.PipelineInfo) error {
-		pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pi)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return pipelineInfos, nil
+	return a.listPipeline(srv.Context(), request, srv.Send)
 }
 
 func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {

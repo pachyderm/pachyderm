@@ -40,7 +40,6 @@ import (
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	globlib "github.com/pachyderm/ohmyglob"
 	"golang.org/x/sync/errgroup"
@@ -9623,15 +9622,25 @@ func TestNonrootPipeline(t *testing.T) {
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 	// The commitset should have a commit in: data, spec, pipeline, meta
+	// the last two are dependent upon the first two, so should come later
+	// in topological ordering
 	require.Equal(t, 4, len(commitInfos))
-	// Just verify the user commit was produced
-	require.Equal(t, pipeline, commitInfos[2].Commit.Branch.Repo.Name)
-	require.Equal(t, pfs.UserRepoType, commitInfos[2].Commit.Branch.Repo.Type)
+	var commitRepos []*pfs.Repo
+	for _, info := range commitInfos {
+		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+	}
+	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[2].Commit, "file", &buf))
-	require.Equal(t, "foo", buf.String())
-
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	}
 }
 
 func monitorReplicas(t testing.TB, pipeline string, n int) {
