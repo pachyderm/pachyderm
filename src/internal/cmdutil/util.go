@@ -23,6 +23,9 @@ func Encoder(format string, w io.Writer) serde.Encoder {
 		serde.WithOrigName(true),
 	)
 	if err != nil {
+		// TODO: would be nice to not have this exit as it means we can't exercise
+		// this branch in tests, but not having this function return an error saves
+		// a lot of boilerplate.
 		ErrorAndExit("%s", err.Error())
 	}
 	return e

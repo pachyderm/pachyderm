@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -14,7 +15,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -753,11 +756,136 @@ func RunPachctlSync(t *testing.T, env cmdutil.Env, args ...string) error {
 	return root.ExecuteContext(ctx)
 }
 
-func TestInspectRepo(t *testing.T) {
-	env := NewTestEnv(t, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{})
+func TestInspectRepo(suite *testing.T) {
+	// A pre-filled RepoInfo fixture for checking output
+	repoInfo := &pfs.RepoInfo{
+		Repo:        client.NewRepo("foo"),
+		Created:     types.TimestampNow(),
+		SizeBytes:   100,
+		Description: "bar",
+		Branches:    []*pfs.Branch{},
+		AuthInfo: &pfs.RepoAuthInfo{
+			Permissions: []auth.Permission{
+				auth.Permission_REPO_READ,
+				auth.Permission_REPO_WRITE,
+			},
+			Roles: []string{
+				"roleA",
+				"roleB",
+			},
+		},
+	}
 
-	env.MockClient.PFS.On("InspectRepo", mock.Anything).Return(&pfs.RepoInfo{}, nil)
+	suite.Run("Success", func(t *testing.T) {
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		env := NewTestEnv(t, &bytes.Buffer{}, stdout, stderr)
+		env.MockClient.PFS.On("InspectRepo", mock.Anything).Return(proto.Clone(repoInfo), nil)
 
-	err := RunPachctlSync(t, env, "inspect", "repo", "foo")
-	require.NoError(t, err)
+		err := RunPachctlSync(t, env, "inspect", "repo", "foo")
+		require.NoError(t, err)
+		require.Equal(t, "", stderr.String())
+		require.Equal(t, 1, len(env.MockClient.PFS.Calls))
+		require.Equal(t, &pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: "foo", Type: pfs.UserRepoType}}, env.MockClient.PFS.Calls[0].Arguments[0])
+
+		// TODO: check output
+	})
+
+	suite.Run("SpecRepo", func(t *testing.T) {
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		env := NewTestEnv(t, &bytes.Buffer{}, stdout, stderr)
+		env.MockClient.PFS.On("InspectRepo", mock.Anything).Return(proto.Clone(repoInfo), nil)
+
+		err := RunPachctlSync(t, env, "inspect", "repo", "foo.spec")
+		require.NoError(t, err)
+		require.Equal(t, "", stderr.String())
+		require.Equal(t, 1, len(env.MockClient.PFS.Calls))
+		require.Equal(t, &pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: "foo", Type: pfs.SpecRepoType}}, env.MockClient.PFS.Calls[0].Arguments[0])
+	})
+
+	suite.Run("UserRepo", func(t *testing.T) {
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		env := NewTestEnv(t, &bytes.Buffer{}, stdout, stderr)
+		env.MockClient.PFS.On("InspectRepo", mock.Anything).Return(proto.Clone(repoInfo), nil)
+
+		err := RunPachctlSync(t, env, "inspect", "repo", "foo.user")
+		require.NoError(t, err)
+		require.Equal(t, "", stderr.String())
+		require.Equal(t, 1, len(env.MockClient.PFS.Calls))
+		require.Equal(t, &pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: "foo", Type: pfs.UserRepoType}}, env.MockClient.PFS.Calls[0].Arguments[0])
+	})
+
+	suite.Run("ServerError", func(t *testing.T) {
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		env := NewTestEnv(t, &bytes.Buffer{}, stdout, stderr)
+		expectedErr := errors.New("fake server error")
+		var nilRepoInfo *pfs.RepoInfo
+		env.MockClient.PFS.On("InspectRepo", mock.Anything).Return(nilRepoInfo, expectedErr)
+
+		err := RunPachctlSync(t, env, "inspect", "repo", "foo")
+		require.YesError(t, err)
+		require.Equal(t, expectedErr, err)
+		require.Equal(t, "", stdout.String())
+		require.Equal(t, "", stderr.String())
+	})
+
+	suite.Run("JSON", func(t *testing.T) {
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		env := NewTestEnv(t, &bytes.Buffer{}, stdout, stderr)
+		env.MockClient.PFS.On("InspectRepo", mock.Anything).Return(proto.Clone(repoInfo), nil)
+
+		err := RunPachctlSync(t, env, "inspect", "repo", "foo", "--raw", "--output=json")
+		require.NoError(t, err)
+		require.Equal(t, "", stderr.String())
+
+		result := &pfs.RepoInfo{}
+		require.NoError(t, serde.NewJSONDecoder(stdout).DecodeProto(result))
+		require.Equal(t, repoInfo, result)
+	})
+
+	suite.Run("YAML", func(t *testing.T) {
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		env := NewTestEnv(t, &bytes.Buffer{}, stdout, stderr)
+		env.MockClient.PFS.On("InspectRepo", mock.Anything).Return(proto.Clone(repoInfo), nil)
+
+		err := RunPachctlSync(t, env, "inspect", "repo", "foo", "--raw", "--output=yaml")
+		require.NoError(t, err)
+		require.Equal(t, "", stderr.String())
+
+		result := &pfs.RepoInfo{}
+		require.NoError(t, serde.NewYAMLDecoder(stdout).DecodeProto(result))
+		require.Equal(t, repoInfo, result)
+	})
+
+	suite.Run("InvalidOutput", func(t *testing.T) {
+		t.Skip("passing an invalid 'output' flag causes an os.Exit() which aborts the test")
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		env := NewTestEnv(t, &bytes.Buffer{}, stdout, stderr)
+		env.MockClient.PFS.On("InspectRepo", mock.Anything).Return(proto.Clone(repoInfo), nil)
+
+		err := RunPachctlSync(t, env, "inspect", "repo", "foo", "--raw", "--output=hunter2")
+		require.YesError(t, err)
+		require.Equal(t, "", stdout.String())
+		require.Equal(t, "", stderr.String())
+		require.Matches(t, "unrecognized encoding", err.Error())
+	})
+
+	suite.Run("OutputWithoutRaw", func(t *testing.T) {
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		env := NewTestEnv(t, &bytes.Buffer{}, stdout, stderr)
+		env.MockClient.PFS.On("InspectRepo", mock.Anything).Return(proto.Clone(repoInfo), nil)
+
+		err := RunPachctlSync(t, env, "inspect", "repo", "foo", "--output=yaml")
+		require.YesError(t, err)
+		require.Equal(t, "", stdout.String())
+		require.Equal(t, "", stderr.String())
+		require.Matches(t, "cannot set --output", err.Error())
+	})
 }
