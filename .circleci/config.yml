@@ -43,15 +43,22 @@ jobs:
       - run: etc/testing/circle/launch-loki.sh
       - restore_cache:
          keys:
-         - pach-go-cache-{{ .Branch }}
-         - pach-go-cache-
+         - pach-go-build-cache-{{ .Branch }}
+         - pach-go-build-cache
+      - restore_cache:
+         keys:
+         - pach-go-mod-cache-{{ .Branch }}
+         - pach-go-mod-cache
       - run: etc/testing/circle/build.sh 
       - run: etc/testing/circle/launch.sh 
       - run: etc/testing/circle/run_tests.sh 
       - save_cache:
-         key: pach-go-cache-{{ .Branch }}
+         key: pach-go-mod-cache-{{ .Branch }}
          paths:
          - /home/circleci/.go_workspace/pkg/mod
+      - save_cache:
+         key: pach-go-build-cache-{{ .Branch }}
+         paths:
          - /home/circleci/.gocache
       - run: etc/testing/circle/upload_stats.sh 
       - run:
