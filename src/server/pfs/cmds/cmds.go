@@ -129,7 +129,7 @@ or type (e.g. csv, binary, images, etc).`,
 				RepoInfo:       repoInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedRepoInfo(ri)
+			return pretty.PrintDetailedRepoInfo(env.Out(), ri)
 		}),
 	}
 	inspectRepo.Flags().AddFlagSet(outputFlags)
@@ -711,7 +711,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			return pretty.PrintDetailedBranchInfo(branchInfo)
+			return pretty.PrintDetailedBranchInfo(env.Out(), branchInfo)
 		}),
 	}
 	inspectBranch.Flags().AddFlagSet(outputFlags)
@@ -1045,7 +1045,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			return pretty.PrintDetailedFileInfo(fileInfo)
+			return pretty.PrintDetailedFileInfo(env.Out(), fileInfo)
 		}),
 	}
 	inspectFile.Flags().AddFlagSet(outputFlags)

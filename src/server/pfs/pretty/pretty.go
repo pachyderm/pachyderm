@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"os"
 	"strings"
 
 	units "github.com/docker/go-units"
@@ -61,7 +60,7 @@ func NewPrintableRepoInfo(ri *pfs.RepoInfo) *PrintableRepoInfo {
 }
 
 // PrintDetailedRepoInfo pretty-prints detailed repo info.
-func PrintDetailedRepoInfo(repoInfo *PrintableRepoInfo) error {
+func PrintDetailedRepoInfo(w io.Writer, repoInfo *PrintableRepoInfo) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
 		`Name: {{.Repo.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .FullTimestamps}}
@@ -73,7 +72,7 @@ Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 	if err != nil {
 		return err
 	}
-	err = template.Execute(os.Stdout, repoInfo)
+	err = template.Execute(w, repoInfo)
 	if err != nil {
 		return err
 	}
@@ -117,7 +116,7 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 }
 
 // PrintDetailedBranchInfo pretty-prints detailed branch info.
-func PrintDetailedBranchInfo(branchInfo *pfs.BranchInfo) error {
+func PrintDetailedBranchInfo(w io.Writer, branchInfo *pfs.BranchInfo) error {
 	template, err := template.New("BranchInfo").Funcs(funcMap).Parse(
 		`Name: {{.Branch.Repo.Name}}@{{.Branch.Name}}{{if .Head}}
 Head Commit: {{ .Head.Branch.Repo.Name}}@{{.Head.ID}} {{end}}{{if .Provenance}}
@@ -127,7 +126,7 @@ Trigger: {{printTrigger .Trigger}} {{end}}
 	if err != nil {
 		return err
 	}
-	err = template.Execute(os.Stdout, branchInfo)
+	err = template.Execute(w, branchInfo)
 	if err != nil {
 		return err
 	}
@@ -233,7 +232,7 @@ func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTime
 }
 
 // PrintDetailedFileInfo pretty-prints detailed file info.
-func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
+func PrintDetailedFileInfo(w io.Writer, fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
 		`Path: {{.File.Path}}
 Tag: {{.File.Tag}}
@@ -243,7 +242,7 @@ Size: {{prettySize .Details.SizeBytes}}
 	if err != nil {
 		return err
 	}
-	return template.Execute(os.Stdout, fileInfo)
+	return template.Execute(w, fileInfo)
 }
 
 func fileType(fileType pfs.FileType) string {
