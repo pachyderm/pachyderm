@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
@@ -22,7 +23,8 @@ type pendingJob struct {
 	driver                     driver.Driver
 	logger                     logs.TaggedLogger
 	cancel                     context.CancelFunc
-	ji, parentJi               *pps.JobInfo
+	ji                         *pps.JobInfo
+	parentDit                  datum.Iterator
 	commitInfo, metaCommitInfo *pfs.CommitInfo
 	parentMetaCommit           *pfs.Commit
 	taskMaster                 *work.Master
@@ -101,9 +103,18 @@ func (pj *pendingJob) load() error {
 			return err
 		}
 		if !ci.Error {
-			pj.parentJi, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Name, pj.parentMetaCommit.ID, true)
-			if err != nil {
-				return err
+			if ci.Finished != nil {
+				pj.parentDit = datum.NewCommitIterator(pachClient, pj.parentMetaCommit)
+			} else {
+				parentJi, err := pachClient.InspectJob(pj.ji.Job.Pipeline.Name, pj.parentMetaCommit.ID, true)
+				if err != nil {
+					return err
+				}
+				pj.parentDit, err = datum.NewIterator(pachClient, parentJi.Details.Input)
+				if err != nil {
+					return err
+				}
+				pj.parentDit = datum.NewJobIterator(pj.parentDit, parentJi.Job, pj.hasher)
 			}
 			break
 		}
@@ -167,12 +178,7 @@ func (pj *pendingJob) withParallelDatums(pachClient *client.APIClient, cb func(c
 			return cb(ctx, datum.NewFileSetIterator(pachClient, fileSetID))
 		}
 		// Upload the datums from the parent job into the datum file set format.
-		parentDit, err := datum.NewIterator(pachClient, pj.parentJi.Details.Input)
-		if err != nil {
-			return err
-		}
-		parentDit = datum.NewJobIterator(parentDit, pj.ji.Job, pj.hasher)
-		parentFileSetID, err := uploadDatumFileSet(pachClient, parentDit)
+		parentFileSetID, err := uploadDatumFileSet(pachClient, pj.parentDit)
 		if err != nil {
 			return err
 		}
@@ -206,9 +212,12 @@ func (pj *pendingJob) withSerialDatums(pachClient *client.APIClient, cb func(con
 		return nil
 	}
 	// Wait for the parent job to finish.
-	_, err := pachClient.WaitCommit(pj.parentMetaCommit.Branch.Repo.Name, pj.parentMetaCommit.Branch.Name, pj.parentMetaCommit.ID)
+	ci, err := pachClient.WaitCommit(pj.parentMetaCommit.Branch.Repo.Name, pj.parentMetaCommit.Branch.Name, pj.parentMetaCommit.ID)
 	if err != nil {
 		return err
+	}
+	if ci.Error {
+		return pfsserver.ErrCommitError{Commit: ci.Commit}
 	}
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient = pachClient.WithCtx(ctx)

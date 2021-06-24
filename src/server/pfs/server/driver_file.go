@@ -424,9 +424,6 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	if err != nil {
 		return nil, err
 	}
-	if commitInfo.Error {
-		return nil, pfsserver.ErrCommitError{Commit: commitInfo.Commit}
-	}
 	if commitInfo.Finished != nil {
 		return d.getOrComputeTotal(ctx, commitInfo.Commit)
 	}
@@ -499,9 +496,6 @@ func (d *driver) getOrComputeTotal(ctx context.Context, commit *pfs.Commit) (*fi
 func (d *driver) sizeOfCommit(ctx context.Context, commit *pfs.Commit) (int64, error) {
 	fsid, err := d.getFileSet(ctx, commit)
 	if err != nil {
-		if pfsserver.IsCommitErrorErr(err) {
-			return 0, nil
-		}
 		return 0, err
 	}
 	return d.storage.SizeOf(ctx, *fsid)
