@@ -168,13 +168,13 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	if trigger.Commits < 0 {
 		return errors.Errorf("can't trigger on a negative number of commits")
 	}
-	bis, err := d.listBranch(txnCtx.ClientContext, branch.Repo, false)
-	if err != nil {
-		return err
-	}
+
 	biMaps := make(map[string]*pfs.BranchInfo)
-	for _, bi := range bis {
+	if err := d.listBranch(txnCtx.ClientContext, branch.Repo, false, func(bi *pfs.BranchInfo) error {
 		biMaps[bi.Branch.Name] = bi
+		return nil
+	}); err != nil {
+		return err
 	}
 	b := trigger.Branch
 	for {

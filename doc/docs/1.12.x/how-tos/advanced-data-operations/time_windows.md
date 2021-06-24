@@ -187,7 +187,7 @@ In the above directory structure, it might seem that data is
 duplicated. However, under the hood, Pachyderm deduplicates all of these
 files and maintains a space-efficient representation of your data.
 The binning of the data is merely a structural re-arrangement to enable
-you process these types of moving time windows.
+you to process these types of moving time windows.
 
 It might also seem as if Pachyderm performs unnecessary data transfers
 over the network to bin files. However, Pachyderm ensures that these data

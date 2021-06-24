@@ -557,9 +557,6 @@ func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOpt
 		pipelineVersionAnnotation: strconv.FormatUint(pipelineInfo.Version, 10),
 		hashedAuthTokenAnnotation: hashAuthToken(pipelineInfo.AuthToken),
 	}
-	if a.iamRole != "" {
-		annotations["iam.amazonaws.com/role"] = a.iamRole
-	}
 
 	// add the user's custom metadata (annotations and labels).
 	metadata := pipelineInfo.Details.GetMetadata()

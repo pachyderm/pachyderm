@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -95,16 +96,18 @@ func (c APIClient) ListRepo() ([]*pfs.RepoInfo, error) {
 
 // ListRepoByType returns info about Repos of the given type
 // The if repoType is empty, all Repos will be included
-func (c APIClient) ListRepoByType(repoType string) ([]*pfs.RepoInfo, error) {
+func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr error) {
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
 	request := &pfs.ListRepoRequest{Type: repoType}
-	repoInfos, err := c.PfsAPIClient.ListRepo(
-		c.Ctx(),
+	client, err := c.PfsAPIClient.ListRepo(
+		ctx,
 		request,
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return repoInfos.RepoInfo, nil
+	return clientsdk.ListRepoInfo(client)
 }
 
 // DeleteRepo deletes a repo and reclaims the storage space it was using. Note
@@ -253,7 +256,9 @@ func (c APIClient) ListCommitF(repo *pfs.Repo, to, from *pfs.Commit, number uint
 		To:      to,
 		From:    from,
 	}
-	stream, err := c.PfsAPIClient.ListCommit(c.Ctx(), req)
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	stream, err := c.PfsAPIClient.ListCommit(ctx, req)
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -328,8 +333,10 @@ func (c APIClient) InspectBranch(repoName string, branchName string) (*pfs.Branc
 
 // ListBranch lists the active branches on a Repo.
 func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
-	branchInfos, err := c.PfsAPIClient.ListBranch(
-		c.Ctx(),
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	client, err := c.PfsAPIClient.ListBranch(
+		ctx,
 		&pfs.ListBranchRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -337,7 +344,7 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return branchInfos.BranchInfo, nil
+	return clientsdk.ListBranchInfo(client)
 }
 
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
