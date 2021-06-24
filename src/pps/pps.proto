@@ -720,6 +720,7 @@ service API {
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
   // ListJob returns information about current and past Pachyderm jobs.
   rpc ListJob(ListJobRequest) returns (stream JobInfo) {}
+  rpc ListJobSet(ListJobSetRequest) returns (stream JobSetInfo) {}
   rpc SubscribeJob(SubscribeJobRequest) returns (stream JobInfo) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
