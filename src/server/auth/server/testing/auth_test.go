@@ -544,19 +544,34 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "", infoAfter.AuthToken)
 
-	// And also check for a listPipeline
+	// Check that an unprivileged user can list pipelines without details
 	pipelineInfos, err := aliceClient.ListPipeline(false)
 	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
 		require.Equal(t, "", pipelineInfo.AuthToken)
 	}
-	// TODO(2.0 required): this call errors if it uses aliceClient (maybe skip
-	// pipelines we don't have read access on?)
-	// pipelineInfos, err = aliceClient.ListPipeline(true)
-	pipelineInfos, err = bobClient.ListPipeline(true)
+
+	// Check that an unprivileged user can list pipelines with details,
+	// but the details are skipped
+	pipelineInfos, err = aliceClient.ListPipeline(true)
 	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
 		require.Equal(t, "", pipelineInfo.AuthToken)
+		if pipelineInfo.Pipeline.Name == goodPipeline {
+			require.Nil(t, pipelineInfo.Details)
+		} else {
+			require.NotNil(t, pipelineInfo.Details)
+		}
+	}
+
+	pipelineInfos, err = bobClient.ListPipeline(true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
+	for _, pipelineInfo := range pipelineInfos {
+		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.NotNil(t, pipelineInfo.Details)
 	}
 
 	// Make sure the updated pipeline runs successfully

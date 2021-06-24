@@ -2449,7 +2449,10 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 				pachClient := a.env.GetPachClient(ctx)
 				if request.Details {
 					if err := ppsutil.GetPipelineDetails(pachClient, info); err != nil {
-						return err
+						// If the user doesn't have permission to access the spec commit, don't send the details
+						if !auth.IsErrNotAuthorized(err) {
+							return err
+						}
 					}
 				}
 				if err := func() error {
