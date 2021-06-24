@@ -3215,7 +3215,8 @@ func TestStopStandbyPipeline(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out", dataRepo),
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input:       client.NewPFSInput(dataRepo, "/*"),
+			Autoscaling: true,
 		},
 	)
 	require.NoError(t, err)
