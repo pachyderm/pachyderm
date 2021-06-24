@@ -40,6 +40,7 @@ jobs:
          paths:
          - cached-deps/
       - run: etc/testing/circle/start-minikube.sh 
+      - run: etc/testing/circle/launch-loki.sh
       - restore_cache:
          keys:
          - pach-go-cache-{{ .Branch }}
