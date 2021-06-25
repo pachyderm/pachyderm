@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -272,10 +273,14 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 		}),
 	}
 	s := NewSource(commitInfo, fs, opts...)
-	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
-	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
+	s = NewErrOnEmpty(s, newFileNotFound(commitInfo.Commit.ID, p))
+	err = s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		return cb(fi)
 	})
+	if p == "" && pacherr.IsNotExist(err) {
+		err = nil
+	}
+	return err
 }
 
 func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, cb func(*pfs.FileInfo) error) error {
@@ -490,4 +495,11 @@ func (d *driver) sizeOfCommit(ctx context.Context, commit *pfs.Commit) (int64, e
 		return 0, err
 	}
 	return d.storage.SizeOf(ctx, *fsid)
+}
+
+func newFileNotFound(commitID string, path string) *pacherr.ErrNotExist {
+	return &pacherr.ErrNotExist{
+		Collection: "commit/" + commitID,
+		ID:         path,
+	}
 }
