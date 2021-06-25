@@ -261,9 +261,6 @@
                                 "disableSSL": {
                                     "type": "boolean"
                                 },
-                                "iamRole": {
-                                    "type": "string"
-                                },
                                 "id": {
                                     "type": "string"
                                 },

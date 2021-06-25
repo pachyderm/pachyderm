@@ -164,10 +164,6 @@ pachd:
       # disableSSL disables SSL.  It is analogous to the --disable-ssl
       # argument to pachctl deploy.
       disableSSL: false
-      # iamRole specifies the IAM role.  If specified, neither id,
-      # secret, token nor customEndpoint are used.  It is analogous to
-      # the --iam-role argument to pachctl deploy.
-      iamRole: ""
       # id sets the Amazon access key ID to use.  Together with secret
       # and token, it implements the functionality of the
       # --credentials argument to pachctl deploy.

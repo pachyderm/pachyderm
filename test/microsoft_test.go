@@ -4,97 +4,156 @@
 package helmtest
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
 	appsV1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
+	storageV1 "k8s.io/api/storage/v1"
 )
 
 func TestMicrosoft(t *testing.T) {
+
+	type envVarMap struct {
+		helmKey string
+		envVar  string
+		value   string
+	}
+	testCases := []envVarMap{
+		{
+			helmKey: "pachd.storage.microsoft.container",
+			value:   "fake-bucket",
+			envVar:  "MICROSOFT_CONTAINER",
+		},
+		{
+			helmKey: "pachd.storage.microsoft.id",
+			value:   "a-fine-id",
+			envVar:  "MICROSOFT_ID",
+		},
+		{
+			helmKey: "pachd.storage.microsoft.secret",
+			value:   "super-secret-something",
+			envVar:  "MICROSOFT_SECRET",
+		},
+	}
 	var (
-		container    = "foo-container"
-		id           = "ms-id"
-		secret       = "ms-secret"
-		objects, err = manifestToObjects(helm.RenderTemplate(t,
-			&helm.Options{
-				SetStrValues: map[string]string{
-					"pachd.storage.backend":             "MICROSOFT",
-					"pachd.storage.microsoft.container": container,
-					"pachd.storage.microsoft.id":        id,
-					"pachd.storage.microsoft.secret":    secret,
-				}},
-			"../pachyderm/", "release-name", nil))
-		checks = map[string]bool{
-			"STORAGE_BACKEND":     false,
-			"MICROSOFT_CONTAINER": false,
-			"MICROSOFT_ID":        false,
-			"MICROSOFT_SECRET":    false,
-			"container":           false,
-			"id":                  false,
-			"secret":              false,
-			"etcd-volume-size":    false,
-		}
+		expectedProvisioner    = "kubernetes.io/azure-disk"
+		expectedStorageBackend = "MICROSOFT"
 	)
-	if err != nil {
-		t.Fatalf("could not render templates to objects: %v", err)
+	helmValues := map[string]string{
+		"pachd.storage.backend": expectedStorageBackend,
 	}
+	for _, tc := range testCases {
+		helmValues[tc.helmKey] = tc.value
+	}
+
+	templatesToCheck := map[string]bool{
+		"templates/pachd/storage-secret.yaml":          false,
+		"templates/pachd/deployment.yaml":              false,
+		"templates/etcd/statefulset.yaml":              false,
+		"templates/etcd/storageclass-azure.yaml":       false,
+		"templates/postgresql/statefulset.yaml":        false,
+		"templates/postgresql/storageclass-azure.yaml": false,
+	}
+
+	templatesToRender := []string{}
+	for k := range templatesToCheck {
+		templatesToRender = append(templatesToRender, k)
+	}
+
+	objects, err := manifestToObjects(helm.RenderTemplate(t, &helm.Options{
+		SetValues: helmValues,
+	}, "../pachyderm", "blah", templatesToRender))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	for _, object := range objects {
-		switch object := object.(type) {
+		switch resource := object.(type) {
 		case *v1.Secret:
-			if object.Name != "pachyderm-storage-secret" {
+			if resource.Name != "pachyderm-storage-secret" {
 				continue
 			}
-			if s := string(object.Data["microsoft-container"]); s != container {
-				t.Errorf("expected container to be %q but it is %q", container, s)
-			}
-			checks["container"] = true
-			if s := string(object.Data["microsoft-id"]); s != id {
-				t.Errorf("expected id to be %q but it is %q", id, s)
-			}
-			checks["id"] = true
-			if s := string(object.Data["microsoft-secret"]); s != secret {
-				t.Errorf("expected secret to be %q but it is %q", secret, s)
-			}
-			checks["secret"] = true
-		case *appsV1.Deployment:
-			if object.Name != "pachd" {
-				continue
-			}
-			for _, c := range object.Spec.Template.Spec.Containers {
-				if c.Name != "pachd" {
-					continue
-				}
-				for _, e := range c.Env {
-					switch e.Name {
-					case "STORAGE_BACKEND":
-						if e.Value != "MICROSOFT" {
-							t.Errorf("expected STORAGE_BACKEND to be %q, not %q", "GOOGLE", e.Value)
-						}
-						checks["STORAGE_BACKEND"] = true
-					case "MICROSOFT_CONTAINER":
-						checks["MICROSOFT_CONTAINER"] = true
-					case "MICROSOFT_ID":
-						checks["MICROSOFT_ID"] = true
-					case "MICROSOFT_SECRET":
-						checks["MICROSOFT_SECRET"] = true
+
+			for _, tc := range testCases {
+				t.Run(fmt.Sprintf("%s equals %s", tc.envVar, tc.value), func(t *testing.T) {
+					if got := string(resource.Data[tc.envVar]); got != tc.value {
+						t.Errorf("got %s; want %s", got, tc.value)
 					}
+				})
+			}
+			templatesToCheck["templates/pachd/storage-secret.yaml"] = true
+
+		case *storageV1.StorageClass:
+			if resource.Name == "postgresql-storage-class" || resource.Name == "etcd-storage-class" {
+
+				t.Run(fmt.Sprintf("%s storage class annotation equals %s", resource.Name, expectedProvisioner), func(t *testing.T) {
+					if resource.Provisioner != expectedProvisioner {
+						t.Errorf("expected storageclass provisioner to be %q but it was %q", expectedProvisioner, resource.Provisioner)
+					}
+				})
+				//TODO Check all params in storage class set for microsoft
+				if resource.Name == "postgresql-storage-class" {
+					templatesToCheck["templates/postgresql/storageclass-azure.yaml"] = true
+				}
+				if resource.Name == "etcd-storage-class" {
+					templatesToCheck["templates/etcd/storageclass-azure.yaml"] = true
 				}
 			}
-		case *appsV1.StatefulSet:
-			if object.Name != "etcd" {
+		case *appsV1.Deployment:
+			if resource.Name != "pachd" {
 				continue
 			}
-			if *object.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage() != resource.MustParse("256Gi") {
-				t.Errorf("expected storage size to be %q, not %q", "256Gi", object.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage())
+
+			t.Run("pachd deployment env vars", func(t *testing.T) {
+				c, ok := GetContainerByName("pachd", resource.Spec.Template.Spec.Containers)
+				if !ok {
+					t.Errorf("pachd container not found in pachd deployment")
+				}
+				if err, got := GetEnvVarByName(c.Env, storageBackendEnvVar); err == nil && got != expectedStorageBackend {
+					t.Errorf("expected %s to be %q, not %q", storageBackendEnvVar, expectedStorageBackend, got)
+				}
+			})
+			templatesToCheck["templates/pachd/deployment.yaml"] = true
+
+		case *appsV1.StatefulSet:
+			if resource.Name == "etcd" || resource.Name == "postgres" {
+
+				for _, pvc := range resource.Spec.VolumeClaimTemplates {
+					// Check Default Storage Request
+					expectedStorageSize := "256Gi"
+
+					if pvc.Name == "etcd-storage" {
+						t.Run(fmt.Sprintf("%s storage class storage resource request equals %s", resource.Name, expectedStorageSize), func(t *testing.T) {
+							if got := pvc.Spec.Resources.Requests.Storage().String(); got != expectedStorageSize {
+								t.Errorf("expected stateful set storage resource request to be %q but it was %q", expectedStorageSize, got)
+
+							}
+						})
+						templatesToCheck["templates/etcd/statefulset.yaml"] = true
+					}
+
+					if pvc.Name == "postgres-storage" {
+						t.Run(fmt.Sprintf("%s storage class storage resource request equals %s", resource.Name, expectedStorageSize), func(t *testing.T) {
+							if got := pvc.Spec.Resources.Requests.Storage().String(); got != expectedStorageSize {
+								t.Errorf("expected stateful set storage resource request to be %q but it was %q", expectedStorageSize, got)
+
+							}
+						})
+						templatesToCheck["templates/postgresql/statefulset.yaml"] = true
+
+					}
+
+				}
 			}
-			checks["etcd-volume-size"] = true
 		}
 	}
-	for check := range checks {
-		if !checks[check] {
-			t.Errorf("%s unchecked", check)
+
+	for k, ok := range templatesToCheck {
+		if !ok {
+			t.Errorf("template %q not checked", k)
 		}
 	}
 }

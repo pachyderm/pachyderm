@@ -11,3 +11,11 @@ pachd:
       # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
       secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
       cloudFrontDistribution: cfd-123
+  serviceAccount:
+    additionalAnnotations:
+      eks.amazonaws.com/role-arn: blah123
+
+worker:
+  serviceAccount:
+    additionalAnnotations:
+      eks.amazonaws.com/role-arn: blah123

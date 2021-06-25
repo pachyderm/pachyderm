@@ -20,10 +20,8 @@ spec:
   strategy: {}
   template:
     metadata:
-      {{- if .Values.pachd.storage.amazon.iamRole }}
       annotations:
-        iam.amazonaws.com/role: {{ .Values.pachd.storage.amazon.iamRole }}
-      {{- end }}
+        checksum/storage-secret: {{ include (print $.Template.BasePath "/pachd/storage-secret.yaml") . | sha256sum }}
       labels:
         app: pachd
         suite: pachyderm
@@ -74,10 +72,6 @@ spec:
         {{- end }}
         - name: LOG_LEVEL
           value: {{ .Values.pachd.logLevel }}
-        {{- if.Values.pachd.storage.amazon.iamRole }}
-        - name: IAM_ROLE
-          value: {{ .Values.pachd.storage.amazon.iamRole | quote }}
-        {{- end }}
         - name: NO_EXPOSE_DOCKER_SOCKET
           value: {{ .Values.pachd.exposeDockerSocket | not | quote }}
         - name: PACH_NAMESPACE
@@ -104,180 +98,13 @@ spec:
               fieldPath: metadata.name
         - name: PPS_WORKER_GRPC_PORT
           value: {{ .Values.pachd.ppsWorkerGRPCPort | quote }}
-        {{- if eq .Values.pachd.storage.backend "GOOGLE" }}
-        - name: GOOGLE_BUCKET
-          valueFrom:
-            secretKeyRef:
-              key: google-bucket
-              name: pachyderm-storage-secret
-              optional: true
-        - name: GOOGLE_CRED
-          valueFrom:
-            secretKeyRef:
-              key: google-cred
-              name: pachyderm-storage-secret
-              optional: true
-        {{- end }}
-        {{- if eq .Values.pachd.storage.backend "MICROSOFT" }}
-        - name: MICROSOFT_CONTAINER
-          valueFrom:
-            secretKeyRef:
-              key: microsoft-container
-              name: pachyderm-storage-secret
-              optional: true
-        - name: MICROSOFT_ID
-          valueFrom:
-            secretKeyRef:
-              key: microsoft-id
-              name: pachyderm-storage-secret
-              optional: true
-        - name: MICROSOFT_SECRET
-          valueFrom:
-            secretKeyRef:
-              key: microsoft-secret
-              name: pachyderm-storage-secret
-              optional: true
-        {{- end }}
-        {{- if eq .Values.pachd.storage.backend "MINIO" }}
-        - name: MINIO_BUCKET
-          valueFrom:
-            secretKeyRef:
-              key: minio-bucket
-              name: pachyderm-storage-secret
-              optional: true
-        - name: MINIO_ENDPOINT
-          valueFrom:
-            secretKeyRef:
-              key: minio-endpoint
-              name: pachyderm-storage-secret
-              optional: true
-        - name: MINIO_ID
-          valueFrom:
-            secretKeyRef:
-              key: minio-id
-              name: pachyderm-storage-secret
-              optional: true
-        - name: MINIO_SECRET
-          valueFrom:
-            secretKeyRef:
-              key: minio-secret
-              name: pachyderm-storage-secret
-              optional: true
-        - name: MINIO_SECURE
-          valueFrom:
-            secretKeyRef:
-              key: minio-secure
-              name: pachyderm-storage-secret
-              optional: true
-        - name: MINIO_SIGNATURE
-          valueFrom:
-            secretKeyRef:
-              key: minio-signature
-              name: pachyderm-storage-secret
-              optional: true
-        {{- end }}
-        {{- if eq .Values.pachd.storage.backend "AMAZON" }}
-        - name: AMAZON_REGION
-          valueFrom:
-            secretKeyRef:
-              key: amazon-region
-              name: pachyderm-storage-secret
-              optional: true
-        - name: AMAZON_BUCKET
-          valueFrom:
-            secretKeyRef:
-              key: amazon-bucket
-              name: pachyderm-storage-secret
-              optional: true
-        - name: AMAZON_ID
-          valueFrom:
-            secretKeyRef:
-              key: amazon-id
-              name: pachyderm-storage-secret
-              optional: true
-        - name: AMAZON_SECRET
-          valueFrom:
-            secretKeyRef:
-              key: amazon-secret
-              name: pachyderm-storage-secret
-              optional: true
-        - name: AMAZON_TOKEN
-          valueFrom:
-            secretKeyRef:
-              key: amazon-token
-              name: pachyderm-storage-secret
-              optional: true
-        - name: AMAZON_DISTRIBUTION
-          valueFrom:
-            secretKeyRef:
-              key: amazon-distribution
-              name: pachyderm-storage-secret
-              optional: true
-        - name: CUSTOM_ENDPOINT
-          valueFrom:
-            secretKeyRef:
-              key: custom-endpoint
-              name: pachyderm-storage-secret
-              optional: true
-        - name: RETRIES
-          valueFrom:
-            secretKeyRef:
-              key: retries
-              name: pachyderm-storage-secret
-              optional: true
-        - name: TIMEOUT
-          valueFrom:
-            secretKeyRef:
-              key: timeout
-              name: pachyderm-storage-secret
-              optional: true
-        - name: UPLOAD_ACL
-          valueFrom:
-            secretKeyRef:
-              key: upload-acl
-              name: pachyderm-storage-secret
-              optional: true
-        - name: REVERSE
-          valueFrom:
-            secretKeyRef:
-              key: reverse
-              name: pachyderm-storage-secret
-              optional: true
-        - name: PART_SIZE
-          valueFrom:
-            secretKeyRef:
-              key: part-size
-              name: pachyderm-storage-secret
-              optional: true
-        - name: MAX_UPLOAD_PARTS
-          valueFrom:
-            secretKeyRef:
-              key: max-upload-parts
-              name: pachyderm-storage-secret
-              optional: true
-        - name: DISABLE_SSL
-          valueFrom:
-            secretKeyRef:
-              key: disable-ssl
-              name: pachyderm-storage-secret
-              optional: true
-        - name: NO_VERIFY_SSL
-          valueFrom:
-            secretKeyRef:
-              key: no-verify-ssl
-              name: pachyderm-storage-secret
-              optional: true
-        - name: OBJ_LOG_OPTS
-          valueFrom:
-            secretKeyRef:
-              key: log-options
-              name: pachyderm-storage-secret
-              optional: true
-        {{- end }}
         - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
+        envFrom:
+          - secretRef:
+              name: pachyderm-storage-secret          
         image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         {{- if .Values.imagePullSecret }}

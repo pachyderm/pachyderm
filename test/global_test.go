@@ -5,6 +5,7 @@ package helmtest
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -20,6 +21,10 @@ import (
 func init() {
 	logger.Default = logger.Discard
 }
+
+const (
+	storageBackendEnvVar = "STORAGE_BACKEND"
+)
 
 // adapted from https://play.golang.org/p/MZNwxdUzxPo
 func splitYAML(manifest string) ([]string, error) {
@@ -134,4 +139,23 @@ func ensureVolumePresent(matchVol v1.Volume, volumes []v1.Volume) bool {
 		}
 	}
 	return present
+}
+
+func GetEnvVarByName(envVars []v1.EnvVar, name string) (error, string) {
+	for _, v := range envVars {
+		if v.Name == name {
+			return nil, v.Value
+		}
+	}
+	return errors.New("Not found"), ""
+}
+
+// GetContainerByName returns container or nil
+func GetContainerByName(name string, containers []v1.Container) (*v1.Container, bool) {
+	for _, c := range containers {
+		if c.Name == name {
+			return &c, true
+		}
+	}
+	return &v1.Container{}, false
 }
