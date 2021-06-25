@@ -25,40 +25,32 @@ const pps: Pick<
   | 'inspectJobSet'
   | 'getLogs'
 > = {
-  listPipeline: async (call, callback) => {
+  listPipeline: async (call) => {
     const [projectId] = call.metadata.get('project-id');
     const [authToken] = call.metadata.get('authn-token');
-
     if (authToken && authToken === 'expired') {
-      callback(
-        {
+      call.emit(
+        'error',
+        createServiceError({
           code: Status.INTERNAL,
           details: 'token expiration is in the past',
-        },
-        null,
+        }),
       );
     }
-
-    const reply = new PipelineInfos();
-    // "tutorial" in this case represents the default/catch-all project in core pach
-    reply.setPipelineInfoList(
-      projectId ? pipelines[projectId.toString()] : pipelines['1'],
-    );
+    let replyPipelines = projectId
+      ? pipelines[projectId.toString()]
+      : pipelines['1'];
 
     if (call.request.getJqfilter()) {
-      return callback(
-        null,
-        reply.setPipelineInfoList(
-          await runJQFilter({
-            jqFilter: `.pipelineInfoList[] | ${call.request.getJqfilter()}`,
-            object: reply.toObject(),
-            objectMapper: pipelineInfoFromObject,
-          }),
-        ),
-      );
-    } else {
-      callback(null, reply);
+      replyPipelines = await runJQFilter({
+        jqFilter: `.pipelineInfoList[] | ${call.request.getJqfilter()}`,
+        object: {pipelineInfoList: replyPipelines.map((p) => p.toObject())},
+        objectMapper: pipelineInfoFromObject,
+      });
     }
+
+    replyPipelines.forEach((pipeline) => call.write(pipeline));
+    call.end();
   },
   listJob: async (call) => {
     const [projectId] = call.metadata.get('project-id');

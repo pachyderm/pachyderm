@@ -34,19 +34,15 @@ const pps = ({
 
   return {
     listPipeline: (jq = '') => {
-      return new Promise<PipelineInfo.AsObject[]>((resolve, reject) => {
-        client.listPipeline(
-          new ListPipelineRequest().setJqfilter(jq).setDetails(true),
-          credentialMetadata,
-          (error, res) => {
-            if (error) {
-              return reject(error);
-            }
+      const listPipelineRequest = new ListPipelineRequest()
+        .setJqfilter(jq)
+        .setDetails(true);
+      const stream = client.listPipeline(
+        listPipelineRequest,
+        credentialMetadata,
+      );
 
-            return resolve(res.toObject().pipelineInfoList);
-          },
-        );
-      });
+      return streamToObjectArray<PipelineInfo, PipelineInfo.AsObject>(stream);
     },
 
     listJobs: ({limit = DEFAULT_JOBS_LIMIT, jq = ''} = {}) => {

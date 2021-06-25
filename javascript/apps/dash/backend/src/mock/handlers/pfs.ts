@@ -1,11 +1,7 @@
 import {Status} from '@grpc/grpc-js/build/src/constants';
 import {Permission} from '@pachyderm/proto/pb/auth/auth_pb';
 import {IAPIServer} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
-import {
-  ListRepoResponse,
-  RepoAuthInfo,
-  RepoInfo,
-} from '@pachyderm/proto/pb/pfs/pfs_pb';
+import {RepoAuthInfo, RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 
 import {REPO_READER_PERMISSIONS} from '@dash-backend/constants/permissions';
 import commits from '@dash-backend/mock/fixtures/commits';
@@ -40,20 +36,19 @@ const pfs: Pick<
   IAPIServer,
   'listRepo' | 'inspectRepo' | 'listCommit' | 'listFile'
 > = {
-  listRepo: (call, callback) => {
+  listRepo: (call) => {
     const [projectId] = call.metadata.get('project-id');
     const [accountId] = call.metadata.get('authn-token');
-
-    const reply = new ListRepoResponse();
-
     const projectRepos = setAuthInfoForRepos(
       projectId ? repos[projectId.toString()] : repos['1'],
       accountId.toString(),
     );
 
-    reply.setRepoInfoList(projectRepos);
+    projectRepos.forEach((repo) => {
+      call.write(repo);
+    });
 
-    callback(null, reply);
+    call.end();
   },
   inspectRepo: (call, callback) => {
     const [projectId] = call.metadata.get('project-id');

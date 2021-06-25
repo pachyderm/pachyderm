@@ -95,17 +95,10 @@ const pfs = ({
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
     },
     listRepo: (type = 'user') => {
-      return new Promise<RepoInfo.AsObject[]>((resolve, reject) => {
-        const listRepoRequest = new ListRepoRequest().setType(type);
+      const listRepoRequest = new ListRepoRequest().setType(type);
+      const stream = client.listRepo(listRepoRequest, credentialMetadata);
 
-        client.listRepo(listRepoRequest, credentialMetadata, (error, res) => {
-          if (error) {
-            return reject(error);
-          }
-
-          return resolve(res.toObject().repoInfoList);
-        });
-      });
+      return streamToObjectArray<RepoInfo, RepoInfo.AsObject>(stream);
     },
     inspectRepo: (name: RepoObject['name']) => {
       return new Promise<RepoInfo.AsObject>((resolve, reject) => {
