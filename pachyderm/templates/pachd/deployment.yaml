@@ -50,14 +50,6 @@ spec:
         - name: POSTGRES_USER
           value: {{ .Values.pachd.postgresql.user | quote}}
         {{- end }}
-        {{- if .Values.pachd.postgresql.password }}
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: POSTGRES_PASSWORD
-              name: pachyderm-storage-secret
-              optional: true
-        {{- end }}
         {{- if .Values.pachd.postgresql.ssl }}
         - name: POSTGRES_SERVICE_SSL
           value: {{ .Values.pachd.postgresql.ssl | quote }}
