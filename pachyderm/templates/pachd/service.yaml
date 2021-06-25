@@ -18,17 +18,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   ports:
-  # This must remain first in the list for compatibility with old dash (can't connect when TLS enabled on api-grpc-port)
-  # The first port in the list sets the PACHD_SERVICE_PORT variable used by https://github.com/pachyderm/grpc-proxy/blob/master/Dockerfile
-  - name: api-grpc-peer
-    {{- if eq .Values.pachd.service.type "NodePort" }}
-    nodePort: 30653
-    port: 1653
-    {{- else }}
-    port: 30653
-    {{- end }}
-    protocol: TCP
-    targetPort: peer-port
   - name: api-grpc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30650
