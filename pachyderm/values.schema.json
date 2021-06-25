@@ -209,6 +209,26 @@
                 "podLabels": {
                     "type": "object"
                 },
+                "postgresql": {
+                    "type": "object",
+                    "properties": {
+                        "host": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "port": {
+                            "type": "string"
+                        },
+                        "ssl": {
+                            "type": "string"
+                        },
+                        "user": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
                 },
@@ -399,6 +419,9 @@
         "postgresql": {
             "type": "object",
             "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
                 "resources": {
                     "type": "object"
                 },

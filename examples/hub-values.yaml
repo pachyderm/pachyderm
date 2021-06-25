@@ -26,6 +26,12 @@ loadBalancer:
   ip: "192.0.2.3"
 
 pachd:
+  postgresql:
+    host: "169.254.169.254"
+    port: "5432"
+    ssl: "disable"
+    user: "postgres"
+    password: "Example-Password"
   exposeDockerSocket: true
   goMaxProcs: 3
   # image.tag is configured per workspace.
@@ -53,3 +59,6 @@ pachd:
   tls:
     enabled: true
     secretName: "dash-tls"
+postgresql:
+  # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
+  enabled: false
