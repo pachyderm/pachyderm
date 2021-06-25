@@ -23,6 +23,7 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authiface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
 	"github.com/gogo/protobuf/proto"
@@ -467,14 +468,37 @@ func resourceKey(r *auth.Resource) string {
 }
 
 func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, principal string, resource *auth.Resource, permissions map[auth.Permission]bool) (*authorizeRequest, error) {
+	request := newAuthorizeRequest(principal, permissions, a.getGroups)
+
+	// Special-case making spec repos world-readable, because the alternative breaks reading pipelines.
+	// TOOD: 2.0 - should we make this a user-configurable cluster binding instead of hard-coding it?
+	if resource.Type == auth.ResourceType_SPEC_REPO {
+		if err := request.evaluateRoleBinding(txnCtx.ClientContext, &auth.RoleBinding{
+			Entries: map[string]*auth.Roles{
+				auth.AllClusterUsersSubject: &auth.Roles{
+					Roles: map[string]bool{
+						auth.RepoReaderRole: true,
+					},
+				},
+			},
+		}); err != nil {
+			return nil, err
+		}
+
+		// If the user only requested reader access, we can return early.
+		// Otherwise we just treat this like a request about the associated user repo.
+		if request.isSatisfied() {
+			return request, nil
+		}
+		resource.Type = auth.ResourceType_REPO
+	}
+
+	// Check the permissions at the cluster level
 	binding, err := a.getClusterRoleBinding(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
 
-	request := newAuthorizeRequest(principal, permissions, a.getGroups)
-
-	// Check the permissions at the cluster level
 	if err := request.evaluateRoleBinding(txnCtx.ClientContext, binding); err != nil {
 		return nil, err
 	}
@@ -686,7 +710,7 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txncontext.Transactio
 // that is included in the repoReader role, versus being able to modify all role bindings which is
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
 func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
-	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, sourceRepo, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: sourceRepo}, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
 		return err
 	}
 
@@ -699,7 +723,7 @@ func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.Tran
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
 func (a *apiServer) AddPipelineWriterToRepoInTransaction(txnCtx *txncontext.TransactionContext, pipeline string) error {
 	// Check that the user is allowed to add a pipeline to write to the output repo.
-	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: pipeline}, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
 		return err
 	}
 
@@ -714,7 +738,7 @@ func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txncontext
 	// Check that the user is allowed to remove input repos from the pipeline repo - this check is on the pipeline itself
 	// and not sourceRepo because otherwise users could break piplines they don't have access to by revoking them from the
 	// input repo.
-	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil && !auth.IsErrNoRoleBinding(err) {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: pipeline}, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil && !auth.IsErrNoRoleBinding(err) {
 		return err
 	}
 
@@ -747,7 +771,7 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 			return nil, err
 		}
 	case auth.ResourceType_REPO:
-		if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, req.Resource.Name, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
+		if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: req.Resource.Name}, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
 			return nil, err
 		}
 	default:
