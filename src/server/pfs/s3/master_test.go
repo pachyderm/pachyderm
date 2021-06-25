@@ -329,14 +329,25 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	require.NoError(t, pachClient.CreateRepo(repo))
 	commit, err := pachClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	for i := 0; i <= 1000; i++ {
-		putListFileTestObject(t, pachClient, commit, "", i)
-	}
-	for i := 0; i < 10; i++ {
-		putListFileTestObject(t, pachClient, commit, "dir/", i)
-	}
-	putListFileTestObject(t, pachClient, client.NewCommit(repo, "branch", ""), "", 1001)
+
+	pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+		for i := 0; i <= 1000; i++ {
+			putListFileTestObject(t, mf, "", i)
+		}
+
+		for i := 0; i < 10; i++ {
+			putListFileTestObject(t, mf, "dir/", i)
+		}
+		return nil
+	})
+
+	pachClient.WithModifyFileClient(client.NewCommit(repo, "branch", ""), func(mf client.ModifyFile) error {
+		putListFileTestObject(t, mf, "", 1001)
+		return nil
+	})
+
 	require.NoError(t, pachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
 	// Request that will list all files in master's root
@@ -394,13 +405,18 @@ func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, mini
 	require.NoError(t, pachClient.CreateRepo(repo))
 	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", "", nil))
 	require.NoError(t, pachClient.CreateBranch(repo, "emptybranch", "", "", nil))
-	commit, err := pachClient.StartCommit(repo, "master")
-	require.NoError(t, err)
-	putListFileTestObject(t, pachClient, commit, "", 0)
-	putListFileTestObject(t, pachClient, commit, "rootdir/", 1)
-	putListFileTestObject(t, pachClient, commit, "rootdir/subdir/", 2)
-	putListFileTestObject(t, pachClient, client.NewCommit(repo, "branch", ""), "", 3)
-	require.NoError(t, pachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+
+	pachClient.WithModifyFileClient(client.NewCommit(repo, "master", ""), func(mf client.ModifyFile) error {
+		putListFileTestObject(t, mf, "", 0)
+		putListFileTestObject(t, mf, "rootdir/", 1)
+		putListFileTestObject(t, mf, "rootdir/subdir/", 2)
+		return nil
+	})
+
+	pachClient.WithModifyFileClient(client.NewCommit(repo, "branch", ""), func(mf client.ModifyFile) error {
+		putListFileTestObject(t, mf, "", 3)
+		return nil
+	})
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
 	// Request that will list all files in master
