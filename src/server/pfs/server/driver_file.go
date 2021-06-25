@@ -273,7 +273,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 		}),
 	}
 	s := NewSource(commitInfo, fs, opts...)
-	s = NewErrOnEmpty(s, pacherr.NewNotExist(commitInfo.Commit.ID, p))
+	s = NewErrOnEmpty(s, newFileNotFound(commitInfo.Commit.ID, p))
 	err = s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		return cb(fi)
 	})
@@ -495,4 +495,11 @@ func (d *driver) sizeOfCommit(ctx context.Context, commit *pfs.Commit) (int64, e
 		return 0, err
 	}
 	return d.storage.SizeOf(ctx, *fsid)
+}
+
+func newFileNotFound(commitID string, path string) *pacherr.ErrNotExist {
+	return &pacherr.ErrNotExist{
+		Collection: "commit/" + commitID,
+		ID:         path,
+	}
 }
