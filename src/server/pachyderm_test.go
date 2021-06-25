@@ -3078,8 +3078,6 @@ func TestStopPipeline(t *testing.T) {
 }
 
 func TestStandby(t *testing.T) {
-	// TODO(2.0 required): Investigate flakiness.
-	t.Skip("Investigate flakiness")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
