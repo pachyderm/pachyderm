@@ -5,6 +5,7 @@ import (
 
 	auth_client "github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	pfs_client "github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // APIServer is the internal interface for other services to call this one.
@@ -13,10 +14,10 @@ import (
 type APIServer interface {
 	auth_client.APIServer
 
-	CheckRepoIsAuthorized(context.Context, string, ...auth_client.Permission) error
+	CheckRepoIsAuthorized(context.Context, *pfs_client.Repo, ...auth_client.Permission) error
 	CheckClusterIsAuthorized(ctx context.Context, p ...auth_client.Permission) error
 	CheckClusterIsAuthorizedInTransaction(*txncontext.TransactionContext, ...auth_client.Permission) error
-	CheckRepoIsAuthorizedInTransaction(*txncontext.TransactionContext, string, ...auth_client.Permission) error
+	CheckRepoIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs_client.Repo, ...auth_client.Permission) error
 
 	AuthorizeInTransaction(*txncontext.TransactionContext, *auth_client.AuthorizeRequest) (*auth_client.AuthorizeResponse, error)
 	ModifyRoleBindingInTransaction(*txncontext.TransactionContext, *auth_client.ModifyRoleBindingRequest) (*auth_client.ModifyRoleBindingResponse, error)

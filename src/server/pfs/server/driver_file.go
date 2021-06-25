@@ -121,7 +121,7 @@ func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit, opts ...ind
 		}
 		return &pfs.CommitInfo{Commit: commit}, fs, nil
 	}
-	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
+	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, err
 	}
 	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
@@ -322,12 +322,12 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 	}
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, oldFile.Commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
+		if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, oldFile.Commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
-		if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, newFile.Commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
+		if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, newFile.Commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
