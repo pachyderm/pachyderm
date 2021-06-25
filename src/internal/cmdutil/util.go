@@ -4,7 +4,54 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/spf13/pflag"
 )
+
+// Encoder creates an encoder that writes data structures to os.Stdout in the
+// serialization format 'format'.  If the 'format' passed is unrecognized
+// (currently, 'format' must be 'json' or 'yaml') then pachctl exits
+// immediately.
+func Encoder(format string, w io.Writer) serde.Encoder {
+	format = strings.ToLower(format)
+	if format == "" {
+		format = "json"
+	}
+	e, err := serde.GetEncoder(format, w,
+		serde.WithIndent(2),
+		serde.WithOrigName(true),
+	)
+	if err != nil {
+		ErrorAndExit("%s", err.Error())
+	}
+	return e
+}
+
+func OutputFlags(raw *bool, output *string) *pflag.FlagSet {
+	outputFlags := pflag.NewFlagSet("", pflag.ExitOnError)
+	outputFlags.BoolVar(raw, "raw", false, "Disable pretty printing; serialize data structures to an encoding such as json or yaml")
+	// --output is empty by default, so that we can print an error if a user
+	// explicitly sets --output without --raw, but the effective default is set in
+	// encode(), which assumes "json" if 'format' is empty.
+	// Note: because of how spf13/flags works, no other StringVarP that sets
+	// 'output' can have a default value either
+	outputFlags.StringVarP(output, "output", "o", "", "Output format when --raw is set: \"json\" or \"yaml\" (default \"json\")")
+	return outputFlags
+}
+
+func TimestampFlags(fullTimestamps *bool) *pflag.FlagSet {
+	timestampFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	timestampFlags.BoolVar(fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
+	return timestampFlags
+}
+
+func PagerFlags(noPager *bool) *pflag.FlagSet {
+	pagerFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	pagerFlags.BoolVar(noPager, "no-pager", false, "Don't pipe output into a pager (i.e. less).")
+	return pagerFlags
+}
 
 func readLine(r io.Reader) (string, error) {
 	// Read one byte at a time to avoid over-reading

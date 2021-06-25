@@ -436,7 +436,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 	if context.EnterpriseServer {
 		port, err = fw.RunForEnterpriseServer(0, 1650)
 	} else {
-		port, err = fw.RunForDaemon(0, 1650)
+		port, err = fw.RunForPachd(0, 1650)
 	}
 
 	if err != nil {
