@@ -209,6 +209,26 @@
                 "podLabels": {
                     "type": "object"
                 },
+                "postgresql": {
+                    "type": "object",
+                    "properties": {
+                        "host": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "port": {
+                            "type": "string"
+                        },
+                        "ssl": {
+                            "type": "string"
+                        },
+                        "user": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
                 },
@@ -399,19 +419,11 @@
         "postgresql": {
             "type": "object",
             "properties": {
-                "resources": {
-                    "type": "object"
                 "enabled": {
                     "type": "boolean"
                 },
-                "host": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "port": {
-                    "type": "string"
+                "resources": {
+                    "type": "object"
                 },
                 "service": {
                     "type": "object",
@@ -422,12 +434,6 @@
                     }
                 },
                 "storageClass": {
-                    "type": "string"
-                },
-                "ssl": {
-                    "type": "string"
-                },
-                "user": {
                     "type": "string"
                 }
             }

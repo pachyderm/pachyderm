@@ -139,6 +139,12 @@ pachd:
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
+  postgresql:
+    host: "postgres"
+    port: "5432"
+    ssl: "disable"
+    user: ""
+    password: ""
   requireCriticalServersOnly: false
   service:
     # labels specifies labels to add to the pachd service.
@@ -299,15 +305,9 @@ worker:
 postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
   enabled: true
-  host: ""
-  port: ""
-  ssl: ""
-  user: ""
-  password: ""
-
-  service:
-    type: ClusterIP
   storageClass: ""
+  service:
+    type: "ClusterIP"
   resources: {}
     #limits:
     #  cpu: "1"
