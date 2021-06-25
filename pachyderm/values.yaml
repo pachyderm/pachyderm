@@ -262,7 +262,7 @@ pachd:
     # object storage uploads per Pachd instance.  It is analogous to
     # the --upload-concurrency-limit argument to pachctl deploy.
     uploadConcurrencyLimit: 100
-  ppsWorkerGRPCPort: 80
+  ppsWorkerGRPCPort: 1080
   # There are three options for TLS:
   # 1. Disabled
   # 2. Enabled, existingSecret, specify secret name
