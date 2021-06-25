@@ -38,19 +38,19 @@ spec:
       - command:
         - /pachd
         env:
-        {{- if .Values.postgresql.host }}
+        {{- if .Values.pachd.postgresql.host }}
         - name: POSTGRES_HOST
-          value: {{ .Values.postgresql.host | quote}}
+          value: {{ .Values.pachd.postgresql.host | quote}}
         {{- end }}
-        {{- if .Values.postgresql.port }}
+        {{- if .Values.pachd.postgresql.port }}
         - name: POSTGRES_PORT
-          value:  {{ .Values.postgresql.port | quote}}
+          value:  {{ .Values.pachd.postgresql.port | quote}}
         {{- end }}
-        {{- if .Values.postgresql.user }}
+        {{- if .Values.pachd.postgresql.user }}
         - name: POSTGRES_USER
-          value: {{ .Values.postgresql.user | quote}}
+          value: {{ .Values.pachd.postgresql.user | quote}}
         {{- end }}
-        {{- if .Values.postgresql.password }}
+        {{- if .Values.pachd.postgresql.password }}
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -58,12 +58,10 @@ spec:
               name: pachyderm-storage-secret
               optional: true
         {{- end }}
-        {{- if .Values.postgresql.ssl }}
+        {{- if .Values.pachd.postgresql.ssl }}
         - name: POSTGRES_SERVICE_SSL
-          value: {{ .Values.postgresql.ssl | quote }}
+          value: {{ .Values.pachd.postgresql.ssl | quote }}
         {{- end}}
-        - name: PACH_ROOT_2
-          value: "/pach"
         - name: LOKI_LOGGING
           value: {{ .Values.pachd.lokiLogging | quote}}
         - name: PACH_ROOT
@@ -93,7 +91,7 @@ spec:
           value: "{{ .Values.pachd.metricsEndpoint }}"
         {{- end }}
         {{- if and .Values.pachd.goMaxProcs (gt .Values.pachd.goMaxProcs 0.0)}}
-        - name: GOMAXPROCS # Needs to be PR'd to 2.0 
+        - name: GOMAXPROCS # Needs to be PR'd to 2.0
           value: {{ .Values.pachd.goMaxProcs | quote }}
         {{- end }}
         - name: LOG_LEVEL
@@ -130,7 +128,7 @@ spec:
           value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
         envFrom:
           - secretRef:
-              name: pachyderm-storage-secret          
+              name: pachyderm-storage-secret
         image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         {{- if .Values.imagePullSecret }}
