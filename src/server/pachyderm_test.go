@@ -2696,10 +2696,14 @@ func TestUpdateFailedPipeline(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, "master", ""))
 
 	// Wait for pod to try and pull the bad image
-	time.Sleep(10 * time.Second)
-	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_CRASHING.String(), pipelineInfo.State.String())
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+		require.NoError(t, err)
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_CRASHING {
+			return errors.Errorf("expected pipeline to be in CRASHING state but got: %v\n", pipelineInfo.State)
+		}
+		return nil
+	})
 
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
@@ -2713,10 +2717,14 @@ func TestUpdateFailedPipeline(t *testing.T) {
 		"",
 		true,
 	))
-	time.Sleep(10 * time.Second)
-	pipelineInfo, err = c.InspectPipeline(pipelineName, false)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+		require.NoError(t, err)
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return errors.Errorf("expected pipeline to be in RUNNING state but got: %v\n", pipelineInfo.State)
+		}
+		return nil
+	})
 
 	// Sanity check run some actual data through the pipeline:
 	commit, err = c.StartCommit(dataRepo, "master")

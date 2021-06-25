@@ -2197,7 +2197,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	if request.Service == nil && request.Spout == nil {
 		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx, &pfs.CreateRepoRequest{
 			Repo:        statsBranch.Repo,
-			Description: fmt.Sprint("Meta repo for", pipelineName),
+			Description: fmt.Sprint("Meta repo for pipeline ", pipelineName),
 		}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrap(err, "could not create meta repo")
 		}
