@@ -473,10 +473,7 @@ $ {{alias}} foo@master --from XXX`,
 		Short: "Wait for the specified commit to finish and return it.",
 		Long:  "Wait for the specified commit to finish and return it.",
 		Example: `
-# return commits in the same commit set as foo@XXX
-$ {{alias}} XXX
-
-# return commits caused by foo@XXX leading to branch bar@baz
+# wait for the commit foo@XXX to finish and return it
 $ {{alias}} foo@XXX -b bar@baz`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			commit, err := cmdutil.ParseCommit(args[0])
@@ -598,8 +595,14 @@ $ {{alias}} test@master --new`,
 
 	waitCommitSet := &cobra.Command{
 		Use:   "{{alias}} <commitset-id>",
-		Short: "Return info about the commits in a commitset.",
-		Long:  "Return info about the commits in a commitset.",
+		Short: "Wait for commits in a commitset to finish and return them.",
+		Long:  "Wait for commits in a commitset to finish and return them.",
+		Example: `
+# return commits in the same commitset as foo@XXX
+$ {{alias}} XXX
+
+# return commits caused by foo@XXX leading to branch bar@baz
+$ {{alias}} XXX -b bar@baz`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			toBranches := []*pfs.Branch{}
 			for _, arg := range branches {
