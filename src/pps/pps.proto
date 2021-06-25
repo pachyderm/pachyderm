@@ -399,17 +399,16 @@ message PipelineInfo {
     DatumSetSpec datum_set_spec = 21;
     google.protobuf.Duration datum_timeout = 22;
     google.protobuf.Duration job_timeout = 23;
-    bool standby = 24;
-    int64 datum_tries = 25;
-    SchedulingSpec scheduling_spec = 26;
-    string pod_spec = 27;
-    string pod_patch = 28;
-    bool s3_out = 29;
-    Metadata metadata = 30;
-    string reprocess_spec = 31;
-    int64 unclaimed_tasks = 32;
-    string worker_rc = 33;
-    bool autoscaling = 34;
+    int64 datum_tries = 24;
+    SchedulingSpec scheduling_spec = 25;
+    string pod_spec = 26;
+    string pod_patch = 27;
+    bool s3_out = 28;
+    Metadata metadata = 29;
+    string reprocess_spec = 30;
+    int64 unclaimed_tasks = 31;
+    string worker_rc = 32;
+    bool autoscaling = 33;
   }
   Details details = 12;
 }
@@ -615,23 +614,22 @@ message CreatePipelineRequest {
   string cache_size = 14;
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
-  bool reprocess = 16;
-  int64 max_queue_size = 17;
-  Service service = 18;
-  Spout spout = 19;
-  DatumSetSpec datum_set_spec = 20;
-  google.protobuf.Duration datum_timeout = 21;
-  google.protobuf.Duration job_timeout = 22;
-  string salt = 23;
-  bool standby = 24;
-  int64 datum_tries = 25;
-  SchedulingSpec scheduling_spec = 26;
-  string pod_spec = 27; // deprecated, use pod_patch below
-  string pod_patch = 28; // a json patch will be applied to the pipeline's pod_spec before it's created;
-  pfs_v2.Commit spec_commit = 29;
-  Metadata metadata = 30;
-  string reprocess_spec = 31;
-  bool autoscaling = 32;
+  bool reprocess = 15;
+  int64 max_queue_size = 16;
+  Service service = 17;
+  Spout spout = 18;
+  DatumSetSpec datum_set_spec = 19;
+  google.protobuf.Duration datum_timeout = 20;
+  google.protobuf.Duration job_timeout = 21;
+  string salt = 22;
+  int64 datum_tries = 23;
+  SchedulingSpec scheduling_spec = 24;
+  string pod_spec = 25; // deprecated, use pod_patch below
+  string pod_patch = 26; // a json patch will be applied to the pipeline's pod_spec before it's created;
+  pfs_v2.Commit spec_commit = 27;
+  Metadata metadata = 28;
+  string reprocess_spec = 29;
+  bool autoscaling = 30;
 }
 
 message InspectPipelineRequest {

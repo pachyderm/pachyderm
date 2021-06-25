@@ -1417,6 +1417,9 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 		return errors.Errorf("invalid pipeline spec: ReprocessSpec must be one of '%s' or '%s'",
 			client.ReprocessSpecUntilSuccess, client.ReprocessSpecEveryJob)
 	}
+	if request.Spout != nil && request.Autoscaling {
+		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
+	}
 	return nil
 }
 
@@ -1809,7 +1812,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			DatumSetSpec:          request.DatumSetSpec,
 			DatumTimeout:          request.DatumTimeout,
 			JobTimeout:            request.JobTimeout,
-			Standby:               request.Standby,
 			DatumTries:            request.DatumTries,
 			SchedulingSpec:        request.SchedulingSpec,
 			PodSpec:               request.PodSpec,
