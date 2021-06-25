@@ -240,17 +240,6 @@ function deserialize_pps_v2_PipelineInfo(buffer_arg) {
   return pps_pps_pb.PipelineInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pps_v2_PipelineInfos(arg) {
-  if (!(arg instanceof pps_pps_pb.PipelineInfos)) {
-    throw new Error('Expected argument of type pps_v2.PipelineInfos');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pps_v2_PipelineInfos(buffer_arg) {
-  return pps_pps_pb.PipelineInfos.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_pps_v2_RestartDatumRequest(arg) {
   if (!(arg instanceof pps_pps_pb.RestartDatumRequest)) {
     throw new Error('Expected argument of type pps_v2.RestartDatumRequest');
@@ -489,13 +478,13 @@ listDatum: {
   listPipeline: {
     path: '/pps_v2.API/ListPipeline',
     requestStream: false,
-    responseStream: false,
+    responseStream: true,
     requestType: pps_pps_pb.ListPipelineRequest,
-    responseType: pps_pps_pb.PipelineInfos,
+    responseType: pps_pps_pb.PipelineInfo,
     requestSerialize: serialize_pps_v2_ListPipelineRequest,
     requestDeserialize: deserialize_pps_v2_ListPipelineRequest,
-    responseSerialize: serialize_pps_v2_PipelineInfos,
-    responseDeserialize: deserialize_pps_v2_PipelineInfos,
+    responseSerialize: serialize_pps_v2_PipelineInfo,
+    responseDeserialize: deserialize_pps_v2_PipelineInfo,
   },
   deletePipeline: {
     path: '/pps_v2.API/DeletePipeline',

@@ -75,17 +75,6 @@ function deserialize_pfs_v2_BranchInfo(buffer_arg) {
   return pfs_pfs_pb.BranchInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_BranchInfos(arg) {
-  if (!(arg instanceof pfs_pfs_pb.BranchInfos)) {
-    throw new Error('Expected argument of type pfs_v2.BranchInfos');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pfs_v2_BranchInfos(buffer_arg) {
-  return pfs_pfs_pb.BranchInfos.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_pfs_v2_ClearCommitRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.ClearCommitRequest)) {
     throw new Error('Expected argument of type pfs_v2.ClearCommitRequest');
@@ -372,17 +361,6 @@ function deserialize_pfs_v2_ListRepoRequest(buffer_arg) {
   return pfs_pfs_pb.ListRepoRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_ListRepoResponse(arg) {
-  if (!(arg instanceof pfs_pfs_pb.ListRepoResponse)) {
-    throw new Error('Expected argument of type pfs_v2.ListRepoResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pfs_v2_ListRepoResponse(buffer_arg) {
-  return pfs_pfs_pb.ListRepoResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_pfs_v2_ModifyFileRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.ModifyFileRequest)) {
     throw new Error('Expected argument of type pfs_v2.ModifyFileRequest');
@@ -512,13 +490,13 @@ inspectRepo: {
 listRepo: {
     path: '/pfs_v2.API/ListRepo',
     requestStream: false,
-    responseStream: false,
+    responseStream: true,
     requestType: pfs_pfs_pb.ListRepoRequest,
-    responseType: pfs_pfs_pb.ListRepoResponse,
+    responseType: pfs_pfs_pb.RepoInfo,
     requestSerialize: serialize_pfs_v2_ListRepoRequest,
     requestDeserialize: deserialize_pfs_v2_ListRepoRequest,
-    responseSerialize: serialize_pfs_v2_ListRepoResponse,
-    responseDeserialize: deserialize_pfs_v2_ListRepoResponse,
+    responseSerialize: serialize_pfs_v2_RepoInfo,
+    responseDeserialize: deserialize_pfs_v2_RepoInfo,
   },
   // DeleteRepo deletes a repo.
 deleteRepo: {
@@ -656,13 +634,13 @@ inspectBranch: {
 listBranch: {
     path: '/pfs_v2.API/ListBranch',
     requestStream: false,
-    responseStream: false,
+    responseStream: true,
     requestType: pfs_pfs_pb.ListBranchRequest,
-    responseType: pfs_pfs_pb.BranchInfos,
+    responseType: pfs_pfs_pb.BranchInfo,
     requestSerialize: serialize_pfs_v2_ListBranchRequest,
     requestDeserialize: deserialize_pfs_v2_ListBranchRequest,
-    responseSerialize: serialize_pfs_v2_BranchInfos,
-    responseDeserialize: deserialize_pfs_v2_BranchInfos,
+    responseSerialize: serialize_pfs_v2_BranchInfo,
+    responseDeserialize: deserialize_pfs_v2_BranchInfo,
   },
   // DeleteBranch deletes a branch; note that the commits still exist.
 deleteBranch: {

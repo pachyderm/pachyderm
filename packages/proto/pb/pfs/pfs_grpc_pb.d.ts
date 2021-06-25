@@ -65,14 +65,14 @@ interface IAPIService_IInspectRepo extends grpc.MethodDefinition<pfs_pfs_pb.Insp
     responseSerialize: grpc.serialize<pfs_pfs_pb.RepoInfo>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.RepoInfo>;
 }
-interface IAPIService_IListRepo extends grpc.MethodDefinition<pfs_pfs_pb.ListRepoRequest, pfs_pfs_pb.ListRepoResponse> {
+interface IAPIService_IListRepo extends grpc.MethodDefinition<pfs_pfs_pb.ListRepoRequest, pfs_pfs_pb.RepoInfo> {
     path: "/pfs_v2.API/ListRepo";
     requestStream: false;
-    responseStream: false;
+    responseStream: true;
     requestSerialize: grpc.serialize<pfs_pfs_pb.ListRepoRequest>;
     requestDeserialize: grpc.deserialize<pfs_pfs_pb.ListRepoRequest>;
-    responseSerialize: grpc.serialize<pfs_pfs_pb.ListRepoResponse>;
-    responseDeserialize: grpc.deserialize<pfs_pfs_pb.ListRepoResponse>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.RepoInfo>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.RepoInfo>;
 }
 interface IAPIService_IDeleteRepo extends grpc.MethodDefinition<pfs_pfs_pb.DeleteRepoRequest, google_protobuf_empty_pb.Empty> {
     path: "/pfs_v2.API/DeleteRepo";
@@ -173,14 +173,14 @@ interface IAPIService_IInspectBranch extends grpc.MethodDefinition<pfs_pfs_pb.In
     responseSerialize: grpc.serialize<pfs_pfs_pb.BranchInfo>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.BranchInfo>;
 }
-interface IAPIService_IListBranch extends grpc.MethodDefinition<pfs_pfs_pb.ListBranchRequest, pfs_pfs_pb.BranchInfos> {
+interface IAPIService_IListBranch extends grpc.MethodDefinition<pfs_pfs_pb.ListBranchRequest, pfs_pfs_pb.BranchInfo> {
     path: "/pfs_v2.API/ListBranch";
     requestStream: false;
-    responseStream: false;
+    responseStream: true;
     requestSerialize: grpc.serialize<pfs_pfs_pb.ListBranchRequest>;
     requestDeserialize: grpc.deserialize<pfs_pfs_pb.ListBranchRequest>;
-    responseSerialize: grpc.serialize<pfs_pfs_pb.BranchInfos>;
-    responseDeserialize: grpc.deserialize<pfs_pfs_pb.BranchInfos>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.BranchInfo>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.BranchInfo>;
 }
 interface IAPIService_IDeleteBranch extends grpc.MethodDefinition<pfs_pfs_pb.DeleteBranchRequest, google_protobuf_empty_pb.Empty> {
     path: "/pfs_v2.API/DeleteBranch";
@@ -332,7 +332,7 @@ export const APIService: IAPIService;
 export interface IAPIServer extends grpc.UntypedServiceImplementation {
     createRepo: grpc.handleUnaryCall<pfs_pfs_pb.CreateRepoRequest, google_protobuf_empty_pb.Empty>;
     inspectRepo: grpc.handleUnaryCall<pfs_pfs_pb.InspectRepoRequest, pfs_pfs_pb.RepoInfo>;
-    listRepo: grpc.handleUnaryCall<pfs_pfs_pb.ListRepoRequest, pfs_pfs_pb.ListRepoResponse>;
+    listRepo: grpc.handleServerStreamingCall<pfs_pfs_pb.ListRepoRequest, pfs_pfs_pb.RepoInfo>;
     deleteRepo: grpc.handleUnaryCall<pfs_pfs_pb.DeleteRepoRequest, google_protobuf_empty_pb.Empty>;
     startCommit: grpc.handleUnaryCall<pfs_pfs_pb.StartCommitRequest, pfs_pfs_pb.Commit>;
     finishCommit: grpc.handleUnaryCall<pfs_pfs_pb.FinishCommitRequest, google_protobuf_empty_pb.Empty>;
@@ -344,7 +344,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     squashCommitSet: grpc.handleUnaryCall<pfs_pfs_pb.SquashCommitSetRequest, google_protobuf_empty_pb.Empty>;
     createBranch: grpc.handleUnaryCall<pfs_pfs_pb.CreateBranchRequest, google_protobuf_empty_pb.Empty>;
     inspectBranch: grpc.handleUnaryCall<pfs_pfs_pb.InspectBranchRequest, pfs_pfs_pb.BranchInfo>;
-    listBranch: grpc.handleUnaryCall<pfs_pfs_pb.ListBranchRequest, pfs_pfs_pb.BranchInfos>;
+    listBranch: grpc.handleServerStreamingCall<pfs_pfs_pb.ListBranchRequest, pfs_pfs_pb.BranchInfo>;
     deleteBranch: grpc.handleUnaryCall<pfs_pfs_pb.DeleteBranchRequest, google_protobuf_empty_pb.Empty>;
     modifyFile: handleClientStreamingCall<pfs_pfs_pb.ModifyFileRequest, google_protobuf_empty_pb.Empty>;
     getFileTAR: grpc.handleServerStreamingCall<pfs_pfs_pb.GetFileRequest, google_protobuf_wrappers_pb.BytesValue>;
@@ -370,9 +370,8 @@ export interface IAPIClient {
     inspectRepo(request: pfs_pfs_pb.InspectRepoRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RepoInfo) => void): grpc.ClientUnaryCall;
     inspectRepo(request: pfs_pfs_pb.InspectRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RepoInfo) => void): grpc.ClientUnaryCall;
     inspectRepo(request: pfs_pfs_pb.InspectRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RepoInfo) => void): grpc.ClientUnaryCall;
-    listRepo(request: pfs_pfs_pb.ListRepoRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ListRepoResponse) => void): grpc.ClientUnaryCall;
-    listRepo(request: pfs_pfs_pb.ListRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ListRepoResponse) => void): grpc.ClientUnaryCall;
-    listRepo(request: pfs_pfs_pb.ListRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ListRepoResponse) => void): grpc.ClientUnaryCall;
+    listRepo(request: pfs_pfs_pb.ListRepoRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.RepoInfo>;
+    listRepo(request: pfs_pfs_pb.ListRepoRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.RepoInfo>;
     deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -403,9 +402,8 @@ export interface IAPIClient {
     inspectBranch(request: pfs_pfs_pb.InspectBranchRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfo) => void): grpc.ClientUnaryCall;
     inspectBranch(request: pfs_pfs_pb.InspectBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfo) => void): grpc.ClientUnaryCall;
     inspectBranch(request: pfs_pfs_pb.InspectBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfo) => void): grpc.ClientUnaryCall;
-    listBranch(request: pfs_pfs_pb.ListBranchRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfos) => void): grpc.ClientUnaryCall;
-    listBranch(request: pfs_pfs_pb.ListBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfos) => void): grpc.ClientUnaryCall;
-    listBranch(request: pfs_pfs_pb.ListBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfos) => void): grpc.ClientUnaryCall;
+    listBranch(request: pfs_pfs_pb.ListBranchRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
+    listBranch(request: pfs_pfs_pb.ListBranchRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
     deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -460,9 +458,8 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public inspectRepo(request: pfs_pfs_pb.InspectRepoRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RepoInfo) => void): grpc.ClientUnaryCall;
     public inspectRepo(request: pfs_pfs_pb.InspectRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RepoInfo) => void): grpc.ClientUnaryCall;
     public inspectRepo(request: pfs_pfs_pb.InspectRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RepoInfo) => void): grpc.ClientUnaryCall;
-    public listRepo(request: pfs_pfs_pb.ListRepoRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ListRepoResponse) => void): grpc.ClientUnaryCall;
-    public listRepo(request: pfs_pfs_pb.ListRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ListRepoResponse) => void): grpc.ClientUnaryCall;
-    public listRepo(request: pfs_pfs_pb.ListRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ListRepoResponse) => void): grpc.ClientUnaryCall;
+    public listRepo(request: pfs_pfs_pb.ListRepoRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.RepoInfo>;
+    public listRepo(request: pfs_pfs_pb.ListRepoRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.RepoInfo>;
     public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -493,9 +490,8 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public inspectBranch(request: pfs_pfs_pb.InspectBranchRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfo) => void): grpc.ClientUnaryCall;
     public inspectBranch(request: pfs_pfs_pb.InspectBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfo) => void): grpc.ClientUnaryCall;
     public inspectBranch(request: pfs_pfs_pb.InspectBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfo) => void): grpc.ClientUnaryCall;
-    public listBranch(request: pfs_pfs_pb.ListBranchRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfos) => void): grpc.ClientUnaryCall;
-    public listBranch(request: pfs_pfs_pb.ListBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfos) => void): grpc.ClientUnaryCall;
-    public listBranch(request: pfs_pfs_pb.ListBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.BranchInfos) => void): grpc.ClientUnaryCall;
+    public listBranch(request: pfs_pfs_pb.ListBranchRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
+    public listBranch(request: pfs_pfs_pb.ListBranchRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
     public deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;

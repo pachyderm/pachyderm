@@ -212,28 +212,6 @@ export namespace BranchInfo {
     }
 }
 
-export class BranchInfos extends jspb.Message { 
-    clearBranchInfoList(): void;
-    getBranchInfoList(): Array<BranchInfo>;
-    setBranchInfoList(value: Array<BranchInfo>): BranchInfos;
-    addBranchInfo(value?: BranchInfo, index?: number): BranchInfo;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): BranchInfos.AsObject;
-    static toObject(includeInstance: boolean, msg: BranchInfos): BranchInfos.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: BranchInfos, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): BranchInfos;
-    static deserializeBinaryFromReader(message: BranchInfos, reader: jspb.BinaryReader): BranchInfos;
-}
-
-export namespace BranchInfos {
-    export type AsObject = {
-        branchInfoList: Array<BranchInfo.AsObject>,
-    }
-}
-
 export class Trigger extends jspb.Message { 
     getBranch(): string;
     setBranch(value: string): Trigger;
@@ -554,28 +532,6 @@ export class ListRepoRequest extends jspb.Message {
 export namespace ListRepoRequest {
     export type AsObject = {
         type: string,
-    }
-}
-
-export class ListRepoResponse extends jspb.Message { 
-    clearRepoInfoList(): void;
-    getRepoInfoList(): Array<RepoInfo>;
-    setRepoInfoList(value: Array<RepoInfo>): ListRepoResponse;
-    addRepoInfo(value?: RepoInfo, index?: number): RepoInfo;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ListRepoResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: ListRepoResponse): ListRepoResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ListRepoResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ListRepoResponse;
-    static deserializeBinaryFromReader(message: ListRepoResponse, reader: jspb.BinaryReader): ListRepoResponse;
-}
-
-export namespace ListRepoResponse {
-    export type AsObject = {
-        repoInfoList: Array<RepoInfo.AsObject>,
     }
 }
 
