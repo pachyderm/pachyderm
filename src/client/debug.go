@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
@@ -39,7 +40,9 @@ func (c APIClient) Dump(filter *debug.Filter, limit int64, w io.Writer) (retErr 
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	dumpC, err := c.DebugClient.Dump(c.Ctx(), &debug.DumpRequest{
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	dumpC, err := c.DebugClient.Dump(ctx, &debug.DumpRequest{
 		Filter: filter,
 		Limit:  limit,
 	})

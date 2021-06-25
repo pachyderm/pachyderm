@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -812,25 +813,27 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return err
 			}
 			defer c.Close()
-			branchInfos, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
+			branchClient, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
-			branches := branchInfos.BranchInfo
+
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
-				for _, branch := range branches {
-					if err := encoder.EncodeProto(branch); err != nil {
-						return err
-					}
-				}
-				return nil
+				err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+					return encoder.EncodeProto(branch)
+				})
+				return grpcutil.ScrubGRPC(err)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
+
 			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
-			for _, branch := range branches {
+			if err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
 				pretty.PrintBranch(writer, branch)
+				return nil
+			}); err != nil {
+				return grpcutil.ScrubGRPC(err)
 			}
 			return writer.Flush()
 		}),
@@ -881,6 +884,7 @@ from commits with 'get file'.`,
 	var appendFile bool
 	var compress bool
 	var enableProgress bool
+	var fullPath bool
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
@@ -995,7 +999,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if source == "-" {
 							return errors.Errorf("must specify filename when reading data from stdin")
 						}
-						if err := putFileHelper(mf, joinPaths("", source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					} else if len(sources) == 1 {
@@ -1007,7 +1015,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 					} else {
 						// We have multiple sources and the user has specified a path,
 						// we use that path as a prefix for the filepaths.
-						if err := putFileHelper(mf, joinPaths(file.Path, source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					}
@@ -1023,6 +1035,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
+	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {

@@ -619,7 +619,6 @@ If <object store backend> is \"s3\", then the arguments are:
 
 	var cloudfrontDistribution string
 	var creds string
-	var iamRole string
 	deployAmazon := &cobra.Command{
 		Use:   "{{alias}} <region> <disk-size> [<bucket-name>]",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
@@ -639,7 +638,7 @@ If <object store backend> is \"s3\", then the arguments are:
 
 			// Require credentials to access S3 for pachd deployments.
 			// Enterprise server deployments don't require an S3 bucket, so they don't need credentials.
-			if creds == "" && iamRole == "" && !enterpriseServer {
+			if creds == "" && !enterpriseServer {
 				return errors.Errorf("one of --credentials, or --iam-role needs to be provided")
 			}
 
@@ -674,12 +673,6 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 			}
 
-			if iamRole != "" {
-				if amazonCreds != nil {
-					return errors.Errorf("only one of --credentials, or --iam-role needs to be provided")
-				}
-				opts.IAMRole = iamRole
-			}
 			volumeSize, err := strconv.Atoi(args[1])
 			if err != nil {
 				return errors.Errorf("volume size needs to be an integer; instead got %v", args[1])
@@ -748,7 +741,6 @@ If <object store backend> is \"s3\", then the arguments are:
 			"an alpha feature. No security restrictions have been"+
 			"applied to cloudfront, making all data public (obscured but not secured)")
 	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format \"<id>,<secret>[,<token>]\". You can get a token by running \"aws sts get-session-token\".")
-	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", fmt.Sprintf("Use the given IAM role for authorization, as opposed to using static credentials. The given role will be applied as the annotation %s, this used with a Kubernetes IAM role management system such as kube2iam allows you to give pachd credentials in a more secure way.", assets.IAMAnnotation))
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy amazon"))
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy aws"))
 
