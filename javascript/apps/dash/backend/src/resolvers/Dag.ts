@@ -304,6 +304,51 @@ const normalizeDAGData = async (
   };
 };
 
+// find offset needed to horizontally or vertically align dag
+const adjustDag = (
+  {nodes, links}: {nodes: Node[]; links: Link[]},
+  direction: DagDirection,
+) => {
+  const horizontal = direction === DagDirection.RIGHT;
+  const xValues = nodes.map((n) => n.x);
+  const yValues = nodes.map((n) => n.y);
+  const minY = Math.min(...yValues);
+  const minX = Math.min(...xValues);
+  const offsetX = horizontal ? -minX : 0;
+  const offsetY = !horizontal ? -minY : 0;
+
+  const adjustedNodes = nodes.map((node) => {
+    return {
+      ...node,
+      x: node.x + offsetX,
+      y: node.y + offsetY,
+    };
+  });
+
+  const adjustedLinks = links.map((link) => {
+    return {
+      ...link,
+      startPoint: {
+        x: link.startPoint.x + offsetX,
+        y: link.startPoint.y + offsetY,
+      },
+      bendPoints: link.bendPoints.map((point) => ({
+        x: point.x + offsetX,
+        y: point.y + offsetY,
+      })),
+      endPoint: {
+        x: link.endPoint.x + offsetX,
+        y: link.endPoint.y + offsetY,
+      },
+    };
+  });
+
+  return {
+    nodes: adjustedNodes,
+    links: adjustedLinks,
+  };
+};
+
 const dagResolver: DagResolver = {
   Query: {
     dag: async (
@@ -408,10 +453,12 @@ const dagResolver: DagResolver = {
               minBy(componentRepos, (r) => r.created?.seconds)?.repo?.name ||
               '';
 
+            const adjustedComponent = adjustDag(component, direction);
+
             return {
               id,
-              nodes: component.nodes,
-              links: component.links,
+              nodes: adjustedComponent.nodes,
+              links: adjustedComponent.links,
             };
           });
         };

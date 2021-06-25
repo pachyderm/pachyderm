@@ -14,7 +14,6 @@ type NodeProps = {
   isInteractive: boolean;
   nodeWidth: number;
   nodeHeight: number;
-  offset: {x: number; y: number};
 };
 
 const NODE_ICON_X_OFFSET = 12;
@@ -32,7 +31,6 @@ const Node: React.FC<NodeProps> = ({
   isInteractive,
   nodeHeight,
   nodeWidth,
-  offset,
 }) => {
   const {
     isHovered,
@@ -48,7 +46,7 @@ const Node: React.FC<NodeProps> = ({
     showLeaveJob,
     handleLeaveJobClick,
     closeLeaveJob,
-  } = useNode(node, isInteractive, offset);
+  } = useNode(node, isInteractive);
 
   const classes = classNames(styles.nodeGroup, {
     [styles.interactive]: isInteractive,
@@ -88,7 +86,7 @@ const Node: React.FC<NodeProps> = ({
     <g
       className={classes}
       id={groupName}
-      transform={`translate (${node.x + offset.x}, ${node.y + offset.y})`}
+      transform={`translate (${node.x}, ${node.y})`}
       onClick={onClick}
       onMouseOver={onMouseOver}
       onMouseOut={onMouseOut}

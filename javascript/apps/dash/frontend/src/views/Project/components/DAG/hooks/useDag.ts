@@ -23,7 +23,6 @@ const useDag = ({
 }: useDagProps) => {
   const {selectedNode, navigateToNode} = useRouteController();
   const [rectBox, setRectBox] = useState({x: 0, y: 0, width: 0, height: 0});
-  const [offset, setOffset] = useState({x: 0, y: 0});
 
   const handleRectClick = useCallback(() => {
     const errorNode = data.nodes.find(
@@ -37,7 +36,7 @@ const useDag = ({
     }
   }, [data.nodes, navigateToNode]);
 
-  // left align dag or vertically align dag
+  // adjust rect for hover state and dag selection
   useEffect(() => {
     const horizontal = dagDirection === DagDirection.RIGHT;
     const yExtent = extent(data.nodes, (d) => d.y);
@@ -46,12 +45,7 @@ const useDag = ({
     const maxY = yExtent[yExtent.length - 1] || 0;
     const minX = xExtent[0] || 0;
     const maxX = xExtent[xExtent.length - 1] || 0;
-    const x = horizontal ? -minX : 0;
-    const y = !horizontal ? -minY : 0;
 
-    setOffset({x, y});
-
-    // adjust rect for hover state and dag selection
     setRectBox({
       x: horizontal ? 0 : minX,
       y: horizontal ? minY - nodeHeight / 2 : 0,
@@ -68,7 +62,7 @@ const useDag = ({
     setRectBox,
   ]);
 
-  return {handleRectClick, offset, rectBox};
+  return {handleRectClick, rectBox};
 };
 
 export default useDag;
