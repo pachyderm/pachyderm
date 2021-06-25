@@ -95,6 +95,8 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 	})
 	t.Run("SpoutAuthEnabledAfter", func(t *testing.T) {
+		// TODO(2.0 required): this test occasionally hangs (pipeline stuck in FAILURE)
+		t.Skip("skip flaky test")
 		tu.DeleteAll(t)
 		c := tu.GetPachClient(t)
 
