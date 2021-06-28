@@ -571,6 +571,40 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 	return nil
 }
 
+// ListJobSet implements the protobuf pps.ListJobSet RPC
+func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_ListJobSetServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("stream containing %d JobSetInfos", sent), retErr, time.Since(start))
+	}(time.Now())
+
+	pachClient := a.env.GetPachClient(serv.Context())
+
+	// Track the jobsets we've already processed
+	seen := map[string]struct{}{}
+
+	// Return jobsets by the newest job in each set (which can be at a different
+	// timestamp due to triggers or deferred processing)
+	jobInfo := &pps.JobInfo{}
+	return a.jobs.ReadOnly(serv.Context()).List(jobInfo, col.DefaultOptions(), func(string) error {
+		if _, ok := seen[jobInfo.Job.ID]; ok {
+			return nil
+		}
+		seen[jobInfo.Job.ID] = struct{}{}
+
+		jobInfos, err := pachClient.InspectJobSet(jobInfo.Job.ID, request.Details)
+		if err != nil {
+			return err
+		}
+
+		return serv.Send(&pps.JobSetInfo{
+			JobSet: client.NewJobSet(jobInfo.Job.ID),
+			Jobs:   jobInfos,
+		})
+	})
+}
+
 // intersectCommitSets finds all commitsets which involve the specified commits
 // (or aliases of the specified commits)
 // TODO(global ids): this assumes that all aliases are equivalent to their first
@@ -2880,6 +2914,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			PipelineVersion: pipelineInfo.Version,
 			OutputCommit:    commitInfo.Commit,
 			Stats:           &pps.ProcessStats{},
+			Created:         types.TimestampNow(),
 		}
 		if err := ppsutil.UpdateJobState(pipelines, jobs, jobPtr, pps.JobState_JOB_CREATED, ""); err != nil {
 			return err

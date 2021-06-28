@@ -159,12 +159,13 @@ var authHandlers = map[string]authHandler{
 	// TODO: Add per-repo permissions checks for these
 	// TODO: split GetLogs into master and not-master and add check for pipeline permissions
 	"/pps_v2.API/InspectJob":      authDisabledOr(authenticated),
-	"/pps_v2.API/InspectJobSet":   authDisabledOr(authenticated),
 	"/pps_v2.API/ListJob":         authDisabledOr(authenticated),
 	"/pps_v2.API/ListJobStream":   authDisabledOr(authenticated),
 	"/pps_v2.API/SubscribeJob":    authDisabledOr(authenticated),
 	"/pps_v2.API/DeleteJob":       authDisabledOr(authenticated),
 	"/pps_v2.API/StopJob":         authDisabledOr(authenticated),
+	"/pps_v2.API/InspectJobSet":   authDisabledOr(authenticated),
+	"/pps_v2.API/ListJobSet":      authDisabledOr(authenticated),
 	"/pps_v2.API/InspectDatum":    authDisabledOr(authenticated),
 	"/pps_v2.API/ListDatum":       authDisabledOr(authenticated),
 	"/pps_v2.API/ListDatumStream": authDisabledOr(authenticated),

@@ -36,3 +36,22 @@ func ListPipelineInfo(client pps.API_ListPipelineClient) ([]*pps.PipelineInfo, e
 	}
 	return pipelineInfos, nil
 }
+
+func ForEachJobSet(client pps.API_ListJobSetClient, cb func(*pps.JobSetInfo) error) error {
+	for {
+		x, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if err := cb(x); err != nil {
+			if err == pacherr.ErrBreak {
+				err = nil
+			}
+			return err
+		}
+	}
+	return nil
+}
