@@ -5,7 +5,9 @@ import {File} from '@graphqlTypes';
 
 import useFileDisplay from './../../hooks/useFileDisplay';
 import CSVPreview from './components/CSVPreview';
+import IFramePreview from './components/IFramePreview';
 import JSONPreview from './components/JSONPreview';
+import WebPreview from './components/WebPreview';
 import styles from './FilePreview.module.css';
 
 type FilePreviewProps = {
@@ -41,6 +43,14 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
             );
         }
         switch (fileType) {
+          case 'pdf':
+          case 'xml':
+            return (
+              <IFramePreview downloadLink={fileLink} fileName={fileName} />
+            );
+          case 'html':
+          case 'htm':
+            return <WebPreview downloadLink={fileLink} fileName={fileName} />;
           case 'json':
             return <JSONPreview downloadLink={fileLink} />;
           case 'csv':

@@ -9,4 +9,8 @@
   border-radius: 0.4rem;
   margin-left: 50%;
   transform: translateX(-50%);
+  height: calc(100vh  - 200px);
+  overflow: auto;
+  width: 100%;
+  max-width: 1000px;
 }

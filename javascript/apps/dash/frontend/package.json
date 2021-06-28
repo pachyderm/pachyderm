@@ -65,6 +65,7 @@
     "@types/react-helmet": "6.1.0",
     "@types/react-router-dom": "5.1.5",
     "@types/react-window": "1.8.3",
+    "@types/sanitize-html": "^2.3.1",
     "canvas": "2.6.1",
     "cross-fetch": "3.0.6",
     "cypress": "7.2.0",

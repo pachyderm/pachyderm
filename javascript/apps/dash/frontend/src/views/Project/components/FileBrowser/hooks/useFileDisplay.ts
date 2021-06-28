@@ -12,7 +12,14 @@ const SUPPORTED_PREVIEW_MAJOR_TYPES: FileMajorType[] = [
   'video',
   'audio',
 ];
-const SUPPORTED_PREVIEW_MINOR_TYPES: string[] = ['json', 'csv'];
+const SUPPORTED_PREVIEW_MINOR_TYPES: string[] = [
+  'json',
+  'csv',
+  'pdf',
+  'html',
+  'xml',
+  'htm',
+];
 
 const useFileDisplay = (file: File) => {
   const {repoId, commitId, branchId, projectId} = useUrlState();

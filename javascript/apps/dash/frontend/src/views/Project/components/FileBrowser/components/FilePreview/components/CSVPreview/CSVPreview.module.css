@@ -9,23 +9,6 @@
   margin-left: -2rem;
 }
 
-::-webkit-scrollbar-thumb {
-  border: none;
-}
-
-::-webkit-scrollbar-track {
-  background-color: var(--background-grey);
-  border-left: solid 1px var(--line-grey);
-}
-
-::-webkit-scrollbar {
-  border-radius: 0.5rem;
-  width: 0.5rem;
-  height: 0.5rem;
-  padding-top: 1px;
-  padding-left: 1px;
-}
-
 .cell {
   text-overflow: ellipsis;
   overflow: hidden;
