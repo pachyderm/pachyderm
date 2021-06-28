@@ -54,12 +54,12 @@ jobs:
       # This also avoids accumulating old versions of modules over time.
       - restore_cache:
          keys:
-         - pach-go-mod-cache-v1-{{ .Branch }}-{{ checksum "go.sum" }}
+         - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
       - run: etc/testing/circle/build.sh 
       - run: etc/testing/circle/launch.sh 
       - run: etc/testing/circle/run_tests.sh 
       - save_cache:
-         key: pach-go-mod-cache-v1-{{ .Branch }}-{{ checksum "go.sum" }}
+         key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
          paths:
          - /home/circleci/.go_workspace/pkg/mod
       - save_cache:
