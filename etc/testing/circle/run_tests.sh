@@ -115,6 +115,9 @@ case "${BUCKET}" in
     pachctl config set active-enterprise-context enterprise
     make test-enterprise-integration
     ;;
+  CACHE)
+    echo "not running tests, just populating build cache"
+    ;;
   *)
     echo "Unknown bucket"
     exit 1

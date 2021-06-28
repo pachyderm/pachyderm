@@ -12,7 +12,7 @@ parameters:
     type: string
     default: "0"
 
-jobs:
+jobs:     
   circleci:
     parameters:
       bucket:
@@ -21,7 +21,7 @@ jobs:
     machine:
       image: ubuntu-2004:202101-01
     environment:
-      PPS_BUCKETS: "6"
+      PPS_BUCKETS: "8"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
       BIGQUERY_PROJECT: alysha-dev-006
@@ -58,14 +58,6 @@ jobs:
       - run: etc/testing/circle/build.sh 
       - run: etc/testing/circle/launch.sh 
       - run: etc/testing/circle/run_tests.sh 
-      - save_cache:
-         key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-         paths:
-         - /home/circleci/.go_workspace/pkg/mod
-      - save_cache:
-         key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}-{{ .BuildNum }}
-         paths:
-         - /home/circleci/.gocache
       - run: etc/testing/circle/upload_stats.sh 
       - run:
           name: Dump debugging info in case of failure
@@ -75,6 +67,18 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+      - when:
+          condition:
+            equal: [ CACHE, << parameters.bucket >> ]
+          steps:
+          - save_cache:
+              key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+              paths:
+              - /home/circleci/.go_workspace/pkg/mod
+          - save_cache:
+              key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}-{{ .BuildNum }}
+              paths:
+              - /home/circleci/.gocache
 
 workflows:
   circleci:
@@ -95,5 +99,8 @@ workflows:
               - PPS4
               - PPS5
               - PPS6
+              - PPS7
+              - PPS8
               - EXAMPLES
               - OBJECT
+              - CACHE
