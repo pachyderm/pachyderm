@@ -8,7 +8,7 @@ Create a `values.yaml` file with your storage provider of choice, and other opti
 
 ```shell
 $ helm repo add pach https://pachyderm.github.io/helmchart
-$ helm install pach/pachyderm -f values.yaml
+$ helm install pachd pach/pachyderm -f values.yaml
 ```
 
 ## Developer Guide
