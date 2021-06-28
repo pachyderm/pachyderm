@@ -205,6 +205,13 @@ var authHandlers = map[string]authHandler{
 	//
 
 	"/versionpb_v2.API/GetVersion": unauthenticated,
+
+	//
+	// Proxy API
+	//
+
+	// TODO: Only the pachd sidecar instances should be able to use this endpoint.
+	"/proxy.API/Listen": unauthenticated,
 }
 
 // NewInterceptor instantiates a new Interceptor

@@ -10,7 +10,6 @@ type Configuration struct {
 // GlobalConfiguration contains the global configuration.
 type GlobalConfiguration struct {
 	FeatureFlags
-
 	EtcdHost         string `env:"ETCD_SERVICE_HOST,required"`
 	EtcdPort         string `env:"ETCD_SERVICE_PORT,required"`
 	PPSWorkerPort    uint16 `env:"PPS_WORKER_GRPC_PORT,default=1080"`
@@ -30,6 +29,8 @@ type GlobalConfiguration struct {
 	PostgresDBName   string `env:"POSTGRES_DATABASE_NAME"`
 	PostgresUser     string `env:"POSTGRES_USER,default=postgres"`
 	PostgresPassword string `env:"POSTGRES_PASSWORD"`
+	PachdServiceHost string `env:"PACHD_SERVICE_HOST"`
+	PachdServicePort string `env:"PACHD_SERVICE_PORT"`
 
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`

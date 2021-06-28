@@ -32,10 +32,12 @@ import (
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
+	proxyclient "github.com/pachyderm/pachyderm/v2/src/proxy"
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	"google.golang.org/grpc/health"
 
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
@@ -675,6 +677,12 @@ func doFullMode(config interface{}) (retErr error) {
 				env.Config().PachdPodName,
 				nil,
 			))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Proxy API", func() error {
+			proxyclient.RegisterAPIServer(externalServer.Server, proxyserver.NewAPIServer(env))
 			return nil
 		}); err != nil {
 			return err
