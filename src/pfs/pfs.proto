@@ -212,6 +212,7 @@ message ListCommitRequest {
   Commit to = 3;
   uint64 number = 4;
   bool reverse = 5;  // Return commits oldest to newest
+  bool details = 6;
 }
 
 message InspectCommitSetRequest {

@@ -1050,7 +1050,7 @@ func (d *driver) getCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit
 	return commitInfo, nil
 }
 
-func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, cb func(*pfs.CommitInfo) error) error {
+func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, reverse, details bool, cb func(*pfs.CommitInfo) error) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
@@ -1161,6 +1161,16 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 			var commitInfo pfs.CommitInfo
 			if err := d.commits.ReadOnly(ctx).Get(pfsdb.CommitKey(cursor), &commitInfo); err != nil {
 				return err
+			}
+			if details {
+				size, err := d.sizeOfCommit(ctx, commitInfo.Commit)
+				if err != nil {
+					return err
+				}
+				if commitInfo.Details == nil {
+					commitInfo.Details = &pfs.CommitInfo_Details{}
+				}
+				commitInfo.Details.SizeBytes = uint64(size)
 			}
 			if err := cb(&commitInfo); err != nil {
 				if errors.Is(err, errutil.ErrBreak) {

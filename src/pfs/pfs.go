@@ -78,3 +78,32 @@ func (b *Branch) NewCommit(id string) *Commit {
 func (b *Branch) String() string {
 	return b.Repo.String() + "@" + b.Name
 }
+
+func NewListCommitRequest(repo *Repo) *ListCommitRequest {
+	return &ListCommitRequest{Repo: repo}
+}
+
+func (lcr *ListCommitRequest) WithTo(to *Commit) *ListCommitRequest {
+	lcr.To = to
+	return lcr
+}
+
+func (lcr *ListCommitRequest) WithFrom(from *Commit) *ListCommitRequest {
+	lcr.From = from
+	return lcr
+}
+
+func (lcr *ListCommitRequest) WithNumber(number uint64) *ListCommitRequest {
+	lcr.Number = number
+	return lcr
+}
+
+func (lcr *ListCommitRequest) WithReverse() *ListCommitRequest {
+	lcr.Reverse = true
+	return lcr
+}
+
+func (lcr *ListCommitRequest) WithDetails() *ListCommitRequest {
+	lcr.Details = true
+	return lcr
+}

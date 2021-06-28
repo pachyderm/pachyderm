@@ -443,7 +443,8 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 	}
 	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
 
-	if err := pachClient.ListCommitF(client.NewRepo(op.pipelineInfo.Pipeline.Name), client.NewCommit(op.pipelineInfo.Pipeline.Name, op.pipelineInfo.Details.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
+	req := pfs.NewListCommitRequest(client.NewRepo(op.pipelineInfo.Pipeline.Name)).WithTo(client.NewCommit(op.pipelineInfo.Pipeline.Name, op.pipelineInfo.Details.OutputBranch, ""))
+	if err := pachClient.ListCommit(req, func(commitInfo *pfs.CommitInfo) error {
 		return pachClient.StopJob(op.pipelineInfo.Pipeline.Name, commitInfo.Commit.ID)
 	}); err != nil {
 		if errutil.IsNotFoundError(err) {

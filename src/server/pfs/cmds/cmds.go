@@ -403,6 +403,7 @@ $ {{alias}} test -p XXX`,
 
 	var from string
 	var number int
+	var details bool
 	listCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>[@<branch>]",
 		Short: "Return all commits on a repo.",
@@ -425,29 +426,27 @@ $ {{alias}} foo@master --from XXX`,
 				return err
 			}
 			defer c.Close()
-
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
 			}
-
-			var fromCommit *pfs.Commit
-			if from != "" {
-				fromCommit = branch.Repo.NewCommit("", from)
-			}
-
-			var toCommit *pfs.Commit
+			req := pfs.NewListCommitRequest(branch.Repo)
 			if branch.Name != "" {
-				toCommit = branch.NewCommit("")
+				req.WithTo(branch.NewCommit(""))
 			}
-
+			if from != "" {
+				req.WithFrom(branch.Repo.NewCommit("", from))
+			}
+			if details {
+				req.WithDetails()
+			}
 			if raw {
-				return c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
+				return c.ListCommit(req, func(ci *pfs.CommitInfo) error {
 					return marshaller.Marshal(os.Stdout, ci)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
+			if err := c.ListCommit(req, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -458,6 +457,7 @@ $ {{alias}} foo@master --from XXX`,
 	}
 	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
 	listCommit.Flags().IntVarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
+	listCommit.Flags().BoolVarP(&details, "details", "d", false, "collect the details for each commit")
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	listCommit.Flags().AddFlagSet(rawFlags)
 	listCommit.Flags().AddFlagSet(fullTimestampsFlags)

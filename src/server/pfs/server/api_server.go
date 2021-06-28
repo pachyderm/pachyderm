@@ -223,7 +223,7 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.Number, request.Reverse, func(ci *pfs.CommitInfo) error {
+	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.Number, request.Reverse, request.Details, func(ci *pfs.CommitInfo) error {
 		sent++
 		return respServer.Send(ci)
 	})

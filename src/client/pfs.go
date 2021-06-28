@@ -218,70 +218,30 @@ func (c APIClient) inspectCommit(repoName string, branchName string, commitID st
 	return commitInfo, nil
 }
 
-// ListCommit lists commits.
-// If only `repo` is given, all commits in the repo are returned.
-// If `to` is given, only the ancestors of `to`, including `to` itself,
-// are considered.
-// If `from` is given, only the descendents of `from`, including `from`
-// itself, are considered.
-// If `to` and `from` are the same commit, no commits will be returned.
-// `number` determines how many commits are returned.  If `number` is 0,
-// all commits that match the aforementioned criteria are returned.
-func (c APIClient) ListCommit(repo *pfs.Repo, to, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
-	var result []*pfs.CommitInfo
-	if err := c.ListCommitF(repo, to, from, number, false, func(ci *pfs.CommitInfo) error {
-		result = append(result, ci)
-		return nil
-	}); err != nil {
+func (c APIClient) ListCommit(req *pfs.ListCommitRequest, cb func(*pfs.CommitInfo) error) (retErr error) {
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer func() {
+		cf()
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	client, err := c.PfsAPIClient.ListCommit(ctx, req)
+	if err != nil {
+		return err
+	}
+	return clientsdk.ForEachCommitInfo(client, cb)
+}
+
+func (c APIClient) ListCommitAll(req *pfs.ListCommitRequest) (_ []*pfs.CommitInfo, retErr error) {
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer func() {
+		cf()
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	client, err := c.PfsAPIClient.ListCommit(ctx, req)
+	if err != nil {
 		return nil, err
 	}
-	return result, nil
-}
-
-// ListCommitF lists commits, calling f with each commit.
-// If only `repo` is given, all commits in the repo are returned.
-// If `to` is given, only the ancestors of `to`, including `to` itself,
-// are considered.
-// If `from` is given, only the descendents of `from`, including `from`
-// itself, are considered.
-// If `to` and `from` are the same commit, no commits will be returned.
-// `number` determines how many commits are returned.  If `number` is 0,
-// `reverse` lists the commits from oldest to newest, rather than newest to oldest
-// all commits that match the aforementioned criteria are passed to f.
-func (c APIClient) ListCommitF(repo *pfs.Repo, to, from *pfs.Commit, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
-	req := &pfs.ListCommitRequest{
-		Repo:    repo,
-		Number:  number,
-		Reverse: reverse,
-		To:      to,
-		From:    from,
-	}
-	ctx, cf := context.WithCancel(c.Ctx())
-	defer cf()
-	stream, err := c.PfsAPIClient.ListCommit(ctx, req)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	for {
-		ci, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-		if err := f(ci); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
-			return err
-		}
-	}
-	return nil
-}
-
-// ListCommitByRepo lists all commits in a repo.
-func (c APIClient) ListCommitByRepo(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
-	return c.ListCommit(repo, nil, nil, 0)
+	return clientsdk.ListCommitInfo(client)
 }
 
 // CreateBranch creates a new branch

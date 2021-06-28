@@ -248,14 +248,19 @@ func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Ti
 }
 
 // SizeOf returns the size of the data in the fileset in bytes
+// TODO: Figure out the best way to cache this. Might just want to store
+// commit size and invalidate when new operation comes in.
 func (s *Storage) SizeOf(ctx context.Context, id ID) (int64, error) {
-	prims, err := s.flattenPrimitives(ctx, []ID{id})
+	fs, err := s.Open(ctx, []ID{id})
 	if err != nil {
 		return 0, err
 	}
 	var total int64
-	for _, prim := range prims {
-		total += prim.SizeBytes
+	if err := fs.Iterate(ctx, func(f File) error {
+		total += index.SizeBytes(f.Index())
+		return nil
+	}); err != nil {
+		return 0, err
 	}
 	return total, nil
 }
