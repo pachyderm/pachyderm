@@ -110,11 +110,11 @@ func (pj *pendingJob) load() error {
 				if err != nil {
 					return err
 				}
-				pj.parentDit, err = datum.NewIterator(pachClient, parentJi.Details.Input)
+				dit, err := datum.NewIterator(pachClient, parentJi.Details.Input)
 				if err != nil {
 					return err
 				}
-				pj.parentDit = datum.NewJobIterator(pj.parentDit, parentJi.Job, pj.hasher)
+				pj.parentDit = datum.NewJobIterator(dit, parentJi.Job, pj.hasher)
 			}
 			break
 		}
