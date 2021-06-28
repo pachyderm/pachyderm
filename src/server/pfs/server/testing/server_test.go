@@ -40,6 +40,8 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -3109,11 +3111,16 @@ func TestPFS(suite *testing.T) {
 		numFiles := 100
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		for i := 0; i < numFiles; i++ {
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("1")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
-		}
+
+		require.NoError(t, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+			for i := 0; i < numFiles; i++ {
+				require.NoError(t, mf.PutFile(fmt.Sprintf("file%d", i), strings.NewReader("1")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
+			}
+			return nil
+		}))
+
 		checks := func() {
 			fileInfos, err := env.PachClient.GlobFileAll(commit, "*")
 			require.NoError(t, err)
@@ -4303,7 +4310,8 @@ func TestPFS(suite *testing.T) {
 			checkNotFound := func(path string) {
 				err := env.PachClient.WalkFile(latestCommit, path, cb)
 				require.YesError(t, err)
-				require.Matches(t, "file .* not found in repo", err.Error())
+				s := status.Convert(err)
+				require.Equal(t, s.Code(), codes.NotFound)
 			}
 			require.NoError(t, env.PachClient.WalkFile(latestCommit, "", cb))
 			require.NoError(t, env.PachClient.WalkFile(latestCommit, "/", cb))
@@ -4314,9 +4322,8 @@ func TestPFS(suite *testing.T) {
 		}
 
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		// TODO(global ids): uncomment this code once global ids land and branches have default heads
-		//require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
-		//checks() // Test the default empty head commit
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
+		checks() // Test the default empty head commit
 
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -4794,15 +4801,12 @@ func TestPFS(suite *testing.T) {
 		b.Reset()
 		require.YesError(t, c.GetFile(commit, "file1", &b))
 
-		// TODO(2.0 required): Should this behavior be kept in 2.0? If so, we need
-		// to lazily make the one-off commit.
-		// Empty ModifyFileClients shouldn't error or create commits
-		//mfc, err = c.NewModifyFileClient(test, "master")
-		//require.NoError(t, err)
-		//require.NoError(t, mfc.Close())
-		//cis, err = c.ListCommit(test, "master", "", 0)
-		//require.NoError(t, err)
-		//require.Equal(t, 2, len(cis))
+		mfc, err = c.NewModifyFileClient(commit)
+		require.NoError(t, err)
+		require.NoError(t, mfc.Close())
+		cis, err = c.ListCommit(testRepo, commit, nil, 0)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(cis))
 	})
 
 	const (
@@ -5593,49 +5597,51 @@ func TestPFS(suite *testing.T) {
 				require.False(t, strings.Contains(err.Error(), "transport is closing"), err.Error())
 			}
 		}
-		_, err := c.PfsAPIClient.CreateRepo(c.Ctx(), &pfs.CreateRepoRequest{})
+		ctx, cf := context.WithCancel(c.Ctx())
+		defer cf()
+		_, err := c.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{})
+		_, err = c.PfsAPIClient.InspectRepo(ctx, &pfs.InspectRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListRepo(c.Ctx(), &pfs.ListRepoRequest{})
+		_, err = c.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), &pfs.DeleteRepoRequest{})
+		_, err = c.PfsAPIClient.DeleteRepo(ctx, &pfs.DeleteRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{})
+		_, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.FinishCommit(c.Ctx(), &pfs.FinishCommitRequest{})
+		_, err = c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectCommit(c.Ctx(), &pfs.InspectCommitRequest{})
+		_, err = c.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{})
+		_, err = c.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{})
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.SquashCommitSet(c.Ctx(), &pfs.SquashCommitSetRequest{})
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.InspectCommitSet(c.Ctx(), &pfs.InspectCommitSetRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.SubscribeCommit(c.Ctx(), &pfs.SubscribeCommitRequest{})
+		_, err = c.PfsAPIClient.SubscribeCommit(ctx, &pfs.SubscribeCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.CreateBranch(c.Ctx(), &pfs.CreateBranchRequest{})
+		_, err = c.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectBranch(c.Ctx(), &pfs.InspectBranchRequest{})
+		_, err = c.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{})
+		_, err = c.PfsAPIClient.ListBranch(ctx, &pfs.ListBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{})
+		_, err = c.PfsAPIClient.DeleteBranch(ctx, &pfs.DeleteBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.GetFileTAR(c.Ctx(), &pfs.GetFileRequest{})
+		_, err = c.PfsAPIClient.GetFileTAR(ctx, &pfs.GetFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectFile(c.Ctx(), &pfs.InspectFileRequest{})
+		_, err = c.PfsAPIClient.InspectFile(ctx, &pfs.InspectFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListFile(c.Ctx(), &pfs.ListFileRequest{})
+		_, err = c.PfsAPIClient.ListFile(ctx, &pfs.ListFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.WalkFile(c.Ctx(), &pfs.WalkFileRequest{})
+		_, err = c.PfsAPIClient.WalkFile(ctx, &pfs.WalkFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.GlobFile(c.Ctx(), &pfs.GlobFileRequest{})
+		_, err = c.PfsAPIClient.GlobFile(ctx, &pfs.GlobFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.DiffFile(c.Ctx(), &pfs.DiffFileRequest{})
+		_, err = c.PfsAPIClient.DiffFile(ctx, &pfs.DiffFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{})
+		_, err = c.PfsAPIClient.Fsck(ctx, &pfs.FsckRequest{})
 		requireNoPanic(err)
 	})
 

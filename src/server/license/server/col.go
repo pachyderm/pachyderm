@@ -13,7 +13,7 @@ const (
 
 var licenseIndexes = []*col.Index{}
 
-func licenseCollection(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func licenseCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		licenseCollectionName,
 		db,

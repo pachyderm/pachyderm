@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -92,7 +93,16 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 	// Retrieve pipelineInfo from the spec repo
 	op, err := m.newPipelineOp(opCtx, pipeline)
 	if err != nil {
-		// fail immediately without retry
+		// Don't put the pipeline in a failing state if we're in the middle
+		// of activating auth, retry in a bit
+		if auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err) {
+			return stepError{
+				error:        errors.Wrap(err, "couldn't initialize pipeline op"),
+				failPipeline: false,
+			}
+		}
+
+		// otherwise fail immediately without retry
 		return stepError{
 			error:        errors.Wrap(err, "couldn't initialize pipeline op"),
 			failPipeline: true,

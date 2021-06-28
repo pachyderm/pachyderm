@@ -69,10 +69,6 @@ message BranchInfo {
   Trigger trigger = 6;
 }
 
-message BranchInfos {
-  repeated BranchInfo branch_info = 1;
-}
-
 // Trigger defines the conditions under which a head is moved, and to which
 // branch it is moved.
 message Trigger {
@@ -169,10 +165,6 @@ message ListRepoRequest {
   // type is the type of (system) repos that should be returned
   // an empty string requests all repos
   string type = 1;
-}
-
-message ListRepoResponse {
-  repeated RepoInfo repo_info = 1;
 }
 
 message DeleteRepoRequest {
@@ -410,7 +402,7 @@ service API {
   // InspectRepo returns info about a repo.
   rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
   // ListRepo returns info about all repos.
-  rpc ListRepo(ListRepoRequest) returns (ListRepoResponse) {}
+  rpc ListRepo(ListRepoRequest) returns (stream RepoInfo) {}
   // DeleteRepo deletes a repo.
   rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
 
@@ -437,7 +429,7 @@ service API {
   // InspectBranch returns info about a branch.
   rpc InspectBranch(InspectBranchRequest) returns (BranchInfo) {}
   // ListBranch returns info about the heads of branches.
-  rpc ListBranch(ListBranchRequest) returns (BranchInfos) {}
+  rpc ListBranch(ListBranchRequest) returns (stream BranchInfo) {}
   // DeleteBranch deletes a branch; note that the commits still exist.
   rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
 

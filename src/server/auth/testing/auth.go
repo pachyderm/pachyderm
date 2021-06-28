@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // InactiveAPIServer (in the auth/testing package) is an implementation of the
@@ -185,7 +186,7 @@ func (a *InactiveAPIServer) RotateRootToken(context.Context, *auth.RotateRootTok
 }
 
 // CheckRepoIsAuthorized returns nil when auth is not activated
-func (a *InactiveAPIServer) CheckRepoIsAuthorized(context.Context, string, ...auth.Permission) error {
+func (a *InactiveAPIServer) CheckRepoIsAuthorized(context.Context, *pfs.Repo, ...auth.Permission) error {
 	return nil
 }
 
@@ -200,6 +201,6 @@ func (a *InactiveAPIServer) CheckClusterIsAuthorizedInTransaction(*txncontext.Tr
 }
 
 // CheckRepoIsAuthorizedInTransaction returns nil when auth is not activated
-func (a *InactiveAPIServer) CheckRepoIsAuthorizedInTransaction(*txncontext.TransactionContext, string, ...auth.Permission) error {
+func (a *InactiveAPIServer) CheckRepoIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error {
 	return nil
 }

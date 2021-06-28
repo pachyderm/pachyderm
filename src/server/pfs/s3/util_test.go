@@ -17,7 +17,6 @@ import (
 	minio "github.com/minio/minio-go/v6"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func getObject(t *testing.T, minioClient *minio.Client, bucket, file string) (string, error) {
@@ -83,10 +82,9 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime *time.
 	}
 }
 
-func putListFileTestObject(t *testing.T, pachClient *client.APIClient, commit *pfs.Commit, dir string, i int) {
+func putListFileTestObject(t *testing.T, mf client.ModifyFile, dir string, i int) {
 	t.Helper()
-	require.NoError(t, pachClient.PutFile(
-		commit,
+	require.NoError(t, mf.PutFile(
 		fmt.Sprintf("%s%d", dir, i),
 		strings.NewReader(fmt.Sprintf("%d\n", i)),
 	))
