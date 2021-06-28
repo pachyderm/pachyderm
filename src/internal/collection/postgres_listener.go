@@ -15,24 +15,49 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
+
+type PostgresListener interface {
+	// Register registers a notifier with the postgres listener.
+	// A notifier will receive notifications for the channel it is associated
+	// with while registered with the postgres listner.
+	Register(Notifier) error
+	// Unregister unregisters a notifier with the postgres listener.
+	// A notifier will no longer receive notifications when this call completes.
+	Unregister(Notifier) error
+	// Close closes the postgres listener.
+	Close() error
+}
+
+type Notifier interface {
+	// ID is a unique identifier for the notifier.
+	ID() string
+	// Channel is the channel that this notifier should receive notifications for.
+	Channel() string
+	// Notify sends a notification to the notifier.
+	Notify(*pq.Notification)
+	// Error sends an error to the notifier.
+	Error(error)
+}
 
 const (
 	minReconnectInterval = time.Second * 1
 	maxReconnectInterval = time.Second * 30
-	channelBufferSize    = 1000
+	ChannelBufferSize    = 1000
 )
 
 type postgresWatcher struct {
-	db         *sqlx.DB
-	listener   *PostgresListener
-	c          chan *watch.Event
-	buf        chan *postgresEvent // buffer for messages before the initial table list is complete
-	done       chan struct{}       // closed when the watcher is closed to interrupt selects
-	template   proto.Message
-	sqlChannel string
-	closer     sync.Once
+	db       *sqlx.DB
+	listener PostgresListener
+	c        chan *watch.Event
+	buf      chan *postgresEvent // buffer for messages before the initial table list is complete
+	done     chan struct{}       // closed when the watcher is closed to interrupt selects
+	template proto.Message
+	id       string
+	channel  string
+	closer   sync.Once
 
 	// Filtering variables:
 	opts  watch.WatchOptions // may filter by the operation type (put or delete)
@@ -40,27 +65,30 @@ type postgresWatcher struct {
 	value *string            // only set if 'index' is set
 }
 
-func newPostgresWatch(
+func newPostgresWatcher(
 	db *sqlx.DB,
-	listener *PostgresListener,
-	sqlChannel string,
+	listener PostgresListener,
+	channel string,
 	template proto.Message,
 	index *string,
 	value *string,
 	opts watch.WatchOptions,
 ) *postgresWatcher {
-	return &postgresWatcher{
-		db:         db,
-		listener:   listener,
-		c:          make(chan *watch.Event),
-		buf:        make(chan *postgresEvent, channelBufferSize),
-		done:       make(chan struct{}),
-		template:   template,
-		sqlChannel: sqlChannel,
-		opts:       opts,
-		index:      index,
-		value:      value,
+	pw := &postgresWatcher{
+		db:       db,
+		listener: listener,
+		c:        make(chan *watch.Event),
+		buf:      make(chan *postgresEvent, ChannelBufferSize),
+		done:     make(chan struct{}),
+		template: template,
+		id:       uuid.NewWithoutDashes(),
+		channel:  channel,
+		opts:     opts,
+		index:    index,
+		value:    value,
 	}
+	listener.Register(pw)
+	return pw
 }
 
 func (pw *postgresWatcher) Watch() <-chan *watch.Event {
@@ -71,7 +99,7 @@ func (pw *postgresWatcher) Close() {
 	pw.closer.Do(func() {
 		// Close the 'done' channel to interrupt any waiting writes
 		close(pw.done)
-		pw.listener.unregister(pw)
+		pw.listener.Unregister(pw)
 	})
 }
 
@@ -98,7 +126,7 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context, startTime t
 			// watcher (or the read collection that created it) has been canceled -
 			// unregister the watcher and stop forwarding notifications
 			pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}
-			pw.listener.unregister(pw)
+			pw.listener.Unregister(pw)
 			return
 		}
 	}
@@ -113,34 +141,50 @@ func (pw *postgresWatcher) sendInitial(event *watch.Event) error {
 	}
 }
 
+func (pw *postgresWatcher) ID() string {
+	return pw.id
+}
+
+func (pw *postgresWatcher) Channel() string {
+	return pw.channel
+}
+
+func (pw *postgresWatcher) Notify(notification *pq.Notification) {
+	event := parsePostgresEvent(notification.Extra)
+	indexMatch := pw.index == nil || (*pw.index == event.index && *pw.value == event.value)
+	typeMatch := (pw.opts.IncludePut && event.eventType == watch.EventPut) ||
+		(pw.opts.IncludeDelete && event.eventType == watch.EventDelete)
+	interested := indexMatch && typeMatch
+	if interested {
+		pw.send(event)
+	}
+}
+
+func (pw *postgresWatcher) Error(err error) {
+	pw.send(&postgresEvent{err: err})
+}
+
 // Send the given event to the watcher, but abort the watcher if the send would
 // block. If this happens, the watcher is not keeping up with events. Spawn a
 // goroutine to write an error, then close the watcher.
-func (pw *postgresWatcher) sendChange(eventData *postgresEvent) {
-	indexMatch := pw.index == nil || (*pw.index == eventData.index && *pw.value == eventData.value)
-	typeMatch := (pw.opts.IncludePut && eventData.eventType == watch.EventPut) ||
-		(pw.opts.IncludeDelete && eventData.eventType == watch.EventDelete)
-	interested := indexMatch && typeMatch
+func (pw *postgresWatcher) send(event *postgresEvent) {
+	select {
+	case pw.buf <- event:
+	default:
+		// Sending would block which means the user is not keeping up with events
+		// and the buffer is full. We have no option but to abort the watch.
+		// Do this all in a separate goroutine because we need to avoid
+		// recursively locking the listener.
+		go func() {
+			// Unregister the watcher first, so we stop attempting to send it events
+			// (this will happen again in pw.Close(), but it will be a no-op).
+			pw.listener.Unregister(pw)
 
-	if interested || eventData.err != nil {
-		select {
-		case pw.buf <- eventData:
-		default:
-			// Sending would block which means the user is not keeping up with events
-			// and the buffer is full. We have no option but to abort the watch.
-			// Do this all in a separate goroutine because we need to avoid
-			// recursively locking the listener.
-			go func() {
-				// Unregister the watcher first, so we stop attempting to send it events
-				// (this will happen again in pw.Close(), but it will be a no-op).
-				pw.listener.unregister(pw)
-
-				select {
-				case pw.buf <- &postgresEvent{err: errors.New("watcher channel is full, aborting watch")}:
-				case <-pw.done:
-				}
-			}()
-		}
+			select {
+			case pw.buf <- &postgresEvent{err: errors.New("watcher buffer is full, aborting watch")}:
+			case <-pw.done:
+			}
+		}()
 	}
 }
 
@@ -250,31 +294,31 @@ func (pe *postgresEvent) WatchEvent(ctx context.Context, db *sqlx.DB, template p
 	}
 }
 
-type watcherSet = map[*postgresWatcher]struct{}
+type notifierSet = map[string]Notifier
 
-type PostgresListener struct {
+type postgresListener struct {
 	dsn    string
 	pql    *pq.Listener
 	mu     sync.Mutex
 	eg     *errgroup.Group
 	closed bool
 
-	channels map[string]watcherSet
+	channels map[string]notifierSet
 }
 
-func NewPostgresListener(dsn string) *PostgresListener {
+func NewPostgresListener(dsn string) PostgresListener {
 	eg, _ := errgroup.WithContext(context.Background())
 
-	l := &PostgresListener{
+	l := &postgresListener{
 		dsn:      dsn,
 		eg:       eg,
-		channels: make(map[string]watcherSet),
+		channels: make(map[string]notifierSet),
 	}
 
 	return l
 }
 
-func (l *PostgresListener) Close() error {
+func (l *postgresListener) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -291,7 +335,7 @@ func (l *PostgresListener) Close() error {
 	}
 
 	if len(l.channels) != 0 {
-		l.reset(errors.New("PostgresListener has been closed"))
+		l.reset(errors.New("postgres listener has been closed"))
 	}
 	return nil
 }
@@ -299,7 +343,7 @@ func (l *PostgresListener) Close() error {
 // Lazily generate the pq.Listener because we don't want to trigger a race
 // condition where an unused pq.Listener can't be closed properly. The mutex
 // must be locked before calling this.
-func (l *PostgresListener) getPQL() *pq.Listener {
+func (l *postgresListener) getPQL() *pq.Listener {
 	if l.pql == nil {
 		l.pql = pq.NewListener(l.dsn, minReconnectInterval, maxReconnectInterval, nil)
 		l.eg.Go(func() error {
@@ -311,62 +355,63 @@ func (l *PostgresListener) getPQL() *pq.Listener {
 
 // reset will remove all watchers and unlisten from all channels - you must have
 // the lock on the listener's mutex before calling this.
-func (l *PostgresListener) reset(err error) {
-	for _, watchers := range l.channels {
-		eventData := &postgresEvent{err: err}
-		for watcher := range watchers {
-			watcher.sendChange(eventData)
+func (l *postgresListener) reset(err error) {
+	for _, notifiers := range l.channels {
+		for _, notifier := range notifiers {
+			notifier.Error(err)
 		}
 	}
 
-	l.channels = make(map[string]watcherSet)
+	l.channels = make(map[string]notifierSet)
 	if !l.closed {
 		// `reset` is only ever called in the case of an error, so it should be fine to discard this error
 		l.getPQL().UnlistenAll()
 	}
 }
 
-func (l *PostgresListener) listen(db *sqlx.DB, sqlChannel string, template proto.Message, index *string, value *string, opts watch.WatchOptions) (*postgresWatcher, error) {
+func (l *postgresListener) Register(notifier Notifier) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	if l.closed {
-		return nil, errors.New("PostgresListener has been closed")
+		return errors.New("postgres listener has been closed")
 	}
 
-	pw := newPostgresWatch(db, l, sqlChannel, template, index, value, opts)
-
-	// Subscribe the watch to the given channel
-	watchers, ok := l.channels[sqlChannel]
+	// Subscribe the notifier to the given channel.
+	id := notifier.ID()
+	channel := notifier.Channel()
+	notifiers, ok := l.channels[channel]
 	if !ok {
-		watchers = make(watcherSet)
-		l.channels[sqlChannel] = watchers
-		if err := l.getPQL().Listen(sqlChannel); err != nil {
-			// If an error occurs, error out all watches and reset the state of the
-			// listener to prevent desyncs
+		notifiers = make(notifierSet)
+		l.channels[channel] = notifiers
+		if err := l.getPQL().Listen(channel); err != nil {
+			// If an error occurs, error out all notifiers and reset the state of the
+			// listener to prevent desyncs.
 			err = errors.EnsureStack(err)
 			l.reset(err)
-			return nil, err
+			return err
 		}
 	}
-	watchers[pw] = struct{}{}
+	notifiers[id] = notifier
 
-	return pw, nil
+	return nil
 }
 
-func (l *PostgresListener) unregister(pw *postgresWatcher) error {
+func (l *postgresListener) Unregister(notifier Notifier) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// Remove the watch from the given channels, unlisten if any are empty
-	watchers := l.channels[pw.sqlChannel]
-	if len(watchers) > 0 {
-		delete(watchers, pw)
-		if len(watchers) == 0 {
-			delete(l.channels, pw.sqlChannel)
-			if err := l.getPQL().Unlisten(pw.sqlChannel); err != nil {
+	// Remove the notifier from the given channels, unlisten if any are empty.
+	id := notifier.ID()
+	channel := notifier.Channel()
+	notifiers := l.channels[channel]
+	if len(notifiers) > 0 {
+		delete(notifiers, id)
+		if len(notifiers) == 0 {
+			delete(l.channels, channel)
+			if err := l.getPQL().Unlisten(channel); err != nil {
 				// If an error occurs, error out all watches and reset the state of the
-				// listener to prevent desyncs
+				// listener to prevent desyncs.
 				err = errors.EnsureStack(err)
 				l.reset(err)
 				return err
@@ -376,7 +421,7 @@ func (l *PostgresListener) unregister(pw *postgresWatcher) error {
 	return nil
 }
 
-func (l *PostgresListener) multiplex(notifyChan chan *pq.Notification) error {
+func (l *postgresListener) multiplex(notifyChan chan *pq.Notification) error {
 	for {
 		notification, ok := <-notifyChan
 		if !ok {
@@ -394,16 +439,15 @@ func (l *PostgresListener) multiplex(notifyChan chan *pq.Notification) error {
 	}
 }
 
-func (l *PostgresListener) routeNotification(notification *pq.Notification) {
+func (l *postgresListener) routeNotification(notification *pq.Notification) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// Ignore any messages from channels we have no watchers for
-	watchers, ok := l.channels[notification.Channel]
+	// Ignore any messages from channels we have no notifiers for.
+	notifiers, ok := l.channels[notification.Channel]
 	if ok {
-		eventData := parsePostgresEvent(notification.Extra)
-		for watcher := range watchers {
-			watcher.sendChange(eventData)
+		for _, notifier := range notifiers {
+			notifier.Notify(notification)
 		}
 	}
 }

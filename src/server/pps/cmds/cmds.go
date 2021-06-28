@@ -186,6 +186,50 @@ If the job fails, the output commit will not be populated with data.`,
 	shell.RegisterCompletionFunc(inspectJobSet, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectJobSet, "inspect jobset"))
 
+	listJobSet := &cobra.Command{
+		Short: "Return info about jobsets.",
+		Long:  "Return info about jobsets.",
+		Example: `
+# Return all jobsets
+$ {{alias}}`,
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+
+			if raw {
+				e := cmdutil.Encoder(output, os.Stdout)
+				return clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
+					return e.EncodeProto(jobSetInfo)
+				})
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+
+			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+				writer := tabwriter.NewWriter(w, pretty.JobSetHeader)
+				if err := clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
+					pretty.PrintJobSetInfo(writer, jobSetInfo, fullTimestamps)
+					return nil
+				}); err != nil {
+					return err
+				}
+				return writer.Flush()
+			})
+		}),
+	}
+	listJobSet.Flags().AddFlagSet(outputFlags)
+	listJobSet.Flags().AddFlagSet(timestampFlags)
+	listJobSet.Flags().AddFlagSet(pagerFlags)
+	commands = append(commands, cmdutil.CreateAlias(listJobSet, "list jobset"))
+
 	var pipelineName string
 	var inputCommitStrs []string
 	var history string

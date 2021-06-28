@@ -160,12 +160,13 @@ var authHandlers = map[string]authHandler{
 	// TODO: Add per-repo permissions checks for these
 	// TODO: split GetLogs into master and not-master and add check for pipeline permissions
 	"/pps_v2.API/InspectJob":      authDisabledOr(authenticated),
-	"/pps_v2.API/InspectJobSet":   authDisabledOr(authenticated),
 	"/pps_v2.API/ListJob":         authDisabledOr(authenticated),
 	"/pps_v2.API/ListJobStream":   authDisabledOr(authenticated),
 	"/pps_v2.API/SubscribeJob":    authDisabledOr(authenticated),
 	"/pps_v2.API/DeleteJob":       authDisabledOr(authenticated),
 	"/pps_v2.API/StopJob":         authDisabledOr(authenticated),
+	"/pps_v2.API/InspectJobSet":   authDisabledOr(authenticated),
+	"/pps_v2.API/ListJobSet":      authDisabledOr(authenticated),
 	"/pps_v2.API/InspectDatum":    authDisabledOr(authenticated),
 	"/pps_v2.API/ListDatum":       authDisabledOr(authenticated),
 	"/pps_v2.API/ListDatumStream": authDisabledOr(authenticated),
@@ -206,6 +207,13 @@ var authHandlers = map[string]authHandler{
 	//
 
 	"/versionpb_v2.API/GetVersion": unauthenticated,
+
+	//
+	// Proxy API
+	//
+
+	// TODO: Only the pachd sidecar instances should be able to use this endpoint.
+	"/proxy.API/Listen": unauthenticated,
 }
 
 // NewInterceptor instantiates a new Interceptor

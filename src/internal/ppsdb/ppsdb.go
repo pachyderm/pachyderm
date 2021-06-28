@@ -20,7 +20,7 @@ const (
 var pipelinesIndexes = []*col.Index{}
 
 // Pipelines returns a PostgresCollection of pipelines
-func Pipelines(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func Pipelines(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		pipelinesCollectionName,
 		db,
@@ -63,7 +63,7 @@ var jobsIndexes = []*col.Index{JobsPipelineIndex, JobsTerminalIndex, JobsJobSetI
 var JobKey = ppsutil.JobKey
 
 // Jobs returns a PostgresCollection of Jobs
-func Jobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func Jobs(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		jobsCollectionName,
 		db,

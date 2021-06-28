@@ -6,18 +6,21 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 )
 
 func TestPostgresCollections(suite *testing.T) {
 	suite.Parallel()
 
-	newCollection := func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
+	PostgresCollectionTests(suite, func(ctx context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
 		config := serviceenv.ConfigFromOptions(testutil.NewTestDBConfig(t))
 		options := []dbutil.Option{
 			dbutil.WithHostPort(config.PostgresHost, config.PostgresPort),
@@ -31,24 +34,58 @@ func TestPostgresCollections(suite *testing.T) {
 			require.NoError(t, db.Close())
 		})
 
+		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
+			if err := col.CreatePostgresSchema(ctx, sqlTx); err != nil {
+				return err
+			}
+			return col.SetupPostgresV0(ctx, sqlTx)
+		}))
+
 		dsn := dbutil.GetDSN(options...)
 		listener := col.NewPostgresListener(dsn)
 		t.Cleanup(func() {
 			require.NoError(t, listener.Close())
 		})
+		return db, listener
+	})
+}
+
+// TODO: Add test for filling up watcher buffer.
+func TestPostgresCollectionsProxy(suite *testing.T) {
+	suite.Parallel()
+
+	PostgresCollectionTests(suite, func(_ context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
+		dbConfig := testutil.NewTestDBConfig(t)
+		config := serviceenv.ConfigFromOptions(dbConfig)
+		options := []dbutil.Option{
+			dbutil.WithHostPort(config.PostgresHost, config.PostgresPort),
+			dbutil.WithDBName(config.PostgresDBName),
+			dbutil.WithMaxOpenConns(1), // All tests should be able to run on a single connection
+		}
+
+		db, err := dbutil.NewDB(options...)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, db.Close())
+		})
+
+		env := testpachd.NewRealEnv(t, dbConfig)
+		listener := client.NewProxyPostgresListener(func() (proxy.APIClient, error) { return env.PachClient.ProxyClient, nil })
+		t.Cleanup(func() {
+			require.NoError(t, listener.Close())
+		})
+		return db, listener
+	})
+}
+
+func PostgresCollectionTests(suite *testing.T, setup func(context.Context, *testing.T) (*sqlx.DB, col.PostgresListener)) {
+	newCollection := func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
+		db, listener := setup(ctx, t)
 
 		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, nil)
-
-		err = dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
-			if err := col.CreatePostgresSchema(ctx, sqlTx); err != nil {
-				return err
-			}
-			if err := col.SetupPostgresV0(ctx, sqlTx); err != nil {
-				return err
-			}
+		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 			return col.SetupPostgresCollections(ctx, sqlTx, testCol)
-		})
-		require.NoError(t, err)
+		}))
 
 		readCallback := func(ctx context.Context) col.ReadOnlyCollection {
 			return testCol.ReadOnly(ctx)
