@@ -101,7 +101,7 @@
   force = true
 
 [[redirects]]
-  from = "/latest/how-tos/advanced-data-operations/splitting-data/*"
+  from = "/2.0.x/how-tos/advanced-data-operations/splitting-data/*"
   to = "/latest/"
   status = 301
   force = true 
