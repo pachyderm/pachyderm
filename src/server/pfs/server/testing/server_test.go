@@ -3111,11 +3111,16 @@ func TestPFS(suite *testing.T) {
 		numFiles := 100
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		for i := 0; i < numFiles; i++ {
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("1")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
-		}
+
+		require.NoError(t, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+			for i := 0; i < numFiles; i++ {
+				require.NoError(t, mf.PutFile(fmt.Sprintf("file%d", i), strings.NewReader("1")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
+			}
+			return nil
+		}))
+
 		checks := func() {
 			fileInfos, err := env.PachClient.GlobFileAll(commit, "*")
 			require.NoError(t, err)
