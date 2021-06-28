@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	deploycmds "github.com/pachyderm/pachyderm/v2/src/internal/deploy/cmds"
@@ -37,12 +38,10 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/grpclog"
@@ -320,11 +319,9 @@ func newClient(enterprise bool, options ...client.Option) (*client.APIClient, er
 func PachctlCmd() *cobra.Command {
 	var verbose bool
 
-	raw := false
-	rawFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	rawFlags.BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
-
-	marshaller := &jsonpb.Marshaler{Indent: "  "}
+	var raw bool
+	var output string
+	outputFlags := cmdutil.OutputFlags(&raw, &output)
 
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
@@ -376,14 +373,15 @@ Environment variables:
 		Short: "Print Pachyderm version information.",
 		Long:  "Print Pachyderm version information.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			if !raw && output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+
 			if clientOnly {
 				if raw {
-					if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
-						return err
-					}
-				} else {
-					fmt.Println(version.PrettyPrintVersion(version.Version))
+					return cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version)
 				}
+				fmt.Println(version.PrettyPrintVersion(version.Version))
 				return nil
 			}
 
@@ -398,7 +396,7 @@ Environment variables:
 			// Print header + client version
 			writer := ansiterm.NewTabWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			if raw {
-				if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
+				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version); err != nil {
 					return err
 				}
 			} else {
@@ -440,16 +438,10 @@ Environment variables:
 
 			// print server version
 			if raw {
-				if err := marshaller.Marshal(os.Stdout, version); err != nil {
-					return err
-				}
-			} else {
-				printVersion(writer, "pachd", version)
-				if err := writer.Flush(); err != nil {
-					return err
-				}
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(version)
 			}
-			return nil
+			printVersion(writer, "pachd", version)
+			return writer.Flush()
 		}),
 	}
 	versionCmd.Flags().BoolVar(&clientOnly, "client-only", false, "If set, "+
@@ -462,7 +454,7 @@ Environment variables:
 		"default timeout; if set to 0s, the call will never time out.")
 	versionCmd.Flags().BoolVar(&enterprise, "enterprise", false, "If set, "+
 		"'pachctl version' will run on the active enterprise context.")
-	versionCmd.Flags().AddFlagSet(rawFlags)
+	versionCmd.Flags().AddFlagSet(outputFlags)
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
 	exitCmd := &cobra.Command{
 		Short: "Exit the pachctl shell.",
@@ -509,12 +501,15 @@ This resets the cluster to its initial state.`,
 			for _, ri := range repoInfos {
 				repos = append(repos, red(ri.Repo.Name))
 			}
-			resp, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
+			c, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{Details: false})
 			if err != nil {
 				return err
 			}
-			for _, pi := range resp.PipelineInfo {
+			if err := clientsdk.ForEachPipelineInfo(c, func(pi *pps.PipelineInfo) error {
 				pipelines = append(pipelines, red(pi.Pipeline.Name))
+				return nil
+			}); err != nil {
+				return err
 			}
 			fmt.Println("All ACLs, repos, commits, files, pipelines and jobs will be deleted.")
 			if len(repos) > 0 {
@@ -579,7 +574,7 @@ This resets the cluster to its initial state.`,
 			successCount := 0
 
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-			port, err := fw.RunForDaemon(port, remotePort)
+			port, err := fw.RunForPachd(port, remotePort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -589,7 +584,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the OIDC callback port...")
-			port, err = fw.RunForOIDCCallback(oidcPort, remoteOidcPort)
+			port, err = fw.RunForPachd(oidcPort, remoteOidcPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -599,7 +594,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the s3gateway port...")
-			port, err = fw.RunForS3Gateway(s3gatewayPort, remoteS3gatewayPort)
+			port, err = fw.RunForPachd(s3gatewayPort, remoteS3gatewayPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -609,7 +604,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the identity service port...")
-			port, err = fw.RunForDex(dexPort, remoteDexPort)
+			port, err = fw.RunForPachd(dexPort, remoteDexPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {

@@ -268,8 +268,9 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 func (env *NonblockingServiceEnv) initDBClient() error {
 	return backoff.Retry(func() error {
 		db, err := dbutil.NewDB(
-			dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
+			dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
 			dbutil.WithDBName(env.config.PostgresDBName),
+			dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
 		)
 		if err != nil {
 			return err
@@ -309,8 +310,9 @@ func (env *NonblockingServiceEnv) newProxyClient() (proxy.APIClient, error) {
 
 func (env *NonblockingServiceEnv) newDirectListener() col.PostgresListener {
 	dsn := dbutil.GetDSN(
-		dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
+		dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
 		dbutil.WithDBName(env.config.PostgresDBName),
+		dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
 	)
 	// The postgres listener is lazily initialized to avoid consuming too many
 	// postgres resources by having idle client connections, so construction

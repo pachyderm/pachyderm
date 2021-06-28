@@ -172,8 +172,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -266,8 +265,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -418,7 +416,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 			txnEnv,
 			path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
 			env.Config().Namespace,
-			env.Config().IAMRole,
 			reporter,
 			env.Config().PPSWorkerPort,
 			env.Config().PeerPort,
@@ -645,8 +642,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -779,8 +775,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}

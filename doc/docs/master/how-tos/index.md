@@ -109,16 +109,12 @@ data operations in Pachyderm.
         <h4 class="mdl-card__title-text">Advanced Data Operations &nbsp;&nbsp;&nbsp;<i class="fa fa-flask"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Manage Secrets, split your data, use transactions, skip failed datum...
+        Manage Secrets, use transactions, skip failed datum...
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
           <li><a href="advanced-data-operations/secrets" class="md-typeset md-link">
            Create and Manage Secrets 
-           </a>
-           </li>
-           <li><a href="advanced-data-operations/splitting-data" class="md-typeset md-link">
-           Split Data
            </a>
            </li>
            <li><a href="advanced-data-operations/time_windows" class="md-typeset md-link">

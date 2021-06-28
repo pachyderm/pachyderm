@@ -40,6 +40,8 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -711,8 +713,7 @@ func TestPFS(suite *testing.T) {
 
 		require.Equal(t, commit, commitInfo.Commit)
 		require.Nil(t, commitInfo.Finished)
-		// PutFile does not update commit size; only FinishCommit does
-		require.Equal(t, 0, int(commitInfo.SizeBytes))
+		require.Nil(t, commitInfo.Details) // no details for an unfinished commit
 		require.True(t, started.Before(tStarted))
 		require.Nil(t, commitInfo.Finished)
 
@@ -730,7 +731,7 @@ func TestPFS(suite *testing.T) {
 
 		require.Equal(t, commit, commitInfo.Commit)
 		require.NotNil(t, commitInfo.Finished)
-		require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
+		require.Equal(t, len(fileContent), int(commitInfo.Details.SizeBytes))
 		require.True(t, started.Before(tStarted))
 		require.True(t, finished.After(tFinished))
 	})
@@ -818,7 +819,10 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, branchInfos[0].Head, commitInfos[0].Commit)
-		require.Equal(t, uint64(0), commitInfos[0].SizeBytes)
+
+		commitInfo, err := env.PachClient.InspectCommit(repo, "master", "")
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), commitInfo.Details.SizeBytes)
 
 		// Check that repo size is back to 0
 		repoInfo, err := env.PachClient.InspectRepo(repo)
@@ -847,7 +851,7 @@ func TestPFS(suite *testing.T) {
 		// commits (even if they're finished) - do an inspect commit instead.
 		commitInfo, err := env.PachClient.InspectCommit(repo, commit.Branch.Name, commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, uint64(4), commitInfo.SizeBytes)
+		require.Equal(t, uint64(4), commitInfo.Details.SizeBytes)
 
 		require.NoError(t, env.PachClient.SquashCommitSet(commit.ID))
 
@@ -1289,7 +1293,7 @@ func TestPFS(suite *testing.T) {
 
 		fileInfo, err := env.PachClient.InspectFile(commit1, "foo")
 		require.NoError(t, err)
-		require.Equal(t, fileSize, int(fileInfo.SizeBytes))
+		require.Equal(t, fileSize, int(fileInfo.Details.SizeBytes))
 
 		var buffer bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(commit1, "foo", &buffer))
@@ -1425,7 +1429,7 @@ func TestPFS(suite *testing.T) {
 			fileInfo, err := env.PachClient.InspectFile(commit1, "foo")
 			require.NoError(t, err)
 			require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
-			require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+			require.Equal(t, len(fileContent1), int(fileInfo.Details.SizeBytes))
 		}
 		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
@@ -1441,12 +1445,12 @@ func TestPFS(suite *testing.T) {
 		fileInfo, err := env.PachClient.InspectFile(commit2, "foo")
 		require.NoError(t, err)
 		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
-		require.Equal(t, len(fileContent1+fileContent2), int(fileInfo.SizeBytes))
+		require.Equal(t, len(fileContent1+fileContent2), int(fileInfo.Details.SizeBytes))
 
 		fileInfo, err = env.PachClient.InspectFile(commit2, "foo")
 		require.NoError(t, err)
 		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
-		require.Equal(t, len(fileContent1)+len(fileContent2), int(fileInfo.SizeBytes))
+		require.Equal(t, len(fileContent1)+len(fileContent2), int(fileInfo.Details.SizeBytes))
 
 		fileContent3 := "bar\n"
 		commit3, err := env.PachClient.StartCommit(repo, "master")
@@ -1479,7 +1483,7 @@ func TestPFS(suite *testing.T) {
 
 		fileInfo, err := env.PachClient.InspectFile(commit, "/file")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+		require.Equal(t, len(fileContent1), int(fileInfo.Details.SizeBytes))
 		require.Equal(t, "/file", fileInfo.File.Path)
 		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 
@@ -1490,7 +1494,7 @@ func TestPFS(suite *testing.T) {
 
 		fileInfo, err = env.PachClient.InspectFile(commit, "file")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent1)*2, int(fileInfo.SizeBytes))
+		require.Equal(t, len(fileContent1)*2, int(fileInfo.Details.SizeBytes))
 		require.Equal(t, "/file", fileInfo.File.Path)
 
 		_, err = env.PachClient.StartCommit(repo, "master")
@@ -1501,7 +1505,7 @@ func TestPFS(suite *testing.T) {
 
 		fileInfo, err = env.PachClient.InspectFile(commit, "file")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
+		require.Equal(t, len(fileContent2), int(fileInfo.Details.SizeBytes))
 	})
 
 	suite.Run("InspectFile3", func(t *testing.T) {
@@ -1567,17 +1571,17 @@ func TestPFS(suite *testing.T) {
 
 		fileInfo, err := env.PachClient.InspectFile(commit1, "dir/foo")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent), int(fileInfo.SizeBytes))
+		require.Equal(t, len(fileContent), int(fileInfo.Details.SizeBytes))
 		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 
 		fileInfo, err = env.PachClient.InspectFile(commit1, "dir")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent), int(fileInfo.SizeBytes))
+		require.Equal(t, len(fileContent), int(fileInfo.Details.SizeBytes))
 		require.Equal(t, pfs.FileType_DIR, fileInfo.FileType)
 
 		_, err = env.PachClient.InspectFile(commit1, "")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent), int(fileInfo.SizeBytes))
+		require.Equal(t, len(fileContent), int(fileInfo.Details.SizeBytes))
 		require.Equal(t, pfs.FileType_DIR, fileInfo.FileType)
 	})
 
@@ -1687,7 +1691,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 2, len(fileInfos))
 			require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
-			require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
+			require.True(t, fileInfos[0].Details.SizeBytes == fileInfos[1].Details.SizeBytes && fileInfos[0].Details.SizeBytes == uint64(len(fileContent1)))
 
 		}
 		checks()
@@ -1766,7 +1770,7 @@ func TestPFS(suite *testing.T) {
 		fileInfos, err = env.PachClient.ListFileAll(commit, "dir")
 		require.NoError(t, err)
 		require.Equal(t, 3, len(fileInfos))
-		require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent)*2)
+		require.Equal(t, int(fileInfos[2].Details.SizeBytes), len(fileContent)*2)
 
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1777,7 +1781,7 @@ func TestPFS(suite *testing.T) {
 		fileInfos, err = env.PachClient.ListFileAll(commit, "dir")
 		require.NoError(t, err)
 		require.Equal(t, 3, len(fileInfos))
-		require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent))
+		require.Equal(t, int(fileInfos[2].Details.SizeBytes), len(fileContent))
 
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -3107,11 +3111,16 @@ func TestPFS(suite *testing.T) {
 		numFiles := 100
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		for i := 0; i < numFiles; i++ {
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("1")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
-		}
+
+		require.NoError(t, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+			for i := 0; i < numFiles; i++ {
+				require.NoError(t, mf.PutFile(fmt.Sprintf("file%d", i), strings.NewReader("1")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
+			}
+			return nil
+		}))
+
 		checks := func() {
 			fileInfos, err := env.PachClient.GlobFileAll(commit, "*")
 			require.NoError(t, err)
@@ -4301,7 +4310,8 @@ func TestPFS(suite *testing.T) {
 			checkNotFound := func(path string) {
 				err := env.PachClient.WalkFile(latestCommit, path, cb)
 				require.YesError(t, err)
-				require.Matches(t, "file .* not found in repo", err.Error())
+				s := status.Convert(err)
+				require.Equal(t, s.Code(), codes.NotFound)
 			}
 			require.NoError(t, env.PachClient.WalkFile(latestCommit, "", cb))
 			require.NoError(t, env.PachClient.WalkFile(latestCommit, "/", cb))
@@ -4312,9 +4322,8 @@ func TestPFS(suite *testing.T) {
 		}
 
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		// TODO(global ids): uncomment this code once global ids land and branches have default heads
-		//require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
-		//checks() // Test the default empty head commit
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
+		checks() // Test the default empty head commit
 
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -4358,7 +4367,7 @@ func TestPFS(suite *testing.T) {
 		check := func() {
 			fileInfo, err := env.PachClient.InspectFile(commit, "readme")
 			require.NoError(t, err)
-			require.True(t, fileInfo.SizeBytes > 0)
+			require.True(t, fileInfo.Details.SizeBytes > 0)
 		}
 		check()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
@@ -4387,7 +4396,7 @@ func TestPFS(suite *testing.T) {
 			for _, path := range paths {
 				fileInfo, err := env.PachClient.InspectFile(repoProto.NewCommit("master", ""), path)
 				require.NoError(t, err)
-				require.True(t, fileInfo.SizeBytes > 0)
+				require.True(t, fileInfo.Details.SizeBytes > 0)
 			}
 		}
 		check()
@@ -4792,15 +4801,12 @@ func TestPFS(suite *testing.T) {
 		b.Reset()
 		require.YesError(t, c.GetFile(commit, "file1", &b))
 
-		// TODO(2.0 required): Should this behavior be kept in 2.0? If so, we need
-		// to lazily make the one-off commit.
-		// Empty ModifyFileClients shouldn't error or create commits
-		//mfc, err = c.NewModifyFileClient(test, "master")
-		//require.NoError(t, err)
-		//require.NoError(t, mfc.Close())
-		//cis, err = c.ListCommit(test, "master", "", 0)
-		//require.NoError(t, err)
-		//require.Equal(t, 2, len(cis))
+		mfc, err = c.NewModifyFileClient(commit)
+		require.NoError(t, err)
+		require.NoError(t, mfc.Close())
+		cis, err = c.ListCommit(testRepo, commit, nil, 0)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(cis))
 	})
 
 	const (
@@ -5591,49 +5597,51 @@ func TestPFS(suite *testing.T) {
 				require.False(t, strings.Contains(err.Error(), "transport is closing"), err.Error())
 			}
 		}
-		_, err := c.PfsAPIClient.CreateRepo(c.Ctx(), &pfs.CreateRepoRequest{})
+		ctx, cf := context.WithCancel(c.Ctx())
+		defer cf()
+		_, err := c.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{})
+		_, err = c.PfsAPIClient.InspectRepo(ctx, &pfs.InspectRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListRepo(c.Ctx(), &pfs.ListRepoRequest{})
+		_, err = c.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), &pfs.DeleteRepoRequest{})
+		_, err = c.PfsAPIClient.DeleteRepo(ctx, &pfs.DeleteRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{})
+		_, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.FinishCommit(c.Ctx(), &pfs.FinishCommitRequest{})
+		_, err = c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectCommit(c.Ctx(), &pfs.InspectCommitRequest{})
+		_, err = c.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{})
+		_, err = c.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{})
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.SquashCommitSet(c.Ctx(), &pfs.SquashCommitSetRequest{})
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.InspectCommitSet(c.Ctx(), &pfs.InspectCommitSetRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.SubscribeCommit(c.Ctx(), &pfs.SubscribeCommitRequest{})
+		_, err = c.PfsAPIClient.SubscribeCommit(ctx, &pfs.SubscribeCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.CreateBranch(c.Ctx(), &pfs.CreateBranchRequest{})
+		_, err = c.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectBranch(c.Ctx(), &pfs.InspectBranchRequest{})
+		_, err = c.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{})
+		_, err = c.PfsAPIClient.ListBranch(ctx, &pfs.ListBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{})
+		_, err = c.PfsAPIClient.DeleteBranch(ctx, &pfs.DeleteBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.GetFileTAR(c.Ctx(), &pfs.GetFileRequest{})
+		_, err = c.PfsAPIClient.GetFileTAR(ctx, &pfs.GetFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectFile(c.Ctx(), &pfs.InspectFileRequest{})
+		_, err = c.PfsAPIClient.InspectFile(ctx, &pfs.InspectFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListFile(c.Ctx(), &pfs.ListFileRequest{})
+		_, err = c.PfsAPIClient.ListFile(ctx, &pfs.ListFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.WalkFile(c.Ctx(), &pfs.WalkFileRequest{})
+		_, err = c.PfsAPIClient.WalkFile(ctx, &pfs.WalkFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.GlobFile(c.Ctx(), &pfs.GlobFileRequest{})
+		_, err = c.PfsAPIClient.GlobFile(ctx, &pfs.GlobFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.DiffFile(c.Ctx(), &pfs.DiffFileRequest{})
+		_, err = c.PfsAPIClient.DiffFile(ctx, &pfs.DiffFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{})
+		_, err = c.PfsAPIClient.Fsck(ctx, &pfs.FsckRequest{})
 		requireNoPanic(err)
 	})
 

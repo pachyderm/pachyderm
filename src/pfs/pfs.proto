@@ -69,10 +69,6 @@ message BranchInfo {
   Trigger trigger = 6;
 }
 
-message BranchInfos {
-  repeated BranchInfo branch_info = 1;
-}
-
 // Trigger defines the conditions under which a head is moved, and to which
 // branch it is moved.
 message Trigger {
@@ -92,10 +88,11 @@ message Trigger {
 
 // These are the different places where a commit may be originated from
 enum OriginKind {
-  USER = 0;
-  AUTO = 1;
-  FSCK = 2;
-  ALIAS = 3;
+  ORIGIN_KIND_UNKNOWN = 0;
+  USER = 1;
+  AUTO = 2;
+  FSCK = 3;
+  ALIAS = 4;
 }
 
 message CommitOrigin {
@@ -120,8 +117,13 @@ message CommitInfo {
   repeated Commit child_commits = 5;
   google.protobuf.Timestamp started = 6;
   google.protobuf.Timestamp finished = 7;
-  uint64 size_bytes = 8;
-  repeated Branch direct_provenance = 9;
+  repeated Branch direct_provenance = 8;
+
+  // Details are only provided when explicitly requested
+  message Details {
+    uint64 size_bytes = 1;
+  }
+  Details details = 9;
 }
 
 message CommitSet {
@@ -137,9 +139,13 @@ enum FileType {
 message FileInfo {
   File file = 1;
   FileType file_type = 2;
-  uint64 size_bytes = 3;
-  google.protobuf.Timestamp committed = 4;
-  bytes hash = 5;
+  google.protobuf.Timestamp committed = 3;
+
+  message Details {
+    uint64 size_bytes = 1;
+    bytes hash = 2;
+  }
+  Details details = 4;
 }
 
 // PFS API
@@ -160,10 +166,6 @@ message ListRepoRequest {
   string type = 1;
 }
 
-message ListRepoResponse {
-  repeated RepoInfo repo_info = 1;
-}
-
 message DeleteRepoRequest {
   Repo repo = 1;
   bool force = 2;
@@ -172,9 +174,10 @@ message DeleteRepoRequest {
 // CommitState describes the states a commit can be in.
 // The states are increasingly specific, i.e. a commit that is FINISHED also counts as STARTED.
 enum CommitState {
-  STARTED = 0; // The commit has been started, all commits satisfy this state.
-  READY = 1; // The commit has been started, and all of its provenant commits have been finished.
-  FINISHED = 2; // The commit has been finished.
+  COMMIT_STATE_UNKNOWN = 0;
+  STARTED = 1; // The commit has been started, all commits satisfy this state.
+  READY = 2; // The commit has been started, and all of its provenant commits have been finished.
+  FINISHED = 3; // The commit has been finished.
 }
 
 message StartCommitRequest {
@@ -316,7 +319,7 @@ message ListFileRequest {
   // If the "path" field is omitted, a list of files at the top level of the repo
   // is returned
   File file = 1;
-  bool full = 2;
+  bool details = 2;
 // TODO:
 //  // History indicates how many historical versions you want returned. Its
 //  // semantics are:
@@ -401,7 +404,7 @@ service API {
   // InspectRepo returns info about a repo.
   rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
   // ListRepo returns info about all repos.
-  rpc ListRepo(ListRepoRequest) returns (ListRepoResponse) {}
+  rpc ListRepo(ListRepoRequest) returns (stream RepoInfo) {}
   // DeleteRepo deletes a repo.
   rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
 
@@ -428,7 +431,7 @@ service API {
   // InspectBranch returns info about a branch.
   rpc InspectBranch(InspectBranchRequest) returns (BranchInfo) {}
   // ListBranch returns info about the heads of branches.
-  rpc ListBranch(ListBranchRequest) returns (BranchInfos) {}
+  rpc ListBranch(ListBranchRequest) returns (stream BranchInfo) {}
   // DeleteBranch deletes a branch; note that the commits still exist.
   rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
 

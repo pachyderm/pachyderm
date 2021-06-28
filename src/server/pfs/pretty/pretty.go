@@ -19,7 +19,7 @@ const (
 	// RepoAuthHeader is the header for repos with auth information attached.
 	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
-	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tDESCRIPTION\n"
+	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tDESCRIPTION\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// FileHeader is the header for files.
@@ -148,11 +148,12 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 			fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Finished))
 		}
 	}
-	if commitInfo.Finished == nil {
+	if commitInfo.Details == nil {
 		fmt.Fprintf(w, "-\t")
 	} else {
-		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.SizeBytes)))
+		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.Details.SizeBytes)))
 	}
+	fmt.Fprintf(w, "%v\t", commitInfo.Origin.Kind)
 	fmt.Fprintf(w, "%s\t", commitInfo.Description)
 	fmt.Fprintln(w)
 }
@@ -182,7 +183,7 @@ Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}
 Finished: {{prettyAgo .Finished}}{{end}}{{end}}
-Size: {{prettySize .SizeBytes}}
+Size: {{prettySize .Details.SizeBytes}}
 `)
 	if err != nil {
 		return err
@@ -213,7 +214,11 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 			fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
 		}
 	}
-	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(fileInfo.SizeBytes)))
+	if fileInfo.Details != nil {
+		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(fileInfo.Details.SizeBytes)))
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
 	fmt.Fprintln(w)
 }
 
@@ -233,7 +238,7 @@ func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 		`Path: {{.File.Path}}
 Tag: {{.File.Tag}}
 Type: {{fileType .FileType}}
-Size: {{prettySize .SizeBytes}}
+Size: {{prettySize .Details.SizeBytes}}
 `)
 	if err != nil {
 		return err

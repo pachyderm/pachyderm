@@ -3,9 +3,12 @@ package pfs
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ErrFileNotFound represents a file-not-found error.
@@ -238,7 +241,13 @@ func IsFileNotFoundErr(err error) bool {
 	if err == nil {
 		return false
 	}
-	return fileNotFoundRe.MatchString(err.Error())
+	if fileNotFoundRe.MatchString(err.Error()) {
+		return true
+	}
+	if status.Code(err) == codes.NotFound && strings.Contains(err.Error(), "commit") {
+		return true
+	}
+	return false	
 }
 
 // IsOutputCommitNotFinishedErr returns true if the err is due to an operation

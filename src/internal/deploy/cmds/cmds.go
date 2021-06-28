@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	_metrics "github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	clientcmd "k8s.io/client-go/tools/clientcmd/api/v1"
 
@@ -68,7 +67,7 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 		}
 
 		var buf bytes.Buffer
-		if err := encoder("yaml", &buf).Encode(config); err != nil {
+		if err := cmdutil.Encoder("yaml", &buf).Encode(config); err != nil {
 			return errors.Wrapf(err, "failed to encode config")
 		}
 
@@ -108,23 +107,6 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 
 	args = append([]string{"kubectl"}, args...)
 	return cmdutil.RunIO(ioObj, args...)
-}
-
-// Return the appropriate encoder for the given output format.
-func encoder(output string, w io.Writer) serde.Encoder {
-	if output == "" {
-		output = "json"
-	} else {
-		output = strings.ToLower(output)
-	}
-	e, err := serde.GetEncoder(output, w,
-		serde.WithIndent(2),
-		serde.WithOrigName(true),
-	)
-	if err != nil {
-		cmdutil.ErrorAndExit(err.Error())
-	}
-	return e
 }
 
 func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
@@ -253,7 +235,6 @@ func standardDeployCmds() []*cobra.Command {
 	var imagePullSecret string
 	var localRoles bool
 	var logLevel string
-	var noExposeDockerSocket bool
 	var noGuaranteed bool
 	var noRBAC bool
 	var pachdCPURequest string
@@ -281,7 +262,6 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
 		cmd.Flags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
 		cmd.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
-		cmd.Flags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
 		cmd.Flags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 		cmd.Flags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
 		cmd.Flags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
@@ -395,7 +375,6 @@ func standardDeployCmds() []*cobra.Command {
 			NoRBAC:                     noRBAC,
 			LocalRoles:                 localRoles,
 			Namespace:                  namespace,
-			NoExposeDockerSocket:       noExposeDockerSocket,
 			ClusterDeploymentID:        clusterDeploymentID,
 			RequireCriticalServersOnly: requireCriticalServersOnly,
 			WorkerServiceAccountName:   workerServiceAccountName,
@@ -482,7 +461,7 @@ func standardDeployCmds() []*cobra.Command {
 
 			var buf bytes.Buffer
 			if err := assets.WriteLocalAssets(
-				encoder(outputFormat, &buf), opts, hostPath,
+				cmdutil.Encoder(outputFormat, &buf), opts, hostPath,
 			); err != nil {
 				return err
 			}
@@ -546,7 +525,7 @@ func standardDeployCmds() []*cobra.Command {
 				cred = string(credBytes)
 			}
 			if err = assets.WriteGoogleAssets(
-				encoder(outputFormat, &buf), opts, bucket, cred, volumeSize,
+				cmdutil.Encoder(outputFormat, &buf), opts, bucket, cred, volumeSize,
 			); err != nil {
 				return err
 			}
@@ -605,7 +584,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
 			if err := assets.WriteCustomAssets(
-				encoder(outputFormat, &buf), opts, args, objectStoreBackend,
+				cmdutil.Encoder(outputFormat, &buf), opts, args, objectStoreBackend,
 				persistentDiskBackend, secure, isS3V2, advancedConfig,
 			); err != nil {
 				return err
@@ -640,7 +619,6 @@ If <object store backend> is \"s3\", then the arguments are:
 
 	var cloudfrontDistribution string
 	var creds string
-	var iamRole string
 	deployAmazon := &cobra.Command{
 		Use:   "{{alias}} <region> <disk-size> [<bucket-name>]",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
@@ -660,7 +638,7 @@ If <object store backend> is \"s3\", then the arguments are:
 
 			// Require credentials to access S3 for pachd deployments.
 			// Enterprise server deployments don't require an S3 bucket, so they don't need credentials.
-			if creds == "" && iamRole == "" && !enterpriseServer {
+			if creds == "" && !enterpriseServer {
 				return errors.Errorf("one of --credentials, or --iam-role needs to be provided")
 			}
 
@@ -695,12 +673,6 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 			}
 
-			if iamRole != "" {
-				if amazonCreds != nil {
-					return errors.Errorf("only one of --credentials, or --iam-role needs to be provided")
-				}
-				opts.IAMRole = iamRole
-			}
 			volumeSize, err := strconv.Atoi(args[1])
 			if err != nil {
 				return errors.Errorf("volume size needs to be an integer; instead got %v", args[1])
@@ -742,7 +714,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
 			if err = assets.WriteAmazonAssets(
-				encoder(outputFormat, &buf), opts, region, bucket, volumeSize,
+				cmdutil.Encoder(outputFormat, &buf), opts, region, bucket, volumeSize,
 				amazonCreds, cloudfrontDistribution, advancedConfig,
 			); err != nil {
 				return err
@@ -769,7 +741,6 @@ If <object store backend> is \"s3\", then the arguments are:
 			"an alpha feature. No security restrictions have been"+
 			"applied to cloudfront, making all data public (obscured but not secured)")
 	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format \"<id>,<secret>[,<token>]\". You can get a token by running \"aws sts get-session-token\".")
-	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", fmt.Sprintf("Use the given IAM role for authorization, as opposed to using static credentials. The given role will be applied as the annotation %s, this used with a Kubernetes IAM role management system such as kube2iam allows you to give pachd credentials in a more secure way.", assets.IAMAnnotation))
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy amazon"))
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy aws"))
 
@@ -816,7 +787,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 			var buf bytes.Buffer
 			if err = assets.WriteMicrosoftAssets(
-				encoder(outputFormat, &buf), opts, container, accountName, accountKey, volumeSize,
+				cmdutil.Encoder(outputFormat, &buf), opts, container, accountName, accountKey, volumeSize,
 			); err != nil {
 				return err
 			}

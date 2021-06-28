@@ -54,14 +54,14 @@ func newDatabase(t testing.TB) string {
 }
 
 func dbHost() string {
-	if host, ok := os.LookupEnv("POSTGRES_SERVICE_HOST"); ok {
+	if host, ok := os.LookupEnv("POSTGRES_HOST"); ok {
 		return host
 	}
 	return dbutil.DefaultHost
 }
 
 func dbPort() int {
-	if port, ok := os.LookupEnv("POSTGRES_SERVICE_PORT"); ok {
+	if port, ok := os.LookupEnv("POSTGRES_PORT"); ok {
 		if portInt, err := strconv.Atoi(port); err == nil {
 			return portInt
 		}

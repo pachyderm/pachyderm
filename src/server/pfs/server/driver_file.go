@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -121,7 +122,7 @@ func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit, opts ...ind
 		}
 		return &pfs.CommitInfo{Commit: commit}, fs, nil
 	}
-	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
+	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, err
 	}
 	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
@@ -201,7 +202,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 		return nil, err
 	}
 	opts := []SourceOption{
-		WithFull(),
+		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
@@ -230,7 +231,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, cb fun
 		return err
 	}
 	opts := []SourceOption{
-		WithFull(),
+		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				// Check for directory match (don't return directory in list)
@@ -272,10 +273,14 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 		}),
 	}
 	s := NewSource(commitInfo, fs, opts...)
-	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
-	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
+	s = NewErrOnEmpty(s, newFileNotFound(commitInfo.Commit.ID, p))
+	err = s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		return cb(fi)
 	})
+	if p == "" && pacherr.IsNotExist(err) {
+		err = nil
+	}
+	return err
 }
 
 func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, cb func(*pfs.FileInfo) error) error {
@@ -289,7 +294,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, 
 		return err
 	}
 	opts := []SourceOption{
-		WithFull(),
+		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				return mf(idx.Path)
@@ -322,12 +327,12 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 	}
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, oldFile.Commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
+		if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, oldFile.Commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
-		if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, newFile.Commit.Branch.Repo.Name, auth.Permission_REPO_READ); err != nil {
+		if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, newFile.Commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
@@ -358,7 +363,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 			return err
 		}
 		opts := []SourceOption{
-			WithFull(),
+			WithDetails(),
 			WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 				return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 					return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
@@ -372,7 +377,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 		return err
 	}
 	opts := []SourceOption{
-		WithFull(),
+		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
@@ -490,4 +495,11 @@ func (d *driver) sizeOfCommit(ctx context.Context, commit *pfs.Commit) (int64, e
 		return 0, err
 	}
 	return d.storage.SizeOf(ctx, *fsid)
+}
+
+func newFileNotFound(commitID string, path string) *pacherr.ErrNotExist {
+	return &pacherr.ErrNotExist{
+		Collection: "commit/" + commitID,
+		ID:         path,
+	}
 }
