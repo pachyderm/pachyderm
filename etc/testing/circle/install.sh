@@ -75,3 +75,10 @@ if [ ! -f cached-deps/jq ]; then
   JQ_VERSION=1.6
   curl -L https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-linux64 > cached-deps/jq
 fi
+
+# Install goreleaser 
+if [ ! -f cached-deps/goreleaser ]; then
+  GORELEASER_VERSION=0.169.0
+  curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
+      | tar xzf - -C cached-deps goreleaser
+fi

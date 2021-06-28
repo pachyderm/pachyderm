@@ -3,8 +3,8 @@
 set -ex
 
 source "$(dirname "$0")/env.sh"
-
-VM_IP="$(minikube ip)"
+KIND_CONTAINER="$(docker ps --format '{{json .ID }}')"
+VM_IP=$(docker inspect $KIND_CONTAINER -f 'json {{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
 export VM_IP
 
 PACH_PORT="30650"
@@ -13,7 +13,7 @@ export PACH_PORT
 ENTERPRISE_PORT="31650"
 export ENTEPRRISE_PORT
 
-POSTGRES_HOST="$(minikube ip)"
+POSTGRES_HOST="$VM_IP"
 export POSTGRES_HOST
 
 POSTGRES_PORT=32228
@@ -23,11 +23,7 @@ TESTFLAGS="-v | stdbuf -i0 tee -a /tmp/results"
 export TESTFLAGS
 
 # make launch-kube connects with kubernetes, so it should just be available
-minikube status
 kubectl version
-
-# any tests that build images will do it directly in minikube's docker registry
-eval $(minikube docker-env)
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
