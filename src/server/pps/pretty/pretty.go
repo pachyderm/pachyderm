@@ -94,7 +94,7 @@ func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestam
 			if job.Created.Compare(created) < 0 {
 				created = job.Created
 			}
-			if job.Created.Compare(modified) < 0 {
+			if job.Created.Compare(modified) > 0 {
 				modified = job.Created
 			}
 		}
