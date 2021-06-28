@@ -185,7 +185,7 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 			if commitInfo.Started.Compare(created) < 0 {
 				created = commitInfo.Started
 			}
-			if commitInfo.Started.Compare(modified) < 0 {
+			if commitInfo.Started.Compare(modified) > 0 {
 				modified = commitInfo.Started
 			}
 		}
