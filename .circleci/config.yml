@@ -21,7 +21,7 @@ jobs:
     machine:
       image: ubuntu-2004:202101-01
     environment:
-      PPS_BUCKETS: "8"
+      PPS_BUCKETS: "7"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
       BIGQUERY_PROJECT: alysha-dev-006
@@ -54,7 +54,7 @@ jobs:
       # This also avoids accumulating old versions of modules over time.
       - restore_cache:
          keys:
-         - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+         - pach-go-mod-cache-v3-{{ checksum "go.sum" }}
       - run: etc/testing/circle/build.sh 
       - run: etc/testing/circle/launch.sh 
       - run: etc/testing/circle/run_tests.sh 
@@ -72,7 +72,7 @@ jobs:
             equal: [ CACHE, << parameters.bucket >> ]
           steps:
           - save_cache:
-              key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+              key: pach-go-mod-cache-v3-{{ checksum "go.sum" }}
               paths:
               - /home/circleci/.go_workspace/pkg/mod
           - save_cache:
@@ -100,7 +100,7 @@ workflows:
               - PPS5
               - PPS6
               - PPS7
-              - PPS8
+              - PPS_SERVER
               - EXAMPLES
               - OBJECT
               - CACHE

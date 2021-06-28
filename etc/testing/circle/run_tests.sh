@@ -95,9 +95,9 @@ case "${BUCKET}" in
     make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
-    if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
-      go test -v -count=1 ./src/server/pps/server -timeout 300s
-    fi
+    ;;
+  PPS_SERVER)
+    go test -v -count=1 ./src/server/pps/server -timeout 300s
     ;;
   AUTH)
     make test-identity
@@ -116,6 +116,7 @@ case "${BUCKET}" in
     make test-enterprise-integration
     ;;
   CACHE)
+    go mod download
     echo "not running tests, just populating build cache"
     ;;
   *)
