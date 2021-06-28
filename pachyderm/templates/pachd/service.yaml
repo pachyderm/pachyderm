@@ -2,6 +2,7 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
+{{- if .Values.pachd.enabled -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -70,3 +71,4 @@ spec:
   selector:
     app: pachd
   type: {{ .Values.pachd.service.type }}
+{{- end }}

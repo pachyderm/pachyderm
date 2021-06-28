@@ -172,6 +172,9 @@
                 "clusterDeploymentID": {
                     "type": "string"
                 },
+                "enabled": {
+                    "type": "boolean"
+                },
                 "exposeDockerSocket": {
                     "type": "boolean"
                 },

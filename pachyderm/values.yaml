@@ -109,6 +109,7 @@ imageCredentials: {}
   #email: ""
 
 pachd:
+  enabled: true
   affinity: {}
   # clusterDeploymentID sets the Pachyderm cluster ID.
   clusterDeploymentID: ""

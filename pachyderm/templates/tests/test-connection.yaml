@@ -2,6 +2,7 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
+{{- if .Values.pachd.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -19,3 +20,4 @@ spec:
       command: ['/bin/sh', '-c', '--']
       args: ['while ! nc -vz pachd-peer 30653 ; do sleep 1 ; done']
   restartPolicy: Never
+{{- end }}
