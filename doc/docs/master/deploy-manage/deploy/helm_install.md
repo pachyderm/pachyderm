@@ -39,7 +39,7 @@ See the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/v2.0
 
     You are ready to deploy Pachyderm on the environment of your choice.
     ```shell
-    $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
+    $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm
     ```
 !!! Info
     You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`). 

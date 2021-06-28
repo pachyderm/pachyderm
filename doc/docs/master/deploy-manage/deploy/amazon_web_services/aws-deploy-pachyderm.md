@@ -61,7 +61,7 @@ To add stateful storage, complete the following steps:
 1. Verify that the S3 bucket was created:
 
       ```
-      aws s3api list-buckets --query 'Buckets[].Name'
+      aws s3 ls
       ```
 
 ### (Optional) Set up Bucket Encryption
@@ -117,38 +117,37 @@ To deploy Pachyderm with an IAM role, complete the following steps:
 1. Enable access to the S3 bucket for the IAM role:
 
       1. In the **IAM Role** field, click on the IAM role.
-      1. In the **Permissions** tab, click **Edit policy**.
+      1. In the **Permissions** tab, click **Add inline policy**.
       1. Select the **JSON** tab.
-      1. Append the following text to the end of the existing JSON:
+      1. Enter the following text to the end of the existing JSON:
 
-         ```json
+```json
          {
-            "Effect": "Allow",
-               "Action": [
-                     "s3:ListBucket"
-               ],
-               "Resource": [
-                     "arn:aws:s3:::<your-bucket>"
-               ]
-         },
-         {
-            "Effect": "Allow",
-            "Action": [
-               "s3:PutObject",
-            "s3:GetObject",
-            "s3:DeleteObject"
-            ],
-            "Resource": [
-               "arn:aws:s3:::<your-bucket>/*"
-            ]
-         }
-         ```
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+   "Effect": "Allow",
+      "Action": [
+            "s3:ListBucket"
+      ],
+      "Resource": [
+            "arn:aws:s3:::<your-bucket>"
+      ]},{
+   "Effect": "Allow",
+   "Action": [
+      "s3:PutObject",
+   "s3:GetObject",
+   "s3:DeleteObject"
+   ],
+   "Resource": [
+      "arn:aws:s3:::<your-bucket>/*"
+   ]}
+   ]}
+```
 
          Replace `<your-bucket>` with the name of your S3 bucket.
 
-         **Note:** For the EKS cluster, you might need to use the
-         **Add inline policy** button and create a name for the new policy.
-         The JSON above is inserted between the square brackets for the `Statement` element.
+1. Create a name for the new policy.
 
 1. Set up trust relationships for the IAM role:
 

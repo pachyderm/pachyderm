@@ -232,7 +232,8 @@ before other components were ready, so it restarted them.
 
 ### Install `pachctl`
 
-`pachctl` is a command-line utility for interacting with a Pachyderm cluster. You install it locally by [following those steps](../../getting_started/local_installation/#install-pachctl).
+`pachctl` is a command-line utility for interacting with a Pachyderm cluster. You install it locally by [following those steps](../../../getting_started/local_installation/#install-pachctl).
+
 
 ### Have 'pachctl' and your Cluster Communicate
 

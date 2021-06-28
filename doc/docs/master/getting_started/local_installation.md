@@ -31,12 +31,7 @@ The following prerequisites are required for a successful local deployment of Pa
       - [Kind](#using-kind)
       - Oracle® VirtualBox™
 - [Helm](#install-helm)
-
-Pachyderm's Command Line Interface is not a hard requirement for your installation,
-however, it is necessary to interact with your cluster. 
-We recommend to install it as well:
-
-- [Pachyderm Command Line Interface](#install-pachctl)
+- [Pachyderm Command Line Interface (`pachctl`)](#install-pachctl)
 ### Using Minikube
 
 On your local machine, you can run Pachyderm in a minikube virtual machine.
@@ -102,9 +97,6 @@ by following these steps:
 
 `pachctl` is a command-line tool that you can use to interact
 with a Pachyderm cluster in your terminal.
-
-You **need to have `pachctl` installed on your machine** 
-to deploy Pachyderm using the `pachctl deploy local` command:
 
 1. Run the corresponding steps for your operating system:
 
