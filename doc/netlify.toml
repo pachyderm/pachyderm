@@ -101,6 +101,12 @@
   force = true
 
 [[redirects]]
+  from = "/2.0.x/how-tos/advanced-data-operations/splitting-data/*"
+  to = "/latest/"
+  status = 301
+  force = true 
+  
+[[redirects]]
   from = "/2.0.x/how-tos/pipeline-operations/run_pipeline/"
   to = "/latest/"
   status = 301
