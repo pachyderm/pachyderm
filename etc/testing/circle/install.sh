@@ -37,14 +37,11 @@ if [ ! -f cached-deps/kubectl ] ; then
         mv ./kubectl cached-deps/kubectl
 fi
 
-# Install minikube
-# To get the latest minikube version:
-# curl https://api.github.com/repos/kubernetes/minikube/releases | jq -r .[].tag_name | sort -V | tail -n1
-if [ ! -f cached-deps/minikube ] ; then
-    MINIKUBE_VERSION=v1.19.0 # If changed, also do etc/kube/start-minikube.sh
-    curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
-        chmod +x ./minikube
-        mv ./minikube cached-deps/minikube
+# Install kind
+if [ ! -f cached-deps/kind ] ; then
+    curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-amd64
+    chmod +x ./kind
+    mv ./kind cached-deps/kind 
 fi
 
 # Install etcdctl
@@ -71,13 +68,6 @@ if [ ! -f cached-deps/helm ]; then
   curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz \
       | tar xzf - linux-amd64/helm
       mv ./linux-amd64/helm cached-deps/helm
-fi
-
-# Install goreleaser 
-if [ ! -f cached-deps/goreleaser ]; then
-  GORELEASER_VERSION=0.169.0
-  curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
-      | tar xzf - -C cached-deps goreleaser
 fi
 
 # Install jq

@@ -5,38 +5,13 @@ set -Eex
 export PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
 
 # Parse flags
-VERSION=v1.19.0
 minikube_args=(
-  "--vm-driver=docker"
-  "--kubernetes-version=${VERSION}"
+  "--image=kindest/node:v1.19.11@sha256:07db187ae84b4b7de440a73886f008cf903fcf5764ba8106a9fd5243d6f32729"
+  "--wait=3m"
 )
-while getopts ":v" opt; do
-  case "${opt}" in
-    v)
-      VERSION="v${OPTARG}"
-      ;;
-    \?)
-      echo "Invalid argument: ${opt}"
-      exit 1
-      ;;
-  esac
+
+kind create cluster "${minikube_args[@]}"
+
+for i in $(ls images); do
+  kind load images/$i
 done
-
-if [[ -n "${TRAVIS}" ]]; then
-  minikube_args+=("--bootstrapper=kubeadm")
-fi
-
-minikube start "${minikube_args[@]}"
-
-# Try to connect for three minutes
-for _ in $(seq 36); do
-  if kubectl version &>/dev/null; then
-    exit 0
-  fi
-  sleep 5
-done
-
-# Give up--kubernetes isn't coming up
-minikube delete
-sleep 30 # Wait for minikube to go completely down
-exit 1
