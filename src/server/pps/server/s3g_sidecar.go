@@ -119,6 +119,8 @@ func (s *sidecarS3G) serveS3Instances() {
 
 func (s *sidecarS3G) createK8sServices() {
 	logrus.Infof("Launching sidecar s3 gateway master process")
+	// TODO: This is one gateway per pipeline, but can multiple jobs run per pipeline at once?
+	// Is there a risk of a new job seeing old data if the S3 gateway is slow to process events?
 	// createK8sServices goes through master election so that only one k8s service
 	// is created per pachyderm job running sidecar s3 gateway
 	backoff.RetryNotify(func() error {
