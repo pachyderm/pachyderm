@@ -113,6 +113,12 @@
   force = true 
 
 [[redirects]]
+  from = "/2.0.x/how-tos/developer-workflow/build-pipelines/"
+  to = "/latest/"
+  status = 301
+  force = true 
+
+[[redirects]]
   from = "/latest/how-tos/use-jupyterhub/"
   to = "/latest/how-tos/use-pachyderm-ide/"
   status = 301
