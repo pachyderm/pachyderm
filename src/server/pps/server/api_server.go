@@ -598,6 +598,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 			return err
 		}
 
+		sent++
 		return serv.Send(&pps.JobSetInfo{
 			JobSet: client.NewJobSet(jobInfo.Job.ID),
 			Jobs:   jobInfos,
