@@ -237,6 +237,11 @@ message GPUSpec {
   int64 number = 2;
 }
 
+message JobSetInfo {
+  JobSet job_set = 1;
+  repeated JobInfo jobs = 2;
+}
+
 // JobInfo is the data stored in the database regarding a given job.  The
 // 'details' field contains more information about the job which is expensive to
 // fetch, requiring querying workers or loading the pipeline spec from object
@@ -260,8 +265,9 @@ message JobInfo {
 
   JobState state = 11;
   string reason = 12; // reason explains why the job is in the current state
-  google.protobuf.Timestamp started = 13;
-  google.protobuf.Timestamp finished = 14;
+  google.protobuf.Timestamp created = 13;
+  google.protobuf.Timestamp started = 14;
+  google.protobuf.Timestamp finished = 15;
 
   message Details {
     Transform transform = 1;
@@ -283,7 +289,7 @@ message JobInfo {
     string pod_spec = 17;
     string pod_patch = 18;
   }
-  Details details = 15;
+  Details details = 16;
 }
 
 enum WorkerState {
@@ -425,6 +431,10 @@ message InspectJobSetRequest {
   JobSet job_set = 1;
   bool wait = 2; // When true, wait until all jobs in the set are finished
   bool details = 3;
+}
+
+message ListJobSetRequest {
+  bool details = 1;
 }
 
 message InspectJobRequest {
@@ -718,6 +728,7 @@ service API {
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
   // ListJob returns information about current and past Pachyderm jobs.
   rpc ListJob(ListJobRequest) returns (stream JobInfo) {}
+  rpc ListJobSet(ListJobSetRequest) returns (stream JobSetInfo) {}
   rpc SubscribeJob(SubscribeJobRequest) returns (stream JobInfo) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
