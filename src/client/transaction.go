@@ -350,6 +350,9 @@ func (c *pfsBuilderClient) ListCommit(ctx context.Context, req *pfs.ListCommitRe
 func (c *pfsBuilderClient) InspectCommitSet(ctx context.Context, req *pfs.InspectCommitSetRequest, opts ...grpc.CallOption) (pfs.API_InspectCommitSetClient, error) {
 	return nil, unsupportedError("InspectCommitSet")
 }
+func (c *pfsBuilderClient) ListCommitSet(ctx context.Context, req *pfs.ListCommitSetRequest, opts ...grpc.CallOption) (pfs.API_ListCommitSetClient, error) {
+	return nil, unsupportedError("ListCommitSet")
+}
 func (c *pfsBuilderClient) SubscribeCommit(ctx context.Context, req *pfs.SubscribeCommitRequest, opts ...grpc.CallOption) (pfs.API_SubscribeCommitClient, error) {
 	return nil, unsupportedError("SubscribeCommit")
 }
