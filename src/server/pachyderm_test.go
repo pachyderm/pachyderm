@@ -1246,6 +1246,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 
 		// so we expect the job to succeed, and to have recovered 2 datums
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		require.Equal(t, int64(1), jobInfo.DataProcessed)
 		require.Equal(t, int64(0), jobInfo.DataSkipped)
 		require.Equal(t, int64(2), jobInfo.DataRecovered)
 		require.Equal(t, int64(0), jobInfo.DataFailed)
