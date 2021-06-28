@@ -25,21 +25,34 @@ func newChannelInfo(cancel context.CancelFunc, notifier col.Notifier) *channelIn
 }
 
 type proxyPostgresListener struct {
-	client       proxy.APIClient
-	mu           sync.Mutex
-	channelInfos map[string]*channelInfo
+	clientFactory func() (proxy.APIClient, error)
+	client        proxy.APIClient
+	mu            sync.Mutex
+	channelInfos  map[string]*channelInfo
 }
 
-func NewProxyPostgresListener(client proxy.APIClient) col.PostgresListener {
+func NewProxyPostgresListener(clientFactory func() (proxy.APIClient, error)) col.PostgresListener {
 	return &proxyPostgresListener{
-		client:       client,
-		channelInfos: make(map[string]*channelInfo),
+		clientFactory: clientFactory,
+		channelInfos:  make(map[string]*channelInfo),
 	}
+}
+
+func (ppl *proxyPostgresListener) setup() error {
+	if ppl.client != nil {
+		return nil
+	}
+	var err error
+	ppl.client, err = ppl.clientFactory()
+	return err
 }
 
 func (ppl *proxyPostgresListener) Register(notifier col.Notifier) error {
 	ppl.mu.Lock()
 	defer ppl.mu.Unlock()
+	if err := ppl.setup(); err != nil {
+		return err
+	}
 	if ci, ok := ppl.channelInfos[notifier.Channel()]; ok {
 		ci.notifiers[notifier.ID()] = notifier
 		return nil

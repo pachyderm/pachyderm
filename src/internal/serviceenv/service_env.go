@@ -5,7 +5,6 @@ import (
 	"math"
 	"net"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -14,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -78,14 +78,6 @@ type NonblockingServiceEnv struct {
 	// returned, then pachd would be unable to start)
 	pachEg errgroup.Group
 
-	// servicePachClient is the "template" service pach client (client connected through the pachd service)
-	// other clients returned by this library are based on. It contains the original GRPC client
-	// connection and has no ctx and therefore no auth credentials or cancellation.
-	servicePachClient *client.APIClient
-	// servicePachEg coordinates the initialization of servicePachClient (see pachdEg)
-	servicePachEg   errgroup.Group
-	servicePachOnce sync.Once
-
 	// etcdAddress is the domain name or hostport where etcd can be reached
 	etcdAddress string
 	// etcdClient is an etcd client that's shared by all users of this environment
@@ -119,8 +111,6 @@ type NonblockingServiceEnv struct {
 
 	// listener is a special database client for listening for changes
 	listener col.PostgresListener
-	// listenerEg coordinates the initialization of listener (see pachdEg)
-	listenerEg errgroup.Group
 
 	authServer       auth_server.APIServer
 	ppsServer        pps_server.APIServer
@@ -160,7 +150,7 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	env.etcdEg.Go(env.initEtcdClient)
 	env.clusterIdEg.Go(env.initClusterID)
 	env.dbEg.Go(env.initDBClient)
-	env.listenerEg.Go(env.initListener)
+	env.listener = env.newListener()
 	if env.config.LokiHost != "" && env.config.LokiPort != "" {
 		env.lokiClient = &loki.Client{
 			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.config.LokiHost, env.config.LokiPort)),
@@ -289,47 +279,43 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func (env *NonblockingServiceEnv) initListener() error {
+func (env *NonblockingServiceEnv) newListener() col.PostgresListener {
 	// TODO: Change this to be based on whether a direct connection to postgres is available.
 	// A direct connection will not be available in the workers when the PG bouncer changes are in.
 	if env.Config().PPSPipelineName != "" {
-		return env.initProxyListener()
+		return env.newProxyListener()
 	}
+	return env.newDirectListener()
+}
+
+func (env *NonblockingServiceEnv) newProxyListener() col.PostgresListener {
+	// The proxy postgres listener is lazily initialized to avoid consuming too many
+	// gRPC resources by having idle client connections, so construction
+	// can't fail.
+	return client.NewProxyPostgresListener(env.newProxyClient)
+}
+
+func (env *NonblockingServiceEnv) newProxyClient() (proxy.APIClient, error) {
+	var servicePachClient *client.APIClient
+	if err := backoff.Retry(func() error {
+		var err error
+		servicePachClient, err = client.NewFromURI(net.JoinHostPort(env.config.PachdServiceHost, env.config.PachdServicePort))
+		return err
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute)); err != nil {
+		return nil, errors.Wrapf(err, "failed to initialize service pach client")
+	}
+	return servicePachClient.ProxyClient, nil
+}
+
+func (env *NonblockingServiceEnv) newDirectListener() col.PostgresListener {
 	dsn := dbutil.GetDSN(
 		dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
 		dbutil.WithDBName(env.config.PostgresDBName),
 	)
-	return backoff.Retry(func() error {
-		// The PostgresListener is lazily initialized to avoid consuming too many
-		// postgres resources by having idle client connections, so construction
-		// can't fail
-		env.listener = col.NewPostgresListener(dsn)
-		return nil
-	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
-}
-
-func (env *NonblockingServiceEnv) initProxyListener() error {
-	env.servicePachOnce.Do(func() {
-		env.servicePachEg.Go(env.initServicePachClient)
-	})
-	if err := env.servicePachEg.Wait(); err != nil {
-		panic(err) // If env can't connect, there's no sensible way to recover
-	}
-	return backoff.Retry(func() error {
-		env.listener = client.NewProxyPostgresListener(env.servicePachClient.ProxyClient)
-		return nil
-	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
-}
-
-func (env *NonblockingServiceEnv) initServicePachClient() error {
-	return backoff.Retry(func() error {
-		var err error
-		env.servicePachClient, err = client.NewFromURI(net.JoinHostPort(env.config.PachdServiceHost, env.config.PachdServicePort))
-		if err != nil {
-			return errors.Wrapf(err, "failed to initialize service pach client")
-		}
-		return nil
-	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+	// The postgres listener is lazily initialized to avoid consuming too many
+	// postgres resources by having idle client connections, so construction
+	// can't fail.
+	return col.NewPostgresListener(dsn)
 }
 
 // GetPachClient returns a pachd client with the same authentication
@@ -396,11 +382,8 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 // for listen operations without modification. Note that this listener lazily
 // connects to the database on the first listen operation.
 func (env *NonblockingServiceEnv) GetPostgresListener() col.PostgresListener {
-	if err := env.listenerEg.Wait(); err != nil {
-		panic(err)
-	}
 	if env.listener == nil {
-		panic("service env never constructed a postgres listener")
+		panic("service env never created the listener")
 	}
 	return env.listener
 }

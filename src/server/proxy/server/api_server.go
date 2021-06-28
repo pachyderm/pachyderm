@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	"github.com/sirupsen/logrus"
 )
 
 type APIServer struct {
@@ -20,7 +21,6 @@ func NewAPIServer(env serviceenv.ServiceEnv) *APIServer {
 	}
 }
 
-// TODO: Log?
 func (a *APIServer) Listen(request *proxy.ListenRequest, server proxy.API_ListenServer) (retErr error) {
 	listener := a.env.GetPostgresListener()
 	notifier := newNotifier(server, request.Channel)
@@ -28,16 +28,11 @@ func (a *APIServer) Listen(request *proxy.ListenRequest, server proxy.API_Listen
 		return err
 	}
 	defer func() {
-		if err := listener.Unregister(notifier); retErr == nil {
-			retErr = err
+		if err := listener.Unregister(notifier); err != nil {
+			logrus.Errorf("errored while unregistering notifier: %v", err)
 		}
 	}()
-	select {
-	case err := <-notifier.errChan:
-		return err
-	case <-server.Context().Done():
-		return server.Context().Err()
-	}
+	return <-notifier.errChan
 }
 
 type notifier struct {
@@ -54,7 +49,7 @@ func newNotifier(server proxy.API_ListenServer, channel string) *notifier {
 		id:      uuid.NewWithoutDashes(),
 		channel: channel,
 		bufChan: make(chan *pq.Notification, col.ChannelBufferSize),
-		errChan: make(chan error),
+		errChan: make(chan error, 1),
 	}
 	go n.send()
 	return n
@@ -72,6 +67,7 @@ func (n *notifier) Notify(notification *pq.Notification) {
 	select {
 	case n.bufChan <- notification:
 	case <-n.server.Context().Done():
+		n.sendError(n.server.Context().Err())
 	default:
 		n.sendError(errors.New("listener buffer is full, aborting listen"))
 	}
@@ -85,8 +81,10 @@ func (n *notifier) send() {
 				Extra: notification.Extra,
 			}); err != nil {
 				n.sendError(err)
+				return
 			}
 		case <-n.server.Context().Done():
+			n.sendError(n.server.Context().Err())
 			return
 		}
 	}
@@ -99,6 +97,6 @@ func (n *notifier) Error(err error) {
 func (n *notifier) sendError(err error) {
 	select {
 	case n.errChan <- err:
-	case <-n.server.Context().Done():
+	default:
 	}
 }

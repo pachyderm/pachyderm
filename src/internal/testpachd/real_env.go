@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authtesting "github.com/pachyderm/pachyderm/v2/src/server/auth/testing"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -34,7 +35,7 @@ type RealEnv struct {
 	AuthServer               authapi.APIServer
 	PFSServer                pfsapi.APIServer
 	TransactionServer        txnserver.APIServer
-	ProxyServer              *proxyserver.APIServer
+	ProxyServer              proxy.APIServer
 	MockPPSTransactionServer *MockPPSTransactionServer
 }
 

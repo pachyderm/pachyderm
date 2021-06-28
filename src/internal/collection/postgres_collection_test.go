@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 )
 
 func TestPostgresCollections(suite *testing.T) {
@@ -69,7 +70,7 @@ func TestPostgresCollectionsProxy(suite *testing.T) {
 		})
 
 		env := testpachd.NewRealEnv(t, dbConfig)
-		listener := client.NewProxyPostgresListener(env.PachClient.ProxyClient)
+		listener := client.NewProxyPostgresListener(func() (proxy.APIClient, error) { return env.PachClient.ProxyClient, nil })
 		t.Cleanup(func() {
 			require.NoError(t, listener.Close())
 		})

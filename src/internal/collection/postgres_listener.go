@@ -65,7 +65,7 @@ type postgresWatcher struct {
 	value *string            // only set if 'index' is set
 }
 
-func NewPostgresWatcher(
+func newPostgresWatcher(
 	db *sqlx.DB,
 	listener PostgresListener,
 	channel string,
