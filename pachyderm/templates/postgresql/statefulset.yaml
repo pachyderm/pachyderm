@@ -62,7 +62,7 @@ spec:
       name: postgres-storage
       namespace: {{ .Release.Namespace }}
     spec:
-      {{- if not (eq .Values.pachd.storage.backend "LOCAL") }}
+      {{- if or .Values.etcd.storageClass  (eq .Values.deployTarget "GOOGLE") (eq .Values.deployTarget "MICROSOFT") (eq .Values.deployTarget "AMAZON") }}
       storageClassName: {{ .Values.postgresql.storageClass | default "postgresql-storage-class" }}
       {{- end }}
       accessModes:
@@ -71,9 +71,9 @@ spec:
         requests:
           storage:
               {{- if .Values.postgresql.storageSize }} {{ .Values.postgresql.storageSize }}
-              {{- else if eq .Values.pachd.storage.backend "MICROSOFT" }} 256Gi # 1,100 IOPS https://azure.microsoft.com/en-us/pricing/details/managed-disks/
-              {{- else if eq .Values.pachd.storage.backend "GOOGLE" }} 50Gi     # 1,500 IOPS https://cloud.google.com/compute/docs/disks/performance
-              {{- else if eq .Values.pachd.storage.backend "AMAZON" }} 10Gi     # Baseline 3,000 IOPS https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html
+              {{- else if eq .Values.deployTarget "MICROSOFT" }} 256Gi # 1,100 IOPS https://azure.microsoft.com/en-us/pricing/details/managed-disks/
+              {{- else if eq .Values.deployTarget "GOOGLE" }} 50Gi     # 1,500 IOPS https://cloud.google.com/compute/docs/disks/performance
+              {{- else if eq .Values.deployTarget "AMAZON" }} 10Gi     # Baseline 3,000 IOPS https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html
               {{- else }} 10Gi  # Default
               {{- end }}
 {{- end }}

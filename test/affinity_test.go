@@ -11,7 +11,7 @@ func TestSetPachdAffinity(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
+			"deployTarget": "LOCAL",
 		},
 		ValuesFiles: []string{"pachdAffinity.yaml"},
 	}
@@ -30,7 +30,7 @@ func TestSetEtcdAffinity(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
+			"deployTarget": "LOCAL",
 		},
 		ValuesFiles: []string{"etcdAffinity.yaml"},
 	}

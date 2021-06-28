@@ -16,8 +16,8 @@ func TestEnablePachTLSNoName(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
-			"pachd.tls.enabled":     "true",
+			"deployTarget":      "LOCAL",
+			"pachd.tls.enabled": "true",
 		},
 	}
 
@@ -31,9 +31,9 @@ func TestEnablePachTLSExistingSecret(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
-			"pachd.tls.enabled":     "true",
-			"pachd.tls.secretName":  "blah",
+			"deployTarget":         "LOCAL",
+			"pachd.tls.enabled":    "true",
+			"pachd.tls.secretName": "blah",
 		},
 	}
 
@@ -45,9 +45,9 @@ func TestEnableDashTLSNoName(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
-			"dash.tls.enabled":      "true",
-			"dash.url":              "http://blah.com",
+			"deployTarget":     "LOCAL",
+			"dash.tls.enabled": "true",
+			"dash.url":         "http://blah.com",
 		},
 	}
 
@@ -61,10 +61,10 @@ func TestEnableDashTLSExistingSecret(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
-			"dash.tls.enabled":      "true",
-			"dash.tls.secretName":   "blah",
-			"dash.url":              "http://blah.com",
+			"deployTarget":        "LOCAL",
+			"dash.tls.enabled":    "true",
+			"dash.tls.secretName": "blah",
+			"dash.url":            "http://blah.com",
 		},
 	}
 
@@ -77,7 +77,7 @@ func TestDashTLSNewSecretNoEnable(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend":  "LOCAL",
+			"deployTarget":           "LOCAL",
 			"dash.tls.newSecret.crt": "blah",
 			"dash.url":               "http://blah.com",
 		},
@@ -93,7 +93,7 @@ func TestPachTLSNewSecretNoEnable(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend":   "LOCAL",
+			"deployTarget":            "LOCAL",
 			"pachd.tls.newSecret.crt": "blah",
 		},
 	}
@@ -112,7 +112,7 @@ func TestPachTLSNewSecret(t *testing.T) {
 	crt := "blah"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend":      "LOCAL",
+			"deployTarget":               "LOCAL",
 			"pachd.tls.enabled":          "true",
 			"pachd.tls.newSecret.create": "true",
 			"pachd.tls.newSecret.crt":    crt,

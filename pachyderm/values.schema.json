@@ -95,6 +95,9 @@
                 }
             }
         },
+        "deployTarget": {
+            "type": "string"
+        },
         "etcd": {
             "type": "object",
             "properties": {

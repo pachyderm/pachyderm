@@ -9,7 +9,7 @@ SHELL := /bin/bash -o pipefail # Use bash syntax
 all: pachyderm/values.schema.json
 
 lint:
-	helm lint pachyderm
+	helm lint pachyderm --set deployTarget=LOCAL
 
 test: pachyderm/values.schema.json kubeval-aws kubeval-gcp kubeval-gcp-tls kubeval-hub kubeval-local kubeval-local-dev kubeval-minio kubeval-microsoft
 	go test -race ./... -count 1

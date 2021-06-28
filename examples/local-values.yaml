@@ -1,9 +1,8 @@
 # SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 # SPDX-License-Identifier: Apache-2.0
 
-pachd:
-  storage:
-    backend: "LOCAL"
+deployTarget: LOCAL
+
 dash:
   config:
     issuerURI: "http://localhost:30658/"

@@ -15,7 +15,7 @@ func TestEtcdPodLabels(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
+			"deployTarget": "LOCAL",
 		},
 		ValuesFiles: []string{"exampleEtcdPodLabels.yaml"},
 	}
@@ -41,7 +41,7 @@ func TestPachdPodLabels(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
+			"deployTarget": "LOCAL",
 		},
 		ValuesFiles: []string{"examplePachdPodLabels.yaml"},
 	}
@@ -68,7 +68,7 @@ func TestPachdServiceLabels(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
+			"deployTarget": "LOCAL",
 		},
 		ValuesFiles: []string{"examplePachdSvcLabels.yaml"},
 	}
@@ -94,7 +94,7 @@ func TestEtcdServiceLabels(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
+			"deployTarget": "LOCAL",
 		},
 		ValuesFiles: []string{"exampleEtcdSvcLabels.yaml"},
 	}

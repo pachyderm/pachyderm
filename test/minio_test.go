@@ -57,6 +57,7 @@ func TestMinio(t *testing.T) {
 	}
 
 	helmValues := map[string]string{
+		"deployTarget":          "CUSTOM",
 		"pachd.storage.backend": expectedStorageBackend,
 	}
 	for _, tc := range testCases {

@@ -61,8 +61,8 @@ spec:
         - name: ETCD_PREFIX
           #value:
         - name: STORAGE_BACKEND
-          value: {{ required ".Values.pachd.storage.backend is required." .Values.pachd.storage.backend | quote }}
-          {{- if eq .Values.pachd.storage.backend "LOCAL" }}
+          value: {{ include "pachyderm.storageBackend" . | quote }}
+          {{- if eq .Values.deployTarget "LOCAL" }}
         - name: STORAGE_HOST_PATH
           value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
           {{- end }}
@@ -170,7 +170,7 @@ spec:
       {{- end }}
       volumes:
       - name: pach-disk
-        {{- if eq .Values.pachd.storage.backend "LOCAL" }}
+        {{- if eq .Values.deployTarget "LOCAL" }}
         hostPath:
           path: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
           type: DirectoryOrCreate

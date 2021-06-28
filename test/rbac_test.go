@@ -12,7 +12,7 @@ func TestServiceAccount(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
+			"deployTarget": "LOCAL",
 		},
 	}
 
@@ -32,7 +32,7 @@ func TestWorkerServiceAccount(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
+			"deployTarget": "LOCAL",
 		},
 	}
 
@@ -52,7 +52,7 @@ func TestServiceAccountAdditionalAnnotations(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
+			"deployTarget": "LOCAL",
 		},
 		ValuesFiles: []string{"exampleAnnotations.yaml"},
 	}
@@ -73,7 +73,7 @@ func TestWorkerServiceAccountAdditionalAnnotations(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend": "LOCAL",
+			"deployTarget": "LOCAL",
 		},
 		ValuesFiles: []string{"exampleWorkerAnnotations.yaml"},
 	}

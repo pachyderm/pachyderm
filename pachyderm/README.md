@@ -25,7 +25,7 @@ Running on Minikube: (or similar)
 
 ```
 $ helm repo add pachyderm https://pachyderm.github.io/helmchart
-$ helm install --set pachd.storage.backend=LOCAL pachd pachyderm/pachyderm
+$ helm install --set deployTarget=LOCAL pachd pachyderm/pachyderm
 ```
 
 If you'd like to see some examples and learn about core use cases for Pachyderm:

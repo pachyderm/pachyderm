@@ -30,7 +30,7 @@ func TestDashImageAndConfigTag(t *testing.T) {
 			"dash.image.tag":               "abc123",
 			"dash.config.issuerURI":        expectedIssuerURI,
 			"dash.config.oauthRedirectURI": expectedOauthRedirectURI,
-			"pachd.storage.backend":        "GOOGLE",
+			"deployTarget":                 "GOOGLE",
 			"pachd.storage.google.bucket":  "bucket",
 		},
 	}
@@ -73,7 +73,7 @@ func TestEtcdImageTag(t *testing.T) {
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"etcd.image.tag":              "blah",
-			"pachd.storage.backend":       "GOOGLE",
+			"deployTarget":                "GOOGLE",
 			"pachd.storage.google.bucket": "bucket",
 		},
 	}
@@ -96,7 +96,7 @@ func TestPachdImageTag(t *testing.T) {
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"pachd.image.tag":             "blah1234",
-			"pachd.storage.backend":       "GOOGLE",
+			"deployTarget":                "GOOGLE",
 			"pachd.storage.google.bucket": "bucket",
 		},
 	}
@@ -122,7 +122,7 @@ func TestPachdImageTagDeploymentEnv(t *testing.T) {
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"pachd.image.tag":             expectedTag,
-			"pachd.storage.backend":       "GOOGLE",
+			"deployTarget":                "GOOGLE",
 			"pachd.storage.google.bucket": "bucket",
 		},
 	}
@@ -175,7 +175,7 @@ func TestSetNamespaceWorkerRoleBinding(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend":       "GOOGLE",
+			"deployTarget":                "GOOGLE",
 			"pachd.storage.google.bucket": "bucket",
 		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
@@ -201,7 +201,7 @@ func TestSetNamespaceServiceAccount(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend":       "GOOGLE",
+			"deployTarget":                "GOOGLE",
 			"pachd.storage.google.bucket": "bucket",
 		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
@@ -227,7 +227,7 @@ func TestSetNamespaceWorkerServiceAccount(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend":       "GOOGLE",
+			"deployTarget":                "GOOGLE",
 			"pachd.storage.google.bucket": "bucket",
 		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
@@ -253,7 +253,7 @@ func TestSetNamespaceClusterRoleBinding(t *testing.T) {
 
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend":       "GOOGLE",
+			"deployTarget":                "GOOGLE",
 			"pachd.storage.google.bucket": "bucket",
 		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
@@ -299,7 +299,7 @@ func TestServicePorts(t *testing.T) {
 		objects, err = manifestToObjects(helm.RenderTemplate(t,
 			&helm.Options{
 				SetStrValues: map[string]string{
-					"pachd.storage.backend":        "LOCAL",
+					"deployTarget":                 "LOCAL",
 					"pachd.storage.local.hostPath": hostPath,
 				}},
 			"../pachyderm/", "release-name", nil))
@@ -426,7 +426,7 @@ func TestGOMAXPROCS(t *testing.T) {
 		objects, err = manifestToObjects(helm.RenderTemplate(t,
 			&helm.Options{
 				SetStrValues: map[string]string{
-					"pachd.storage.backend":        "LOCAL",
+					"deployTarget":                 "LOCAL",
 					"pachd.storage.local.hostPath": hostPath,
 				}},
 			"../pachyderm/", "release-name", nil))

@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 # SPDX-License-Identifier: Apache-2.0
+deployTarget: GOOGLE
 
 pachd:
   storage:
-    backend: GOOGLE
     google:
       bucket: "fake-bucket"
       # You can also pass the creds on the command line using helm install --set-file storage.google.cred=creds.json 

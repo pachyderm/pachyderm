@@ -7,6 +7,11 @@
 # In accordance with pachctl deploy it is _not_ per-image.
 imagePullSecret: ""
 
+# Deploy Target configures the storage backend to use and cloud provider 
+# settings (storage classes, etc). It must be one of GOOGLE, AMAZON, 
+# MINIO, MICROSOFT, CUSTOM or LOCAL.
+deployTarget: ""
+
 loadBalancer:
   # IP is the load balancer IP to use.  If blank, a load balancer will
   # not be created.
@@ -159,6 +164,10 @@ pachd:
     additionalAnnotations: {}
     name: "pachyderm" #TODO Set default in helpers / Wire up in templates
   storage:
+    # backend configures the storage backend to use.  It must be one
+    # of GOOGLE, AMAZON, MINIO, MICROSOFT or LOCAL. This is set automatically 
+    # if deployTarget is GOOGLE, AMAZON, MICROSOFT, or LOCAL
+    backend: ""
     amazon:
       # bucket sets the S3 bucket to use.
       bucket: ""
@@ -217,9 +226,6 @@ pachd:
       # uploadACL sets the upload ACL for object storage uploads.  It
       # is analogous to the --upload-acl argument to pachctl deploy.
       uploadACL: "bucket-owner-full-control"
-    # backend configures the storage backend to use.  It must be one
-    # of GOOGLE, AMAZON, MINIO, MICROSOFT or LOCAL.
-    backend: ""
     google:
       bucket: ""
       # cred is a string containing a GCP service account private key,
