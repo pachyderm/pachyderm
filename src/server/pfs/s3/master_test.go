@@ -330,7 +330,7 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	commit, err := pachClient.StartCommit(repo, "master")
 	require.NoError(t, err)
 
-	pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
 		for i := 0; i <= 1000; i++ {
 			putListFileTestObject(t, mf, "", i)
 		}
@@ -339,12 +339,12 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 			putListFileTestObject(t, mf, "dir/", i)
 		}
 		return nil
-	})
+	}))
 
-	pachClient.WithModifyFileClient(client.NewCommit(repo, "branch", ""), func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewCommit(repo, "branch", ""), func(mf client.ModifyFile) error {
 		putListFileTestObject(t, mf, "", 1001)
 		return nil
-	})
+	}))
 
 	require.NoError(t, pachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
@@ -406,17 +406,17 @@ func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, mini
 	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", "", nil))
 	require.NoError(t, pachClient.CreateBranch(repo, "emptybranch", "", "", nil))
 
-	pachClient.WithModifyFileClient(client.NewCommit(repo, "master", ""), func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewCommit(repo, "master", ""), func(mf client.ModifyFile) error {
 		putListFileTestObject(t, mf, "", 0)
 		putListFileTestObject(t, mf, "rootdir/", 1)
 		putListFileTestObject(t, mf, "rootdir/subdir/", 2)
 		return nil
-	})
+	}))
 
-	pachClient.WithModifyFileClient(client.NewCommit(repo, "branch", ""), func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewCommit(repo, "branch", ""), func(mf client.ModifyFile) error {
 		putListFileTestObject(t, mf, "", 3)
 		return nil
-	})
+	}))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
 	// Request that will list all files in master

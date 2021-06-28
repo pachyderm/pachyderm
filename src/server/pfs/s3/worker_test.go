@@ -240,19 +240,19 @@ func TestWorkerDriver(t *testing.T) {
 	inputMasterCommit, err := pachClient.StartCommit(inputRepo, "master")
 	require.NoError(t, err)
 
-	pachClient.WithModifyFileClient(inputMasterCommit, func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(inputMasterCommit, func(mf client.ModifyFile) error {
 		putListFileTestObject(t, mf, "", 0)
 		putListFileTestObject(t, mf, "rootdir/", 1)
 		putListFileTestObject(t, mf, "rootdir/subdir/", 2)
 		return nil
-	})
+	}))
 	require.NoError(t, pachClient.FinishCommit(inputRepo, inputMasterCommit.Branch.Name, inputMasterCommit.ID))
 
 	// create a develop branch on the input repo
 	inputDevelopCommit, err := pachClient.StartCommit(inputRepo, "develop")
 	require.NoError(t, err)
 
-	pachClient.WithModifyFileClient(inputDevelopCommit, func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(inputDevelopCommit, func(mf client.ModifyFile) error {
 		for i := 0; i <= 100; i++ {
 			putListFileTestObject(t, mf, "", i)
 		}
@@ -260,7 +260,7 @@ func TestWorkerDriver(t *testing.T) {
 			putListFileTestObject(t, mf, "dir/", i)
 		}
 		return nil
-	})
+	}))
 	require.NoError(t, pachClient.FinishCommit(inputRepo, inputDevelopCommit.Branch.Name, inputDevelopCommit.ID))
 
 	// create the output branch
