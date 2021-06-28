@@ -107,6 +107,12 @@
   force = true 
 
 [[redirects]]
+  from = "/latest/how-tos/pipeline-operations/run_pipeline/"
+  to = "/latest/"
+  status = 301
+  force = true 
+
+[[redirects]]
   from = "/latest/how-tos/use-jupyterhub/"
   to = "/latest/how-tos/use-pachyderm-ide/"
   status = 301

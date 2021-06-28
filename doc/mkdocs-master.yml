@@ -162,7 +162,6 @@ nav:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
             - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
-            - Run a Pipeline on a Specific Commit: how-tos/pipeline-operations/run_pipeline.md
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
             - Monitor Job Progress: how-tos/pipeline-operations/monitor-job-progress.md
         - Advanced Data Operations: 
