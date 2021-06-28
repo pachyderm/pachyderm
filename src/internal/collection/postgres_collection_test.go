@@ -58,7 +58,7 @@ func TestPostgresCollectionsProxy(suite *testing.T) {
 		dbConfig := testutil.NewTestDBConfig(t)
 		config := serviceenv.ConfigFromOptions(dbConfig)
 		options := []dbutil.Option{
-			dbutil.WithHostPort(config.PostgresServiceHost, config.PostgresServicePort),
+			dbutil.WithHostPort(config.PostgresHost, config.PostgresPort),
 			dbutil.WithDBName(config.PostgresDBName),
 			dbutil.WithMaxOpenConns(1), // All tests should be able to run on a single connection
 		}
