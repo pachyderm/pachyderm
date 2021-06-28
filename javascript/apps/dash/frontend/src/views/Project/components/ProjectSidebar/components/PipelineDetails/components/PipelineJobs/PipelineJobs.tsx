@@ -1,8 +1,8 @@
 import React from 'react';
 import {Redirect} from 'react-router';
 
+import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import JobList from '@dash-frontend/components/JobList';
-import {LETS_START_TITLE} from '@dash-frontend/components/ListEmptyState/constants/ListEmptyStateConstants';
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';

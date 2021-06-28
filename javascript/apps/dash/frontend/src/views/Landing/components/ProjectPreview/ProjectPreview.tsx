@@ -4,12 +4,12 @@ import React, {useRef} from 'react';
 import {Link} from 'react-router-dom';
 
 import Description from '@dash-frontend/components/Description';
-import JobListStatic from '@dash-frontend/components/JobList/components/JobListStatic';
-import ListEmptyState from '@dash-frontend/components/ListEmptyState';
+import EmptyState from '@dash-frontend/components/EmptyState';
 import {
   CREATE_FIRST_JOB_MESSAGE,
   LETS_START_TITLE,
-} from '@dash-frontend/components/ListEmptyState/constants/ListEmptyStateConstants';
+} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
+import JobListStatic from '@dash-frontend/components/JobList/components/JobListStatic';
 import useIntersection from '@dash-frontend/hooks/useIntersection';
 import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
 import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -40,7 +40,7 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
         <Group spacing={24} vertical>
           <h4 className={styles.title}>Project Preview</h4>
           {shouldShowEmptyState ? (
-            <ListEmptyState
+            <EmptyState
               title={LETS_START_TITLE}
               message={emptyProjectMessage}
             />

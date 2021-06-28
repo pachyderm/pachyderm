@@ -49,6 +49,15 @@
   transform: scaleX(-1) rotate(-90deg);
 }
 
+.controlButton:disabled label {
+  color: var(--placeholder-grey);
+}
+
+.controlButton:disabled .svgControl {
+  cursor: not-allowed;
+  fill: var(--placeholder-grey);
+}
+
 .svgControl {
   fill: var(--pachyderm-black);
 }
@@ -65,7 +74,7 @@
   height: 1rem;
 }
 
-.controlButton:hover:active .svgControl {
+.controlButton:hover:active:not(:disabled) .svgControl {
   fill: var(--pachyderm-plum);
 }
 

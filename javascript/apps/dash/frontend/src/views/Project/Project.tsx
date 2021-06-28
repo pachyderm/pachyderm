@@ -3,6 +3,11 @@ import classnames from 'classnames';
 import React from 'react';
 import {Route} from 'react-router';
 
+import EmptyState from '@dash-frontend/components/EmptyState';
+import {
+  NO_DAG_MESSAGE,
+  LETS_START_TITLE,
+} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import LoadingSkeleton from '@dash-frontend/components/LoadingSkeleton';
 import View from '@dash-frontend/components/View';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
@@ -39,6 +44,8 @@ const Project: React.FC = () => {
     zoomOut,
   } = useProjectView(NODE_WIDTH, NODE_HEIGHT);
 
+  const noDags = dags?.length === 0;
+
   if (error)
     return (
       <View>
@@ -60,7 +67,7 @@ const Project: React.FC = () => {
               applySliderZoom(d)
             }
             value={sliderZoomValue * 100}
-            disabled={dags?.length === 0}
+            disabled={noDags}
           />
           <Tooltip
             className={styles.tooltip}
@@ -68,11 +75,12 @@ const Project: React.FC = () => {
             size="large"
             placement="bottom"
             tooltipText={`Click to reset canvas, or\nuse keyboard shortcut "Shift + 2"`}
+            disabled={noDags}
           >
             <button
               className={styles.controlButton}
               onClick={zoomOut}
-              disabled={dags?.length === 0}
+              disabled={noDags}
             >
               <ZoomOutSvg
                 aria-label="Reset Canvas"
@@ -84,7 +92,7 @@ const Project: React.FC = () => {
           <button
             className={classnames(styles.controlButton, [styles[dagDirection]])}
             onClick={rotateDag}
-            disabled={dags?.length === 0}
+            disabled={noDags}
           >
             <RotateSvg
               aria-label={'Rotate Canvas'}
@@ -92,6 +100,9 @@ const Project: React.FC = () => {
             />
           </button>
         </div>
+        {noDags && (
+          <EmptyState title={LETS_START_TITLE} message={NO_DAG_MESSAGE} />
+        )}
         <HoveredNodeProvider>
           <svg
             id="Svg"

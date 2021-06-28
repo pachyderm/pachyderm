@@ -2,8 +2,8 @@ import {Link} from '@pachyderm/components';
 import formatDistanceToNow from 'date-fns/formatDistanceToNow';
 import React, {useMemo} from 'react';
 
-import ListEmptyState from '@dash-frontend/components/ListEmptyState';
-import {LETS_START_TITLE} from '@dash-frontend/components/ListEmptyState/constants/ListEmptyStateConstants';
+import EmptyState from '@dash-frontend/components/EmptyState';
+import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
   fileBrowserRoute,
@@ -32,9 +32,7 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
   );
 
   if (repo?.commits.length === 0) {
-    return (
-      <ListEmptyState title={LETS_START_TITLE} message={emptyRepoMessage} />
-    );
+    return <EmptyState title={LETS_START_TITLE} message={emptyRepoMessage} />;
   }
 
   return (

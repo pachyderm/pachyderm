@@ -41,3 +41,7 @@
   border: none;
   -webkit-appearance: none;
 }
+
+.base:disabled::-webkit-slider-thumb {
+  background: var(--placeholder-grey);
+}

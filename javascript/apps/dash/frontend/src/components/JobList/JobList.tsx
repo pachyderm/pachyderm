@@ -2,7 +2,7 @@ import React from 'react';
 
 import {JobsQueryArgs} from '@graphqlTypes';
 
-import ListEmptyState from '../ListEmptyState';
+import EmptyState from '../EmptyState';
 
 import JobListStatic from './components/JobListStatic';
 import JobListStatusFilter from './components/JobListStatusFilter';
@@ -40,10 +40,7 @@ const JobList: React.FC<JobListProps> = ({
       )}
 
       {!loading && noFiltersSelected && (
-        <ListEmptyState
-          title={noJobFiltersTitle}
-          message={noJobFiltersMessage}
-        />
+        <EmptyState title={noJobFiltersTitle} message={noJobFiltersMessage} />
       )}
 
       {!noFiltersSelected && (

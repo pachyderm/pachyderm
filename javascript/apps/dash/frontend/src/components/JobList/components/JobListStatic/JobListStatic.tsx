@@ -4,7 +4,7 @@ import React from 'react';
 
 import {JobOverviewFragment} from '@graphqlTypes';
 
-import ListEmptyState from '../../../ListEmptyState';
+import EmptyState from '../../../EmptyState';
 
 import JobListItem from './components/JobListItem';
 import styles from './JobListStatic.module.css';
@@ -36,9 +36,7 @@ const JobListBase: React.FC<JobListBaseProps> = ({
     );
 
   if (jobs?.length === 0)
-    return (
-      <ListEmptyState title={emptyStateTitle} message={emptyStateMessage} />
-    );
+    return <EmptyState title={emptyStateTitle} message={emptyStateMessage} />;
 
   // deriving the 'key' field from pipelineName and ID should no longer be
   // necessary once we are using jobSets and pipeline jobs. Currently,

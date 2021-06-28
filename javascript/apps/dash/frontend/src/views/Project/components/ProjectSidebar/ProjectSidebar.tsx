@@ -1,11 +1,11 @@
 import React, {memo} from 'react';
 import {Route, Switch} from 'react-router';
 
-import JobList from '@dash-frontend/components/JobList';
 import {
   CREATE_FIRST_JOB_MESSAGE,
   LETS_START_TITLE,
-} from '@dash-frontend/components/ListEmptyState/constants/ListEmptyStateConstants';
+} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
+import JobList from '@dash-frontend/components/JobList';
 import Sidebar from '@dash-frontend/components/Sidebar';
 
 import {
