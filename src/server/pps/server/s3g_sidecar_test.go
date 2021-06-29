@@ -605,7 +605,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			require.Equal(t, p[2], "bar") // s3 input is now "bar" everywhere
 		}
 		for j := 0; j < len(seen); j++ {
-			require.True(t, seen[j], j) // all datums from pfsin were reprocessed
+			require.True(t, seen[j], "%d", j) // all datums from pfsin were reprocessed
 		}
 	})
 
