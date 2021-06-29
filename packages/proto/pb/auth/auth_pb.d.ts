@@ -1284,4 +1284,5 @@ export enum ResourceType {
     RESOURCE_TYPE_UNKNOWN = 0,
     CLUSTER = 1,
     REPO = 2,
+    SPEC_REPO = 3,
 }

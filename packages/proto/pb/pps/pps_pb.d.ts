@@ -784,6 +784,34 @@ export namespace GPUSpec {
     }
 }
 
+export class JobSetInfo extends jspb.Message { 
+
+    hasJobSet(): boolean;
+    clearJobSet(): void;
+    getJobSet(): JobSet | undefined;
+    setJobSet(value?: JobSet): JobSetInfo;
+    clearJobsList(): void;
+    getJobsList(): Array<JobInfo>;
+    setJobsList(value: Array<JobInfo>): JobSetInfo;
+    addJobs(value?: JobInfo, index?: number): JobInfo;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): JobSetInfo.AsObject;
+    static toObject(includeInstance: boolean, msg: JobSetInfo): JobSetInfo.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: JobSetInfo, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): JobSetInfo;
+    static deserializeBinaryFromReader(message: JobSetInfo, reader: jspb.BinaryReader): JobSetInfo;
+}
+
+export namespace JobSetInfo {
+    export type AsObject = {
+        jobSet?: JobSet.AsObject,
+        jobsList: Array<JobInfo.AsObject>,
+    }
+}
+
 export class JobInfo extends jspb.Message { 
 
     hasJob(): boolean;
@@ -818,6 +846,11 @@ export class JobInfo extends jspb.Message {
     setState(value: JobState): JobInfo;
     getReason(): string;
     setReason(value: string): JobInfo;
+
+    hasCreated(): boolean;
+    clearCreated(): void;
+    getCreated(): google_protobuf_timestamp_pb.Timestamp | undefined;
+    setCreated(value?: google_protobuf_timestamp_pb.Timestamp): JobInfo;
 
     hasStarted(): boolean;
     clearStarted(): void;
@@ -858,6 +891,7 @@ export namespace JobInfo {
         stats?: ProcessStats.AsObject,
         state: JobState,
         reason: string,
+        created?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         details?: JobInfo.Details.AsObject,
@@ -1174,8 +1208,6 @@ export namespace PipelineInfo {
         clearJobTimeout(): void;
         getJobTimeout(): google_protobuf_duration_pb.Duration | undefined;
         setJobTimeout(value?: google_protobuf_duration_pb.Duration): Details;
-        getStandby(): boolean;
-        setStandby(value: boolean): Details;
         getDatumTries(): number;
         setDatumTries(value: number): Details;
 
@@ -1238,7 +1270,6 @@ export namespace PipelineInfo {
             datumSetSpec?: DatumSetSpec.AsObject,
             datumTimeout?: google_protobuf_duration_pb.Duration.AsObject,
             jobTimeout?: google_protobuf_duration_pb.Duration.AsObject,
-            standby: boolean,
             datumTries: number,
             schedulingSpec?: SchedulingSpec.AsObject,
             podSpec: string,
@@ -1329,6 +1360,26 @@ export namespace InspectJobSetRequest {
     export type AsObject = {
         jobSet?: JobSet.AsObject,
         wait: boolean,
+        details: boolean,
+    }
+}
+
+export class ListJobSetRequest extends jspb.Message { 
+    getDetails(): boolean;
+    setDetails(value: boolean): ListJobSetRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ListJobSetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ListJobSetRequest): ListJobSetRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ListJobSetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ListJobSetRequest;
+    static deserializeBinaryFromReader(message: ListJobSetRequest, reader: jspb.BinaryReader): ListJobSetRequest;
+}
+
+export namespace ListJobSetRequest {
+    export type AsObject = {
         details: boolean,
     }
 }
@@ -1852,8 +1903,6 @@ export class CreatePipelineRequest extends jspb.Message {
     setJobTimeout(value?: google_protobuf_duration_pb.Duration): CreatePipelineRequest;
     getSalt(): string;
     setSalt(value: string): CreatePipelineRequest;
-    getStandby(): boolean;
-    setStandby(value: boolean): CreatePipelineRequest;
     getDatumTries(): number;
     setDatumTries(value: number): CreatePipelineRequest;
 
@@ -1914,7 +1963,6 @@ export namespace CreatePipelineRequest {
         datumTimeout?: google_protobuf_duration_pb.Duration.AsObject,
         jobTimeout?: google_protobuf_duration_pb.Duration.AsObject,
         salt: string,
-        standby: boolean,
         datumTries: number,
         schedulingSpec?: SchedulingSpec.AsObject,
         podSpec: string,

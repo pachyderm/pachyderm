@@ -185,6 +185,17 @@ function deserialize_pps_v2_JobInfo(buffer_arg) {
   return pps_pps_pb.JobInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pps_v2_JobSetInfo(arg) {
+  if (!(arg instanceof pps_pps_pb.JobSetInfo)) {
+    throw new Error('Expected argument of type pps_v2.JobSetInfo');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_JobSetInfo(buffer_arg) {
+  return pps_pps_pb.JobSetInfo.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pps_v2_ListDatumRequest(arg) {
   if (!(arg instanceof pps_pps_pb.ListDatumRequest)) {
     throw new Error('Expected argument of type pps_v2.ListDatumRequest');
@@ -205,6 +216,17 @@ function serialize_pps_v2_ListJobRequest(arg) {
 
 function deserialize_pps_v2_ListJobRequest(buffer_arg) {
   return pps_pps_pb.ListJobRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_ListJobSetRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.ListJobSetRequest)) {
+    throw new Error('Expected argument of type pps_v2.ListJobSetRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_ListJobSetRequest(buffer_arg) {
+  return pps_pps_pb.ListJobSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_v2_ListPipelineRequest(arg) {
@@ -385,6 +407,17 @@ listJob: {
     requestDeserialize: deserialize_pps_v2_ListJobRequest,
     responseSerialize: serialize_pps_v2_JobInfo,
     responseDeserialize: deserialize_pps_v2_JobInfo,
+  },
+  listJobSet: {
+    path: '/pps_v2.API/ListJobSet',
+    requestStream: false,
+    responseStream: true,
+    requestType: pps_pps_pb.ListJobSetRequest,
+    responseType: pps_pps_pb.JobSetInfo,
+    requestSerialize: serialize_pps_v2_ListJobSetRequest,
+    requestDeserialize: deserialize_pps_v2_ListJobSetRequest,
+    responseSerialize: serialize_pps_v2_JobSetInfo,
+    responseDeserialize: deserialize_pps_v2_JobSetInfo,
   },
   subscribeJob: {
     path: '/pps_v2.API/SubscribeJob',

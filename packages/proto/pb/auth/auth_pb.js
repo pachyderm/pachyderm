@@ -9452,7 +9452,8 @@ proto.auth_v2.Permission = {
 proto.auth_v2.ResourceType = {
   RESOURCE_TYPE_UNKNOWN: 0,
   CLUSTER: 1,
-  REPO: 2
+  REPO: 2,
+  SPEC_REPO: 3
 };
 
 goog.object.extend(exports, proto.auth_v2);

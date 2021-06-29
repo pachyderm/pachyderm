@@ -25,6 +25,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     listCommit: IAPIService_IListCommit;
     subscribeCommit: IAPIService_ISubscribeCommit;
     inspectCommitSet: IAPIService_IInspectCommitSet;
+    listCommitSet: IAPIService_IListCommitSet;
     squashCommitSet: IAPIService_ISquashCommitSet;
     createBranch: IAPIService_ICreateBranch;
     inspectBranch: IAPIService_IInspectBranch;
@@ -145,6 +146,15 @@ interface IAPIService_IInspectCommitSet extends grpc.MethodDefinition<pfs_pfs_pb
     requestDeserialize: grpc.deserialize<pfs_pfs_pb.InspectCommitSetRequest>;
     responseSerialize: grpc.serialize<pfs_pfs_pb.CommitInfo>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CommitInfo>;
+}
+interface IAPIService_IListCommitSet extends grpc.MethodDefinition<pfs_pfs_pb.ListCommitSetRequest, pfs_pfs_pb.CommitSetInfo> {
+    path: "/pfs_v2.API/ListCommitSet";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.ListCommitSetRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.ListCommitSetRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.CommitSetInfo>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.CommitSetInfo>;
 }
 interface IAPIService_ISquashCommitSet extends grpc.MethodDefinition<pfs_pfs_pb.SquashCommitSetRequest, google_protobuf_empty_pb.Empty> {
     path: "/pfs_v2.API/SquashCommitSet";
@@ -341,6 +351,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     listCommit: grpc.handleServerStreamingCall<pfs_pfs_pb.ListCommitRequest, pfs_pfs_pb.CommitInfo>;
     subscribeCommit: grpc.handleServerStreamingCall<pfs_pfs_pb.SubscribeCommitRequest, pfs_pfs_pb.CommitInfo>;
     inspectCommitSet: grpc.handleServerStreamingCall<pfs_pfs_pb.InspectCommitSetRequest, pfs_pfs_pb.CommitInfo>;
+    listCommitSet: grpc.handleServerStreamingCall<pfs_pfs_pb.ListCommitSetRequest, pfs_pfs_pb.CommitSetInfo>;
     squashCommitSet: grpc.handleUnaryCall<pfs_pfs_pb.SquashCommitSetRequest, google_protobuf_empty_pb.Empty>;
     createBranch: grpc.handleUnaryCall<pfs_pfs_pb.CreateBranchRequest, google_protobuf_empty_pb.Empty>;
     inspectBranch: grpc.handleUnaryCall<pfs_pfs_pb.InspectBranchRequest, pfs_pfs_pb.BranchInfo>;
@@ -393,6 +404,8 @@ export interface IAPIClient {
     subscribeCommit(request: pfs_pfs_pb.SubscribeCommitRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    listCommitSet(request: pfs_pfs_pb.ListCommitSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitSetInfo>;
+    listCommitSet(request: pfs_pfs_pb.ListCommitSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitSetInfo>;
     squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -481,6 +494,8 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public subscribeCommit(request: pfs_pfs_pb.SubscribeCommitRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     public inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     public inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    public listCommitSet(request: pfs_pfs_pb.ListCommitSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitSetInfo>;
+    public listCommitSet(request: pfs_pfs_pb.ListCommitSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitSetInfo>;
     public squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public squashCommitSet(request: pfs_pfs_pb.SquashCommitSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;

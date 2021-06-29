@@ -17,6 +17,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     inspectJob: IAPIService_IInspectJob;
     inspectJobSet: IAPIService_IInspectJobSet;
     listJob: IAPIService_IListJob;
+    listJobSet: IAPIService_IListJobSet;
     subscribeJob: IAPIService_ISubscribeJob;
     deleteJob: IAPIService_IDeleteJob;
     stopJob: IAPIService_IStopJob;
@@ -67,6 +68,15 @@ interface IAPIService_IListJob extends grpc.MethodDefinition<pps_pps_pb.ListJobR
     requestDeserialize: grpc.deserialize<pps_pps_pb.ListJobRequest>;
     responseSerialize: grpc.serialize<pps_pps_pb.JobInfo>;
     responseDeserialize: grpc.deserialize<pps_pps_pb.JobInfo>;
+}
+interface IAPIService_IListJobSet extends grpc.MethodDefinition<pps_pps_pb.ListJobSetRequest, pps_pps_pb.JobSetInfo> {
+    path: "/pps_v2.API/ListJobSet";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<pps_pps_pb.ListJobSetRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.ListJobSetRequest>;
+    responseSerialize: grpc.serialize<pps_pps_pb.JobSetInfo>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.JobSetInfo>;
 }
 interface IAPIService_ISubscribeJob extends grpc.MethodDefinition<pps_pps_pb.SubscribeJobRequest, pps_pps_pb.JobInfo> {
     path: "/pps_v2.API/SubscribeJob";
@@ -273,6 +283,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     inspectJob: grpc.handleUnaryCall<pps_pps_pb.InspectJobRequest, pps_pps_pb.JobInfo>;
     inspectJobSet: grpc.handleServerStreamingCall<pps_pps_pb.InspectJobSetRequest, pps_pps_pb.JobInfo>;
     listJob: grpc.handleServerStreamingCall<pps_pps_pb.ListJobRequest, pps_pps_pb.JobInfo>;
+    listJobSet: grpc.handleServerStreamingCall<pps_pps_pb.ListJobSetRequest, pps_pps_pb.JobSetInfo>;
     subscribeJob: grpc.handleServerStreamingCall<pps_pps_pb.SubscribeJobRequest, pps_pps_pb.JobInfo>;
     deleteJob: grpc.handleUnaryCall<pps_pps_pb.DeleteJobRequest, google_protobuf_empty_pb.Empty>;
     stopJob: grpc.handleUnaryCall<pps_pps_pb.StopJobRequest, google_protobuf_empty_pb.Empty>;
@@ -305,6 +316,8 @@ export interface IAPIClient {
     inspectJobSet(request: pps_pps_pb.InspectJobSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobInfo>;
     listJob(request: pps_pps_pb.ListJobRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobInfo>;
     listJob(request: pps_pps_pb.ListJobRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobInfo>;
+    listJobSet(request: pps_pps_pb.ListJobSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobSetInfo>;
+    listJobSet(request: pps_pps_pb.ListJobSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobSetInfo>;
     subscribeJob(request: pps_pps_pb.SubscribeJobRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobInfo>;
     subscribeJob(request: pps_pps_pb.SubscribeJobRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobInfo>;
     deleteJob(request: pps_pps_pb.DeleteJobRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -378,6 +391,8 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public inspectJobSet(request: pps_pps_pb.InspectJobSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobInfo>;
     public listJob(request: pps_pps_pb.ListJobRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobInfo>;
     public listJob(request: pps_pps_pb.ListJobRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobInfo>;
+    public listJobSet(request: pps_pps_pb.ListJobSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobSetInfo>;
+    public listJobSet(request: pps_pps_pb.ListJobSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobSetInfo>;
     public subscribeJob(request: pps_pps_pb.SubscribeJobRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobInfo>;
     public subscribeJob(request: pps_pps_pb.SubscribeJobRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.JobInfo>;
     public deleteJob(request: pps_pps_pb.DeleteJobRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;

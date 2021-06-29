@@ -108,6 +108,17 @@ function deserialize_pfs_v2_CommitInfo(buffer_arg) {
   return pfs_pfs_pb.CommitInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_CommitSetInfo(arg) {
+  if (!(arg instanceof pfs_pfs_pb.CommitSetInfo)) {
+    throw new Error('Expected argument of type pfs_v2.CommitSetInfo');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_CommitSetInfo(buffer_arg) {
+  return pfs_pfs_pb.CommitSetInfo.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_CreateBranchRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.CreateBranchRequest)) {
     throw new Error('Expected argument of type pfs_v2.CreateBranchRequest');
@@ -337,6 +348,17 @@ function serialize_pfs_v2_ListCommitRequest(arg) {
 
 function deserialize_pfs_v2_ListCommitRequest(buffer_arg) {
   return pfs_pfs_pb.ListCommitRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_ListCommitSetRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.ListCommitSetRequest)) {
+    throw new Error('Expected argument of type pfs_v2.ListCommitSetRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_ListCommitSetRequest(buffer_arg) {
+  return pfs_pfs_pb.ListCommitSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_ListFileRequest(arg) {
@@ -593,6 +615,18 @@ inspectCommitSet: {
     requestDeserialize: deserialize_pfs_v2_InspectCommitSetRequest,
     responseSerialize: serialize_pfs_v2_CommitInfo,
     responseDeserialize: deserialize_pfs_v2_CommitInfo,
+  },
+  // ListCommitSet returns info about all CommitSets.
+listCommitSet: {
+    path: '/pfs_v2.API/ListCommitSet',
+    requestStream: false,
+    responseStream: true,
+    requestType: pfs_pfs_pb.ListCommitSetRequest,
+    responseType: pfs_pfs_pb.CommitSetInfo,
+    requestSerialize: serialize_pfs_v2_ListCommitSetRequest,
+    requestDeserialize: deserialize_pfs_v2_ListCommitSetRequest,
+    responseSerialize: serialize_pfs_v2_CommitSetInfo,
+    responseDeserialize: deserialize_pfs_v2_CommitSetInfo,
   },
   // SquashCommitSet squashes the commits of a CommitSet into their children.
 squashCommitSet: {
