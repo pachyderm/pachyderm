@@ -12,11 +12,6 @@ imagePullSecret: ""
 # MINIO, MICROSOFT, CUSTOM or LOCAL.
 deployTarget: ""
 
-loadBalancer:
-  # IP is the load balancer IP to use.  If blank, a load balancer will
-  # not be created.
-  ip: ""
-
 dash:
   # enabled controls whether the dash manifests are created or not.
   enabled: true
@@ -47,25 +42,27 @@ dash:
     graphqlPort: 4000
     oauthPachdClientID: ""
     pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
+  ingress:
+    enabled: false
+    annotations: {}
+    host: ""
+    # There are three options for TLS:
+    # 1. Disabled
+    # 2. Enabled, existingSecret, specify secret name
+    # 3. Enabled, newSecret, must specify cert, key, secretName and set newSecret.create to true
+    tls:
+      enabled: false
+      secretName: ""
+      newSecret:
+        create: false
+        crt: ""
+        key: ""
+
   service:
     # labels specifies labels to add to the dash service.
     labels: {}
     # type specifies the Kubernetes type of the dash service.
     type: ClusterIP
-  # There are three options for TLS:
-  # 1. Disabled
-  # 2. Enabled, existingSecret, specify secret name
-  # 3. Enabled, newSecret, must specify cert, key, secretName and set newSecret.create to true
-  tls:
-    enabled: false
-    secretName: ""
-    newSecret:
-      create: false
-      crt: ""
-      key: ""
-  # url specifies the URL of the dash ingress, used as the host value
-  # of a rule.
-  url: ""
 
 etcd:
   affinity: {}
@@ -177,6 +174,15 @@ pachd:
     user: ""
     password: ""
   requireCriticalServersOnly: false
+  # If enabled, External service creates a service which is safe to
+  # be exposed externally 
+  externalService:
+    enabled: false
+    # (Optional) specify the existing IP Address of the load balancer
+    loadBalancerIP: ""
+    apiGRPCPort: 30650
+    apiHTTPPort: 30652
+    s3GatewayPort: 30600
   service:
     # labels specifies labels to add to the pachd service.
     labels: {}

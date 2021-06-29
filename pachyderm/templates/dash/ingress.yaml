@@ -2,24 +2,23 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{- if and .Values.dash.enabled .Values.dash.url -}}
+{{- if and .Values.dash.enabled .Values.dash.ingress.enabled -}}
 apiVersion: "networking.k8s.io/v1beta1"
 kind: "Ingress"
 metadata:
   name: "dash"
+  annotations: {{ toYaml .Values.dash.annotations | nindent 4 }}
   namespace: {{ .Release.Namespace }}
-  annotations:
-    kubernetes.io/ingress.class: "traefik"
   labels:
     app: "dash"
     suite: "pachyderm"
 spec:
-  {{- if .Values.dash.tls.enabled }}
+  {{- if .Values.dash.ingress.tls.enabled }}
   tls:
-    - secretName: {{ required "if dash.tls.enabled you must specify dash.tls.secretName" .Values.dash.tls.secretName }}
+    - secretName: {{ required "if dash.ingress.tls.enabled you must specify dash.ingress.tls.secretName" .Values.dash.ingress.tls.secretName }}
   {{- end }}
   rules:
-    - host: {{ .Values.dash.url | quote }}
+    - host: {{ required "dash.ingress.host is required when dash.ingress.enabled" .Values.dash.ingress.host | quote }}
       http:
         paths:
           - path: "/"

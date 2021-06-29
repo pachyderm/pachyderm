@@ -42,7 +42,7 @@ func TestHub(t *testing.T) {
 		switch object := object.(type) {
 		case *v1beta1.Ingress:
 			for _, rule := range object.Spec.Rules {
-				if rule.Host == "https://dash.test/" {
+				if rule.Host == "dash.test" {
 					checks["ingress"] = true
 				}
 			}
@@ -117,6 +117,45 @@ func TestHub(t *testing.T) {
 						checks["etcd prometheus scrape"] = true
 					}
 				}
+
+			case "pachd-lb":
+				expectedPorts := map[string]*struct {
+					port  int
+					found bool
+				}{
+					"api-grpc-port": {
+						port:  31400,
+						found: false,
+					},
+					"api-http-port": {
+						port:  30652,
+						found: false,
+					},
+					"s3gateway-port": {
+						port:  30600,
+						found: false,
+					},
+				}
+
+				for _, port := range object.Spec.Ports {
+					ep, ok := expectedPorts[port.Name]
+					if !ok {
+						t.Errorf("did not find port %q in expected ports", port.Name)
+						continue
+					}
+					if ep.port != int(port.Port) {
+						t.Errorf("wanted %q, for port: %q, Got: %d", ep.port, port.Name, port.Port)
+						continue
+					}
+					ep.found = true
+				}
+
+				for portName, check := range expectedPorts {
+					if !check.found {
+						t.Errorf("expected port: %q, not found", portName)
+					}
+				}
+
 			}
 		case *appsV1.StatefulSet:
 			switch object.Name {
