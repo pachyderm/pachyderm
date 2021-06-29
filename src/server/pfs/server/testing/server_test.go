@@ -3139,41 +3139,56 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, numFiles+1, len(fileInfos))
 
 			var output strings.Builder
-			err = env.PachClient.GetFile(commit, "*", &output)
+			rc, err := env.PachClient.GetFileTAR(commit, "*")
 			require.NoError(t, err)
+			defer rc.Close()
+			require.NoError(t, concatTAR(&output, rc))
+
 			require.Equal(t, numFiles*3, len(output.String()))
 
 			output = strings.Builder{}
-			err = env.PachClient.GetFile(commit, "dir2/dir3/file1?", &output)
+			rc, err = env.PachClient.GetFileTAR(commit, "dir2/dir3/file1?")
 			require.NoError(t, err)
+			defer rc.Close()
+			require.NoError(t, concatTAR(&output, rc))
 			require.Equal(t, 10, len(output.String()))
 
 			output = strings.Builder{}
-			err = env.PachClient.GetFile(commit, "**file1?", &output)
+			rc, err = env.PachClient.GetFileTAR(commit, "**file1?")
 			require.NoError(t, err)
+			defer rc.Close()
+			require.NoError(t, concatTAR(&output, rc))
 			require.Equal(t, 30, len(output.String()))
 
 			output = strings.Builder{}
-			err = env.PachClient.GetFile(commit, "**file1", &output)
+			rc, err = env.PachClient.GetFileTAR(commit, "**file1")
 			require.NoError(t, err)
+			defer rc.Close()
+			require.NoError(t, concatTAR(&output, rc))
 			require.True(t, strings.Contains(output.String(), "1"))
 			require.True(t, strings.Contains(output.String(), "2"))
 			require.True(t, strings.Contains(output.String(), "3"))
 
 			output = strings.Builder{}
-			err = env.PachClient.GetFile(commit, "**file1", &output)
+			rc, err = env.PachClient.GetFileTAR(commit, "**file1")
 			require.NoError(t, err)
+			defer rc.Close()
+			require.NoError(t, concatTAR(&output, rc))
 			match, err := regexp.Match("[123]", []byte(output.String()))
 			require.NoError(t, err)
 			require.True(t, match)
 
 			output = strings.Builder{}
-			err = env.PachClient.GetFile(commit, "dir?", &output)
+			rc, err = env.PachClient.GetFileTAR(commit, "dir?")
 			require.NoError(t, err)
+			defer rc.Close()
+			require.NoError(t, concatTAR(&output, rc))
 
 			output = strings.Builder{}
-			err = env.PachClient.GetFile(commit, "", &output)
+			rc, err = env.PachClient.GetFileTAR(commit, "")
 			require.NoError(t, err)
+			defer rc.Close()
+			require.NoError(t, concatTAR(&output, rc))
 
 			output = strings.Builder{}
 			err = env.PachClient.GetFile(commit, "garbage", &output)
@@ -5792,4 +5807,15 @@ func getRand() *rand.Rand {
 
 func randomReader(n int) io.Reader {
 	return io.LimitReader(getRand(), int64(n))
+}
+
+func concatTAR(dst io.Writer, src io.Reader) error {
+	tr := tar.NewReader(src)
+	for _, err := tr.Next(); err != io.EOF; _, err = tr.Next() {
+		_, err := io.Copy(dst, tr)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
