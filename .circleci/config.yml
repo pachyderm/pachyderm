@@ -21,7 +21,7 @@ jobs:
     machine:
       image: ubuntu-2004:202101-01
     environment:
-      PPS_BUCKETS: "6"
+      TEST_BUCKETS: "8"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
       BIGQUERY_PROJECT: alysha-dev-006
@@ -84,16 +84,13 @@ workflows:
             parameters:
               bucket:
               - MISC
-              # If you want to update the number of PPS buckets, you'll neet to
-              # update the value of PPS_BUCKETS above
-              - AUTH
               - ENTERPRISE
-              - PFS
-              - PPS1
-              - PPS2
-              - PPS3
-              - PPS4
-              - PPS5
-              - PPS6
               - EXAMPLES
-              - OBJECT
+              - TESTS1
+              - TESTS2
+              - TESTS3
+              - TESTS4
+              - TESTS5
+              - TESTS6
+              - TESTS7
+              - TESTS8

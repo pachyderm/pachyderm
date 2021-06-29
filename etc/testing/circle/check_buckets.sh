@@ -31,10 +31,10 @@ function child {
     done
 }
 
-count=$(cat .circleci/config.yml | child jobs | child circleci | child environment | grep PPS_BUCKETS | cut -d \" -f 2)
+count=$(cat .circleci/config.yml | child jobs | child circleci | child environment | grep TEST_BUCKETS | cut -d \" -f 2)
 
-echo "should be $count buckets, checking for PPS$count"
+echo "should be $count buckets, checking for TEST$count"
 
 cat .circleci/config.yml | child workflows | child circleci | child jobs \
-    | child circleci | child matrix | child parameters | grep "PPS$count" || fail "PPS bucket number mismatch"
+    | child circleci | child matrix | child parameters | grep "TEST$count" || fail "test bucket number mismatch"
 
