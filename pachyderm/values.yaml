@@ -135,10 +135,6 @@ pachd:
   affinity: {}
   # clusterDeploymentID sets the Pachyderm cluster ID.
   clusterDeploymentID: ""
-  # exposeDockerSocket controls whether the Docker socket is
-  # exposed.  It is the inverse of the --no-expose-docker-socket
-  # argument passed to pachctl deploy.
-  exposeDockerSocket: false
   # goMaxProcs is passed as GOMAXPROCS to the pachd container.
   goMaxProcs: 0
   image:

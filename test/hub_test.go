@@ -21,7 +21,6 @@ func TestHub(t *testing.T) {
 			"dash limits":            false,
 			"etcd limits":            false,
 			"loki logging":           false,
-			"docker socket":          false,
 			"postgres host":          false,
 			"pachd service type":     false,
 			"etcd prometheus port":   false,
@@ -66,11 +65,6 @@ func TestHub(t *testing.T) {
 								t.Error("Loki logging should be enabled")
 							}
 							checks["loki logging"] = true
-						case "NO_EXPOSE_DOCKER_SOCKET":
-							if v.Value != "false" {
-								t.Error("Docker socket should be exposed")
-							}
-							checks["docker socket"] = true
 						case "POSTGRES_HOST":
 							if v.Value != "169.254.169.254" {
 								t.Error("Postgres Host should be set")

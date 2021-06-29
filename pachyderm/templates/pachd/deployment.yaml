@@ -56,7 +56,7 @@ spec:
           value: {{ .Values.pachd.postgresql.user | quote}}
         {{- end }}
         {{- if .Values.pachd.postgresql.ssl }}
-        - name: POSTGRES_SERVICE_SSL
+        - name: POSTGRES_SSL
           value: {{ .Values.pachd.postgresql.ssl | quote }}
         {{- end}}
         - name: LOKI_LOGGING
@@ -93,8 +93,6 @@ spec:
         {{- end }}
         - name: LOG_LEVEL
           value: {{ .Values.pachd.logLevel }}
-        - name: NO_EXPOSE_DOCKER_SOCKET
-          value: {{ .Values.pachd.exposeDockerSocket | not | quote }}
         - name: PACH_NAMESPACE
           valueFrom:
             fieldRef:
