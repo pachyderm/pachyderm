@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/dlmiddlecote/sqlstats"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -18,6 +19,7 @@ import (
 	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/prometheus/client_golang/prometheus"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
@@ -280,6 +282,12 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 			return err
 		}
 		env.dbClient = db
+		if err := prometheus.Register(sqlstats.NewStatsCollector("postgres", db.DB)); err != nil {
+			// This is not a retryable error.  Rather it will always happen for the
+			// second (and subsequent) service environment because of a naming conflict.
+			// If you see this message in production, it's a bug.  In tests, it's OK.
+			log.WithError(err).Warn("problem registering database statistics collector")
+		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
