@@ -34,7 +34,6 @@ pachd:
     ssl: "disable"
     user: "postgres"
     password: "Example-Password"
-  exposeDockerSocket: true
   goMaxProcs: 3
   # image.tag is configured per workspace.
   lokiLogging: true

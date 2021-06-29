@@ -13,7 +13,6 @@ pachd:
     type: NodePort
   metrics:
     enabled: false
-  exposeDockerSocket: true
 
 dash:
   enabled: false
