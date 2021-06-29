@@ -3090,7 +3090,7 @@ func TestStandby(t *testing.T) {
 		require.NoError(t, c.CreateRepo(dataRepo))
 		dataCommit := client.NewCommit(dataRepo, "master", "")
 
-		numPipelines := 10
+		numPipelines := 5
 		pipelines := make([]string, numPipelines)
 		for i := 0; i < numPipelines; i++ {
 			pipelines[i] = tu.UniqueString("TestStandby")
@@ -3172,11 +3172,11 @@ func TestStandby(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		numCommits := 100
+		numCommits := 10
 		for i := 0; i < numCommits; i++ {
 			require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file-%d", i), strings.NewReader("foo")))
 		}
-		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		require.NoErrorWithinTRetry(t, 120*time.Second, func() error {
 			// Let pipeline run
 			commitInfo, err := c.InspectCommit(dataRepo, "master", "")
 			require.NoError(t, err)
