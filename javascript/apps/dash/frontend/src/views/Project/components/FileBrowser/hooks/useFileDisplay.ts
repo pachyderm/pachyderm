@@ -28,11 +28,19 @@ const useFileDisplay = (file: File) => {
     branchId,
     projectId,
     commitId,
-    filePath: file.path,
+    // remove forward slash from path for route
+    filePath: file.path.slice(1),
   });
-  const {copy, supported: copySupported} = useClipboardCopy(filePath);
 
-  const [, fileName] = file.path.split('/');
+  const fileName =
+    file.path
+      .split('/')
+      .filter((f) => f)
+      .pop() || 'unknown';
+
+  const {copy, supported: copySupported} = useClipboardCopy(
+    `${repoId}@${file.commitId}:${file.path}`,
+  );
 
   const dateDisplay = useMemo(
     () =>

@@ -8,6 +8,8 @@ import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 
+import useFileBrowser from '../../hooks/useFileBrowser';
+
 import styles from './FileHeader.module.css';
 
 type FileHeaderProps = {
@@ -17,6 +19,7 @@ type FileHeaderProps = {
 
 const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
   const {repoId, commitId, branchId, projectId} = useUrlState();
+  const {fileToPreview} = useFileBrowser();
   const {repo} = useCurrentRepo();
 
   const {previousCommit, nextCommit} = useMemo(() => {
@@ -77,13 +80,15 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
             </Link>
           </Tooltip>
         )}
-        <Search
-          value={fileFilter}
-          className={styles.search}
-          placeholder="Filter current folder by name"
-          onSearch={setFileFilter}
-          aria-label="search files"
-        />
+        {!fileToPreview && (
+          <Search
+            value={fileFilter}
+            className={styles.search}
+            placeholder="Filter current folder by name"
+            onSearch={setFileFilter}
+            aria-label="search files"
+          />
+        )}
       </Group>
     </Header>
   );

@@ -16,7 +16,9 @@ const generatePathWithSearch = <S extends string>(
 ) => {
   const path = encodeURI(rrGeneratePath(pathTemplate, {...params}));
   const urlParams = new URLSearchParams(window.location.search);
-  return path + '?' + urlParams.toString();
+  return urlParams.entries.length > 0
+    ? path + '?' + urlParams.toString()
+    : path;
 };
 
 const generateRouteFn = <S extends string>(path: S) => {

@@ -155,7 +155,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/%2Fcats%2F',
+          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F',
         ),
       );
     });
@@ -168,7 +168,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/%2FAT-AT.png',
+          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/AT-AT.png',
         ),
       );
     });
@@ -206,7 +206,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/%2Fcats%2F',
+          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F',
         ),
       );
     });
@@ -222,7 +222,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/%2FAT-AT.png',
+          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/AT-AT.png',
         ),
       );
     });
@@ -246,7 +246,7 @@ describe('File Browser', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/%2Fliberty.png',
+        '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/liberty.png',
       );
     });
 

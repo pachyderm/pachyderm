@@ -3,16 +3,14 @@ import {
   GenericErrorSVG,
   ButtonLink,
   FullPageModal,
-  useModal,
   ListViewSVG,
   IconViewSVG,
   LoadingDots,
 } from '@pachyderm/components';
-import React, {useState, useMemo} from 'react';
+import React from 'react';
 import {Route, Switch, useHistory} from 'react-router';
 
 import Breadcrumb from '@dash-frontend/components/Breadcrumb';
-import {useFiles} from '@dash-frontend/hooks/useFiles';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 
@@ -25,34 +23,23 @@ import FilePreview from './components/FilePreview';
 import IconView from './components/IconView';
 import ListViewTable from './components/ListViewTable';
 import styles from './FileBrowser.module.css';
+import useFileBrowser from './hooks/useFileBrowser';
 
 const FileBrowser: React.FC = () => {
-  const {repoId, commitId, branchId, projectId, filePath} = useUrlState();
+  const {repoId, branchId, projectId} = useUrlState();
   const browserHistory = useHistory();
-  const [fileFilter, setFileFilter] = useState('');
-  const [fileView, setFileView] = useState<'list' | 'icon'>('list');
-  const {closeModal, isOpen} = useModal(true);
-  const {files, loading} = useFiles({
-    commitId,
-    path: filePath || '/',
-    branchName: branchId,
-    repoName: repoId,
-  });
 
-  const filteredFiles = useMemo(
-    () =>
-      files.filter(
-        (file) =>
-          !fileFilter ||
-          file.path.toLowerCase().includes(fileFilter.toLowerCase()),
-      ),
-    [fileFilter, files],
-  );
-
-  const fileAtLocation = useMemo(() => {
-    const hasFileType = filePath.slice(filePath.lastIndexOf('.') + 1);
-    return hasFileType && files.find((file) => file.path === filePath);
-  }, [filePath, files]);
+  const {
+    fileFilter,
+    setFileFilter,
+    fileView,
+    setFileView,
+    closeModal,
+    isOpen,
+    filteredFiles,
+    loading,
+    fileToPreview,
+  } = useFileBrowser();
 
   return (
     <FullPageModal
@@ -118,11 +105,11 @@ const FileBrowser: React.FC = () => {
             )}
           </Route>
           <Route path={FILE_BROWSER_FILE_PATH} exact>
-            {fileAtLocation && <FilePreview file={fileAtLocation} />}
+            {fileToPreview && <FilePreview file={fileToPreview} />}
           </Route>
         </Switch>
         {loading && <LoadingDots />}
-        {!loading && filteredFiles?.length === 0 && !fileAtLocation && (
+        {!loading && filteredFiles?.length === 0 && !fileToPreview && (
           <div className={styles.emptyResults}>
             <GenericErrorSVG />
             <h4 className={styles.emptyHeading}>No Matching Results Found.</h4>
