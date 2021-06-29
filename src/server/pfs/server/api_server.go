@@ -537,7 +537,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 		if err != nil {
 			return 0, err
 		}
-		finfo, file, err := singleFile(ctx, src)
+		_, file, err := singleFile(ctx, src)
 		if err != nil {
 			return 0, err
 		}
@@ -549,7 +549,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 		}); err != nil {
 			return 0, err
 		}
-		return int64(finfo.SizeBytes), nil
+		return fileset.SizeFromIndex(file.Index()), nil
 	})
 }
 
