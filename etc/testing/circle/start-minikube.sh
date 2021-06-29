@@ -6,7 +6,7 @@ PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
 export PATH
 
 # Parse flags
-VERSION=v1.13.0
+VERSION=v1.14.0
 minikube_args=(
   "--vm-driver=docker"
   "--kubernetes-version=${VERSION}"
