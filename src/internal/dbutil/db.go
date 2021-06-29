@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -19,23 +20,37 @@ const (
 	DefaultDBName = "pgc"
 	// DefaultMaxOpenConns is the argument passed to SetMaxOpenConns
 	DefaultMaxOpenConns = 10
+	// DefaultMaxIdleConns is the default number of idle database connections to maintain.
+	DefaultMaxIdleConns = 2
+	// DefaultConnMaxLifetime is the default maximum amount of time a connection may be reused
+	// for.  Defaults to no maximum.
+	DefaultConnMaxLifetime = 0
+	// DefaultConnMaxIdleTime is the default maximum amount of time a connection may be idle.
+	// Defaults to no maximum.
+	DefaultConnMaxIdleTime = 0
 )
 
 type dbConfig struct {
-	host           string
-	port           int
-	user, password string
-	name           string
-	maxOpenConns   int
+	host            string
+	port            int
+	user, password  string
+	name            string
+	maxOpenConns    int
+	maxIdleConns    int
+	connMaxLifetime time.Duration
+	connMaxIdleTime time.Duration
 }
 
 func newConfig(opts ...Option) *dbConfig {
 	dbc := &dbConfig{
-		host:         DefaultHost,
-		port:         DefaultPort,
-		user:         DefaultUser,
-		name:         DefaultDBName,
-		maxOpenConns: DefaultMaxOpenConns,
+		host:            DefaultHost,
+		port:            DefaultPort,
+		user:            DefaultUser,
+		name:            DefaultDBName,
+		maxOpenConns:    DefaultMaxOpenConns,
+		maxIdleConns:    DefaultMaxIdleConns,
+		connMaxLifetime: DefaultConnMaxLifetime,
+		connMaxIdleTime: DefaultConnMaxIdleTime,
 	}
 	for _, opt := range opts {
 		opt(dbc)
@@ -89,6 +104,10 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 	if dbc.maxOpenConns != 0 {
 		db.SetMaxOpenConns(dbc.maxOpenConns)
 	}
+	// Always set these; 0 does not mean "use the default", it means "use zero".
+	db.SetMaxIdleConns(dbc.maxIdleConns)
+	db.SetConnMaxLifetime(dbc.connMaxLifetime)
+	db.SetConnMaxIdleTime(dbc.connMaxIdleTime)
 	return db, nil
 }
 
