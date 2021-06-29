@@ -169,7 +169,6 @@ export type PipelineInfoObject = {
   datumTimeout?: DurationObject;
   jobTimeout?: DurationObject;
   specCommit?: CommitObject;
-  standby?: PipelineInfo.Details.AsObject['standby'];
   datumTries?: PipelineInfo.Details.AsObject['datumTries'];
   schedulingSpec?: SchedulingSpecObject;
   podSpec?: PipelineInfo.Details.AsObject['podSpec'];
@@ -484,7 +483,6 @@ export const pipelineInfoFromObject = ({
   chunkSpec,
   datumTimeout,
   jobTimeout,
-  standby = false,
   datumTries = 0,
   podSpec = '',
   podPatch = '',
@@ -555,7 +553,6 @@ export const pipelineInfoFromObject = ({
   details.setCacheSize(cacheSize);
   details.setSalt(salt);
   details.setMaxQueueSize(maxQueueSize);
-  details.setStandby(standby);
   details.setDatumTries(datumTries);
   details.setPodSpec(podSpec);
   details.setPodPatch(podPatch);
