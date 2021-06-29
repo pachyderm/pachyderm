@@ -213,9 +213,6 @@
                 }
             }
         },
-        "imageCredentials": {
-            "type": "object"
-        },
         "imagePullSecret": {
             "type": "string"
         },

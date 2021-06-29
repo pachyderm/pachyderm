@@ -28,12 +28,13 @@ spec:
       name: dash
       namespace: {{ .Release.Namespace }}
     spec:
+      {{- if .Values.imagePullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret | quote }}
+      {{- end }}
       containers:
       - image: "{{ .Values.dash.image.repository }}:{{ .Values.dash.image.tag }}"
         imagePullPolicy: {{ .Values.dash.image.pullPolicy }}
-        {{- if .Values.imagePullSecret }}
-        imagePullSecret: {{ .Values.imagePullSecret | quote }}
-        {{- end }}
         name: dash
         ports:
         - containerPort: {{ .Values.dash.config.graphqlPort }}

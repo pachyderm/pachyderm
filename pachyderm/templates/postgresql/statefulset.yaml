@@ -26,6 +26,10 @@ spec:
       name: postgres
       namespace: default
     spec:
+      {{- if .Values.imagePullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret | quote }}
+      {{- end }}
       containers:
       - env:
         - name: POSTGRES_DB
@@ -47,9 +51,6 @@ spec:
           name: postgres-storage
         - mountPath: /docker-entrypoint-initdb.d
           name: postgres-init
-      {{- if .Values.imagePullSecret }}
-      imagePullSecret: {{ .Values.imagePullSecret | quote }}
-      {{- end }}
       volumes:
       - configMap:
           name: postgres-init-cm

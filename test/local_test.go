@@ -15,11 +15,13 @@ import (
 func TestLocal(t *testing.T) {
 	var (
 		hostPath     = "/this/is/a/host/path/"
+		secret       = "secret-name"
 		objects, err = manifestToObjects(helm.RenderTemplate(t,
 			&helm.Options{
 				SetStrValues: map[string]string{
 					"deployTarget":                 "LOCAL",
 					"pachd.storage.local.hostPath": hostPath,
+					"imagePullSecret":              secret,
 				}},
 			"../pachyderm/", "release-name", nil))
 		checks = map[string]bool{
@@ -36,6 +38,14 @@ func TestLocal(t *testing.T) {
 		case *appsV1.Deployment:
 			if object.Name != "pachd" {
 				continue
+			}
+			if expected, got := 1, len(object.Spec.Template.Spec.ImagePullSecrets); expected != got {
+				t.Errorf("expected %d image pull secret; got %d`", expected, got)
+			}
+			for _, s := range object.Spec.Template.Spec.ImagePullSecrets {
+				if expected, got := secret, s; expected != got.Name {
+					t.Errorf("expected secret %q; got %q", expected, got)
+				}
 			}
 			for _, c := range object.Spec.Template.Spec.Containers {
 				if c.Name != "pachd" {

@@ -35,6 +35,10 @@ spec:
       {{-  if .Values.pachd.affinity }}
       affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
       {{- end }}
+      {{- if .Values.imagePullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret | quote }}
+      {{- end }}
       containers:
       - command:
         - /pachd
@@ -124,9 +128,6 @@ spec:
               name: pachyderm-storage-secret
         image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
-        {{- if .Values.imagePullSecret }}
-        imagePullSecret: {{ .Values.imagePullSecret | quote }}
-        {{- end }}
         name: pachd
         ports:
         - containerPort: 1600

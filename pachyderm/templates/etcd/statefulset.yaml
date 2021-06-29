@@ -34,6 +34,10 @@ spec:
       {{-  if .Values.etcd.affinity }}
       affinity: {{ toYaml .Values.etcd.affinity | nindent 8 }}
       {{- end }}
+      {{- if .Values.imagePullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret | quote }}
+      {{- end }}
       containers:
       - args:
         - '"/usr/local/bin/etcd" "--listen-client-urls=http://0.0.0.0:2379" "--advertise-client-urls=http://0.0.0.0:2379"
@@ -57,9 +61,6 @@ spec:
               fieldPath: metadata.namespace
         image: "{{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}"
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
-        {{- if .Values.imagePullSecret }}
-        imagePullSecret: {{ .Values.imagePullSecret | quote }}
-        {{- end }}
         name: etcd
         ports:
         - containerPort: 2379
