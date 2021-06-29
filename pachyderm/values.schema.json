@@ -137,14 +137,6 @@
         "imagePullSecret": {
             "type": "string"
         },
-        "loadBalancer": {
-            "type": "object",
-            "properties": {
-                "ip": {
-                    "type": "string"
-                }
-            }
-        },
         "pachd": {
             "type": "object",
             "properties": {
@@ -165,6 +157,26 @@
                 },
                 "exposeObjectAPI": {
                     "type": "boolean"
+                },
+                "externalService": {
+                    "type": "object",
+                    "properties": {
+                        "apiGRPCPort": {
+                            "type": "integer"
+                        },
+                        "apiHTTPPort": {
+                            "type": "integer"
+                        },
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "loadBalancerIP": {
+                            "type": "string"
+                        },
+                        "s3GatewayPort": {
+                            "type": "integer"
+                        }
+                    }
                 },
                 "goMaxProcs": {
                     "type": "integer"

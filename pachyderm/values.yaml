@@ -7,11 +7,6 @@
 # In accordance with pachctl deploy it is _not_ per-image.
 imagePullSecret: ""
 
-loadBalancer:
-  # IP is the load balancer IP to use.  If blank, a load balancer will
-  # not be created.
-  ip: ""
-
 dash:
   # enabled controls whether the dash manifests are created or not.
   enabled: true
@@ -145,6 +140,15 @@ pachd:
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
   requireCriticalServersOnly: false
+  # If enabled, External service creates a service which is safe to
+  # be exposed externally 
+  externalService:
+    enabled: false
+    # (Optional) specify the existing IP Address of the load balancer
+    loadBalancerIP: ""
+    apiGRPCPort: 30650
+    apiHTTPPort: 30652
+    s3GatewayPort: 30600
   service:
     # labels specifies labels to add to the pachd service.
     labels: {}

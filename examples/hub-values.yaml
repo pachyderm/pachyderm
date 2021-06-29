@@ -23,10 +23,6 @@ etcd:
   # storageSize is configured per workspace.
   storageSize: "3Gi"
 
-loadBalancer:
-  # ip is configured per workspace.
-  ip: "192.0.2.3"
-
 pachd:
   blockCacheBytes: "0G"
   exposeDockerSocket: true
@@ -39,6 +35,12 @@ pachd:
   metricsEndpoint: "https://metrics.test/api/v1/metrics"
   service:
     type: "ClusterIP"
+  externalService:
+    enabled: true
+    loadBalancerIP: "192.168.1.1"
+    apiGRPCPort: 31400
+    apiHTTPPort: 30652
+    s3GatewayPort: 30600
   storage:
     backend: "GOOGLE"
     google:
