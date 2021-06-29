@@ -286,6 +286,7 @@ pachd:
       # will be stored.  It must end in /.  It is analogous to the
       # --host-path argument to pachctl deploy.
       hostPath: ""
+      requireRoot: true #Root required for hostpath, but we run rootless in CI
     microsoft:
       container: ""
       id: ""

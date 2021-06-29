@@ -411,6 +411,9 @@
                             "properties": {
                                 "hostPath": {
                                     "type": "string"
+                                },
+                                "requireRoot": {
+                                    "type": "boolean"
                                 }
                             }
                         },
