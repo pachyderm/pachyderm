@@ -29,10 +29,10 @@ type GlobalConfiguration struct {
 	PostgresDBName                 string `env:"POSTGRES_DATABASE_NAME"`
 	PostgresUser                   string `env:"POSTGRES_USER,default=postgres"`
 	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
-	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS"`
-	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS"`
-	PostgresConnMaxLifetimeSeconds int    `env:"POSTGRES_CONN_MAX_LIFETIME_SECONDS"`
-	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS"`
+	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=10"`
+	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=2"`
+	PostgresConnMaxLifetimeSeconds int    `env:"POSTGRES_CONN_MAX_LIFETIME_SECONDS,default=0"`
+	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS,default=0"`
 	PachdServiceHost               string `env:"PACHD_SERVICE_HOST"`
 	PachdServicePort               string `env:"PACHD_SERVICE_PORT"`
 

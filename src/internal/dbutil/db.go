@@ -18,9 +18,12 @@ const (
 	DefaultUser = "postgres"
 	// DefaultDBName is the default DB name.
 	DefaultDBName = "pgc"
-	// DefaultMaxOpenConns is the argument passed to SetMaxOpenConns
+	// DefaultMaxOpenConns is the default maximum number of open connections; if you change
+	// this, also consider changing the default from the environment in
+	// serviceenv.GlobalConfiguration.
 	DefaultMaxOpenConns = 10
-	// DefaultMaxIdleConns is the default number of idle database connections to maintain.
+	// DefaultMaxIdleConns is the default number of idle database connections to maintain.  (2
+	// comes from the default in database/sql.go.)
 	DefaultMaxIdleConns = 2
 	// DefaultConnMaxLifetime is the default maximum amount of time a connection may be reused
 	// for.  Defaults to no maximum.
