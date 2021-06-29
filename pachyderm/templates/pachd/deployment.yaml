@@ -93,12 +93,14 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        {{- if and .Values.pachd.resources .Values.pachd.resources.memory }}
         - name: PACHD_MEMORY_REQUEST
           valueFrom:
             resourceFieldRef:
               containerName: pachd
               divisor: "0"
               resource: requests.memory
+        {{- end }}
         - name: EXPOSE_OBJECT_API
           value: {{ .Values.pachd.exposeObjectAPI | quote }}
         {{- if .Values.pachd.clusterDeploymentID }}
