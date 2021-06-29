@@ -66,3 +66,22 @@ func ListRepoInfo(client pfs.API_ListRepoClient) ([]*pfs.RepoInfo, error) {
 	}
 	return results, nil
 }
+
+func ForEachCommitSet(client pfs.API_ListCommitSetClient, cb func(*pfs.CommitSetInfo) error) error {
+	for {
+		x, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if err := cb(x); err != nil {
+			if err == pacherr.ErrBreak {
+				err = nil
+			}
+			return err
+		}
+	}
+	return nil
+}

@@ -350,6 +350,9 @@ func (c *pfsBuilderClient) ListCommit(ctx context.Context, req *pfs.ListCommitRe
 func (c *pfsBuilderClient) InspectCommitSet(ctx context.Context, req *pfs.InspectCommitSetRequest, opts ...grpc.CallOption) (pfs.API_InspectCommitSetClient, error) {
 	return nil, unsupportedError("InspectCommitSet")
 }
+func (c *pfsBuilderClient) ListCommitSet(ctx context.Context, req *pfs.ListCommitSetRequest, opts ...grpc.CallOption) (pfs.API_ListCommitSetClient, error) {
+	return nil, unsupportedError("ListCommitSet")
+}
 func (c *pfsBuilderClient) SubscribeCommit(ctx context.Context, req *pfs.SubscribeCommitRequest, opts ...grpc.CallOption) (pfs.API_SubscribeCommitClient, error) {
 	return nil, unsupportedError("SubscribeCommit")
 }
@@ -407,6 +410,9 @@ func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTest
 
 func (c *ppsBuilderClient) InspectJobSet(ctx context.Context, req *pps.InspectJobSetRequest, opts ...grpc.CallOption) (pps.API_InspectJobSetClient, error) {
 	return nil, unsupportedError("InspectJobSet")
+}
+func (c *ppsBuilderClient) ListJobSet(ctx context.Context, req *pps.ListJobSetRequest, opts ...grpc.CallOption) (pps.API_ListJobSetClient, error) {
+	return nil, unsupportedError("ListJobSet")
 }
 func (c *ppsBuilderClient) InspectJob(ctx context.Context, req *pps.InspectJobRequest, opts ...grpc.CallOption) (*pps.JobInfo, error) {
 	return nil, unsupportedError("InspectJob")

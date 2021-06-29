@@ -1275,6 +1275,33 @@ reloadCommitSet:
 	}
 }
 
+func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) error) error {
+	pachClient := d.env.GetPachClient(ctx)
+
+	// Track the commitsets we've already processed
+	seen := map[string]struct{}{}
+
+	// Return commitsets by the newest commit in each set (which can be at a different
+	// timestamp due to triggers or deferred processing)
+	commitInfo := &pfs.CommitInfo{}
+	return d.commits.ReadOnly(ctx).List(commitInfo, col.DefaultOptions(), func(string) error {
+		if _, ok := seen[commitInfo.Commit.ID]; ok {
+			return nil
+		}
+		seen[commitInfo.Commit.ID] = struct{}{}
+
+		commitInfos, err := pachClient.InspectCommitSet(commitInfo.Commit.ID)
+		if err != nil {
+			return err
+		}
+
+		return cb(&pfs.CommitSetInfo{
+			CommitSet: client.NewCommitSet(commitInfo.Commit.ID),
+			Commits:   commitInfos,
+		})
+	})
+}
+
 func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
 	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
 
