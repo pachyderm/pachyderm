@@ -56,8 +56,8 @@ function test_bucket {
         "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
     test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
     echo "Running ${bucket_size} tests of ${total_tests} total tests"
-    go test ${package} -p 1 -run='${test_regex}'
     set -x
+    go test ${package} -p 1 -run="${test_regex}"
 }
 
 # Clean cached test results
@@ -90,6 +90,7 @@ case "${BUCKET}" in
     make test-enterprise-integration
     ;;
   TESTS?)
+    go install -v ./src/testing/match
     make docker-build-kafka
     make launch-stats
     export PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
