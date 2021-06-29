@@ -3111,7 +3111,7 @@ func TestStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		require.NoErrorWithinTRetry(t, time.Second*60, func() error {
 			pis, err := c.ListPipeline(false)
 			require.NoError(t, err)
 			var standby int
@@ -3177,11 +3177,14 @@ func TestStandby(t *testing.T) {
 		for i := 0; i < numCommits; i++ {
 			require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file-%d", i), strings.NewReader("foo")))
 		}
-		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
-		require.NoError(t, err)
-		commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+			// Let pipeline run
+			commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+			require.NoError(t, err)
+			commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(commitInfos))
+		})
 		pod := ""
 		commitInfos, err = c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
 		require.NoError(t, err)
