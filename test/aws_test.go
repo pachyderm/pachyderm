@@ -105,7 +105,7 @@ func TestAWS(t *testing.T) {
 	}
 	var (
 		expectedServiceAccount = "my-fine-sa"
-		expectedProvisioner    = "ebs.csi.aws.com"
+		expectedProvisioner    = "kubernetes.io/aws-ebs"
 		expectedStorageBackend = "AMAZON"
 	)
 
@@ -211,7 +211,7 @@ func TestAWS(t *testing.T) {
 
 				for _, pvc := range resource.Spec.VolumeClaimTemplates {
 					// Check Default Storage Request
-					expectedStorageSize := "10Gi"
+					expectedStorageSize := "500Gi"
 
 					if pvc.Name == "etcd-storage" {
 						t.Run(fmt.Sprintf("%s storage class storage resource request equals %s", resource.Name, expectedStorageSize), func(t *testing.T) {

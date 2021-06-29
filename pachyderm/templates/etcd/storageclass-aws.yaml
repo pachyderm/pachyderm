@@ -12,7 +12,6 @@ metadata:
     suite: pachyderm
   name: etcd-storage-class
 parameters:
-  type: gp3
-# https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
-provisioner: ebs.csi.aws.com 
+  type: gp2
+provisioner: kubernetes.io/aws-ebs
 {{ end -}}
