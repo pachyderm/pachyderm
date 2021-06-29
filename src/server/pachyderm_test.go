@@ -3183,19 +3183,20 @@ func TestStandby(t *testing.T) {
 			commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 			require.NoError(t, err)
 			require.Equal(t, 2, len(commitInfos))
-		})
-		pod := ""
-		commitInfos, err = c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
-		require.NoError(t, err)
-		for _, ci := range commitInfos {
-			var buffer bytes.Buffer
-			require.NoError(t, c.GetFile(ci.Commit, "pod", &buffer))
-			if pod == "" {
-				pod = buffer.String()
-			} else {
-				require.True(t, pod == buffer.String(), "multiple pods were used to process commits")
+			pod := ""
+			commitInfos, err = c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
+			require.NoError(t, err)
+			for _, ci := range commitInfos {
+				var buffer bytes.Buffer
+				require.NoError(t, c.GetFile(ci.Commit, "pod", &buffer))
+				if pod == "" {
+					pod = buffer.String()
+				} else {
+					require.True(t, pod == buffer.String(), "multiple pods were used to process commits")
+				}
 			}
-		}
+			return nil
+		})
 		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.PipelineState_PIPELINE_STANDBY.String(), pi.State.String())
