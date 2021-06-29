@@ -479,12 +479,21 @@ func (d *driver) getOrComputeTotal(ctx context.Context, commit *pfs.Commit) (*fi
 		return nil, err
 	}
 	var inputs []fileset.ID
-	if commitInfo.ParentCommit != nil {
-		parentDiff, err := d.getOrComputeTotal(ctx, commitInfo.ParentCommit)
+	parentCommit := commitInfo.ParentCommit
+	for parentCommit != nil {
+		commitInfo, err := d.getCommit(ctx, parentCommit)
 		if err != nil {
 			return nil, err
 		}
-		inputs = append(inputs, *parentDiff)
+		if !commitInfo.Error {
+			parentDiff, err := d.getOrComputeTotal(ctx, parentCommit)
+			if err != nil {
+				return nil, err
+			}
+			inputs = append(inputs, *parentDiff)
+			break
+		}
+		parentCommit = commitInfo.ParentCommit
 	}
 	inputs = append(inputs, *id)
 	output, err := d.compactor.Compact(ctx, inputs, defaultTTL)
