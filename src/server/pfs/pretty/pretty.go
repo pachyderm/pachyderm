@@ -170,8 +170,7 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 	var modified *types.Timestamp
 	for _, commitInfo := range commitSetInfo.Commits {
 		if commitInfo.Finished != nil {
-			// TODO(2.0 required): when the errored commit PR is merged, this needs to change to use that field
-			if commitInfo.Description == pfs.EmptyStr {
+			if commitInfo.Error {
 				failure++
 			} else {
 				success++

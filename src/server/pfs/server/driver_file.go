@@ -67,7 +67,7 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *renew.StringSet,
 		if err := d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
 			return err
 		}
-		return d.finishCommit(txnCtx, commit, "")
+		return d.finishCommit(txnCtx, commit, "", false)
 	})
 }
 
@@ -433,13 +433,22 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 		return d.getOrComputeTotal(ctx, commitInfo.Commit)
 	}
 	var ids []fileset.ID
-	if commitInfo.ParentCommit != nil {
-		// ¯\_(ツ)_/¯
-		parentId, err := d.getFileSet(ctx, commitInfo.ParentCommit)
+	parentCommit := commitInfo.ParentCommit
+	for parentCommit != nil {
+		commitInfo, err := d.getCommit(ctx, parentCommit)
 		if err != nil {
 			return nil, err
 		}
-		ids = append(ids, *parentId)
+		if !commitInfo.Error {
+			// ¯\_(ツ)_/¯
+			parentId, err := d.getFileSet(ctx, parentCommit)
+			if err != nil {
+				return nil, err
+			}
+			ids = append(ids, *parentId)
+			break
+		}
+		parentCommit = commitInfo.ParentCommit
 	}
 	id, err := d.commitStore.GetDiffFileSet(ctx, commitInfo.Commit)
 	if err != nil {
@@ -470,12 +479,21 @@ func (d *driver) getOrComputeTotal(ctx context.Context, commit *pfs.Commit) (*fi
 		return nil, err
 	}
 	var inputs []fileset.ID
-	if commitInfo.ParentCommit != nil {
-		parentDiff, err := d.getOrComputeTotal(ctx, commitInfo.ParentCommit)
+	parentCommit := commitInfo.ParentCommit
+	for parentCommit != nil {
+		commitInfo, err := d.getCommit(ctx, parentCommit)
 		if err != nil {
 			return nil, err
 		}
-		inputs = append(inputs, *parentDiff)
+		if !commitInfo.Error {
+			parentDiff, err := d.getOrComputeTotal(ctx, parentCommit)
+			if err != nil {
+				return nil, err
+			}
+			inputs = append(inputs, *parentDiff)
+			break
+		}
+		parentCommit = commitInfo.ParentCommit
 	}
 	inputs = append(inputs, *id)
 	output, err := d.compactor.Compact(ctx, inputs, defaultTTL)

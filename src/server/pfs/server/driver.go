@@ -546,7 +546,7 @@ func (d *driver) startCommit(
 
 // TODO: Need to block operations on the commit before kicking off the compaction / finishing the commit.
 // We are going to want to move the compaction to the read side, and just mark the commit as finished here.
-func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description string) error {
+func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description string, commitError bool) error {
 	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
@@ -563,6 +563,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		commitInfo.Description = description
 	}
 	commitInfo.Finished = txnCtx.Timestamp
+	commitInfo.Error = commitError
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commitInfo.Commit), commitInfo); err != nil {
 		return err
 	}
@@ -592,6 +593,7 @@ func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, p
 
 		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
 			commitInfo.Finished = txnCtx.Timestamp
+			commitInfo.Error = parentCommitInfo.Error
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
 				return err
 			}
@@ -654,6 +656,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 		}
 		if parentCommitInfo.Finished != nil {
 			commitInfo.Finished = txnCtx.Timestamp
+			commitInfo.Error = parentCommitInfo.Error
 		}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(commitInfo.Commit), commitInfo); err != nil {
 			return nil, err

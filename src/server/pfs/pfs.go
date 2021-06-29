@@ -52,6 +52,11 @@ type ErrCommitFinished struct {
 	Commit *pfs.Commit
 }
 
+// ErrCommitError represents an error where the commit has been finished with an error.
+type ErrCommitError struct {
+	Commit *pfs.Commit
+}
+
 // ErrCommitDeleted represents an error where the commit has been deleted (e.g.
 // from InspectCommit)
 type ErrCommitDeleted struct {
@@ -128,6 +133,10 @@ func (e ErrCommitFinished) Error() string {
 	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, e.Commit.Branch.Repo)
 }
 
+func (e ErrCommitError) Error() string {
+	return fmt.Sprintf("commit %v in repo %v finished with an error", e.Commit.ID, e.Commit.Branch.Repo)
+}
+
 func (e ErrCommitDeleted) Error() string {
 	return fmt.Sprintf("commit %v@%v was deleted", e.Commit.Branch.Repo, e.Commit.ID)
 }
@@ -161,6 +170,7 @@ var (
 	commitsetNotFoundRe       = regexp.MustCompile("no commits found for commitset")
 	commitDeletedRe           = regexp.MustCompile("commit [^ ]+ was deleted")
 	commitFinishedRe          = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
+	commitErrorRe             = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ finished with an error")
 	repoNotFoundRe            = regexp.MustCompile(`repos [a-zA-Z0-9.\-_]{1,255} not found`)
 	repoExistsRe              = regexp.MustCompile(`repo ?[a-zA-Z0-9.\-_]{1,255} already exists`)
 	branchNotFoundRe          = regexp.MustCompile(`branches [a-zA-Z0-9.\-_@]{1,255} not found`)
@@ -206,6 +216,15 @@ func IsCommitFinishedErr(err error) bool {
 		return false
 	}
 	return commitFinishedRe.MatchString(grpcutil.ScrubGRPC(err).Error())
+}
+
+// IsCommitError returns true of 'err' has an error message that matches
+// ErrCommitError
+func IsCommitErrorErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return commitErrorRe.MatchString(grpcutil.ScrubGRPC(err).Error())
 }
 
 // IsRepoNotFoundErr returns true if 'err' is an error message about a repo
