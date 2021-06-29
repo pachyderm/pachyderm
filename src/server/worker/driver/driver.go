@@ -332,7 +332,12 @@ func (d *driver) RunUserCode(
 	if d.uid != nil && d.gid != nil {
 		cmd.SysProcAttr = makeCmdCredentials(*d.uid, *d.gid)
 	}
-	cmd.Dir = filepath.Join(d.rootDir, d.pipelineInfo.Details.Transform.WorkingDir)
+
+	// By default PWD will be the working dir for the container, so we don't need to set Dir explicitly.
+	// If the pipeline or worker config explicitly sets the value, then override the container working dir.
+	if d.pipelineInfo.Details.Transform.WorkingDir != "" || d.rootDir != "/" {
+		cmd.Dir = filepath.Join(d.rootDir, d.pipelineInfo.Details.Transform.WorkingDir)
+	}
 	err := cmd.Start()
 	if err != nil {
 		return errors.EnsureStack(err)

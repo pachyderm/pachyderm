@@ -32,10 +32,12 @@ import (
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
+	proxyclient "github.com/pachyderm/pachyderm/v2/src/proxy"
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	"google.golang.org/grpc/health"
 
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
@@ -170,8 +172,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -264,8 +265,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -416,7 +416,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 			txnEnv,
 			path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
 			env.Config().Namespace,
-			env.Config().IAMRole,
 			reporter,
 			env.Config().PPSWorkerPort,
 			env.Config().PeerPort,
@@ -643,8 +642,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -679,6 +677,12 @@ func doFullMode(config interface{}) (retErr error) {
 				env.Config().PachdPodName,
 				nil,
 			))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Proxy API", func() error {
+			proxyclient.RegisterAPIServer(externalServer.Server, proxyserver.NewAPIServer(env))
 			return nil
 		}); err != nil {
 			return err
@@ -771,8 +775,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}

@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// Encoder creates an encoder that writes data structures to os.Stdout in the
-// serialization format 'format'.  If the 'format' passed is unrecognized
+// Encoder creates an encoder that writes data structures to the given writer in
+// the serialization format 'format'.  If the 'format' passed is unrecognized
 // (currently, 'format' must be 'json' or 'yaml') then pachctl exits
 // immediately.
 func Encoder(format string, w io.Writer) serde.Encoder {

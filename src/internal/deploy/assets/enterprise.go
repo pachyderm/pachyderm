@@ -34,11 +34,6 @@ func EnterpriseService(opts *AssetOpts) *v1.Service {
 					NodePort: 31650,
 				},
 				{
-					Port:     1651, // also set in cmd/pachd/main.go
-					Name:     "trace-port",
-					NodePort: 31651,
-				},
-				{
 					Port:     OidcPort,
 					Name:     "oidc-port",
 					NodePort: 31657,

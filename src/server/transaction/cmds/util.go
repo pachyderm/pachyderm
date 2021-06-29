@@ -2,9 +2,9 @@ package cmds
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -65,20 +65,21 @@ func ClearActiveTransaction() error {
 }
 
 // WithActiveTransaction is a helper function that will attach the given
-// transaction to the given client (resulting in a new client), then run the
+// transaction to the env's client (resulting in a new client), then run the
 // given callback with the new client.  This is for executing RPCs that can be
 // run inside a transaction - if this isn't supported, it will have no effect.
-func WithActiveTransaction(c *client.APIClient, callback func(*client.APIClient) error) error {
+func WithActiveTransaction(env cmdutil.Env, callback func(*client.APIClient) error) error {
 	txn, err := getActiveTransaction()
 	if err != nil {
 		return err
 	}
+	c := env.Client("user")
 	if txn != nil {
 		c = c.WithTransaction(txn)
 	}
 	err = callback(c)
 	if err == nil && txn != nil {
-		fmt.Fprintf(os.Stdout, "Added to transaction: %s\n", txn.ID)
+		fmt.Fprintf(env.Out(), "Added to transaction: %s\n", txn.ID)
 	}
 	return err
 }

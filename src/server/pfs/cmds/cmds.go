@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -68,7 +69,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
-			err := txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
+			err := txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
@@ -89,7 +90,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Update a repo.",
 		Long:  "Update a repo.",
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
-			err := txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
+			err := txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
@@ -201,7 +202,7 @@ or type (e.g. csv, binary, images, etc).`,
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
 
-			err := txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
+			err := txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				var err error
 				if all {
 					_, err = c.PfsAPIClient.DeleteAll(c.Ctx(), &types.Empty{})
@@ -267,7 +268,7 @@ $ {{alias}} test -p XXX`,
 			}
 
 			var commit *pfs.Commit
-			err = txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
+			err = txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				var err error
 				commit, err = c.PfsAPIClient.StartCommit(
 					c.Ctx(),
@@ -302,7 +303,7 @@ $ {{alias}} test -p XXX`,
 				return err
 			}
 
-			err = txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
+			err = txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.FinishCommit(
 					c.Ctx(),
 					&pfs.FinishCommitRequest{
@@ -426,10 +427,7 @@ $ {{alias}} foo@master --from XXX`,
 		Short: "Wait for the specified commit to finish and return it.",
 		Long:  "Wait for the specified commit to finish and return it.",
 		Example: `
-# return commits in the same commit set as foo@XXX
-$ {{alias}} XXX
-
-# return commits caused by foo@XXX leading to branch bar@baz
+# wait for the commit foo@XXX to finish and return it
 $ {{alias}} foo@XXX -b bar@baz`,
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			commit, err := cmdutil.ParseCommit(args[0])
@@ -540,8 +538,8 @@ $ {{alias}} test@master --new`,
 
 	waitCommitSet := &cobra.Command{
 		Use:   "{{alias}} <commitset-id>",
-		Short: "Return info about the commits in a commitset.",
-		Long:  "Return info about the commits in a commitset.",
+		Short: "Wait for commits in a commitset to finish and return them.",
+		Long:  "Wait for commits in a commitset to finish and return them.",
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			toBranches := []*pfs.Branch{}
 			for _, arg := range branches {
@@ -552,23 +550,18 @@ $ {{alias}} test@master --new`,
 				toBranches = append(toBranches, branch)
 			}
 
-			client, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-
 			var commitInfos []*pfs.CommitInfo
 			if len(toBranches) != 0 {
 				for _, branch := range toBranches {
-					ci, err := client.WaitCommit(branch.Repo.Name, branch.Name, args[0])
+					ci, err := env.Client("user").WaitCommit(branch.Repo.Name, branch.Name, args[0])
 					if err != nil {
 						return errors.Wrap(err, "error from InspectCommit")
 					}
 					commitInfos = append(commitInfos, ci)
 				}
 			} else {
-				commitInfos, err = client.WaitCommitSetAll(args[0])
+				var err error
+				commitInfos, err = env.Client("user").WaitCommitSetAll(args[0])
 				if err != nil {
 					return errors.Wrap(err, "error from InspectCommitSet")
 				}
@@ -600,12 +593,51 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(inspectCommitSet, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectCommitSet, "inspect commitset"))
 
+	listCommitSet := &cobra.Command{
+		Short: "Return info about commitsets.",
+		Long:  "Return info about commitsets.",
+		Example: `
+# Return all commitsets
+$ {{alias}}`,
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			c := env.Client("user")
+			listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+
+			if raw {
+				e := cmdutil.Encoder(output, env.Out())
+				return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+					return e.EncodeProto(commitSetInfo)
+				})
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+
+			return pager.Page(noPager, env.Out(), func(w io.Writer) error {
+				writer := tabwriter.NewWriter(w, pretty.CommitSetHeader)
+				if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+					pretty.PrintCommitSetInfo(writer, commitSetInfo, fullTimestamps)
+					return nil
+				}); err != nil {
+					return err
+				}
+				return writer.Flush()
+			})
+		}),
+	}
+	listCommitSet.Flags().AddFlagSet(outputFlags)
+	listCommitSet.Flags().AddFlagSet(timestampFlags)
+	listCommitSet.Flags().AddFlagSet(pagerFlags)
+	commands = append(commands, cmdutil.CreateAlias(listCommitSet, "list commitset"))
+
 	squashCommitSet := &cobra.Command{
 		Use:   "{{alias}} <commitset>",
 		Short: "Squash the commits of a commitset.",
 		Long:  "Squash the commits of a commitset.  The data in the commits will remain in their child commits unless there are no children.",
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
-			return txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
+			return txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				return c.SquashCommitSet(args[0])
 			})
 		}),
@@ -663,7 +695,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				}
 			}
 
-			return txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
+			return txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.CreateBranch(
 					c.Ctx(),
 					&pfs.CreateBranchRequest{
@@ -725,25 +757,27 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 		Long:  "Return all branches on a repo.",
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			c := env.Client("user")
-			branchInfos, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
+			branchClient, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			branches := branchInfos.BranchInfo
+
 			if raw {
 				encoder := cmdutil.Encoder(output, env.Out())
-				for _, branch := range branches {
-					if err := encoder.EncodeProto(branch); err != nil {
-						return err
-					}
-				}
-				return nil
+				err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+					return encoder.EncodeProto(branch)
+				})
+				return grpcutil.ScrubGRPC(err)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
+
 			writer := tabwriter.NewWriter(env.Out(), pretty.BranchHeader)
-			for _, branch := range branches {
+			if err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
 				pretty.PrintBranch(writer, branch)
+				return nil
+			}); err != nil {
+				return grpcutil.ScrubGRPC(err)
 			}
 			return writer.Flush()
 		}),
@@ -762,7 +796,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return err
 			}
 
-			return txncmds.WithActiveTransaction(env.Client("user"), func(c *client.APIClient) error {
+			return txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{Branch: branch, Force: force})
 				return grpcutil.ScrubGRPC(err)
 			})
@@ -789,6 +823,7 @@ from commits with 'get file'.`,
 	var appendFile bool
 	var compress bool
 	var enableProgress bool
+	var fullPath bool
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
@@ -898,7 +933,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if source == "-" {
 							return errors.Errorf("must specify filename when reading data from stdin")
 						}
-						if err := putFileHelper(mf, joinPaths("", source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					} else if len(sources) == 1 {
@@ -910,7 +949,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 					} else {
 						// We have multiple sources and the user has specified a path,
 						// we use that path as a prefix for the filepaths.
-						if err := putFileHelper(mf, joinPaths(file.Path, source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					}
@@ -926,6 +969,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
+	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {

@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -543,19 +544,31 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "", infoAfter.AuthToken)
 
-	// And also check for a listPipeline
+	// ListPipeline without details should list all repos
 	pipelineInfos, err := aliceClient.ListPipeline(false)
 	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
 		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.Nil(t, pipelineInfo.Details)
 	}
-	// TODO(2.0 required): this call errors if it uses aliceClient (maybe skip
-	// pipelines we don't have read access on?)
-	// pipelineInfos, err = aliceClient.ListPipeline(true)
+
+	// Users can access a spec commit even if they can't list the repo itself,
+	// so the details should be populated for every repo
+	pipelineInfos, err = aliceClient.ListPipeline(true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
+	for _, pipelineInfo := range pipelineInfos {
+		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.NotNil(t, pipelineInfo.Details)
+	}
+
 	pipelineInfos, err = bobClient.ListPipeline(true)
 	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
 		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.NotNil(t, pipelineInfo.Details)
 	}
 
 	// Make sure the updated pipeline runs successfully
@@ -1112,8 +1125,10 @@ func TestListAndInspectRepo(t *testing.T) {
 	// Bob calls ListRepo, and the response must indicate the correct access scope
 	// for each repo (because other tests have run, we may see repos besides the
 	// above. Bob's access to those should be NONE
-	listResp, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(),
+	lrClient, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(),
 		&pfs.ListRepoRequest{})
+	require.NoError(t, err)
+	repoInfos, err := clientsdk.ListRepoInfo(lrClient)
 	require.NoError(t, err)
 	expectedPermissions := map[string][]auth.Permission{
 		repoOwner: []auth.Permission{
@@ -1162,7 +1177,7 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_PIPELINE_LIST_JOB,
 		},
 	}
-	for _, info := range listResp.RepoInfo {
+	for _, info := range repoInfos {
 		require.ElementsEqual(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
 	}
 
@@ -1259,8 +1274,10 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
 
 	// Anon (non-logged-in user) calls ListRepo, and must receive an error
-	_, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
+	c, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
 		&pfs.ListRepoRequest{})
+	require.NoError(t, err)
+	_, err = clientsdk.ListRepoInfo(c)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 }

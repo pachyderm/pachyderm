@@ -69,10 +69,6 @@ message BranchInfo {
   Trigger trigger = 6;
 }
 
-message BranchInfos {
-  repeated BranchInfo branch_info = 1;
-}
-
 // Trigger defines the conditions under which a head is moved, and to which
 // branch it is moved.
 message Trigger {
@@ -122,16 +118,22 @@ message CommitInfo {
   google.protobuf.Timestamp started = 6;
   google.protobuf.Timestamp finished = 7;
   repeated Branch direct_provenance = 8;
+  bool error = 9; 
 
   // Details are only provided when explicitly requested
   message Details {
     uint64 size_bytes = 1;
   }
-  Details details = 9;
+  Details details = 10;
 }
 
 message CommitSet {
   string id = 1 [(gogoproto.customname) = "ID"];
+}
+
+message CommitSetInfo {
+  CommitSet commit_set = 1;
+  repeated CommitInfo commits = 2;
 }
 
 enum FileType {
@@ -170,10 +172,6 @@ message ListRepoRequest {
   string type = 1;
 }
 
-message ListRepoResponse {
-  repeated RepoInfo repo_info = 1;
-}
-
 message DeleteRepoRequest {
   Repo repo = 1;
   bool force = 2;
@@ -202,10 +200,7 @@ message FinishCommitRequest {
   // description is a user-provided string describing this commit. Setting this
   // will overwrite the description set in StartCommit
   string description = 2;
-  uint64 size_bytes = 3;
-  // If set, 'commit' will be closed (its 'finished' field will be set to the
-  // current time) but its 'tree' will be left nil.
-  bool empty = 4;
+  bool error = 3;
 }
 
 message InspectCommitRequest {
@@ -225,6 +220,9 @@ message ListCommitRequest {
 message InspectCommitSetRequest {
   CommitSet commit_set = 1;
   bool wait = 2; // When true, wait until all commits in the set are finished
+}
+
+message ListCommitSetRequest {
 }
 
 message SquashCommitSetRequest {
@@ -412,7 +410,7 @@ service API {
   // InspectRepo returns info about a repo.
   rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
   // ListRepo returns info about all repos.
-  rpc ListRepo(ListRepoRequest) returns (ListRepoResponse) {}
+  rpc ListRepo(ListRepoRequest) returns (stream RepoInfo) {}
   // DeleteRepo deletes a repo.
   rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
 
@@ -431,6 +429,8 @@ service API {
 
   // InspectCommitSet returns the info about a CommitSet.
   rpc InspectCommitSet(InspectCommitSetRequest) returns (stream CommitInfo) {}
+  // ListCommitSet returns info about all CommitSets.
+  rpc ListCommitSet(ListCommitSetRequest) returns (stream CommitSetInfo) {}
   // SquashCommitSet squashes the commits of a CommitSet into their children.
   rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
 
@@ -439,7 +439,7 @@ service API {
   // InspectBranch returns info about a branch.
   rpc InspectBranch(InspectBranchRequest) returns (BranchInfo) {}
   // ListBranch returns info about the heads of branches.
-  rpc ListBranch(ListBranchRequest) returns (BranchInfos) {}
+  rpc ListBranch(ListBranchRequest) returns (stream BranchInfo) {}
   // DeleteBranch deletes a branch; note that the commits still exist.
   rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/fatih/color"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -168,6 +169,45 @@ If the job fails, the output commit will not be populated with data.`,
 	inspectJobSet.Flags().AddFlagSet(pagerFlags)
 	shell.RegisterCompletionFunc(inspectJobSet, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectJobSet, "inspect jobset"))
+
+	listJobSet := &cobra.Command{
+		Short: "Return info about jobsets.",
+		Long:  "Return info about jobsets.",
+		Example: `
+# Return all jobsets
+$ {{alias}}`,
+		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
+			client := env.Client("user")
+			listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+
+			if raw {
+				e := cmdutil.Encoder(output, env.Out())
+				return clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
+					return e.EncodeProto(jobSetInfo)
+				})
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+
+			return pager.Page(noPager, env.Out(), func(w io.Writer) error {
+				writer := tabwriter.NewWriter(w, pretty.JobSetHeader)
+				if err := clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
+					pretty.PrintJobSetInfo(writer, jobSetInfo, fullTimestamps)
+					return nil
+				}); err != nil {
+					return err
+				}
+				return writer.Flush()
+			})
+		}),
+	}
+	listJobSet.Flags().AddFlagSet(outputFlags)
+	listJobSet.Flags().AddFlagSet(timestampFlags)
+	listJobSet.Flags().AddFlagSet(pagerFlags)
+	commands = append(commands, cmdutil.CreateAlias(listJobSet, "list jobset"))
 
 	var pipelineName string
 	var inputCommitStrs []string
@@ -683,16 +723,19 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter}
+			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter, Details: spec}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewPipeline(pipeline)
 			}
 			c := env.Client("user")
-			response, err := c.PpsAPIClient.ListPipeline(c.Ctx(), request)
+			lpClient, err := c.PpsAPIClient.ListPipeline(c.Ctx(), request)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			pipelineInfos := response.PipelineInfo
+			pipelineInfos, err := clientsdk.ListPipelineInfo(lpClient)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
 			if raw {
 				encoder := cmdutil.Encoder(output, env.Out())
 				for _, pipelineInfo := range pipelineInfos {
@@ -897,13 +940,6 @@ func pipelineHelper(env cmdutil.Env, reprocess bool, pushImages bool, registry, 
 			return errors.New("no pipeline `name` specified")
 		}
 
-		// Add trace if env var is set
-		ctx, err := extended.EmbedAnyDuration(env.Client("user").Ctx())
-		pc := env.Client("user").WithCtx(ctx)
-		if err != nil {
-			logrus.Warning(err)
-		}
-
 		if update {
 			request.Update = true
 			request.Reprocess = reprocess
@@ -932,8 +968,14 @@ func pipelineHelper(env cmdutil.Env, reprocess bool, pushImages bool, registry, 
 						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
 			}
 		}
-		if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
-			_, err := txClient.PpsAPIClient.CreatePipeline(
+		if err = txncmds.WithActiveTransaction(env, func(txClient *pachdclient.APIClient) error {
+			// Add trace if env var is set
+			ctx, err := extended.EmbedAnyDuration(txClient.Ctx())
+			if err != nil {
+				logrus.Warning(err)
+			}
+
+			_, err = txClient.WithCtx(ctx).PpsAPIClient.CreatePipeline(
 				txClient.Ctx(),
 				request,
 			)

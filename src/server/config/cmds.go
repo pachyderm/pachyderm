@@ -204,11 +204,10 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(getContext, "config get context"))
 
 	var overwrite bool
-	var kubeContextName string
 	setContext := &cobra.Command{
 		Use:   "{{alias}} <context>",
 		Short: "Set a context.",
-		Long:  "Set a context config from a given name and either JSON stdin, or a given kubernetes context.",
+		Long:  "Set a context config from a given name and a JSON configuration file on stdin",
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			name := args[0]
 
@@ -224,47 +223,28 @@ func Cmds() []*cobra.Command {
 			}
 
 			var context config.Context
-			if kubeContextName != "" {
-				kubeConfig, err := config.RawKubeConfig()
-				if err != nil {
+			fmt.Println("Reading from stdin.")
+
+			var buf bytes.Buffer
+			var decoder *json.Decoder
+
+			contextReader := io.TeeReader(os.Stdin, &buf)
+			decoder = json.NewDecoder(contextReader)
+
+			if err := jsonpb.UnmarshalNext(decoder, &context); err != nil {
+				if errors.Is(err, io.EOF) {
+					return errors.New("unexpected EOF")
+				}
+				return errors.Wrapf(err, "malformed context")
+			}
+
+			pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
+			if err != nil {
+				if !errors.Is(err, grpcutil.ErrNoPachdAddress) {
 					return err
 				}
-
-				kubeContext := kubeConfig.Contexts[kubeContextName]
-				if kubeContext == nil {
-					return errors.Errorf("kubernetes context does not exist: %s", kubeContextName)
-				}
-
-				context = config.Context{
-					Source:      config.ContextSource_IMPORTED,
-					ClusterName: kubeContext.Cluster,
-					AuthInfo:    kubeContext.AuthInfo,
-					Namespace:   kubeContext.Namespace,
-				}
 			} else {
-				fmt.Fprintln(env.Out(), "Reading from stdin.")
-
-				var buf bytes.Buffer
-				var decoder *json.Decoder
-
-				contextReader := io.TeeReader(os.Stdin, &buf)
-				decoder = json.NewDecoder(contextReader)
-
-				if err := jsonpb.UnmarshalNext(decoder, &context); err != nil {
-					if errors.Is(err, io.EOF) {
-						return errors.New("unexpected EOF")
-					}
-					return errors.Wrapf(err, "malformed context")
-				}
-
-				pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
-				if err != nil {
-					if !errors.Is(err, grpcutil.ErrNoPachdAddress) {
-						return err
-					}
-				} else {
-					context.PachdAddress = pachdAddress.Qualified()
-				}
+				context.PachdAddress = pachdAddress.Qualified()
 			}
 
 			cfg.V2.Contexts[name] = &context
@@ -272,15 +252,75 @@ func Cmds() []*cobra.Command {
 		}),
 	}
 	setContext.Flags().BoolVar(&overwrite, "overwrite", false, "Overwrite a context if it already exists.")
-	setContext.Flags().StringVarP(&kubeContextName, "kubernetes", "k", "", "Import a given kubernetes context's values into the Pachyderm context.")
 	shell.RegisterCompletionFunc(setContext, contextCompletion)
 	commands = append(commands, cmdutil.CreateAlias(setContext, "config set context"))
+
+	var kubeContextName, namespace string
+	var enterprise bool
+	contextFromKube := &cobra.Command{
+		Use:   "{{alias}} <context>",
+		Short: "Import a kubernetes context as a Pachyderm context, and set the active Pachyderm context.",
+		Long:  "Import a kubernetes context as a Pachyderm context. By default the current kubernetes context is used.",
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) (retErr error) {
+			name := args[0]
+
+			cfg, err := config.Read(false, false)
+			if err != nil {
+				return err
+			}
+
+			if !overwrite {
+				if _, ok := cfg.V2.Contexts[name]; ok {
+					return errors.Errorf("context '%s' already exists, use `--overwrite` if you wish to replace it", args[0])
+				}
+			}
+
+			var context config.Context
+			kubeConfig, err := config.RawKubeConfig()
+			if err != nil {
+				return err
+			}
+
+			if kubeContextName == "" {
+				kubeContextName = kubeConfig.CurrentContext
+			}
+
+			kubeContext := kubeConfig.Contexts[kubeContextName]
+			if kubeContext == nil {
+				return errors.Errorf("kubernetes context does not exist: %s", kubeContextName)
+			}
+
+			if namespace == "" {
+				namespace = kubeContext.Namespace
+			}
+
+			context = config.Context{
+				Source:           config.ContextSource_IMPORTED,
+				ClusterName:      kubeContext.Cluster,
+				AuthInfo:         kubeContext.AuthInfo,
+				Namespace:        namespace,
+				EnterpriseServer: enterprise,
+			}
+
+			if enterprise {
+				cfg.V2.ActiveEnterpriseContext = name
+			} else {
+				cfg.V2.ActiveContext = name
+			}
+			cfg.V2.Contexts[name] = &context
+			return cfg.Write()
+		}),
+	}
+	contextFromKube.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite a context if it already exists.")
+	contextFromKube.Flags().BoolVarP(&enterprise, "enterprise", "e", false, "Configure an enterprise server context.")
+	contextFromKube.Flags().StringVarP(&kubeContextName, "kubernetes", "k", "", "Specify the kubernetes context's values to import.")
+	contextFromKube.Flags().StringVarP(&namespace, "namespace", "n", "", "Specify a namespace where Pachyderm is deployed.")
+	commands = append(commands, cmdutil.CreateAlias(contextFromKube, "config import-kube"))
 
 	var pachdAddress string
 	var clusterName string
 	var authInfo string
 	var serverCAs string
-	var namespace string
 	var removeClusterDeploymentID bool
 	var updateContext *cobra.Command // standalone declaration so Run() can refer
 	updateContext = &cobra.Command{

@@ -14,12 +14,14 @@ import (
 	"unicode"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	deploycmds "github.com/pachyderm/pachyderm/v2/src/internal/deploy/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	admincmds "github.com/pachyderm/pachyderm/v2/src/server/admin/cmds"
 	authcmds "github.com/pachyderm/pachyderm/v2/src/server/auth/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -374,7 +376,7 @@ Environment variables:
 
 			if clientOnly {
 				if raw {
-					return cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version)
+					return cmdutil.Encoder(output, env.Out()).EncodeProto(version.Version)
 				}
 				fmt.Println(version.PrettyPrintVersion(version.Version))
 				return nil
@@ -389,9 +391,9 @@ Environment variables:
 			}()
 
 			// Print header + client version
-			writer := ansiterm.NewTabWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			writer := ansiterm.NewTabWriter(env.Out(), 20, 1, 3, ' ', 0)
 			if raw {
-				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version); err != nil {
+				if err := cmdutil.Encoder(output, env.Out()).EncodeProto(version.Version); err != nil {
 					return err
 				}
 			} else {
@@ -428,7 +430,7 @@ Environment variables:
 
 			// print server version
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(version)
+				return cmdutil.Encoder(output, env.Out()).EncodeProto(version)
 			}
 			printVersion(writer, "pachd", version)
 			return writer.Flush()
@@ -491,12 +493,15 @@ This resets the cluster to its initial state.`,
 			for _, ri := range repoInfos {
 				repos = append(repos, red(ri.Repo.Name))
 			}
-			pipelineInfos, err := client.ListPipeline(false)
+			c, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{Details: false})
 			if err != nil {
 				return err
 			}
-			for _, pi := range pipelineInfos {
+			if err := clientsdk.ForEachPipelineInfo(c, func(pi *pps.PipelineInfo) error {
 				pipelines = append(pipelines, red(pi.Pipeline.Name))
+				return nil
+			}); err != nil {
+				return err
 			}
 			fmt.Println("All ACLs, repos, commits, files, pipelines and jobs will be deleted.")
 			if len(repos) > 0 {
@@ -561,7 +566,7 @@ This resets the cluster to its initial state.`,
 			successCount := 0
 
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-			port, err := fw.RunForDaemon(port, remotePort)
+			port, err := fw.RunForPachd(port, remotePort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -571,7 +576,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the OIDC callback port...")
-			port, err = fw.RunForOIDCCallback(oidcPort, remoteOidcPort)
+			port, err = fw.RunForPachd(oidcPort, remoteOidcPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -581,7 +586,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the s3gateway port...")
-			port, err = fw.RunForS3Gateway(s3gatewayPort, remoteS3gatewayPort)
+			port, err = fw.RunForPachd(s3gatewayPort, remoteS3gatewayPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -591,7 +596,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the identity service port...")
-			port, err = fw.RunForDex(dexPort, remoteDexPort)
+			port, err = fw.RunForPachd(dexPort, remoteDexPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -652,7 +657,7 @@ This resets the cluster to its initial state.`,
 		Short: "Print or install the bash completion code.",
 		Long:  "Print or install the bash completion code.",
 		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
-			return createCompletions(rootCmd, install, installPathBash, rootCmd.GenBashCompletion)
+			return createCompletions(env, rootCmd, install, installPathBash, rootCmd.GenBashCompletion)
 		}),
 	}
 	completionBash.Flags().BoolVar(&install, "install", false, "Install the completion.")
@@ -664,7 +669,7 @@ This resets the cluster to its initial state.`,
 		Short: "Print or install the zsh completion code.",
 		Long:  "Print or install the zsh completion code.",
 		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
-			return createCompletions(rootCmd, install, installPathZsh, rootCmd.GenZshCompletion)
+			return createCompletions(env, rootCmd, install, installPathZsh, rootCmd.GenZshCompletion)
 		}),
 	}
 	completionZsh.Flags().BoolVar(&install, "install", false, "Install the completion.")
@@ -941,7 +946,7 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 	})
 }
 
-func createCompletions(rootCmd *cobra.Command, install bool, installPath string, f func(io.Writer) error) (retErr error) {
+func createCompletions(env cmdutil.Env, rootCmd *cobra.Command, install bool, installPath string, f func(io.Writer) error) (retErr error) {
 	var dest io.Writer
 
 	if install {
@@ -963,7 +968,7 @@ func createCompletions(rootCmd *cobra.Command, install bool, installPath string,
 
 		dest = f
 	} else {
-		dest = os.Stdout
+		dest = env.Out()
 	}
 
 	// Remove 'hidden' flag from all commands so we can get completions for them as well

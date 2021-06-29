@@ -6,11 +6,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"os"
 	"strings"
 	"syscall"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
@@ -138,7 +136,7 @@ func mountCmds() []*cobra.Command {
 					fmt.Fprintf(env.Err(), "%s\n", mount)
 				}
 
-				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+				if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 					return err
 				} else if !ok {
 					return errors.New("unmount aborted")
