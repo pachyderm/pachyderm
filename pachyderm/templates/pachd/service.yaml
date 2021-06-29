@@ -28,15 +28,6 @@ spec:
     {{- end }}
     protocol: TCP
     targetPort: api-grpc-port
-  - name: trace-port
-    {{- if eq .Values.pachd.service.type "NodePort" }}
-    nodePort: 30651
-    port: 1651
-    {{- else }}
-    port: 30651
-    {{- end }}
-    protocol: TCP
-    targetPort: trace-port
   - name: oidc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30657

@@ -4,11 +4,16 @@
 deployTarget: GOOGLE
 
 dash:
-  # url is configured per workspace.
-  url: "https://dash.test/"
-  tls:
+  image:
+    tag: "newVersion"
+  ingress:
     enabled: true
-    secretName: "dash-tls"
+    tls:
+      enabled: true
+      secretName: "dash-tls"
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+    host: "dash.test"
 
 etcd:
   resources:
@@ -22,10 +27,6 @@ etcd:
   storageClass: "ssd-storage-class"
   # storageSize is configured per workspace.
   storageSize: "3Gi"
-
-loadBalancer:
-  # ip is configured per workspace.
-  ip: "192.0.2.3"
 
 pachd:
   postgresql:
@@ -41,6 +42,12 @@ pachd:
   metricsEndpoint: "https://metrics.test/api/v1/metrics"
   service:
     type: "ClusterIP"
+  externalService:
+    enabled: true
+    loadBalancerIP: "192.168.1.1"
+    apiGRPCPort: 31400
+    apiHTTPPort: 30652
+    s3GatewayPort: 30600
   storage:
     google:
       # bucket is configured per workspace.

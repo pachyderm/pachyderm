@@ -4,12 +4,12 @@
 package helmtest
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/networking/v1beta1"
 )
 
 func TestEnablePachTLSNoName(t *testing.T) {
@@ -28,7 +28,7 @@ func TestEnablePachTLSNoName(t *testing.T) {
 }
 
 func TestEnablePachTLSExistingSecret(t *testing.T) {
-	helmChartPath := "../pachyderm"
+	expectedSecretName := "blah"
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"deployTarget":         "LOCAL",
@@ -36,18 +36,49 @@ func TestEnablePachTLSExistingSecret(t *testing.T) {
 			"pachd.tls.secretName": "blah",
 		},
 	}
+	templates := []string{"templates/pachd/deployment.yaml"}
+	output := helm.RenderTemplate(t, options, "../pachyderm", "blah", templates)
 
-	manifest := helm.RenderTemplate(t, options, helmChartPath, "secret", []string{"templates/pachd/deployment.yaml"})
-	fmt.Println(manifest)
+	var deployment *appsv1.Deployment
+
+	helm.UnmarshalK8SYaml(t, output, &deployment)
+
+	pachd, ok := GetContainerByName("pachd", deployment.Spec.Template.Spec.Containers)
+	if !ok {
+		t.Fatalf("pachd container not found")
+	}
+	want := v1.VolumeMount{
+		Name:      "pachd-tls-cert",
+		MountPath: "/pachd-tls-cert",
+	}
+
+	if !ensureVolumeMountPresent(want, pachd.VolumeMounts) {
+		t.Error("TLS Secret Volume Mount not found in deployment")
+	}
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	wantVol := v1.Volume{
+		VolumeSource: v1.VolumeSource{
+			Secret: &v1.SecretVolumeSource{
+				SecretName: expectedSecretName,
+			},
+		},
+		Name: "pachd-tls-cert",
+	}
+
+	if !ensureVolumePresent(wantVol, volumes) {
+		t.Error("TLS Volume not found")
+	}
+
 }
 
 func TestEnableDashTLSNoName(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"deployTarget":     "LOCAL",
-			"dash.tls.enabled": "true",
-			"dash.url":         "http://blah.com",
+			"deployTarget":             "LOCAL",
+			"dash.ingress.tls.enabled": "true",
+			"dash.ingress.host":        "http://blah.com",
 		},
 	}
 
@@ -59,27 +90,40 @@ func TestEnableDashTLSNoName(t *testing.T) {
 
 func TestEnableDashTLSExistingSecret(t *testing.T) {
 	helmChartPath := "../pachyderm"
+	expectedSecretName := "blah"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"deployTarget":        "LOCAL",
-			"dash.tls.enabled":    "true",
-			"dash.tls.secretName": "blah",
-			"dash.url":            "http://blah.com",
+			"deployTarget":                "LOCAL",
+			"dash.ingress.tls.enabled":    "true",
+			"dash.ingress.tls.secretName": expectedSecretName,
+			"dash.ingress.enabled":        "true",
+			"dash.ingress.host":           "http://blah.com",
 		},
 	}
 
-	manifest := helm.RenderTemplate(t, options, helmChartPath, "secret", []string{"templates/dash/ingress.yaml"})
+	output := helm.RenderTemplate(t, options, helmChartPath, "secret", []string{"templates/dash/ingress.yaml"})
+	var ingress *v1beta1.Ingress
 
-	fmt.Println(manifest)
+	helm.UnmarshalK8SYaml(t, output, &ingress)
+	found := false
+	for _, t := range ingress.Spec.TLS {
+		if t.SecretName == expectedSecretName {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("Expected TLS Secret not in ingress")
+	}
+
 }
 
 func TestDashTLSNewSecretNoEnable(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"deployTarget":           "LOCAL",
-			"dash.tls.newSecret.crt": "blah",
-			"dash.url":               "http://blah.com",
+			"deployTarget":                   "LOCAL",
+			"dash.ingress.tls.newSecret.crt": "blah",
+			"dash.ingress.host":              "http://blah.com",
 		},
 	}
 
@@ -99,7 +143,6 @@ func TestPachTLSNewSecretNoEnable(t *testing.T) {
 	}
 
 	_, err := helm.RenderTemplateE(t, options, helmChartPath, "deployment", []string{"templates/pachd/deployment.yaml"})
-	fmt.Println(err)
 	if err == nil {
 		t.Error("Template should error")
 	}

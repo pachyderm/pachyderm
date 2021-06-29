@@ -98,12 +98,14 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        {{- if and .Values.pachd.resources .Values.pachd.resources.memory }}
         - name: PACHD_MEMORY_REQUEST
           valueFrom:
             resourceFieldRef:
               containerName: pachd
               divisor: "0"
               resource: requests.memory
+        {{- end }}
         {{- if .Values.pachd.clusterDeploymentID }}
         - name: CLUSTER_DEPLOYMENT_ID
           value: {{ .Values.pachd.clusterDeploymentID | quote }}
@@ -134,8 +136,6 @@ spec:
         - containerPort: 1650
           name: api-grpc-port
           protocol: TCP
-        - containerPort: 1651
-          name: trace-port # Confirm for 2.0
         - containerPort: 1653
           name: peer-port
           protocol: TCP
