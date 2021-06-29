@@ -479,13 +479,9 @@ Environment variables:
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
-			client, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
 			red := color.New(color.FgRed).SprintFunc()
 			var repos, pipelines []string
+			client := env.Client("user")
 			repoInfos, err := client.ListRepo()
 			if err != nil {
 				return err
@@ -618,14 +614,14 @@ This resets the cluster to its initial state.`,
 				// config was last read
 				cfg, err := config.Read(true, false)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "failed to read config file: %v\n", err)
+					fmt.Fprintf(env.Err(), "failed to read config file: %v\n", err)
 					return
 				}
 				context, ok := cfg.V2.Contexts[contextName]
 				if ok {
 					context.PortForwarders = nil
 					if err := cfg.Write(); err != nil {
-						fmt.Fprintf(os.Stderr, "failed to write config file: %v\n", err)
+						fmt.Fprintf(env.Err(), "failed to write config file: %v\n", err)
 					}
 				}
 			}()

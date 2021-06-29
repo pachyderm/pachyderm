@@ -154,7 +154,7 @@ If the job fails, the output commit will not be populated with data.`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			return pager.Page(noPager, env.Out(), func(w io.Writer) error {
+			return pager.Page(noPager, env, func(w io.Writer) error {
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
 				for _, jobInfo := range jobInfos {
 					pretty.PrintJobInfo(writer, jobInfo, fullTimestamps)
@@ -192,7 +192,7 @@ $ {{alias}}`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			return pager.Page(noPager, env.Out(), func(w io.Writer) error {
+			return pager.Page(noPager, env, func(w io.Writer) error {
 				writer := tabwriter.NewWriter(w, pretty.JobSetHeader)
 				if err := clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
 					pretty.PrintJobSetInfo(writer, jobSetInfo, fullTimestamps)
@@ -257,7 +257,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			return pager.Page(noPager, env.Out(), func(w io.Writer) error {
+			return pager.Page(noPager, env, func(w io.Writer) error {
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
 				if err := env.Client("user").ListJobFilterF(pipelineName, commits, history, false, filter, func(ji *ppsclient.JobInfo) error {
 					pretty.PrintJobInfo(writer, ji, fullTimestamps)

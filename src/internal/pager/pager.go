@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+
 	"golang.org/x/sync/errgroup"
 )
 
@@ -15,9 +17,9 @@ var (
 
 // Page pages content to whichever pager is defined by the PAGER env-var
 // (normally /usr/bin/less). If noop is true it's just a pass through.
-func Page(noop bool, out io.Writer, run func(out io.Writer) error) error {
+func Page(noop bool, env cmdutil.Env, run func(out io.Writer) error) error {
 	if noop {
-		return run(out)
+		return run(env.Out())
 	}
 	var eg errgroup.Group
 	r, w := io.Pipe()
@@ -31,8 +33,8 @@ func Page(noop bool, out io.Writer, run func(out io.Writer) error) error {
 		}
 		cmd := exec.Command(pager[0], pager[1:]...)
 		cmd.Stdin = r
-		cmd.Stdout = out
-		cmd.Stderr = os.Stderr
+		cmd.Stdout = env.Out()
+		cmd.Stderr = env.Err()
 		return cmd.Run()
 	})
 	return eg.Wait()

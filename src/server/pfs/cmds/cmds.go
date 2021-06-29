@@ -514,9 +514,9 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	writeCommitTable := func(out io.Writer, commitInfos []*pfs.CommitInfo) error {
+	writeCommitTable := func(env cmdutil.Env, commitInfos []*pfs.CommitInfo) error {
 		if raw {
-			encoder := cmdutil.Encoder(output, out)
+			encoder := cmdutil.Encoder(output, env.Out())
 			for _, commitInfo := range commitInfos {
 				if err := encoder.EncodeProto(commitInfo); err != nil {
 					return err
@@ -527,7 +527,7 @@ $ {{alias}} test@master --new`,
 			return errors.New("cannot set --output (-o) without --raw")
 		}
 
-		return pager.Page(noPager, out, func(w io.Writer) error {
+		return pager.Page(noPager, env, func(w io.Writer) error {
 			writer := tabwriter.NewWriter(w, pretty.CommitHeader)
 			for _, commitInfo := range commitInfos {
 				pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
@@ -566,7 +566,7 @@ $ {{alias}} test@master --new`,
 					return errors.Wrap(err, "error from InspectCommitSet")
 				}
 			}
-			return writeCommitTable(env.Out(), commitInfos)
+			return writeCommitTable(env, commitInfos)
 		}),
 	}
 	waitCommitSet.Flags().VarP(&branches, "branch", "b", "Wait only for commits in the specified set of branches")
@@ -585,7 +585,7 @@ $ {{alias}} test@master --new`,
 			if err != nil {
 				return errors.Wrap(err, "error from InspectCommitSet")
 			}
-			return writeCommitTable(env.Out(), commitInfos)
+			return writeCommitTable(env, commitInfos)
 		}),
 	}
 	inspectCommitSet.Flags().AddFlagSet(outputFlags)
@@ -615,7 +615,7 @@ $ {{alias}}`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			return pager.Page(noPager, env.Out(), func(w io.Writer) error {
+			return pager.Page(noPager, env, func(w io.Writer) error {
 				writer := tabwriter.NewWriter(w, pretty.CommitSetHeader)
 				if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 					pretty.PrintCommitSetInfo(writer, commitSetInfo, fullTimestamps)
@@ -1234,7 +1234,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				}
 			}
 
-			return pager.Page(noPager, env.Out(), func(w io.Writer) (retErr error) {
+			return pager.Page(noPager, env, func(w io.Writer) (retErr error) {
 				var writer *tabwriter.Writer
 				if nameOnly {
 					writer = tabwriter.NewWriter(w, pretty.DiffFileHeader)

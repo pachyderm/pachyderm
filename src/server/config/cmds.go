@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"sort"
 	"time"
 
@@ -228,7 +227,7 @@ func Cmds() []*cobra.Command {
 			var buf bytes.Buffer
 			var decoder *json.Decoder
 
-			contextReader := io.TeeReader(os.Stdin, &buf)
+			contextReader := io.TeeReader(env.In(), &buf)
 			decoder = json.NewDecoder(contextReader)
 
 			if err := jsonpb.UnmarshalNext(decoder, &context); err != nil {
