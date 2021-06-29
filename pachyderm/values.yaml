@@ -34,27 +34,27 @@ dash:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
+  ingress:
+    enabled: false
+    annotations: {}
+    host: ""
+    # There are three options for TLS:
+    # 1. Disabled
+    # 2. Enabled, existingSecret, specify secret name
+    # 3. Enabled, newSecret, must specify cert, key, secretName and set newSecret.create to true
+    tls:
+      enabled: false
+      secretName: ""
+      newSecret:
+        create: false
+        crt: ""
+        key: ""
+
   service:
     # labels specifies labels to add to the dash service.
     labels: {}
     # type specifies the Kubernetes type of the dash service.
     type: ClusterIP
-  # There are three options for TLS:
-  # 1. Disabled
-  # 2. Enabled, existingSecret, specify secret name
-  # 3. Enabled, newSecret, must specify cert, key, secretName and set newSecret.create to true
-  tls:
-    enabled: false
-    secretName: ""
-    newSecret:
-      create: false
-      crt: ""
-      key: ""
-  # url specifies the URL of the dash ingress, used as the host value
-  # of a rule.
-  url: ""
-
-
 
 etcd:
   affinity: {}

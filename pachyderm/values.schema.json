@@ -22,6 +22,45 @@
                         }
                     }
                 },
+                "ingress": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "host": {
+                            "type": "string"
+                        },
+                        "tls": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "newSecret": {
+                                    "type": "object",
+                                    "properties": {
+                                        "create": {
+                                            "type": "boolean"
+                                        },
+                                        "crt": {
+                                            "type": "string"
+                                        },
+                                        "key": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "secretName": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
                 "podLabels": {
                     "type": "object"
                 },
@@ -38,34 +77,6 @@
                             "type": "string"
                         }
                     }
-                },
-                "tls": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "newSecret": {
-                            "type": "object",
-                            "properties": {
-                                "create": {
-                                    "type": "boolean"
-                                },
-                                "crt": {
-                                    "type": "string"
-                                },
-                                "key": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "secretName": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "url": {
-                    "type": "string"
                 }
             }
         },

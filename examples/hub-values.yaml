@@ -1,11 +1,14 @@
 dash:
   image:
     tag: "0.5.58"
-  # url is configured per workspace.
-  url: "https://dash.test/"
-  tls:
+  ingress:
     enabled: true
-    secretName: "dash-tls"
+    tls:
+      enabled: true
+      secretName: "dash-tls"
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+    host: "dash.test"
 
 etcd:
   resources:
@@ -55,3 +58,4 @@ pachd:
   tls:
     enabled: true
     secretName: "dash-tls"
+

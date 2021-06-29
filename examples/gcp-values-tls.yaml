@@ -2,9 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 dash:
-  tls:
+  ingress:
     enabled: true
-    secretName: "pach-tls" #Will use same secret as pach
+    host: "blah.com"
+    tls:
+      enabled: true
+      secretName: "pach-tls" #Will use same secret as pach
 
 pachd:
   image:

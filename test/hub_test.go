@@ -38,7 +38,7 @@ func TestHub(t *testing.T) {
 		switch object := object.(type) {
 		case *v1beta1.Ingress:
 			for _, rule := range object.Spec.Rules {
-				if rule.Host == "https://dash.test/" {
+				if rule.Host == "dash.test" {
 					checks["ingress"] = true
 				}
 			}

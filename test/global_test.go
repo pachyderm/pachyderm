@@ -135,3 +135,13 @@ func ensureVolumePresent(matchVol v1.Volume, volumes []v1.Volume) bool {
 	}
 	return present
 }
+
+// GetContainerByName returns container or nil
+func GetContainerByName(name string, containers []v1.Container) (*v1.Container, bool) {
+	for _, c := range containers {
+		if c.Name == name {
+			return &c, true
+		}
+	}
+	return &v1.Container{}, false
+}
