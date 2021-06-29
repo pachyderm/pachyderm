@@ -243,6 +243,19 @@ func (a *apiServer) InspectCommitSet(request *pfs.InspectCommitSetRequest, serve
 	return a.driver.inspectCommitSet(server.Context(), request.CommitSet, request.Wait, server.Send)
 }
 
+// ListCommitSet implements the protobuf pfs.ListCommitSet RPC
+func (a *apiServer) ListCommitSet(request *pfs.ListCommitSetRequest, serv pfs.API_ListCommitSetServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("stream containing %d CommitSetInfos", sent), retErr, time.Since(start))
+	}(time.Now())
+	return a.driver.listCommitSet(serv.Context(), func(commitSetInfo *pfs.CommitSetInfo) error {
+		sent++
+		return serv.Send(commitSetInfo)
+	})
+}
+
 // SquashCommitSetInTransaction is identical to SquashCommitSet except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitSetRequest) error {

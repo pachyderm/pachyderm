@@ -130,6 +130,11 @@ message CommitSet {
   string id = 1 [(gogoproto.customname) = "ID"];
 }
 
+message CommitSetInfo {
+  CommitSet commit_set = 1;
+  repeated CommitInfo commits = 2;
+}
+
 enum FileType {
   RESERVED = 0;
   FILE = 1;
@@ -217,6 +222,9 @@ message ListCommitRequest {
 message InspectCommitSetRequest {
   CommitSet commit_set = 1;
   bool wait = 2; // When true, wait until all commits in the set are finished
+}
+
+message ListCommitSetRequest {
 }
 
 message SquashCommitSetRequest {
@@ -423,6 +431,8 @@ service API {
 
   // InspectCommitSet returns the info about a CommitSet.
   rpc InspectCommitSet(InspectCommitSetRequest) returns (stream CommitInfo) {}
+  // ListCommitSet returns info about all CommitSets.
+  rpc ListCommitSet(ListCommitSetRequest) returns (stream CommitSetInfo) {}
   // SquashCommitSet squashes the commits of a CommitSet into their children.
   rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
 

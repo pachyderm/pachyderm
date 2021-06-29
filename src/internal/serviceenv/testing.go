@@ -28,7 +28,7 @@ type TestServiceEnv struct {
 	KubeClient       *kube.Clientset
 	LokiClient       *loki.Client
 	DBClient         *sqlx.DB
-	PostgresListener *col.PostgresListener
+	PostgresListener col.PostgresListener
 	DexDB            dex_storage.Storage
 	Log              *log.Logger
 	Ctx              context.Context
@@ -71,7 +71,7 @@ func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
 func (s *TestServiceEnv) GetDBClient() *sqlx.DB {
 	return s.DBClient
 }
-func (s *TestServiceEnv) GetPostgresListener() *col.PostgresListener {
+func (s *TestServiceEnv) GetPostgresListener() col.PostgresListener {
 	return s.PostgresListener
 }
 

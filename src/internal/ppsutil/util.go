@@ -294,7 +294,6 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		Spout:                 pipelineInfo.Details.Spout,
 		SchedulingSpec:        pipelineInfo.Details.SchedulingSpec,
 		DatumTries:            pipelineInfo.Details.DatumTries,
-		Standby:               pipelineInfo.Details.Standby,
 		S3Out:                 pipelineInfo.Details.S3Out,
 		Metadata:              pipelineInfo.Details.Metadata,
 		ReprocessSpec:         pipelineInfo.Details.ReprocessSpec,

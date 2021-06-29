@@ -197,7 +197,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		// idempotent way to ensure that R exists. By permitting these calls when
 		// they don't actually change anything, even if the caller doesn't have
 		// WRITER access, we make the pattern more generally useful.
-		if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo.Name, auth.Permission_REPO_WRITE); err != nil {
+		if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_WRITE); err != nil {
 			return errors.Wrapf(err, "could not update description of %q", repo)
 		}
 		existingRepoInfo.Description = description
@@ -341,7 +341,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	}
 
 	// Check if the caller is authorized to delete this repo
-	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo.Name, auth.Permission_REPO_DELETE); err != nil {
+	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_DELETE); err != nil {
 		return err
 	}
 
@@ -433,7 +433,7 @@ func (d *driver) startCommit(
 		return nil, errors.Errorf("branch must be specified")
 	}
 	// Check that caller is authorized
-	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo.Name, auth.Permission_REPO_WRITE); err != nil {
+	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return nil, err
 	}
 
@@ -858,7 +858,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	if commit == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
 	}
-	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, commit.Branch.Repo.Name, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 		return nil, err
 	}
 
@@ -1056,7 +1056,7 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		return errors.New("repo cannot be nil")
 	}
 
-	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, repo.Name, auth.Permission_REPO_LIST_COMMIT); err != nil {
+	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_LIST_COMMIT); err != nil {
 		return err
 	}
 	if from != nil && !proto.Equal(from.Branch.Repo, repo) || to != nil && !proto.Equal(to.Branch.Repo, repo) {
@@ -1272,6 +1272,33 @@ reloadCommitSet:
 	}
 }
 
+func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) error) error {
+	pachClient := d.env.GetPachClient(ctx)
+
+	// Track the commitsets we've already processed
+	seen := map[string]struct{}{}
+
+	// Return commitsets by the newest commit in each set (which can be at a different
+	// timestamp due to triggers or deferred processing)
+	commitInfo := &pfs.CommitInfo{}
+	return d.commits.ReadOnly(ctx).List(commitInfo, col.DefaultOptions(), func(string) error {
+		if _, ok := seen[commitInfo.Commit.ID]; ok {
+			return nil
+		}
+		seen[commitInfo.Commit.ID] = struct{}{}
+
+		commitInfos, err := pachClient.InspectCommitSet(commitInfo.Commit.ID)
+		if err != nil {
+			return err
+		}
+
+		return cb(&pfs.CommitSetInfo{
+			CommitSet: client.NewCommitSet(commitInfo.Commit.ID),
+			Commits:   commitInfos,
+		})
+	})
+}
+
 func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
 	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
 
@@ -1482,7 +1509,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 
 	var err error
-	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo.Name, auth.Permission_REPO_CREATE_BRANCH); err != nil {
+	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_CREATE_BRANCH); err != nil {
 		return err
 	}
 	// Validate request
@@ -1659,7 +1686,7 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo, reverse bool, c
 		return errors.New("repo cannot be nil")
 	}
 
-	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, repo.Name, auth.Permission_REPO_LIST_BRANCH); err != nil {
+	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
 		return err
 	}
 
@@ -1726,7 +1753,7 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		return errors.New("branch repo cannot be nil")
 	}
 
-	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo.Name, auth.Permission_REPO_DELETE_BRANCH); err != nil {
+	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_DELETE_BRANCH); err != nil {
 		return err
 	}
 

@@ -544,19 +544,31 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "", infoAfter.AuthToken)
 
-	// And also check for a listPipeline
+	// ListPipeline without details should list all repos
 	pipelineInfos, err := aliceClient.ListPipeline(false)
 	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
 		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.Nil(t, pipelineInfo.Details)
 	}
-	// TODO(2.0 required): this call errors if it uses aliceClient (maybe skip
-	// pipelines we don't have read access on?)
-	// pipelineInfos, err = aliceClient.ListPipeline(true)
+
+	// Users can access a spec commit even if they can't list the repo itself,
+	// so the details should be populated for every repo
+	pipelineInfos, err = aliceClient.ListPipeline(true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
+	for _, pipelineInfo := range pipelineInfos {
+		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.NotNil(t, pipelineInfo.Details)
+	}
+
 	pipelineInfos, err = bobClient.ListPipeline(true)
 	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
 		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.NotNil(t, pipelineInfo.Details)
 	}
 
 	// Make sure the updated pipeline runs successfully

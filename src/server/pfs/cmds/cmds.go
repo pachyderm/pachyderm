@@ -668,6 +668,50 @@ $ {{alias}} XXX -b bar@baz`,
 	shell.RegisterCompletionFunc(inspectCommitSet, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectCommitSet, "inspect commitset"))
 
+	listCommitSet := &cobra.Command{
+		Short: "Return info about commitsets.",
+		Long:  "Return info about commitsets.",
+		Example: `
+# Return all commitsets
+$ {{alias}}`,
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+
+			if raw {
+				e := cmdutil.Encoder(output, os.Stdout)
+				return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+					return e.EncodeProto(commitSetInfo)
+				})
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+
+			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+				writer := tabwriter.NewWriter(w, pretty.CommitSetHeader)
+				if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+					pretty.PrintCommitSetInfo(writer, commitSetInfo, fullTimestamps)
+					return nil
+				}); err != nil {
+					return err
+				}
+				return writer.Flush()
+			})
+		}),
+	}
+	listCommitSet.Flags().AddFlagSet(outputFlags)
+	listCommitSet.Flags().AddFlagSet(timestampFlags)
+	listCommitSet.Flags().AddFlagSet(pagerFlags)
+	commands = append(commands, cmdutil.CreateAlias(listCommitSet, "list commitset"))
+
 	squashCommitSet := &cobra.Command{
 		Use:   "{{alias}} <commitset>",
 		Short: "Squash the commits of a commitset.",

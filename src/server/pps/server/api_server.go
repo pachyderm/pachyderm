@@ -396,7 +396,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 				return nil
 			}
 			done[repo] = struct{}{}
-			return a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_READ)
+			return a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: repo}, auth.Permission_REPO_READ)
 		}); err != nil {
 			return err
 		}
@@ -438,7 +438,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		default:
 			return errors.Errorf("internal error, unrecognized operation %v", operation)
 		}
-		if err := a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, output, required); err != nil {
+		if err := a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: output}, required); err != nil {
 			return err
 		}
 	}
@@ -571,6 +571,41 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 	return nil
 }
 
+// ListJobSet implements the protobuf pps.ListJobSet RPC
+func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_ListJobSetServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("stream containing %d JobSetInfos", sent), retErr, time.Since(start))
+	}(time.Now())
+
+	pachClient := a.env.GetPachClient(serv.Context())
+
+	// Track the jobsets we've already processed
+	seen := map[string]struct{}{}
+
+	// Return jobsets by the newest job in each set (which can be at a different
+	// timestamp due to triggers or deferred processing)
+	jobInfo := &pps.JobInfo{}
+	return a.jobs.ReadOnly(serv.Context()).List(jobInfo, col.DefaultOptions(), func(string) error {
+		if _, ok := seen[jobInfo.Job.ID]; ok {
+			return nil
+		}
+		seen[jobInfo.Job.ID] = struct{}{}
+
+		jobInfos, err := pachClient.InspectJobSet(jobInfo.Job.ID, request.Details)
+		if err != nil {
+			return err
+		}
+
+		sent++
+		return serv.Send(&pps.JobSetInfo{
+			JobSet: client.NewJobSet(jobInfo.Job.ID),
+			Jobs:   jobInfos,
+		})
+	})
+}
+
 // intersectCommitSets finds all commitsets which involve the specified commits
 // (or aliases of the specified commits)
 // TODO(global ids): this assumes that all aliases are equivalent to their first
@@ -654,7 +689,7 @@ func (a *apiServer) listJob(
 		// caller without access to a single pipeline's output repo couldn't run
 		// `pachctl list job` at all) and instead silently skip jobs where the user
 		// doesn't have access to the job's output repo.
-		if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, pipeline.Name, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+		if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Name: pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 			return err
 		}
 	}
@@ -741,7 +776,7 @@ func (a *apiServer) listJob(
 }
 
 func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) error {
-	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, jobInfo.Job.Pipeline.Name, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Name: jobInfo.Job.Pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 		return err
 	}
 
@@ -832,7 +867,7 @@ func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.AP
 		return errors.New("pipeline must be specified")
 	}
 
-	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, request.Pipeline.Name, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Name: request.Pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 		return err
 	}
 
@@ -1417,6 +1452,9 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 		return errors.Errorf("invalid pipeline spec: ReprocessSpec must be one of '%s' or '%s'",
 			client.ReprocessSpecUntilSuccess, client.ReprocessSpecEveryJob)
 	}
+	if request.Spout != nil && request.Autoscaling {
+		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
+	}
 	return nil
 }
 
@@ -1809,7 +1847,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			DatumSetSpec:          request.DatumSetSpec,
 			DatumTimeout:          request.DatumTimeout,
 			JobTimeout:            request.JobTimeout,
-			Standby:               request.Standby,
 			DatumTries:            request.DatumTries,
 			SchedulingSpec:        request.SchedulingSpec,
 			PodSpec:               request.PodSpec,
@@ -2878,6 +2915,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			PipelineVersion: pipelineInfo.Version,
 			OutputCommit:    commitInfo.Commit,
 			Stats:           &pps.ProcessStats{},
+			Created:         types.TimestampNow(),
 		}
 		if err := ppsutil.UpdateJobState(pipelines, jobs, jobPtr, pps.JobState_JOB_CREATED, ""); err != nil {
 			return err

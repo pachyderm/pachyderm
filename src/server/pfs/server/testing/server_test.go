@@ -40,6 +40,8 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -3109,11 +3111,16 @@ func TestPFS(suite *testing.T) {
 		numFiles := 100
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		for i := 0; i < numFiles; i++ {
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("1")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
-		}
+
+		require.NoError(t, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+			for i := 0; i < numFiles; i++ {
+				require.NoError(t, mf.PutFile(fmt.Sprintf("file%d", i), strings.NewReader("1")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
+			}
+			return nil
+		}))
+
 		checks := func() {
 			fileInfos, err := env.PachClient.GlobFileAll(commit, "*")
 			require.NoError(t, err)
@@ -4303,7 +4310,8 @@ func TestPFS(suite *testing.T) {
 			checkNotFound := func(path string) {
 				err := env.PachClient.WalkFile(latestCommit, path, cb)
 				require.YesError(t, err)
-				require.Matches(t, "file .* not found in repo", err.Error())
+				s := status.Convert(err)
+				require.Equal(t, s.Code(), codes.NotFound)
 			}
 			require.NoError(t, env.PachClient.WalkFile(latestCommit, "", cb))
 			require.NoError(t, env.PachClient.WalkFile(latestCommit, "/", cb))
@@ -4314,9 +4322,8 @@ func TestPFS(suite *testing.T) {
 		}
 
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		// TODO(global ids): uncomment this code once global ids land and branches have default heads
-		//require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
-		//checks() // Test the default empty head commit
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
+		checks() // Test the default empty head commit
 
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)

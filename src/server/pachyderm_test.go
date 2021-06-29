@@ -3104,8 +3104,8 @@ func TestStandby(t *testing.T) {
 					Transform: &pps.Transform{
 						Cmd: []string{"cp", path.Join("/pfs", input, "file"), "/pfs/out/file"},
 					},
-					Input:   client.NewPFSInput(input, "/*"),
-					Standby: true,
+					Input:       client.NewPFSInput(input, "/*"),
+					Autoscaling: true,
 				},
 			)
 			require.NoError(t, err)
@@ -3168,8 +3168,7 @@ func TestStandby(t *testing.T) {
 					Cmd:   []string{"sh"},
 					Stdin: []string{"echo $PPS_POD_NAME >/pfs/out/pod"},
 				},
-				Input:   client.NewPFSInput(dataRepo, "/"),
-				Standby: true,
+				Input: client.NewPFSInput(dataRepo, "/"),
 			},
 		)
 		require.NoError(t, err)
@@ -3225,8 +3224,8 @@ func TestStopStandbyPipeline(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out", dataRepo),
 				},
 			},
-			Input:   client.NewPFSInput(dataRepo, "/*"),
-			Standby: true,
+			Input:       client.NewPFSInput(dataRepo, "/*"),
+			Autoscaling: true,
 		},
 	)
 	require.NoError(t, err)
@@ -9536,8 +9535,8 @@ func TestPipelineAutoscaling(t *testing.T) {
 				},
 			},
 			Input:           client.NewPFSInput(dataRepo, "/*"),
-			Autoscaling:     true,
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 4},
+			Autoscaling:     true,
 		},
 	)
 	require.NoError(t, err)
