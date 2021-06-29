@@ -1609,10 +1609,11 @@ func joinPaths(prefix, filePath string) string {
 }
 
 func dlFile(pachClient *client.APIClient, f *pfs.File) (_ string, retErr error) {
-	if err := os.MkdirAll(filepath.Join(os.TempDir(), filepath.Dir(f.Path)), 0777); err != nil {
+	tempDir := filepath.Join(os.TempDir(), filepath.Dir(f.Path))
+	if err := os.MkdirAll(tempDir, 0777); err != nil {
 		return "", err
 	}
-	file, err := ioutil.TempFile("", f.Path+"_")
+	file, err := ioutil.TempFile(tempDir, filepath.Base(f.Path+"_"))
 	if err != nil {
 		return "", err
 	}
