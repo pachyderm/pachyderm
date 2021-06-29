@@ -14,6 +14,7 @@ import useIntersection from '@dash-frontend/hooks/useIntersection';
 import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
 import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
 import {Project} from '@graphqlTypes';
+import getListTitle from 'lib/getListTitle';
 
 import ProjectStatus from '../ProjectStatus';
 
@@ -79,14 +80,16 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
       </div>
       {!shouldShowEmptyState && (
         <>
-          <h4
-            ref={subtitleRef}
-            className={classNames(styles.subTitle, {
-              [styles.stuck]: isStuck,
-            })}
-          >
-            Last 30 Jobs
-          </h4>
+          {!loading && (
+            <h4
+              ref={subtitleRef}
+              className={classNames(styles.subTitle, {
+                [styles.stuck]: isStuck,
+              })}
+            >
+              {getListTitle('Job', projectDetails?.jobs?.length || 0)}
+            </h4>
+          )}
           <JobListStatic
             projectId={project.id}
             jobs={projectDetails?.jobs}

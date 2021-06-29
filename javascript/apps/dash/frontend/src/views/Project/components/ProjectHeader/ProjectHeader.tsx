@@ -12,8 +12,14 @@ import useProjectHeader from './hooks/useProjectHeader';
 import styles from './ProjectHeader.module.css';
 
 const ProjectHeader = () => {
-  const {projectName, numOfFailedJobs, seeJobsUrl, loading, seeJobsOpen} =
-    useProjectHeader();
+  const {
+    projectName,
+    numOfFailedJobs,
+    seeJobsUrl,
+    loading,
+    seeJobsOpen,
+    projectUrl,
+  } = useProjectHeader();
   const [showTooltip, setShowTooltip] = useState(false);
   const setProjectNameRef = useCallback((element: HTMLHeadingElement) => {
     setShowTooltip(element && element.clientWidth < element.scrollWidth);
@@ -56,7 +62,7 @@ const ProjectHeader = () => {
         className={classnames(styles.seeJobs, {
           [styles.active]: seeJobsOpen,
         })}
-        to={seeJobsUrl}
+        to={seeJobsOpen ? projectUrl : seeJobsUrl}
       >
         <div className={styles.seeJobsContent}>
           {numOfFailedJobs > 0 && (

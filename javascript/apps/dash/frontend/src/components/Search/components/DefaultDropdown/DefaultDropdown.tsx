@@ -2,6 +2,7 @@ import {ButtonLink, Chip, ChipGroup} from '@pachyderm/components';
 import React from 'react';
 
 import {jobStates} from '@dash-frontend/components/JobList/components/JobListStatusFilter/JobListStatusFilter';
+import getListTitle from 'lib/getListTitle';
 
 import {useDefaultDropdown} from '../../hooks/useDefaultDropdown';
 import {useSearch} from '../../hooks/useSearch';
@@ -49,9 +50,7 @@ const DefaultDropdown: React.FC = () => {
       return (
         <>
           <div className={styles.sectionHeader}>
-            <SectionHeader>
-              {allJobs === 1 ? `Last Job` : `Last ${allJobs} Jobs`}
-            </SectionHeader>
+            <SectionHeader>{getListTitle('Job', allJobs)}</SectionHeader>
           </div>
           <div className={styles.jobsGroup}>
             <ChipGroup>

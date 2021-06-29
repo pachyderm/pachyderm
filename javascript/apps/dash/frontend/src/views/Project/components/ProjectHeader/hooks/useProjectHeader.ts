@@ -4,7 +4,10 @@ import {useRouteMatch} from 'react-router';
 import useCurrentProject from '@dash-frontend/hooks/useCurrentProject';
 import {useJobs} from '@dash-frontend/hooks/useJobs';
 import {JOBS_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
-import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
+import {
+  jobsRoute,
+  projectRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 import {JobState} from '@graphqlTypes';
 
 const useProjectHeader = () => {
@@ -20,12 +23,16 @@ const useProjectHeader = () => {
     [jobs],
   );
 
+  const seeJobsUrl = currentProject?.id
+    ? jobsRoute({projectId: currentProject?.id})
+    : '/';
+  const projectUrl = projectRoute({projectId});
+
   return {
     projectName: currentProject?.name || '',
     numOfFailedJobs,
-    seeJobsUrl: currentProject?.id
-      ? jobsRoute({projectId: currentProject?.id})
-      : '/',
+    seeJobsUrl,
+    projectUrl,
     seeJobsOpen: jobsMatch?.isExact,
     loading,
   };

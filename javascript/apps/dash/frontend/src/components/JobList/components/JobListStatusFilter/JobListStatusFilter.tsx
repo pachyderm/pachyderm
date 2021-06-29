@@ -3,6 +3,7 @@ import React from 'react';
 
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {JobsQuery, JobState} from '@graphqlTypes';
+import getListTitle from 'lib/getListTitle';
 
 import {JobFilters} from '../../hooks/useJobList';
 
@@ -30,9 +31,7 @@ const JobListStatusFilter: React.FC<JobListStatusFilterProps> = ({
 
   return (
     <div className={styles.base}>
-      <p className={styles.label}>
-        {jobs.length === 1 ? `Last Job` : `Last ${jobs.length} Jobs`}
-      </p>
+      <p className={styles.label}>{getListTitle('Job', jobs.length)}</p>
 
       <ChipGroup>
         {jobStates.map((state) => {

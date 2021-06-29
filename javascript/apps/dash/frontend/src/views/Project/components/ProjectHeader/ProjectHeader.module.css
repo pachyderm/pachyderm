@@ -21,8 +21,7 @@
 }
 
 .seeJobs:hover,
-.seeJobs.active,
-.seeJobs:focus {
+.seeJobs.active {
   color: var(--white);
   background-color: var(--selected-grey);
   text-decoration: none;
