@@ -88,9 +88,10 @@ jobs:
       # CircleCI maintains a library of pre-built images
       # documented at https://circleci.com/docs/2.0/circleci-images/
       # - image: circleci/postgres:9.4
-    working_directory: ~/etc/helm
+    working_directory: ~/project/etc/helm
     steps:
       - checkout
+          path: ~/project
       - run: mkdir /home/circleci/bin
       - restore_cache:
           keys:
