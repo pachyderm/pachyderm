@@ -132,7 +132,7 @@ func (env *realEnv) Close() (retErr error) {
 
 type contextKey string
 
-var envContextKey = "cmdutil env"
+var envContextKey contextKey = "cmdutil env"
 
 func ContextWithEnv(ctx context.Context, env Env) context.Context {
 	return context.WithValue(ctx, envContextKey, env)
