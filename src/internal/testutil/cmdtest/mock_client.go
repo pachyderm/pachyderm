@@ -613,8 +613,9 @@ func (m *mockLicenseClient) ListUserClusters(ctx context.Context, in *license.Li
 }
 
 func RunPachctlSync(t *testing.T, env cmdutil.Env, args ...string) error {
-	ctx := context.WithValue(context.Background(), "env", env)
 	root := pachctl.PachctlCmd()
 	root.SetArgs(args)
+
+	ctx := cmdutil.ContextWithEnv(context.Background(), env)
 	return root.ExecuteContext(ctx)
 }

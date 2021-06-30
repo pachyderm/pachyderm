@@ -925,7 +925,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 				sources = filePaths
 			}
 
-			return env.Client("user").WithModifyFileClient(file.Commit, func(mf client.ModifyFile) error {
+			return env.Client("user", opts...).WithModifyFileClient(file.Commit, func(mf client.ModifyFile) error {
 				for _, source := range sources {
 					source := source
 					if file.Path == "" {

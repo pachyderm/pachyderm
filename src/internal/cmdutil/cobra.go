@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -129,8 +130,16 @@ func (env *realEnv) Close() (retErr error) {
 	return retErr
 }
 
+type contextKey string
+
+var envContextKey = "cmdutil env"
+
+func ContextWithEnv(ctx context.Context, env Env) context.Context {
+	return context.WithValue(ctx, envContextKey, env)
+}
+
 func envFromCommand(cmd *cobra.Command) Env {
-	if env := cmd.Context().Value("env"); env != nil {
+	if env := cmd.Context().Value(envContextKey); env != nil {
 		return env.(Env)
 	}
 	return &realEnv{cmd: cmd}
