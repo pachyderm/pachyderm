@@ -8,7 +8,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -221,7 +220,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 				tracing.FinishAnySpan(span, "err", retErr)
 			}()
 			resp, connErr = http.DefaultClient.Do(req)
-			if connErr != nil && isNetRetryable(connErr) {
+			if connErr != nil && pacherr.IsNetRetryable(connErr) {
 				return connErr
 			}
 			return nil
@@ -315,9 +314,4 @@ func (c *amazonClient) transformError(err error, objectPath string) error {
 		return pacherr.WrapTransient(err, minWait)
 	}
 	return err
-}
-
-func isNetRetryable(err error) bool {
-	var netErr net.Error
-	return errors.As(err, &netErr) && netErr.Temporary()
 }

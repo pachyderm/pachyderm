@@ -34,8 +34,7 @@ func (e *TransientError) GRPCStatus() *status.Status {
 	return status.New(codes.Unavailable, e.Error())
 }
 
-func isNetRetryable(err error) bool {
+func IsNetRetryable(err error) bool {
 	var netErr net.Error
-	// nolint:govet
 	return errors.As(err, &netErr) && netErr.Temporary()
 }
