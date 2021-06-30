@@ -1,0 +1,10 @@
+deployTarget: LOCAL
+dash:
+  enabled: false
+pachd:
+  image:
+    tag: LOCAL
+  storage:
+    local:
+      requireRoot: false
+      hostPath: /tmp/pachyderm
