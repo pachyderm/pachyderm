@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/cmd"
 	"github.com/spf13/pflag"
@@ -22,6 +24,12 @@ func main() {
 	if err != nil {
 		if errString := strings.TrimSpace(err.Error()); errString != "" {
 			fmt.Fprintf(os.Stderr, "%s\n", errString)
+		}
+
+		if cmdutil.PrintErrorStacks {
+			errors.ForEachStackFrame(err, func(frame errors.Frame) {
+				fmt.Fprintf(os.Stderr, "%+v\n", frame)
+			})
 		}
 		os.Exit(1)
 	}

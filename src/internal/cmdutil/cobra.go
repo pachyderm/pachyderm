@@ -42,7 +42,7 @@ func (c *clientOnce) Get(cb func() (*client.APIClient, error)) *client.APIClient
 		})
 	})
 	if err := c.eg.Wait(); err != nil {
-		ErrorAndExit("%v", errors.Wrap(err, "failed to connect"))
+		EarlyExit(errors.Wrap(err, "failed to connect"))
 	}
 	return c.c
 }
@@ -143,6 +143,17 @@ func withEnv(cmd *cobra.Command, cb func(Env) error) (retErr error) {
 			retErr = err
 		}
 	}()
+	defer func() {
+		// recover only if a fatalError type was thrown, anything else is a
+		// programming error and should continue panicking.
+		if e := recover(); e != nil {
+			if fatalErr, ok := e.(*fatalError); ok {
+				retErr = fatalErr.err
+			} else {
+				panic(e)
+			}
+		}
+	}()
 	return cb(env)
 }
 
@@ -200,19 +211,15 @@ func Run(run func([]string, Env) error) func(*cobra.Command, []string) error {
 	}
 }
 
-// ErrorAndExit errors with the given format and args, and then exits.
-func ErrorAndExit(format string, args ...interface{}) {
-	if errString := strings.TrimSpace(fmt.Sprintf(format, args...)); errString != "" {
-		fmt.Fprintf(os.Stderr, "%s\n", errString)
-	}
-	if len(args) > 0 && PrintErrorStacks {
-		if err, ok := args[0].(error); ok {
-			errors.ForEachStackFrame(err, func(frame errors.Frame) {
-				fmt.Fprintf(os.Stderr, "%+v\n", frame)
-			})
-		}
-	}
-	os.Exit(1)
+type fatalError struct {
+	err error
+}
+
+// EarlyExit should be used for an early exit only if it isn't feasible to
+// bubble an error up the stack.  It panics with the given error, which will be
+// caught by any of the above Run functions and returned into the normal flow.
+func EarlyExit(err error) {
+	panic(&fatalError{err})
 }
 
 func isValidBranch(name string) bool {
