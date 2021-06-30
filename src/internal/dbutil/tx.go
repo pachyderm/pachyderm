@@ -55,7 +55,13 @@ var (
 			86400,  // 1d
 		},
 	}, []string{"outcome"})
-
+	triesPerTxMetric = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "pachyderm",
+		Subsystem: "postgres",
+		Name:      "tx_attempt_count",
+		Help:      "Count of underlying database transactions to resolve each application-level transaction, by outcome ('error', 'ok').  One that works on the first try reports '1' (attempt_count, not retry_count).  Failures are included.",
+		Buckets:   []float64{0, 1, 2, 3, 4, 5, 10, 50, 100, 1000},
+	}, []string{"outcome"})
 	underlyingTxStartedMetric = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: "pachyderm",
 		Subsystem: "postgres",
@@ -115,10 +121,20 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 	for _, opt := range opts {
 		opt(c)
 	}
+
+	var attempts int
+	var outcome string
 	start := time.Now()
+	defer func() {
+		txFinishedMetric.WithLabelValues(outcome).Inc()
+		txDurationMetric.WithLabelValues(outcome).Observe(time.Since(start).Seconds())
+		triesPerTxMetric.WithLabelValues(outcome).Observe(float64(attempts))
+	}()
+
 	txStartedMetric.Inc()
-	err := backoff.RetryUntilCancel(ctx, func() error {
+	if err := backoff.RetryUntilCancel(ctx, func() error {
 		underlyingTxStartedMetric.Inc()
+		attempts++
 		tx, err := db.BeginTxx(ctx, &c.TxOptions)
 		if err != nil {
 			underlyingTxFinishMetric.WithLabelValues("failed_start").Inc()
@@ -130,19 +146,16 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 			return nil
 		}
 		return err
-	})
-	duration := time.Since(start).Seconds()
-	if err != nil {
+	}); err != nil {
 		// Inspecting err could yield a better outcome type than "error", but some care is
 		// needed.  For example, `cb` could return "context deadline exceeded" because it
-		// creates a sub-context that expires, and that's a different error than 'commit'
-		// failing because the deadline expired during commit.
-		txFinishedMetric.WithLabelValues("error").Inc()
-		txDurationMetric.WithLabelValues("error").Observe(duration)
+		// created a sub-context that expires, and that's a different error than 'commit'
+		// failing because the deadline expired during commit.  But we can't know that here
+		// without extra annotations on the error.
+		outcome = "error"
 		return err
 	}
-	txFinishedMetric.WithLabelValues("ok").Inc()
-	txDurationMetric.WithLabelValues("ok").Observe(duration)
+	outcome = "ok"
 	return nil
 }
 
