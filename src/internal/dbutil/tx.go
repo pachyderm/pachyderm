@@ -9,7 +9,71 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
+)
+
+var (
+	txStartedMetric = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "postgres",
+		Name:      "tx_start_count",
+		Help:      "Count of transactions that have been started.  One transaction may start many underlying database transactions, whose status is tracked separately.",
+	})
+	txFinishedMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "postgres",
+		Name:      "tx_finish_count",
+		Help:      "Count of transactions that have finished, by outcome ('error', 'ok', etc.).",
+	}, []string{"outcome"})
+	txDurationMetric = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "pachyderm",
+		Subsystem: "postgres",
+		Name:      "tx_duration_seconds",
+		Help:      "Time taken for a transaction, by outcome ('error', 'ok', etc.).",
+		Buckets: []float64{
+			0.0001, // 100us
+			0.0005, // .5ms
+			0.001,  // 1ms
+			0.002,  // 2ms
+			0.005,  // 5ms
+			0.01,   // 10ms
+			0.02,   // 20ms
+			0.05,   // 50ms
+			0.1,    // 100ms
+			0.2,    // 200ms
+			0.5,    // 500ms
+			1,      // 1s
+			2,      // 2s
+			5,      // 5s
+			30,     // 30s
+			60,     // 60s
+			300,    // 5m
+			600,    // 10m
+			3600,   // 1h
+			86400,  // 1d
+		},
+	}, []string{"outcome"})
+	triesPerTxMetric = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "pachyderm",
+		Subsystem: "postgres",
+		Name:      "tx_attempt_count",
+		Help:      "Count of underlying database transactions to resolve each application-level transaction, by outcome ('error', 'ok').  One that works on the first try reports '1' (attempt_count, not retry_count).  Failures are included.",
+		Buckets:   []float64{0, 1, 2, 3, 4, 5, 10, 50, 100, 1000},
+	}, []string{"outcome"})
+	underlyingTxStartedMetric = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "postgres",
+		Name:      "tx_underlying_start_count",
+		Help:      "Count of underlying database transactions that have been started.",
+	})
+	underlyingTxFinishMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "postgres",
+		Name:      "tx_underlying_finish_count",
+		Help:      "Count of underlying database transactions that have finished, by outcome ('commit_ok', 'commit_failed', 'rollback_ok', 'rollback_failed', 'failed_start', etc.)",
+	}, []string{"outcome"})
 )
 
 type withTxConfig struct {
@@ -57,9 +121,23 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 	for _, opt := range opts {
 		opt(c)
 	}
-	return backoff.RetryUntilCancel(ctx, func() error {
+
+	var attempts int
+	var outcome string
+	start := time.Now()
+	defer func() {
+		txFinishedMetric.WithLabelValues(outcome).Inc()
+		txDurationMetric.WithLabelValues(outcome).Observe(time.Since(start).Seconds())
+		triesPerTxMetric.WithLabelValues(outcome).Observe(float64(attempts))
+	}()
+
+	txStartedMetric.Inc()
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		underlyingTxStartedMetric.Inc()
+		attempts++
 		tx, err := db.BeginTxx(ctx, &c.TxOptions)
 		if err != nil {
+			underlyingTxFinishMetric.WithLabelValues("failed_start").Inc()
 			return err
 		}
 		return tryTxFunc(tx, cb)
@@ -68,17 +146,35 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 			return nil
 		}
 		return err
-	})
+	}); err != nil {
+		// Inspecting err could yield a better outcome type than "error", but some care is
+		// needed.  For example, `cb` could return "context deadline exceeded" because it
+		// created a sub-context that expires, and that's a different error than 'commit'
+		// failing because the deadline expired during commit.  But we can't know that here
+		// without extra annotations on the error.
+		outcome = "error"
+		return err
+	}
+	outcome = "ok"
+	return nil
 }
 
 func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) error {
 	if err := cb(tx); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
+			underlyingTxFinishMetric.WithLabelValues("rollback_failed").Inc()
 			logrus.Error(rbErr)
+			return err // The user error, not the rollback error.
 		}
+		underlyingTxFinishMetric.WithLabelValues("rollback_ok").Inc()
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		underlyingTxFinishMetric.WithLabelValues("commit_failed").Inc()
+		return err
+	}
+	underlyingTxFinishMetric.WithLabelValues("commit_ok").Inc()
+	return nil
 }
 
 func isTransactionError(err error) bool {
