@@ -3,7 +3,7 @@ dash:
   enabled: false
 pachd:
   image:
-    tag: LOCAL
+    tag: local
   storage:
     local:
       requireRoot: false
