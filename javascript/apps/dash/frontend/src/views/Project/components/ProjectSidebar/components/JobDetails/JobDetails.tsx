@@ -74,7 +74,10 @@ const JobDetails = () => {
 
       <section className={styles.pipelineSection}>
         {loading && (
-          <div className={styles.pipelineList}>
+          <div
+            className={styles.pipelineList}
+            data-testid="JobDetails__loading"
+          >
             <LoadingDots />
           </div>
         )}
@@ -109,7 +112,9 @@ const JobDetails = () => {
                         })}
                       >
                         <img
-                          alt={`Job ${job.id} ${readableJobState(job.state)}`}
+                          alt={`Pipeline job ${job.id} ${readableJobState(
+                            job.state,
+                          )}:`}
                           className={styles.pipelineIcon}
                           src={getJobStateHref(jobVisualState)}
                         />

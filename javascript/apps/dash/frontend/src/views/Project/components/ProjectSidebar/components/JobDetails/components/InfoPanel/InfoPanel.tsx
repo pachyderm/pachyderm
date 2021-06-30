@@ -81,7 +81,12 @@ const InfoPanel = () => {
 
   return (
     <dl className={styles.base}>
-      <Description term="Inputs" lines={9} loading={loading}>
+      <Description
+        term="Inputs"
+        lines={9}
+        loading={loading}
+        data-testid="InfoPanel__inputs"
+      >
         {job?.inputString ? (
           <PipelineInput
             inputString={job.inputString}
@@ -93,25 +98,46 @@ const InfoPanel = () => {
         )}
       </Description>
 
-      <Description term="Transform" loading={loading} lines={3}>
+      <Description
+        term="Transform"
+        loading={loading}
+        lines={3}
+        data-testid="InfoPanel__transform"
+      >
         {transformString}
       </Description>
 
       <hr className={styles.divider} />
 
-      <Description term="ID" loading={loading}>
+      <Description term="ID" loading={loading} data-testid="InfoPanel__id">
         {job?.id}
       </Description>
-      <Description term="Pipeline" loading={loading}>
+      <Description
+        term="Pipeline"
+        loading={loading}
+        data-testid="InfoPanel__pipeline"
+      >
         {job?.pipelineName}
       </Description>
-      <Description term="State" loading={loading}>
+      <Description
+        term="State"
+        loading={loading}
+        data-testid="InfoPanel__state"
+      >
         {job?.state ? readableJobState(job.state) : 'N/A'}
       </Description>
-      <Description term="Started" loading={loading}>
+      <Description
+        term="Started"
+        loading={loading}
+        data-testid="InfoPanel__started"
+      >
         {started}
       </Description>
-      <Description term="Duration" loading={loading}>
+      <Description
+        term="Duration"
+        loading={loading}
+        data-testid="InfoPanel__duration"
+      >
         {duration}
       </Description>
     </dl>

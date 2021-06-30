@@ -1,9 +1,9 @@
 import {SkeletonBodyText} from '@pachyderm/components';
-import React from 'react';
+import React, {HTMLAttributes} from 'react';
 
 import styles from './Description.module.css';
 
-interface DescriptionProps {
+interface DescriptionProps extends HTMLAttributes<HTMLElement> {
   term: string;
   loading?: boolean;
   lines?: number;
@@ -14,11 +14,12 @@ const Description: React.FC<DescriptionProps> = ({
   children,
   loading = false,
   lines = 1,
+  ...rest
 }) => {
   return (
     <>
       <dt className={styles.term}>{term}</dt>
-      <dd className={styles.description}>
+      <dd className={styles.description} {...rest}>
         {loading ? (
           <div className={lines === 1 ? styles.singleLineLoading : undefined}>
             <SkeletonBodyText
