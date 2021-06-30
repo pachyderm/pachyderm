@@ -5993,8 +5993,6 @@ func TestCronPipeline(t *testing.T) {
 
 	// Test a CronInput with the overwrite flag set to true
 	t.Run("CronOverwrite", func(t *testing.T) {
-		// TODO(2.0 required): Investigate flakiness.
-		t.Skip("Investigate flakiness")
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 10s")
 		overwriteInput.Cron.Overwrite = true
@@ -6119,9 +6117,6 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCronOverwrite", func(t *testing.T) {
-		// TODO(2.0 required): This test does not work with V2. It is not clear what the issue is yet. It may be related to the fact that
-		// run pipeline does not work correctly with stats (which is always enabled in V2).
-		t.Skip("Does not work with V2, needs investigation")
 		pipeline7 := tu.UniqueString("cron7-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline7,
@@ -6162,26 +6157,34 @@ func TestCronPipeline(t *testing.T) {
 				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
 				require.NoError(t, err)
 
-				// subscribe to the pipeline1 cron repo and wait for inputs
-				repo = fmt.Sprintf("%s_%s", pipeline7, "time")
 				ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
 				defer cancel() //cleanup resources
 				// We expect to see four commits, despite the schedule being every minute, and the timeout 120 seconds
 				// We expect each of the commits to have just a single file in this case
 				// We check four so that we can make sure the scheduled cron is not messed up by the run crons
-				countBreakFunc := newCountBreakFunc(4)
+				countBreakFunc := newCountBreakFunc(5) // TODO: Right now we receive an additional Alias Commit. change this back to 4 as soon as we can filter subscribeCommit by commitType
 				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
-						commitInfos, err := c.WaitCommitSetAll(ci.Commit.ID)
+						_, err := c.WaitCommitSetAll(ci.Commit.ID)
 						require.NoError(t, err)
-						require.Equal(t, 4, len(commitInfos))
-
-						files, err := c.ListFileAll(ci.Commit, "")
-						require.NoError(t, err)
-						require.Equal(t, 1, len(files))
+						if ci.Origin.Kind != pfs.OriginKind_ALIAS {
+							files, err := c.ListFileAll(ci.Commit, "/")
+							require.NoError(t, err)
+							require.Equal(t, 1, len(files))
+						}
 						return nil
 					})
 				}))
+				commits, err := c.ListCommit(client.NewRepo(repo), nil, nil, 0)
+				require.NoError(t, err)
+
+				userCommitCount := 0
+				for _, v := range commits {
+					if v.Origin.Kind == pfs.OriginKind_USER {
+						userCommitCount++
+					}
+				}
+				require.Equal(t, 4, userCommitCount)
 				return nil
 			})
 		}))
