@@ -69,8 +69,8 @@ case "${BUCKET}" in
     make lint
     make check-buckets
     make enterprise-code-checkin-test
+    go install -v ./src/testing/match
     make test-cmds
-    make test-libs
     make test-proto-static
     make test-transaction
     make test-deploy-manifests
@@ -83,13 +83,16 @@ case "${BUCKET}" in
         make test-tls
     fi
     ;;
+  INTERNAL)
+    go install -v ./src/testing/match
+    bash -c "go test -p 1 -count 1 ./src/internal/... ${TESTFLAGS}"
+    ;;
   EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh
     ;;
   PFS)
     make test-pfs-server
-    make test-pfs-storage
     ;;
   PPS?)
     make docker-build-kafka
@@ -102,9 +105,6 @@ case "${BUCKET}" in
   AUTH)
     make test-identity
     make test-auth
-    ;;
-  OBJECT)
-    make test-object-clients
     ;;
   ENTERPRISE)
     make test-license
