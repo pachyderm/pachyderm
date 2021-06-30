@@ -2875,3 +2875,63 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	pachdLogsIter.Next()
 	require.NoError(t, pachdLogsIter.Err())
 }
+
+// TODO: This test mirrors TestLoad in src/server/pfs/server/testing/load_test.go.
+// Need to restructure testing such that we have the implementation of this
+// test in one place while still being able to test auth enabled and disabled clusters.
+func TestLoad(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	for i, load := range loads {
+		load := load
+		t.Run(fmt.Sprint("Load-", i), func(t *testing.T) {
+			t.Parallel()
+			resp, err := aliceClient.RunPFSLoadTest([]byte(load))
+			require.NoError(t, err)
+			require.Equal(t, "", resp.Error, fmt.Sprint("seed: ", resp.Seed))
+		})
+	}
+}
+
+var loads = []string{`
+count: 5
+operations:
+  - count: 5
+    operation:
+      - putFile:
+          files:
+            count: 5
+            file:
+              - source: "random"
+                prob: 100
+        prob: 70 
+      - deleteFile:
+          count: 5
+          directoryProb: 20 
+        prob: 30 
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      directory:
+        depth: 3
+        run: 3
+      size:
+        - min: 1000
+          max: 10000
+          prob: 30 
+        - min: 10000
+          max: 100000
+          prob: 30 
+        - min: 1000000
+          max: 10000000
+          prob: 30 
+        - min: 10000000
+          max: 100000000
+          prob: 10 
+`}
