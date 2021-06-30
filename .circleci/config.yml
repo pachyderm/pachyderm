@@ -58,14 +58,18 @@ jobs:
       - run: etc/testing/circle/build.sh 
       - run: etc/testing/circle/launch.sh 
       - run: etc/testing/circle/run_tests.sh 
-      - save_cache:
-         key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-         paths:
-         - /home/circleci/.go_workspace/pkg/mod
-      - save_cache:
-         key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}-{{ .BuildNum }}
-         paths:
-         - /home/circleci/.gocache
+      - when:
+          condition: 
+            equal: [MISC, <<parameters.bucket>> ]
+          steps:
+            - save_cache:
+                key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+                paths:
+                  - /home/circleci/.go_workspace/pkg/mod
+            - save_cache:
+                key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}-{{ .BuildNum }}
+                paths:
+                  - /home/circleci/.gocache
       - run: etc/testing/circle/upload_stats.sh 
       - run:
           name: Dump debugging info in case of failure
@@ -96,4 +100,4 @@ workflows:
               - PPS5
               - PPS6
               - EXAMPLES
-              - OBJECT
+              - INTERNAL
