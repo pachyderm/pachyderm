@@ -85,7 +85,7 @@ case "${BUCKET}" in
     ;;
   INTERNAL)
     go install -v ./src/testing/match
-    bash -ce "go test -p 1 -count 1 ./src/internal/... ${TESTFLAGS}"
+    bash -ceo pipefail "go test -p 1 -count 1 ./src/internal/... ${TESTFLAGS}"
     ;;
   EXAMPLES)
     echo "Running the example test suite"
