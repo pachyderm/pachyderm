@@ -456,7 +456,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		}
 		if in.Cron.Overwrite {
 			// get rid of any files, so the new file "overwrites" previous runs
-			err = pachClient.DeleteFile(client.NewCommit(in.Cron.Repo, "master", ""), "")
+			err = pachClient.DeleteFile(client.NewCommit(in.Cron.Repo, "master", ""), "/")
 			if err != nil && !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "delete error")
 			}
