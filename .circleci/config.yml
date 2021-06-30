@@ -100,4 +100,4 @@ workflows:
               - PPS5
               - PPS6
               - EXAMPLES
-              - OBJECT
+              - INTERNAL
