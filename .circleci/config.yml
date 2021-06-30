@@ -90,7 +90,7 @@ jobs:
       # - image: circleci/postgres:9.4
     working_directory: ~/project/etc/helm
     steps:
-      - checkout
+      - checkout:
           path: ~/project
       - run: mkdir /home/circleci/bin
       - restore_cache:
