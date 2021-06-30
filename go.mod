@@ -3,7 +3,7 @@ module github.com/pachyderm/pachyderm/v2
 go 1.16
 
 require (
-	cloud.google.com/go v0.49.0 // indirect
+	cloud.google.com/go v0.49.0
 	cloud.google.com/go/storage v1.3.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
 	github.com/aws/aws-lambda-go v1.13.3
@@ -13,7 +13,6 @@ require (
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
-	github.com/coreos/go-etcd v2.0.0+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 	github.com/dexidp/dex v0.0.0-20201118094123-6ca0cbc85759
