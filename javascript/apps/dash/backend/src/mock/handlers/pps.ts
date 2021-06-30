@@ -1,15 +1,12 @@
 import {Status} from '@grpc/grpc-js/build/src/constants';
 import {IAPIServer} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
-import {LogMessage, PipelineInfos} from '@pachyderm/proto/pb/pps/pps_pb';
+import {LogMessage} from '@pachyderm/proto/pb/pps/pps_pb';
 
 import jobs from '@dash-backend/mock/fixtures/jobs';
 import pipelines from '@dash-backend/mock/fixtures/pipelines';
 import {createServiceError} from '@dash-backend/testHelpers';
 
-import {
-  jobInfoFromObject,
-  pipelineInfoFromObject,
-} from '../../grpc/builders/pps';
+import {pipelineInfoFromObject} from '../../grpc/builders/pps';
 import jobSets from '../fixtures/jobSets';
 import {pipelineAndJobLogs, workspaceLogs} from '../fixtures/logs';
 import runJQFilter from '../utils/runJQFilter';
@@ -56,12 +53,11 @@ const pps: Pick<
     const [projectId] = call.metadata.get('project-id');
     let replyJobs = projectId ? jobs[projectId.toString()] : jobs['1'];
 
-    if (call.request.getJqfilter()) {
-      replyJobs = await runJQFilter({
-        jqFilter: `.pipelineJobInfoList[] | ${call.request.getJqfilter()}`,
-        object: {pipelineJobInfoList: replyJobs.map((rj) => rj.toObject())},
-        objectMapper: jobInfoFromObject,
-      });
+    const pipeline = call.request.getPipeline();
+    if (pipeline) {
+      replyJobs = replyJobs.filter(
+        (job) => job.getJob()?.getPipeline()?.getName() === pipeline.getName(),
+      );
     }
 
     replyJobs.forEach((job) => call.write(job));

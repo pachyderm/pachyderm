@@ -10,6 +10,7 @@ import {
   JobSet,
   InspectJobSetRequest,
   LogMessage,
+  Pipeline,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 import streamToObjectArray from '@dash-backend/grpc/utils/streamToObjectArray';
@@ -24,6 +25,11 @@ import {
 } from '../builders/pps';
 
 import {DEFAULT_JOBS_LIMIT} from './constants/pps';
+
+interface ListJobArgs {
+  limit?: number | null;
+  pipelineId?: string | null;
+}
 
 const pps = ({
   pachdAddress,
@@ -45,13 +51,19 @@ const pps = ({
       return streamToObjectArray<PipelineInfo, PipelineInfo.AsObject>(stream);
     },
 
-    listJobs: ({limit = DEFAULT_JOBS_LIMIT, jq = ''} = {}) => {
-      const listJobRequest = new ListJobRequest()
-        .setJqfilter(jq)
-        .setDetails(true);
+    listJobs: ({limit, pipelineId}: ListJobArgs = {}) => {
+      const listJobRequest = new ListJobRequest().setDetails(true);
+
+      if (pipelineId) {
+        listJobRequest.setPipeline(new Pipeline().setName(pipelineId));
+      }
+
       const stream = client.listJob(listJobRequest, credentialMetadata);
 
-      return streamToObjectArray<JobInfo, JobInfo.AsObject>(stream, limit);
+      return streamToObjectArray<JobInfo, JobInfo.AsObject>(
+        stream,
+        limit || DEFAULT_JOBS_LIMIT,
+      );
     },
 
     inspectPipeline: (id: string) => {

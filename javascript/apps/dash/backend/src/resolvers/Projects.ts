@@ -109,7 +109,7 @@ const projectsResolver: ProjectsResolver = {
       const [repos, pipelines, jobs] = await Promise.all([
         pachClient.pfs().listRepo(),
         pachClient.pps().listPipeline(),
-        pachClient.pps().listJobs({limit: jobsLimit || undefined}),
+        pachClient.pps().listJobs({limit: jobsLimit}),
       ]);
 
       const totalSizeBytes = repos.reduce((sum, r) => sum + r.sizeBytes, 0);
