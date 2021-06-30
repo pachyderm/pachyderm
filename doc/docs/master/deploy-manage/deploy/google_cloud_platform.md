@@ -256,7 +256,7 @@ pachctl port-forward
 ```shell
 kubectl edit service pachd
 ```
-and change its `spec.type` value from `NodePort` to `LoadBalancer`. 
+and change its `spec.type` value from `ClusterIP` to `LoadBalancer`. 
 
 1. Retrieve the external IP address of the edited service.
 When listing your services again, you should see an external IP address allocated to the service you just edited. 
