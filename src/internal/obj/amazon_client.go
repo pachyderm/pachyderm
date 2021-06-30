@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/storagegateway"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	log "github.com/sirupsen/logrus"
@@ -220,7 +221,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 				tracing.FinishAnySpan(span, "err", retErr)
 			}()
 			resp, connErr = http.DefaultClient.Do(req)
-			if connErr != nil && pacherr.IsNetRetryable(connErr) {
+			if connErr != nil && errutil.IsNetRetryable(connErr) {
 				return connErr
 			}
 			return nil
