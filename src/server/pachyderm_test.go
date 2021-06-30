@@ -2308,14 +2308,14 @@ func TestPrettyPrinting(t *testing.T) {
 
 	repoInfo, err := c.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.NoError(t, pfspretty.PrintDetailedRepoInfo(pfspretty.NewPrintableRepoInfo(repoInfo)))
+	require.NoError(t, pfspretty.PrintDetailedRepoInfo(os.Stdout, pfspretty.NewPrintableRepoInfo(repoInfo)))
 	for _, c := range commitInfos {
 		require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(c)))
 	}
 
 	fileInfo, err := c.InspectFile(commit, "file")
 	require.NoError(t, err)
-	require.NoError(t, pfspretty.PrintDetailedFileInfo(fileInfo))
+	require.NoError(t, pfspretty.PrintDetailedFileInfo(os.Stdout, fileInfo))
 	pipelineInfo, err := c.InspectPipeline(pipelineName, true)
 	require.NoError(t, err)
 	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(os.Stdout, ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
