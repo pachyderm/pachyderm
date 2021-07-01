@@ -287,6 +287,18 @@ func deprecationWarning(msg string) {
 	fmt.Fprintf(os.Stderr, "DEPRECATED: %s\n\n", msg)
 }
 
+func getKubeNamespace() string {
+	kubeConfig := config.KubeConfig(nil)
+	var err error
+	namespace, _, err := kubeConfig.Namespace()
+	if err != nil {
+		log.Warningf("using namespace \"default\" (couldn't load namespace "+
+			"from kubernetes config: %v)\n", err)
+		namespace = "default"
+	}
+	return namespace
+}
+
 func standardDeployCmds() []*cobra.Command {
 	var commands []*cobra.Command
 	var opts *assets.AssetOpts
@@ -471,14 +483,7 @@ func standardDeployCmds() []*cobra.Command {
 		}
 
 		if namespace == "" {
-			kubeConfig := config.KubeConfig(nil)
-			var err error
-			namespace, _, err = kubeConfig.Namespace()
-			if err != nil {
-				log.Warningf("using namespace \"default\" (couldn't load namespace "+
-					"from kubernetes config: %v)\n", err)
-				namespace = "default"
-			}
+			namespace = getKubeNamespace()
 		}
 
 		if dashImage == "" {
@@ -1098,6 +1103,7 @@ func Cmds() []*cobra.Command {
 	var jupyterhubChartVersion string
 	var hubImage string
 	var userImage string
+	var namespace string
 	deployIDE := &cobra.Command{
 		Short: "Deploy the Pachyderm IDE.",
 		Long:  "Deploy a JupyterHub-based IDE alongside the Pachyderm cluster.",
@@ -1219,6 +1225,14 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 
+			// prefer explicit namespace
+			if namespace != "" {
+				activeContext.Namespace = namespace
+			} else if activeContext.Namespace == "" {
+				// check kubeconfig for a reasonable choice (or "default")
+				activeContext.Namespace = getKubeNamespace()
+			}
+
 			_, err = helm.Deploy(
 				activeContext,
 				"jupyterhub",
@@ -1243,6 +1257,7 @@ func Cmds() []*cobra.Command {
 	deployIDE.Flags().StringVar(&jupyterhubChartVersion, "jupyterhub-chart-version", "", "Version of the underlying Zero to JupyterHub with Kubernetes helm chart to use. By default this value is automatically derived.")
 	deployIDE.Flags().StringVar(&hubImage, "hub-image", "", "Image for IDE hub. By default this value is automatically derived.")
 	deployIDE.Flags().StringVar(&userImage, "user-image", "", "Image for IDE user environments. By default this value is automatically derived.")
+	deployIDE.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy IDE to.")
 	commands = append(commands, cmdutil.CreateAlias(deployIDE, "deploy ide"))
 
 	deploy := &cobra.Command{
@@ -1254,7 +1269,6 @@ func Cmds() []*cobra.Command {
 	var all bool
 	var includingMetadata bool
 	var includingIDE bool
-	var namespace string
 	undeploy := &cobra.Command{
 		Short: "Tear down a deployed Pachyderm cluster.",
 		Long:  "Tear down a deployed Pachyderm cluster.",
