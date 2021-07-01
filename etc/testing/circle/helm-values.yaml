@@ -10,3 +10,6 @@ pachd:
     local:
       requireRoot: false
       hostPath: /tmp/pachyderm
+postgresql:
+  service:
+    type: NodePort
