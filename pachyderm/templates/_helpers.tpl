@@ -19,3 +19,11 @@ LOCAL
 {{ fail "pachd.storage.backend required when no matching deploy target found" }}
 {{- end -}}
 {{- end -}}
+
+{{- define "pachyderm.dashSecret" -}}
+{{- if .Values.dash.config.oauthClientSecret -}}
+{{ .Values.dash.config.oauthClientSecret }}
+{{- else -}}
+{{ randAlphaNum 32 }}
+{{- end -}}
+{{- end -}}

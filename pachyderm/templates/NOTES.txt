@@ -2,3 +2,36 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
+For Enterprise customers, to set up Dash:
+
+  $ pachctl config get active-context
+  $ pachctl config set active-enterprise-context $(pachctl config get active-context)
+  $ pachctl auth activate --issuer http://{{ .Values.dash.config.pachdAddress }}/dex --redirect http://{{ .Values.dash.config.pachdAddress }}/authorization-code/callback
+  $ cat <<EOF | pachctl idp create-connector --config -
+  {
+    "type": "oidc",
+    "id": "auth0",
+    "name": "auth0",
+    "version": 1,
+    "config": {
+       "clientID": {{ .Values.dash.config.oauthClientID | quote }},
+       "clientSecret": {{ .Values.dash.config.oauthClientSecret | quote }},
+       "issuer": {{ .Values.dash.config.issuerURI | quote }},
+       "redirectURI": "http://{{ .Values.dash.config.pachdAddress }}/dex/callback",
+       "trustedEmailProvider": false
+    }
+  }
+  EOF
+  $ cat <<EOF | pachctl idp create-client --config -{
+    "id": "dash",
+    "name": "dash",
+    "secret": "{{ include "pachyderm.dashSecret" . }}",
+    "redirect_uris": ["https://{{ .Values.dash.host }}/oauth/callback/?inline=true"]
+  }
+  EOF
+  $ cat <<EOF | pachctl idp update-client --config -
+  {
+    "id": "pachd",
+    "trusted_peers": ["dash"]
+  }
+  EOF
