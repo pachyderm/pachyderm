@@ -681,6 +681,12 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		if err := logGRPCServerSetup("Proxy API", func() error {
+			proxyclient.RegisterAPIServer(externalServer.Server, proxyserver.NewAPIServer(env))
+			return nil
+		}); err != nil {
+			return err
+		}
 		txnEnv.Initialize(env, transactionAPIServer)
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
