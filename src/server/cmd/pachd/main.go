@@ -681,12 +681,6 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Proxy API", func() error {
-			proxyclient.RegisterAPIServer(externalServer.Server, proxyserver.NewAPIServer(env))
-			return nil
-		}); err != nil {
-			return err
-		}
 		txnEnv.Initialize(env, transactionAPIServer)
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
@@ -812,6 +806,12 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Admin API", func() error {
 			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(env))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Proxy API", func() error {
+			proxyclient.RegisterAPIServer(internalServer.Server, proxyserver.NewAPIServer(env))
 			return nil
 		}); err != nil {
 			return err
