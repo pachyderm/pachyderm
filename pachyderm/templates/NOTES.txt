@@ -2,26 +2,11 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-For Enterprise customers, to set up Dash:
 
-  $ pachctl config get active-context
-  $ pachctl config set active-enterprise-context $(pachctl config get active-context)
-  $ pachctl auth activate --issuer http://{{ .Values.dash.config.pachdAddress }}/dex --redirect http://{{ .Values.dash.config.pachdAddress }}/authorization-code/callback
-  $ cat <<EOF | pachctl idp create-connector --config -
-  {
-    "type": "oidc",
-    "id": "auth0",
-    "name": "auth0",
-    "version": 1,
-    "config": {
-       "clientID": {{ .Values.dash.config.oauthClientID | quote }},
-       "clientSecret": {{ .Values.dash.config.oauthClientSecret | quote }},
-       "issuer": {{ .Values.dash.config.issuerURI | quote }},
-       "redirectURI": "http://{{ .Values.dash.config.pachdAddress }}/dex/callback",
-       "trustedEmailProvider": false
-    }
-  }
-  EOF
+{{- if .Values.dash.enabled }}
+If you are using Enterprise edition, you will need to have created a
+connector with `pachctl idp create-connector`.  Then:
+
   $ cat <<EOF | pachctl idp create-client --config -{
     "id": "dash",
     "name": "dash",
@@ -35,3 +20,4 @@ For Enterprise customers, to set up Dash:
     "trusted_peers": ["dash"]
   }
   EOF
+{{ end -}}
