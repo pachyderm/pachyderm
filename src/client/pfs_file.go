@@ -419,14 +419,15 @@ func (c APIClient) GetFile(commit *pfs.Commit, path string, w io.Writer) (retErr
 	if err != nil {
 		return err
 	}
-	rc := grpcutil.NewStreamingBytesReader(gfc, cf)
-	defer func() {
-		if err := rc.Close(); retErr == nil {
-			retErr = err
+	for m, err := gfc.Recv(); err != io.EOF; m, err = gfc.Recv() {
+		if err != nil {
+			return err
 		}
-	}()
-	_, err = io.Copy(w, rc)
-	return err
+		if _, err := w.Write(m.Value); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetFileTAR gets a tar file from PFS.

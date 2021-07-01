@@ -3305,13 +3305,7 @@ func TestPFS(suite *testing.T) {
 		rc, err := env.PachClient.GetFileTAR(commit, "/data/*")
 		require.NoError(t, err)
 		defer rc.Close()
-		tr := tar.NewReader(rc)
-		for _, err := tr.Next(); err != io.EOF; _, err = tr.Next() {
-			require.NoError(t, err)
-			_, err = io.Copy(&output, tr)
-			require.NoError(t, err)
-		}
-		require.NoError(t, err)
+		require.NoError(t, tarutil.ConcatFileContent(&output, rc))
 
 		require.Equal(t, expected.String(), output.String())
 	})

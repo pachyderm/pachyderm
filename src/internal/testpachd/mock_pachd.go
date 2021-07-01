@@ -654,7 +654,7 @@ func (api *pfsServerAPI) ModifyFile(serv pfs.API_ModifyFileServer) error {
 	return errors.Errorf("unhandled pachd mock pfs.ModifyFile")
 }
 func (api *pfsServerAPI) GetFile(req *pfs.GetFileRequest, serv pfs.API_GetFileServer) error {
-	if api.mock.GetFileTAR.handler != nil {
+	if api.mock.GetFile.handler != nil {
 		return api.mock.GetFile.handler(req, serv)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.GetFile")
