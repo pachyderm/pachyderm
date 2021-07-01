@@ -1,0 +1,22 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.postgresql.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres-headless
+  namespace: {{ .Release.Namespace }}
+spec:
+  clusterIP: None
+  ports:
+  - name: client-port
+    port: 5432
+    targetPort: 0
+  selector:
+    app: postgres
+{{ end -}}

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
@@ -1245,7 +1246,8 @@ func TestPipelineErrorHandling(t *testing.T) {
 
 		// so we expect the job to succeed, and to have recovered 2 datums
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-		require.Equal(t, int64(1), jobInfo.DataSkipped)
+		require.Equal(t, int64(1), jobInfo.DataProcessed)
+		require.Equal(t, int64(0), jobInfo.DataSkipped)
 		require.Equal(t, int64(2), jobInfo.DataRecovered)
 		require.Equal(t, int64(0), jobInfo.DataFailed)
 	})
@@ -2695,10 +2697,14 @@ func TestUpdateFailedPipeline(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, "master", ""))
 
 	// Wait for pod to try and pull the bad image
-	time.Sleep(10 * time.Second)
-	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_CRASHING.String(), pipelineInfo.State.String())
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+		require.NoError(t, err)
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_CRASHING {
+			return errors.Errorf("expected pipeline to be in CRASHING state but got: %v\n", pipelineInfo.State)
+		}
+		return nil
+	})
 
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
@@ -2712,10 +2718,14 @@ func TestUpdateFailedPipeline(t *testing.T) {
 		"",
 		true,
 	))
-	time.Sleep(10 * time.Second)
-	pipelineInfo, err = c.InspectPipeline(pipelineName, false)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+		require.NoError(t, err)
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return errors.Errorf("expected pipeline to be in RUNNING state but got: %v\n", pipelineInfo.State)
+		}
+		return nil
+	})
 
 	// Sanity check run some actual data through the pipeline:
 	commit, err = c.StartCommit(dataRepo, "master")
@@ -3097,8 +3107,8 @@ func TestStandby(t *testing.T) {
 					Transform: &pps.Transform{
 						Cmd: []string{"cp", path.Join("/pfs", input, "file"), "/pfs/out/file"},
 					},
-					Input:   client.NewPFSInput(input, "/*"),
-					Standby: true,
+					Input:       client.NewPFSInput(input, "/*"),
+					Autoscaling: true,
 				},
 			)
 			require.NoError(t, err)
@@ -3161,8 +3171,7 @@ func TestStandby(t *testing.T) {
 					Cmd:   []string{"sh"},
 					Stdin: []string{"echo $PPS_POD_NAME >/pfs/out/pod"},
 				},
-				Input:   client.NewPFSInput(dataRepo, "/"),
-				Standby: true,
+				Input: client.NewPFSInput(dataRepo, "/"),
 			},
 		)
 		require.NoError(t, err)
@@ -3215,8 +3224,8 @@ func TestStopStandbyPipeline(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out", dataRepo),
 				},
 			},
-			Input:   client.NewPFSInput(dataRepo, "/*"),
-			Standby: true,
+			Input:       client.NewPFSInput(dataRepo, "/*"),
+			Autoscaling: true,
 		},
 	)
 	require.NoError(t, err)
@@ -5984,8 +5993,6 @@ func TestCronPipeline(t *testing.T) {
 
 	// Test a CronInput with the overwrite flag set to true
 	t.Run("CronOverwrite", func(t *testing.T) {
-		// TODO(2.0 required): Investigate flakiness.
-		t.Skip("Investigate flakiness")
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 10s")
 		overwriteInput.Cron.Overwrite = true
@@ -6110,9 +6117,6 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCronOverwrite", func(t *testing.T) {
-		// TODO(2.0 required): This test does not work with V2. It is not clear what the issue is yet. It may be related to the fact that
-		// run pipeline does not work correctly with stats (which is always enabled in V2).
-		t.Skip("Does not work with V2, needs investigation")
 		pipeline7 := tu.UniqueString("cron7-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline7,
@@ -6153,26 +6157,34 @@ func TestCronPipeline(t *testing.T) {
 				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
 				require.NoError(t, err)
 
-				// subscribe to the pipeline1 cron repo and wait for inputs
-				repo = fmt.Sprintf("%s_%s", pipeline7, "time")
 				ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
 				defer cancel() //cleanup resources
 				// We expect to see four commits, despite the schedule being every minute, and the timeout 120 seconds
 				// We expect each of the commits to have just a single file in this case
 				// We check four so that we can make sure the scheduled cron is not messed up by the run crons
-				countBreakFunc := newCountBreakFunc(4)
+				countBreakFunc := newCountBreakFunc(5) // TODO: Right now we receive an additional Alias Commit. change this back to 4 as soon as we can filter subscribeCommit by commitType
 				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
-						commitInfos, err := c.WaitCommitSetAll(ci.Commit.ID)
+						_, err := c.WaitCommitSetAll(ci.Commit.ID)
 						require.NoError(t, err)
-						require.Equal(t, 4, len(commitInfos))
-
-						files, err := c.ListFileAll(ci.Commit, "")
-						require.NoError(t, err)
-						require.Equal(t, 1, len(files))
+						if ci.Origin.Kind != pfs.OriginKind_ALIAS {
+							files, err := c.ListFileAll(ci.Commit, "/")
+							require.NoError(t, err)
+							require.Equal(t, 1, len(files))
+						}
 						return nil
 					})
 				}))
+				commits, err := c.ListCommit(client.NewRepo(repo), nil, nil, 0)
+				require.NoError(t, err)
+
+				userCommitCount := 0
+				for _, v := range commits {
+					if v.Origin.Kind == pfs.OriginKind_USER {
+						userCommitCount++
+					}
+				}
+				require.Equal(t, 4, userCommitCount)
 				return nil
 			})
 		}))
@@ -7309,10 +7321,6 @@ func TestCancelJob(t *testing.T) {
 // running (which tests that only one job can run at a time), and then is
 // cancelled.
 func TestCancelManyJobs(t *testing.T) {
-	// TODO(2.0 required): this test is flaky due to how PPS and PFS deal with
-	// finished commits.  When canceling a job we finish the associated commit,
-	// but its parents might not be finished, which breaks assumptions.
-	t.Skip("Skipping flaky test")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -9455,8 +9463,8 @@ func TestPipelineAutoscaling(t *testing.T) {
 				},
 			},
 			Input:           client.NewPFSInput(dataRepo, "/*"),
-			Autoscaling:     true,
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 4},
+			Autoscaling:     true,
 		},
 	)
 	require.NoError(t, err)

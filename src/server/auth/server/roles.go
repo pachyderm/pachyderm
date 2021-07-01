@@ -111,6 +111,7 @@ func init() {
 		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_DEBUG_DUMP,
+			auth.Permission_CLUSTER_GET_PACHD_LOGS,
 		},
 	})
 

@@ -1,0 +1,26 @@
+{{- if .Values.pachd.externalService.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+  labels:
+    app: pachd
+    suite: pachyderm
+  name: pachd-lb
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: api-grpc-port
+    port: {{ .Values.pachd.externalService.apiGRPCPort }}
+    targetPort: api-grpc-port
+  - name: api-http-port
+    port: {{ .Values.pachd.externalService.apiHTTPPort }}
+    targetPort: api-http-port
+  - name: s3gateway-port
+    port: {{ .Values.pachd.externalService.s3GatewayPort }} 
+    targetPort: s3gateway-port
+  selector:
+    app: pachd
+  type: LoadBalancer
+  loadBalancerIP: {{ .Values.pachd.externalService.loadBalancerIP }}
+{{ end -}}

@@ -1,6 +1,8 @@
 package errutil
 
 import (
+	"errors"
+	"net"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
@@ -55,4 +57,10 @@ func IsInvalidPathError(err error) bool {
 	}
 	return strings.Contains(err.Error(), "only printable ASCII characters allowed") ||
 		strings.Contains(err.Error(), "not allowed in path")
+}
+
+// IsNetRetryable returns true if the error is a temporary network error.
+func IsNetRetryable(err error) bool {
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Temporary()
 }

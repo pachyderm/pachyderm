@@ -40,6 +40,8 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -3109,11 +3111,16 @@ func TestPFS(suite *testing.T) {
 		numFiles := 100
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		for i := 0; i < numFiles; i++ {
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("1")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
-		}
+
+		require.NoError(t, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+			for i := 0; i < numFiles; i++ {
+				require.NoError(t, mf.PutFile(fmt.Sprintf("file%d", i), strings.NewReader("1")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
+			}
+			return nil
+		}))
+
 		checks := func() {
 			fileInfos, err := env.PachClient.GlobFileAll(commit, "*")
 			require.NoError(t, err)
@@ -4303,7 +4310,8 @@ func TestPFS(suite *testing.T) {
 			checkNotFound := func(path string) {
 				err := env.PachClient.WalkFile(latestCommit, path, cb)
 				require.YesError(t, err)
-				require.Matches(t, "file .* not found in repo", err.Error())
+				s := status.Convert(err)
+				require.Equal(t, s.Code(), codes.NotFound)
 			}
 			require.NoError(t, env.PachClient.WalkFile(latestCommit, "", cb))
 			require.NoError(t, env.PachClient.WalkFile(latestCommit, "/", cb))
@@ -4314,9 +4322,8 @@ func TestPFS(suite *testing.T) {
 		}
 
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		// TODO(global ids): uncomment this code once global ids land and branches have default heads
-		//require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
-		//checks() // Test the default empty head commit
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
+		checks() // Test the default empty head commit
 
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -4794,15 +4801,12 @@ func TestPFS(suite *testing.T) {
 		b.Reset()
 		require.YesError(t, c.GetFile(commit, "file1", &b))
 
-		// TODO(2.0 required): Should this behavior be kept in 2.0? If so, we need
-		// to lazily make the one-off commit.
-		// Empty ModifyFileClients shouldn't error or create commits
-		//mfc, err = c.NewModifyFileClient(test, "master")
-		//require.NoError(t, err)
-		//require.NoError(t, mfc.Close())
-		//cis, err = c.ListCommit(test, "master", "", 0)
-		//require.NoError(t, err)
-		//require.Equal(t, 2, len(cis))
+		mfc, err = c.NewModifyFileClient(commit)
+		require.NoError(t, err)
+		require.NoError(t, mfc.Close())
+		cis, err = c.ListCommit(testRepo, commit, nil, 0)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(cis))
 	})
 
 	const (
@@ -5670,6 +5674,76 @@ func TestPFS(suite *testing.T) {
 			return nil
 		}))
 		require.Equal(t, 0, len(expected))
+	})
+
+	suite.Run("ErroredCommits", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		checks := func(t *testing.T, branch string) {
+			// First commit should contain the first file.
+			branchCommit := client.NewCommit(repo, branch, "^2")
+			expected := []string{"/f1"}
+			require.NoError(t, env.PachClient.ListFile(branchCommit, "", func(fi *pfs.FileInfo) error {
+				require.Equal(t, expected[0], fi.File.Path)
+				expected = expected[1:]
+				return nil
+			}))
+			require.Equal(t, 0, len(expected))
+			// Second commit (errored commit) should still be readable with its content included.
+			branchCommit = client.NewCommit(repo, branch, "^1")
+			expected = []string{"/f1", "/f2"}
+			require.NoError(t, env.PachClient.ListFile(branchCommit, "", func(fi *pfs.FileInfo) error {
+				require.Equal(t, expected[0], fi.File.Path)
+				expected = expected[1:]
+				return nil
+			}))
+			require.Equal(t, 0, len(expected))
+			// Third commit should exclude the errored parent commit.
+			branchCommit = client.NewCommit(repo, branch, "")
+			expected = []string{"/f1", "/f3"}
+			require.NoError(t, env.PachClient.ListFile(branchCommit, "", func(fi *pfs.FileInfo) error {
+				require.Equal(t, expected[0], fi.File.Path)
+				expected = expected[1:]
+				return nil
+			}))
+			require.Equal(t, 0, len(expected))
+		}
+		t.Run("FinishedErroredFinished", func(t *testing.T) {
+			branch := uuid.New()
+			require.NoError(t, env.PachClient.CreateBranch(repo, branch, "", "", nil))
+			branchCommit := client.NewCommit(repo, branch, "")
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f1", strings.NewReader("foo\n")))
+			commit, err := env.PachClient.StartCommit(repo, branch)
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f2", strings.NewReader("foo\n")))
+			_, err = env.PachClient.PfsAPIClient.FinishCommit(context.Background(), &pfs.FinishCommitRequest{
+				Commit: commit,
+				Error:  true,
+			})
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f3", strings.NewReader("foo\n")))
+			checks(t, branch)
+		})
+		t.Run("FinishedErroredOpen", func(t *testing.T) {
+			branch := uuid.New()
+			require.NoError(t, env.PachClient.CreateBranch(repo, branch, "", "", nil))
+			branchCommit := client.NewCommit(repo, branch, "")
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f1", strings.NewReader("foo\n")))
+			commit, err := env.PachClient.StartCommit(repo, branch)
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f2", strings.NewReader("foo\n")))
+			_, err = env.PachClient.PfsAPIClient.FinishCommit(context.Background(), &pfs.FinishCommitRequest{
+				Commit: commit,
+				Error:  true,
+			})
+			require.NoError(t, err)
+			_, err = env.PachClient.StartCommit(repo, branch)
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f3", strings.NewReader("foo\n")))
+			checks(t, branch)
+		})
 	})
 }
 

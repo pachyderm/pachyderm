@@ -150,10 +150,6 @@ email at support@pachyderm.io.
        </div>
        <div class="mdl-card__actions mdl-card--border">
          <ul>
-           <li><a href="how-tos/splitting-data/splitting" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-           Splitting Data for Distributed Processing
-           </a>
-           </li>
            <li><a href="how-tos/time_windows" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Process Time-Windowed Data
            </a>

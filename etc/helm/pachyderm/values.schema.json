@@ -1,0 +1,573 @@
+{
+    "$schema": "http://json-schema.org/schema#",
+    "type": "object",
+    "properties": {
+        "dash": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "object",
+                    "properties": {
+                        "graphqlPort": {
+                            "type": "integer"
+                        },
+                        "issuerURI": {
+                            "type": "string"
+                        },
+                        "oauthClientID": {
+                            "type": "string"
+                        },
+                        "oauthClientSecret": {
+                            "type": "string"
+                        },
+                        "oauthPachdClientID": {
+                            "type": "string"
+                        },
+                        "oauthRedirectURI": {
+                            "type": "string"
+                        },
+                        "pachdAddress": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "ingress": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "host": {
+                            "type": "string"
+                        },
+                        "tls": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "newSecret": {
+                                    "type": "object",
+                                    "properties": {
+                                        "create": {
+                                            "type": "boolean"
+                                        },
+                                        "crt": {
+                                            "type": "string"
+                                        },
+                                        "key": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "secretName": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "podLabels": {
+                    "type": "object"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {
+                            "type": "object"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "deployTarget": {
+            "type": "string"
+        },
+        "enterpriseServer": {
+            "type": "object",
+            "properties": {
+                "affinity": {
+                    "type": "object"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "podLabels": {
+                    "type": "object"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "tls": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "newSecret": {
+                            "type": "object",
+                            "properties": {
+                                "create": {
+                                    "type": "boolean"
+                                },
+                                "crt": {
+                                    "type": "string"
+                                },
+                                "key": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "secretName": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "etcd": {
+            "type": "object",
+            "properties": {
+                "affinity": {
+                    "type": "object"
+                },
+                "dynamicNodes": {
+                    "type": "integer"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "podLabels": {
+                    "type": "object"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
+                        "labels": {
+                            "type": "object"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "storageClass": {
+                    "type": "string"
+                },
+                "storageSize": {
+                    "type": "string"
+                }
+            }
+        },
+        "imagePullSecret": {
+            "type": "string"
+        },
+        "pachd": {
+            "type": "object",
+            "properties": {
+                "affinity": {
+                    "type": "object"
+                },
+                "clusterDeploymentID": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "externalService": {
+                    "type": "object",
+                    "properties": {
+                        "apiGRPCPort": {
+                            "type": "integer"
+                        },
+                        "apiHTTPPort": {
+                            "type": "integer"
+                        },
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "loadBalancerIP": {
+                            "type": "string"
+                        },
+                        "s3GatewayPort": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "goMaxProcs": {
+                    "type": "integer"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "logLevel": {
+                    "type": "string"
+                },
+                "lokiLogging": {
+                    "type": "boolean"
+                },
+                "metrics": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "endpoint": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "podLabels": {
+                    "type": "object"
+                },
+                "postgresql": {
+                    "type": "object",
+                    "properties": {
+                        "host": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "port": {
+                            "type": "string"
+                        },
+                        "ssl": {
+                            "type": "string"
+                        },
+                        "user": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "ppsWorkerGRPCPort": {
+                    "type": "integer"
+                },
+                "requireCriticalServersOnly": {
+                    "type": "boolean"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {
+                            "type": "object"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "serviceAccount": {
+                    "type": "object",
+                    "properties": {
+                        "additionalAnnotations": {
+                            "type": "object"
+                        },
+                        "create": {
+                            "type": "boolean"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "storage": {
+                    "type": "object",
+                    "properties": {
+                        "amazon": {
+                            "type": "object",
+                            "properties": {
+                                "bucket": {
+                                    "type": "string"
+                                },
+                                "cloudFrontDistribution": {
+                                    "type": "string"
+                                },
+                                "customEndpoint": {
+                                    "type": "string"
+                                },
+                                "disableSSL": {
+                                    "type": "boolean"
+                                },
+                                "id": {
+                                    "type": "string"
+                                },
+                                "logOptions": {
+                                    "type": "string"
+                                },
+                                "maxUploadParts": {
+                                    "type": "integer"
+                                },
+                                "partSize": {
+                                    "type": "string"
+                                },
+                                "region": {
+                                    "type": "string"
+                                },
+                                "retries": {
+                                    "type": "integer"
+                                },
+                                "reverse": {
+                                    "type": "boolean"
+                                },
+                                "secret": {
+                                    "type": "string"
+                                },
+                                "timeout": {
+                                    "type": "string"
+                                },
+                                "token": {
+                                    "type": "string"
+                                },
+                                "uploadACL": {
+                                    "type": "string"
+                                },
+                                "verifySSL": {
+                                    "type": "boolean"
+                                }
+                            }
+                        },
+                        "backend": {
+                            "type": "string"
+                        },
+                        "google": {
+                            "type": "object",
+                            "properties": {
+                                "bucket": {
+                                    "type": "string"
+                                },
+                                "cred": {
+                                    "type": "string"
+                                },
+                                "serviceAccountName": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "local": {
+                            "type": "object",
+                            "properties": {
+                                "hostPath": {
+                                    "type": "string"
+                                },
+                                "requireRoot": {
+                                    "type": "boolean"
+                                }
+                            }
+                        },
+                        "microsoft": {
+                            "type": "object",
+                            "properties": {
+                                "container": {
+                                    "type": "string"
+                                },
+                                "id": {
+                                    "type": "string"
+                                },
+                                "secret": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "minio": {
+                            "type": "object",
+                            "properties": {
+                                "bucket": {
+                                    "type": "string"
+                                },
+                                "endpoint": {
+                                    "type": "string"
+                                },
+                                "id": {
+                                    "type": "string"
+                                },
+                                "secret": {
+                                    "type": "string"
+                                },
+                                "secure": {
+                                    "type": "string"
+                                },
+                                "signature": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "putFileConcurrencyLimit": {
+                            "type": "integer"
+                        },
+                        "uploadConcurrencyLimit": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "tls": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "newSecret": {
+                            "type": "object",
+                            "properties": {
+                                "create": {
+                                    "type": "boolean"
+                                },
+                                "crt": {
+                                    "type": "string"
+                                },
+                                "key": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "secretName": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "postgresql": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "storageClass": {
+                    "type": "string"
+                }
+            }
+        },
+        "rbac": {
+            "type": "object",
+            "properties": {
+                "clusterRBAC": {
+                    "type": "boolean"
+                },
+                "create": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "worker": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "serviceAccount": {
+                    "type": "object",
+                    "properties": {
+                        "additionalAnnotations": {
+                            "type": "object"
+                        },
+                        "create": {
+                            "type": "boolean"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

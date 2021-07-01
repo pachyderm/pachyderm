@@ -9,6 +9,7 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -19,7 +20,9 @@ const (
 	// RepoAuthHeader is the header for repos with auth information attached.
 	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
-	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tDESCRIPTION\n"
+	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tDESCRIPTION\n"
+	// CommitSetHeader is the header for commitsets.
+	CommitSetHeader = "ID\tCOMMITS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// FileHeader is the header for files.
@@ -153,7 +156,61 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 	} else {
 		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.Details.SizeBytes)))
 	}
+	fmt.Fprintf(w, "%v\t", commitInfo.Origin.Kind)
 	fmt.Fprintf(w, "%s\t", commitInfo.Description)
+	fmt.Fprintln(w)
+}
+
+// PrintCommitSetInfo pretty-prints jobset info.
+func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimestamps bool) {
+	// Aggregate some data to print from the jobs in the jobset
+	success := 0
+	failure := 0
+	var created *types.Timestamp
+	var modified *types.Timestamp
+	for _, commitInfo := range commitSetInfo.Commits {
+		if commitInfo.Finished != nil {
+			if commitInfo.Error {
+				failure++
+			} else {
+				success++
+			}
+		}
+
+		if created == nil {
+			created = commitInfo.Started
+			modified = commitInfo.Started
+		} else {
+			if commitInfo.Started.Compare(created) < 0 {
+				created = commitInfo.Started
+			}
+			if commitInfo.Started.Compare(modified) > 0 {
+				modified = commitInfo.Started
+			}
+		}
+	}
+
+	fmt.Fprintf(w, "%s\t", commitSetInfo.CommitSet.ID)
+	fmt.Fprintf(w, "%d\t", len(commitSetInfo.Commits))
+	fmt.Fprintf(w, "%s\t", pretty.ProgressBar(8, success, len(commitSetInfo.Commits)-success-failure, failure))
+	if created != nil {
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", created.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(created))
+		}
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
+	if modified != nil {
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", modified.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(modified))
+		}
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
 	fmt.Fprintln(w)
 }
 

@@ -544,19 +544,31 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "", infoAfter.AuthToken)
 
-	// And also check for a listPipeline
+	// ListPipeline without details should list all repos
 	pipelineInfos, err := aliceClient.ListPipeline(false)
 	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
 		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.Nil(t, pipelineInfo.Details)
 	}
-	// TODO(2.0 required): this call errors if it uses aliceClient (maybe skip
-	// pipelines we don't have read access on?)
-	// pipelineInfos, err = aliceClient.ListPipeline(true)
+
+	// Users can access a spec commit even if they can't list the repo itself,
+	// so the details should be populated for every repo
+	pipelineInfos, err = aliceClient.ListPipeline(true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
+	for _, pipelineInfo := range pipelineInfos {
+		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.NotNil(t, pipelineInfo.Details)
+	}
+
 	pipelineInfos, err = bobClient.ListPipeline(true)
 	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
 		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.NotNil(t, pipelineInfo.Details)
 	}
 
 	// Make sure the updated pipeline runs successfully
@@ -2863,3 +2875,62 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	pachdLogsIter.Next()
 	require.NoError(t, pachdLogsIter.Err())
 }
+
+// TODO: This test mirrors TestLoad in src/server/pfs/server/testing/load_test.go.
+// Need to restructure testing such that we have the implementation of this
+// test in one place while still being able to test auth enabled and disabled clusters.
+func TestLoad(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	for i, load := range loads {
+		load := load
+		t.Run(fmt.Sprint("Load-", i), func(t *testing.T) {
+			resp, err := aliceClient.RunPFSLoadTest([]byte(load))
+			require.NoError(t, err)
+			require.Equal(t, "", resp.Error, fmt.Sprint("seed: ", resp.Seed))
+		})
+	}
+}
+
+var loads = []string{`
+count: 5
+operations:
+  - count: 5
+    operation:
+      - putFile:
+          files:
+            count: 5
+            file:
+              - source: "random"
+                prob: 100
+        prob: 70 
+      - deleteFile:
+          count: 5
+          directoryProb: 20 
+        prob: 30 
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      directory:
+        depth: 3
+        run: 3
+      size:
+        - min: 1000
+          max: 10000
+          prob: 30 
+        - min: 10000
+          max: 100000
+          prob: 30 
+        - min: 1000000
+          max: 10000000
+          prob: 30 
+        - min: 10000000
+          max: 100000000
+          prob: 10 
+`}

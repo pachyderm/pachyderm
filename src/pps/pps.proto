@@ -237,6 +237,11 @@ message GPUSpec {
   int64 number = 2;
 }
 
+message JobSetInfo {
+  JobSet job_set = 1;
+  repeated JobInfo jobs = 2;
+}
+
 // JobInfo is the data stored in the database regarding a given job.  The
 // 'details' field contains more information about the job which is expensive to
 // fetch, requiring querying workers or loading the pipeline spec from object
@@ -260,8 +265,9 @@ message JobInfo {
 
   JobState state = 11;
   string reason = 12; // reason explains why the job is in the current state
-  google.protobuf.Timestamp started = 13;
-  google.protobuf.Timestamp finished = 14;
+  google.protobuf.Timestamp created = 13;
+  google.protobuf.Timestamp started = 14;
+  google.protobuf.Timestamp finished = 15;
 
   message Details {
     Transform transform = 1;
@@ -283,7 +289,7 @@ message JobInfo {
     string pod_spec = 17;
     string pod_patch = 18;
   }
-  Details details = 15;
+  Details details = 16;
 }
 
 enum WorkerState {
@@ -397,17 +403,16 @@ message PipelineInfo {
     DatumSetSpec datum_set_spec = 21;
     google.protobuf.Duration datum_timeout = 22;
     google.protobuf.Duration job_timeout = 23;
-    bool standby = 24;
-    int64 datum_tries = 25;
-    SchedulingSpec scheduling_spec = 26;
-    string pod_spec = 27;
-    string pod_patch = 28;
-    bool s3_out = 29;
-    Metadata metadata = 30;
-    string reprocess_spec = 31;
-    int64 unclaimed_tasks = 32;
-    string worker_rc = 33;
-    bool autoscaling = 34;
+    int64 datum_tries = 24;
+    SchedulingSpec scheduling_spec = 25;
+    string pod_spec = 26;
+    string pod_patch = 27;
+    bool s3_out = 28;
+    Metadata metadata = 29;
+    string reprocess_spec = 30;
+    int64 unclaimed_tasks = 31;
+    string worker_rc = 32;
+    bool autoscaling = 33;
   }
   Details details = 12;
 }
@@ -424,6 +429,10 @@ message InspectJobSetRequest {
   JobSet job_set = 1;
   bool wait = 2; // When true, wait until all jobs in the set are finished
   bool details = 3;
+}
+
+message ListJobSetRequest {
+  bool details = 1;
 }
 
 message InspectJobRequest {
@@ -612,22 +621,22 @@ message CreatePipelineRequest {
   string description = 13;
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
-  bool reprocess = 16;
-  Service service = 18;
-  Spout spout = 19;
-  DatumSetSpec datum_set_spec = 20;
-  google.protobuf.Duration datum_timeout = 21;
-  google.protobuf.Duration job_timeout = 22;
-  string salt = 23;
-  bool standby = 24;
-  int64 datum_tries = 25;
-  SchedulingSpec scheduling_spec = 26;
-  string pod_spec = 27; // deprecated, use pod_patch below
-  string pod_patch = 28; // a json patch will be applied to the pipeline's pod_spec before it's created;
-  pfs_v2.Commit spec_commit = 29;
-  Metadata metadata = 30;
-  string reprocess_spec = 31;
-  bool autoscaling = 32;
+  bool reprocess = 15;
+  int64 max_queue_size = 16;
+  Service service = 17;
+  Spout spout = 18;
+  DatumSetSpec datum_set_spec = 19;
+  google.protobuf.Duration datum_timeout = 20;
+  google.protobuf.Duration job_timeout = 21;
+  string salt = 22;
+  int64 datum_tries = 23;
+  SchedulingSpec scheduling_spec = 24;
+  string pod_spec = 25; // deprecated, use pod_patch below
+  string pod_patch = 26; // a json patch will be applied to the pipeline's pod_spec before it's created;
+  pfs_v2.Commit spec_commit = 27;
+  Metadata metadata = 28;
+  string reprocess_spec = 29;
+  bool autoscaling = 30;
 }
 
 message InspectPipelineRequest {
@@ -716,6 +725,7 @@ service API {
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
   // ListJob returns information about current and past Pachyderm jobs.
   rpc ListJob(ListJobRequest) returns (stream JobInfo) {}
+  rpc ListJobSet(ListJobSetRequest) returns (stream JobSetInfo) {}
   rpc SubscribeJob(SubscribeJobRequest) returns (stream JobInfo) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}

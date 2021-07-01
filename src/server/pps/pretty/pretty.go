@@ -25,6 +25,8 @@ const (
 	PipelineHeader = "NAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\tDESCRIPTION\t\n"
 	// JobHeader is the header for jobs
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
+	// JobSetHeader is the header for jobsets
+	JobSetHeader = "ID\tJOBS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// DatumHeader is the header for datums
 	DatumHeader = "ID\tFILES\tSTATUS\tTIME\t\n"
 	// SecretHeader is the header for secrets
@@ -66,6 +68,58 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 		fmt.Fprintf(w, "%s: %s\t", JobState(jobInfo.State), safeTrim(jobInfo.Reason, jobReasonLen))
 	} else {
 		fmt.Fprintf(w, "%s\t", JobState(jobInfo.State))
+	}
+	fmt.Fprintln(w)
+}
+
+// PrintJobSetInfo pretty-prints jobset info.
+func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestamps bool) {
+	// Aggregate some data to print from the jobs in the jobset
+	success := 0
+	failure := 0
+	var created *types.Timestamp
+	var modified *types.Timestamp
+	for _, job := range jobSetInfo.Jobs {
+		switch job.State {
+		case ppsclient.JobState_JOB_SUCCESS:
+			success++
+		case ppsclient.JobState_JOB_FAILURE:
+			failure++
+		}
+
+		if created == nil {
+			created = job.Created
+			modified = job.Created
+		} else {
+			if job.Created.Compare(created) < 0 {
+				created = job.Created
+			}
+			if job.Created.Compare(modified) > 0 {
+				modified = job.Created
+			}
+		}
+	}
+
+	fmt.Fprintf(w, "%s\t", jobSetInfo.JobSet.ID)
+	fmt.Fprintf(w, "%d\t", len(jobSetInfo.Jobs))
+	fmt.Fprintf(w, "%s\t", pretty.ProgressBar(8, success, len(jobSetInfo.Jobs)-success-failure, failure))
+	if created != nil {
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", created.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(created))
+		}
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
+	if modified != nil {
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", modified.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(modified))
+		}
+	} else {
+		fmt.Fprintf(w, "-\t")
 	}
 	fmt.Fprintln(w)
 }

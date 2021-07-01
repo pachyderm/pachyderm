@@ -292,7 +292,6 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		Spout:                 pipelineInfo.Details.Spout,
 		SchedulingSpec:        pipelineInfo.Details.SchedulingSpec,
 		DatumTries:            pipelineInfo.Details.DatumTries,
-		Standby:               pipelineInfo.Details.Standby,
 		S3Out:                 pipelineInfo.Details.S3Out,
 		Metadata:              pipelineInfo.Details.Metadata,
 		ReprocessSpec:         pipelineInfo.Details.ReprocessSpec,
@@ -370,20 +369,20 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
 	jobInfo.State = state
 	jobInfo.Reason = reason
-	var empty bool
+	var commitError bool
 	if state == pps.JobState_JOB_FAILURE || state == pps.JobState_JOB_KILLED {
-		empty = true
+		commitError = true
 	}
 	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,
-			Empty:  empty,
+			Error:  commitError,
 		}); err != nil {
 			return err
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: MetaCommit(jobInfo.OutputCommit),
-			Empty:  empty,
+			Error:  commitError,
 		}); err != nil {
 			return err
 		}

@@ -193,7 +193,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 		return nil
 	})
-	if pipelineInfo.Details.Standby || pipelineInfo.Details.Autoscaling {
+	if pipelineInfo.Details.Autoscaling {
 		// Capacity 1 gives us a bit of buffer so we don't needlessly go into
 		// standby when SubscribeCommit takes too long to return.
 		ciChan := make(chan *pfs.CommitInfo, 1)
@@ -456,7 +456,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		}
 		if in.Cron.Overwrite {
 			// get rid of any files, so the new file "overwrites" previous runs
-			err = pachClient.DeleteFile(client.NewCommit(in.Cron.Repo, "master", ""), "")
+			err = pachClient.DeleteFile(client.NewCommit(in.Cron.Repo, "master", ""), "/")
 			if err != nil && !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "delete error")
 			}
