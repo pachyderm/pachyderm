@@ -18,9 +18,8 @@ import (
 )
 
 func TestPostgresCollections(suite *testing.T) {
-	suite.Parallel()
 
-	PostgresCollectionTests(suite, func(ctx context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
+	PostgresCollectionTests(suite, newCollectionFunc(func(ctx context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
 		config := serviceenv.ConfigFromOptions(testutil.NewTestDBConfig(t))
 		options := []dbutil.Option{
 			dbutil.WithHostPort(config.PostgresHost, config.PostgresPort),
@@ -47,14 +46,13 @@ func TestPostgresCollections(suite *testing.T) {
 			require.NoError(t, listener.Close())
 		})
 		return db, listener
-	})
+	}))
 }
 
 // TODO: Add test for filling up watcher buffer.
 func TestPostgresCollectionsProxy(suite *testing.T) {
-	suite.Parallel()
 
-	PostgresCollectionTests(suite, func(_ context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
+	watchTests(suite, newCollectionFunc(func(_ context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
 		dbConfig := testutil.NewTestDBConfig(t)
 		config := serviceenv.ConfigFromOptions(dbConfig)
 		options := []dbutil.Option{
@@ -75,11 +73,11 @@ func TestPostgresCollectionsProxy(suite *testing.T) {
 			require.NoError(t, listener.Close())
 		})
 		return db, listener
-	})
+	}))
 }
 
-func PostgresCollectionTests(suite *testing.T, setup func(context.Context, *testing.T) (*sqlx.DB, col.PostgresListener)) {
-	newCollection := func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
+func newCollectionFunc(setup func(context.Context, *testing.T) (*sqlx.DB, col.PostgresListener)) func(context.Context, *testing.T) (ReadCallback, WriteCallback) {
+	return func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
 		db, listener := setup(ctx, t)
 
 		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, nil)
@@ -99,7 +97,9 @@ func PostgresCollectionTests(suite *testing.T, setup func(context.Context, *test
 
 		return readCallback, writeCallback
 	}
+}
 
+func PostgresCollectionTests(suite *testing.T, newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback)) {
 	collectionTests(suite, newCollection)
 	watchTests(suite, newCollection)
 
