@@ -18,7 +18,7 @@ provider.
       <div class="mdl-card__actions mdl-card--border">
         <ul>
           <li><a href="../hub/hub_getting_started/" class="md-typeset md-link">
-          Getting Started with Hub
+          Get Started on Hub
           </a>
           </li>
           <li><a href="beginner_tutorial/" class="md-typeset md-link">
@@ -43,8 +43,16 @@ provider.
           Deploy Locally
           </a>
           </li>
+          <li><a href="wsl-deploy/" class="md-typeset md-link">
+          Deploy Locally on Windows
+          </a>
+          </li>
           <li><a href="install-pachctl-completion/" class="md-typeset md-link">
           Install pachctl Autocompletion
+          </a>
+          </li>
+          <li><a href="../deploy-manage/manage/pachctl_shell.md/" class="md-typeset md-link">
+          Use pachctl Shell
           </a>
           </li>
           <li><a href="beginner_tutorial/" class="md-typeset md-link">
