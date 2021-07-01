@@ -9,7 +9,7 @@ pachd:
   storage:
     local:
       requireRoot: false
-      hostPath: /tmp/pachyderm
+      hostPath: /tmp/pachyderm/
 postgresql:
   service:
     type: NodePort
