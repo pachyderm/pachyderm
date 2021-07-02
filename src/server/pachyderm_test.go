@@ -3112,7 +3112,7 @@ func TestStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinTRetry(t, time.Second*60, func() error {
+		require.NoErrorWithinTRetry(t, time.Second*90, func() error {
 			pis, err := c.ListPipeline(false)
 			require.NoError(t, err)
 			var standby int
