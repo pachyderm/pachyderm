@@ -1415,12 +1415,6 @@ func now() *types.Timestamp {
 }
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
-	// TODO: Remove when at feature parity.
-	var err error
-	request, err = a.validateV2Features(request)
-	if err != nil {
-		return err
-	}
 	if request.Pipeline == nil {
 		return errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
 	}
@@ -1455,11 +1449,6 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
 	}
 	return nil
-}
-
-// TODO: Implement the appropriate features.
-func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps.CreatePipelineRequest, error) {
-	return request, nil
 }
 
 func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
