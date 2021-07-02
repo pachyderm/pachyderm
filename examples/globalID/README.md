@@ -1,16 +1,31 @@
->![pach_logo](../img/pach_logo.svg) INFO Pachyderm 2.0 introduces profound architectual changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
-> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
-> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
+
+## Before You Start
+
+Global ID as a common TAG that marks all the commits and jobs involved in the chain reaction that is your data driven DAG when trigerred by an initial change (a put file in a repo, an update pipeline). 
+
+Note that we now have 3 types of repos:
+ - User: That keeps track of your data per commit
+ - Spec: That keeps track of the pipeline's specification used in a given job triggered by a commit
+ - Meta: That hold the statistics of your transformation (Not relevant here)
+ Each pipeline comes with one Spec and one Meta repo.
+
+Additionnally, your commits now have an "origin". You can see that origin has "what trigerred the production of this commit".
+ - User: the commit is the result of a user change - This is the initial commit that will cascade into the following:
+
+ - Auto: the commit has been automatically trigered in the chain reaction that is your DAG
+ - Alias: The commit has been tagged with a given ID to make its belonging to the chain reaction related to a change.
+
+ Every initial change is a User change.
 
 ## Inititialization
 ```shell
 make clean
 make init
 ```
-
-## globalID - An unique ID to trace all of the commits and jobs that resulted from an initial change
+## GlobalID - An unique ID to trace all of the commits and jobs that resulted from an initial change
 With GlobalId, all logically-dependent commits share the same ID. 
--  Let our initial change be a `put file` in our initial images repository
+### Let our initial change be a `put file` in our initial images repository
+- Add a file to your input repi `images`
     ```shell
     pachctl put file images@master -i data/images.txt
     ```	
@@ -32,7 +47,7 @@ With GlobalId, all logically-dependent commits share the same ID.
     REPO   BRANCH COMMIT                           FINISHED      SIZE DESCRIPTION
     images master bd48546ed5534b50bbf71d0b3c6dbd28 5 minutes ago 0B   
     ```
-- list the commits in the `edges` and `montage` repos, the same commit ID is listed.
+- list the commits in the `edges` and `montage` repos, and notice the same commit ID
     ```shell
     REPO    BRANCH COMMIT                           FINISHED           SIZE DESCRIPTION
     montage master bd48546ed5534b50bbf71d0b3c6dbd28 About a minute ago 0B
@@ -102,7 +117,7 @@ images       4 hours ago 238.3KiB      [repoOwner]
 pachctl inspect commit edges.spec@bd48546ed5534b50bbf71d0b3c6dbd28 --raw
 pachctl inspect commit montage.spec@bd48546ed5534b50bbf71d0b3c6dbd28 --raw
 ```
-Note that in this case, the commits are **`ALIAS`**. 
+Note that in this case, the same CommitID tags the version of the pipeline used in this transformation, only their type is **`ALIAS`**. 
 
 
 
