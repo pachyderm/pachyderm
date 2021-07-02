@@ -28,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -404,6 +403,7 @@ $ {{alias}} test -p XXX`,
 
 	var from string
 	var number int
+	var originStr string
 	listCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>[@<branch>]",
 		Short: "Return all commits on a repo.",
@@ -442,16 +442,37 @@ $ {{alias}} foo@master --from XXX`,
 				toCommit = branch.NewCommit("")
 			}
 
+			if all && originStr != "" {
+				return errors.New("cannot specify both --all and --origin")
+			}
+
+			origin, err := parseOriginKind(originStr)
+			if err != nil {
+				return err
+			}
+
+			listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
+				Repo:       branch.Repo,
+				From:       fromCommit,
+				To:         toCommit,
+				Number:     uint64(number),
+				All:        all,
+				OriginKind: origin,
+			})
+			if err != nil {
+				return err
+			}
+
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
-				return c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
+				return clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
 					return encoder.EncodeProto(ci)
 				})
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
+			if err := clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -463,6 +484,8 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
 	listCommit.Flags().IntVarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
+	deleteRepo.Flags().BoolVar(&all, "all", false, "return all types of commits, including aliases")
+	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
 	listCommit.Flags().AddFlagSet(outputFlags)
 	listCommit.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
@@ -512,7 +535,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 
 	var newCommits bool
 	subscribeCommit := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch>",
+		Use:   "{{alias}} <repo>[@<branch>]",
 		Short: "Print commits as they are created (finished).",
 		Long:  "Print commits as they are created in the specified repo and branch.  By default, all existing commits on the specified branch are returned first.  A commit is only considered 'created' when it's been finished.",
 		Example: `
@@ -535,12 +558,38 @@ $ {{alias}} test@master --new`,
 			}
 			defer c.Close()
 
+			var fromCommit *pfs.Commit
 			if newCommits && from != "" {
 				return errors.Errorf("--new and --from cannot be used together")
+			} else if newCommits || from != "" {
+				fromCommit = branch.NewCommit(from)
 			}
 
-			if newCommits {
-				from = branch.Name
+			if all && originStr != "" {
+				return errors.New("cannot specify both --all and --origin")
+			}
+
+			origin, err := parseOriginKind(originStr)
+			if err != nil {
+				return err
+			}
+
+			subscribeClient, err := c.PfsAPIClient.SubscribeCommit(c.Ctx(), &pfs.SubscribeCommitRequest{
+				Repo:       branch.Repo,
+				Branch:     branch.Name,
+				From:       fromCommit,
+				State:      pfs.CommitState_STARTED,
+				All:        all,
+				OriginKind: origin,
+			})
+
+			if raw {
+				encoder := cmdutil.Encoder(output, os.Stdout)
+				return clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
+					return encoder.EncodeProto(ci)
+				})
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
@@ -549,16 +598,7 @@ $ {{alias}} test@master --new`,
 					retErr = err
 				}
 			}()
-			var encoder serde.Encoder
-			if raw {
-				encoder = cmdutil.Encoder(output, os.Stdout)
-			} else if output != "" {
-				return errors.New("cannot set --output (-o) without --raw")
-			}
-			return c.SubscribeCommit(branch.Repo, branch.Name, from, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
-				if raw {
-					return encoder.EncodeProto(ci)
-				}
+			return clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(w, ci, fullTimestamps)
 				return nil
 			})
@@ -1680,4 +1720,23 @@ func newClient(name string, options ...client.Option) (*client.APIClient, error)
 		}
 	}
 	return client.NewOnUserMachine(name, options...)
+}
+
+func parseOriginKind(input string) (pfs.OriginKind, error) {
+	if input == "" {
+		return pfs.OriginKind_ORIGIN_KIND_UNKNOWN, nil
+	}
+
+	result := pfs.OriginKind(pfs.OriginKind_value[strings.ToUpper(input)])
+	if result == pfs.OriginKind_ORIGIN_KIND_UNKNOWN {
+		names := []string{}
+		for name, value := range pfs.OriginKind_value {
+			if pfs.OriginKind(value) != pfs.OriginKind_ORIGIN_KIND_UNKNOWN {
+				names = append(names, name)
+			}
+		}
+		return pfs.OriginKind_ORIGIN_KIND_UNKNOWN, errors.Errorf("unknown commit origin type '%s', must be one of: %s", input, strings.Join(names, ", "))
+	}
+
+	return result, nil
 }

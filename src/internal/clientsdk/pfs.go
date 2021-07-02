@@ -85,3 +85,41 @@ func ForEachCommitSet(client pfs.API_ListCommitSetClient, cb func(*pfs.CommitSet
 	}
 	return nil
 }
+
+func ForEachCommit(client pfs.API_ListCommitClient, cb func(*pfs.CommitInfo) error) error {
+	for {
+		x, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if err := cb(x); err != nil {
+			if err == pacherr.ErrBreak {
+				err = nil
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func ForEachSubscribeCommit(client pfs.API_SubscribeCommitClient, cb func(*pfs.CommitInfo) error) error {
+	for {
+		x, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if err := cb(x); err != nil {
+			if err == pacherr.ErrBreak {
+				err = nil
+			}
+			return err
+		}
+	}
+	return nil
+}
