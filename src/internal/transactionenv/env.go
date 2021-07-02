@@ -259,6 +259,11 @@ type ErrInconsistentCommit struct {
 	Commit *pfs.Commit
 }
 
+func (e ErrInconsistentCommit) Is(other error) bool {
+	_, ok := other.(ErrInconsistentCommit)
+	return ok
+}
+
 func (e ErrInconsistentCommit) Error() string {
 	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", e.Commit, e.Branch.Name)
 }
