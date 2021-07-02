@@ -46,7 +46,6 @@ type workerOptions struct {
 	labels                map[string]string   // k8s labels attached to the RC and workers
 	annotations           map[string]string   // k8s annotations attached to the RC and workers
 	parallelism           int32               // Number of replicas the RC maintains
-	cacheSize             string              // Size of cache that sidecar uses
 	resourceRequests      *v1.ResourceList    // Resources requested by pipeline/job pods
 	resourceLimits        *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the user and init containers
 	sidecarResourceLimits *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the sidecar container
@@ -258,7 +257,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	// 64M, but is overridden by the CacheSize setting for the sidecar.
 	cpuZeroQuantity := resource.MustParse("0")
 	memDefaultQuantity := resource.MustParse("64M")
-	memSidecarQuantity := resource.MustParse(options.cacheSize)
+	memSidecarQuantity := resource.MustParse("64M")
 
 	// Get service account name for worker from env or use default
 	workerServiceAccountName, ok := os.LookupEnv(assets.WorkerServiceAccountEnvVar)
@@ -606,7 +605,6 @@ func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOpt
 		volumes:               volumes,
 		volumeMounts:          volumeMounts,
 		imagePullSecrets:      imagePullSecrets,
-		cacheSize:             pipelineInfo.Details.CacheSize,
 		service:               service,
 		schedulingSpec:        pipelineInfo.Details.SchedulingSpec,
 		podSpec:               pipelineInfo.Details.PodSpec,
