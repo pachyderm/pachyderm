@@ -40,18 +40,36 @@ jobs:
          paths:
          - cached-deps/
       - run: etc/testing/circle/start-minikube.sh 
+      - run: etc/testing/circle/launch-loki.sh
+
+      # The build cache will grow indefinitely, so we rotate the cache once a week. 
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      - run: "echo $(($(date +%s)/604800)) > current_week"
       - restore_cache:
          keys:
-         - pach-go-cache-{{ .Branch }}
-         - pach-go-cache-
+         - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+         - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+
+      # Only restore the module cache based on an exact match for go.sum.
+      # This also avoids accumulating old versions of modules over time.
+      - restore_cache:
+         keys:
+         - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
       - run: etc/testing/circle/build.sh 
       - run: etc/testing/circle/launch.sh 
       - run: etc/testing/circle/run_tests.sh 
-      - save_cache:
-         key: pach-go-cache-{{ .Branch }}
-         paths:
-         - /home/circleci/.go_workspace/pkg/mod
-         - /home/circleci/.gocache
+      - when:
+          condition: 
+            equal: [MISC, <<parameters.bucket>> ]
+          steps:
+            - save_cache:
+                key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+                paths:
+                  - /home/circleci/.go_workspace/pkg/mod
+            - save_cache:
+                key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}-{{ .BuildNum }}
+                paths:
+                  - /home/circleci/.gocache
       - run: etc/testing/circle/upload_stats.sh 
       - run:
           name: Dump debugging info in case of failure
@@ -82,4 +100,4 @@ workflows:
               - PPS5
               - PPS6
               - EXAMPLES
-              - OBJECT
+              - INTERNAL

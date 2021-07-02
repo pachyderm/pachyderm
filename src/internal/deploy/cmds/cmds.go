@@ -3,12 +3,9 @@ package cmds
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
-	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -19,20 +16,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
-	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/images"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	_metrics "github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	clientcmd "k8s.io/client-go/tools/clientcmd/api/v1"
 
@@ -47,9 +38,7 @@ var (
 )
 
 const (
-	defaultDashImage   = "pachyderm/dash"
-	defaultDashVersion = "0.5.57"
-	etcdNodePort       = 32379
+	etcdNodePort = 32379
 )
 
 func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
@@ -78,7 +67,7 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 		}
 
 		var buf bytes.Buffer
-		if err := encoder("yaml", &buf).Encode(config); err != nil {
+		if err := cmdutil.Encoder("yaml", &buf).Encode(config); err != nil {
 			return errors.Wrapf(err, "failed to encode config")
 		}
 
@@ -120,32 +109,6 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 	return cmdutil.RunIO(ioObj, args...)
 }
 
-// Generates a random secure token, in hex
-func generateSecureToken(length int) string {
-	b := make([]byte, length)
-	if _, err := rand.Read(b); err != nil {
-		return ""
-	}
-	return hex.EncodeToString(b)
-}
-
-// Return the appropriate encoder for the given output format.
-func encoder(output string, w io.Writer) serde.Encoder {
-	if output == "" {
-		output = "json"
-	} else {
-		output = strings.ToLower(output)
-	}
-	e, err := serde.GetEncoder(output, w,
-		serde.WithIndent(2),
-		serde.WithOrigName(true),
-	)
-	if err != nil {
-		cmdutil.ErrorAndExit(err.Error())
-	}
-	return e
-}
-
 func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 	if dryRun {
 		_, err := os.Stdout.Write(manifest)
@@ -157,10 +120,6 @@ func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 	}
 
 	fmt.Println("\nPachyderm is launching. Check its status with \"kubectl get all\"")
-	if opts.DashOnly || !opts.NoDash {
-		fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
-	}
-	fmt.Println("")
 
 	return nil
 }
@@ -264,8 +223,6 @@ func standardDeployCmds() []*cobra.Command {
 	var outputFormat string
 	var namespace string
 	var serverCert string
-	var dashImage string
-	var dashOnly bool
 	var etcdCPURequest string
 	var etcdMemRequest string
 	var etcdNodes int
@@ -278,8 +235,6 @@ func standardDeployCmds() []*cobra.Command {
 	var imagePullSecret string
 	var localRoles bool
 	var logLevel string
-	var noDash bool
-	var noExposeDockerSocket bool
 	var noGuaranteed bool
 	var noRBAC bool
 	var pachdCPURequest string
@@ -301,16 +256,12 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest. Note that a pachyderm context will not be created, unless you also use `--create-context`.")
 		cmd.Flags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
 		cmd.Flags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
-		cmd.Flags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
-		cmd.Flags().BoolVar(&noDash, "no-dashboard", false, "Don't deploy the Pachyderm UI alongside Pachyderm (experimental).")
 		cmd.Flags().StringVar(&registry, "registry", "", "The registry to pull images from.")
 		cmd.Flags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
-		cmd.Flags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 		cmd.Flags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as on Minikube), it should normally be used for production clusters.")
 		cmd.Flags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
 		cmd.Flags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
 		cmd.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
-		cmd.Flags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
 		cmd.Flags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 		cmd.Flags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
 		cmd.Flags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
@@ -394,15 +345,6 @@ func standardDeployCmds() []*cobra.Command {
 			}
 		}
 
-		// When deploying the enterprise server don't ever install dash.
-		if enterpriseServer {
-			noDash = true
-		}
-
-		if dashImage == "" {
-			dashImage = fmt.Sprintf("%s:%s", defaultDashImage, getCompatibleVersion("dash", "", defaultDashVersion))
-		}
-
 		opts = &assets.AssetOpts{
 			FeatureFlags: assets.FeatureFlags{},
 			EtcdOpts: assets.EtcdOpts{
@@ -427,16 +369,12 @@ func standardDeployCmds() []*cobra.Command {
 			Metrics:                    cfg == nil || cfg.V2.Metrics,
 			PachdCPURequest:            pachdCPURequest,
 			PachdNonCacheMemRequest:    pachdNonCacheMemRequest,
-			DashOnly:                   dashOnly,
-			NoDash:                     noDash,
-			DashImage:                  dashImage,
 			Registry:                   registry,
 			ImagePullSecret:            imagePullSecret,
 			NoGuaranteed:               noGuaranteed,
 			NoRBAC:                     noRBAC,
 			LocalRoles:                 localRoles,
 			Namespace:                  namespace,
-			NoExposeDockerSocket:       noExposeDockerSocket,
 			ClusterDeploymentID:        clusterDeploymentID,
 			RequireCriticalServersOnly: requireCriticalServersOnly,
 			WorkerServiceAccountName:   workerServiceAccountName,
@@ -465,8 +403,6 @@ func standardDeployCmds() []*cobra.Command {
 		}
 		return nil
 	}
-	preRun := cmdutil.Run(preRunInternal)
-
 	deployPreRun := cmdutil.Run(func(args []string) error {
 		if version.IsUnstable() {
 			fmt.Fprintf(os.Stderr, "WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
@@ -525,7 +461,7 @@ func standardDeployCmds() []*cobra.Command {
 
 			var buf bytes.Buffer
 			if err := assets.WriteLocalAssets(
-				encoder(outputFormat, &buf), opts, hostPath,
+				cmdutil.Encoder(outputFormat, &buf), opts, hostPath,
 			); err != nil {
 				return err
 			}
@@ -589,7 +525,7 @@ func standardDeployCmds() []*cobra.Command {
 				cred = string(credBytes)
 			}
 			if err = assets.WriteGoogleAssets(
-				encoder(outputFormat, &buf), opts, bucket, cred, volumeSize,
+				cmdutil.Encoder(outputFormat, &buf), opts, bucket, cred, volumeSize,
 			); err != nil {
 				return err
 			}
@@ -648,7 +584,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
 			if err := assets.WriteCustomAssets(
-				encoder(outputFormat, &buf), opts, args, objectStoreBackend,
+				cmdutil.Encoder(outputFormat, &buf), opts, args, objectStoreBackend,
 				persistentDiskBackend, secure, isS3V2, advancedConfig,
 			); err != nil {
 				return err
@@ -683,7 +619,6 @@ If <object store backend> is \"s3\", then the arguments are:
 
 	var cloudfrontDistribution string
 	var creds string
-	var iamRole string
 	deployAmazon := &cobra.Command{
 		Use:   "{{alias}} <region> <disk-size> [<bucket-name>]",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
@@ -703,7 +638,7 @@ If <object store backend> is \"s3\", then the arguments are:
 
 			// Require credentials to access S3 for pachd deployments.
 			// Enterprise server deployments don't require an S3 bucket, so they don't need credentials.
-			if creds == "" && iamRole == "" && !enterpriseServer {
+			if creds == "" && !enterpriseServer {
 				return errors.Errorf("one of --credentials, or --iam-role needs to be provided")
 			}
 
@@ -738,12 +673,6 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 			}
 
-			if iamRole != "" {
-				if amazonCreds != nil {
-					return errors.Errorf("only one of --credentials, or --iam-role needs to be provided")
-				}
-				opts.IAMRole = iamRole
-			}
 			volumeSize, err := strconv.Atoi(args[1])
 			if err != nil {
 				return errors.Errorf("volume size needs to be an integer; instead got %v", args[1])
@@ -785,7 +714,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
 			if err = assets.WriteAmazonAssets(
-				encoder(outputFormat, &buf), opts, region, bucket, volumeSize,
+				cmdutil.Encoder(outputFormat, &buf), opts, region, bucket, volumeSize,
 				amazonCreds, cloudfrontDistribution, advancedConfig,
 			); err != nil {
 				return err
@@ -812,7 +741,6 @@ If <object store backend> is \"s3\", then the arguments are:
 			"an alpha feature. No security restrictions have been"+
 			"applied to cloudfront, making all data public (obscured but not secured)")
 	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format \"<id>,<secret>[,<token>]\". You can get a token by running \"aws sts get-session-token\".")
-	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", fmt.Sprintf("Use the given IAM role for authorization, as opposed to using static credentials. The given role will be applied as the annotation %s, this used with a Kubernetes IAM role management system such as kube2iam allows you to give pachd credentials in a more secure way.", assets.IAMAnnotation))
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy amazon"))
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy aws"))
 
@@ -859,7 +787,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 			var buf bytes.Buffer
 			if err = assets.WriteMicrosoftAssets(
-				encoder(outputFormat, &buf), opts, container, accountName, accountKey, volumeSize,
+				cmdutil.Encoder(outputFormat, &buf), opts, container, accountName, accountKey, volumeSize,
 			); err != nil {
 				return err
 			}
@@ -883,162 +811,12 @@ If <object store backend> is \"s3\", then the arguments are:
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy azure"))
 
-	deployStorageSecrets := func(data map[string][]byte) error {
-		cfg, err := config.Read(false, false)
-		if err != nil {
-			return err
-		}
-		_, activeContext, err := cfg.ActiveContext(true)
-		if err != nil {
-			return err
-		}
-
-		// clean up any empty, but non-nil strings in the data, since those will prevent those fields from getting merged when we do the patch
-		for k, v := range data {
-			if v != nil && len(v) == 0 {
-				delete(data, k)
-			}
-		}
-
-		var buf bytes.Buffer
-		if err = assets.WriteSecret(encoder(outputFormat, &buf), data, opts); err != nil {
-			return err
-		}
-		if dryRun {
-			_, err := os.Stdout.Write(buf.Bytes())
-			return err
-		}
-
-		s := buf.String()
-		return kubectl(&buf, activeContext, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
-	}
-
-	deployStorageAmazon := &cobra.Command{
-		Use:    "{{alias}} <region> <access-key-id> <secret-access-key> [<session-token>]",
-		Short:  "Deploy credentials for the Amazon S3 storage provider.",
-		Long:   "Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can ingress data from and egress data to it.",
-		PreRun: preRun,
-		Run: cmdutil.RunBoundedArgs(3, 4, func(args []string) error {
-			var token string
-			if len(args) == 4 {
-				token = args[3]
-			}
-			// Setup advanced configuration.
-			advancedConfig := &obj.AmazonAdvancedConfiguration{
-				Retries:        retries,
-				Timeout:        timeout,
-				UploadACL:      uploadACL,
-				PartSize:       partSize,
-				MaxUploadParts: maxUploadParts,
-				DisableSSL:     disableSSL,
-				NoVerifySSL:    noVerifySSL,
-				LogOptions:     logOptions,
-			}
-			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", "", advancedConfig))
-		}),
-	}
-	appendGlobalFlags(deployStorageAmazon)
-	appendS3Flags(deployStorageAmazon)
-	commands = append(commands, cmdutil.CreateAlias(deployStorageAmazon, "deploy storage amazon"))
-
-	deployStorageGoogle := &cobra.Command{
-		Use:    "{{alias}} <credentials-file>",
-		Short:  "Deploy credentials for the Google Cloud storage provider.",
-		Long:   "Deploy credentials for the Google Cloud storage provider, so that Pachyderm can ingress data from and egress data to it.",
-		PreRun: preRun,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			credBytes, err := ioutil.ReadFile(args[0])
-			if err != nil {
-				return errors.Wrapf(err, "error reading credentials file %s", args[0])
-			}
-			return deployStorageSecrets(assets.GoogleSecret("", string(credBytes)))
-		}),
-	}
-	appendGlobalFlags(deployStorageGoogle)
-	commands = append(commands, cmdutil.CreateAlias(deployStorageGoogle, "deploy storage google"))
-
-	deployStorageAzure := &cobra.Command{
-		Use:    "{{alias}} <account-name> <account-key>",
-		Short:  "Deploy credentials for the Azure storage provider.",
-		Long:   "Deploy credentials for the Azure storage provider, so that Pachyderm can ingress data from and egress data to it.",
-		PreRun: preRun,
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			return deployStorageSecrets(assets.MicrosoftSecret("", args[0], args[1]))
-		}),
-	}
-	appendGlobalFlags(deployStorageAzure)
-	commands = append(commands, cmdutil.CreateAlias(deployStorageAzure, "deploy storage microsoft"))
-
-	deployStorage := &cobra.Command{
-		Short: "Deploy credentials for a particular storage provider.",
-		Long:  "Deploy credentials for a particular storage provider, so that Pachyderm can ingress data from and egress data to it.",
-	}
-	commands = append(commands, cmdutil.CreateAlias(deployStorage, "deploy storage"))
-
-	listImages := &cobra.Command{
-		Short:  "Output the list of images in a deployment.",
-		Long:   "Output the list of images in a deployment.",
-		PreRun: preRun,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			for _, image := range assets.Images(opts) {
-				fmt.Println(image)
-			}
-			return nil
-		}),
-	}
-	appendGlobalFlags(listImages)
-	commands = append(commands, cmdutil.CreateAlias(listImages, "deploy list-images"))
-
-	exportImages := &cobra.Command{
-		Use:    "{{alias}} <output-file>",
-		Short:  "Export a tarball (to stdout) containing all of the images in a deployment.",
-		Long:   "Export a tarball (to stdout) containing all of the images in a deployment.",
-		PreRun: preRun,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			file, err := os.Create(args[0])
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := file.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			return images.Export(opts, file)
-		}),
-	}
-	appendGlobalFlags(exportImages)
-	commands = append(commands, cmdutil.CreateAlias(exportImages, "deploy export-images"))
-
-	importImages := &cobra.Command{
-		Use:    "{{alias}} <input-file>",
-		Short:  "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
-		Long:   "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
-		PreRun: preRun,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			file, err := os.Open(args[0])
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := file.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			return images.Import(opts, file)
-		}),
-	}
-	appendGlobalFlags(importImages)
-	commands = append(commands, cmdutil.CreateAlias(importImages, "deploy import-images"))
-
 	return commands
 }
 
 // Cmds returns a list of cobra commands for deploying Pachyderm clusters.
 func Cmds() []*cobra.Command {
 	commands := standardDeployCmds()
-	deployIDE := createDeployIDECmd()
-	commands = append(commands, cmdutil.CreateAlias(deployIDE, "deploy ide"))
 
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
@@ -1050,98 +828,4 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(undeployCmd, "undeploy"))
 
 	return commands
-}
-
-// getCompatibleVersion gets the compatible version of another piece of
-// software, or falls back to a default
-func getCompatibleVersion(displayName, subpath, defaultValue string) string {
-	var relVersion string
-	// This is the branch where to look.
-	// When a new version needs to be pushed we can just update the
-	// compatibility file in pachyderm repo branch. A (re)deploy will pick it
-	// up. To make this work we have to point the URL to the branch (not tag)
-	// in the repo.
-	branch := version.BranchFromVersion(version.Version)
-	if version.IsCustomRelease(version.Version) {
-		relVersion = version.PrettyPrintVersionNoAdditional(version.Version)
-	} else {
-		relVersion = version.PrettyPrintVersion(version.Version)
-	}
-
-	url := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/compatibility%s/etc/%s/%s", branch, subpath, relVersion)
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Warningf("error looking up compatible version of %s, falling back to %s: %v", displayName, defaultValue, err)
-		return defaultValue
-	}
-
-	// Error on non-200; for the requests we're making, 200 is the only OK
-	// state
-	if resp.StatusCode != 200 {
-		log.Warningf("error looking up compatible version of %s, falling back to %s: unexpected return code %d", displayName, defaultValue, resp.StatusCode)
-		return defaultValue
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Warningf("error looking up compatible version of %s, falling back to %s: %v", displayName, defaultValue, err)
-		return defaultValue
-	}
-
-	allVersions := strings.Split(strings.TrimSpace(string(body)), "\n")
-	if len(allVersions) < 1 {
-		log.Warningf("no compatible version of %s found, falling back to %s", displayName, defaultValue)
-		return defaultValue
-	}
-	latestVersion := strings.TrimSpace(allVersions[len(allVersions)-1])
-	return latestVersion
-}
-
-// addOIDCClient registers a new OIDC client for the app, and makes it a trusted peer of this app.
-// If the client already exists, it will return the existing client secret.
-func addOIDCClient(c *client.APIClient, clientID, redirectURI string) (string, string, error) {
-	authConfig, err := c.GetConfiguration(c.Ctx(), &auth.GetConfigurationRequest{})
-	if err != nil {
-		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get auth configuration")
-	}
-	pachdClient, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: authConfig.Configuration.ClientID})
-	if err != nil {
-		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get the OIDC config for pachd")
-	}
-
-	if err := func() error {
-		// If the client ID is already a trusted peer, don't add  it again
-		for _, peer := range pachdClient.Client.TrustedPeers {
-			if peer == clientID {
-				return nil
-			}
-		}
-
-		pachdClient.Client.TrustedPeers = append(pachdClient.Client.TrustedPeers, clientID)
-		_, err = c.UpdateOIDCClient(c.Ctx(), &identity.UpdateOIDCClientRequest{Client: pachdClient.Client})
-		return err
-	}(); err != nil {
-		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not update OIDC config for pachd")
-	}
-
-	existingOIDCClient, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: clientID})
-	if err == nil {
-		if len(existingOIDCClient.Client.RedirectUris) != 1 || existingOIDCClient.Client.RedirectUris[0] != redirectURI {
-			return "", "", errors.New("another client is already registered with this ID")
-		}
-		return authConfig.Configuration.ClientID, existingOIDCClient.Client.Secret, nil
-	}
-
-	oidcClient, err := c.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{
-		Client: &identity.OIDCClient{
-			Id:           clientID,
-			Name:         clientID,
-			RedirectUris: []string{redirectURI},
-		},
-	})
-
-	if err != nil {
-		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create new OIDC client")
-	}
-	return authConfig.Configuration.ClientID, oidcClient.Client.Secret, nil
 }

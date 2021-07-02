@@ -14,11 +14,13 @@ import "auth/auth.proto";
 ////  PFS Data structures (stored in etcd)
 
 message Repo {
+  option (gogoproto.goproto_stringer) = false;
   string name = 1;
   string type = 2;
 }
 
 message Branch {
+  option (gogoproto.goproto_stringer) = false;
   Repo repo = 1;
   string name = 2;
 }
@@ -67,10 +69,6 @@ message BranchInfo {
   Trigger trigger = 6;
 }
 
-message BranchInfos {
-  repeated BranchInfo branch_info = 1;
-}
-
 // Trigger defines the conditions under which a head is moved, and to which
 // branch it is moved.
 message Trigger {
@@ -90,10 +88,11 @@ message Trigger {
 
 // These are the different places where a commit may be originated from
 enum OriginKind {
-  USER = 0;
-  AUTO = 1;
-  FSCK = 2;
-  ALIAS = 3;
+  ORIGIN_KIND_UNKNOWN = 0;
+  USER = 1;
+  AUTO = 2;
+  FSCK = 3;
+  ALIAS = 4;
 }
 
 message CommitOrigin {
@@ -103,6 +102,7 @@ message CommitOrigin {
 // collection of currently-open commits in etcd are collections of Commit
 // protos)
 message Commit {
+  option (gogoproto.goproto_stringer) = false;
   Branch branch = 1;
   string id = 2 [(gogoproto.customname) = "ID"];
 }
@@ -117,12 +117,23 @@ message CommitInfo {
   repeated Commit child_commits = 5;
   google.protobuf.Timestamp started = 6;
   google.protobuf.Timestamp finished = 7;
-  uint64 size_bytes = 8;
-  repeated Branch direct_provenance = 9;
+  repeated Branch direct_provenance = 8;
+  bool error = 9; 
+
+  // Details are only provided when explicitly requested
+  message Details {
+    uint64 size_bytes = 1;
+  }
+  Details details = 10;
 }
 
 message CommitSet {
   string id = 1 [(gogoproto.customname) = "ID"];
+}
+
+message CommitSetInfo {
+  CommitSet commit_set = 1;
+  repeated CommitInfo commits = 2;
 }
 
 enum FileType {
@@ -134,9 +145,13 @@ enum FileType {
 message FileInfo {
   File file = 1;
   FileType file_type = 2;
-  uint64 size_bytes = 3;
-  google.protobuf.Timestamp committed = 4;
-  bytes hash = 5;
+  google.protobuf.Timestamp committed = 3;
+
+  message Details {
+    uint64 size_bytes = 1;
+    bytes hash = 2;
+  }
+  Details details = 4;
 }
 
 // PFS API
@@ -157,10 +172,6 @@ message ListRepoRequest {
   string type = 1;
 }
 
-message ListRepoResponse {
-  repeated RepoInfo repo_info = 1;
-}
-
 message DeleteRepoRequest {
   Repo repo = 1;
   bool force = 2;
@@ -169,9 +180,10 @@ message DeleteRepoRequest {
 // CommitState describes the states a commit can be in.
 // The states are increasingly specific, i.e. a commit that is FINISHED also counts as STARTED.
 enum CommitState {
-  STARTED = 0; // The commit has been started, all commits satisfy this state.
-  READY = 1; // The commit has been started, and all of its provenant commits have been finished.
-  FINISHED = 2; // The commit has been finished.
+  COMMIT_STATE_UNKNOWN = 0;
+  STARTED = 1; // The commit has been started, all commits satisfy this state.
+  READY = 2; // The commit has been started, and all of its provenant commits have been finished.
+  FINISHED = 3; // The commit has been finished.
 }
 
 message StartCommitRequest {
@@ -188,10 +200,7 @@ message FinishCommitRequest {
   // description is a user-provided string describing this commit. Setting this
   // will overwrite the description set in StartCommit
   string description = 2;
-  uint64 size_bytes = 3;
-  // If set, 'commit' will be closed (its 'finished' field will be set to the
-  // current time) but its 'tree' will be left nil.
-  bool empty = 4;
+  bool error = 3;
 }
 
 message InspectCommitRequest {
@@ -211,6 +220,9 @@ message ListCommitRequest {
 message InspectCommitSetRequest {
   CommitSet commit_set = 1;
   bool wait = 2; // When true, wait until all commits in the set are finished
+}
+
+message ListCommitSetRequest {
 }
 
 message SquashCommitSetRequest {
@@ -313,7 +325,7 @@ message ListFileRequest {
   // If the "path" field is omitted, a list of files at the top level of the repo
   // is returned
   File file = 1;
-  bool full = 2;
+  bool details = 2;
 // TODO:
 //  // History indicates how many historical versions you want returned. Its
 //  // semantics are:
@@ -398,7 +410,7 @@ service API {
   // InspectRepo returns info about a repo.
   rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
   // ListRepo returns info about all repos.
-  rpc ListRepo(ListRepoRequest) returns (ListRepoResponse) {}
+  rpc ListRepo(ListRepoRequest) returns (stream RepoInfo) {}
   // DeleteRepo deletes a repo.
   rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
 
@@ -417,6 +429,8 @@ service API {
 
   // InspectCommitSet returns the info about a CommitSet.
   rpc InspectCommitSet(InspectCommitSetRequest) returns (stream CommitInfo) {}
+  // ListCommitSet returns info about all CommitSets.
+  rpc ListCommitSet(ListCommitSetRequest) returns (stream CommitSetInfo) {}
   // SquashCommitSet squashes the commits of a CommitSet into their children.
   rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
 
@@ -425,7 +439,7 @@ service API {
   // InspectBranch returns info about a branch.
   rpc InspectBranch(InspectBranchRequest) returns (BranchInfo) {}
   // ListBranch returns info about the heads of branches.
-  rpc ListBranch(ListBranchRequest) returns (BranchInfos) {}
+  rpc ListBranch(ListBranchRequest) returns (stream BranchInfo) {}
   // DeleteBranch deletes a branch; note that the commits still exist.
   rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
 

@@ -1,0 +1,190 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.pachd.enabled }}
+{{- $randHostPath := printf "/var/pachyderm-%s/" (randAlphaNum 5) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pachd
+    suite: pachyderm
+  name: pachd
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pachd
+      suite: pachyderm
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        checksum/storage-secret: {{ include (print $.Template.BasePath "/pachd/storage-secret.yaml") . | sha256sum }}
+      labels:
+        app: pachd
+        suite: pachyderm
+        {{- if .Values.pachd.podLabels }}
+        {{- toYaml .Values.pachd.podLabels | nindent 8 }}
+        {{- end }}
+      name: pachd
+      namespace: {{ .Release.Namespace }}
+    spec:
+      {{-  if .Values.pachd.affinity }}
+      affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.imagePullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret | quote }}
+      {{- end }}
+      containers:
+      - command:
+        - /pachd
+        env:
+        {{- if .Values.pachd.postgresql.host }}
+        - name: POSTGRES_HOST
+          value: {{ .Values.pachd.postgresql.host | quote}}
+        {{- end }}
+        {{- if .Values.pachd.postgresql.port }}
+        - name: POSTGRES_PORT
+          value:  {{ .Values.pachd.postgresql.port | quote}}
+        {{- end }}
+        {{- if .Values.pachd.postgresql.user }}
+        - name: POSTGRES_USER
+          value: {{ .Values.pachd.postgresql.user | quote}}
+        {{- end }}
+        {{- if .Values.pachd.postgresql.ssl }}
+        - name: POSTGRES_SSL
+          value: {{ .Values.pachd.postgresql.ssl | quote }}
+        {{- end}}
+        - name: LOKI_LOGGING
+          value: {{ .Values.pachd.lokiLogging | quote}}
+        - name: PACH_ROOT
+          value: "/pach"
+        - name: ETCD_PREFIX
+          #value:
+        - name: STORAGE_BACKEND
+          value: {{ include "pachyderm.storageBackend" . | quote }}
+          {{- if eq .Values.deployTarget "LOCAL" }}
+        - name: STORAGE_HOST_PATH
+          value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
+          {{- end }}
+        - name: WORKER_IMAGE
+          value: "{{ .Values.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        - name: IMAGE_PULL_SECRET
+          value: {{ .Values.imagePullSecret | quote }}
+        - name: WORKER_SIDECAR_IMAGE
+          value: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        - name: WORKER_IMAGE_PULL_POLICY
+          value: {{ .Values.worker.image.pullPolicy | quote }}
+        - name: WORKER_SERVICE_ACCOUNT
+          value: {{ .Values.worker.serviceAccount.name | quote }}
+        - name: METRICS
+          value: {{ .Values.pachd.metrics.enabled | quote }}
+        {{- if .Values.pachd.metricsEndpoint}}
+        - name: METRICS_ENDPOINT
+          value: "{{ .Values.pachd.metricsEndpoint }}"
+        {{- end }}
+        {{- if and .Values.pachd.goMaxProcs (gt .Values.pachd.goMaxProcs 0.0)}}
+        - name: GOMAXPROCS # Needs to be PR'd to 2.0
+          value: {{ .Values.pachd.goMaxProcs | quote }}
+        {{- end }}
+        - name: LOG_LEVEL
+          value: {{ .Values.pachd.logLevel }}
+        - name: PACH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        {{- if and .Values.pachd.resources .Values.pachd.resources.memory }}
+        - name: PACHD_MEMORY_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              containerName: pachd
+              divisor: "0"
+              resource: requests.memory
+        {{- end }}
+        {{- if .Values.pachd.clusterDeploymentID }}
+        - name: CLUSTER_DEPLOYMENT_ID
+          value: {{ .Values.pachd.clusterDeploymentID | quote }}
+        {{- end }}
+        - name: REQUIRE_CRITICAL_SERVERS_ONLY
+          value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
+        - name: PACHD_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: PPS_WORKER_GRPC_PORT
+          value: {{ .Values.pachd.ppsWorkerGRPCPort | quote }}
+        - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
+          value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
+        - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
+          value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
+        envFrom:
+          - secretRef:
+              name: pachyderm-storage-secret
+        image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
+        name: pachd
+        ports:
+        - containerPort: 1600
+          name: s3gateway-port
+          protocol: TCP
+        - containerPort: 1650
+          name: api-grpc-port
+          protocol: TCP
+        - containerPort: 1653
+          name: peer-port
+          protocol: TCP
+        - containerPort: 1657
+          name: oidc-port
+          protocol: TCP
+        - containerPort: 1658
+          name: identity-port
+          protocol: TCP
+        - containerPort: 1656 #Confirm for 2.0
+          name: prom-metrics
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
+        {{- if .Values.pachd.resources }}
+        resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /pach
+          name: pach-disk
+        - mountPath: /pachyderm-storage-secret
+          name: pachyderm-storage-secret
+        {{- if .Values.pachd.tls.enabled }}
+        - mountPath: /pachd-tls-cert
+          name: pachd-tls-cert
+        {{- end }}
+      {{- if and (eq .Values.deployTarget "LOCAL") .Values.pachd.storage.local.requireRoot }}
+      securityContext:
+        runAsUser: 0 # Need to run as root local for hostpath support
+      {{- end }}
+      {{- if .Values.pachd.serviceAccount.name }}
+      serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
+      {{- end }}
+      volumes:
+      - name: pach-disk
+        {{- if eq .Values.deployTarget "LOCAL" }}
+        hostPath:
+          path: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
+          type: DirectoryOrCreate
+        {{- end }}
+      - name: pachyderm-storage-secret
+        secret:
+          secretName: pachyderm-storage-secret
+      {{- if .Values.pachd.tls.enabled }}
+      - name: pachd-tls-cert
+        secret:
+          secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
+      {{- end }}
+{{- end }}

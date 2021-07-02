@@ -111,6 +111,7 @@ func init() {
 		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_DEBUG_DUMP,
+			auth.Permission_CLUSTER_GET_PACHD_LOGS,
 		},
 	})
 
@@ -149,6 +150,14 @@ func init() {
 		},
 	})
 
+	pachdLogReaderRole := registerRole(&auth.Role{
+		Name:          auth.PachdLogReaderRole,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Permissions: []auth.Permission{
+			auth.Permission_CLUSTER_GET_PACHD_LOGS,
+		},
+	})
+
 	// clusterAdmin is a catch-all role that has every permission
 	registerRole(&auth.Role{
 		Name:          auth.ClusterAdminRole,
@@ -162,6 +171,7 @@ func init() {
 			robotUserRole.Permissions,
 			licenseAdminRole.Permissions,
 			secretAdminRole.Permissions,
+			pachdLogReaderRole.Permissions,
 			[]auth.Permission{
 				auth.Permission_CLUSTER_MODIFY_BINDINGS,
 				auth.Permission_CLUSTER_GET_BINDINGS,

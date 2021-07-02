@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/s2"
@@ -173,7 +172,7 @@ func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 	for _, bucket := range d.namesMap {
 		timestamp, ok := timestamps[pfsdb.RepoKey(bucket.Commit.Branch.Repo)]
 		if !ok {
-			return errors.Errorf("worker s3gateway configuration includes repo %q, which does not exist", pretty.CompactPrintRepo(bucket.Commit.Branch.Repo))
+			return errors.Errorf("worker s3gateway configuration includes repo %q, which does not exist", bucket.Commit.Branch.Repo)
 		}
 		*buckets = append(*buckets, &s2.Bucket{
 			Name:         bucket.Name,

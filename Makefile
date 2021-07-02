@@ -112,9 +112,6 @@ docker-gpu: docker-build-gpu docker-push-gpu
 
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
-docker-build-test-entrypoint:
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_entrypoint etc/testing/entrypoint
-
 docker-tag:
 	docker tag pachyderm/pachd pachyderm/pachd:$(VERSION)
 	docker tag pachyderm/worker pachyderm/worker:$(VERSION)
@@ -237,11 +234,7 @@ test-postgres:
 test-pfs-server: test-postgres
 	./etc/testing/pfs_server.sh $(TIMEOUT) $(TESTFLAGS)
 
-test-pfs-storage: test-postgres
-	go test -count=1 ./src/internal/storage/... -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -count=1 ./src/internal/migrations/... $(TESTFLAGS)
-
-test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
+test-pps: launch-stats docker-build-spout-test 
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
@@ -249,7 +242,6 @@ test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 test-cmds:
 	go install -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/internal/deploy/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
@@ -263,18 +255,6 @@ test-transaction:
 
 test-client:
 	go test -count=1 -cover $$(go list ./src/client/...) $(TESTFLAGS)
-
-test-object-clients:
-	# The parallelism is lowered here because these tests run several pachd
-	# deployments in kubernetes which may contest resources.
-	go test -count=1 ./src/internal/obj/integrationtests -timeout $(TIMEOUT) -parallel=2 $(TESTFLAGS)
-	go test -count=1 ./src/internal/obj -timeout $(TIMEOUT) $(TESTFLAGS)
-
-test-libs:
-	go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off $(TESTFLAGS)
-	go test -count=1 ./src/internal/cert -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -count=1 ./src/internal/work -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-s3gateway-conformance:
 	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
@@ -330,9 +310,6 @@ test-worker-helper:
 
 clean: clean-launch clean-launch-kube
 
-compatibility:
-	./etc/build/compatibility.sh
-
 clean-launch-kafka:
 	kubectl delete -f etc/kubernetes-kafka -R
 
@@ -345,28 +322,6 @@ clean-launch-stats:
 
 launch-stats:
 	kubectl apply --filename etc/kubernetes-prometheus -R
-
-clean-launch-monitoring:
-	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
-
-launch-monitoring:
-	kubectl create -f ./etc/plugin/monitoring
-	@echo "Waiting for services to spin up ..."
-	kubectl wait --for=condition=ready pod -l k8s-app=heapster --namespace kube-system --timeout=5m
-	kubectl wait --for=condition=ready pod -l k8s-app=influxdb --namespace kube-system --timeout=5m
-	kubectl wait --for=condition=ready pod -l k8s-app=grafana --namespace kube-system --timeout=5m
-	@echo "All services up. Now port forwarding grafana to localhost:3000"
-	kubectl --namespace=kube-system port-forward `kubectl --namespace=kube-system get pods -l k8s-app=grafana -o json | jq '.items[0].metadata.name' -r` 3000:3000 &
-
-clean-launch-logging: check-kubectl check-kubectl-connection
-	git submodule update --init
-	cd etc/plugin/logging && ./undeploy.sh
-
-launch-logging: check-kubectl check-kubectl-connection
-	@# Creates Fluentd / Elasticsearch / Kibana services for logging under --namespace=monitoring
-	git submodule update --init
-	cd etc/plugin/logging && ./deploy.sh
-	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
 
 launch-loki:
 	helm repo remove loki || true
@@ -508,15 +463,10 @@ check-buckets:
 	test-worker \
 	test-worker-helper \
 	clean \
-	compatibility \
 	clean-launch-kafka \
 	launch-kafka \
 	clean-launch-stats \
 	launch-stats \
-	clean-launch-monitoring \
-	launch-monitoring \
-	clean-launch-logging \
-	launch-logging \
 	launch-loki \
 	clean-launch-loki \
 	launch-enterprise \

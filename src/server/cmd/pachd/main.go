@@ -3,7 +3,6 @@ package main
 import (
 	gotls "crypto/tls"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path"
@@ -26,7 +25,6 @@ import (
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
-	"github.com/pachyderm/pachyderm/v2/src/internal/netutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -34,13 +32,14 @@ import (
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
+	proxyclient "github.com/pachyderm/pachyderm/v2/src/proxy"
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	"google.golang.org/grpc/health"
 
-	pach_http "github.com/pachyderm/pachyderm/v2/src/server/http"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
@@ -75,7 +74,7 @@ func main() {
 
 	switch {
 	case readiness:
-		cmdutil.Main(doReadinessCheck, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(doReadinessCheck, &serviceenv.GlobalConfiguration{})
 	case mode == "full":
 		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "enterprise":
@@ -173,8 +172,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -267,8 +265,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -419,10 +416,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 			txnEnv,
 			path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
 			env.Config().Namespace,
-			env.Config().IAMRole,
 			reporter,
 			env.Config().PPSWorkerPort,
-			env.Config().HTTPPort,
 			env.Config().PeerPort,
 		)
 		if err != nil {
@@ -547,11 +542,6 @@ func doFullMode(config interface{}) (retErr error) {
 	if env.Config().Metrics {
 		reporter = metrics.NewReporter(env)
 	}
-	ip, err := netutil.ExternalIP()
-	if err != nil {
-		return errors.Wrapf(err, "error getting pachd external ip")
-	}
-	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.Config().PeerPort))
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 
 	// Setup External Pachd GRPC Server.
@@ -652,8 +642,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -688,6 +677,12 @@ func doFullMode(config interface{}) (retErr error) {
 				env.Config().PachdPodName,
 				nil,
 			))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Proxy API", func() error {
+			proxyclient.RegisterAPIServer(externalServer.Server, proxyserver.NewAPIServer(env))
 			return nil
 		}); err != nil {
 			return err
@@ -780,8 +775,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -822,6 +816,12 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		if err := logGRPCServerSetup("Proxy API", func() error {
+			proxyclient.RegisterAPIServer(internalServer.Server, proxyserver.NewAPIServer(env))
+			return nil
+		}); err != nil {
+			return err
+		}
 		txnEnv.Initialize(env, transactionAPIServer)
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
@@ -840,32 +840,6 @@ func doFullMode(config interface{}) (retErr error) {
 	})
 	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
-	})
-	go waitForError("HTTP Server", errChan, requireNoncriticalServers, func() error {
-		httpServer, err := pach_http.NewHTTPServer(address)
-		if err != nil {
-			return err
-		}
-		server := http.Server{
-			Addr:    fmt.Sprintf(":%v", env.Config().HTTPPort),
-			Handler: httpServer,
-		}
-
-		certPath, keyPath, err := tls.GetCertPaths()
-		if err != nil {
-			log.Warnf("pfs-over-HTTP - TLS disabled: %v", err)
-			return server.ListenAndServe()
-		}
-
-		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-		err = cLoader.LoadAndStart()
-		if err != nil {
-			return errors.Wrapf(err, "couldn't load TLS cert for pfs-over-http: %v", err)
-		}
-
-		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-
-		return server.ListenAndServeTLS(certPath, keyPath)
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
 		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {

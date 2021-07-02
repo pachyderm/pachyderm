@@ -30,16 +30,13 @@ func NewAPIServer(
 		storageRoot:           env.Config().StorageRoot,
 		storageBackend:        env.Config().StorageBackend,
 		storageHostPath:       env.Config().StorageHostPath,
-		iamRole:               env.Config().IAMRole,
 		imagePullSecret:       env.Config().ImagePullSecret,
-		noExposeDockerSocket:  env.Config().NoExposeDockerSocket,
 		reporter:              reporter,
 		workerUsesRoot:        env.Config().WorkerUsesRoot,
 		pipelines:             ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener()),
 		jobs:                  ppsdb.Jobs(env.GetDBClient(), env.GetPostgresListener()),
 		workerGrpcPort:        env.Config().PPSWorkerPort,
 		port:                  env.Config().Port,
-		httpPort:              env.Config().HTTPPort,
 		peerPort:              env.Config().PeerPort,
 		gcPercent:             env.Config().GCPercent,
 	}
@@ -56,10 +53,8 @@ func NewSidecarAPIServer(
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 	namespace string,
-	iamRole string,
 	reporter *metrics.Reporter,
 	workerGrpcPort uint16,
-	httpPort uint16,
 	peerPort uint16,
 ) (*apiServer, error) {
 	apiServer := &apiServer{
@@ -67,14 +62,12 @@ func NewSidecarAPIServer(
 		env:            env,
 		txnEnv:         txnEnv,
 		etcdPrefix:     etcdPrefix,
-		iamRole:        iamRole,
 		reporter:       reporter,
 		namespace:      namespace,
 		workerUsesRoot: true,
 		pipelines:      ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener()),
 		jobs:           ppsdb.Jobs(env.GetDBClient(), env.GetPostgresListener()),
 		workerGrpcPort: workerGrpcPort,
-		httpPort:       httpPort,
 		peerPort:       peerPort,
 	}
 	go apiServer.ServeSidecarS3G()

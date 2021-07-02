@@ -468,7 +468,7 @@ func (c APIClient) GetFileReadSeeker(commit *pfs.Commit, path string) (io.ReadSe
 		c:      c,
 		file:   commit.NewFile(path),
 		offset: 0,
-		size:   int64(fi.SizeBytes),
+		size:   int64(fi.Details.SizeBytes),
 	}, nil
 }
 
@@ -701,9 +701,6 @@ func (c APIClient) DiffFileAll(newCommit *pfs.Commit, newPath string, oldCommit 
 
 // WalkFile walks the files under path.
 func (c APIClient) WalkFile(commit *pfs.Commit, path string, cb func(*pfs.FileInfo) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	client, err := c.PfsAPIClient.WalkFile(
 		c.Ctx(),
 		&pfs.WalkFileRequest{

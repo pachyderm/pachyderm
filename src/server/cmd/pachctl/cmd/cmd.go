@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	deploycmds "github.com/pachyderm/pachyderm/v2/src/internal/deploy/cmds"
@@ -37,12 +38,10 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/grpclog"
@@ -320,11 +319,9 @@ func newClient(enterprise bool, options ...client.Option) (*client.APIClient, er
 func PachctlCmd() *cobra.Command {
 	var verbose bool
 
-	raw := false
-	rawFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	rawFlags.BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
-
-	marshaller := &jsonpb.Marshaler{Indent: "  "}
+	var raw bool
+	var output string
+	outputFlags := cmdutil.OutputFlags(&raw, &output)
 
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
@@ -376,14 +373,15 @@ Environment variables:
 		Short: "Print Pachyderm version information.",
 		Long:  "Print Pachyderm version information.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			if !raw && output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+
 			if clientOnly {
 				if raw {
-					if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
-						return err
-					}
-				} else {
-					fmt.Println(version.PrettyPrintVersion(version.Version))
+					return cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version)
 				}
+				fmt.Println(version.PrettyPrintVersion(version.Version))
 				return nil
 			}
 
@@ -398,7 +396,7 @@ Environment variables:
 			// Print header + client version
 			writer := ansiterm.NewTabWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			if raw {
-				if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
+				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version); err != nil {
 					return err
 				}
 			} else {
@@ -440,16 +438,10 @@ Environment variables:
 
 			// print server version
 			if raw {
-				if err := marshaller.Marshal(os.Stdout, version); err != nil {
-					return err
-				}
-			} else {
-				printVersion(writer, "pachd", version)
-				if err := writer.Flush(); err != nil {
-					return err
-				}
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(version)
 			}
-			return nil
+			printVersion(writer, "pachd", version)
+			return writer.Flush()
 		}),
 	}
 	versionCmd.Flags().BoolVar(&clientOnly, "client-only", false, "If set, "+
@@ -462,7 +454,7 @@ Environment variables:
 		"default timeout; if set to 0s, the call will never time out.")
 	versionCmd.Flags().BoolVar(&enterprise, "enterprise", false, "If set, "+
 		"'pachctl version' will run on the active enterprise context.")
-	versionCmd.Flags().AddFlagSet(rawFlags)
+	versionCmd.Flags().AddFlagSet(outputFlags)
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
 	exitCmd := &cobra.Command{
 		Short: "Exit the pachctl shell.",
@@ -509,12 +501,15 @@ This resets the cluster to its initial state.`,
 			for _, ri := range repoInfos {
 				repos = append(repos, red(ri.Repo.Name))
 			}
-			resp, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
+			c, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{Details: false})
 			if err != nil {
 				return err
 			}
-			for _, pi := range resp.PipelineInfo {
+			if err := clientsdk.ForEachPipelineInfo(c, func(pi *pps.PipelineInfo) error {
 				pipelines = append(pipelines, red(pi.Pipeline.Name))
+				return nil
+			}); err != nil {
+				return err
 			}
 			fmt.Println("All ACLs, repos, commits, files, pipelines and jobs will be deleted.")
 			if len(repos) > 0 {
@@ -543,13 +538,10 @@ This resets the cluster to its initial state.`,
 	var remoteOidcPort uint16
 	var uiPort uint16
 	var uiWebsocketPort uint16
-	var pfsPort uint16
-	var remotePfsPort uint16
 	var s3gatewayPort uint16
 	var remoteS3gatewayPort uint16
 	var dexPort uint16
 	var remoteDexPort uint16
-	var idePort, remoteIDEPort uint16
 	var namespace string
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
@@ -582,7 +574,7 @@ This resets the cluster to its initial state.`,
 			successCount := 0
 
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-			port, err := fw.RunForDaemon(port, remotePort)
+			port, err := fw.RunForPachd(port, remotePort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -592,7 +584,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the OIDC callback port...")
-			port, err = fw.RunForOIDCCallback(oidcPort, remoteOidcPort)
+			port, err = fw.RunForPachd(oidcPort, remoteOidcPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -601,38 +593,8 @@ This resets the cluster to its initial state.`,
 				successCount++
 			}
 
-			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v...\n", uiPort)
-			port, err = fw.RunForDashUI(uiPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["dash-ui"] = uint32(port)
-				successCount++
-			}
-
-			fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
-			port, err = fw.RunForDashWebSocket(uiWebsocketPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["dash-ws"] = uint32(port)
-				successCount++
-			}
-
-			fmt.Println("Forwarding the PFS port...")
-			port, err = fw.RunForPFS(pfsPort, remotePfsPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["pfs-over-http"] = uint32(port)
-				successCount++
-			}
-
 			fmt.Println("Forwarding the s3gateway port...")
-			port, err = fw.RunForS3Gateway(s3gatewayPort, remoteS3gatewayPort)
+			port, err = fw.RunForPachd(s3gatewayPort, remoteS3gatewayPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
@@ -642,22 +604,12 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the identity service port...")
-			port, err = fw.RunForDex(dexPort, remoteDexPort)
+			port, err = fw.RunForPachd(dexPort, remoteDexPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
 				fmt.Printf("listening on port %d\n", port)
 				context.PortForwarders["dex"] = uint32(port)
-				successCount++
-			}
-
-			fmt.Println("Forwarding the IDE service port...")
-			port, err = fw.RunForIDE(idePort, remoteIDEPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["ide"] = uint32(port)
 				successCount++
 			}
 
@@ -700,14 +652,10 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16Var(&remoteOidcPort, "remote-oidc-port", 1657, "The remote port that OIDC callback is bound to in the cluster.")
 	portForward.Flags().Uint16VarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
 	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
-	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
-	portForward.Flags().Uint16Var(&remotePfsPort, "remote-pfs-port", 30652, "The remote port PFS over HTTP is bound to.")
 	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
 	portForward.Flags().Uint16Var(&remoteS3gatewayPort, "remote-s3gateway-port", 1600, "The remote port that the s3 gateway is bound to.")
 	portForward.Flags().Uint16Var(&dexPort, "dex-port", 30658, "The local port to bind the identity service to.")
 	portForward.Flags().Uint16Var(&remoteDexPort, "remote-dex-port", 1658, "The local port to bind the identity service to.")
-	portForward.Flags().Uint16Var(&idePort, "ide-port", 30659, "The local port to bind the IDE service to.")
-	portForward.Flags().Uint16Var(&remoteIDEPort, "remote-ide-port", 8000, "The local port to bind the IDE service to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace Pachyderm is deployed in.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
@@ -935,7 +883,6 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"extract",
 			"restore",
 			"garbage-collect",
-			"update-dash",
 			"auth",
 			"enterprise",
 			"idp":

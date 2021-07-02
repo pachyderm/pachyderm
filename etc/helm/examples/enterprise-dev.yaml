@@ -1,0 +1,11 @@
+deployTarget: LOCAL
+dash:
+  enabled: false
+enterpriseServer:
+  enabled: true
+  service:
+    type: NodePort
+  image:
+    tag: local
+pachd:
+  enabled: false

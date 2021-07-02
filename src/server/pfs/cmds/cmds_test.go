@@ -104,3 +104,21 @@ func TestMountParsing(t *testing.T) {
 		require.Equal(t, ro, opts[repo])
 	}
 }
+
+func TestDiffFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo {{.repo}}
+
+		echo "foo" | pachctl put file {{.repo}}@master:/data
+
+		echo "bar" | pachctl put file {{.repo}}@master:/data
+
+		pachctl diff file {{.repo}}@master:/data {{.repo}}@master^:/data \
+			| match -- '-foo'
+		`,
+		"repo", tu.UniqueString("TestDiffFile-repo"),
+	).Run())
+}

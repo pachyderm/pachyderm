@@ -122,11 +122,10 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 }
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
-func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.ListRepoResponse, retErr error) {
+func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	repoInfos, err := a.driver.listRepo(ctx, true, request.Type)
-	return repoInfos, err
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	return a.driver.listRepo(srv.Context(), true, request.Type, srv.Send)
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
@@ -172,10 +171,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
-		if request.Empty {
-			request.Description += pfs.EmptyStr
-		}
-		return a.driver.finishCommit(txnCtx, request.Commit, request.Description)
+		return a.driver.finishCommit(txnCtx, request.Commit, request.Description, request.Error)
 	})
 }
 
@@ -242,6 +238,19 @@ func (a *apiServer) InspectCommitSet(request *pfs.InspectCommitSetRequest, serve
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return a.driver.inspectCommitSet(server.Context(), request.CommitSet, request.Wait, server.Send)
+}
+
+// ListCommitSet implements the protobuf pfs.ListCommitSet RPC
+func (a *apiServer) ListCommitSet(request *pfs.ListCommitSetRequest, serv pfs.API_ListCommitSetServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("stream containing %d CommitSetInfos", sent), retErr, time.Since(start))
+	}(time.Now())
+	return a.driver.listCommitSet(serv.Context(), func(commitSetInfo *pfs.CommitSetInfo) error {
+		sent++
+		return serv.Send(commitSetInfo)
+	})
 }
 
 // SquashCommitSetInTransaction is identical to SquashCommitSet except that it can run
@@ -333,14 +342,10 @@ func (a *apiServer) InspectBranchInTransaction(txnCtx *txncontext.TransactionCon
 }
 
 // ListBranch implements the protobuf pfs.ListBranch RPC
-func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
+func (a *apiServer) ListBranch(request *pfs.ListBranchRequest, srv pfs.API_ListBranchServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	branches, err := a.driver.listBranch(ctx, request.Repo, request.Reverse)
-	if err != nil {
-		return nil, err
-	}
-	return &pfs.BranchInfos{BranchInfo: branches}, nil
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	return a.driver.listBranch(srv.Context(), request.Repo, request.Reverse, srv.Send)
 }
 
 // DeleteBranchInTransaction is identical to DeleteBranch except that it can run
@@ -519,7 +524,6 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 			return err
 		})
 		return bytesWritten, err
-
 	})
 }
 
@@ -545,7 +549,11 @@ func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
 		}); err != nil {
 			return err
 		}
-		bytesWritten += int64(fi.SizeBytes)
+		// TODO(2.0 required) - SizeBytes requires constructing the src with
+		// `WithDetails` which we don't do here, so we can't get the size from here
+		// that easily.  One option is to always calculate the size of files in the
+		// source.
+		// bytesWritten += int64(fi.Details.SizeBytes)
 		return nil
 	})
 	return bytesWritten, err
@@ -599,7 +607,7 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.listFile(server.Context(), request.File, request.Full, func(fi *pfs.FileInfo) error {
+	return a.driver.listFile(server.Context(), request.File, request.Details, func(fi *pfs.FileInfo) error {
 		sent++
 		return server.Send(fi)
 	})
@@ -651,10 +659,7 @@ func (a *apiServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFi
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.deleteAll(txnCtx)
-	})
-	if err != nil {
+	if err := a.driver.deleteAll(ctx); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
+deployTarget: LOCAL
+
+pachd:
+  image:
+    tag: local
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512M
+  service:
+    type: NodePort
+  metrics:
+    enabled: false
+
+dash:
+  enabled: false
+
+worker:
+  image:
+    tag: local
+
+etcd:
+  service:
+    type: NodePort
+
+postgresql:
+  service:
+    type: NodePort
