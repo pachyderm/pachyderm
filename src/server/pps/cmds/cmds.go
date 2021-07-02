@@ -797,7 +797,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(createPipelineRequest); err != nil {
+			if err := cmdutil.Encoder(output, f).EncodeProto(createPipelineRequest); err != nil {
 				return err
 			}
 			defer func() {
