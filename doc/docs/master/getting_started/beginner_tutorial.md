@@ -130,8 +130,8 @@ We can check to make sure the data we just added is in Pachyderm.
   **System response:**
 
   ```
-  REPO   BRANCH COMMIT                           FINISHED           SIZE ORIGIN DESCRIPTION
-  images master 8032d90d8fa54adab51ed099bd2352ce 2 hours ago        -    AUTO
+  REPO   BRANCH COMMIT                           FINISHED       SIZE ORIGIN DESCRIPTION
+  images master a23b70c3bdc142a79442f352cb15172a 28 seconds ago -    USER
   ```
 
 * View the file in that commit:
@@ -291,8 +291,8 @@ pachctl list job
 **System response:**
 
 ```
-ID                               PIPELINE STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
-25ca994956ea4cb0978bf70475284474 edges    7 minutes ago 2 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
+ID                               PIPELINE STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE
+0d46c2f930c141788c70aae54f6c5834 edges    13 seconds ago 2 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
 
 ```
 
@@ -313,9 +313,9 @@ pachctl list repo
 **System response:**
 
 ```
-NAME   CREATED        SIZE (MASTER) ACCESS LEVEL
-edges  9 minutes ago  22.22KiB      [repoOwner]  Output repo for pipeline edges.
-images 31 minutes ago 57.27KiB      [repoOwner]
+NAME   CREATED             SIZE (MASTER) ACCESS LEVEL
+edges  About a minute ago  22.22KiB      [repoOwner]  Output repo for pipeline edges.
+images 3 minutes ago       57.27KiB      [repoOwner]
 ```
 
 ### Reading the Output
@@ -372,9 +372,9 @@ pachctl list job
 
 ```
 ID                               PIPELINE STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE
-3e3597633e224abaacb3148085975ae5 edges    -              -         0       0 + 0 / 0 0B       0B       -
-80a4cd49f32b45aca4fc592b44422e61 edges    -              -         0       0 + 0 / 0 0B       0B       -
-e9f213c52b794b0ca87afd01d9cdbd74 edges    15 minutes ago 2 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
+1f3f5ac642c54b629f11944c02ccb08c edges    10 seconds ago 3 seconds 0       1 + 2 / 3 102.4KiB 74.21KiB success
+f48cb89bac134c8baa79c657b03e2091 edges    13 seconds ago 2 seconds 0       1 + 1 / 2 78.7KiB  37.15KiB success
+0d46c2f930c141788c70aae54f6c5834 edges    2 minutes ago  2 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
 ```
 
 View the output data
@@ -467,13 +467,11 @@ pachctl list job
 **System response:**
 
 ```shell
-ID                               PIPELINE STARTED      DURATION           RESTART PROGRESS  DL       UL       STATE
-464831c0b5774a96a4161d581d3a2705 edges    11 hours ago 5 seconds          0       2 + 1 / 3 181.1KiB 111.4KiB success
-464831c0b5774a96a4161d581d3a2705 montage  11 hours ago 3 seconds          0       1 + 0 / 1 371.9KiB 1.292MiB success
-1daecd4c87fd4cdda6b81f6d2110d8de montage  11 hours ago 10 minutes         0       1 + 0 / 1 79.49KiB 381.1KiB success
-1daecd4c87fd4cdda6b81f6d2110d8de edges    11 hours ago 2 seconds          0       1 + 0 / 1 57.27KiB 22.22KiB success
-30785ef435ea4903a2b33af832a2356e montage  11 hours ago Less than a second 0       0 + 0 / 0 0B       0B       success
-ca7204e3297b403bb88cccf81a6d99a7 edges    11 hours ago Less than a second 0       0 + 0 / 0 0B       0B       success
+ID                               PIPELINE STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE
+ec1a1724d50e493d9972d03d431107d6 montage  6 minutes ago  3 seconds 0       1 + 0 / 1 371.9KiB 1.292MiB success
+1f3f5ac642c54b629f11944c02ccb08c edges    8 minutes ago  3 seconds 0       1 + 2 / 3 102.4KiB 74.21KiB success
+f48cb89bac134c8baa79c657b03e2091 edges    8 minutes ago  2 seconds 0       1 + 1 / 2 78.7KiB  37.15KiB success
+0d46c2f930c141788c70aae54f6c5834 edges    10 minutes ago 2 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
 ```
 
 View the generated montage image by running one of
