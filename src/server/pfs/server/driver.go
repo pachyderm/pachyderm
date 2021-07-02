@@ -1679,7 +1679,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 
 	if commit != nil && ci.Finished != nil {
-		if err = d.triggerCommit(txnCtx, ci.Commit); err != nil {
+		if err = d.triggerCommit(txnCtx, branchInfo.Head); err != nil {
 			return err
 		}
 	}
