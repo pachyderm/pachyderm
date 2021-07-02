@@ -9651,6 +9651,137 @@ func TestNonrootPipeline(t *testing.T) {
 	}
 }
 
+func TestRewindCrossPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestRewindCrossPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("pipeline")
+	create := func(update bool, repos ...string) error {
+		var indivInputs []*pps.Input
+		var stdin []string
+		for _, r := range repos {
+			indivInputs = append(indivInputs, client.NewPFSInput(r, "/*"))
+			stdin = append(stdin, fmt.Sprintf("cp /pfs/%s/* /pfs/out/", r))
+		}
+		var input *pps.Input
+		if len(repos) > 1 {
+			input = client.NewCrossInput(indivInputs...)
+		} else {
+			input = indivInputs[0]
+		}
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"bash"},
+					Stdin: stdin,
+				},
+				Input:  input,
+				Update: update,
+			})
+		return err
+	}
+	require.NoError(t, create(false, dataRepo))
+
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "first", strings.NewReader("first")))
+	_, err := c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// make a new repo, and update the pipeline to take it as input
+	laterRepo := tu.UniqueString("LaterRepo")
+	require.NoError(t, c.CreateRepo(laterRepo))
+	require.NoError(t, create(true, dataRepo, laterRepo))
+
+	// save the current commit set ID
+	oldCommit, err := c.InspectCommit(dataRepo, "master", "")
+	require.NoError(t, err)
+
+	// add new files to both repos
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "second", strings.NewReader("second")))
+	require.NoError(t, c.PutFile(client.NewCommit(laterRepo, "master", ""), "later", strings.NewReader("later")))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	fmt.Println("moving to ", oldCommit)
+	// now, move dataRepo back to the saved commit
+	require.NoError(t, c.CreateBranch(dataRepo, "master", "master", oldCommit.Commit.ID, nil))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	info, err := c.InspectCommit(dataRepo, "master", "")
+	require.NoError(t, err)
+
+	// the new commit cannot reuse the old ID
+	require.NotEqual(t, info.Commit.ID, oldCommit.Commit.ID)
+
+	// laterRepo has the same contents
+	files, err := c.ListFileAll(client.NewCommit(laterRepo, "master", info.Commit.ID), "/")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(files))
+	require.Equal(t, "/later", files[0].File.Path)
+
+	// which is reflected in the output
+	files, err = c.ListFileAll(client.NewCommit(pipeline, "master", info.Commit.ID), "/")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(files))
+	require.ElementsEqualUnderFn(t, []string{"/first", "/later"}, files, func(f interface{}) interface{} { return f.(*pfs.FileInfo).File.Path })
+}
+
+func TestMoveBranchTrigger(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestRewindTrigger_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// create a pipeline taking both master and the trigger branch as input
+	pipeline := tu.UniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+					"cp /pfs/trigger/* /pfs/out/",
+				},
+			},
+			Input: client.NewCrossInput(
+				client.NewPFSInput(dataRepo, "/*"),
+				client.NewPFSInputOpts("trigger", dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+					Branch:  "toMove",
+					Commits: 1,
+				}),
+			),
+		})
+	require.NoError(t, err)
+
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "foo", strings.NewReader("bar")))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// create the trigger source branch
+	require.NoError(t, c.CreateBranch(dataRepo, "toMove", "master", "", nil))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// make sure the trigger triggered
+	files, err := c.ListFileAll(client.NewCommit(dataRepo, "trigger", ""), "/")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(files))
+	require.Equal(t, "/foo", files[0].File.Path)
+}
+
 func monitorReplicas(t testing.TB, pipeline string, n int) {
 	c := tu.GetPachClient(t)
 	kc := tu.GetKubeClient(t)

@@ -7,6 +7,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/robfig/cron"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -158,6 +159,9 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	}
 	if trigger.Branch == "" {
 		return errors.Errorf("triggers must specify a branch to trigger on")
+	}
+	if err := ancestry.ValidateName(trigger.Branch); err != nil {
+		return err
 	}
 	if _, err := cron.ParseStandard(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
 		return errors.Wrapf(err, "invalid trigger cron spec")

@@ -2,6 +2,7 @@ package transactionenv
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -10,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -249,6 +251,18 @@ func (t *appendTransaction) DeleteRoleBinding(original *auth.Resource) error {
 	panic("DeleteRoleBinding not yet implemented in transactions")
 }
 
+// ErrInconsistentCommit represents an error where a transaction attempts to
+// create a CommitSet with multiple commits in the same branch, which would
+// result in inconsistent data dependencies.
+type ErrInconsistentCommit struct {
+	Branch *pfs.Branch
+	Commit *pfs.Commit
+}
+
+func (e ErrInconsistentCommit) Error() string {
+	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", e.Commit, e.Branch.Name)
+}
+
 // WithTransaction will call the given callback with a txnenv.Transaction
 // object, which is instantiated differently based on if an active
 // transaction is present in the RPC context.  If an active transaction is
@@ -268,20 +282,28 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 		return cb(appendTxn)
 	}
 
-	return env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		directTxn := NewDirectTransaction(env, txnCtx)
-		if overrideID != nil {
-			id, err := overrideID(txnCtx)
-			if err != nil {
-				return err
+	useOverride := overrideID != nil
+	for {
+		if err := env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			directTxn := NewDirectTransaction(env, txnCtx)
+			if useOverride && overrideID != nil {
+				id, err := overrideID(txnCtx)
+				if err != nil {
+					return err
+				}
+				if id != "" {
+					txnCtx.CommitSetID = id
+				}
 			}
-			if id != "" {
-				txnCtx.CommitSetID = id
-			}
-		}
 
-		return cb(directTxn)
-	})
+			return cb(directTxn)
+		}); useOverride && err != nil && errors.Is(err, ErrInconsistentCommit{}) {
+			// try one more time with the random transaction ID
+			useOverride = false
+		} else {
+			return err
+		}
+	}
 }
 
 // WithWriteContext will call the given callback with a txncontext.TransactionContext

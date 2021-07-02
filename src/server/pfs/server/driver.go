@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -532,7 +533,7 @@ func (d *driver) startCommit(
 	// Finally, create the commit
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommit), newCommitInfo); err != nil {
 		if col.IsErrExists(err) {
-			return nil, pfsserver.ErrInconsistentCommit{Commit: newCommit, Branch: newCommit.Branch}
+			return nil, errors.EnsureStack(transactionenv.ErrInconsistentCommit{Commit: newCommit, Branch: newCommit.Branch})
 		}
 		return nil, err
 	}
@@ -604,6 +605,21 @@ func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, p
 	return nil
 }
 
+// resolveAlias finds the first ancestor of the source commit which is not an alias (possibly source itself)
+func (d *driver) resolveAlias(txnCtx *txncontext.TransactionContext, source *pfs.Commit) (*pfs.CommitInfo, error) {
+	baseInfo, err := d.resolveCommit(txnCtx.SqlTx, proto.Clone(source).(*pfs.Commit))
+	if err != nil {
+		return nil, err
+	}
+
+	for baseInfo.Origin.Kind == pfs.OriginKind_ALIAS {
+		if baseInfo, err = d.resolveCommit(txnCtx.SqlTx, baseInfo.ParentCommit); err != nil {
+			return nil, err
+		}
+	}
+	return baseInfo, nil
+}
+
 func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.Commit, branch *pfs.Branch) (*pfs.CommitInfo, error) {
 	// It is considered an error if the CommitSet attempts to use two different
 	// commits from the same branch.  Therefore, if there is already a row for the
@@ -662,11 +678,17 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			return nil, err
 		}
 	} else {
-		if commit.ID == txnCtx.CommitSetID && proto.Equal(commit.Branch, branchInfo.Branch) {
-			// We can reuse the existing commit only if it is already on this branch
-		} else if commitInfo.Origin.Kind != pfs.OriginKind_AUTO || !proto.Equal(commitInfo.ParentCommit, parent) {
-			// A commit at the current transaction's ID already exists - make sure it is an alias with the right parent
-			return nil, pfsserver.ErrInconsistentCommit{Commit: parent, Branch: branch}
+		// A commit at the current transaction's ID already exists, make sure it is already compatible
+		parentRoot, err := d.resolveAlias(txnCtx, parent)
+		if err != nil {
+			return nil, err
+		}
+		prevRoot, err := d.resolveAlias(txnCtx, commitInfo.Commit)
+		if err != nil {
+			return nil, err
+		}
+		if !proto.Equal(parentRoot.Commit, prevRoot.Commit) {
+			return nil, errors.EnsureStack(transactionenv.ErrInconsistentCommit{Commit: parent, Branch: branch})
 		}
 	}
 
@@ -831,7 +853,15 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			}
 
 			// finally create open 'commit'
-			if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommit), newCommitInfo); err != nil {
+			if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(
+				pfsdb.CommitKey(newCommit),
+				newCommitInfo,
+			); err != nil && col.IsErrExists(err) {
+				return errors.EnsureStack(transactionenv.ErrInconsistentCommit{
+					Commit: newCommit,
+					Branch: newCommit.Branch,
+				})
+			} else if err != nil {
 				return err
 			}
 		}
@@ -1509,6 +1539,9 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 	if err := d.validateTrigger(txnCtx, branch, trigger); err != nil {
 		return err
+	}
+	if len(provenance) > 0 && trigger != nil {
+		return errors.New("a branch cannot have both provenance and a trigger")
 	}
 
 	var err error
