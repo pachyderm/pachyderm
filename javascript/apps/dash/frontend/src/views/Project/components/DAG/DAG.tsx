@@ -52,7 +52,7 @@ const DAG: React.FC<DagProps> = ({
       ))}
       {data.nodes.map((node) => (
         <Node
-          key={node.name}
+          key={node.id}
           node={node}
           nodeHeight={NODE_HEIGHT}
           nodeWidth={NODE_WIDTH}

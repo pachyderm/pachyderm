@@ -2,6 +2,20 @@
   overflow: visible;
 }
 
+.loadingContainer {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+.loadingContainer.isSidebarOpen.md {
+  width: calc(100% - var(--sidebar-width-md));
+}
+
+.loadingContainer.isSidebarOpen.lg {
+  width: calc(100% - var(--sidebar-width-lg));
+}
+
 .base {
   background-color: var(--background-grey);
 }

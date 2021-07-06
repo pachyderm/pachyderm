@@ -4,15 +4,17 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useRouteMatch} from 'react-router';
 
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
-import {JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
-import {Node, NodeType} from '@graphqlTypes';
+import {
+  JOB_PATH,
+  PIPELINE_JOB_PATH,
+} from '@dash-frontend/views/Project/constants/projectPaths';
+import {Node, NodeState, NodeType} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
 import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
 
-import convertNodeStateToDagState from '../../../utils/convertNodeStateToDagState';
-
 const useNode = (node: Node, isInteractive: boolean) => {
   const {navigateToNode, selectedNode} = useRouteController();
+  const match = useRouteMatch(PIPELINE_JOB_PATH);
   const {hoveredNode, setHoveredNode} = useHoveredNode();
   const [showSuccess, setShowSuccess] = useState(false);
   const {copy, supported, copied, reset} = useClipboardCopy(node.name);
@@ -101,8 +103,6 @@ const useNode = (node: Node, isInteractive: boolean) => {
     select<SVGGElement, Node>(`#${groupName}`).data([node]);
   }, [groupName, node]);
 
-  const state = convertNodeStateToDagState(node.state);
-
   const normalizedNodeName = deriveRepoNameFromNode(node);
 
   const isHovered = useMemo(
@@ -110,13 +110,31 @@ const useNode = (node: Node, isInteractive: boolean) => {
     [hoveredNode, node.name],
   );
 
+  const isJobPath = match?.isExact;
+
+  const nodeIconHref = useMemo(() => {
+    if (!node.access) {
+      return '/dag_no_access.svg';
+    }
+
+    switch (node.state) {
+      case NodeState.SUCCESS:
+        return '/dag_success.svg';
+      case NodeState.BUSY:
+        return '/dag_busy.svg';
+      case NodeState.ERROR:
+        return isJobPath ? '/dag_error.svg' : '/dag_pipeline_error.svg';
+      case NodeState.PAUSED:
+        return '/dag_paused.svg';
+    }
+  }, [node.access, node.state, isJobPath]);
+
   return {
     isHovered,
     onClick,
     onMouseOut,
     onMouseOver,
     selectedNode,
-    state,
     groupName,
     isEgress,
     normalizedNodeName,
@@ -124,6 +142,7 @@ const useNode = (node: Node, isInteractive: boolean) => {
     showLeaveJob,
     handleLeaveJobClick,
     closeLeaveJob,
+    nodeIconHref,
   };
 };
 

@@ -1,10 +1,8 @@
 import {extent} from 'd3-array';
 import {useCallback, useEffect, useState} from 'react';
 
-import {Dag, DagDirection} from '@graphqlTypes';
+import {Dag, DagDirection, NodeState} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
-
-import convertNodeStateToDagState from '../utils/convertNodeStateToDagState';
 
 type useDagProps = {
   data: Dag;
@@ -25,9 +23,7 @@ const useDag = ({
   const [rectBox, setRectBox] = useState({x: 0, y: 0, width: 0, height: 0});
 
   const handleRectClick = useCallback(() => {
-    const errorNode = data.nodes.find(
-      (n) => convertNodeStateToDagState(n.state) === 'error',
-    );
+    const errorNode = data.nodes.find((n) => n.state === NodeState.ERROR);
 
     if (errorNode) {
       navigateToNode(errorNode);

@@ -9,27 +9,27 @@
 }
 
 .base.sm {
-  width: 19rem;
+  width: var(--sidebar-width-sm);
 }
 
 .overlay.sm {
-  width: calc(100vw - 19rem);
+  width: calc(100vw - var(--sidebar-width-sm));
 }
 
 .base.md {
-  width: 24.0625rem;
+  width: var(--sidebar-width-md);
 }
 
 .overlay.md {
-  width: calc(100vw - 24.0625rem);
+  width: calc(100vw - var(--sidebar-width-md));
 }
 
 .base.lg {
-  width: 33.375rem;
+  width: var(--sidebar-width-lg);
 }
 
 .overlay.lg {
-  width: calc(100vw - 33.375rem);
+  width: calc(100vw - var(--sidebar-width-lg));
 }
 
 .fixed {

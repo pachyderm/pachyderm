@@ -38,7 +38,6 @@ const Node: React.FC<NodeProps> = ({
     onMouseOut,
     onMouseOver,
     selectedNode,
-    state,
     groupName,
     isEgress,
     normalizedNodeName,
@@ -46,6 +45,7 @@ const Node: React.FC<NodeProps> = ({
     showLeaveJob,
     handleLeaveJobClick,
     closeLeaveJob,
+    nodeIconHref,
   } = useNode(node, isInteractive);
 
   const classes = classNames(styles.nodeGroup, {
@@ -54,21 +54,6 @@ const Node: React.FC<NodeProps> = ({
     [styles.access]: node.access,
     [styles.showLeaveJob]: showLeaveJob,
   });
-
-  const getNodeIconHref = (state: string, access: boolean) => {
-    if (!access) {
-      return '/dag_no_access.svg';
-    }
-
-    switch (state) {
-      case 'busy':
-        return '/dag_busy.svg';
-      case 'error':
-        return '/dag_pipeline_error.svg';
-      case 'paused':
-        return '/dag_paused.svg';
-    }
-  };
 
   const getNodeImageHref = (node: GraphQLNode) => {
     switch (node.type) {
@@ -143,7 +128,7 @@ const Node: React.FC<NodeProps> = ({
           x={nodeWidth - NODE_ICON_X_OFFSET}
           y={NODE_ICON_Y_OFFSET}
           pointerEvents="none"
-          href={getNodeIconHref(state, node.access)}
+          href={nodeIconHref}
         />
       )}
 

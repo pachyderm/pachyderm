@@ -11,6 +11,7 @@ import flatten from 'lodash/flatten';
 import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
 import minBy from 'lodash/minBy';
+import uniqBy from 'lodash/uniqBy';
 import objectHash from 'object-hash';
 
 import disconnectedComponents from '@dash-backend/lib/disconnectedComponents';
@@ -19,6 +20,10 @@ import {
   toGQLPipelineState,
 } from '@dash-backend/lib/gqlEnumMappers';
 import hasRepoReadPermissions from '@dash-backend/lib/hasRepoReadPermissions';
+import {
+  gqlJobStateToNodeState,
+  gqlPipelineStateToNodeState,
+} from '@dash-backend/lib/nodeStateMappers';
 import {
   EgressVertex,
   LinkInputData,
@@ -107,7 +112,7 @@ const deriveVertices = (
       {
         name: pipelineName,
         type: NodeType.PIPELINE,
-        state,
+        state: gqlPipelineStateToNodeState(state),
         access: p.pipeline
           ? hasRepoReadPermissions(
               repoMap[p.pipeline.name].authInfo?.permissionsList,
@@ -124,7 +129,7 @@ const deriveVertices = (
         type: NodeType.EGRESS,
         access: true,
         parents: [`${pipelineName}_repo`],
-        state,
+        state: gqlPipelineStateToNodeState(state),
         jobState,
       });
     }
@@ -160,6 +165,7 @@ const normalizeDAGData = async (
   nodeWidth: number,
   nodeHeight: number,
   direction: DagDirection = DagDirection.RIGHT,
+  jobSetId?: string,
 ) => {
   // Calculate the indicies of the nodes in the DAG, as
   // the "link" object requires the source & target attributes
@@ -186,7 +192,7 @@ const normalizeDAGData = async (
           return [
             ...acc,
             {
-              id: objectHash({node: node, ...parent}),
+              id: objectHash({node: node, jobSetId, ...parent}),
               sources: [parentName],
               targets: [node.name],
               state,
@@ -211,7 +217,7 @@ const normalizeDAGData = async (
           ...acc,
           {
             // hashing here for consistency
-            id: objectHash(`${parentName}-${node.name}`),
+            id: objectHash(`${parentName}-${node.name}-${jobSetId}`),
             sources: [parentName],
             targets: [node.name],
             state,
@@ -389,84 +395,153 @@ const dagResolver: DagResolver = {
     dags: {
       subscribe: (
         _field,
-        {args: {projectId, nodeHeight, nodeWidth, direction}},
+        {args: {projectId, nodeHeight, nodeWidth, direction, jobSetId}},
         {pachClient, log, account},
       ) => {
-        let prevReposHash = '';
-        let prevPipelinesHash = '';
+        let prevDataHash = '';
+        let dags: Dag[] = [];
 
         const getDags = async () => {
-          // TODO: Error handling
-          const [repos, pipelines] = await Promise.all([
-            pachClient.pfs().listRepo(),
-            pachClient.pps().listPipeline(),
-          ]);
+          if (jobSetId) {
+            const jobSet = await pachClient
+              .pps()
+              .inspectJobSet({projectId, id: jobSetId});
 
-          const reposHash = objectHash(repos, {unorderedArrays: true});
-          const pipelinesHash = objectHash(pipelines, {unorderedArrays: true});
+            const pipelineMap = keyBy(
+              jobSet.map((job) => job.job?.pipeline),
+              (p) => p?.name || '',
+            );
 
-          if (
-            prevReposHash === reposHash &&
-            prevPipelinesHash === pipelinesHash
-          ) {
+            const vertices = jobSet.reduce<
+              (EgressVertex | PipelineVertex | RepoVertex)[]
+            >((acc, job) => {
+              const inputs = job.details?.input
+                ? flattenPipelineInput(job.details.input)
+                : [];
+
+              const inputRepoVertices: RepoVertex[] = inputs.map((input) => ({
+                parents: pipelineMap[input.repo] ? [input.repo] : [],
+                type: pipelineMap[input.repo]
+                  ? NodeType.OUTPUT_REPO
+                  : NodeType.INPUT_REPO,
+                state: null,
+                access: true,
+                name: `${input.repo}_repo`,
+              }));
+
+              const pipelineVertex: PipelineVertex = {
+                parents: inputs,
+                type: NodeType.PIPELINE,
+                access: true,
+                name: job.job?.pipeline?.name || '',
+                state: gqlJobStateToNodeState(toGQLJobState(job.state)),
+              };
+
+              const outputRepoVertex: RepoVertex = {
+                parents: [job.job?.pipeline?.name || ''],
+                type: NodeType.OUTPUT_REPO,
+                access: true,
+                state: null,
+                name: `${job.job?.pipeline?.name || ''}_repo`,
+              };
+
+              return [
+                ...acc,
+                ...inputRepoVertices,
+                outputRepoVertex,
+                pipelineVertex,
+              ];
+            }, []);
+
+            const uniqueVertices = uniqBy(vertices, (v) => v.name);
+            const normalizedData = adjustDag(
+              await normalizeDAGData(
+                uniqueVertices,
+                nodeWidth,
+                nodeHeight,
+                direction,
+                jobSetId,
+              ),
+              direction,
+            );
+
+            dags = [
+              {
+                id: jobSetId,
+                ...normalizedData,
+              },
+            ];
+          } else {
+            const [repos, pipelines] = await Promise.all([
+              pachClient.pfs().listRepo(),
+              pachClient.pps().listPipeline(),
+            ]);
+
+            log.info({
+              eventSource: 'dag resolver',
+              event: 'deriving vertices for dag',
+              meta: {projectId},
+            });
+            const allVertices = deriveVertices(repos, pipelines);
+
+            log.info({
+              eventSource: 'dag resolver',
+              event: 'discovering disconnected components',
+              meta: {projectId},
+            });
+
+            const normalizedData = await normalizeDAGData(
+              allVertices,
+              nodeWidth,
+              nodeHeight,
+              direction,
+            );
+
+            const components = disconnectedComponents(
+              normalizedData.nodes,
+              normalizedData.links,
+            );
+
+            dags = components.map((component) => {
+              const componentRepos = repos.filter((repo) =>
+                component.nodes.find(
+                  (c) =>
+                    (c.type === NodeType.OUTPUT_REPO ||
+                      c.type === NodeType.INPUT_REPO) &&
+                    c.name === `${repo.repo?.name}_repo`,
+                ),
+              );
+              const id =
+                minBy(componentRepos, (r) => r.created?.seconds)?.repo?.name ||
+                '';
+
+              const adjustedComponent = adjustDag(component, direction);
+
+              return {
+                id,
+                nodes: adjustedComponent.nodes,
+                links: adjustedComponent.links,
+              };
+            });
+          }
+
+          const dataHash = objectHash(dags, {
+            unorderedArrays: true,
+          });
+
+          if (prevDataHash === dataHash) {
             return;
           }
 
-          prevReposHash = reposHash;
-          prevPipelinesHash = pipelinesHash;
+          prevDataHash = dataHash;
 
-          log.info({
-            eventSource: 'dag resolver',
-            event: 'deriving vertices for dag',
-            meta: {projectId},
-          });
-          const allVertices = deriveVertices(repos, pipelines);
-
-          log.info({
-            eventSource: 'dag resolver',
-            event: 'discovering disconnected components',
-            meta: {projectId},
-          });
-
-          const normalizedData = await normalizeDAGData(
-            allVertices,
-            nodeWidth,
-            nodeHeight,
-            direction,
-          );
-
-          const components = disconnectedComponents(
-            normalizedData.nodes,
-            normalizedData.links,
-          );
-
-          return components.map((component) => {
-            const componentRepos = repos.filter((repo) =>
-              component.nodes.find(
-                (c) =>
-                  (c.type === NodeType.OUTPUT_REPO ||
-                    c.type === NodeType.INPUT_REPO) &&
-                  c.name === `${repo.repo?.name}_repo`,
-              ),
-            );
-            const id =
-              minBy(componentRepos, (r) => r.created?.seconds)?.repo?.name ||
-              '';
-
-            const adjustedComponent = adjustDag(component, direction);
-
-            return {
-              id,
-              nodes: adjustedComponent.nodes,
-              links: adjustedComponent.links,
-            };
-          });
+          return dags;
         };
 
         return withSubscription<Dag[]>({
           triggerNames: [
-            `${account.id}_DAGS_${direction}_UPDATED`,
-            `DAGS_${direction}_UPDATED`,
+            `${account.id}_DAGS_${direction}_UPDATED_JOB_${jobSetId}`,
+            `DAGS_${direction}_UPDATED_${jobSetId}`,
           ],
           resolver: getDags,
           intervalKey: `${projectId}-${direction}`,

@@ -10,15 +10,13 @@ import {
   useRef,
   useState,
 } from 'react';
-import {useParams, useRouteMatch} from 'react-router';
 
 import {useProjectDagsData} from '@dash-frontend/hooks/useProjectDAGsData';
+import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {DagDirection, Node} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
-
-import {JOBS_PATH} from '../constants/projectPaths';
 
 const SIDEBAR_WIDTH = 384;
 export const MAX_SCALE_VALUE = 1.5;
@@ -69,11 +67,10 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     height: Math.max(300, window.innerHeight - 100),
     width: window.innerWidth,
   });
-  const jobsMatch = useRouteMatch([JOBS_PATH]);
+  const {isOpen, overlay, sidebarSize} = useSidebarInfo();
   const {selectedNode} = useRouteController();
-  const {projectId} = useParams<{projectId: string}>();
   const {viewState, setUrlFromViewState} = useUrlQueryState();
-  const {pipelineId, repoId} = useUrlState();
+  const {pipelineId, repoId, projectId, jobId} = useUrlState();
   const [dagState, dispatch] = useReducer(dagReducer, {
     interacted: false,
     reset: false,
@@ -105,6 +102,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   }, [setUrlFromViewState, dagDirection]);
 
   const {dags, loading, error} = useProjectDagsData({
+    jobSetId: jobId,
     projectId,
     nodeHeight,
     nodeWidth,
@@ -203,7 +201,9 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     select<SVGSVGElement, unknown>('#Svg').call(zoomRef.current);
 
     setMinScale(Math.min(startScale, DEFAULT_MINIMUM_SCALE_VALUE));
-  }, [startScale, svgSize.height, svgSize.width, applyZoom]);
+    // need to re-apply this effect when loading changes, so that the
+    // zoomRef can be updated to reflect the new DAG scale
+  }, [startScale, svgSize.height, svgSize.width, applyZoom, loading]);
 
   // center dag or apply last translation if interacted with when dags update
   useEffect(() => {
@@ -223,7 +223,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
         }
       }
     }
-  }, [centerDag, selectedNode, interacted, reset]);
+  }, [centerDag, selectedNode, interacted, reset, loading]);
 
   // zoom and pan to selected node
   useEffect(() => {
@@ -302,16 +302,22 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   }, [zoomOut]);
 
   useEffect(() => {
-    if (jobsMatch?.isExact) {
+    if (overlay) {
       dispatch({type: 'RESET'});
     }
-  }, [jobsMatch?.isExact]);
+  }, [overlay]);
 
   useEffect(() => {
-    if (pipelineId || repoId) {
+    if (!loading) {
+      dispatch({type: 'RESET'});
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    if (!loading && (pipelineId || repoId)) {
       dispatch({type: 'SELECT_NODE'});
     }
-  }, [pipelineId, repoId]);
+  }, [pipelineId, repoId, loading]);
 
   return {
     applySliderZoom,
@@ -324,5 +330,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     sliderZoomValue,
     svgSize,
     zoomOut,
+    isSidebarOpen: isOpen,
+    sidebarSize,
   };
 };

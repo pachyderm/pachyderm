@@ -56,6 +56,14 @@ enum JobState {
   JOB_EGRESSING
 }
 
+enum NodeState {
+  SUCCESS
+  IDLE
+  PAUSED
+  BUSY
+  ERROR
+}
+
 # This enum is replaced with the one from projects on type generation
 enum ProjectStatus {
   HEALTHY
@@ -175,9 +183,7 @@ type Node {
   type: NodeType!
   x: Float!
   y: Float!
-
-  # TODO: Fledge these two fields out
-  state: PipelineState
+  state: NodeState
   access: Boolean!
 }
 
@@ -189,8 +195,8 @@ type PointCoordinates {
 type Link {
   id: ID!
   source: String!
-  sourceState: PipelineState
-  targetState: PipelineState
+  sourceState: NodeState
+  targetState: NodeState
   target: String!
   state: JobState
   bendPoints: [PointCoordinates!]!
@@ -210,6 +216,7 @@ input DagQueryArgs {
   nodeWidth: Int!
   nodeHeight: Int!
   direction: DagDirection!
+  jobSetId: ID
 }
 
 enum DagDirection {

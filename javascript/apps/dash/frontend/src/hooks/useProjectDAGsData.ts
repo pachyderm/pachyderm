@@ -1,3 +1,4 @@
+import {useEffect, useState} from 'react';
 import {useHistory} from 'react-router';
 
 import {useGetDagsSubscription} from '@dash-frontend/generated/hooks';
@@ -8,6 +9,7 @@ import {DagQueryArgs, NodeType} from '@graphqlTypes';
 import useUrlState from './useUrlState';
 
 export const useProjectDagsData = ({
+  jobSetId,
   projectId,
   nodeWidth,
   nodeHeight,
@@ -15,10 +17,21 @@ export const useProjectDagsData = ({
 }: DagQueryArgs) => {
   const {repoId, pipelineId, projectId: routeProjectId} = useUrlState();
   const browserHistory = useHistory();
+  const [isLoading, setIsLoading] = useState(true);
 
-  const {data, error, loading} = useGetDagsSubscription({
-    variables: {args: {projectId, nodeHeight, nodeWidth, direction}},
+  useEffect(() => {
+    setIsLoading(true);
+  }, [jobSetId, direction]);
+
+  const {
+    data,
+    error,
+    loading: isSubscribing,
+  } = useGetDagsSubscription({
+    variables: {args: {projectId, nodeHeight, nodeWidth, direction, jobSetId}},
     onSubscriptionData: ({client, subscriptionData}) => {
+      setIsLoading(false);
+
       if (
         (repoId || pipelineId) &&
         !(subscriptionData.data?.dags || []).some((dag) => {
@@ -44,6 +57,6 @@ export const useProjectDagsData = ({
   return {
     error,
     dags: data?.dags,
-    loading,
+    loading: isLoading || isSubscribing,
   };
 };

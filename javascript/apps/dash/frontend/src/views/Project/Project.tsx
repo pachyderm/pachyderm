@@ -1,4 +1,4 @@
-import {Tooltip} from '@pachyderm/components';
+import {LoadingDots, Tooltip} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import {Route} from 'react-router';
@@ -8,7 +8,6 @@ import {
   NO_DAG_MESSAGE,
   LETS_START_TITLE,
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
-import LoadingSkeleton from '@dash-frontend/components/LoadingSkeleton';
 import View from '@dash-frontend/components/View';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 
@@ -42,6 +41,8 @@ const Project: React.FC = () => {
     sliderZoomValue,
     svgSize,
     zoomOut,
+    isSidebarOpen,
+    sidebarSize,
   } = useProjectView(NODE_WIDTH, NODE_HEIGHT);
 
   const noDags = dags?.length === 0;
@@ -53,96 +54,108 @@ const Project: React.FC = () => {
       </View>
     );
 
-  if (loading) return <LoadingSkeleton />;
-
   return (
     <>
       <ProjectHeader />
       <View className={styles.view}>
-        <div className={styles.canvasControls}>
-          <RangeSlider
-            min={(minScale * 100).toString()}
-            max={(MAX_SCALE_VALUE * 100).toString()}
-            onChange={(d: React.ChangeEvent<HTMLInputElement>) =>
-              applySliderZoom(d)
-            }
-            value={sliderZoomValue * 100}
-            disabled={noDags}
-          />
-          <Tooltip
-            className={styles.tooltip}
-            tooltipKey="zoomOut"
-            size="large"
-            placement="bottom"
-            tooltipText={`Click to reset canvas, or\nuse keyboard shortcut "Shift + 2"`}
-            disabled={noDags}
+        {loading ? (
+          <div
+            className={classnames(styles.loadingContainer, {
+              [styles.isSidebarOpen]: isSidebarOpen,
+              [styles[sidebarSize]]: true,
+            })}
           >
-            <button
-              className={styles.controlButton}
-              onClick={zoomOut}
-              disabled={noDags}
-            >
-              <ZoomOutSvg
-                aria-label="Reset Canvas"
-                className={classnames(styles.svgControl, styles.zoomOutSvg)}
+            <LoadingDots />
+          </div>
+        ) : (
+          <>
+            <div className={styles.canvasControls}>
+              <RangeSlider
+                min={(minScale * 100).toString()}
+                max={(MAX_SCALE_VALUE * 100).toString()}
+                onChange={(d: React.ChangeEvent<HTMLInputElement>) =>
+                  applySliderZoom(d)
+                }
+                value={sliderZoomValue * 100}
+                disabled={noDags}
               />
-              <label className={styles.controlLabel}>Reset Canvas</label>
-            </button>
-          </Tooltip>
-          <button
-            className={classnames(styles.controlButton, [styles[dagDirection]])}
-            onClick={rotateDag}
-            disabled={noDags}
-          >
-            <RotateSvg
-              aria-label={'Rotate Canvas'}
-              className={classnames(styles.svgControl, styles.rotateSvg)}
-            />
-          </button>
-        </div>
-        {noDags && (
-          <EmptyState title={LETS_START_TITLE} message={NO_DAG_MESSAGE} />
-        )}
-        <HoveredNodeProvider>
-          <svg
-            id="Svg"
-            className={styles.base}
-            preserveAspectRatio="xMinYMid meet"
-            viewBox={`0 0 ${svgSize.width} ${svgSize.height}`}
-          >
-            <defs>
-              {MARKERS.map((marker) => (
-                <marker
-                  key={marker.id}
-                  viewBox="0 -5 10 10"
-                  refX={9}
-                  markerWidth={5}
-                  markerHeight={5}
-                  orient="auto"
-                  id={marker.id}
+              <Tooltip
+                className={styles.tooltip}
+                tooltipKey="zoomOut"
+                size="large"
+                placement="bottom"
+                tooltipText={`Click to reset canvas, or\nuse keyboard shortcut "Shift + 2"`}
+              >
+                <button
+                  className={styles.controlButton}
+                  onClick={zoomOut}
+                  disabled={noDags}
                 >
-                  <path d="M0,-5L10,0L0,5" fill={marker.color} />
-                </marker>
-              ))}
-            </defs>
-            <g id="Dags">
-              {dags?.map((dag) => {
-                return (
-                  <DAG
-                    data={dag}
-                    key={dag.id}
-                    id={dag.id}
-                    nodeWidth={NODE_WIDTH}
-                    nodeHeight={NODE_HEIGHT}
-                    dagsToShow={dags.length}
-                    dagDirection={dagDirection}
-                    rotateDag={rotateDag}
+                  <ZoomOutSvg
+                    aria-label="Reset Canvas"
+                    className={classnames(styles.svgControl, styles.zoomOutSvg)}
                   />
-                );
-              })}
-            </g>
-          </svg>
-        </HoveredNodeProvider>
+                  <label className={styles.controlLabel}>Reset Canvas</label>
+                </button>
+              </Tooltip>
+              <button
+                className={classnames(styles.controlButton, [
+                  styles[dagDirection],
+                ])}
+                onClick={rotateDag}
+                disabled={noDags}
+              >
+                <RotateSvg
+                  aria-label={'Rotate Canvas'}
+                  className={classnames(styles.svgControl, styles.rotateSvg)}
+                />
+              </button>
+            </div>
+            {noDags && (
+              <EmptyState title={LETS_START_TITLE} message={NO_DAG_MESSAGE} />
+            )}
+            <HoveredNodeProvider>
+              <svg
+                id="Svg"
+                className={styles.base}
+                preserveAspectRatio="xMinYMid meet"
+                viewBox={`0 0 ${svgSize.width} ${svgSize.height}`}
+              >
+                <defs>
+                  {MARKERS.map((marker) => (
+                    <marker
+                      key={marker.id}
+                      viewBox="0 -5 10 10"
+                      refX={9}
+                      markerWidth={5}
+                      markerHeight={5}
+                      orient="auto"
+                      id={marker.id}
+                    >
+                      <path d="M0,-5L10,0L0,5" fill={marker.color} />
+                    </marker>
+                  ))}
+                </defs>
+                <g id="Dags">
+                  {dags?.map((dag) => {
+                    return (
+                      <DAG
+                        data={dag}
+                        key={dag.id}
+                        id={dag.id}
+                        nodeWidth={NODE_WIDTH}
+                        nodeHeight={NODE_HEIGHT}
+                        dagsToShow={dags.length}
+                        dagDirection={dagDirection}
+                        rotateDag={rotateDag}
+                      />
+                    );
+                  })}
+                </g>
+              </svg>
+            </HoveredNodeProvider>
+          </>
+        )}
         <ProjectSidebar />
         <Route path={FILE_BROWSER_PATH}>
           <FileBrowser />

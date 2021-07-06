@@ -4,10 +4,7 @@ import {Route} from 'react-router';
 
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 import {JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
-import {
-  jobRoute,
-  pipelineJobRoute,
-} from '@dash-frontend/views/Project/utils/routes';
+import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import JobDetails from '../';
 
@@ -43,7 +40,7 @@ describe('Job Details', () => {
     expect(likelihoodsLink).toBeInTheDocument();
     expect(likelihoodsLink).toHaveAttribute(
       'href',
-      pipelineJobRoute({projectId, jobId, pipelineId: 'likelihoods'}, false),
+      jobRoute({projectId, jobId, pipelineId: 'likelihoods'}, false),
     );
 
     const modelsLink = withinNavList.getByRole('link', {
@@ -52,7 +49,7 @@ describe('Job Details', () => {
     expect(modelsLink).toBeInTheDocument();
     expect(modelsLink).toHaveAttribute(
       'href',
-      pipelineJobRoute({projectId, jobId, pipelineId: 'models'}, false),
+      jobRoute({projectId, jobId, pipelineId: 'models'}, false),
     );
 
     const jointCallLink = withinNavList.getByRole('link', {
@@ -61,7 +58,7 @@ describe('Job Details', () => {
     expect(jointCallLink).toBeInTheDocument();
     expect(jointCallLink).toHaveAttribute(
       'href',
-      pipelineJobRoute({projectId, jobId, pipelineId: 'joint_call'}, false),
+      jobRoute({projectId, jobId, pipelineId: 'joint_call'}, false),
     );
 
     const splitLink = withinNavList.getByRole('link', {
@@ -70,7 +67,7 @@ describe('Job Details', () => {
     expect(splitLink).toBeInTheDocument();
     expect(splitLink).toHaveAttribute(
       'href',
-      pipelineJobRoute({projectId, jobId, pipelineId: 'split'}, false),
+      jobRoute({projectId, jobId, pipelineId: 'split'}, false),
     );
 
     const testLink = withinNavList.getByRole('link', {
@@ -79,7 +76,7 @@ describe('Job Details', () => {
     expect(testLink).toBeInTheDocument();
     expect(testLink).toHaveAttribute(
       'href',
-      pipelineJobRoute({projectId, jobId, pipelineId: 'test'}, false),
+      jobRoute({projectId, jobId, pipelineId: 'test'}, false),
     );
 
     click(testLink);
@@ -91,7 +88,7 @@ describe('Job Details', () => {
     );
 
     expect(window.location.pathname).toBe(
-      pipelineJobRoute({projectId, jobId, pipelineId: 'test'}, false),
+      jobRoute({projectId, jobId, pipelineId: 'test'}, false),
     );
   });
 
@@ -108,7 +105,7 @@ describe('Job Details', () => {
     );
 
     expect(window.location.pathname).toBe(
-      pipelineJobRoute({projectId, jobId, pipelineId: 'likelihoods'}, false),
+      jobRoute({projectId, jobId, pipelineId: 'likelihoods'}, false),
     );
 
     expect(getByTestId('InfoPanel__id')).toHaveTextContent(jobId);
@@ -121,7 +118,7 @@ describe('Job Details', () => {
     window.history.replaceState(
       '',
       '',
-      pipelineJobRoute({projectId, jobId, pipelineId: 'models'}),
+      jobRoute({projectId, jobId, pipelineId: 'models'}),
     );
 
     const {getByTestId, queryByTestId} = render(<TestBed />);
@@ -143,7 +140,7 @@ describe('Job Details', () => {
     window.history.replaceState(
       '',
       '',
-      pipelineJobRoute({projectId, jobId, pipelineId: 'bogus'}),
+      jobRoute({projectId, jobId, pipelineId: 'bogus'}),
     );
 
     const {queryByTestId} = render(<TestBed />);
@@ -158,7 +155,7 @@ describe('Job Details', () => {
     );
 
     expect(window.location.pathname).toBe(
-      pipelineJobRoute({projectId, jobId, pipelineId: 'likelihoods'}, false),
+      jobRoute({projectId, jobId, pipelineId: 'likelihoods'}, false),
     );
   });
 });

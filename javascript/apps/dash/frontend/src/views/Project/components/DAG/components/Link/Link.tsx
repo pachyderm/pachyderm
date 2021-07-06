@@ -3,8 +3,6 @@ import React from 'react';
 
 import {Link as LinkType} from '@graphqlTypes';
 
-import convertNodeStateToDagState from '../../utils/convertNodeStateToDagState';
-
 import useLink from './hooks/useLink';
 import styles from './Link.module.css';
 
@@ -17,8 +15,8 @@ const Link: React.FC<LinkProps> = ({link, isInteractive}) => {
   const {d, hoveredNode, selectedNode, transferring} = useLink(link);
   const classes = classNames(
     styles.link,
-    styles[`${convertNodeStateToDagState(link.sourceState)}Source`],
-    styles[`${convertNodeStateToDagState(link.targetState)}Target`],
+    styles[`${link.sourceState?.toLowerCase()}Source`],
+    styles[`${link.targetState?.toLowerCase()}Target`],
     {
       [styles.transferring]: transferring,
       [styles.selected]:

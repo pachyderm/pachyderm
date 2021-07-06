@@ -80,6 +80,7 @@ export type DagQueryArgs = {
   nodeWidth: Scalars['Int'];
   nodeHeight: Scalars['Int'];
   direction: DagDirection;
+  jobSetId?: Maybe<Scalars['ID']>;
 };
 
 export type File = {
@@ -198,8 +199,8 @@ export type Link = {
   __typename?: 'Link';
   id: Scalars['ID'];
   source: Scalars['String'];
-  sourceState?: Maybe<PipelineState>;
-  targetState?: Maybe<PipelineState>;
+  sourceState?: Maybe<NodeState>;
+  targetState?: Maybe<NodeState>;
   target: Scalars['String'];
   state?: Maybe<JobState>;
   bendPoints: Array<PointCoordinates>;
@@ -231,7 +232,7 @@ export type Node = {
   type: NodeType;
   x: Scalars['Float'];
   y: Scalars['Float'];
-  state?: Maybe<PipelineState>;
+  state?: Maybe<NodeState>;
   access: Scalars['Boolean'];
 };
 
@@ -240,6 +241,14 @@ export type NodeSelector = {
   key: Scalars['String'];
   value: Scalars['String'];
 };
+
+export enum NodeState {
+  SUCCESS = 'SUCCESS',
+  IDLE = 'IDLE',
+  PAUSED = 'PAUSED',
+  BUSY = 'BUSY',
+  ERROR = 'ERROR',
+}
 
 export enum NodeType {
   PIPELINE = 'PIPELINE',
@@ -659,6 +668,7 @@ export type ResolversTypes = ResolversObject<{
   Mutation: ResolverTypeWrapper<{}>;
   Node: ResolverTypeWrapper<Node>;
   NodeSelector: ResolverTypeWrapper<NodeSelector>;
+  NodeState: NodeState;
   NodeType: NodeType;
   PFSInput: ResolverTypeWrapper<PfsInput>;
   Pach: ResolverTypeWrapper<Pach>;
@@ -935,12 +945,12 @@ export type LinkResolvers<
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   source?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sourceState?: Resolver<
-    Maybe<ResolversTypes['PipelineState']>,
+    Maybe<ResolversTypes['NodeState']>,
     ParentType,
     ContextType
   >;
   targetState?: Resolver<
-    Maybe<ResolversTypes['PipelineState']>,
+    Maybe<ResolversTypes['NodeState']>,
     ParentType,
     ContextType
   >;
@@ -1000,11 +1010,7 @@ export type NodeResolvers<
   type?: Resolver<ResolversTypes['NodeType'], ParentType, ContextType>;
   x?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   y?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  state?: Resolver<
-    Maybe<ResolversTypes['PipelineState']>,
-    ParentType,
-    ContextType
-  >;
+  state?: Resolver<Maybe<ResolversTypes['NodeState']>, ParentType, ContextType>;
   access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;

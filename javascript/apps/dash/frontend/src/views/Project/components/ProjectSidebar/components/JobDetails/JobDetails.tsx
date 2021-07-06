@@ -7,10 +7,7 @@ import {useJobSet} from '@dash-frontend/hooks/useJobSet';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {PIPELINE_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
-import {
-  pipelineJobRoute,
-  jobsRoute,
-} from '@dash-frontend/views/Project/utils/routes';
+import {jobsRoute, jobRoute} from '@dash-frontend/views/Project/utils/routes';
 import {JobState} from '@graphqlTypes';
 
 import InfoPanel from './components/InfoPanel';
@@ -51,7 +48,7 @@ const JobDetails = () => {
   if (!pipelineId && jobSet && jobSet.jobs.length > 0) {
     return (
       <Redirect
-        to={pipelineJobRoute({
+        to={jobRoute({
           projectId,
           jobId,
           pipelineId: jobSet.jobs[0].pipelineName,
@@ -100,7 +97,7 @@ const JobDetails = () => {
                         aria-current="true"
                         activeClassName={styles.active}
                         exact={true}
-                        to={pipelineJobRoute({
+                        to={jobRoute({
                           projectId,
                           jobId,
                           pipelineId: job.pipelineName,

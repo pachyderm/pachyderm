@@ -104,12 +104,12 @@ describe('Dag resolver', () => {
     expect(montagePipeline?.access).toBe(false);
   });
 
-  it('should resolve disconnected components of a dag', async () => {
-    const {observable, close} = createSubscriptionClients<Dag[]>(
+  it('should resolve disconnected components of a dag', (done) => {
+    const {observable, close} = createSubscriptionClients<{dags: Dag[]}>(
       GET_DAGS_QUERY,
       {
         args: {
-          projectId: '1',
+          projectId: '2',
           nodeHeight: 60,
           nodeWidth: 120,
           direction: DagDirection.RIGHT,
@@ -118,7 +118,8 @@ describe('Dag resolver', () => {
     );
 
     observable.subscribe((data) => {
-      const dags = data.data;
+      const dags = data.data?.dags;
+
       expect(dags?.length).toBe(3);
 
       expect(dags?.[0].links.length).toBe(6);
@@ -231,13 +232,14 @@ describe('Dag resolver', () => {
           dags?.[2],
         ),
       ).toBe(true);
-    });
 
-    close();
+      close();
+      done();
+    });
   });
 
-  it('should send dag id as name of oldest repo', async () => {
-    const {observable, close} = createSubscriptionClients<Dag[]>(
+  it('should send dag id as name of oldest repo', (done) => {
+    const {observable, close} = createSubscriptionClients<{dags: Dag[]}>(
       GET_DAGS_QUERY,
       {
         args: {
@@ -250,12 +252,57 @@ describe('Dag resolver', () => {
     );
 
     observable.subscribe((data) => {
-      const dags = data.data;
+      const dags = data.data?.dags;
 
       expect(dags?.[0].id).toBe('samples');
       expect(dags?.[1].id).toBe('training');
       expect(dags?.[2].id).toBe('images');
+
+      close();
+      done();
     });
-    close();
+  });
+
+  it('should correctly filter sub-dag for jobsets', (done) => {
+    const {observable, close} = createSubscriptionClients<{dags: Dag[]}>(
+      GET_DAGS_QUERY,
+      {
+        args: {
+          projectId: '1',
+          nodeHeight: 60,
+          nodeWidth: 120,
+          direction: DagDirection.RIGHT,
+          jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a',
+        },
+      },
+    );
+
+    observable.subscribe((data) => {
+      const dags = data.data?.dags;
+
+      expect(dags?.length).toBe(1);
+
+      expect(
+        doesLinkExistInDag(
+          {source: 'montage', target: 'montage_repo'},
+          dags?.[0],
+        ),
+      ).toBe(true);
+      expect(
+        doesLinkExistInDag(
+          {source: 'edges_repo', target: 'montage'},
+          dags?.[0],
+        ),
+      ).toBe(true);
+      expect(
+        doesLinkExistInDag(
+          {source: 'images_repo', target: 'montage'},
+          dags?.[0],
+        ),
+      ).toBe(true);
+
+      close();
+      done();
+    });
   });
 });

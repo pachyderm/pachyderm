@@ -7,7 +7,6 @@ import {
   REPO_PATH,
   FILE_BROWSER_PATH,
   JOB_PATH,
-  PIPELINE_JOB_PATH,
 } from '../constants/projectPaths';
 
 const generatePathWithSearch = <S extends string>(
@@ -16,7 +15,8 @@ const generatePathWithSearch = <S extends string>(
 ) => {
   const path = encodeURI(rrGeneratePath(pathTemplate, {...params}));
   const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.entries.length > 0
+
+  return urlParams.toString().length > 0
     ? path + '?' + urlParams.toString()
     : path;
 };
@@ -35,4 +35,3 @@ export const repoRoute = generateRouteFn(REPO_PATH);
 export const pipelineRoute = generateRouteFn(PIPELINE_PATH);
 export const fileBrowserRoute = generateRouteFn(FILE_BROWSER_PATH);
 export const jobRoute = generateRouteFn(JOB_PATH);
-export const pipelineJobRoute = generateRouteFn(PIPELINE_JOB_PATH);

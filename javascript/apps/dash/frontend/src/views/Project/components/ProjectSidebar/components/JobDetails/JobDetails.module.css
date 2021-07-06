@@ -33,6 +33,7 @@
   margin-left: 0;
   margin-right: 0;
   padding: 0;
+  min-width: 12.625rem;
   width: 12.625rem;
   max-height: calc(100vh - var(--header-height) - var(--sidebar-header-height));
   overflow-y: auto;

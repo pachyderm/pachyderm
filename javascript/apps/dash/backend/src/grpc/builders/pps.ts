@@ -191,6 +191,7 @@ export type JobInfoObject = {
   job: Pick<Job.AsObject, 'id' | 'pipeline'>;
   createdAt: JobInfo.AsObject['started'];
   state: JobState;
+  input?: InputObject;
 };
 
 export type GetLogsRequestObject = {
@@ -591,6 +592,7 @@ export const jobInfoFromObject = ({
   job: {id, pipeline: {name} = {name: ''}},
   createdAt,
   state,
+  input,
 }: JobInfoObject) => {
   const jobInfo = new JobInfo()
     .setState(state)
@@ -598,6 +600,10 @@ export const jobInfoFromObject = ({
       timestampFromObject({seconds: createdAt?.seconds || 0, nanos: 0}),
     )
     .setJob(new Job().setId(id).setPipeline(new Pipeline().setName(name)));
+
+  if (input) {
+    jobInfo.setDetails(new JobInfo.Details().setInput(inputFromObject(input)));
+  }
 
   return jobInfo;
 };

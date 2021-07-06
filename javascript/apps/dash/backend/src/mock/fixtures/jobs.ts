@@ -7,11 +7,31 @@ const tutorial = [
     state: JobState.JOB_SUCCESS,
     createdAt: {seconds: 1616533099, nanos: 0},
     job: {id: '23b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'montage'}},
+    input: {
+      crossList: [
+        {pfs: {repo: 'edges', name: 'edges', branch: 'master'}},
+        {pfs: {repo: 'images', name: 'images', branch: 'master'}},
+      ],
+    },
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
     createdAt: {seconds: 1614126189, nanos: 0},
     job: {id: '23b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'edges'}},
+    input: {
+      pfs: {repo: 'images', name: 'images', branch: 'master'},
+    },
+  }),
+  jobInfoFromObject({
+    state: JobState.JOB_FAILURE,
+    createdAt: {seconds: 1614126189, nanos: 0},
+    job: {id: '33b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'montage'}},
+    input: {
+      crossList: [
+        {pfs: {repo: 'edges', name: 'edges', branch: 'master'}},
+        {pfs: {repo: 'images', name: 'images', branch: 'master'}},
+      ],
+    },
   }),
 ];
 
@@ -49,7 +69,7 @@ const customerTeam = [
   }),
 ];
 
-const pipelineJobs: {[projectId: string]: JobInfo[]} = {
+const jobs: {[projectId: string]: JobInfo[]} = {
   '1': tutorial,
   '2': customerTeam,
   '3': tutorial,
@@ -60,4 +80,4 @@ const pipelineJobs: {[projectId: string]: JobInfo[]} = {
   default: [...tutorial, ...customerTeam],
 };
 
-export default pipelineJobs;
+export default jobs;

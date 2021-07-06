@@ -2,22 +2,11 @@ import {JobInfo, JobState} from '@pachyderm/proto/pb/pps/pps_pb';
 
 import {jobInfoFromObject} from '@dash-backend/grpc/builders/pps';
 
+import jobs from './jobs';
+
 const tutorial = {
-  '23b9af7d5d4343219bc8e02ff44cd55a': [
-    jobInfoFromObject({
-      state: JobState.JOB_SUCCESS,
-      createdAt: {seconds: 1616533099, nanos: 0},
-      job: {
-        id: '23b9af7d5d4343219bc8e02ff44cd55a',
-        pipeline: {name: 'montage'},
-      },
-    }),
-    jobInfoFromObject({
-      state: JobState.JOB_SUCCESS,
-      createdAt: {seconds: 1614126189, nanos: 0},
-      job: {id: '23b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'edges'}},
-    }),
-  ],
+  '23b9af7d5d4343219bc8e02ff44cd55a': [jobs['1'][0], jobs['1'][1]],
+  '33b9af7d5d4343219bc8e02ff44cd55a': [jobs['1'][2]],
 };
 
 const customerTeam = {
