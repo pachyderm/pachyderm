@@ -115,29 +115,30 @@ jobs:
       - run: curl -sL https://git.io/goreleaser | bash
 
 workflows:
-  circleci:
-    jobs:
-      - circleci:
-          matrix:
-            parameters:
-              bucket:
-              - MISC
-              # If you want to update the number of PPS buckets, you'll neet to
-              # update the value of PPS_BUCKETS above
-              - AUTH
-              - ENTERPRISE
-              - PFS
-              - PPS1
-              - PPS2
-              - PPS3
-              - PPS4
-              - PPS5
-              - PPS6
-              - EXAMPLES
-              - INTERNAL
-  helm:
-    jobs:
-      - helm-build
+#  circleci:
+#    jobs:
+#      - circleci:
+#          matrix:
+#            parameters:
+#              bucket:
+#              - MISC
+#              # If you want to update the number of PPS buckets, you'll neet to
+#              # update the value of PPS_BUCKETS above
+#              - AUTH
+#              - ENTERPRISE
+#              - PFS
+#              - PPS1
+#              - PPS2
+#              - PPS3
+#              - PPS4
+#              - PPS5
+#              - PPS6
+#              - EXAMPLES
+#              - INTERNAL
+#  helm:
+#    jobs:
+#      - helm-build
   release:
     jobs:
       - release
+# TODO Only run on tag, require tests
