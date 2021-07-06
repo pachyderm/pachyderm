@@ -546,7 +546,7 @@ func (d *driver) startCommit(
 
 // TODO: Need to block operations on the commit before kicking off the compaction / finishing the commit.
 // We are going to want to move the compaction to the read side, and just mark the commit as finished here.
-func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description string, commitError bool) error {
+func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description string, commitError, force bool) error {
 	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
@@ -558,6 +558,9 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	}
 	if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
+	}
+	if len(commitInfo.DirectProvenance) > 0 && !force {
+		return errors.Errorf("cannot finish a commit with provenance, rerun with force if desired")
 	}
 	if description != "" {
 		commitInfo.Description = description

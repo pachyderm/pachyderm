@@ -204,6 +204,7 @@ message FinishCommitRequest {
   // will overwrite the description set in StartCommit
   string description = 2;
   bool error = 3;
+  bool force = 4;
 }
 
 message InspectCommitRequest {
