@@ -124,6 +124,7 @@ enterpriseServer:
     #  memory: "2G"
   # podLabels specifies labels to add to the pachd pod.
   podLabels: {}
+  clusterDeploymentID: ""
   image:
     repository: "pachyderm/pachd"
     pullPolicy: "IfNotPresent"
