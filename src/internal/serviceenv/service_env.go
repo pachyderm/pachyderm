@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dlmiddlecote/sqlstats"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -200,7 +201,11 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 	}
 	// Initialize pach client
 	return backoff.Retry(func() error {
-		pachClient, err := client.NewFromURI(env.pachAddress)
+		pachClient, err := client.NewFromURI(
+			env.pachAddress,
+			client.WithAdditionalUnaryClientInterceptors(grpc_prometheus.UnaryClientInterceptor),
+			client.WithAdditionalStreamClientInterceptors(grpc_prometheus.StreamClientInterceptor),
+		)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize pach client")
 		}
