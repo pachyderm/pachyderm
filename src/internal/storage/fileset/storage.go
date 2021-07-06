@@ -20,13 +20,15 @@ import (
 const (
 	// DefaultMemoryThreshold is the default for the memory threshold that must
 	// be met before a file set part is serialized (excluding close).
-	DefaultMemoryThreshold = 1024 * units.MB
+	DefaultMemoryThreshold = units.GB
 	// DefaultShardThreshold is the default for the size threshold that must
 	// be met before a shard is created by the shard function.
-	DefaultShardThreshold = 1024 * units.MB
+	DefaultShardThreshold = units.GB
 	// DefaultCompactionFixedDelay is the default fixed delay for compaction.
 	// This is expressed as the number of primitive filesets.
-	DefaultCompactionFixedDelay = 10
+	// TODO: Potentially remove this configuration.
+	// It is easy to footgun with this configuration.
+	DefaultCompactionFixedDelay = 1
 	// DefaultCompactionLevelFactor is the default factor that level sizes increase by in a compacted fileset.
 	DefaultCompactionLevelFactor = 10
 
@@ -247,8 +249,9 @@ func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Ti
 	return s.tracker.SetTTLPrefix(ctx, oid, ttl)
 }
 
-// SizeOf returns the size of the data in the fileset in bytes
-func (s *Storage) SizeOf(ctx context.Context, id ID) (int64, error) {
+// SizeUpperBound returns an upper bound for the size of the data in the file set in bytes.
+// The upper bound is cheaper to compute than the actual size.
+func (s *Storage) SizeUpperBound(ctx context.Context, id ID) (int64, error) {
 	prims, err := s.flattenPrimitives(ctx, []ID{id})
 	if err != nil {
 		return 0, err
@@ -256,6 +259,22 @@ func (s *Storage) SizeOf(ctx context.Context, id ID) (int64, error) {
 	var total int64
 	for _, prim := range prims {
 		total += prim.SizeBytes
+	}
+	return total, nil
+}
+
+// Size returns the size of the data in the file set in bytes.
+func (s *Storage) Size(ctx context.Context, id ID) (int64, error) {
+	fs, err := s.Open(ctx, []ID{id})
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	if err := fs.Iterate(ctx, func(f File) error {
+		total += index.SizeBytes(f.Index())
+		return nil
+	}); err != nil {
+		return 0, err
 	}
 	return total, nil
 }

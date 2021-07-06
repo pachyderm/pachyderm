@@ -104,21 +104,24 @@ func (a *apiServer) InspectRepoInTransaction(txnCtx *txncontext.TransactionConte
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	var info *pfs.RepoInfo
+	var repoInfo *pfs.RepoInfo
 	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		info, err = a.InspectRepoInTransaction(txnCtx, request)
+		repoInfo, err = a.InspectRepoInTransaction(txnCtx, request)
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	size, err := a.driver.getRepoSize(ctx, info.Repo)
+	size, err := a.driver.repoSize(ctx, repoInfo.Repo)
 	if err != nil {
 		return nil, err
 	}
-	info.SizeBytes = uint64(size)
-	return info, nil
+	if repoInfo.Details == nil {
+		repoInfo.Details = &pfs.RepoInfo_Details{}
+	}
+	repoInfo.Details.SizeBytes = size
+	return repoInfo, nil
 }
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
@@ -549,11 +552,7 @@ func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
 		}); err != nil {
 			return err
 		}
-		// TODO(2.0 required) - SizeBytes requires constructing the src with
-		// `WithDetails` which we don't do here, so we can't get the size from here
-		// that easily.  One option is to always calculate the size of files in the
-		// source.
-		// bytesWritten += int64(fi.Details.SizeBytes)
+		bytesWritten += int64(fi.SizeBytes)
 		return nil
 	})
 	return bytesWritten, err
@@ -607,7 +606,7 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.listFile(server.Context(), request.File, request.Details, func(fi *pfs.FileInfo) error {
+	return a.driver.listFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
 		sent++
 		return server.Send(fi)
 	})

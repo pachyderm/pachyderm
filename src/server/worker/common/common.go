@@ -40,7 +40,7 @@ func HashDatum(pipelineName string, pipelineSalt string, inputs []*Input) string
 	for _, input := range inputs {
 		hash.Write([]byte(input.Name))
 		hash.Write([]byte(input.FileInfo.File.Path))
-		hash.Write([]byte(input.FileInfo.Details.Hash))
+		hash.Write([]byte(input.FileInfo.Hash))
 	}
 	hash.Write([]byte(pipelineName))
 	hash.Write([]byte(pipelineSalt))

@@ -169,21 +169,21 @@ func TestRepoSize(t *testing.T) {
 	// check data repo size
 	repoInfo, err := c.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.Equal(t, uint64(6), repoInfo.SizeBytes)
+	require.Equal(t, uint64(6), repoInfo.SizeBytesUpperBound)
 
 	// check pipeline repo size
 	repoInfo, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, uint64(6), repoInfo.SizeBytes)
+	require.Equal(t, uint64(6), repoInfo.SizeBytesUpperBound)
 
 	// ensure size is updated when we delete a commit
 	require.NoError(t, c.SquashCommitSet(commit1.ID))
 	repoInfo, err = c.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), repoInfo.SizeBytes)
+	require.Equal(t, uint64(3), repoInfo.SizeBytesUpperBound)
 	repoInfo, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), repoInfo.SizeBytes)
+	require.Equal(t, uint64(3), repoInfo.SizeBytesUpperBound)
 }
 
 func TestPFSPipeline(t *testing.T) {
@@ -325,7 +325,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 
 		fileInfo, err := c.InspectFile(outputCommit, fileName)
 		require.NoError(t, err)
-		require.Equal(t, chunkSize+i*units.MB, int(fileInfo.Details.SizeBytes))
+		require.Equal(t, chunkSize+i*units.MB, int(fileInfo.SizeBytes))
 
 		require.NoError(t, c.GetFile(outputCommit, fileName, &buf))
 		// we don't wanna use the `require` package here since it prints
@@ -3976,7 +3976,7 @@ func TestGetLogs(t *testing.T) {
 		pathLog := c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
 		base64Hash := "kstrTGrFE58QWlxEpCRBt3aT8NJPNY0rso6XK7a4+wM="
-		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Details.Hash))
+		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
 		base64Log := c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
 		numLogs = 0

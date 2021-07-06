@@ -35,7 +35,7 @@ message File {
 message RepoInfo {
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
-  uint64 size_bytes = 3;
+  int64 size_bytes_upper_bound = 3;
   string description = 4;
   repeated Branch branches = 5;
 
@@ -43,6 +43,12 @@ message RepoInfo {
   // not stored in etcd. To set a user's auth scope for a repo, use the
   // Pachyderm Auth API (in src/client/auth/auth.proto)
   RepoAuthInfo auth_info = 6;
+
+  // Details are only provided when explicitly requested
+  message Details {
+    int64 size_bytes = 1;
+  }
+  Details details = 7;
 }
 
 // RepoAuthInfo includes the caller's access scope for a repo, and is returned
@@ -119,10 +125,11 @@ message CommitInfo {
   google.protobuf.Timestamp finished = 7;
   repeated Branch direct_provenance = 8;
   bool error = 9; 
+  int64 size_bytes_upper_bound = 11;
 
   // Details are only provided when explicitly requested
   message Details {
-    uint64 size_bytes = 1;
+    int64 size_bytes = 1;
   }
   Details details = 10;
 }
@@ -146,12 +153,8 @@ message FileInfo {
   File file = 1;
   FileType file_type = 2;
   google.protobuf.Timestamp committed = 3;
-
-  message Details {
-    uint64 size_bytes = 1;
-    bytes hash = 2;
-  }
-  Details details = 4;
+  int64 size_bytes = 4;
+  bytes hash = 5;
 }
 
 // PFS API
@@ -213,7 +216,7 @@ message ListCommitRequest {
   Repo repo = 1;
   Commit from = 2;
   Commit to = 3;
-  uint64 number = 4;
+  int64 number = 4;
   bool reverse = 5;  // Return commits oldest to newest
 }
 
