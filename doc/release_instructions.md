@@ -79,7 +79,16 @@ git commit -m"Increment version for $(pachctl version --client-only) release"
 
 Update the `appVersion` section to the new pachyderm version
 
-See note about pre-releases below.
+Note: When releasing an alpha/beta/RC version, ensure the helmchart is marked as a pre-release
+
+`etc/helm/pachyderm/Chart.yaml`
+
+```
+annotations:
+  artifacthub.io/prerelease: "true"
+```
+
+git commit -am "Update Pachyderm version in helm for $(pachctl version --client-only) release"
 
 ### Update the changelog [apply step only when running point-release target]
 
@@ -111,15 +120,6 @@ make VERSION_ADDITIONAL=-beta1 release-candidate
 OR
 make VERSION_ADDITIONAL=-rc1 release-candidate
  ```
-
-Note: When releasing an alpha/beta/RC version, ensure the helmchart is marked as a pre-release
-
-`etc/helm/pachyderm/Chart.yaml`
-
-```
-annotations:
-  artifacthub.io/prerelease: "true"
-```
 
 ### Release notes [apply step only when running point-release target]
 * [Release notes](https://github.com/pachyderm/pachyderm/releases) are automatically
