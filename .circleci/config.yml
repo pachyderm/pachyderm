@@ -137,7 +137,8 @@ jobs:
       - restore_cache:
          keys:
          - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-      - run: etc/testing/circle/build.sh 
+      - run: make docker-build
+      # make release-pachctl
 
 workflows:
 #  circleci:
