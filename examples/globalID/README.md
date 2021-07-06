@@ -1,77 +1,116 @@
 
 ## Before You Start
 
-Global ID as a common TAG that marks all the commits and jobs involved in the chain reaction that is your data driven DAG when trigerred by an initial change (a put file in a repo, an update pipeline). 
+Global ID can be seen as **a common TAG that marks all the commits and jobs involved in the chain reaction that takes place in your data-driven DAG when triggered by an initial change (a put file in a repo, an updated pipeline, a squash commit...). 
 
-Note that we now have 3 types of repos:
- - User: That keeps track of your data per commit
- - Spec: That keeps track of the pipeline's specification used in a given job triggered by a commit
- - Meta: That hold the statistics of your transformation (Not relevant here)
- Each pipeline comes with one Spec and one Meta repo.
+Note, as a reminder, that we have **3 types of repos**. 
+Types other than `USER` indicate System Repos, which hold certain auxiliary information about pipelines. 
 
-Additionnally, your commits now have an "origin". You can see that origin has "what trigerred the production of this commit".
- - User: the commit is the result of a user change - This is the initial commit that will cascade into the following:
+- `USER`: That keeps track of your data one commit at a time.
+- `SPEC`: That keeps track of the pipeline's specification version used by a given job. 
+- `META`: That holds the statistics of your transformation. 
 
- - Auto: the commit has been automatically trigered in the chain reaction that is your DAG
- - Alias: The commit has been tagged with a given ID to make its belonging to the chain reaction related to a change.
+Each pipeline comes with one `SPEC` and one `META` repo. Every time a job commits the result of a transformation to a pipeline output commit, it also commits to the pipeline's meta repo. Deleting the output repo of a pipeline (which happens per default when deleting a pipeline) will also delete its `SPEC` and `META` repo.
 
- Every initial change is a User change.
+`pachctl list repo --all` or `pachctl list repo --type=spec` will let you see all repos of all types or the spec system repo only respectively. By default, no flag will give you the list of all user repos.
+
+Additionally, **commits have an "origin"**. You can see an origin as the answer to: **"What triggered the production of this commit"**. 
+- `USER`: The commit is the result of a user change - This is the initial commit that will cascade into either one of the following:
+- `AUTO`: the commit has been automatically triggered in your DAG's chain reaction by the arrival of an initial user commit.
+- `ALIAS`: Neither `USER` nor `AUTO` - `ALIAS` commits are essentially empty commits. An `ALIAS` commit is a new global ID tag on a parent commit. 
+
+Note that **every initial change is a `USER` change**.
+
+Along with the introduction of GlobalID, we are introducing 2 new definitions:
+- `commitset`: A commitset is the set of all commits (`USER`,`AUTO`, `ALIAS`) connected through provenance relationships. They share a common ID. Note that all jobs triggered by the initial `USER` commit ALSO share this same ID as jobID.
+- `jobset`: Similarly, a jobset is the set of jobs created due to commits in a CommitSet. 
+
 
 ## Inititialization
+We are basing this example on our open CV example. 
+In the `examples/globalID` directory, run the following targets: 
 ```shell
 make clean
 make init
 ```
-## GlobalID - An unique ID to trace all of the commits and jobs that resulted from an initial change
-With GlobalId, all logically-dependent commits share the same ID. 
-### Let our initial change be a `put file` in our initial images repository
-- Add a file to your input repi `images`
+## GlobalID - An unique ID to trace all of the commits and jobs that resulted from an initial change in your DAG
+With GlobalId, all provenance-dependent commits share the same ID (commitset). 
+You can list all commitset by running the following command:
+```shell
+pachctl list commitset
+```
+Or list all commits involved in a given commitset:
+```shell
+pachctl inspect commitset <commitID>
+```
+Note: Change `commitset` in `jobset` to list and inspect all jobs linked to your commitset.
+
+### 1- Let our initial change be a `put file` in our `images` repository
+You are going to discover how the entirety of the data and pipeline versions 
+involved in all the changes resulting from the initial put file can be identified at once. 
+This includes the 2 jobs triggered in the process, each of which will also share the same ID as their job ID.
+- Add a file to your input repo `images`
     ```shell
     pachctl put file images@master -i data/images.txt
     ```	
     and notice that 2 jobs (one per pipeline) have been created with the same id.
+    **Note:** The 2 initial jobs, which each processed no datum (bottom 2), are initialization jobs. Disregard.
+    They will be of no use for our comprehension of Global ID.
+
     ```shell
     pachctl list job
     ```
-    ```shell
-    ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
-    bd48546ed5534b50bbf71d0b3c6dbd28 edges    24 seconds ago 5 seconds          0       2 + 1 / 3 181.1KiB 111.4KiB success
-    bd48546ed5534b50bbf71d0b3c6dbd28 montage  21 seconds ago 6 seconds          0       1 + 0 / 1 371.9KiB 1.292MiB success
+    ```
+    ID                               PIPELINE STARTED       DURATION           RESTART PROGRESS  DL       UL       STATE
+    336f02bdbbbb446e91ba27d2d2b516c6 edges    4 seconds ago 2 seconds          0       1 + 0 / 1 57.27KiB 22.22KiB success
+    336f02bdbbbb446e91ba27d2d2b516c6 montage  3 seconds ago 3 seconds          0       1 + 0 / 1 79.49KiB 381.1KiB success
+    
+    3141ea4783d8452c9e299717c3e0e0eb montage  3 seconds ago Less than a second 0       0 + 0 / 0 0B       0B       success
+    1ec7f101f290445a8958b19da33b20a3 edges    4 seconds ago Less than a second 0       0 + 0 / 0 0B       0B       success
     ```
 
-- list the commits in the `images` repo and notice that a commit ID of the same value exists in that repo
+- list the commits in the `images` repo and notice that a commit ID of the same value exists in that repo:
     ```shell
-    pachcl list commit images@master
+    pachctl list commit images@master
     ```
     ```
-    REPO   BRANCH COMMIT                           FINISHED      SIZE DESCRIPTION
-    images master bd48546ed5534b50bbf71d0b3c6dbd28 5 minutes ago 0B   
+    REPO   BRANCH COMMIT                           FINISHED           SIZE ORIGIN DESCRIPTION
+  **images master 336f02bdbbbb446e91ba27d2d2b516c6 About a minute ago -    USER**
+    
+    images master 3141ea4783d8452c9e299717c3e0e0eb About a minute ago -    ALIAS
+    images master 1ec7f101f290445a8958b19da33b20a3 About a minute ago -    AUTO
     ```
-- list the commits in the `edges` and `montage` repos, and notice the same commit ID
+- list the commits in the `edges` and `montage` repos, and notice the same commit ID:
+    ```
+    REPO  BRANCH COMMIT                           FINISHED      SIZE ORIGIN DESCRIPTION
+   **edges master 336f02bdbbbb446e91ba27d2d2b516c6 7 minutes ago -    AUTO**
+
+    edges master 3141ea4783d8452c9e299717c3e0e0eb 7 minutes ago -    ALIAS
+    edges master 1ec7f101f290445a8958b19da33b20a3 7 minutes ago -    AUTO
+    ```
+    ```
+    REPO  BRANCH COMMIT                           FINISHED      SIZE ORIGIN DESCRIPTION
+   **montage master 336f02bdbbbb446e91ba27d2d2b516c6 8 minutes ago -    AUTO**
+
+    montage master 3141ea4783d8452c9e299717c3e0e0eb 8 minutes ago -    AUTO
+    ```
+- Inspect the commit of said ID (336f02bdbbbb446e91ba27d2d2b516c6) in the `images` repo - 
+    The repo in which our change (`put file`) has originated:
     ```shell
-    REPO    BRANCH COMMIT                           FINISHED           SIZE DESCRIPTION
-    montage master bd48546ed5534b50bbf71d0b3c6dbd28 About a minute ago 0B
+    pachctl inspect commit images@336f02bdbbbb446e91ba27d2d2b516c6 --raw
     ```
-    ```shell
-    REPO  BRANCH COMMIT                           FINISHED           SIZE DESCRIPTION
-    edges master bd48546ed5534b50bbf71d0b3c6dbd28 59 seconds ago     0B
-    ```
-- Inspect the commit of said ID in the `images` repo - The repo in which our change (`put file`) has originated:
-    ```shell
-    pachctl inspect commit images@bd48546ed5534b50bbf71d0b3c6dbd28 --raw
-    ```
-    Note that the original commit is marked as empty.
+    Note that this original commit if of "USER" origin.
     ```json
     "origin": {
-
-    },
+    "kind": "USER"
+     },
     ```
-- Inspect the following commits produced in the output repos of the edges and montages pipelines:
+- Inspect the following commit (336f02bdbbbb446e91ba27d2d2b516c6) produced in the output repos of the edges pipelines:
     ```shell
-    pachctl inspect commit edges@bd48546ed5534b50bbf71d0b3c6dbd28 --raw
+    pachctl inspect commit edges@336f02bdbbbb446e91ba27d2d2b516c6 --raw
     ```
 
-    Note that the origin of this commit is of kind **`AUTO`** as it has been trigerred by the arrival of a commit in the upstream repo images
+    Note that the origin of the commit is of kind **`AUTO`** as it has been trigerred by the arrival of a commit in the upstream repo `images`.
     ```json
     "origin": {
         "kind": "AUTO"
@@ -96,67 +135,150 @@ With GlobalId, all logically-dependent commits share the same ID.
         }
     ]
     ```
-- Repeat the same command on the montage repo and note the same origin of the commmit.
+- Repeat the same command on the montage repo and note the same origin of the commit.
 
-- Now list the repo of all types to identify the edges and montages spec system repos.
-```shell
-pachctl list repo --all
-```
-```shell
-NAME         CREATED     SIZE (MASTER) ACCESS LEVEL
-montage      4 hours ago 1.664MiB      [repoOwner]  Output repo for pipeline montage.
-montage.spec 4 hours ago 413B          [repoOwner]  Spec repo for pipeline montage.
-montage.meta 4 hours ago 2.107MiB      [repoOwner]  Meta repo formontage
-edges.meta   4 hours ago 373.9KiB      [repoOwner]  Meta repo foredges
-edges.spec   4 hours ago 252B          [repoOwner]  Spec repo for pipeline edges.
-edges        4 hours ago 133.6KiB      [repoOwner]  Output repo for pipeline edges.
-images       4 hours ago 238.3KiB      [repoOwner]
-```
-- Run an inspect commit on `edges.spec` and `montage.spec`:
-```shell
-pachctl inspect commit edges.spec@bd48546ed5534b50bbf71d0b3c6dbd28 --raw
-pachctl inspect commit montage.spec@bd48546ed5534b50bbf71d0b3c6dbd28 --raw
-```
-Note that in this case, the same CommitID tags the version of the pipeline used in this transformation, only their type is **`ALIAS`**. 
-
-
-
-
-The execution is tagged - GlobalID keep a snapshot of the data and the pipelines versions at the time of the processing of a change (create, update pipeline. Put files, squash commit...)
-
-
-
+- Now list the repos of all types to identify the edges and montages system repos.
+    ```shell
+    pachctl list repo --all
+    ```
+    ```shell
+    NAME         CREATED        SIZE (MASTER) ACCESS LEVEL
+    montage.spec 15 minutes ago 413B          [repoOwner]  Spec repo for pipeline montage.
+    montage.meta 15 minutes ago 461.6KiB      [repoOwner]  Meta repo for pipeline montage
+    montage      15 minutes ago 381.1KiB      [repoOwner]  Output repo for pipeline montage.
+    edges        15 minutes ago 22.22KiB      [repoOwner]  Output repo for pipeline edges.
+    edges.meta   15 minutes ago 80.15KiB      [repoOwner]  Meta repo for pipeline edges
+    edges.spec   15 minutes ago 252B          [repoOwner]  Spec repo for pipeline edges.
+    images       15 minutes ago 57.27KiB      [repoOwner]
+    ```
+- Run an inspect commit on `edges.spec` and `montage.spec` for the commit 336f02bdbbbb446e91ba27d2d2b516c6 :
+    ```shell
+    pachctl inspect commit edges.spec@336f02bdbbbb446e91ba27d2d2b516c6 --raw
+    ```
+    ```shell
+    pachctl inspect commit montage.spec@336f02bdbbbb446e91ba27d2d2b516c6 --raw
+    ```
+    Note that in this case, 
+    the same commit ID tags the version of each pipeline within their respective `.spec` repos.
+    The tag keeps track of what version of the pipeline spec was involved in transforming the data. 
+    Because they are not the result of a user change or the automatic cascade of following commits that ensues in the DAG,
+    their type is **`ALIAS`**. 
 
 
+    All the components (pipelines specs versions, pipeline jobs, and commits in all repos of the DAG) 
+    now share one unique identifier as shown below.
 
-Let's change the glog pattern in our edges.json from `/*' to `/` and update our pipeline:
-```json
-  "input": {
-    "pfs": {
-      "glob": "/",
-      "repo": "images"
+    ![commitset_after_putfile](./img/commitset_after_putfile.png)
+
+### 2- Let our initial change now be an `update pipeline`
+- Change the glog pattern in our edges.json from `/*' to `/` and update our pipeline:
+    ```json
+    "input": {
+        "pfs": {
+        "glob": "/",
+        "repo": "images"
+        }
+    },
+    ```
+    ```shell
+    pachctl update pipeline -f pipelines/edges.json --reprocess
+    ```
+    Note that a new ID bfa67f4300994dcb965789a5f83512de has been created for 2 jobs.
+    The update of the pipeline `edges.json`, which created an initial commit of type "USER" in the `edges.spec`
+    repo as we will see right after, 
+    has triggered the reprocess of our data in the `images` repo by the pipelines edges and montages.
+    `
+    ``shell
+    pachctl list job
+    ```
+    ```
+    ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
+    bfa67f4300994dcb965789a5f83512de edges    30 seconds ago 3 seconds          0       1 + 0 / 1 57.27KiB 22.22KiB success
+    bfa67f4300994dcb965789a5f83512de montage  41 seconds ago 15 seconds         0       0 + 1 / 1 0B       0B       success
+
+    336f02bdbbbb446e91ba27d2d2b516c6 montage  43 minutes ago 3 seconds          0       1 + 0 / 1 79.49KiB 381.1KiB success
+    3141ea4783d8452c9e299717c3e0e0eb montage  43 minutes ago Less than a second 0       0 + 0 / 0 0B       0B       success
+    ```
+- Inspect the  commit (bfa67f4300994dcb965789a5f83512de) in `edges.spec` and note that its kind is indeed `USER`.
+    ```shell
+    pachctl inspect commit edges.spec@bfa67f4300994dcb965789a5f83512de --raw
+    ```
+
+    This original change triggers automatic downstream commits in the `edges` and `montage` repos as shown by their "AUTO" origin:
+
+    ```shell
+    pachctl inspect commit edges@bfa67f4300994dcb965789a5f83512de --raw
+    ```
+    ```shell
+    pachctl inspect commit montage@bfa67f4300994dcb965789a5f83512de --raw
+    ```
+- Now inspect the commits in the `images` and the `montage.spec` repos which have contributed to the overall production of our "AUTO" commits above but have not been modified by any user change.
+    You will notice that they carry the same global ID 
+    (bfa67f4300994dcb965789a5f83512de) which, in this case, is of type `ALIAS`.
+
+- An easier way to list all the commits, of all types, involved in this initial change:
+    ```shell
+    pachctl inspect commitset bfa67f4300994dcb965789a5f83512de
+   ```
+    The same commitset in a diagram:
+    ![commitset_after_updatepipeline_edges](./img/commitset_after_updatepipeline_edges.png)
+### 3- What if our initial change is `update pipeline -f montage.json`?
+
+- Let's modify `montage.json` to have the final montage written to montage2.png rather than montage.png.
+
+    ```json
+    "transform": {
+        "cmd": [ "sh" ],
+        "image": "dpokidov/imagemagick:7.0.10-58",
+        "stdin": [ "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage2.png" ]
     }
-  },
-```
-```shell
-pachctl update pipeline -f pipelines/edges.json --reprocess
-```
+    ```
+    and update our pipeline by running:
+    ```shell
+    pachctl update pipeline -f pipelines/montage.json --reprocess
+    ```
+    A quick check at `montage.spec` (`pachctl list commit montage.spec@master`) shows the creation of a new commit (fd962b922c0e4efab3120f22cd065c9e) of type `USER`.
 
-```shell
-pachctl list job
-```
-```
-ID                               PIPELINE STARTED        DURATION   RESTART PROGRESS  DL       UL       STATE
-be97b64f110643389f171eb64697d4e1 edges    48 seconds ago 5 seconds  0       1 + 0 / 1 238.3KiB 133.6KiB success
-be97b64f110643389f171eb64697d4e1 montage  58 seconds ago 17 seconds 0       0 + 1 / 1 0B       0B       success
-```
-```shell
-pachctl inspect commit edges.spec@be97b64f110643389f171eb64697d4e1 --raw
-```
-This time, the original commit happens in the esges.repo by updating the pipeline.
+    As anticipated, the update of the pipeline triggered a new job resulting in a new commit in the montage output repo.
+    Run  `pachctl inspect commit montage@fd962b922c0e4efab3120f22cd065c9e --raw` and notice that the commit is of type "AUTO". 
+    Similarly, we will let you check that `montage.meta' is also of type "AUTO".
 
-As a result, downstream commits in edges and montage are automatically created (note that their kind is `Auto` in their respective json):
-```shell
-pachctl inspect commit edges@be97b64f110643389f171eb64697d4e1 --raw
-pachctl inspect commit edges@be97b64f110643389f171eb64697d4e1 --raw
-```
+
+- What happens to all the other components of this DAG (images, edges, edges.spec, edges.meta)?
+ 
+    Let's list all commitset `pachctl list commitset` and notice that our latest commitset (fd962b922c0e4efab3120f22cd065c9e) reports 6 commits.
+
+    ```
+    ID                               COMMITS PROGRESS CREATED        MODIFIED
+    fd962b922c0e4efab3120f22cd065c9e 6       ▇▇▇▇▇▇▇▇ 14 minutes ago 14 minutes ago
+    ```
+
+    Let's list them all:
+    ```shell
+    pachctl inspect commitset fd962b922c0e4efab3120f22cd065c9e
+    ```
+
+    ```
+    REPO         BRANCH COMMIT                           FINISHED       SIZE ORIGIN DESCRIPTION
+    montage.spec master fd962b922c0e4efab3120f22cd065c9e 12 minutes ago -    USER
+    montage      master fd962b922c0e4efab3120f22cd065c9e 12 minutes ago -    AUTO
+    montage.meta master fd962b922c0e4efab3120f22cd065c9e 12 minutes ago -    AUTO
+    images       master fd962b922c0e4efab3120f22cd065c9e 12 minutes ago -    ALIAS
+    edges.spec   master fd962b922c0e4efab3120f22cd065c9e 12 minutes ago -    ALIAS
+    edges        master fd962b922c0e4efab3120f22cd065c9e 12 minutes ago -    ALIAS
+
+    ```
+    The same commitset in a diagram:
+    ![commitset_after_updatepipeline_montage](./img/commitset_after_updatepipeline_montage.png)
+
+
+    Note that one job, and one only, was triggered by the change of the pipeline `montage.json`:
+    ```shell
+    pachctl inspect jobset fd962b922c0e4efab3120f22cd065c9e
+    ```
+    ```
+    ID                               PIPELINE STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE
+    fd962b922c0e4efab3120f22cd065c9e montage  12 minutes ago 4 seconds 0       1 + 0 / 1 371.9KiB 1.292MiB success
+    ```
+
+    Also, `edges.meta` is not in the provenance of any of the new data. As a result, it does not belong to the commitset.
