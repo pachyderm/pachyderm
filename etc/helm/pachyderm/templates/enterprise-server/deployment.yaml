@@ -41,6 +41,8 @@ spec:
           value: postgres
         - name: POSTGRES_PORT
           value: "5432"
+        - name: CLUSTER_DEPLOYMENT_ID
+          value: {{ default (randAlphaNum 32) .Values.enterpriseServer.clusterDeploymentID | quote }}
         image: "{{ .Values.enterpriseServer.image.repository }}:{{ default .Chart.AppVersion .Values.enterpriseServer.image.tag }}"
         imagePullPolicy: {{ .Values.enterpriseServer.image.pullPolicy }}
         {{- if .Values.imagePullSecret }}

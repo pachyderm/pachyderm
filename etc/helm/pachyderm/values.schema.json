@@ -115,6 +115,9 @@
                 "affinity": {
                     "type": "object"
                 },
+                "clusterDeploymentID": {
+                    "type": "string"
+                },
                 "enabled": {
                     "type": "boolean"
                 },

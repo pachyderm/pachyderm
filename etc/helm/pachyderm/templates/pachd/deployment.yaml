@@ -106,10 +106,8 @@ spec:
               divisor: "0"
               resource: requests.memory
         {{- end }}
-        {{- if .Values.pachd.clusterDeploymentID }}
         - name: CLUSTER_DEPLOYMENT_ID
-          value: {{ .Values.pachd.clusterDeploymentID | quote }}
-        {{- end }}
+          value: {{ default (randAlphaNum 32) .Values.pachd.clusterDeploymentID | quote }}
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
         - name: PACHD_POD_NAME
