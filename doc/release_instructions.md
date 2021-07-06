@@ -73,6 +73,23 @@ git add src/version/client.go
 git commit -m"Increment version for $(pachctl version --client-only) release"
 ```
 
+### Update the Pachyderm version in the Helm Chart
+
+`etc/helm/pachyderm/Chart.yaml`
+
+Update the `appVersion` section to the new pachyderm version
+
+Note: When releasing an alpha/beta/RC version, ensure the helmchart is marked as a pre-release
+
+`etc/helm/pachyderm/Chart.yaml`
+
+```
+annotations:
+  artifacthub.io/prerelease: "true"
+```
+
+git commit -am "Update Pachyderm version in helm for $(pachctl version --client-only) release"
+
 ### Update the changelog [apply step only when running point-release target]
 
 Update the changelog in the branch and commit it locally. Edit `CHANGELOG.md`
@@ -115,6 +132,9 @@ are correct. Edit the release on GitHub to manually update any changes.
     We’ve just released Pachyderm <X.Y.Z> — check it out!
     * RELEASE NOTES with links to PRs
 ```
+
+### Helm
+The helm chart will be released when the release tag is pushed to the repo. 
 
 ### New major or minor releases
 
