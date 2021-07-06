@@ -1017,7 +1017,7 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 	if request.Input != nil {
 		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
 			di := convertDatumMetaToInfo(meta, nil)
-			di.State = pps.DatumState_UNPROCESSED
+			di.State = pps.DatumState_DATUM_STATE_UNKNOWN
 			di.Datum.ID = ""
 			return server.Send(di)
 		})
@@ -1067,7 +1067,7 @@ func convertDatumMetaToInfo(meta *datum.Meta, sourceJob *pps.Job) *pps.DatumInfo
 	for _, input := range meta.Inputs {
 		di.Data = append(di.Data, input.FileInfo)
 	}
-	if !proto.Equal(meta.Job, sourceJob) {
+	if meta.Job != nil && !proto.Equal(meta.Job, sourceJob) {
 		di.State = pps.DatumState_SKIPPED
 	}
 	return di
@@ -1080,8 +1080,6 @@ func convertDatumState(state datum.State) pps.DatumState {
 		return pps.DatumState_FAILED
 	case datum.State_RECOVERED:
 		return pps.DatumState_RECOVERED
-	case datum.State_UNPROCESSED:
-		return pps.DatumState_UNPROCESSED
 	default:
 		return pps.DatumState_SUCCESS
 	}

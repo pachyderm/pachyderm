@@ -398,7 +398,7 @@ func datumState(datumState ppsclient.DatumState) string {
 		return color.New(color.FgYellow).SprintFunc()("recovered")
 	case ppsclient.DatumState_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
-	case ppsclient.DatumState_UNPROCESSED:
+	case ppsclient.DatumState_DATUM_STATE_UNKNOWN:
 		return color.New(color.FgGreen).SprintFunc()("-")
 	}
 	return "-"

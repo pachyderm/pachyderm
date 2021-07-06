@@ -12,7 +12,6 @@ enum State {
   PROCESSED = 0;
   FAILED = 1;
   RECOVERED = 2;
-  UNPROCESSED = 3;
 }
 
 message Meta {
