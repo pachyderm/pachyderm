@@ -79,6 +79,33 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+  helm-build:
+    docker:
+      # specify the version
+      - image: circleci/golang:1.15
+
+      # Specify service dependencies here if necessary
+      # CircleCI maintains a library of pre-built images
+      # documented at https://circleci.com/docs/2.0/circleci-images/
+      # - image: circleci/postgres:9.4
+    working_directory: ~/project/etc/helm
+    steps:
+      - checkout:
+          path: ~/project
+      - run: mkdir /home/circleci/bin
+      - restore_cache:
+          keys:
+            - go-mod-helm-v4-{{ checksum "go.sum" }}
+      - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
+      - run: wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz -O - | tar -xzO kubeval > /home/circleci/bin/kubeval && chmod +x /home/circleci/bin/kubeval
+      - run: make lint
+      - run: make test
+      - run: make kubeval-gcp
+      - run: make kubeval-aws
+      - save_cache:
+          key: go-mod-helm-v4-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
 
 workflows:
   circleci:
@@ -101,3 +128,6 @@ workflows:
               - PPS6
               - EXAMPLES
               - INTERNAL
+  helm:
+    jobs:
+      - helm-build
