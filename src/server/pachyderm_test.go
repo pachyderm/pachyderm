@@ -169,21 +169,21 @@ func TestRepoSize(t *testing.T) {
 	// check data repo size
 	repoInfo, err := c.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.Equal(t, uint64(6), repoInfo.SizeBytesUpperBound)
+	require.Equal(t, int64(6), repoInfo.Details.SizeBytes)
 
 	// check pipeline repo size
 	repoInfo, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, uint64(6), repoInfo.SizeBytesUpperBound)
+	require.Equal(t, int64(6), repoInfo.Details.SizeBytes)
 
 	// ensure size is updated when we delete a commit
 	require.NoError(t, c.SquashCommitSet(commit1.ID))
 	repoInfo, err = c.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), repoInfo.SizeBytesUpperBound)
+	require.Equal(t, int64(3), repoInfo.Details.SizeBytes)
 	repoInfo, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), repoInfo.SizeBytesUpperBound)
+	require.Equal(t, int64(3), repoInfo.Details.SizeBytes)
 }
 
 func TestPFSPipeline(t *testing.T) {
@@ -1545,7 +1545,7 @@ func TestProvenance(t *testing.T) {
 
 	for _, ci := range commitInfos {
 		if ci.Commit.Branch.Repo.Name == cPipeline && ci.Commit.Branch.Repo.Type == pfs.UserRepoType {
-			require.Equal(t, uint64(0), ci.Details.SizeBytes)
+			require.Equal(t, int64(0), ci.Details.SizeBytes)
 		}
 	}
 
