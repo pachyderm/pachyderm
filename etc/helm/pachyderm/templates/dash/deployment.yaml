@@ -47,7 +47,7 @@ spec:
         - name: OAUTH_CLIENT_ID
           value: {{ .Values.dash.config.oauthClientID | quote }}
         - name: OAUTH_CLIENT_SECRET
-          value: {{ .Values.dash.config.oauthClientSecret | quote }}
+          value: {{ include "pachyderm.dashSecret" . | quote }}
         - name: GRAPHQL_PORT
           value: {{ .Values.dash.config.graphqlPort | quote }}
         - name: OAUTH_PACHD_CLIENT_ID
