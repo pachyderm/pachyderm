@@ -12,13 +12,12 @@ require (
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
-	github.com/coreos/go-etcd v2.0.0+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 	github.com/dexidp/dex v0.0.0-20201118094123-6ca0cbc85759
 	github.com/dexidp/dex/api/v2 v2.0.0
 	github.com/dlclark/regexp2 v1.2.0 // indirect
-	github.com/dlmiddlecote/sqlstats v1.0.2 // indirect
+	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/go-units v0.4.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/elazarl/goproxy v0.0.0-20191011121108-aa519ddbe484 // indirect
@@ -32,7 +31,7 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0
-	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20191002090509-6af20e3a5340 // indirect
+	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20191002090509-6af20e3a5340
 	github.com/hanwen/go-fuse/v2 v2.0.3
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/itchyny/gojq v0.11.2
