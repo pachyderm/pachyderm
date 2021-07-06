@@ -157,7 +157,7 @@ workflows:
               only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
       - helm-publish:
           requires:
-            - build
+            - helm-build
           filters:
             branches:
               ignore: /.*/
