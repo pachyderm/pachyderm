@@ -323,19 +323,12 @@ func TestPFS(suite *testing.T) {
 
 		checkRepoCommits([]*pfs.Commit{commit3, commit2, commit1})
 
-		// Rewind branch b.master to commit2 - fails because this commitset already has an entry on 'master'
-		require.YesError(t, env.PachClient.CreateBranch("b", "master", "master", commit2.ID, provB))
-		// But we can create a new commit by aliasing the old commit and setting it as the head
-		_, err = env.PachClient.PfsAPIClient.CreateBranch(env.PachClient.Ctx(), &pfs.CreateBranchRequest{
-			Head:         client.NewCommit("b", "master", commit2.ID),
-			Branch:       client.NewBranch("b", "master"),
-			NewCommitSet: true,
-			Provenance:   provB,
-		})
-		require.NoError(t, err)
+		// Rewind branch b.master to commit2 must create a new commit set because the old one already has an entry on 'master'
+		require.NoError(t, env.PachClient.CreateBranch("b", "master", "master", commit2.ID, provB))
 		ci, err := env.PachClient.InspectCommit("b", "master", "")
 		require.NoError(t, err)
 		commit4 := ci.Commit
+		require.NotEqual(t, commit4.ID, commit2.ID)
 
 		checkRepoCommits([]*pfs.Commit{commit4, commit3, commit2, commit1})
 
