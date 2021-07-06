@@ -83,7 +83,7 @@ git commit -am "Update change log for $(pachctl version --client-only) release"
 
 ### Push changes [apply step only when running point-release target]
 
-In a typical point release you will have 5 commits to push to the server.
+In a typical point release you will have 3 commits to push to the server.
 
 ```shell
 git push
