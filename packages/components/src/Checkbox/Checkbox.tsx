@@ -20,6 +20,13 @@ export interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
   validationOptions?: RegisterOptions;
 }
 
+export interface PureCheckboxProps
+  extends InputHTMLAttributes<HTMLInputElement> {
+  selected: boolean;
+  label?: React.ReactNode;
+  small?: boolean;
+}
+
 export const Checkbox: React.FC<CheckboxProps> = ({
   label,
   name,
@@ -65,6 +72,44 @@ export const Checkbox: React.FC<CheckboxProps> = ({
         )}
 
         {value && (
+          <CheckboxCheckedSVG
+            className={styles.checked}
+            aria-hidden
+            focusable={false}
+          />
+        )}
+      </div>
+
+      <span className={styles.label}>{label}</span>
+    </label>
+  );
+};
+
+export const PureCheckbox: React.FC<PureCheckboxProps> = ({
+  selected,
+  label,
+  small = false,
+  className,
+  ...rest
+}) => {
+  const classes = classNames(styles.base, className, {
+    [styles.small]: small,
+  });
+
+  return (
+    <label className={classes}>
+      <div className={styles.checkboxContainer}>
+        <input type="checkbox" className={styles.input} {...rest} />
+
+        {!selected && (
+          <CheckboxSVG
+            className={styles.checkbox}
+            aria-hidden
+            focusable={false}
+          />
+        )}
+
+        {selected && (
           <CheckboxCheckedSVG
             className={styles.checked}
             aria-hidden
