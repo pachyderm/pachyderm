@@ -73,27 +73,6 @@ git add src/version/client.go
 git commit -m"Increment version for $(pachctl version --client-only) release"
 ```
 
-### Regenerate golden deployment manifests [apply step only when running point-release target]
-
-```shell
-make VERSION_ADDITIONAL= regenerate-test-deploy-manifests
-git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only) release"
-```
-
-### Update the testfaster hash [apply step only when running point-release target]
-
-Update the test faster hash to point to the latest git commit.
-
-```shell
-git log --pretty=format:%H | head -n 1
-```
-Copy the commit hash printed from the above command. Search for "git checkout" in
-`.testfaster.yml` file. Replace the hash value with the one from above git log cmd.
-
-```shell
-git commit -am "Update test faster hash for $(pachctl version --client-only) release"
-```
-
 ### Update the changelog [apply step only when running point-release target]
 
 Update the changelog in the branch and commit it locally. Edit `CHANGELOG.md`
