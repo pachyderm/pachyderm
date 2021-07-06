@@ -21,9 +21,5 @@ LOCAL
 {{- end -}}
 
 {{- define "pachyderm.dashSecret" -}}
-{{- if .Values.dash.config.oauthClientSecret -}}
-{{ .Values.dash.config.oauthClientSecret }}
-{{- else -}}
-{{ randAlphaNum 32 }}
-{{- end -}}
+{{ default (randAlphaNum 32) .Values.dash.config.oauthClientSecret }}
 {{- end -}}
