@@ -35,8 +35,8 @@ const withSubscription = <T>({
     onCancel();
   };
 
-  const asyncIterator = pubsub.asyncIterator(triggerNames);
-  const iteratorWithCancel = withCancel(asyncIterator, handleCancel);
+  const asyncIterator = pubsub.asyncIterator<T>(triggerNames);
+  const iteratorWithCancel = withCancel<T>(asyncIterator, handleCancel);
 
   // get initial result so first request does not have to wait
   process.nextTick(async () => {

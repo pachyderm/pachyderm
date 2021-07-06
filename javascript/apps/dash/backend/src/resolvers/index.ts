@@ -41,12 +41,4 @@ Object.keys(resolvers.Mutation || {}).forEach((resolver) => {
   }
 });
 
-Object.keys(resolvers.Subscription || {}).map(async (resolver) => {
-  if (!unauthenticated.includes(resolver) && resolvers.Subscription) {
-    resolvers.Subscription[resolver] = await authenticated(
-      resolvers.Subscription[resolver],
-    );
-  }
-});
-
 export default resolvers;

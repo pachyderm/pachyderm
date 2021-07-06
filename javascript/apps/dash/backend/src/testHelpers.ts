@@ -8,14 +8,16 @@ import {
   FetchResult,
   HttpLink,
   InMemoryCache,
+  Observable,
 } from '@apollo/client/core';
-import {WebSocketLink} from '@apollo/client/link/ws';
 import {Metadata, StatusBuilder, status} from '@grpc/grpc-js';
 import {callErrorFromStatus} from '@grpc/grpc-js/build/src/call';
 import {ApolloError} from 'apollo-server-errors';
 import fetch from 'cross-fetch';
+import {print} from 'graphql';
+import {SubscribePayload, createClient} from 'graphql-ws';
 import {sign} from 'jsonwebtoken';
-import {SubscriptionClient} from 'subscriptions-transport-ws';
+import {v4 as uuid} from 'uuid';
 import ws from 'ws';
 
 import mockServer from '@dash-backend/mock';
@@ -60,38 +62,41 @@ const createServiceError = (statusArgs: {
   return callErrorFromStatus({...defaultStatusArgs, ...statusObj});
 };
 
-const getWsClient = () => {
-  const client = new SubscriptionClient(
-    `ws://localhost:${process.env.GRAPHQL_PORT}/subscriptions`,
-    {
-      reconnect: true,
-      connectionParams: () => ({
+const createSubscriptionClients = <T>(
+  query: DocumentNode,
+  variables: SubscribePayload['variables'],
+) => {
+  const client = createClient({
+    url: `ws://localhost:${process.env.GRAPHQL_PORT}/graphql`,
+    connectionParams: () => {
+      return {
         'id-token': generateIdTokenForAccount(mockServer.getAccount()),
         'pachd-address': `localhost:${process.env.GRPC_PORT}`,
         'auth-token': mockServer.getAccount().id,
-      }),
+      };
     },
-    ws,
-  );
-  return client;
-};
-
-const createSubscriptionClients = <T>(
-  query: DocumentNode,
-  variables: Record<string, unknown> = {},
-) => {
-  const wsClient = getWsClient();
-  const link = new WebSocketLink(wsClient);
-  const client = new ApolloClient({link, cache: new InMemoryCache()});
-
-  const observable = client.subscribe<T>({
-    query: query,
-    variables,
+    webSocketImpl: ws,
+    generateID: uuid,
+    keepAlive: 0,
+    retryAttempts: 0,
   });
 
-  const close = () => wsClient.close();
+  const toObservable = () => {
+    return new Observable<T>((observer) =>
+      client.subscribe<T>(
+        {query: print(query), variables},
+        {
+          next: (data) => observer.next(data),
+          error: (err) => observer.error(err),
+          complete: () => observer.complete(),
+        },
+      ),
+    );
+  };
 
-  return {close, observable};
+  const observable = toObservable();
+
+  return {observable};
 };
 
 const executeQuery = async <T>(
@@ -165,7 +170,6 @@ export {
   executeQuery,
   executeMutation,
   status,
-  getWsClient,
   createServiceError,
   mockServer,
   graphqlServer,

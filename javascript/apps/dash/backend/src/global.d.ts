@@ -1,7 +1,6 @@
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
-      [key: string]: string;
       ISSUER_URI: string;
       OAUTH_REDIRECT_URI: string;
       OAUTH_CLIENT_ID: string;

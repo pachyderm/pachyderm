@@ -6,7 +6,7 @@ import {ResolverFn} from '@graphqlTypes';
 const authenticated = <Parent, Args, Info>(
   target: ResolverFn<Parent, Args, Context, Info>,
 ): ResolverFn<Parent, Args, UnauthenticatedContext, Info> => {
-  return async (_args, _info, {account, ...rest}, _resolveInfo) => {
+  return (_args, _info, {account, ...rest}, _resolveInfo) => {
     if (!account) throw new AuthenticationError('User is not authenticated');
 
     return target(_args, _info, {account, ...rest}, _resolveInfo);

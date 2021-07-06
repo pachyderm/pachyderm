@@ -41,7 +41,9 @@ describe('useRouteController', () => {
 
     const {findByText} = render(<TestBed />);
 
-    expect(await findByText('Selected node: likelihoods_repo'));
+    expect(
+      await findByText('Selected node: likelihoods_repo', {}, {timeout: 10000}),
+    );
   });
 
   it('should derive the correct selected pipeline from the url', async () => {
@@ -53,7 +55,9 @@ describe('useRouteController', () => {
 
     const {findByText} = render(<TestBed />);
 
-    expect(await findByText('Selected node: likelihoods'));
+    expect(
+      await findByText('Selected node: likelihoods', {}, {timeout: 10000}),
+    );
   });
 
   it('should update the url correctly when selecting a repo', async () => {
@@ -65,7 +69,11 @@ describe('useRouteController', () => {
 
     const {findByText} = render(<TestBed />);
 
-    const imagesRepo = await findByText('likelihoods_repo');
+    const imagesRepo = await findByText(
+      'likelihoods_repo',
+      {},
+      {timeout: 10000},
+    );
 
     // TODO: replace with event helpers
     userEvent.click(imagesRepo);
@@ -86,7 +94,7 @@ describe('useRouteController', () => {
 
     const {findByText} = render(<TestBed />);
 
-    const edgesPipeline = await findByText('likelihoods');
+    const edgesPipeline = await findByText('likelihoods', {}, {timeout: 10000});
 
     // TODO: replace with event helpers
     userEvent.click(edgesPipeline);
@@ -103,7 +111,7 @@ describe('useRouteController', () => {
 
     const {findByText} = render(<TestBed id="5" />);
 
-    const egress = await findByText('https://egress.com');
+    const egress = await findByText('https://egress.com', {}, {timeout: 10000});
 
     userEvent.click(egress);
 

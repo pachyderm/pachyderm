@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, waitForElementToBeRemoved} from '@testing-library/react';
 import React from 'react';
 import {Route} from 'react-router';
 
@@ -75,6 +75,10 @@ describe('useProjects', () => {
     window.history.replaceState('', '', '/project/1');
 
     const {findByText} = render(<TestBed />);
+
+    await waitForElementToBeRemoved(await findByText('Loading'), {
+      timeout: 10000,
+    });
 
     const node0Id = await findByText('0 node id: montage_repo');
     const node1Id = await findByText('1 node id: montage');

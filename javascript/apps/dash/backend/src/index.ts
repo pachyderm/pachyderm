@@ -1,4 +1,4 @@
-import {Server, createServer as httpCreateServer} from 'http';
+import {Server} from 'http';
 import {AddressInfo} from 'net';
 import path from 'path';
 
@@ -9,6 +9,8 @@ import express, {Express} from 'express';
 import gqlServer from '@dash-backend/gqlServer';
 import handleFileDownload from '@dash-backend/handlers/handleFileDownload';
 import log from '@dash-backend/lib/log';
+
+import createWebsocketServer from './createWebsocketServer';
 
 const PORT = process.env.GRAPHQL_PORT || '3000';
 const FE_BUILD_DIRECTORY =
@@ -47,7 +49,7 @@ const attachWebServer = (app: Express) => {
 
 const attachDownloadHandler = (app: Express) => {
   if (process.env.NODE_ENV === 'development') {
-    app.use((req, res, next) => {
+    app.use((_req, res, next) => {
       res.setHeader('Access-Control-Allow-Origin', 'http://localhost:4000');
       res.setHeader('Access-Control-Allow-Methods', 'GET');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -63,8 +65,6 @@ const createServer = () => {
   const app = express();
 
   gqlServer.applyMiddleware({app});
-  const httpServer = httpCreateServer(app);
-  gqlServer.installSubscriptionHandlers(httpServer);
 
   attachDownloadHandler(app);
 
@@ -75,14 +75,23 @@ const createServer = () => {
   return {
     start: async () => {
       return new Promise<string>((res) => {
-        app.locals.server = httpServer.listen(PORT, () => {
+        app.locals.server = app.listen(PORT, () => {
           const address: AddressInfo = app.locals.server.address();
+          const host = address.address === '::' ? 'localhost' : address.address;
+          const port = address.port;
 
           log.info(
-            `Server ready at http://localhost:${address.port}${gqlServer.graphqlPath}`,
+            `Server ready at ${
+              process.env.NODE_ENV === 'production' ? 'https' : 'http'
+            }://${host}:${port}${gqlServer.graphqlPath}`,
           );
+
+          createWebsocketServer(app.locals.server);
+
           log.info(
-            `Subscriptions ready at http://localhost:${address.port}${gqlServer.subscriptionsPath}`,
+            `Websocket server ready at ${
+              process.env.NODE_ENV === 'production' ? 'wss' : 'ws'
+            }://${host}:${port}${gqlServer.subscriptionsPath}`,
           );
 
           res(String(address.port));
