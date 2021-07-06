@@ -168,3 +168,4 @@ workflows:
     jobs:
       - release
 # TODO Only run on tag, require tests
+# TODO GITHUB ENV Var, Docker Hub creds
