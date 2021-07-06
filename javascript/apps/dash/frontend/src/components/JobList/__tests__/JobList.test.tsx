@@ -38,7 +38,6 @@ describe('JobList', () => {
     expect(queryByText('Killed')).toBeInTheDocument();
     expect(queryByText('Running')).toBeInTheDocument();
     expect(queryByText('Starting')).toBeInTheDocument();
-    expect(queryAllByText('Read logs').length).toBe(0);
     expect(queryAllByText('See Details').length).toBe(0);
   });
 
@@ -78,10 +77,8 @@ describe('JobList', () => {
       />,
     );
 
-    const readLogsButtons = await findAllByText('Read logs');
     const seeDetailsButtons = await findAllByText('See Details');
 
-    expect(readLogsButtons.length).toBe(jobs['2'].length);
     expect(seeDetailsButtons.length).toBe(jobs['2'].length);
   });
 

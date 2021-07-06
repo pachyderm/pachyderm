@@ -1,0 +1,45 @@
+.odd {
+  background-color: var(--white);
+}
+.even {
+  background-color: var(--background-grey);
+}
+
+.row {
+  font-family: Menlo;
+  color: #020408;
+  font-size: 12px;
+  letter-spacing: 0;
+  line-height: 1.375rem;
+
+  display: flex;
+  align-items: flex-start;
+  min-height: 2.875rem;
+}
+
+.timestampCol {
+  padding-left: 2rem;
+  padding-top: 0.75rem;
+  width: 17.438rem;
+  padding-bottom: 0.75rem;
+}
+
+.timestampText {
+  padding-left: 1rem;
+}
+
+.messageCol {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+
+  width: 100%;
+  white-space: pre-wrap;
+  line-break: anywhere;
+  min-height: 2.875rem;
+}
+
+.mark {
+  /* TODO: Add color to lib */
+  background-color: #E1CFE5;
+  padding: 0;
+}

@@ -152,13 +152,6 @@ export type Job = {
   inputBranch?: Maybe<Scalars['String']>;
 };
 
-export type JobLogsArgs = {
-  projectId: Scalars['String'];
-  pipelineName: Scalars['String'];
-  jobId: Scalars['String'];
-  start?: Maybe<Scalars['Int']>;
-};
-
 export type JobQueryArgs = {
   id: Scalars['ID'];
   projectId: Scalars['String'];
@@ -214,6 +207,14 @@ export type Log = {
   message: Scalars['String'];
   timestamp?: Maybe<Timestamp>;
   user: Scalars['Boolean'];
+};
+
+export type LogsArgs = {
+  projectId: Scalars['String'];
+  pipelineName: Scalars['String'];
+  jobId?: Maybe<Scalars['String']>;
+  start?: Maybe<Scalars['Int']>;
+  reverse?: Maybe<Scalars['Boolean']>;
 };
 
 export type Mutation = {
@@ -299,12 +300,6 @@ export type Pipeline = {
   schedulingSpec?: Maybe<SchedulingSpec>;
 };
 
-export type PipelineLogsArgs = {
-  projectId: Scalars['String'];
-  pipelineName: Scalars['String'];
-  start?: Maybe<Scalars['Int']>;
-};
-
 export type PipelineQueryArgs = {
   projectId: Scalars['String'];
   id: Scalars['ID'];
@@ -368,12 +363,11 @@ export type Query = {
   dag: Dag;
   files: Array<File>;
   job: Job;
-  jobLogs: Array<Maybe<Log>>;
   jobSet: JobSet;
   jobs: Array<Job>;
   loggedIn: Scalars['Boolean'];
+  logs: Array<Maybe<Log>>;
   pipeline: Pipeline;
-  pipelineLogs: Array<Maybe<Log>>;
   project: Project;
   projectDetails: ProjectDetails;
   projects: Array<Project>;
@@ -394,10 +388,6 @@ export type QueryJobArgs = {
   args: JobQueryArgs;
 };
 
-export type QueryJobLogsArgs = {
-  args: JobLogsArgs;
-};
-
 export type QueryJobSetArgs = {
   args: JobSetQueryArgs;
 };
@@ -406,12 +396,12 @@ export type QueryJobsArgs = {
   args: JobsQueryArgs;
 };
 
-export type QueryPipelineArgs = {
-  args: PipelineQueryArgs;
+export type QueryLogsArgs = {
+  args: LogsArgs;
 };
 
-export type QueryPipelineLogsArgs = {
-  args: PipelineLogsArgs;
+export type QueryPipelineArgs = {
+  args: PipelineQueryArgs;
 };
 
 export type QueryProjectArgs = {
@@ -475,8 +465,7 @@ export type Subscription = {
   __typename?: 'Subscription';
   dags: Array<Dag>;
   workspaceLogs: Log;
-  pipelineLogs: Log;
-  jobLogs: Log;
+  logs: Log;
 };
 
 export type SubscriptionDagsArgs = {
@@ -487,12 +476,8 @@ export type SubscriptionWorkspaceLogsArgs = {
   args: WorkspaceLogsArgs;
 };
 
-export type SubscriptionPipelineLogsArgs = {
-  args: PipelineLogsArgs;
-};
-
-export type SubscriptionJobLogsArgs = {
-  args: JobLogsArgs;
+export type SubscriptionLogsArgs = {
+  args: LogsArgs;
 };
 
 export type Timestamp = {
@@ -657,7 +642,6 @@ export type ResolversTypes = ResolversObject<{
   InputPipeline: ResolverTypeWrapper<InputPipeline>;
   InputType: InputType;
   Job: ResolverTypeWrapper<Job>;
-  JobLogsArgs: JobLogsArgs;
   JobQueryArgs: JobQueryArgs;
   JobSet: ResolverTypeWrapper<JobSet>;
   JobSetQueryArgs: JobSetQueryArgs;
@@ -665,6 +649,7 @@ export type ResolversTypes = ResolversObject<{
   JobsQueryArgs: JobsQueryArgs;
   Link: ResolverTypeWrapper<Link>;
   Log: ResolverTypeWrapper<Log>;
+  LogsArgs: LogsArgs;
   Mutation: ResolverTypeWrapper<{}>;
   Node: ResolverTypeWrapper<Node>;
   NodeSelector: ResolverTypeWrapper<NodeSelector>;
@@ -673,7 +658,6 @@ export type ResolversTypes = ResolversObject<{
   PFSInput: ResolverTypeWrapper<PfsInput>;
   Pach: ResolverTypeWrapper<Pach>;
   Pipeline: ResolverTypeWrapper<Pipeline>;
-  PipelineLogsArgs: PipelineLogsArgs;
   PipelineQueryArgs: PipelineQueryArgs;
   PipelineState: PipelineState;
   PipelineType: PipelineType;
@@ -715,20 +699,19 @@ export type ResolversParentTypes = ResolversObject<{
   Input: Input;
   InputPipeline: InputPipeline;
   Job: Job;
-  JobLogsArgs: JobLogsArgs;
   JobQueryArgs: JobQueryArgs;
   JobSet: JobSet;
   JobSetQueryArgs: JobSetQueryArgs;
   JobsQueryArgs: JobsQueryArgs;
   Link: Link;
   Log: Log;
+  LogsArgs: LogsArgs;
   Mutation: {};
   Node: Node;
   NodeSelector: NodeSelector;
   PFSInput: PfsInput;
   Pach: Pach;
   Pipeline: Pipeline;
-  PipelineLogsArgs: PipelineLogsArgs;
   PipelineQueryArgs: PipelineQueryArgs;
   PointCoordinates: PointCoordinates;
   Project: Project;
@@ -1164,12 +1147,6 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryJobArgs, 'args'>
   >;
-  jobLogs?: Resolver<
-    Array<Maybe<ResolversTypes['Log']>>,
-    ParentType,
-    ContextType,
-    RequireFields<QueryJobLogsArgs, 'args'>
-  >;
   jobSet?: Resolver<
     ResolversTypes['JobSet'],
     ParentType,
@@ -1183,17 +1160,17 @@ export type QueryResolvers<
     RequireFields<QueryJobsArgs, 'args'>
   >;
   loggedIn?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  logs?: Resolver<
+    Array<Maybe<ResolversTypes['Log']>>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryLogsArgs, 'args'>
+  >;
   pipeline?: Resolver<
     ResolversTypes['Pipeline'],
     ParentType,
     ContextType,
     RequireFields<QueryPipelineArgs, 'args'>
-  >;
-  pipelineLogs?: Resolver<
-    Array<Maybe<ResolversTypes['Log']>>,
-    ParentType,
-    ContextType,
-    RequireFields<QueryPipelineLogsArgs, 'args'>
   >;
   project?: Resolver<
     ResolversTypes['Project'],
@@ -1301,19 +1278,12 @@ export type SubscriptionResolvers<
     ContextType,
     RequireFields<SubscriptionWorkspaceLogsArgs, 'args'>
   >;
-  pipelineLogs?: SubscriptionResolver<
+  logs?: SubscriptionResolver<
     ResolversTypes['Log'],
-    'pipelineLogs',
+    'logs',
     ParentType,
     ContextType,
-    RequireFields<SubscriptionPipelineLogsArgs, 'args'>
-  >;
-  jobLogs?: SubscriptionResolver<
-    ResolversTypes['Log'],
-    'jobLogs',
-    ParentType,
-    ContextType,
-    RequireFields<SubscriptionJobLogsArgs, 'args'>
+    RequireFields<SubscriptionLogsArgs, 'args'>
   >;
 }>;
 
@@ -1583,20 +1553,12 @@ export type GetWorkspaceLogsQuery = {__typename?: 'Query'} & {
   workspaceLogs: Array<Maybe<{__typename?: 'Log'} & LogFieldsFragment>>;
 };
 
-export type GetPipelineLogsQueryVariables = Exact<{
-  args: PipelineLogsArgs;
+export type GetLogsQueryVariables = Exact<{
+  args: LogsArgs;
 }>;
 
-export type GetPipelineLogsQuery = {__typename?: 'Query'} & {
-  pipelineLogs: Array<Maybe<{__typename?: 'Log'} & LogFieldsFragment>>;
-};
-
-export type GetJobLogsQueryVariables = Exact<{
-  args: JobLogsArgs;
-}>;
-
-export type GetJobLogsQuery = {__typename?: 'Query'} & {
-  jobLogs: Array<Maybe<{__typename?: 'Log'} & LogFieldsFragment>>;
+export type GetLogsQuery = {__typename?: 'Query'} & {
+  logs: Array<Maybe<{__typename?: 'Log'} & LogFieldsFragment>>;
 };
 
 export type GetWorkspaceLogStreamSubscriptionVariables = Exact<{
@@ -1607,20 +1569,12 @@ export type GetWorkspaceLogStreamSubscription = {
   __typename?: 'Subscription';
 } & {workspaceLogs: {__typename?: 'Log'} & LogFieldsFragment};
 
-export type GetPipelineLogStreamSubscriptionVariables = Exact<{
-  args: PipelineLogsArgs;
+export type GetLogsStreamSubscriptionVariables = Exact<{
+  args: LogsArgs;
 }>;
 
-export type GetPipelineLogStreamSubscription = {__typename?: 'Subscription'} & {
-  pipelineLogs: {__typename?: 'Log'} & LogFieldsFragment;
-};
-
-export type GetJobLogStreamSubscriptionVariables = Exact<{
-  args: JobLogsArgs;
-}>;
-
-export type GetJobLogStreamSubscription = {__typename?: 'Subscription'} & {
-  jobLogs: {__typename?: 'Log'} & LogFieldsFragment;
+export type GetLogsStreamSubscription = {__typename?: 'Subscription'} & {
+  logs: {__typename?: 'Log'} & LogFieldsFragment;
 };
 
 export type PipelineQueryVariables = Exact<{

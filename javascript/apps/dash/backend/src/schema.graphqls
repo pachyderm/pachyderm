@@ -343,17 +343,12 @@ input WorkspaceLogsArgs {
   start: Int
 }
 
-input PipelineLogsArgs {
+input LogsArgs {
   projectId: String!
   pipelineName: String!
+  jobId: String
   start: Int
-}
-
-input JobLogsArgs {
-  projectId: String!
-  pipelineName: String!
-  jobId: String!
-  start: Int
+  reverse: Boolean
 }
 
 type Log {
@@ -377,15 +372,13 @@ type Query {
   authConfig: AuthConfig!
   jobSet(args: JobSetQueryArgs!): JobSet!
   workspaceLogs(args: WorkspaceLogsArgs!): [Log]!
-  pipelineLogs(args: PipelineLogsArgs!): [Log]!
-  jobLogs(args: JobLogsArgs!): [Log]!
+  logs(args: LogsArgs!): [Log]!
 }
 
 type Subscription {
   dags(args: DagQueryArgs!): [Dag!]!
   workspaceLogs(args: WorkspaceLogsArgs!): Log!
-  pipelineLogs(args: PipelineLogsArgs!): Log!
-  jobLogs(args: JobLogsArgs!): Log!
+  logs(args: LogsArgs!): Log!
 }
 
 type Mutation {

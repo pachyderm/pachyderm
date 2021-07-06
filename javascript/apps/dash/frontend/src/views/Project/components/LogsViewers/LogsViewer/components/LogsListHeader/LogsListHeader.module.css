@@ -1,0 +1,26 @@
+.bodyHeader {
+  display: flex;
+  align-self: flex-start;
+  width: 100%;
+  background-color: var(--background-blue);
+  padding-top: 1.5rem;
+  height: 5.625rem;
+}
+
+.timestampHeader {
+  display: flex;
+  align-self: flex-start;
+
+  padding-left: 2rem;
+  width: 17.438rem;
+}
+
+.timestampText {
+  display: flex;
+  flex-direction: column;
+  padding-left: 1rem;
+}
+
+.messageHeader {
+  width: 100%;
+}

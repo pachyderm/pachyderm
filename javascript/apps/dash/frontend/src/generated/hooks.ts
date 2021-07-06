@@ -708,9 +708,9 @@ export type GetWorkspaceLogsQueryResult = Apollo.QueryResult<
   Types.GetWorkspaceLogsQuery,
   Types.GetWorkspaceLogsQueryVariables
 >;
-export const GetPipelineLogsDocument = gql`
-  query getPipelineLogs($args: PipelineLogsArgs!) {
-    pipelineLogs(args: $args) {
+export const GetLogsDocument = gql`
+  query getLogs($args: LogsArgs!) {
+    logs(args: $args) {
       ...LogFields
     }
   }
@@ -718,111 +718,50 @@ export const GetPipelineLogsDocument = gql`
 `;
 
 /**
- * __useGetPipelineLogsQuery__
+ * __useGetLogsQuery__
  *
- * To run a query within a React component, call `useGetPipelineLogsQuery` and pass it any options that fit your needs.
- * When your component renders, `useGetPipelineLogsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * To run a query within a React component, call `useGetLogsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetLogsQuery` returns an object from Apollo Client that contains loading, error, and data properties
  * you can use to render your UI.
  *
  * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
  *
  * @example
- * const { data, loading, error } = useGetPipelineLogsQuery({
+ * const { data, loading, error } = useGetLogsQuery({
  *   variables: {
  *      args: // value for 'args'
  *   },
  * });
  */
-export function useGetPipelineLogsQuery(
+export function useGetLogsQuery(
   baseOptions: Apollo.QueryHookOptions<
-    Types.GetPipelineLogsQuery,
-    Types.GetPipelineLogsQueryVariables
+    Types.GetLogsQuery,
+    Types.GetLogsQueryVariables
   >,
 ) {
   const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useQuery<
-    Types.GetPipelineLogsQuery,
-    Types.GetPipelineLogsQueryVariables
-  >(GetPipelineLogsDocument, options);
-}
-export function useGetPipelineLogsLazyQuery(
-  baseOptions?: Apollo.LazyQueryHookOptions<
-    Types.GetPipelineLogsQuery,
-    Types.GetPipelineLogsQueryVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useLazyQuery<
-    Types.GetPipelineLogsQuery,
-    Types.GetPipelineLogsQueryVariables
-  >(GetPipelineLogsDocument, options);
-}
-export type GetPipelineLogsQueryHookResult = ReturnType<
-  typeof useGetPipelineLogsQuery
->;
-export type GetPipelineLogsLazyQueryHookResult = ReturnType<
-  typeof useGetPipelineLogsLazyQuery
->;
-export type GetPipelineLogsQueryResult = Apollo.QueryResult<
-  Types.GetPipelineLogsQuery,
-  Types.GetPipelineLogsQueryVariables
->;
-export const GetJobLogsDocument = gql`
-  query getJobLogs($args: JobLogsArgs!) {
-    jobLogs(args: $args) {
-      ...LogFields
-    }
-  }
-  ${LogFieldsFragmentDoc}
-`;
-
-/**
- * __useGetJobLogsQuery__
- *
- * To run a query within a React component, call `useGetJobLogsQuery` and pass it any options that fit your needs.
- * When your component renders, `useGetJobLogsQuery` returns an object from Apollo Client that contains loading, error, and data properties
- * you can use to render your UI.
- *
- * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
- *
- * @example
- * const { data, loading, error } = useGetJobLogsQuery({
- *   variables: {
- *      args: // value for 'args'
- *   },
- * });
- */
-export function useGetJobLogsQuery(
-  baseOptions: Apollo.QueryHookOptions<
-    Types.GetJobLogsQuery,
-    Types.GetJobLogsQueryVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useQuery<Types.GetJobLogsQuery, Types.GetJobLogsQueryVariables>(
-    GetJobLogsDocument,
+  return Apollo.useQuery<Types.GetLogsQuery, Types.GetLogsQueryVariables>(
+    GetLogsDocument,
     options,
   );
 }
-export function useGetJobLogsLazyQuery(
+export function useGetLogsLazyQuery(
   baseOptions?: Apollo.LazyQueryHookOptions<
-    Types.GetJobLogsQuery,
-    Types.GetJobLogsQueryVariables
+    Types.GetLogsQuery,
+    Types.GetLogsQueryVariables
   >,
 ) {
   const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useLazyQuery<
-    Types.GetJobLogsQuery,
-    Types.GetJobLogsQueryVariables
-  >(GetJobLogsDocument, options);
+  return Apollo.useLazyQuery<Types.GetLogsQuery, Types.GetLogsQueryVariables>(
+    GetLogsDocument,
+    options,
+  );
 }
-export type GetJobLogsQueryHookResult = ReturnType<typeof useGetJobLogsQuery>;
-export type GetJobLogsLazyQueryHookResult = ReturnType<
-  typeof useGetJobLogsLazyQuery
->;
-export type GetJobLogsQueryResult = Apollo.QueryResult<
-  Types.GetJobLogsQuery,
-  Types.GetJobLogsQueryVariables
+export type GetLogsQueryHookResult = ReturnType<typeof useGetLogsQuery>;
+export type GetLogsLazyQueryHookResult = ReturnType<typeof useGetLogsLazyQuery>;
+export type GetLogsQueryResult = Apollo.QueryResult<
+  Types.GetLogsQuery,
+  Types.GetLogsQueryVariables
 >;
 export const GetWorkspaceLogStreamDocument = gql`
   subscription getWorkspaceLogStream($args: WorkspaceLogsArgs!) {
@@ -866,9 +805,9 @@ export type GetWorkspaceLogStreamSubscriptionHookResult = ReturnType<
 >;
 export type GetWorkspaceLogStreamSubscriptionResult =
   Apollo.SubscriptionResult<Types.GetWorkspaceLogStreamSubscription>;
-export const GetPipelineLogStreamDocument = gql`
-  subscription getPipelineLogStream($args: PipelineLogsArgs!) {
-    pipelineLogs(args: $args) {
+export const GetLogsStreamDocument = gql`
+  subscription getLogsStream($args: LogsArgs!) {
+    logs(args: $args) {
       ...LogFields
     }
   }
@@ -876,80 +815,38 @@ export const GetPipelineLogStreamDocument = gql`
 `;
 
 /**
- * __useGetPipelineLogStreamSubscription__
+ * __useGetLogsStreamSubscription__
  *
- * To run a query within a React component, call `useGetPipelineLogStreamSubscription` and pass it any options that fit your needs.
- * When your component renders, `useGetPipelineLogStreamSubscription` returns an object from Apollo Client that contains loading, error, and data properties
+ * To run a query within a React component, call `useGetLogsStreamSubscription` and pass it any options that fit your needs.
+ * When your component renders, `useGetLogsStreamSubscription` returns an object from Apollo Client that contains loading, error, and data properties
  * you can use to render your UI.
  *
  * @param baseOptions options that will be passed into the subscription, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
  *
  * @example
- * const { data, loading, error } = useGetPipelineLogStreamSubscription({
+ * const { data, loading, error } = useGetLogsStreamSubscription({
  *   variables: {
  *      args: // value for 'args'
  *   },
  * });
  */
-export function useGetPipelineLogStreamSubscription(
+export function useGetLogsStreamSubscription(
   baseOptions: Apollo.SubscriptionHookOptions<
-    Types.GetPipelineLogStreamSubscription,
-    Types.GetPipelineLogStreamSubscriptionVariables
+    Types.GetLogsStreamSubscription,
+    Types.GetLogsStreamSubscriptionVariables
   >,
 ) {
   const options = {...defaultOptions, ...baseOptions};
   return Apollo.useSubscription<
-    Types.GetPipelineLogStreamSubscription,
-    Types.GetPipelineLogStreamSubscriptionVariables
-  >(GetPipelineLogStreamDocument, options);
+    Types.GetLogsStreamSubscription,
+    Types.GetLogsStreamSubscriptionVariables
+  >(GetLogsStreamDocument, options);
 }
-export type GetPipelineLogStreamSubscriptionHookResult = ReturnType<
-  typeof useGetPipelineLogStreamSubscription
+export type GetLogsStreamSubscriptionHookResult = ReturnType<
+  typeof useGetLogsStreamSubscription
 >;
-export type GetPipelineLogStreamSubscriptionResult =
-  Apollo.SubscriptionResult<Types.GetPipelineLogStreamSubscription>;
-export const GetJobLogStreamDocument = gql`
-  subscription getJobLogStream($args: JobLogsArgs!) {
-    jobLogs(args: $args) {
-      ...LogFields
-    }
-  }
-  ${LogFieldsFragmentDoc}
-`;
-
-/**
- * __useGetJobLogStreamSubscription__
- *
- * To run a query within a React component, call `useGetJobLogStreamSubscription` and pass it any options that fit your needs.
- * When your component renders, `useGetJobLogStreamSubscription` returns an object from Apollo Client that contains loading, error, and data properties
- * you can use to render your UI.
- *
- * @param baseOptions options that will be passed into the subscription, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
- *
- * @example
- * const { data, loading, error } = useGetJobLogStreamSubscription({
- *   variables: {
- *      args: // value for 'args'
- *   },
- * });
- */
-export function useGetJobLogStreamSubscription(
-  baseOptions: Apollo.SubscriptionHookOptions<
-    Types.GetJobLogStreamSubscription,
-    Types.GetJobLogStreamSubscriptionVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useSubscription<
-    Types.GetJobLogStreamSubscription,
-    Types.GetJobLogStreamSubscriptionVariables
-  >(GetJobLogStreamDocument, options);
-}
-export type GetJobLogStreamSubscriptionHookResult = ReturnType<
-  typeof useGetJobLogStreamSubscription
->;
-export type GetJobLogStreamSubscriptionResult =
-  Apollo.SubscriptionResult<Types.GetJobLogStreamSubscription>;
+export type GetLogsStreamSubscriptionResult =
+  Apollo.SubscriptionResult<Types.GetLogsStreamSubscription>;
 export const PipelineDocument = gql`
   query pipeline($args: PipelineQueryArgs!) {
     pipeline(args: $args) {

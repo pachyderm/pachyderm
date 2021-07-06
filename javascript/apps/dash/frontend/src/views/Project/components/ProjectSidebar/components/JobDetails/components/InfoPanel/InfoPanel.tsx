@@ -1,3 +1,4 @@
+import {FileDocSVG, Link} from '@pachyderm/components';
 import {fromUnixTime, formatDistanceToNow, formatDistance} from 'date-fns';
 import React, {useMemo} from 'react';
 import {useRouteMatch, Redirect} from 'react-router';
@@ -9,7 +10,10 @@ import PipelineInput from '@dash-frontend/components/PipelineInput';
 import {useJob} from '@dash-frontend/hooks/useJob';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {ProjectRouteParams} from '@dash-frontend/lib/types';
-import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
+import {
+  jobRoute,
+  logsViewerJobRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 
 import styles from './InfoPanel.module.css';
 
@@ -81,6 +85,19 @@ const InfoPanel = () => {
 
   return (
     <dl className={styles.base}>
+      <div className={styles.readLogsWrapper}>
+        <Link
+          small
+          to={logsViewerJobRoute({
+            projectId,
+            jobId: jobId,
+            pipelineId: pipelineId,
+          })}
+        >
+          Read Logs{' '}
+          <FileDocSVG className={styles.readLogsSvg} width={20} height={24} />
+        </Link>
+      </div>
       <Description
         term="Inputs"
         lines={9}

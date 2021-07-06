@@ -40,7 +40,9 @@
     "react-hook-form": "7.5.2",
     "react-router": "5.2.0",
     "react-router-dom": "5.2.0",
-    "react-window": "1.8.6"
+    "react-virtualized-auto-sizer": "1.0.5",
+    "react-window": "1.8.6",
+    "subscriptions-transport-ws": "0.9.18"
   },
   "devDependencies": {
     "@cypress/code-coverage": "3.9.5",
@@ -64,6 +66,7 @@
     "@types/react-dom": "17.0.0",
     "@types/react-helmet": "6.1.0",
     "@types/react-router-dom": "5.1.5",
+    "@types/react-virtualized-auto-sizer": "1.0.0",
     "@types/react-window": "1.8.3",
     "@types/sanitize-html": "^2.3.1",
     "canvas": "2.6.1",

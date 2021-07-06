@@ -1,21 +1,19 @@
 import {LogMessage} from '@pachyderm/proto/pb/pps/pps_pb';
+import {default as reverseArray} from 'lodash/reverse';
 import {v4 as uuid} from 'uuid';
 
 import withStream from '@dash-backend/lib/withStream';
 import {Log, Maybe, QueryResolvers, SubscriptionResolvers} from '@graphqlTypes';
 
 import {logMessageToGQLLog} from './builders/pps';
-
 interface LogsResolver {
   Query: {
     workspaceLogs: QueryResolvers['workspaceLogs'];
-    pipelineLogs: QueryResolvers['pipelineLogs'];
-    jobLogs: QueryResolvers['jobLogs'];
+    logs: QueryResolvers['logs'];
   };
   Subscription: {
     workspaceLogs: SubscriptionResolvers['workspaceLogs'];
-    pipelineLogs: SubscriptionResolvers['pipelineLogs'];
-    jobLogs: SubscriptionResolvers['jobLogs'];
+    logs: SubscriptionResolvers['logs'];
   };
 }
 
@@ -56,31 +54,20 @@ const logsResolver: LogsResolver = {
 
       return logs.map(parseWorkspaceLog);
     },
-
-    pipelineLogs: async (
+    logs: async (
       _field,
-      {args: {pipelineName, start}},
+      {args: {pipelineName, jobId, start, reverse = false}},
       {pachClient},
     ) => {
       const logs = await pachClient.pps().getLogs({
         pipelineName: pipelineName,
+        jobId: jobId || undefined,
         since: calculateSince(start),
       });
 
-      return logs.map(logMessageToGQLLog);
-    },
-    jobLogs: async (
-      _field,
-      {args: {pipelineName, jobId, start}},
-      {pachClient},
-    ) => {
-      const logs = await pachClient.pps().getLogs({
-        pipelineName: pipelineName,
-        jobId: jobId,
-        since: calculateSince(start),
-      });
-
-      return logs.map(logMessageToGQLLog);
+      return reverse
+        ? reverseArray(logs.map(logMessageToGQLLog))
+        : logs.map(logMessageToGQLLog);
     },
   },
 
@@ -101,36 +88,25 @@ const logsResolver: LogsResolver = {
         return result;
       },
     },
-    pipelineLogs: {
+
+    logs: {
       subscribe: async (
         _field,
-        {args: {pipelineName, start}},
+        {args: {pipelineName, jobId, start}},
         {pachClient},
       ) => {
         const stream = await pachClient.pps().getLogsStream({
           pipelineName: pipelineName,
+          jobId: jobId || undefined,
           since: calculateSince(start),
         });
 
+        const triggerName =
+          pipelineName && jobId
+            ? `${uuid()}_${pipelineName}_${jobId}_LOGS`
+            : `${uuid()}_${pipelineName}_LOGS`;
         return withStream<Log, LogMessage>({
-          triggerName: `${uuid()}_${pipelineName}_LOGS`,
-          stream: stream,
-          onData: (chunk) => logMessageToGQLLog(chunk.toObject()),
-        });
-      },
-      resolve: (result: Log) => {
-        return result;
-      },
-    },
-    jobLogs: {
-      subscribe: async (_field, {args: {jobId, start}}, {pachClient}) => {
-        const stream = await pachClient.pps().getLogsStream({
-          jobId: jobId,
-          since: calculateSince(start),
-        });
-
-        return withStream<Log, LogMessage>({
-          triggerName: `${uuid()}_${jobId}_LOGS`,
+          triggerName: triggerName,
           stream: stream,
           onData: (chunk) => logMessageToGQLLog(chunk.toObject()),
         });

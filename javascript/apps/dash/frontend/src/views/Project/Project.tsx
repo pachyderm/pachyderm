@@ -13,13 +13,19 @@ import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 
 import DAG from './components/DAG';
 import FileBrowser from './components/FileBrowser';
+import JobLogsViewer from './components/LogsViewers/JobLogsViewer/JobLogsViewer';
+import PipelineLogsViewer from './components/LogsViewers/PipelineLogsViewer';
 import ProjectHeader from './components/ProjectHeader';
 import ProjectSidebar from './components/ProjectSidebar';
 import RangeSlider from './components/RangeSlider';
 import {ReactComponent as RotateSvg} from './components/Rotate.svg';
 import {ReactComponent as ZoomOutSvg} from './components/ZoomOut.svg';
 import {NODE_HEIGHT, NODE_WIDTH} from './constants/nodeSizes';
-import {FILE_BROWSER_PATH} from './constants/projectPaths';
+import {
+  FILE_BROWSER_PATH,
+  LOGS_VIEWER_JOB_PATH,
+  LOGS_VIEWER_PIPELINE_PATH,
+} from './constants/projectPaths';
 import {MAX_SCALE_VALUE, useProjectView} from './hooks/useProjectView';
 import styles from './Project.module.css';
 
@@ -159,6 +165,12 @@ const Project: React.FC = () => {
         <ProjectSidebar />
         <Route path={FILE_BROWSER_PATH}>
           <FileBrowser />
+        </Route>
+        <Route path={LOGS_VIEWER_PIPELINE_PATH}>
+          <PipelineLogsViewer />
+        </Route>
+        <Route path={LOGS_VIEWER_JOB_PATH}>
+          <JobLogsViewer />
         </Route>
       </View>
     </>

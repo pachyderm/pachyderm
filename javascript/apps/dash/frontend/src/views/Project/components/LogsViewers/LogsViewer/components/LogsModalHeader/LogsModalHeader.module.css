@@ -1,0 +1,46 @@
+.title {
+  margin: 0 1rem 0 0;
+  border-right: solid 1px var(--line-grey);
+  padding-right: 1rem;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.switchGroup {
+  display: flex;
+  align-items: center;
+
+  color: var(--pachyderm-black);
+  font-family: Montserrat;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.switch {
+  margin-right: 0.5rem;
+}
+
+.exportGroup {
+  display: flex;
+  margin-right: 6rem;
+}
+
+.copy {
+  white-space: nowrap;
+  margin-right: 2rem;
+  color: var(--pachyderm-black);
+}
+
+.copy path {
+  fill: var(--pachyderm-black);
+}
+
+.copy:not(:disabled):hover,
+.copy:active,
+.copy:focus {
+  color: var(--pachyderm-black);
+}

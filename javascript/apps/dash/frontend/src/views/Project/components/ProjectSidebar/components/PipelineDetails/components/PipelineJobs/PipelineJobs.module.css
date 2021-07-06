@@ -1,3 +1,23 @@
 .base {
   margin-top: -1.25rem;
 }
+
+.readLogsWrapper {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding-right: 0.5rem;
+  padding-top: 1rem;
+}
+
+.readLogsSvg path {
+  transform: scale(0.6);
+  fill: var(--pachyderm-plum);
+}
+
+.readLogsText:active path,
+.readLogsText:hover path,
+.readLogsText:focus path {
+  fill: var(--hover-plum);
+}

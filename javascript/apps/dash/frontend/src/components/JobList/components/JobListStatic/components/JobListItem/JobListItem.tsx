@@ -64,9 +64,6 @@ const JobListItem: React.FC<JobListItemProps> = ({
             {expandActions ? (
               <>
                 <ButtonLink className={styles.innerContentItem}>
-                  Read logs
-                </ButtonLink>
-                <ButtonLink className={styles.innerContentItem}>
                   See Details
                 </ButtonLink>
               </>

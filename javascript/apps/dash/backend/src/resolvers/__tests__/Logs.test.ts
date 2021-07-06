@@ -1,14 +1,9 @@
 import {executeQuery} from '@dash-backend/testHelpers';
 import {
-  GET_JOB_LOGS_QUERY,
-  GET_PIPELINE_LOGS_QUERY,
+  GET_LOGS_QUERY,
   GET_WORKSPACE_LOGS_QUERY,
 } from '@dash-frontend/queries/GetLogsQuerys';
-import {
-  GetJobLogsQuery,
-  GetPipelineLogsQuery,
-  GetWorkspaceLogsQuery,
-} from '@graphqlTypes';
+import {GetLogsQuery, GetWorkspaceLogsQuery} from '@graphqlTypes';
 
 describe('Logs resolver', () => {
   const projectId = '1';
@@ -43,15 +38,15 @@ describe('Logs resolver', () => {
     });
   });
 
-  describe('pipeline query resolver', () => {
+  describe('logs query resolver', () => {
     it('should resolve pipeline logs', async () => {
-      const {data, errors = []} = await executeQuery<GetPipelineLogsQuery>(
-        GET_PIPELINE_LOGS_QUERY,
+      const {data, errors = []} = await executeQuery<GetLogsQuery>(
+        GET_LOGS_QUERY,
         {
           args: {pipelineName: 'montage', start: 1616533099, projectId},
         },
       );
-      const workspaceLogs = data?.pipelineLogs;
+      const workspaceLogs = data?.logs;
       expect(errors.length).toBe(0);
       expect(workspaceLogs?.length).toEqual(4);
       expect(workspaceLogs?.[0]?.message).toEqual('started datum task');
@@ -61,12 +56,10 @@ describe('Logs resolver', () => {
       );
       expect(workspaceLogs?.[3]?.message).toEqual('finished datum task');
     });
-  });
 
-  describe('job query resolver', () => {
     it('should resolve job logs', async () => {
-      const {data, errors = []} = await executeQuery<GetJobLogsQuery>(
-        GET_JOB_LOGS_QUERY,
+      const {data, errors = []} = await executeQuery<GetLogsQuery>(
+        GET_LOGS_QUERY,
         {
           args: {
             pipelineName: 'edges',
@@ -76,11 +69,31 @@ describe('Logs resolver', () => {
           },
         },
       );
-      const workspaceLogs = data?.jobLogs;
+      const workspaceLogs = data?.logs;
       expect(errors.length).toBe(0);
       expect(workspaceLogs?.length).toEqual(2);
       expect(workspaceLogs?.[0]?.message).toEqual('started datum task');
       expect(workspaceLogs?.[1]?.message).toEqual('finished datum task');
+    });
+
+    it('should reverse logs order', async () => {
+      const {data, errors = []} = await executeQuery<GetLogsQuery>(
+        GET_LOGS_QUERY,
+        {
+          args: {
+            pipelineName: 'edges',
+            jobId: '23b9af7d5d4343219bc8e02ff4acd33a',
+            start: 1614126189,
+            projectId,
+            reverse: true,
+          },
+        },
+      );
+      const workspaceLogs = data?.logs;
+      expect(errors.length).toBe(0);
+      expect(workspaceLogs?.length).toEqual(2);
+      expect(workspaceLogs?.[0]?.message).toEqual('finished datum task');
+      expect(workspaceLogs?.[1]?.message).toEqual('started datum task');
     });
   });
 });
