@@ -560,7 +560,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
 	if len(commitInfo.DirectProvenance) > 0 && !force {
-		return errors.Errorf("cannot finish a commit with provenance, rerun with force if desired")
+		return errors.Errorf("cannot finish a commit with provenance, use 'stop job' instead")
 	}
 	if description != "" {
 		commitInfo.Description = description

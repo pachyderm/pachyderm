@@ -356,7 +356,7 @@ $ {{alias}} test -p XXX`,
 	}
 	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
 	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
-	finishCommit.Flags().BoolVarP(&force, "force", "f", false, "finish the commit even if it has provenance, which could break jobs; use with care")
+	finishCommit.Flags().BoolVarP(&force, "force", "f", false, "finish the commit even if it has provenance, which could break jobs; prefer 'stop job'")
 	shell.RegisterCompletionFunc(finishCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(finishCommit, "finish commit"))
 
