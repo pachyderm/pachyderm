@@ -881,7 +881,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter, Details: spec}
+			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter, Details: true}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewPipeline(pipeline)
 			}
