@@ -5,19 +5,22 @@
 }
 
 .heading {
+  margin-top: 1rem;
   font-size: 1rem;
   font-weight: 600;
   line-height: 2.8125rem;
 }
 
 .headerSection {
-  padding: 2rem;
+  padding: 1.5rem;
+  padding-bottom: 0;
 }
 
 .seeMoreJobs {
-  display: flex;
+  display: inline-block;
   align-items: center;
-  font-size: 0.75rem;
+  font-size: var(--font-size-body-small);
+  padding-right: 0.25rem;
 }
 
 .pipelineSection {
@@ -41,7 +44,6 @@
 
 .pipelineSpec {
   flex: 1;
-  padding-top: 1.5rem;
   border-left: 1px solid var(--line-grey);
 }
 

@@ -1,4 +1,4 @@
-import {Link, ArrowSVG, Tooltip, LoadingDots} from '@pachyderm/components';
+import {Link, Tooltip, LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import {NavLink, Redirect, Route} from 'react-router-dom';
@@ -7,7 +7,11 @@ import {useJobSet} from '@dash-frontend/hooks/useJobSet';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {PIPELINE_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
-import {jobsRoute, jobRoute} from '@dash-frontend/views/Project/utils/routes';
+import {
+  jobsRoute,
+  jobRoute,
+  pipelineRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 import {JobState} from '@graphqlTypes';
 
 import InfoPanel from './components/InfoPanel';
@@ -62,8 +66,20 @@ const JobDetails = () => {
       <section className={styles.headerSection}>
         <nav>
           <Link to={jobsRoute({projectId})} className={styles.seeMoreJobs}>
-            <ArrowSVG aria-hidden className={styles.backArrow} /> See more jobs
+            All jobs{pipelineId ? ' >' : ''}
           </Link>
+          {pipelineId && (
+            <Link
+              className={styles.seeMoreJobs}
+              to={pipelineRoute({
+                projectId,
+                pipelineId,
+                tabId: 'jobs',
+              })}
+            >
+              Pipeline: {pipelineId}
+            </Link>
+          )}
         </nav>
 
         <h2 className={styles.heading}>Job {jobId}</h2>

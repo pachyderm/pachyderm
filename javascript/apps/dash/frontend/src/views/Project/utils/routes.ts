@@ -1,3 +1,4 @@
+import {generatePathWithSearch} from '@pachyderm/components';
 import {ExtractRouteParams, generatePath as rrGeneratePath} from 'react-router';
 
 import {
@@ -8,18 +9,6 @@ import {
   FILE_BROWSER_PATH,
   JOB_PATH,
 } from '../constants/projectPaths';
-
-const generatePathWithSearch = <S extends string>(
-  pathTemplate: string,
-  params?: ExtractRouteParams<S>,
-) => {
-  const path = encodeURI(rrGeneratePath(pathTemplate, {...params}));
-  const urlParams = new URLSearchParams(window.location.search);
-
-  return urlParams.toString().length > 0
-    ? path + '?' + urlParams.toString()
-    : path;
-};
 
 const generateRouteFn = <S extends string>(path: S) => {
   return (params?: ExtractRouteParams<S>, withSearch = true) => {

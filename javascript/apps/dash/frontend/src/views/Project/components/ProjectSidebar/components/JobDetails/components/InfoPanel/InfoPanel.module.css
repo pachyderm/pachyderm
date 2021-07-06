@@ -1,6 +1,6 @@
 .base {
   max-height: calc(100vh - var(--header-height) - var(--sidebar-header-height));
-  padding: 0 1.125rem;
+  padding: 1.5rem 1.125rem 0 1.125rem;
   overflow-y: auto;
 }
 
