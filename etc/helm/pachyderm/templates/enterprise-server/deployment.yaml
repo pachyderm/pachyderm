@@ -1,0 +1,87 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.enterpriseServer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pach-enterprise
+    suite: pachyderm
+  name: pach-enterprise
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pach-enterprise
+      suite: pachyderm
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: pach-enterprise
+        suite: pachyderm
+        {{- if .Values.enterpriseServer.podLabels }}
+        {{- toYaml .Values.enterpriseServer.podLabels | nindent 8 }}
+        {{- end }}
+      name: pach-enterprise
+      namespace: {{ .Release.Namespace }}
+    spec:
+      {{-  if .Values.enterpriseServer.affinity }}
+      affinity: {{ toYaml .Values.enterpriseServer.affinity | nindent 8 }}
+      {{- end }}
+      containers:
+      - command:
+        - /pachd
+        - --mode=enterprise
+        env:
+        - name: POSTGRES_HOST
+          value: postgres
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: CLUSTER_DEPLOYMENT_ID
+          value: {{ default (randAlphaNum 32) .Values.enterpriseServer.clusterDeploymentID | quote }}
+        image: "{{ .Values.enterpriseServer.image.repository }}:{{ default .Chart.AppVersion .Values.enterpriseServer.image.tag }}"
+        imagePullPolicy: {{ .Values.enterpriseServer.image.pullPolicy }}
+        {{- if .Values.imagePullSecret }}
+        imagePullSecret: {{ .Values.imagePullSecret | quote }}
+        {{- end }}
+        name: pachd
+        ports:
+        - containerPort: 1650
+          name: api-grpc-port
+          protocol: TCP
+        - containerPort: 1653
+          name: peer-port
+          protocol: TCP
+        - containerPort: 1657
+          name: oidc-port
+          protocol: TCP
+        - containerPort: 1658
+          name: identity-port
+          protocol: TCP
+        - containerPort: 1656
+          name: prom-metrics
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
+        {{- if .Values.enterpriseServer.resources }}
+        resources: {{ toYaml .Values.enterpriseServer.resources | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        {{- if .Values.enterpriseServer.tls.enabled }}
+        - mountPath: /pachd-tls-cert
+          name: pachd-tls-cert
+        {{- end }}
+      volumes:
+      {{- if .Values.enterpriseServer.tls.enabled }}
+      - name: pachd-tls-cert
+        secret:
+          secretName: {{ required "If enterpriseServer.tls.enabled, you must set enterpriseServer.tls.secretName" .Values.enterpriseServer.tls.secretName | quote }}
+      {{- end }}
+{{- end }}

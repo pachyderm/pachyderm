@@ -282,8 +282,6 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		SidecarResourceLimits: pipelineInfo.Details.SidecarResourceLimits,
 		Input:                 pipelineInfo.Details.Input,
 		Description:           pipelineInfo.Details.Description,
-		CacheSize:             pipelineInfo.Details.CacheSize,
-		MaxQueueSize:          pipelineInfo.Details.MaxQueueSize,
 		Service:               pipelineInfo.Details.Service,
 		DatumSetSpec:          pipelineInfo.Details.DatumSetSpec,
 		DatumTimeout:          pipelineInfo.Details.DatumTimeout,

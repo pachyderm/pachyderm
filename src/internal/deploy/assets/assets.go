@@ -766,7 +766,7 @@ func PachdPeerService(opts *AssetOpts) *v1.Service {
 				{
 					Port:       30653,
 					Name:       "api-grpc-peer-port",
-					TargetPort: intstr.FromInt(653), // also set in cmd/pachd/main.go
+					TargetPort: intstr.FromInt(1653), // also set in cmd/pachd/main.go
 				},
 			},
 		},

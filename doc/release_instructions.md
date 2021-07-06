@@ -73,26 +73,22 @@ git add src/version/client.go
 git commit -m"Increment version for $(pachctl version --client-only) release"
 ```
 
-### Regenerate golden deployment manifests [apply step only when running point-release target]
+### Update the Pachyderm version in the Helm Chart
 
-```shell
-make VERSION_ADDITIONAL= regenerate-test-deploy-manifests
-git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only) release"
+`etc/helm/pachyderm/Chart.yaml`
+
+Update the `appVersion` section to the new pachyderm version
+
+Note: When releasing an alpha/beta/RC version, ensure the helmchart is marked as a pre-release
+
+`etc/helm/pachyderm/Chart.yaml`
+
+```
+annotations:
+  artifacthub.io/prerelease: "true"
 ```
 
-### Update the testfaster hash [apply step only when running point-release target]
-
-Update the test faster hash to point to the latest git commit.
-
-```shell
-git log --pretty=format:%H | head -n 1
-```
-Copy the commit hash printed from the above command. Search for "git checkout" in
-`.testfaster.yml` file. Replace the hash value with the one from above git log cmd.
-
-```shell
-git commit -am "Update test faster hash for $(pachctl version --client-only) release"
-```
+git commit -am "Update Pachyderm version in helm for $(pachctl version --client-only) release"
 
 ### Update the changelog [apply step only when running point-release target]
 
@@ -104,7 +100,7 @@ git commit -am "Update change log for $(pachctl version --client-only) release"
 
 ### Push changes [apply step only when running point-release target]
 
-In a typical point release you will have 5 commits to push to the server.
+In a typical point release you will have 3 commits to push to the server.
 
 ```shell
 git push
@@ -136,6 +132,9 @@ are correct. Edit the release on GitHub to manually update any changes.
     We’ve just released Pachyderm <X.Y.Z> — check it out!
     * RELEASE NOTES with links to PRs
 ```
+
+### Helm
+The helm chart will be released when the release tag is pushed to the repo. 
 
 ### New major or minor releases
 

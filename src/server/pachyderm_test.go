@@ -5993,8 +5993,6 @@ func TestCronPipeline(t *testing.T) {
 
 	// Test a CronInput with the overwrite flag set to true
 	t.Run("CronOverwrite", func(t *testing.T) {
-		// TODO(2.0 required): Investigate flakiness.
-		t.Skip("Investigate flakiness")
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 10s")
 		overwriteInput.Cron.Overwrite = true
@@ -6119,9 +6117,6 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCronOverwrite", func(t *testing.T) {
-		// TODO(2.0 required): This test does not work with V2. It is not clear what the issue is yet. It may be related to the fact that
-		// run pipeline does not work correctly with stats (which is always enabled in V2).
-		t.Skip("Does not work with V2, needs investigation")
 		pipeline7 := tu.UniqueString("cron7-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline7,
@@ -6162,26 +6157,34 @@ func TestCronPipeline(t *testing.T) {
 				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
 				require.NoError(t, err)
 
-				// subscribe to the pipeline1 cron repo and wait for inputs
-				repo = fmt.Sprintf("%s_%s", pipeline7, "time")
 				ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
 				defer cancel() //cleanup resources
 				// We expect to see four commits, despite the schedule being every minute, and the timeout 120 seconds
 				// We expect each of the commits to have just a single file in this case
 				// We check four so that we can make sure the scheduled cron is not messed up by the run crons
-				countBreakFunc := newCountBreakFunc(4)
+				countBreakFunc := newCountBreakFunc(5) // TODO: Right now we receive an additional Alias Commit. change this back to 4 as soon as we can filter subscribeCommit by commitType
 				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
-						commitInfos, err := c.WaitCommitSetAll(ci.Commit.ID)
+						_, err := c.WaitCommitSetAll(ci.Commit.ID)
 						require.NoError(t, err)
-						require.Equal(t, 4, len(commitInfos))
-
-						files, err := c.ListFileAll(ci.Commit, "")
-						require.NoError(t, err)
-						require.Equal(t, 1, len(files))
+						if ci.Origin.Kind != pfs.OriginKind_ALIAS {
+							files, err := c.ListFileAll(ci.Commit, "/")
+							require.NoError(t, err)
+							require.Equal(t, 1, len(files))
+						}
 						return nil
 					})
 				}))
+				commits, err := c.ListCommit(client.NewRepo(repo), nil, nil, 0)
+				require.NoError(t, err)
+
+				userCommitCount := 0
+				for _, v := range commits {
+					if v.Origin.Kind == pfs.OriginKind_USER {
+						userCommitCount++
+					}
+				}
+				require.Equal(t, 4, userCommitCount)
 				return nil
 			})
 		}))
@@ -6453,77 +6456,6 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 	}
 }
 
-func TestMaxQueueSize(t *testing.T) {
-	// TODO: Implement max queue size.
-	t.Skip("Max queue size not implemented in V2")
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString("TestMaxQueueSize_input")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	commit1, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	for i := 0; i < 20; i++ {
-		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
-	}
-	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
-
-	pipeline := tu.UniqueString("TestMaxQueueSize_output")
-	// This pipeline sleeps for 10 secs per datum
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					"sleep 5",
-				},
-			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
-			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 2,
-			},
-			MaxQueueSize: 1,
-			DatumSetSpec: &pps.DatumSetSpec{
-				Number: 10,
-			},
-		})
-	require.NoError(t, err)
-
-	var jobInfo *pps.JobInfo
-	for i := 0; i < 10; i++ {
-		require.NoError(t, backoff.Retry(func() error {
-			jobs, err := c.ListJob(pipeline, nil, -1, true)
-			if err != nil {
-				return errors.Wrapf(err, "could not list job")
-			}
-			if len(jobs) == 0 {
-				return errors.Errorf("failed to find job")
-			}
-			jobInfo, err = c.InspectJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
-			if err != nil {
-				return errors.Wrapf(err, "could not inspect job")
-			}
-			if len(jobInfo.Details.WorkerStatus) != 2 {
-				return errors.Errorf("incorrect number of statuses: %v", len(jobInfo.Details.WorkerStatus))
-			}
-			return nil
-		}, backoff.RetryEvery(500*time.Millisecond).For(60*time.Second)))
-
-		//for _, status := range jobInfo.WorkerStatus {
-		//	if status.QueueSize > 1 {
-		//		t.Fatalf("queue size too big: %d", status.QueueSize)
-		//	}
-		//}
-
-		time.Sleep(500 * time.Millisecond)
-	}
-}
 func TestService(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

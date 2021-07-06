@@ -1,0 +1,7 @@
+deployTarget: LOCAL
+dash:
+  enabled: false
+enterpriseServer:
+  enabled: true
+pachd:
+  enabled: false

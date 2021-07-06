@@ -490,6 +490,7 @@ func watchTests(
 		watchOneTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, key string) watch.Watcher {
 			watcher, err := reader(ctx).WatchOne(key)
 			require.NoError(t, err)
+			t.Cleanup(watcher.Close)
 			return watcher
 		})
 	})
@@ -675,6 +676,7 @@ func watchTests(
 		watchByIndexTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, value string) watch.Watcher {
 			watcher, err := reader(ctx).WatchByIndex(TestSecondaryIndex, value)
 			require.NoError(t, err)
+			t.Cleanup(watcher.Close)
 			return watcher
 		})
 	})
@@ -719,6 +721,7 @@ func watchTests(
 		watchByIndexTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, value string) watch.Watcher {
 			watcher, err := reader(ctx).WatchByIndex(TestSecondaryIndex, value)
 			require.NoError(t, err)
+			t.Cleanup(watcher.Close)
 			return watcher
 		})
 	})

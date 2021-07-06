@@ -73,7 +73,7 @@ func newPostgresWatcher(
 	index *string,
 	value *string,
 	opts watch.WatchOptions,
-) *postgresWatcher {
+) (*postgresWatcher, error) {
 	pw := &postgresWatcher{
 		db:       db,
 		listener: listener,
@@ -87,8 +87,10 @@ func newPostgresWatcher(
 		index:    index,
 		value:    value,
 	}
-	listener.Register(pw)
-	return pw
+	if err := listener.Register(pw); err != nil {
+		return nil, err
+	}
+	return pw, nil
 }
 
 func (pw *postgresWatcher) Watch() <-chan *watch.Event {
@@ -116,17 +118,33 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context, startTime t
 		select {
 		case eventData := <-pw.buf:
 			if !eventData.time.Before(startTime) || eventData.err != nil {
-				// This may block, but that is fine, it will put back pressure on the 'buf' channel
-				pw.c <- eventData.WatchEvent(ctx, pw.db, pw.template)
+				select {
+				case pw.c <- eventData.WatchEvent(ctx, pw.db, pw.template):
+				case <-pw.done:
+					// watcher has been closed, safe to abort
+					return
+				case <-ctx.Done():
+					// watcher (or the read collection that created it) has been canceled -
+					// unregister the watcher and stop forwarding notifications.
+					select {
+					case pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}:
+						pw.listener.Unregister(pw)
+					case <-pw.done:
+					}
+					return
+				}
 			}
 		case <-pw.done:
 			// watcher has been closed, safe to abort
 			return
 		case <-ctx.Done():
 			// watcher (or the read collection that created it) has been canceled -
-			// unregister the watcher and stop forwarding notifications
-			pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}
-			pw.listener.Unregister(pw)
+			// unregister the watcher and stop forwarding notifications.
+			select {
+			case pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}:
+				pw.listener.Unregister(pw)
+			case <-pw.done:
+			}
 			return
 		}
 	}

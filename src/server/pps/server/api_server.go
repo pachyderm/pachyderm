@@ -24,7 +24,6 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 
@@ -1416,12 +1415,6 @@ func now() *types.Timestamp {
 }
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
-	// TODO: Remove when at feature parity.
-	var err error
-	request, err = a.validateV2Features(request)
-	if err != nil {
-		return err
-	}
 	if request.Pipeline == nil {
 		return errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
 	}
@@ -1456,17 +1449,6 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
 	}
 	return nil
-}
-
-// TODO: Implement the appropriate features.
-func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps.CreatePipelineRequest, error) {
-	if request.CacheSize != "" {
-		return nil, errors.Errorf("CacheSize not implemented")
-	}
-	if request.MaxQueueSize != 0 {
-		return nil, errors.Errorf("MaxQueueSize not implemented")
-	}
-	return request, nil
 }
 
 func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
@@ -1536,9 +1518,6 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	}
 	if pipelineInfo.Details.OutputBranch == "" {
 		return errors.New("pipeline needs to specify an output branch")
-	}
-	if _, err := resource.ParseQuantity(pipelineInfo.Details.CacheSize); err != nil {
-		return errors.Wrapf(err, "could not parse cacheSize '%s'", pipelineInfo.Details.CacheSize)
 	}
 	if pipelineInfo.Details.JobTimeout != nil {
 		_, err := types.DurationFromProto(pipelineInfo.Details.JobTimeout)
@@ -1839,9 +1818,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			ResourceLimits:        request.ResourceLimits,
 			SidecarResourceLimits: request.SidecarResourceLimits,
 			Description:           request.Description,
-			CacheSize:             request.CacheSize,
 			Salt:                  request.Salt,
-			MaxQueueSize:          request.MaxQueueSize,
 			Service:               request.Service,
 			Spout:                 request.Spout,
 			DatumSetSpec:          request.DatumSetSpec,
@@ -2266,12 +2243,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Details.OutputBranch == "" {
 		// Output branches default to master
 		pipelineInfo.Details.OutputBranch = "master"
-	}
-	if pipelineInfo.Details.CacheSize == "" {
-		pipelineInfo.Details.CacheSize = "64M"
-	}
-	if pipelineInfo.Details.MaxQueueSize < 1 {
-		pipelineInfo.Details.MaxQueueSize = 1
 	}
 	if pipelineInfo.Details.DatumTries == 0 {
 		pipelineInfo.Details.DatumTries = DefaultDatumTries

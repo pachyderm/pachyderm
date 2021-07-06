@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/dlmiddlecote/sqlstats"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -18,6 +19,7 @@ import (
 	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/prometheus/client_golang/prometheus"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
@@ -271,11 +273,21 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 			dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
 			dbutil.WithDBName(env.config.PostgresDBName),
 			dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
+			dbutil.WithMaxOpenConns(env.config.PostgresMaxOpenConns),
+			dbutil.WithMaxIdleConns(env.config.PostgresMaxIdleConns),
+			dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
+			dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
 		)
 		if err != nil {
 			return err
 		}
 		env.dbClient = db
+		if err := prometheus.Register(sqlstats.NewStatsCollector("postgres", db.DB)); err != nil {
+			// This is not a retryable error.  Rather it will always happen for the
+			// second (and subsequent) service environment because of a naming conflict.
+			// If you see this message in production, it's a bug.  In tests, it's OK.
+			log.WithError(err).Warn("problem registering database statistics collector")
+		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
@@ -300,7 +312,7 @@ func (env *NonblockingServiceEnv) newProxyClient() (proxy.APIClient, error) {
 	var servicePachClient *client.APIClient
 	if err := backoff.Retry(func() error {
 		var err error
-		servicePachClient, err = client.NewFromURI(net.JoinHostPort(env.config.PachdServiceHost, env.config.PachdServicePort))
+		servicePachClient, err = client.NewInCluster()
 		return err
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute)); err != nil {
 		return nil, errors.Wrapf(err, "failed to initialize service pach client")
