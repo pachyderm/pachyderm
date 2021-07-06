@@ -1,6 +1,8 @@
 import noop from 'lodash/noop';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {generatePath, useHistory, useRouteMatch} from 'react-router-dom';
+import {useHistory, useRouteMatch} from 'react-router-dom';
+
+import generatePathWithSearch from 'lib/generatePathWithSearch';
 
 import Tab from './components/Tab';
 import TabPanel from './components/TabPanel';
@@ -63,7 +65,10 @@ const RouterTabs: React.FC<RouterTabsProps> = ({
   const setActiveTabId = useCallback(
     (tabId: string) => {
       browserHistory.push(
-        generatePath(basePath, {...(match?.params || {}), [tabIdParam]: tabId}),
+        generatePathWithSearch(basePath, {
+          ...(match?.params || {}),
+          [tabIdParam]: tabId,
+        }),
       );
     },
     [browserHistory, basePath, tabIdParam, match],
