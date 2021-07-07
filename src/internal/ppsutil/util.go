@@ -377,12 +377,14 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,
 			Error:  commitError,
+			Force:  true,
 		}); err != nil {
 			return err
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: MetaCommit(jobInfo.OutputCommit),
 			Error:  commitError,
+			Force:  true,
 		}); err != nil {
 			return err
 		}
