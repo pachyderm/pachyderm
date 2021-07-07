@@ -264,6 +264,7 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 				},
 			}
 		}
+		cfg.WrapTransport = wrapK8sTransport
 		env.kubeClient, err = kube.NewForConfig(cfg)
 		if err != nil {
 			return errors.Wrapf(err, "could not initialize kube client")
