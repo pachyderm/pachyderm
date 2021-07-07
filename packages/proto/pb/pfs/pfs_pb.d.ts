@@ -100,8 +100,8 @@ export class RepoInfo extends jspb.Message {
     clearCreated(): void;
     getCreated(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setCreated(value?: google_protobuf_timestamp_pb.Timestamp): RepoInfo;
-    getSizeBytes(): number;
-    setSizeBytes(value: number): RepoInfo;
+    getSizeBytesUpperBound(): number;
+    setSizeBytesUpperBound(value: number): RepoInfo;
     getDescription(): string;
     setDescription(value: string): RepoInfo;
     clearBranchesList(): void;
@@ -113,6 +113,11 @@ export class RepoInfo extends jspb.Message {
     clearAuthInfo(): void;
     getAuthInfo(): RepoAuthInfo | undefined;
     setAuthInfo(value?: RepoAuthInfo): RepoInfo;
+
+    hasDetails(): boolean;
+    clearDetails(): void;
+    getDetails(): RepoInfo.Details | undefined;
+    setDetails(value?: RepoInfo.Details): RepoInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RepoInfo.AsObject;
@@ -128,11 +133,34 @@ export namespace RepoInfo {
     export type AsObject = {
         repo?: Repo.AsObject,
         created?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-        sizeBytes: number,
+        sizeBytesUpperBound: number,
         description: string,
         branchesList: Array<Branch.AsObject>,
         authInfo?: RepoAuthInfo.AsObject,
+        details?: RepoInfo.Details.AsObject,
     }
+
+
+    export class Details extends jspb.Message { 
+        getSizeBytes(): number;
+        setSizeBytes(value: number): Details;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Details.AsObject;
+        static toObject(includeInstance: boolean, msg: Details): Details.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Details, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Details;
+        static deserializeBinaryFromReader(message: Details, reader: jspb.BinaryReader): Details;
+    }
+
+    export namespace Details {
+        export type AsObject = {
+            sizeBytes: number,
+        }
+    }
+
 }
 
 export class RepoAuthInfo extends jspb.Message { 
@@ -328,6 +356,8 @@ export class CommitInfo extends jspb.Message {
     addDirectProvenance(value?: Branch, index?: number): Branch;
     getError(): boolean;
     setError(value: boolean): CommitInfo;
+    getSizeBytesUpperBound(): number;
+    setSizeBytesUpperBound(value: number): CommitInfo;
 
     hasDetails(): boolean;
     clearDetails(): void;
@@ -355,6 +385,7 @@ export namespace CommitInfo {
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         directProvenanceList: Array<Branch.AsObject>,
         error: boolean,
+        sizeBytesUpperBound: number,
         details?: CommitInfo.Details.AsObject,
     }
 
@@ -442,11 +473,12 @@ export class FileInfo extends jspb.Message {
     clearCommitted(): void;
     getCommitted(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setCommitted(value?: google_protobuf_timestamp_pb.Timestamp): FileInfo;
-
-    hasDetails(): boolean;
-    clearDetails(): void;
-    getDetails(): FileInfo.Details | undefined;
-    setDetails(value?: FileInfo.Details): FileInfo;
+    getSizeBytes(): number;
+    setSizeBytes(value: number): FileInfo;
+    getHash(): Uint8Array | string;
+    getHash_asU8(): Uint8Array;
+    getHash_asB64(): string;
+    setHash(value: Uint8Array | string): FileInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): FileInfo.AsObject;
@@ -463,35 +495,9 @@ export namespace FileInfo {
         file?: File.AsObject,
         fileType: FileType,
         committed?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-        details?: FileInfo.Details.AsObject,
+        sizeBytes: number,
+        hash: Uint8Array | string,
     }
-
-
-    export class Details extends jspb.Message { 
-        getSizeBytes(): number;
-        setSizeBytes(value: number): Details;
-        getHash(): Uint8Array | string;
-        getHash_asU8(): Uint8Array;
-        getHash_asB64(): string;
-        setHash(value: Uint8Array | string): Details;
-
-        serializeBinary(): Uint8Array;
-        toObject(includeInstance?: boolean): Details.AsObject;
-        static toObject(includeInstance: boolean, msg: Details): Details.AsObject;
-        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-        static serializeBinaryToWriter(message: Details, writer: jspb.BinaryWriter): void;
-        static deserializeBinary(bytes: Uint8Array): Details;
-        static deserializeBinaryFromReader(message: Details, reader: jspb.BinaryReader): Details;
-    }
-
-    export namespace Details {
-        export type AsObject = {
-            sizeBytes: number,
-            hash: Uint8Array | string,
-        }
-    }
-
 }
 
 export class CreateRepoRequest extends jspb.Message { 

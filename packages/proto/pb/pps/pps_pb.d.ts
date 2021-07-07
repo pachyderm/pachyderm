@@ -1175,14 +1175,10 @@ export namespace PipelineInfo {
         setInput(value?: Input): Details;
         getDescription(): string;
         setDescription(value: string): Details;
-        getCacheSize(): string;
-        setCacheSize(value: string): Details;
         getSalt(): string;
         setSalt(value: string): Details;
         getReason(): string;
         setReason(value: string): Details;
-        getMaxQueueSize(): number;
-        setMaxQueueSize(value: number): Details;
 
         hasService(): boolean;
         clearService(): void;
@@ -1261,10 +1257,8 @@ export namespace PipelineInfo {
             sidecarResourceLimits?: ResourceSpec.AsObject,
             input?: Input.AsObject,
             description: string,
-            cacheSize: string,
             salt: string,
             reason: string,
-            maxQueueSize: number,
             service?: Service.AsObject,
             spout?: Spout.AsObject,
             datumSetSpec?: DatumSetSpec.AsObject,
@@ -1870,12 +1864,8 @@ export class CreatePipelineRequest extends jspb.Message {
     setInput(value?: Input): CreatePipelineRequest;
     getDescription(): string;
     setDescription(value: string): CreatePipelineRequest;
-    getCacheSize(): string;
-    setCacheSize(value: string): CreatePipelineRequest;
     getReprocess(): boolean;
     setReprocess(value: boolean): CreatePipelineRequest;
-    getMaxQueueSize(): number;
-    setMaxQueueSize(value: number): CreatePipelineRequest;
 
     hasService(): boolean;
     clearService(): void;
@@ -1954,9 +1944,7 @@ export namespace CreatePipelineRequest {
         sidecarResourceLimits?: ResourceSpec.AsObject,
         input?: Input.AsObject,
         description: string,
-        cacheSize: string,
         reprocess: boolean,
-        maxQueueSize: number,
         service?: Service.AsObject,
         spout?: Spout.AsObject,
         datumSetSpec?: DatumSetSpec.AsObject,

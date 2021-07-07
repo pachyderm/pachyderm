@@ -5934,11 +5934,11 @@ proto.pps_v2.ProcessStats.deserializeBinaryFromReader = function(msg, reader) {
       msg.setUploadTime(value);
       break;
     case 4:
-      var value = /** @type {number} */ (reader.readUint64());
+      var value = /** @type {number} */ (reader.readInt64());
       msg.setDownloadBytes(value);
       break;
     case 5:
-      var value = /** @type {number} */ (reader.readUint64());
+      var value = /** @type {number} */ (reader.readInt64());
       msg.setUploadBytes(value);
       break;
     default:
@@ -5996,14 +5996,14 @@ proto.pps_v2.ProcessStats.serializeBinaryToWriter = function(message, writer) {
   }
   f = message.getDownloadBytes();
   if (f !== 0) {
-    writer.writeUint64(
+    writer.writeInt64(
       4,
       f
     );
   }
   f = message.getUploadBytes();
   if (f !== 0) {
-    writer.writeUint64(
+    writer.writeInt64(
       5,
       f
     );
@@ -6123,7 +6123,7 @@ proto.pps_v2.ProcessStats.prototype.hasUploadTime = function() {
 
 
 /**
- * optional uint64 download_bytes = 4;
+ * optional int64 download_bytes = 4;
  * @return {number}
  */
 proto.pps_v2.ProcessStats.prototype.getDownloadBytes = function() {
@@ -6141,7 +6141,7 @@ proto.pps_v2.ProcessStats.prototype.setDownloadBytes = function(value) {
 
 
 /**
- * optional uint64 upload_bytes = 5;
+ * optional int64 upload_bytes = 5;
  * @return {number}
  */
 proto.pps_v2.ProcessStats.prototype.getUploadBytes = function() {
@@ -9812,10 +9812,8 @@ proto.pps_v2.PipelineInfo.Details.toObject = function(includeInstance, msg) {
     sidecarResourceLimits: (f = msg.getSidecarResourceLimits()) && proto.pps_v2.ResourceSpec.toObject(includeInstance, f),
     input: (f = msg.getInput()) && proto.pps_v2.Input.toObject(includeInstance, f),
     description: jspb.Message.getFieldWithDefault(msg, 14, ""),
-    cacheSize: jspb.Message.getFieldWithDefault(msg, 15, ""),
     salt: jspb.Message.getFieldWithDefault(msg, 16, ""),
     reason: jspb.Message.getFieldWithDefault(msg, 17, ""),
-    maxQueueSize: jspb.Message.getFieldWithDefault(msg, 18, 0),
     service: (f = msg.getService()) && proto.pps_v2.Service.toObject(includeInstance, f),
     spout: (f = msg.getSpout()) && proto.pps_v2.Spout.toObject(includeInstance, f),
     datumSetSpec: (f = msg.getDatumSetSpec()) && proto.pps_v2.DatumSetSpec.toObject(includeInstance, f),
@@ -9932,10 +9930,6 @@ proto.pps_v2.PipelineInfo.Details.deserializeBinaryFromReader = function(msg, re
       var value = /** @type {string} */ (reader.readString());
       msg.setDescription(value);
       break;
-    case 15:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setCacheSize(value);
-      break;
     case 16:
       var value = /** @type {string} */ (reader.readString());
       msg.setSalt(value);
@@ -9943,10 +9937,6 @@ proto.pps_v2.PipelineInfo.Details.deserializeBinaryFromReader = function(msg, re
     case 17:
       var value = /** @type {string} */ (reader.readString());
       msg.setReason(value);
-      break;
-    case 18:
-      var value = /** @type {number} */ (reader.readInt64());
-      msg.setMaxQueueSize(value);
       break;
     case 19:
       var value = new proto.pps_v2.Service;
@@ -10151,13 +10141,6 @@ proto.pps_v2.PipelineInfo.Details.serializeBinaryToWriter = function(message, wr
       f
     );
   }
-  f = message.getCacheSize();
-  if (f.length > 0) {
-    writer.writeString(
-      15,
-      f
-    );
-  }
   f = message.getSalt();
   if (f.length > 0) {
     writer.writeString(
@@ -10169,13 +10152,6 @@ proto.pps_v2.PipelineInfo.Details.serializeBinaryToWriter = function(message, wr
   if (f.length > 0) {
     writer.writeString(
       17,
-      f
-    );
-  }
-  f = message.getMaxQueueSize();
-  if (f !== 0) {
-    writer.writeInt64(
-      18,
       f
     );
   }
@@ -10718,24 +10694,6 @@ proto.pps_v2.PipelineInfo.Details.prototype.setDescription = function(value) {
 
 
 /**
- * optional string cache_size = 15;
- * @return {string}
- */
-proto.pps_v2.PipelineInfo.Details.prototype.getCacheSize = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 15, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pps_v2.PipelineInfo.Details} returns this
- */
-proto.pps_v2.PipelineInfo.Details.prototype.setCacheSize = function(value) {
-  return jspb.Message.setProto3StringField(this, 15, value);
-};
-
-
-/**
  * optional string salt = 16;
  * @return {string}
  */
@@ -10768,24 +10726,6 @@ proto.pps_v2.PipelineInfo.Details.prototype.getReason = function() {
  */
 proto.pps_v2.PipelineInfo.Details.prototype.setReason = function(value) {
   return jspb.Message.setProto3StringField(this, 17, value);
-};
-
-
-/**
- * optional int64 max_queue_size = 18;
- * @return {number}
- */
-proto.pps_v2.PipelineInfo.Details.prototype.getMaxQueueSize = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 18, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.pps_v2.PipelineInfo.Details} returns this
- */
-proto.pps_v2.PipelineInfo.Details.prototype.setMaxQueueSize = function(value) {
-  return jspb.Message.setProto3IntField(this, 18, value);
 };
 
 
@@ -15426,9 +15366,7 @@ proto.pps_v2.CreatePipelineRequest.toObject = function(includeInstance, msg) {
     sidecarResourceLimits: (f = msg.getSidecarResourceLimits()) && proto.pps_v2.ResourceSpec.toObject(includeInstance, f),
     input: (f = msg.getInput()) && proto.pps_v2.Input.toObject(includeInstance, f),
     description: jspb.Message.getFieldWithDefault(msg, 13, ""),
-    cacheSize: jspb.Message.getFieldWithDefault(msg, 14, ""),
     reprocess: jspb.Message.getBooleanFieldWithDefault(msg, 15, false),
-    maxQueueSize: jspb.Message.getFieldWithDefault(msg, 16, 0),
     service: (f = msg.getService()) && proto.pps_v2.Service.toObject(includeInstance, f),
     spout: (f = msg.getSpout()) && proto.pps_v2.Spout.toObject(includeInstance, f),
     datumSetSpec: (f = msg.getDatumSetSpec()) && proto.pps_v2.DatumSetSpec.toObject(includeInstance, f),
@@ -15540,17 +15478,9 @@ proto.pps_v2.CreatePipelineRequest.deserializeBinaryFromReader = function(msg, r
       var value = /** @type {string} */ (reader.readString());
       msg.setDescription(value);
       break;
-    case 14:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setCacheSize(value);
-      break;
     case 15:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setReprocess(value);
-      break;
-    case 16:
-      var value = /** @type {number} */ (reader.readInt64());
-      msg.setMaxQueueSize(value);
       break;
     case 17:
       var value = new proto.pps_v2.Service;
@@ -15745,24 +15675,10 @@ proto.pps_v2.CreatePipelineRequest.serializeBinaryToWriter = function(message, w
       f
     );
   }
-  f = message.getCacheSize();
-  if (f.length > 0) {
-    writer.writeString(
-      14,
-      f
-    );
-  }
   f = message.getReprocess();
   if (f) {
     writer.writeBool(
       15,
-      f
-    );
-  }
-  f = message.getMaxQueueSize();
-  if (f !== 0) {
-    writer.writeInt64(
-      16,
       f
     );
   }
@@ -16281,24 +16197,6 @@ proto.pps_v2.CreatePipelineRequest.prototype.setDescription = function(value) {
 
 
 /**
- * optional string cache_size = 14;
- * @return {string}
- */
-proto.pps_v2.CreatePipelineRequest.prototype.getCacheSize = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 14, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pps_v2.CreatePipelineRequest} returns this
- */
-proto.pps_v2.CreatePipelineRequest.prototype.setCacheSize = function(value) {
-  return jspb.Message.setProto3StringField(this, 14, value);
-};
-
-
-/**
  * optional bool reprocess = 15;
  * @return {boolean}
  */
@@ -16313,24 +16211,6 @@ proto.pps_v2.CreatePipelineRequest.prototype.getReprocess = function() {
  */
 proto.pps_v2.CreatePipelineRequest.prototype.setReprocess = function(value) {
   return jspb.Message.setProto3BooleanField(this, 15, value);
-};
-
-
-/**
- * optional int64 max_queue_size = 16;
- * @return {number}
- */
-proto.pps_v2.CreatePipelineRequest.prototype.getMaxQueueSize = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 16, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.pps_v2.CreatePipelineRequest} returns this
- */
-proto.pps_v2.CreatePipelineRequest.prototype.setMaxQueueSize = function(value) {
-  return jspb.Message.setProto3IntField(this, 16, value);
 };
 
 
