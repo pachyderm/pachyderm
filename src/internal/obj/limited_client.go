@@ -4,8 +4,20 @@ import (
 	"context"
 	io "io"
 	"math"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/sync/semaphore"
+)
+
+var (
+	blockedSecondsMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "object_storage",
+		Name:      "limited_seconds_total",
+		Help:      "Total",
+	}, []string{"op"})
 )
 
 const limitClientSemCost = 1
@@ -39,17 +51,21 @@ func NewLimitedClient(client Client, maxReaders, maxWriters int) Client {
 }
 
 func (loc *limitedClient) Put(ctx context.Context, name string, r io.Reader) error {
+	t := time.Now()
 	if err := loc.writersSem.Acquire(ctx, limitClientSemCost); err != nil {
 		return err
 	}
+	blockedSecondsMetric.WithLabelValues("put").Add(time.Since(t).Seconds())
 	defer loc.writersSem.Release(limitClientSemCost)
 	return loc.Client.Put(ctx, name, r)
 }
 
 func (loc *limitedClient) Get(ctx context.Context, name string, w io.Writer) error {
+	t := time.Now()
 	if err := loc.readersSem.Acquire(ctx, limitClientSemCost); err != nil {
 		return err
 	}
+	blockedSecondsMetric.WithLabelValues("get").Add(time.Since(t).Seconds())
 	defer loc.readersSem.Release(limitClientSemCost)
 	return loc.Client.Get(ctx, name, w)
 }

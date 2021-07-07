@@ -8,7 +8,30 @@ import (
 
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
+)
+
+var (
+	cacheHitMetric = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "object_storage_cache",
+		Name:      "hits_total",
+		Help:      "Number of object storage gets served from cache",
+	})
+	cacheMissMetric = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "object_storage_cache",
+		Name:      "misses_total",
+		Help:      "Number of object storage gets that were not served from cache",
+	})
+	cacheEvictionMetric = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "object_storage_cache",
+		Name:      "evictions_total",
+		Help:      "Number of objects evicted from LRU cache",
+	})
 )
 
 var _ Client = &cacheClient{}
@@ -45,8 +68,10 @@ func (c *cacheClient) Get(ctx context.Context, p string, w io.Writer) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if _, exists := c.cache.Get(p); exists {
+		cacheHitMetric.Inc()
 		return c.fast.Get(ctx, p, w)
 	}
+	cacheMissMetric.Inc()
 	if err := Copy(ctx, c.slow, c.fast, p, p); err != nil {
 		return err
 	}
@@ -89,6 +114,7 @@ func (c *cacheClient) onEvicted(key, value interface{}) {
 	if err := c.fast.Delete(ctx, p); err != nil && !pacherr.IsNotExist(err) {
 		log.Errorf("could not delete from cache's fast store: %v", err)
 	}
+	cacheEvictionMetric.Inc()
 }
 
 func (c *cacheClient) populate(ctx context.Context) error {

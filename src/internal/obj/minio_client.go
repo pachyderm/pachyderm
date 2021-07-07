@@ -3,9 +3,11 @@ package obj
 import (
 	"context"
 	"io"
+	"net/http"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 
 	minio "github.com/minio/minio-go/v6"
@@ -23,6 +25,7 @@ func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioCli
 	if err != nil {
 		return nil, err
 	}
+	mclient.SetCustomTransport(promutil.InstrumentRoundTripper("minio", http.DefaultTransport))
 	return &minioClient{
 		bucket: bucket,
 		Client: mclient,

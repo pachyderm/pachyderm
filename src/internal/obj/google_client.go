@@ -2,12 +2,14 @@ package obj
 
 import (
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
@@ -22,6 +24,9 @@ type googleClient struct {
 
 func newGoogleClient(bucket string, opts []option.ClientOption) (*googleClient, error) {
 	opts = append(opts, option.WithScopes(storage.ScopeFullControl))
+	opts = append(opts, option.WithHTTPClient(&http.Client{
+		Transport: promutil.InstrumentRoundTripper("cloud_storage", http.DefaultTransport),
+	}))
 	client, err := storage.NewClient(context.Background(), opts...)
 	if err != nil {
 		return nil, err

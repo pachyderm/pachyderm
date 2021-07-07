@@ -2,6 +2,7 @@
 package promutil
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -30,6 +31,9 @@ var (
 // InstrumentRoundTripper returns an http.RoundTripper that collects Prometheus metrics; delegating
 // to the underlying RoundTripper to actually make requests.
 func InstrumentRoundTripper(name string, rt http.RoundTripper) http.RoundTripper {
+	if rt == nil {
+		rt = http.DefaultTransport
+	}
 	ls := prometheus.Labels{"client": name}
 	return promhttp.InstrumentRoundTripperInFlight(
 		inFlightMetric.With(ls),
@@ -38,4 +42,38 @@ func InstrumentRoundTripper(name string, rt http.RoundTripper) http.RoundTripper
 			promhttp.InstrumentRoundTripperCounter(
 				requestCountMetric.MustCurryWith(ls),
 				rt)))
+}
+
+// Adder is something that can be added to.
+type Adder interface {
+	Add(float64) // Implemented by prometheus.Counter.
+}
+
+// In the event that Prometheus changes their API, you'll be reading this comment.
+var _ Adder = prometheus.NewCounter(prometheus.CounterOpts{})
+
+// CountingReader exports a count of bytes read from an underlying io.Reader.
+type CountingReader struct {
+	io.Reader
+	Counter Adder
+}
+
+// Read implements io.Reader.
+func (r *CountingReader) Read(p []byte) (n int, err error) {
+	n, err = r.Reader.Read(p)
+	r.Counter.Add(float64(n))
+	return
+}
+
+// CountingWriter exports a count of bytes written to an underlying io.Writer.
+type CountingWriter struct {
+	io.Writer
+	Counter Adder
+}
+
+// Write implements io.Writer.
+func (w *CountingWriter) Write(p []byte) (n int, err error) {
+	n, err = w.Writer.Write(p)
+	w.Counter.Add(float64(n))
+	return
 }
