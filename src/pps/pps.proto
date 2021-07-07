@@ -158,7 +158,7 @@ message Datum {
 }
 
 enum DatumState {
-  DATUM_STATE_UNKNOWN = 0; // or not part of a job
+  UNKNOWN = 0; // or not part of a job
   FAILED = 1;
   SUCCESS = 2;
   SKIPPED = 3;

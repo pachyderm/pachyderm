@@ -1017,7 +1017,7 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 	if request.Input != nil {
 		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
 			di := convertDatumMetaToInfo(meta, nil)
-			di.State = pps.DatumState_DATUM_STATE_UNKNOWN
+			di.State = pps.DatumState_UNKNOWN
 			di.Datum.ID = ""
 			return server.Send(di)
 		})
