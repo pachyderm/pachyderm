@@ -7,6 +7,18 @@
   }
 }
 
+@keyframes scaleDown {
+  0% {
+    transform: scale(0.5)
+  }
+  50% {
+    transform: scale(1)
+  }
+  100% {
+    transform: scale(0.5)
+  }
+}
+
 .link {
   stroke: var(--pachyderm-black);
   stroke-width: 1px;
@@ -36,4 +48,5 @@
 
 .circle {
   fill: var(--success-green);
+  animation: scaleDown linear 0.8s infinite;
 }
