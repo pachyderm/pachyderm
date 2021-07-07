@@ -23,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -533,7 +532,7 @@ func (d *driver) startCommit(
 	// Finally, create the commit
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommit), newCommitInfo); err != nil {
 		if col.IsErrExists(err) {
-			return nil, errors.EnsureStack(transactionenv.ErrInconsistentCommit{Commit: newCommit, Branch: newCommit.Branch})
+			return nil, errors.EnsureStack(pfsserver.ErrInconsistentCommit{Commit: newCommit, Branch: newCommit.Branch})
 		}
 		return nil, err
 	}
@@ -688,7 +687,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			return nil, err
 		}
 		if !proto.Equal(parentRoot.Commit, prevRoot.Commit) {
-			return nil, errors.EnsureStack(transactionenv.ErrInconsistentCommit{Commit: parent, Branch: branch})
+			return nil, errors.EnsureStack(pfsserver.ErrInconsistentCommit{Commit: parent, Branch: branch})
 		}
 	}
 
@@ -857,7 +856,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 				pfsdb.CommitKey(newCommit),
 				newCommitInfo,
 			); err != nil && col.IsErrExists(err) {
-				return errors.EnsureStack(transactionenv.ErrInconsistentCommit{
+				return errors.EnsureStack(pfsserver.ErrInconsistentCommit{
 					Commit: newCommit,
 					Branch: newCommit.Branch,
 				})

@@ -2,7 +2,6 @@ package transactionenv
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -17,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
@@ -251,23 +251,6 @@ func (t *appendTransaction) DeleteRoleBinding(original *auth.Resource) error {
 	panic("DeleteRoleBinding not yet implemented in transactions")
 }
 
-// ErrInconsistentCommit represents an error where a transaction attempts to
-// create a CommitSet with multiple commits in the same branch, which would
-// result in inconsistent data dependencies.
-type ErrInconsistentCommit struct {
-	Branch *pfs.Branch
-	Commit *pfs.Commit
-}
-
-func (e ErrInconsistentCommit) Is(other error) bool {
-	_, ok := other.(ErrInconsistentCommit)
-	return ok
-}
-
-func (e ErrInconsistentCommit) Error() string {
-	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", e.Commit, e.Branch.Name)
-}
-
 // WithTransaction will call the given callback with a txnenv.Transaction
 // object, which is instantiated differently based on if an active
 // transaction is present in the RPC context.  If an active transaction is
@@ -291,7 +274,7 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 	for {
 		if err := env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 			directTxn := NewDirectTransaction(env, txnCtx)
-			if useOverride && overrideID != nil {
+			if useOverride {
 				id, err := overrideID(txnCtx)
 				if err != nil {
 					return err
@@ -302,7 +285,7 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 			}
 
 			return cb(directTxn)
-		}); useOverride && err != nil && errors.Is(err, ErrInconsistentCommit{}) {
+		}); useOverride && err != nil && errors.Is(err, pfsserver.ErrInconsistentCommit{}) {
 			// try one more time with the random transaction ID
 			useOverride = false
 		} else {

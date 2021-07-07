@@ -85,6 +85,19 @@ type ErrAmbiguousCommit struct {
 	Commit *pfs.Commit
 }
 
+// ErrInconsistentCommit represents an error where a transaction attempts to
+// create a CommitSet with multiple commits in the same branch, which would
+// result in inconsistent data dependencies.
+type ErrInconsistentCommit struct {
+	Branch *pfs.Branch
+	Commit *pfs.Commit
+}
+
+func (e ErrInconsistentCommit) Is(other error) bool {
+	_, ok := other.(ErrInconsistentCommit)
+	return ok
+}
+
 // ErrCommitOnOutputBranch represents an error where an attempt was made to start
 // a commit on an output branch (a branch that is provenant on other branches).
 // Users should not manually try to start a commit in an output branch, this
@@ -147,6 +160,10 @@ func (e ErrCommitNotFinished) Error() string {
 
 func (e ErrAmbiguousCommit) Error() string {
 	return fmt.Sprintf("commit %v is ambiguous (specify the branch to resolve)", e.Commit.ID)
+}
+
+func (e ErrInconsistentCommit) Error() string {
+	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", e.Commit, e.Branch.Name)
 }
 
 func (e ErrCommitOnOutputBranch) Error() string {
