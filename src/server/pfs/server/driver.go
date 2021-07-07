@@ -1130,7 +1130,30 @@ func (d *driver) getCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit
 	return commitInfo, nil
 }
 
-func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number int64, reverse bool, cb func(*pfs.CommitInfo) error) error {
+// passesCommitOriginFilter is a helper function for listCommit and
+// subscribeCommit to apply filtering to the returned commits.  By default we
+// skip over alias commits, but we allow users to request all the commits with
+// 'all', or a specific type of commit with 'originKind'.
+func passesCommitOriginFilter(commitInfo *pfs.CommitInfo, all bool, originKind pfs.OriginKind) bool {
+	if all {
+		return true
+	} else if originKind != pfs.OriginKind_ORIGIN_KIND_UNKNOWN {
+		return commitInfo.Origin.Kind == originKind
+	}
+	return commitInfo.Origin.Kind != pfs.OriginKind_ALIAS
+}
+
+func (d *driver) listCommit(
+	ctx context.Context,
+	repo *pfs.Repo,
+	to *pfs.Commit,
+	from *pfs.Commit,
+	number int64,
+	reverse bool,
+	all bool,
+	originKind pfs.OriginKind,
+	cb func(*pfs.CommitInfo) error,
+) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
@@ -1212,7 +1235,9 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 				}
 				lastRev = createRev
 			}
-			cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
+			if passesCommitOriginFilter(ci, all, originKind) {
+				cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
+			}
 			return nil
 		}
 
@@ -1243,18 +1268,20 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		}
 		cursor := to
 		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
-			var commitInfo pfs.CommitInfo
-			if err := d.commits.ReadOnly(ctx).Get(pfsdb.CommitKey(cursor), &commitInfo); err != nil {
+			commitInfo := &pfs.CommitInfo{}
+			if err := d.commits.ReadOnly(ctx).Get(pfsdb.CommitKey(cursor), commitInfo); err != nil {
 				return err
 			}
-			if err := cb(&commitInfo); err != nil {
-				if errors.Is(err, errutil.ErrBreak) {
-					return nil
+			if passesCommitOriginFilter(commitInfo, all, originKind) {
+				if err := cb(commitInfo); err != nil {
+					if errors.Is(err, errutil.ErrBreak) {
+						return nil
+					}
+					return err
 				}
-				return err
+				number--
 			}
 			cursor = commitInfo.ParentCommit
-			number--
 		}
 	}
 	return nil
@@ -1520,7 +1547,16 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 	return nil
 }
 
-func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit, state pfs.CommitState, cb func(*pfs.CommitInfo) error) error {
+func (d *driver) subscribeCommit(
+	ctx context.Context,
+	repo *pfs.Repo,
+	branch string,
+	from *pfs.Commit,
+	state pfs.CommitState,
+	all bool,
+	originKind pfs.OriginKind,
+	cb func(*pfs.CommitInfo) error,
+) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
@@ -1544,6 +1580,11 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 
 		// if branch is provided, make sure the commit was created on that branch
 		if branch != "" && commitInfo.Commit.Branch.Name != branch {
+			return nil
+		}
+
+		// If the origin of the commit doesn't match what we're interested in, skip it
+		if !passesCommitOriginFilter(commitInfo, all, originKind) {
 			return nil
 		}
 
