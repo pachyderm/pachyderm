@@ -31,7 +31,7 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 		return err
 	}
 	return status.withJob(datumSet.JobID, func() error {
-		logger = logger.WithJob(fmt.Sprintf("%v@%v", driver.PipelineInfo().Pipeline.Name, datumSet.JobID))
+		logger = logger.WithJob(datumSet.JobID)
 		if err := logger.LogStep("datum task", func() error {
 			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Details.Input) || driver.PipelineInfo().Details.S3Out {
 				if err := checkS3Gateway(driver, logger); err != nil {
@@ -49,7 +49,8 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 
 func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 	return backoff.RetryNotify(func() error {
-		endpoint := fmt.Sprintf("http://%s:%s/", ppsutil.SidecarS3GatewayService(logger.JobID()), os.Getenv("S3GATEWAY_PORT"))
+		jobDomain := ppsutil.SidecarS3GatewayService(fmt.Sprintf("%v@%v", driver.PipelineInfo().Pipeline.Name, logger.JobID()))
+		endpoint := fmt.Sprintf("http://%s:%s/", jobDomain, os.Getenv("S3GATEWAY_PORT"))
 		_, err := (&http.Client{Timeout: 5 * time.Second}).Get(endpoint)
 		logger.Logf("checking s3 gateway service for job %q: %v", logger.JobID(), err)
 		return err

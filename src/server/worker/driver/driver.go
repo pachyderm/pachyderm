@@ -519,7 +519,7 @@ func (d *driver) UserCodeEnv(
 			result = append(
 				result,
 				fmt.Sprintf("S3_ENDPOINT=http://%s.%s:%s",
-					ppsutil.SidecarS3GatewayService(jobID),
+					ppsutil.SidecarS3GatewayService(fmt.Sprintf("%v@%v", outputCommit.Branch.Repo.Name, jobID)),
 					d.Namespace(),
 					os.Getenv("S3GATEWAY_PORT"),
 				),

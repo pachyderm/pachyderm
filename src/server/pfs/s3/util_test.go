@@ -11,9 +11,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/gorilla/mux"
 	minio "github.com/minio/minio-go/v6"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -129,10 +131,10 @@ func fileHash(t *testing.T, name string) (int64, []byte) {
 }
 
 func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
-	server, err := Server(0, driver, func() (*client.APIClient, error) {
+	router := Router(driver, func() (*client.APIClient, error) {
 		return pachClient.WithCtx(context.Background()), nil
 	})
-	require.NoError(t, err)
+	server := Server(0, router, map[string]*mux.Router{}, &sync.Mutex{})
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 
