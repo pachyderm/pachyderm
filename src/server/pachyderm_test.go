@@ -3078,9 +3078,7 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
-func TestStandby(t *testing.T) {
-	// TODO(2.0 required): Investigate flakiness.
-	t.Skip("Investigate flakiness")
+func TestAutoscalingStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3089,14 +3087,14 @@ func TestStandby(t *testing.T) {
 	t.Run("ChainOf10", func(t *testing.T) {
 		require.NoError(t, c.DeleteAll())
 
-		dataRepo := tu.UniqueString("TestStandby_data")
+		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		dataCommit := client.NewCommit(dataRepo, "master", "")
 
 		numPipelines := 10
 		pipelines := make([]string, numPipelines)
 		for i := 0; i < numPipelines; i++ {
-			pipelines[i] = tu.UniqueString("TestStandby")
+			pipelines[i] = tu.UniqueString("TestAutoscalingStandby")
 			input := dataRepo
 			if i > 0 {
 				input = pipelines[i-1]
@@ -3114,7 +3112,7 @@ func TestStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		require.NoErrorWithinTRetry(t, time.Second*120, func() error {
 			pis, err := c.ListPipeline(false)
 			require.NoError(t, err)
 			var standby int
@@ -3130,11 +3128,13 @@ func TestStandby(t *testing.T) {
 		})
 
 		require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo")))
+		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+		require.NoError(t, err)
 
 		var eg errgroup.Group
 		var finished bool
 		eg.Go(func() error {
-			_, err := c.WaitCommitSetAll(dataCommit.ID)
+			_, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 			require.NoError(t, err)
 			finished = true
 			return nil
@@ -3160,9 +3160,9 @@ func TestStandby(t *testing.T) {
 	t.Run("ManyCommits", func(t *testing.T) {
 		require.NoError(t, c.DeleteAll())
 
-		dataRepo := tu.UniqueString("TestStandby_data")
+		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
 		dataCommit := client.NewCommit(dataRepo, "master", "")
-		pipeline := tu.UniqueString("TestStandby")
+		pipeline := tu.UniqueString("TestAutoscalingStandby")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
@@ -3171,7 +3171,8 @@ func TestStandby(t *testing.T) {
 					Cmd:   []string{"sh"},
 					Stdin: []string{"echo $PPS_POD_NAME >/pfs/out/pod"},
 				},
-				Input: client.NewPFSInput(dataRepo, "/"),
+				Input:       client.NewPFSInput(dataRepo, "/"),
+				Autoscaling: true,
 			},
 		)
 		require.NoError(t, err)
@@ -3183,11 +3184,22 @@ func TestStandby(t *testing.T) {
 		require.NoError(t, err)
 		commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
+		nonAliasCommits := 0
+		for _, v := range commitInfos {
+			if v.Origin.Kind != pfs.OriginKind_ALIAS {
+				nonAliasCommits++
+			}
+		}
+		require.Equal(t, 3, nonAliasCommits)
 		pod := ""
 		commitInfos, err = c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
 		require.NoError(t, err)
-		for _, ci := range commitInfos {
+		for i, ci := range commitInfos {
+			// the last commit accessed (the oldest commit) will not have any files in it
+			// since it's created as a result of the spec commit
+			if i == len(commitInfos)-1 {
+				break
+			}
 			var buffer bytes.Buffer
 			require.NoError(t, c.GetFile(ci.Commit, "pod", &buffer))
 			if pod == "" {
