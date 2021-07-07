@@ -460,7 +460,7 @@ $ {{alias}} foo@master --from XXX`,
 				OriginKind: origin,
 			})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 
 			if raw {
@@ -476,7 +476,7 @@ $ {{alias}} foo@master --from XXX`,
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			return writer.Flush()
 		}),
@@ -582,6 +582,9 @@ $ {{alias}} test@master --new`,
 				All:        all,
 				OriginKind: origin,
 			})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
 
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
@@ -598,10 +601,13 @@ $ {{alias}} test@master --new`,
 					retErr = err
 				}
 			}()
-			return clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
+			if err := clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(w, ci, fullTimestamps)
 				return nil
-			})
+			}); err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			return err
 		}),
 	}
 	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")

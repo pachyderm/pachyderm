@@ -105,6 +105,17 @@ func ForEachCommit(client pfs.API_ListCommitClient, cb func(*pfs.CommitInfo) err
 	return nil
 }
 
+func ListCommit(client pfs.API_ListCommitClient) ([]*pfs.CommitInfo, error) {
+	var results []*pfs.CommitInfo
+	if err := ForEachCommit(client, func(x *pfs.CommitInfo) error {
+		results = append(results, x)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 func ForEachSubscribeCommit(client pfs.API_SubscribeCommitClient, cb func(*pfs.CommitInfo) error) error {
 	for {
 		x, err := client.Recv()
