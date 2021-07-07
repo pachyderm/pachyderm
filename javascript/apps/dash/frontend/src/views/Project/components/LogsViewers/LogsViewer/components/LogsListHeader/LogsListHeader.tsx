@@ -2,6 +2,7 @@ import {
   DefaultDropdown,
   DropdownItem,
   SkeletonDisplayText,
+  PureCheckbox,
 } from '@pachyderm/components';
 import fill from 'lodash/fill';
 import React, {useCallback, useEffect, useState} from 'react';
@@ -54,9 +55,8 @@ const LogsListHeader: React.FC<LogsListHeaderProps> = ({
   return (
     <div className={styles.bodyHeader}>
       <div className={styles.timestampHeader}>
-        <input
-          type="checkbox"
-          checked={selectAllCheckbox}
+        <PureCheckbox
+          selected={selectAllCheckbox}
           disabled={logs.length === 0}
           onChange={onSelectAll}
         />

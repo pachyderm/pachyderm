@@ -1,3 +1,4 @@
+import {PureCheckbox} from '@pachyderm/components';
 import classnames from 'classnames';
 import {format, fromUnixTime} from 'date-fns';
 import React, {
@@ -67,12 +68,12 @@ const LogRow: React.FC<LogRowProps> = ({
       style={style}
     >
       <div className={styles.timestampCol}>
-        <input
-          type="checkbox"
-          checked={selectedLogsMap[index] || false}
+        <PureCheckbox
+          className={styles.timestampCheckbox}
+          selected={selectedLogsMap[index] || false}
           onChange={onTimestampSelect}
+          label={formattedTimestamp}
         />
-        <span className={styles.timestampText}>{formattedTimestamp}</span>
       </div>
       <div ref={heightRef} className={styles.messageCol}>
         {highlightUserLogs && user ? (

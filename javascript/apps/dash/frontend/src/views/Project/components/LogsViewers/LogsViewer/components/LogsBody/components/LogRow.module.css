@@ -7,7 +7,7 @@
 
 .row {
   font-family: Menlo;
-  color: #020408;
+  color: var(--pachyderm-black);
   font-size: 12px;
   letter-spacing: 0;
   line-height: 1.375rem;
@@ -24,7 +24,12 @@
   padding-bottom: 0.75rem;
 }
 
-.timestampText {
+.timestampCheckbox span {
+  font-family: Menlo;
+  color: var(--pachyderm-black);
+  font-size: 12px;
+  letter-spacing: 0;
+  line-height: 1.375rem;
   padding-left: 1rem;
 }
 
@@ -40,6 +45,6 @@
 
 .mark {
   /* TODO: Add color to lib */
-  background-color: #E1CFE5;
+  background-color: var(--plum-2);
   padding: 0;
 }
