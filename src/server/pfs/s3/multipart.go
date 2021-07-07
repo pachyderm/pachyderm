@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -182,9 +183,11 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 	return uploadID, nil
 }
 
-func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID string) error {
-	c.logger.Debugf("AbortMultipart: bucketName=%+v, key=%+v, uploadID=%+v", bucketName, key, uploadID)
-
+func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID string) (retErr error) {
+	c.logger.Infof("AbortMultipart: bucketName=%+v, key=%+v, uploadID=%+v", bucketName, key, uploadID)
+	defer func(start time.Time) {
+		c.logger.Infof("AbortMultipart: duration=%v, error=%v", time.Since(start), retErr)
+	}(time.Now())
 	pc, err := c.requestClient(r)
 	if err != nil {
 		return err
@@ -212,9 +215,11 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 	return nil
 }
 
-func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadID string, parts []*s2.Part) (*s2.CompleteMultipartResult, error) {
+func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadID string, parts []*s2.Part) (res *s2.CompleteMultipartResult, retErr error) {
 	c.logger.Debugf("CompleteMultipart: bucketName=%+v, key=%+v, uploadID=%+v, parts=%+v", bucketName, key, uploadID, parts)
-
+	defer func(start time.Time) {
+		c.logger.Infof("CompleteMultipart: duration=%v, result=%+v, error=%v", time.Since(start), res, retErr)
+	}(time.Now())
 	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
@@ -244,19 +249,9 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		return nil, err
 	}
 
-	// check if the destination file already exists, and if so, delete it
-	_, err = pc.InspectFile(bucket.Commit, key)
-	if err != nil && !pfsServer.IsFileNotFoundErr(err) {
-		return nil, err
-	} else if err == nil {
-		err = pc.DeleteFile(bucket.Commit, key)
-		if err != nil {
-			if errutil.IsWriteToOutputBranchError(err) {
-				return nil, writeToOutputBranchError(r)
-			}
-			return nil, err
-		}
-	}
+	// S3 "supports" concurrent complete calls on the same upload ID.
+	// Write to a random file ID in our directory to avoid conflict
+	tmpPath := uuid.NewWithoutDashes()
 
 	for i, part := range parts {
 		srcPath := chunkPath(bucket, key, uploadID, part.PartNumber)
@@ -283,13 +278,20 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 			return nil, s2.EntityTooSmallError(r)
 		}
 
-		err = pc.CopyFile(bucket.Commit, key, client.NewCommit(c.repo, "master", ""), srcPath, client.WithAppendCopyFile())
-		if err != nil {
-			if errutil.IsWriteToOutputBranchError(err) {
-				return nil, writeToOutputBranchError(r)
-			}
+		if err := pc.CopyFile(
+			client.NewCommit(c.repo, "master", ""), tmpPath,
+			client.NewCommit(c.repo, "master", ""), srcPath,
+			client.WithAppendCopyFile()); err != nil {
 			return nil, err
 		}
+	}
+
+	// overwrite file, for "last write wins" behavior
+	if err := pc.CopyFile(bucket.Commit, key, client.NewCommit(c.repo, "master", ""), tmpPath); err != nil {
+		if errutil.IsWriteToOutputBranchError(err) {
+			return nil, writeToOutputBranchError(r)
+		}
+		return nil, err
 	}
 
 	err = pc.DeleteFile(client.NewCommit(c.repo, "master", ""), parentDirPath(bucket, key, uploadID))
