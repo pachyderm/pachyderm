@@ -203,10 +203,6 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		}
 	}
 	driver := s3.NewWorkerDriver(inputBuckets, outputBucket)
-	// TODO(msteffen) always serve on the same port for now (there shouldn't be
-	// more than one job in s.servers). When parallel jobs are implemented, the
-	// servers in s.servers won't actually serve anymore, and instead parent
-	// server will forward requests based on the request hostname
 	router := s3.Router(driver, func() (*client.APIClient, error) {
 		return s.s.apiServer.env.GetPachClient(s.s.pachClient.Ctx()), nil // clones s.pachClient
 	})
