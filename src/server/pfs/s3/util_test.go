@@ -11,11 +11,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/gorilla/mux"
 	minio "github.com/minio/minio-go/v6"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -134,12 +132,12 @@ func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver
 	router := Router(driver, func() (*client.APIClient, error) {
 		return pachClient.WithCtx(context.Background()), nil
 	})
-	server := Server(0, router, map[string]*mux.Router{}, &sync.Mutex{})
+	server := Server(0, router)
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 
 	go func() {
-		server.Serve(listener)
+		server.HttpServer.Serve(listener)
 	}()
 
 	port := listener.Addr().(*net.TCPAddr).Port
@@ -151,5 +149,5 @@ func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver
 		runner(t, pachClient, minioClient)
 	})
 
-	require.NoError(t, server.Shutdown(context.Background()))
+	require.NoError(t, server.HttpServer.Shutdown(context.Background()))
 }

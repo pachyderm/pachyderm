@@ -8,9 +8,7 @@ import (
 	"path"
 	"runtime/debug"
 	"runtime/pprof"
-	"sync"
 
-	"github.com/gorilla/mux"
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -847,11 +845,11 @@ func doFullMode(config interface{}) (retErr error) {
 		router := s3.Router(s3.NewMasterDriver(), func() (*client.APIClient, error) {
 			return env.GetPachClient(context.Background()), nil
 		})
-		server := s3.Server(env.Config().S3GatewayPort, router, map[string]*mux.Router{}, &sync.Mutex{})
+		server := s3.Server(env.Config().S3GatewayPort, router)
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
 			log.Warnf("s3gateway TLS disabled: %v", err)
-			return server.ListenAndServe()
+			return server.HttpServer.ListenAndServe()
 		}
 		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
 		// Read TLS cert and key
@@ -859,8 +857,8 @@ func doFullMode(config interface{}) (retErr error) {
 		if err != nil {
 			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
 		}
-		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return server.ListenAndServeTLS(certPath, keyPath)
+		server.HttpServer.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
+		return server.HttpServer.ListenAndServeTLS(certPath, keyPath)
 	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		http.Handle("/metrics", promhttp.Handler())

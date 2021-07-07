@@ -113,15 +113,45 @@ func Router(driver Driver, clientFactory ClientFactory) *mux.Router {
 	return s3Server.Router()
 }
 
-// Server runs an HTTP server with an S3-like API for PFS. This allows you to
+// S3Server wraps an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to access PFS contents.
 
-// Modifications to `routerMap` allow dynamic changes for the mapping between s3 endpoints and API configurations
-func Server(port uint16, defaultRouter *mux.Router, routerMap map[string]*mux.Router, routersLock *sync.Mutex) *http.Server {
+// In addition to providing the http server itself, S3Server exposes methods
+// to configure handlers (mux.Routers) corresponding to different request URI hostnames.
+// This way one http Server can respond differently and accordingly to each specific job.
+type S3Server struct {
+	HttpServer  *http.Server
+	routerMap   map[string]*mux.Router
+	routersLock sync.RWMutex
+}
+
+func (s *S3Server) ContainsRouter(k string) bool {
+	s.routersLock.RLock()
+	defer s.routersLock.RUnlock()
+	_, ok := s.routerMap[k]
+	return ok
+}
+
+func (s *S3Server) AddRouter(k string, r *mux.Router) {
+	s.routersLock.Lock()
+	defer s.routersLock.Unlock()
+	s.routerMap[k] = r
+}
+
+func (s *S3Server) RemoveRouter(k string) {
+	s.routersLock.Lock()
+	defer s.routersLock.Unlock()
+	delete(s.routerMap, k)
+}
+
+// Server runs an HTTP server with an S3-like API for PFS. This allows you to
+// use s3 clients to access PFS contents.
+func Server(port uint16, defaultRouter *mux.Router) *S3Server {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
-	server := &http.Server{
+	s3Server := S3Server{routerMap: make(map[string]*mux.Router)}
+	s3Server.HttpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
 		ReadTimeout:  requestTimeout,
 		WriteTimeout: requestTimeout,
@@ -129,13 +159,13 @@ func Server(port uint16, defaultRouter *mux.Router, routerMap map[string]*mux.Ro
 			// Log that a request was made
 			logger.Infof("http request: %s %s", r.Method, r.RequestURI)
 			if strings.HasPrefix(r.Host, "s3-") {
-				routersLock.Lock()
-				defer routersLock.Unlock()
+				s3Server.routersLock.RLock()
+				defer s3Server.routersLock.RUnlock()
 				host := r.Host
 				if sep := strings.Index(r.Host, "."); sep != -1 {
 					host = host[:sep]
 				}
-				router, ok := routerMap[host]
+				router, ok := s3Server.routerMap[host]
 				if ok {
 					router.ServeHTTP(w, r)
 				} else {
@@ -150,6 +180,5 @@ func Server(port uint16, defaultRouter *mux.Router, routerMap map[string]*mux.Ro
 		// NOTE: this is not closed. If the standard logger gets customized, this will need to be fixed
 		ErrorLog: stdlog.New(logger.Writer(), "", 0),
 	}
-
-	return server
+	return &s3Server
 }

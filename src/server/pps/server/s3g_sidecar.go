@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"path"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -37,9 +34,7 @@ type sidecarS3G struct {
 	pipelineInfo *pps.PipelineInfo
 	pachClient   *client.APIClient
 
-	serversMu sync.Mutex
-	routers   map[string]*mux.Router
-	server    *http.Server
+	server *s3.S3Server
 }
 
 func (a *apiServer) ServeSidecarS3G() {
@@ -47,12 +42,9 @@ func (a *apiServer) ServeSidecarS3G() {
 		apiServer:    a,
 		pipelineInfo: &pps.PipelineInfo{}, // populate below
 		pachClient:   a.env.GetPachClient(context.Background()),
-		routers:      make(map[string]*mux.Router),
 	}
 	port := a.env.Config().S3GatewayPort
-	s.server = s3.Server(port, nil, s.routers, &s.serversMu)
-	strport := strconv.FormatInt(int64(port), 10)
-	s.server.Addr = ":" + strport
+	s.server = s3.Server(port, nil)
 
 	// Read spec commit for this sidecar's pipeline, and set auth token for pach
 	// client
@@ -93,11 +85,11 @@ func (a *apiServer) ServeSidecarS3G() {
 
 	go func() {
 		for i := 0; i < 2; i++ { // If too many errors, the worker will fail the job
-			err := s.server.ListenAndServe()
+			err := s.server.HttpServer.ListenAndServe()
 			if err == nil || errors.Is(err, http.ErrServerClosed) {
 				break // server was shutdown/closed
 			}
-			logrus.Errorf("error serving sidecar s3 gateway: %v; strike %d/3", err, i+1)
+			logrus.Errorf("error serving sidecar s3 gateway: %v; strike %d/2", err, i+1)
 		}
 	}()
 
@@ -177,10 +169,8 @@ type s3InstanceCreatingJobHandler struct {
 }
 
 func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
-	// serve new S3 gateway & add to s.servers
-	s.s.serversMu.Lock()
-	defer s.s.serversMu.Unlock()
-	if _, ok := s.s.routers[ppsutil.SidecarS3GatewayService(jobInfo.Job.String())]; ok {
+	// serve new S3 gateway & add to s.server routers
+	if ok := s.s.server.ContainsRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)); ok {
 		return // s3g handler already created
 	}
 
@@ -206,13 +196,11 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	router := s3.Router(driver, func() (*client.APIClient, error) {
 		return s.s.apiServer.env.GetPachClient(s.s.pachClient.Ctx()), nil // clones s.pachClient
 	})
-	s.s.routers[ppsutil.SidecarS3GatewayService(jobInfo.Job.String())] = router
+	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID), router)
 }
 
 func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *pps.Job) {
-	s.s.serversMu.Lock()
-	defer s.s.serversMu.Unlock()
-	delete(s.s.routers, ppsutil.SidecarS3GatewayService(job.String()))
+	s.s.server.RemoveRouter(ppsutil.SidecarS3GatewayService(job.Pipeline.Name, job.ID))
 }
 
 type k8sServiceCreatingJobHandler struct {
@@ -236,7 +224,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.String()),
+			Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID),
 			Labels: labels,
 		},
 		Spec: v1.ServiceSpec{
@@ -266,7 +254,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		return nil
 	})
 	if err != nil {
-		logrus.Errorf("could not create service for job %q: %v", jobInfo.Job.String(), err)
+		logrus.Errorf("could not create service for job %q: %v", jobInfo.Job, err)
 	}
 }
 
@@ -276,7 +264,7 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(_ context.Context, job *pps.J
 	}
 	if err := backoff.RetryNotify(func() error {
 		err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Delete(
-			ppsutil.SidecarS3GatewayService(job.String()),
+			ppsutil.SidecarS3GatewayService(job.Pipeline.Name, job.ID),
 			&metav1.DeleteOptions{OrphanDependents: new(bool) /* false */})
 		if err != nil && errutil.IsNotFoundError(err) {
 			return nil // service already deleted
