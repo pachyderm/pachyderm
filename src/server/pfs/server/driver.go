@@ -544,6 +544,30 @@ func (d *driver) startCommit(
 	return newCommit, nil
 }
 
+func (d *driver) looksLikePipelineOutput(txnCtx *txncontext.TransactionContext, info *pfs.CommitInfo) (bool, error) {
+	if info.Commit.Branch.Repo.Type == pfs.MetaRepoType {
+		// assume meta repos are part of a pipeline
+		return true, nil
+	}
+	if len(info.DirectProvenance) == 0 {
+		// no provenance, definitely not an active pipeline
+		return false, nil
+	}
+	if len(info.DirectProvenance) == 1 && info.DirectProvenance[0].Repo.Type == pfs.SpecRepoType {
+		// this is a spout, don't get in the way of user commit management
+		return false, nil
+	}
+	// finally, check for a companion meta repo
+	// this could still technically be a branch with provenance in the same repo as pipeline output
+	metaRepo := client.NewSystemRepo(info.Commit.Branch.Repo.Name, pfs.MetaRepoType)
+	if _, err := d.inspectRepo(txnCtx, metaRepo, false); err != nil && !col.IsErrNotFound(err) {
+		return false, errors.Wrapf(err, "checking for meta repo for %s", info.Commit.Branch.Repo)
+	} else {
+		// no error means there was a meta repo, and so this looks like a pipeline
+		return err == nil, nil
+	}
+}
+
 // TODO: Need to block operations on the commit before kicking off the compaction / finishing the commit.
 // We are going to want to move the compaction to the read side, and just mark the commit as finished here.
 func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description string, commitError, force bool) error {
@@ -559,8 +583,12 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
-	if len(commitInfo.DirectProvenance) > 0 && !force {
-		return errors.Errorf("cannot finish a commit with provenance, use 'stop job' instead")
+	if !force {
+		if isPipeline, err := d.looksLikePipelineOutput(txnCtx, commitInfo); err != nil {
+			return err
+		} else if isPipeline {
+			return errors.Errorf("cannot finish a pipeline output or meta commit, use 'stop job' instead")
+		}
 	}
 	if description != "" {
 		commitInfo.Description = description
