@@ -70,18 +70,17 @@ func (c *controller) requestClient(r *http.Request) (*client.APIClient, error) {
 	return pc, nil
 }
 
-// Server runs an HTTP server with an S3-like API for PFS. This allows you to
+// Router creates an http server like object that serves an S3-like API for PFS. This allows you to
 // use s3 clients to access PFS contents.
-//
+
 // `inputBuckets` specifies which buckets should be served, referencing
 // specific commit IDs. If nil, all PFS branches will be served as separate
 // buckets, of the form `<branch name>.<bucket name>`. Some s3 features are
 // enabled when all PFS branches are served as well; e.g. we add support for
 // some s3 versioning functionality.
 //
-// This returns an `http.Server` instance. It is the responsibility of the
-// caller to start the returned server. It's possible for the caller to
-// gracefully shutdown the server if desired; see the `http` package for details.
+// This returns an `mux.Router` instance. It is the responsibility of the
+// caller to configure a server to use this Router.
 //
 // Note: server errors are redirected to logrus' standard log writer. The log
 // writer is never closed. This should not be a problem with logrus' default
@@ -114,6 +113,10 @@ func Router(driver Driver, clientFactory ClientFactory) *mux.Router {
 	return s3Server.Router()
 }
 
+// Server runs an HTTP server with an S3-like API for PFS. This allows you to
+// use s3 clients to access PFS contents.
+
+// Modifications to `routerMap` allow dynamic changes for the mapping between s3 endpoints and API configurations
 func Server(port uint16, defaultRouter *mux.Router, routerMap map[string]*mux.Router, routersLock *sync.Mutex) *http.Server {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
@@ -138,8 +141,10 @@ func Server(port uint16, defaultRouter *mux.Router, routerMap map[string]*mux.Ro
 				} else {
 					w.WriteHeader(http.StatusInternalServerError)
 				}
-			} else {
+			} else if defaultRouter != nil {
 				defaultRouter.ServeHTTP(w, r)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
 			}
 		}),
 		// NOTE: this is not closed. If the standard logger gets customized, this will need to be fixed

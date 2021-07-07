@@ -664,7 +664,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		pipelineCommit := client.NewCommit(pipeline, "master", "")
 		// Add files to 'repo'. Old files in 'repo' should be reprocessed in every
 		// job, changing the 'background' field in the output
-		for i := 1; i < 10; i++ {
+		for i := 1; i < 7; i++ {
 			// Increment "/round" in 'background'
 			iS := strconv.Itoa(i)
 			bgc, err := c.StartCommit(background, "master")
