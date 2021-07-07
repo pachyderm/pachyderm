@@ -956,6 +956,7 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 		if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 			Commit: commitInfo.Commit,
 			Error:  true,
+			Force:  true,
 		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
 			return err
 		}
@@ -963,6 +964,7 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 		if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 			Commit: ppsutil.MetaCommit(commitInfo.Commit),
 			Error:  true,
+			Force:  true,
 		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
 			return err
 		}
@@ -1000,7 +1002,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	// TODO: Auth?
 	if err := a.collectDatums(ctx, request.Datum.Job, func(meta *datum.Meta, pfsState *pfs.File) error {
 		if common.DatumID(meta.Inputs) == request.Datum.ID {
-			response = convertDatumMetaToInfo(meta)
+			response = convertDatumMetaToInfo(meta, request.Datum.Job)
 			response.PfsState = pfsState
 		}
 		return nil
@@ -1016,14 +1018,14 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 	// TODO: Auth?
 	if request.Input != nil {
 		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
-			meta.State = datum.State_UNPROCESSED
-			di := convertDatumMetaToInfo(meta)
+			di := convertDatumMetaToInfo(meta, nil)
+			di.State = pps.DatumState_UNKNOWN
 			di.Datum.ID = ""
 			return server.Send(di)
 		})
 	}
 	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
-		return server.Send(convertDatumMetaToInfo(meta))
+		return server.Send(convertDatumMetaToInfo(meta, request.Job))
 	})
 }
 
@@ -1055,7 +1057,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	})
 }
 
-func convertDatumMetaToInfo(meta *datum.Meta) *pps.DatumInfo {
+func convertDatumMetaToInfo(meta *datum.Meta, sourceJob *pps.Job) *pps.DatumInfo {
 	di := &pps.DatumInfo{
 		Datum: &pps.Datum{
 			Job: meta.Job,
@@ -1067,6 +1069,9 @@ func convertDatumMetaToInfo(meta *datum.Meta) *pps.DatumInfo {
 	for _, input := range meta.Inputs {
 		di.Data = append(di.Data, input.FileInfo)
 	}
+	if meta.Job != nil && !proto.Equal(meta.Job, sourceJob) {
+		di.State = pps.DatumState_SKIPPED
+	}
 	return di
 }
 
@@ -1077,8 +1082,6 @@ func convertDatumState(state datum.State) pps.DatumState {
 		return pps.DatumState_FAILED
 	case datum.State_RECOVERED:
 		return pps.DatumState_RECOVERED
-	case datum.State_UNPROCESSED:
-		return pps.DatumState_UNPROCESSED
 	default:
 		return pps.DatumState_SUCCESS
 	}

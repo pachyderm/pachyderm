@@ -174,7 +174,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
-		return a.driver.finishCommit(txnCtx, request.Commit, request.Description, request.Error)
+		return a.driver.finishCommit(txnCtx, request.Commit, request.Description, request.Error, request.Force)
 	})
 }
 
