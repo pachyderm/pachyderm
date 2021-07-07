@@ -101,7 +101,7 @@ func TestEnableDashTLSExistingSecret(t *testing.T) {
 		},
 	}
 
-	output := helm.RenderTemplate(t, options, helmChartPath, "secret", []string{"templates/dash/ingress.yaml"})
+	output := helm.RenderTemplate(t, options, helmChartPath, "secret", []string{"templates/ingress/ingress.yaml"})
 	var ingress *v1beta1.Ingress
 
 	helm.UnmarshalK8SYaml(t, output, &ingress)
