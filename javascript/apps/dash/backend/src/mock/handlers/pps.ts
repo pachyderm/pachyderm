@@ -1,6 +1,6 @@
 import {Status} from '@grpc/grpc-js/build/src/constants';
 import {IAPIServer} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
-import {LogMessage} from '@pachyderm/proto/pb/pps/pps_pb';
+import {JobSetInfo, LogMessage} from '@pachyderm/proto/pb/pps/pps_pb';
 
 import jobs from '@dash-backend/mock/fixtures/jobs';
 import pipelines from '@dash-backend/mock/fixtures/pipelines';
@@ -20,6 +20,7 @@ const pps: Pick<
   | 'inspectJob'
   | 'inspectPipeline'
   | 'inspectJobSet'
+  | 'listJobSet'
   | 'getLogs'
 > = {
   listPipeline: async (call) => {
@@ -111,6 +112,15 @@ const pps: Pick<
     } else {
       foundJobSet.forEach((job) => call.write(job));
     }
+    call.end();
+  },
+  listJobSet: (call) => {
+    const [projectId] = call.metadata.get('project-id');
+    const projectJobSets = jobSets[projectId.toString()] || jobSets['default'];
+
+    Object.keys(projectJobSets).forEach((jobId) =>
+      call.write(new JobSetInfo().setJobsList(projectJobSets[jobId])),
+    );
     call.end();
   },
   getLogs: async (call) => {

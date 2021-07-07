@@ -171,6 +171,10 @@ export type JobSetQueryArgs = {
   projectId: Scalars['String'];
 };
 
+export type JobSetsQueryArgs = {
+  projectId: Scalars['String'];
+};
+
 export enum JobState {
   JOB_STATE_UNKNOWN = 'JOB_STATE_UNKNOWN',
   JOB_CREATED = 'JOB_CREATED',
@@ -343,12 +347,12 @@ export type ProjectDetails = {
   pipelineCount: Scalars['Int'];
   sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
-  jobs: Array<Job>;
+  jobSets: Array<JobSet>;
 };
 
 export type ProjectDetailsQueryArgs = {
   projectId: Scalars['String'];
-  jobsLimit?: Maybe<Scalars['Int']>;
+  jobSetsLimit?: Maybe<Scalars['Int']>;
 };
 
 export enum ProjectStatus {
@@ -364,6 +368,7 @@ export type Query = {
   files: Array<File>;
   job: Job;
   jobSet: JobSet;
+  jobSets: Array<JobSet>;
   jobs: Array<Job>;
   loggedIn: Scalars['Boolean'];
   logs: Array<Maybe<Log>>;
@@ -390,6 +395,10 @@ export type QueryJobArgs = {
 
 export type QueryJobSetArgs = {
   args: JobSetQueryArgs;
+};
+
+export type QueryJobSetsArgs = {
+  args: JobSetsQueryArgs;
 };
 
 export type QueryJobsArgs = {
@@ -645,6 +654,7 @@ export type ResolversTypes = ResolversObject<{
   JobQueryArgs: JobQueryArgs;
   JobSet: ResolverTypeWrapper<JobSet>;
   JobSetQueryArgs: JobSetQueryArgs;
+  JobSetsQueryArgs: JobSetsQueryArgs;
   JobState: JobState;
   JobsQueryArgs: JobsQueryArgs;
   Link: ResolverTypeWrapper<Link>;
@@ -702,6 +712,7 @@ export type ResolversParentTypes = ResolversObject<{
   JobQueryArgs: JobQueryArgs;
   JobSet: JobSet;
   JobSetQueryArgs: JobSetQueryArgs;
+  JobSetsQueryArgs: JobSetsQueryArgs;
   JobsQueryArgs: JobsQueryArgs;
   Link: Link;
   Log: Log;
@@ -1119,7 +1130,7 @@ export type ProjectDetailsResolvers<
   pipelineCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  jobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
+  jobSets?: Resolver<Array<ResolversTypes['JobSet']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1152,6 +1163,12 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryJobSetArgs, 'args'>
+  >;
+  jobSets?: Resolver<
+    Array<ResolversTypes['JobSet']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryJobSetsArgs, 'args'>
   >;
   jobs?: Resolver<
     Array<ResolversTypes['Job']>,
@@ -1359,6 +1376,19 @@ export type JobOverviewFragment = {__typename?: 'Job'} & Pick<
   'id' | 'state' | 'createdAt' | 'finishedAt' | 'pipelineName'
 >;
 
+export type JobSetFieldsFragment = {__typename?: 'JobSet'} & Pick<
+  JobSet,
+  'id' | 'state' | 'createdAt'
+> & {
+    jobs: Array<
+      {__typename?: 'Job'} & Pick<Job, 'inputString' | 'inputBranch'> & {
+          transform?: Maybe<
+            {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
+          >;
+        } & JobOverviewFragment
+    >;
+  };
+
 export type LogFieldsFragment = {__typename?: 'Log'} & Pick<
   Log,
   'user' | 'message'
@@ -1527,18 +1557,7 @@ export type JobSetQueryVariables = Exact<{
 }>;
 
 export type JobSetQuery = {__typename?: 'Query'} & {
-  jobSet: {__typename?: 'JobSet'} & Pick<
-    JobSet,
-    'id' | 'state' | 'createdAt'
-  > & {
-      jobs: Array<
-        {__typename?: 'Job'} & Pick<Job, 'inputString' | 'inputBranch'> & {
-            transform?: Maybe<
-              {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
-            >;
-          } & JobOverviewFragment
-      >;
-    };
+  jobSet: {__typename?: 'JobSet'} & JobSetFieldsFragment;
 };
 
 export type LoggedInQueryVariables = Exact<{[key: string]: never}>;
@@ -1625,7 +1644,7 @@ export type ProjectDetailsQuery = {__typename?: 'Query'} & {
   projectDetails: {__typename?: 'ProjectDetails'} & Pick<
     ProjectDetails,
     'sizeDisplay' | 'repoCount' | 'pipelineCount'
-  > & {jobs: Array<{__typename?: 'Job'} & JobOverviewFragment>};
+  > & {jobSets: Array<{__typename?: 'JobSet'} & JobSetFieldsFragment>};
 };
 
 export type ProjectQueryVariables = Exact<{

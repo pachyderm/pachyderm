@@ -87,12 +87,12 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
                 [styles.stuck]: isStuck,
               })}
             >
-              {getListTitle('Job', projectDetails?.jobs?.length || 0)}
+              {getListTitle('Job', projectDetails?.jobSets?.length || 0)}
             </h4>
           )}
           <JobListStatic
             projectId={project.id}
-            jobs={projectDetails?.jobs}
+            jobs={projectDetails?.jobSets}
             loading={loading}
             emptyStateTitle={LETS_START_TITLE}
             emptyStateMessage={CREATE_FIRST_JOB_MESSAGE}

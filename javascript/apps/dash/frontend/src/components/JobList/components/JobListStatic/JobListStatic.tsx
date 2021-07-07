@@ -2,15 +2,16 @@ import {LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 
-import {JobOverviewFragment} from '@graphqlTypes';
+import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
 
 import EmptyState from '../../../EmptyState';
 
 import JobListItem from './components/JobListItem';
 import styles from './JobListStatic.module.css';
+import isPipelineJob from './utils/isPipelineJob';
 
 type JobListBaseProps = {
-  jobs?: JobOverviewFragment[];
+  jobs?: (JobOverviewFragment | JobSetFieldsFragment)[];
   loading?: boolean;
   projectId: string;
   expandActions?: boolean;
@@ -50,7 +51,7 @@ const JobListBase: React.FC<JobListBaseProps> = ({
         <JobListItem
           job={job}
           projectId={projectId}
-          key={`${job.id}__${job.pipelineName}`}
+          key={`${job.id}${isPipelineJob(job) ? `__${job.pipelineName}` : ''}`}
           expandActions={expandActions}
         />
       ))}

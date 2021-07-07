@@ -10,7 +10,7 @@ import {toGQLProjectStatus} from '@dash-backend/lib/gqlEnumMappers';
 import {GRPCClient} from '@dash-backend/lib/types';
 import {ProjectStatus, QueryResolvers} from '@graphqlTypes';
 
-import {jobInfoToGQLJob} from './builders/pps';
+import {jobSetsToGQLJobSet} from './builders/pps';
 
 interface ProjectsResolver {
   Query: {
@@ -100,16 +100,20 @@ const projectsResolver: ProjectsResolver = {
         }
       }
     },
-    projectDetails: async (_field, {args: {jobsLimit}}, {pachClient, log}) => {
+    projectDetails: async (
+      _field,
+      {args: {jobSetsLimit}},
+      {pachClient, log},
+    ) => {
       log.info({
         eventSource: 'projectDetails resolver',
         event: 'returning project details',
       });
 
-      const [repos, pipelines, jobs] = await Promise.all([
+      const [repos, pipelines, jobSets] = await Promise.all([
         pachClient.pfs().listRepo(),
         pachClient.pps().listPipeline(),
-        pachClient.pps().listJobs({limit: jobsLimit}),
+        pachClient.pps().listJobSets({limit: jobSetsLimit}),
       ]);
 
       const totalSizeBytes = repos.reduce((sum, r) => sum + r.sizeBytes, 0);
@@ -119,7 +123,7 @@ const projectsResolver: ProjectsResolver = {
         sizeDisplay: formatBytes(totalSizeBytes),
         repoCount: repos.length,
         pipelineCount: pipelines.length,
-        jobs: jobs.map(jobInfoToGQLJob),
+        jobSets: jobSetsToGQLJobSet(jobSets),
       };
     },
   },

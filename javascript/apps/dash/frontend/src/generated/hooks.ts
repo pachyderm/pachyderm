@@ -14,6 +14,23 @@ export const JobOverviewFragmentDoc = gql`
     pipelineName
   }
 `;
+export const JobSetFieldsFragmentDoc = gql`
+  fragment JobSetFields on JobSet {
+    id
+    state
+    createdAt
+    jobs {
+      ...JobOverview
+      inputString
+      inputBranch
+      transform {
+        cmdList
+        image
+      }
+    }
+  }
+  ${JobOverviewFragmentDoc}
+`;
 export const LogFieldsFragmentDoc = gql`
   fragment LogFields on Log {
     timestamp {
@@ -533,21 +550,10 @@ export type JobsQueryResult = Apollo.QueryResult<
 export const JobSetDocument = gql`
   query jobSet($args: JobSetQueryArgs!) {
     jobSet(args: $args) {
-      id
-      state
-      createdAt
-      jobs {
-        ...JobOverview
-        inputString
-        inputBranch
-        transform {
-          cmdList
-          image
-        }
-      }
+      ...JobSetFields
     }
   }
-  ${JobOverviewFragmentDoc}
+  ${JobSetFieldsFragmentDoc}
 `;
 
 /**
@@ -932,12 +938,12 @@ export const ProjectDetailsDocument = gql`
       sizeDisplay
       repoCount
       pipelineCount
-      jobs {
-        ...JobOverview
+      jobSets {
+        ...JobSetFields
       }
     }
   }
-  ${JobOverviewFragmentDoc}
+  ${JobSetFieldsFragmentDoc}
 `;
 
 /**

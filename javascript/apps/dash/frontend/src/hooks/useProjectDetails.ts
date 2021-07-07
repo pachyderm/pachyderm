@@ -4,13 +4,13 @@ import {Project} from '@graphqlTypes';
 
 export const useProjectDetails = (
   projectId: Project['id'],
-  jobsLimit?: number,
+  jobSetsLimit?: number,
 ) => {
   const {data, error, loading} = useProjectDetailsQuery({
     variables: {
       args: {
         projectId,
-        jobsLimit,
+        jobSetsLimit,
       },
     },
     pollInterval: PROJECTS_POLL_INTERVAL_MS,

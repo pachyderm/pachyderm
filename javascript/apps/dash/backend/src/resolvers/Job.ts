@@ -1,12 +1,17 @@
 import {QueryResolvers} from '@dash-backend/generated/types';
 
-import {jobInfosToGQLJobSet, jobInfoToGQLJob} from './builders/pps';
+import {
+  jobInfosToGQLJobSet,
+  jobInfoToGQLJob,
+  jobSetsToGQLJobSet,
+} from './builders/pps';
 
 interface PipelineJobResolver {
   Query: {
     job: QueryResolvers['job'];
     jobs: QueryResolvers['jobs'];
     jobSet: QueryResolvers['jobSet'];
+    jobSets: QueryResolvers['jobSets'];
   };
 }
 
@@ -33,6 +38,9 @@ const pipelineJobResolver: PipelineJobResolver = {
       return jobInfosToGQLJobSet(
         await pachClient.pps().inspectJobSet({id, projectId}),
       );
+    },
+    jobSets: async (_parent, _args, {pachClient}) => {
+      return jobSetsToGQLJobSet(await pachClient.pps().listJobSets());
     },
   },
 };

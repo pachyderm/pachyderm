@@ -1,6 +1,6 @@
 import {gql} from '@apollo/client';
 
-import {JobOverviewFragment} from '@dash-frontend/fragments/JobOverview';
+import {JobSetFragment} from '@dash-frontend/fragments/JobSet';
 
 export const GET_PROJECT_DETAILS_QUERY = gql`
   query projectDetails($args: ProjectDetailsQueryArgs!) {
@@ -8,10 +8,10 @@ export const GET_PROJECT_DETAILS_QUERY = gql`
       sizeDisplay
       repoCount
       pipelineCount
-      jobs {
-        ...JobOverview
+      jobSets {
+        ...JobSetFields
       }
     }
   }
-  ${JobOverviewFragment}
+  ${JobSetFragment}
 `;

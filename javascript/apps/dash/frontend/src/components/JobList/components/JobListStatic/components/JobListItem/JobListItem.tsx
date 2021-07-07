@@ -6,12 +6,14 @@ import {Link} from 'react-router-dom';
 
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
-import {JobOverviewFragment} from '@graphqlTypes';
+import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
+
+import isPipelineJob from '../../utils/isPipelineJob';
 
 import styles from './JobListItem.module.css';
 
 type JobListItemProps = {
-  job: JobOverviewFragment;
+  job: JobOverviewFragment | JobSetFieldsFragment;
   projectId: string;
   expandActions?: boolean;
 };
@@ -27,7 +29,7 @@ const JobListItem: React.FC<JobListItemProps> = ({
         to={jobRoute({
           projectId,
           jobId: job.id,
-          pipelineId: job.pipelineName,
+          pipelineId: isPipelineJob(job) ? job.pipelineName : undefined,
         })}
         className={classNames(styles.base, {
           [styles.expandActions]: expandActions,

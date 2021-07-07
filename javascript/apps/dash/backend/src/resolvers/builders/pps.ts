@@ -4,6 +4,7 @@ import {
   JobState,
   PipelineInfo,
   LogMessage,
+  JobSetInfo,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 import fromPairs from 'lodash/fromPairs';
 
@@ -146,6 +147,10 @@ export const jobInfosToGQLJobSet = (jobInfos: JobInfo.AsObject[]) => {
     state: getAggregateJobState(jobs),
     jobs,
   };
+};
+
+export const jobSetsToGQLJobSet = (jobSet: JobSetInfo.AsObject[]) => {
+  return jobSet.map((jobSet) => jobInfosToGQLJobSet(jobSet.jobsList));
 };
 
 export const logMessageToGQLLog = (logMessage: LogMessage.AsObject) => {

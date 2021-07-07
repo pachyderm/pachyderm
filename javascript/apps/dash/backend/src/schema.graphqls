@@ -243,7 +243,7 @@ type ProjectDetails {
   pipelineCount: Int!
   sizeBytes: Float!
   sizeDisplay: String!
-  jobs: [Job!]!
+  jobSets: [JobSet!]!
 }
 
 enum FileType {
@@ -279,7 +279,7 @@ input FileQueryArgs {
 
 input ProjectDetailsQueryArgs {
   projectId: String!
-  jobsLimit: Int
+  jobSetsLimit: Int
 }
 
 type Tokens {
@@ -333,6 +333,10 @@ input JobSetQueryArgs {
   projectId: String!
 }
 
+input JobSetsQueryArgs {
+  projectId: String!
+}
+
 input JobQueryArgs {
   id: ID!
   projectId: String!
@@ -371,6 +375,7 @@ type Query {
   searchResults(args: SearchResultQueryArgs!): SearchResults!
   authConfig: AuthConfig!
   jobSet(args: JobSetQueryArgs!): JobSet!
+  jobSets(args: JobSetsQueryArgs!): [JobSet!]!
   workspaceLogs(args: WorkspaceLogsArgs!): [Log]!
   logs(args: LogsArgs!): [Log]!
 }
