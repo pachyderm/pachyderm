@@ -8,7 +8,9 @@ import (
 	"path"
 	"runtime/debug"
 	"runtime/pprof"
+	"sync"
 
+	"github.com/gorilla/mux"
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -386,9 +388,11 @@ func RunLocal() (retErr error) {
 		return internalServer.Wait()
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
+		router := s3.Router(s3.NewMasterDriver(), func() (*client.APIClient, error) {
 			return client.NewFromURI(fmt.Sprintf("localhost:%d", env.Config().PeerPort))
 		})
+		server := s3.Server(env.Config().S3GatewayPort, router, map[string]*mux.Router{}, &sync.Mutex{})
+
 		if err != nil {
 			return err
 		}

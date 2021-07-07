@@ -433,7 +433,7 @@ func ContainsS3Inputs(in *pps.Input) bool {
 // sidecar server) and the worker (which passes the endpoint to the user code)
 // need to know it.
 func SidecarS3GatewayService(jobID string) string {
-	return "s3-" + jobID
+	return "s3-" + strings.Replace(strings.ToLower(jobID), "@", "-", 1)
 }
 
 // ErrorState returns true if s is an error state for a pipeline, that is, a

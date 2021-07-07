@@ -4,6 +4,8 @@ import (
 	"fmt"
 	stdlog "log"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -90,7 +92,7 @@ func (c *controller) requestClient(r *http.Request) (*client.APIClient, error) {
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(port uint16, driver Driver, clientFactory ClientFactory) (*http.Server, error) {
+func Router(driver Driver, clientFactory ClientFactory) *mux.Router {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
@@ -109,8 +111,13 @@ func Server(port uint16, driver Driver, clientFactory ClientFactory) (*http.Serv
 	s3Server.Bucket = c
 	s3Server.Object = c
 	s3Server.Multipart = c
-	router := s3Server.Router()
+	return s3Server.Router()
+}
 
+func Server(port uint16, defaultRouter *mux.Router, routerMap map[string]*mux.Router, routersLock *sync.Mutex) *http.Server {
+	logger := logrus.WithFields(logrus.Fields{
+		"source": "s3gateway",
+	})
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
 		ReadTimeout:  requestTimeout,
@@ -118,11 +125,26 @@ func Server(port uint16, driver Driver, clientFactory ClientFactory) (*http.Serv
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Log that a request was made
 			logger.Infof("http request: %s %s", r.Method, r.RequestURI)
-			router.ServeHTTP(w, r)
+			if strings.HasPrefix(r.Host, "s3-") {
+				routersLock.Lock()
+				defer routersLock.Unlock()
+				host := r.Host
+				if sep := strings.Index(r.Host, "."); sep != -1 {
+					host = host[:sep]
+				}
+				router, ok := routerMap[host]
+				if ok {
+					router.ServeHTTP(w, r)
+				} else {
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+			} else {
+				defaultRouter.ServeHTTP(w, r)
+			}
 		}),
 		// NOTE: this is not closed. If the standard logger gets customized, this will need to be fixed
 		ErrorLog: stdlog.New(logger.Writer(), "", 0),
 	}
 
-	return server, nil
+	return server
 }

@@ -8,7 +8,9 @@ import (
 	"path"
 	"runtime/debug"
 	"runtime/pprof"
+	"sync"
 
+	"github.com/gorilla/mux"
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -842,12 +844,10 @@ func doFullMode(config interface{}) (retErr error) {
 		return internalServer.Wait()
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
+		router := s3.Router(s3.NewMasterDriver(), func() (*client.APIClient, error) {
 			return env.GetPachClient(context.Background()), nil
 		})
-		if err != nil {
-			return err
-		}
+		server := s3.Server(env.Config().S3GatewayPort, router, map[string]*mux.Router{}, &sync.Mutex{})
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
 			log.Warnf("s3gateway TLS disabled: %v", err)

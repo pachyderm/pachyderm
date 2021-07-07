@@ -610,8 +610,6 @@ func TestS3SkippedDatums(t *testing.T) {
 	})
 
 	t.Run("S3Output", func(t *testing.T) {
-		// TODO(2.0 required): Investigate hang
-		t.Skip("Investigate hang")
 		repo := tu.UniqueString(name + "_pfs_data")
 		require.NoError(t, c.CreateRepo(repo))
 		// Pipelines with S3 output should not skip datums, as they have no way of
@@ -666,14 +664,14 @@ func TestS3SkippedDatums(t *testing.T) {
 		pipelineCommit := client.NewCommit(pipeline, "master", "")
 		// Add files to 'repo'. Old files in 'repo' should be reprocessed in every
 		// job, changing the 'background' field in the output
-		for i := 0; i < 10; i++ {
+		for i := 1; i < 10; i++ {
 			// Increment "/round" in 'background'
 			iS := strconv.Itoa(i)
 			bgc, err := c.StartCommit(background, "master")
 			require.NoError(t, err)
-			c.DeleteFile(bgc, "/round")
+			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			c.FinishCommit(background, bgc.Branch.Name, bgc.ID)
+			require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
 
 			// Put new file in 'repo' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(masterCommit, iS, strings.NewReader(iS)))
@@ -687,7 +685,7 @@ func TestS3SkippedDatums(t *testing.T) {
 				require.Equal(t, "JOB_SUCCESS", jis[j].State.String())
 			}
 
-			for j := 0; j <= i; j++ {
+			for j := 1; j <= i; j++ {
 				var buf bytes.Buffer
 				require.NoError(t, c.GetFile(pipelineCommit, strconv.Itoa(j), &buf))
 				// buf contains the background value; this should be updated in every

@@ -31,7 +31,7 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 		return err
 	}
 	return status.withJob(datumSet.JobID, func() error {
-		logger = logger.WithJob(datumSet.JobID)
+		logger = logger.WithJob(fmt.Sprintf("%v@%v", driver.PipelineInfo().Pipeline.Name, datumSet.JobID))
 		if err := logger.LogStep("datum task", func() error {
 			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Details.Input) || driver.PipelineInfo().Details.S3Out {
 				if err := checkS3Gateway(driver, logger); err != nil {
