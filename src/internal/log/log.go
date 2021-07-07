@@ -141,7 +141,8 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 					Subsystem: fmt.Sprintf("pachd_%v", topLevelService(l.service)),
 					Name:      runTimeName,
 					Help:      fmt.Sprintf("Run time of %v", method),
-					Buckets:   []float64{0.0005,0.001,0.005,0.01,0.05,0.1,0.5,1,2,5,10,30,60,120,300,600,1800,3600,86400},
+					Buckets:   []float64{0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, 86400},
+				},
 				[]string{
 					"state", // Since both finished and errored API calls can have run times
 				},
