@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -264,7 +266,9 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 				},
 			}
 		}
-		cfg.WrapTransport = wrapK8sTransport
+		cfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+			return promutil.InstrumentRoundTripper("kubernetes", rt)
+		}
 		env.kubeClient, err = kube.NewForConfig(cfg)
 		if err != nil {
 			return errors.Wrapf(err, "could not initialize kube client")
