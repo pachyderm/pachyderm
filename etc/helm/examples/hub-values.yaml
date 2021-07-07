@@ -6,14 +6,6 @@ deployTarget: GOOGLE
 dash:
   image:
     tag: "newVersion"
-  ingress:
-    enabled: true
-    tls:
-      enabled: true
-      secretName: "dash-tls"
-    annotations:
-      kubernetes.io/ingress.class: "traefik"
-    host: "dash.test"
 
 etcd:
   resources:
@@ -27,6 +19,15 @@ etcd:
   storageClass: "ssd-storage-class"
   # storageSize is configured per workspace.
   storageSize: "3Gi"
+
+ingress:
+  enabled: true
+  tls:
+    enabled: true
+    secretName: "dash-tls"
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+  host: "dash.test"
 
 pachd:
   postgresql:
