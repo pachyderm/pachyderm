@@ -3078,7 +3078,7 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
-func TestStandby(t *testing.T) {
+func TestAutoscalingStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3087,14 +3087,14 @@ func TestStandby(t *testing.T) {
 	t.Run("ChainOf10", func(t *testing.T) {
 		require.NoError(t, c.DeleteAll())
 
-		dataRepo := tu.UniqueString("TestStandby_data")
+		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		dataCommit := client.NewCommit(dataRepo, "master", "")
 
 		numPipelines := 10
 		pipelines := make([]string, numPipelines)
 		for i := 0; i < numPipelines; i++ {
-			pipelines[i] = tu.UniqueString("TestStandby")
+			pipelines[i] = tu.UniqueString("TestAutoscalingStandby")
 			input := dataRepo
 			if i > 0 {
 				input = pipelines[i-1]
@@ -3160,9 +3160,9 @@ func TestStandby(t *testing.T) {
 	t.Run("ManyCommits", func(t *testing.T) {
 		require.NoError(t, c.DeleteAll())
 
-		dataRepo := tu.UniqueString("TestStandby_data")
+		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
 		dataCommit := client.NewCommit(dataRepo, "master", "")
-		pipeline := tu.UniqueString("TestStandby")
+		pipeline := tu.UniqueString("TestAutoscalingStandby")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
@@ -3190,7 +3190,7 @@ func TestStandby(t *testing.T) {
 				nonAliasCommits++
 			}
 		}
-		require.Equal(t, 3, nonAliasCommits) // we got an extra meta commit here
+		require.Equal(t, 3, nonAliasCommits)
 		pod := ""
 		commitInfos, err = c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
 		require.NoError(t, err)
