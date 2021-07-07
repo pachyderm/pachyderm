@@ -178,7 +178,7 @@ launch: install check-kubectl
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
-	helm install pachyderm etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=local
+	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values.yaml
 	# wait for the pachyderm to come up
 	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
