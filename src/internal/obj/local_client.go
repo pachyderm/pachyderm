@@ -34,7 +34,7 @@ func (c *localClient) normPath(path string) string {
 	return filepath.Join(c.root, path)
 }
 
-func (c *localClient) Put(ctx context.Context, path string, r io.Reader) (retErr error) {
+func (c *localClient) Put(_ context.Context, path string, r io.Reader) (retErr error) {
 	defer func() { retErr = c.transformError(retErr, path) }()
 	fullPath := c.normPath(path)
 
@@ -51,18 +51,13 @@ func (c *localClient) Put(ctx context.Context, path string, r io.Reader) (retErr
 			retErr = err
 		}
 	}()
-	if deadline, ok := ctx.Deadline(); ok {
-		if err := file.SetWriteDeadline(deadline); err != nil {
-			return err
-		}
-	}
 	if _, err := io.Copy(file, r); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *localClient) Get(ctx context.Context, path string, w io.Writer) (retErr error) {
+func (c *localClient) Get(_ context.Context, path string, w io.Writer) (retErr error) {
 	defer func() { retErr = c.transformError(retErr, path) }()
 	file, err := os.Open(c.normPath(path))
 	if err != nil {
@@ -73,11 +68,6 @@ func (c *localClient) Get(ctx context.Context, path string, w io.Writer) (retErr
 			retErr = err
 		}
 	}()
-	if deadline, ok := ctx.Deadline(); ok {
-		if err := file.SetReadDeadline(deadline); err != nil {
-			return err
-		}
-	}
 	_, err = io.Copy(w, file)
 	return err
 }

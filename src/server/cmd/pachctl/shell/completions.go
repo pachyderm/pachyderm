@@ -81,7 +81,7 @@ func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, Cac
 	for _, ri := range ris {
 		result = append(result, prompt.Suggest{
 			Text:        ri.Repo.Name,
-			Description: fmt.Sprintf("%s (%s)", ri.Description, units.BytesSize(float64(ri.SizeBytes))),
+			Description: fmt.Sprintf("%s (<= %s)", ri.Description, units.BytesSize(float64(ri.SizeBytesUpperBound))),
 		})
 	}
 	return result, samePart(parsePart(text))

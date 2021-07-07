@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -258,10 +259,17 @@ func (mfc *modifyFileCore) PutFileURL(path, url string, recursive bool, opts ...
 }
 
 func (mfc *modifyFileCore) DeleteFile(path string, opts ...DeleteFileOption) error {
+	config := &deleteFileConfig{}
+	for _, opt := range opts {
+		opt(config)
+	}
 	return mfc.maybeError(func() error {
-		df := &pfs.DeleteFile{Path: path}
-		for _, opt := range opts {
-			opt(df)
+		if config.recursive {
+			path = strings.TrimRight(path, "/") + "/"
+		}
+		df := &pfs.DeleteFile{
+			Path: path,
+			Tag:  config.tag,
 		}
 		return mfc.sendDeleteFile(df)
 	})
@@ -468,7 +476,7 @@ func (c APIClient) GetFileReadSeeker(commit *pfs.Commit, path string) (io.ReadSe
 		c:      c,
 		file:   commit.NewFile(path),
 		offset: 0,
-		size:   int64(fi.Details.SizeBytes),
+		size:   int64(fi.SizeBytes),
 	}, nil
 }
 

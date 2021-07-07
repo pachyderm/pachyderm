@@ -92,5 +92,5 @@ func (d *Differ) Iterate(ctx context.Context, cb func(aFi, bFi *pfs.FileInfo) er
 }
 
 func equalFileInfos(aFi, bFi *pfs.FileInfo) bool {
-	return bytes.Equal(aFi.Details.Hash, bFi.Details.Hash)
+	return bytes.Equal(aFi.Hash, bFi.Hash)
 }

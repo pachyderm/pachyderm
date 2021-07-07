@@ -376,11 +376,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 		}
 		var sz, mbranch uint64 = 0, 0
 		for _, ri := range repoInfos {
-			if (sz + ri.SizeBytes) < sz {
-				sz = 0xFFFFFFFFFFFFFFFF
-			} else {
-				sz += ri.SizeBytes
-			}
+			sz += uint64(ri.SizeBytesUpperBound)
 			if mbranch < uint64(len(ri.Branches)) {
 				mbranch = uint64(len(ri.Branches))
 			}
