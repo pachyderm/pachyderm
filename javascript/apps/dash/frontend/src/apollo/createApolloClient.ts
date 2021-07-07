@@ -8,7 +8,7 @@ import {History as BrowserHistory} from 'history';
 
 import {errorLink} from '@dash-frontend/apollo/links/errorLink';
 import {GET_LOGGED_IN_QUERY} from '@dash-frontend/queries/GetLoggedInQuery';
-import {Node, Link, Dag} from '@graphqlTypes';
+import {Node, Link, Dag, LoggedInQuery} from '@graphqlTypes';
 
 import {contextLink} from './links/contextLink';
 import {splitLink} from './links/splitLink';
@@ -65,7 +65,15 @@ const createApolloClient = (
   const client = new ApolloClient({cache, link, resolvers});
 
   // restart websocket to update connectionParams with new auth
-  client.watchQuery({query: GET_LOGGED_IN_QUERY}).subscribe(restartWebsocket);
+  let prevLoggedInValue = false;
+  client.watchQuery<LoggedInQuery>({query: GET_LOGGED_IN_QUERY}).subscribe({
+    next: (data) => {
+      if (data.data.loggedIn !== prevLoggedInValue) {
+        prevLoggedInValue = data.data.loggedIn;
+        restartWebsocket();
+      }
+    },
+  });
 
   client.writeQuery({
     data: {
