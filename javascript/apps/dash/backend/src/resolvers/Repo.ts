@@ -1,4 +1,5 @@
 import formatBytes from '@dash-backend/lib/formatBytes';
+import getSizeBytes from '@dash-backend/lib/getSizeBytes';
 import {QueryResolvers, RepoResolvers} from '@graphqlTypes';
 
 import {pipelineInfoToGQLPipeline, repoInfoToGQLRepo} from './builders/pps';
@@ -32,8 +33,8 @@ const repoResolver: RepoResolver = {
             finished: commit.finished?.seconds || 0,
             id: commit.commit?.id || '',
             started: commit.started?.seconds || 0,
-            sizeBytes: commit.details?.sizeBytes || 0,
-            sizeDisplay: formatBytes(commit.details?.sizeBytes || 0),
+            sizeBytes: getSizeBytes(commit),
+            sizeDisplay: formatBytes(getSizeBytes(commit)),
           }))
           .reverse();
       } catch (err) {

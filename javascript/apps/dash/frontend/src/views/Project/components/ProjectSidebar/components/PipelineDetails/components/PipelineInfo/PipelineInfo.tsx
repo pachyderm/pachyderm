@@ -40,10 +40,6 @@ const PipelineInfo = () => {
         </Link>
       </Description>
 
-      <Description term="Cache Size" loading={loading}>
-        {pipeline?.cacheSize}
-      </Description>
-
       <Description term="Datum Timeout" loading={loading}>
         {pipeline?.datumTimeoutS ? `${pipeline.datumTimeoutS} seconds` : 'N/A'}
       </Description>

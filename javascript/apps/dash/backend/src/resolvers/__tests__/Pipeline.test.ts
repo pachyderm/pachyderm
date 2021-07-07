@@ -22,7 +22,6 @@ describe('Pipeline resolver', () => {
       expect(data?.pipeline.description).toBe('Not my favorite pipeline');
       expect(data?.pipeline.state).toBe('PIPELINE_FAILURE');
       expect(data?.pipeline.outputBranch).toBe('master');
-      expect(data?.pipeline.cacheSize).toBe('64M');
       expect(data?.pipeline.egress).toBe(true);
       expect(data?.pipeline.s3OutputRepo).toBe(`s3//${id}`);
       expect(data?.pipeline.schedulingSpec).toStrictEqual({

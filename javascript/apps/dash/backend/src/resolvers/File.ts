@@ -43,12 +43,12 @@ const fileResolver: FileResolver = {
         committed: file.committed,
         // TODO: This may eventually come from the S3 gateway or Pach's http server
         download: getDownloadLink(file, host),
-        downloadDisabled: (file.details?.sizeBytes || 0) > FILE_DOWNLOAD_LIMIT,
-        hash: file.details?.hash.toString() || '',
+        downloadDisabled: (file.sizeBytes || 0) > FILE_DOWNLOAD_LIMIT,
+        hash: file.hash.toString() || '',
         path: file.file?.path || '/',
         repoName: file.file?.commit?.branch?.repo?.name || '',
-        sizeBytes: file.details?.sizeBytes || 0,
-        sizeDisplay: formatBytes(file.details?.sizeBytes || 0),
+        sizeBytes: file.sizeBytes || 0,
+        sizeDisplay: formatBytes(file.sizeBytes || 0),
         type: toGQLFileType(file.fileType),
       }));
     },

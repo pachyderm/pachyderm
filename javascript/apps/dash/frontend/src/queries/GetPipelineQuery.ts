@@ -13,7 +13,6 @@ export const GET_PIPELINE_QUERY = gql`
         image
       }
       inputString
-      cacheSize
       datumTimeoutS
       datumTries
       jobTimeoutS

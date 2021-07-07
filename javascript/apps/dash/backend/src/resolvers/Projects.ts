@@ -6,6 +6,7 @@ import Logger from 'bunyan';
 
 import client from '@dash-backend/grpc/client';
 import formatBytes from '@dash-backend/lib/formatBytes';
+import getSizeBytes from '@dash-backend/lib/getSizeBytes';
 import {toGQLProjectStatus} from '@dash-backend/lib/gqlEnumMappers';
 import {GRPCClient} from '@dash-backend/lib/types';
 import {ProjectStatus, QueryResolvers} from '@graphqlTypes';
@@ -116,7 +117,7 @@ const projectsResolver: ProjectsResolver = {
         pachClient.pps().listJobSets({limit: jobSetsLimit}),
       ]);
 
-      const totalSizeBytes = repos.reduce((sum, r) => sum + r.sizeBytes, 0);
+      const totalSizeBytes = repos.reduce((sum, r) => sum + getSizeBytes(r), 0);
 
       return {
         sizeBytes: totalSizeBytes,

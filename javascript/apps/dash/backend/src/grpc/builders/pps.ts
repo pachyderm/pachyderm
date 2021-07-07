@@ -159,10 +159,8 @@ export type PipelineInfoObject = {
   sidecarResourceLimits?: ResourceSpecObject;
   input?: InputObject;
   description?: PipelineInfo.Details.AsObject['description'];
-  cacheSize?: PipelineInfo.Details.AsObject['cacheSize'];
   salt?: PipelineInfo.Details.AsObject['salt'];
   reason?: PipelineInfo.AsObject['reason'];
-  maxQueueSize?: PipelineInfo.Details.AsObject['maxQueueSize'];
   service?: ServiceObject;
   spout?: SpoutObject;
   chunkSpec?: DatumSetSpecObject;
@@ -475,10 +473,8 @@ export const pipelineInfoFromObject = ({
   sidecarResourceLimits,
   input,
   description = '',
-  cacheSize = '',
   salt = '',
   reason = '',
-  maxQueueSize = 1,
   service,
   spout,
   chunkSpec,
@@ -551,9 +547,7 @@ export const pipelineInfoFromObject = ({
   }
 
   details.setDescription(description);
-  details.setCacheSize(cacheSize);
   details.setSalt(salt);
-  details.setMaxQueueSize(maxQueueSize);
   details.setDatumTries(datumTries);
   details.setPodSpec(podSpec);
   details.setPodPatch(podPatch);

@@ -111,7 +111,6 @@ type Pipeline {
   type: PipelineType!
   transform: Transform
   inputString: String!
-  cacheSize: String!
   datumTimeoutS: Int
   datumTries: Int!
   jobTimeoutS: Int

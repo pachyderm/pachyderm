@@ -24,8 +24,8 @@ export type FileInfoObject = {
   committed: FileInfo.AsObject['committed'];
   file: FileObject;
   fileType: FileType;
-  hash: FileInfo.Details.AsObject['hash'];
-  sizeBytes: FileInfo.Details.AsObject['sizeBytes'];
+  hash: FileInfo.AsObject['hash'];
+  sizeBytes: FileInfo.AsObject['sizeBytes'];
 };
 
 export type TriggerObject = {
@@ -102,13 +102,8 @@ export const fileInfoFromObject = ({
 
   fileInfo.setFile(fileFromObject(file));
   fileInfo.setFileType(fileType);
-
-  const details = new FileInfo.Details();
-
-  details.setHash(hash);
-  details.setSizeBytes(sizeBytes);
-
-  fileInfo.setDetails(details);
+  fileInfo.setHash(hash);
+  fileInfo.setSizeBytes(sizeBytes);
 
   return fileInfo;
 };

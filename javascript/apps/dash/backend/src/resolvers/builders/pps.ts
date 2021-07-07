@@ -63,7 +63,6 @@ export const pipelineInfoToGQLPipeline = (
     inputString: pipelineInfo.details?.input
       ? JSON.stringify(pipelineInfo.details?.input, null, 2)
       : '',
-    cacheSize: pipelineInfo.details?.cacheSize || '',
     datumTimeoutS: pipelineInfo.details?.datumTimeout?.seconds,
     datumTries: pipelineInfo.details?.datumTries || 0,
     jobTimeoutS: pipelineInfo.details?.jobTimeout?.seconds,
@@ -116,12 +115,12 @@ export const repoInfoToGQLRepo = (repoInfo: RepoInfo.AsObject): Repo => {
     createdAt: repoInfo.created?.seconds || 0,
     description: repoInfo.description,
     name: repoInfo.repo?.name || '',
-    sizeBytes: repoInfo.sizeBytes,
+    sizeBytes: repoInfo.details?.sizeBytes || 0,
     id: repoInfo?.repo?.name || '',
     branches: repoInfo.branchesList.map(branchInfoToGQLBranch),
     // derived in field level resolver
     commits: [],
-    sizeDisplay: formatBytes(repoInfo.sizeBytes),
+    sizeDisplay: formatBytes(repoInfo.details?.sizeBytes || 0),
   };
 };
 

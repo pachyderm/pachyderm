@@ -294,7 +294,6 @@ export type Pipeline = {
   type: PipelineType;
   transform?: Maybe<Transform>;
   inputString: Scalars['String'];
-  cacheSize: Scalars['String'];
   datumTimeoutS?: Maybe<Scalars['Int']>;
   datumTries: Scalars['Int'];
   jobTimeoutS?: Maybe<Scalars['Int']>;
@@ -1078,7 +1077,6 @@ export type PipelineResolvers<
     ContextType
   >;
   inputString?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  cacheSize?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   datumTimeoutS?: Resolver<
     Maybe<ResolversTypes['Int']>,
     ParentType,
@@ -1609,7 +1607,6 @@ export type PipelineQuery = {__typename?: 'Query'} & {
     | 'type'
     | 'description'
     | 'inputString'
-    | 'cacheSize'
     | 'datumTimeoutS'
     | 'datumTries'
     | 'jobTimeoutS'

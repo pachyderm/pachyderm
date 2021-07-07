@@ -31,7 +31,6 @@ const tutorial = [
         )
         .setDescription('Not my favorite pipeline')
         .setOutputBranch('master')
-        .setCacheSize('64M')
         .setEgress(new Egress().setUrl('https://egress.com'))
         .setS3Out(true)
         .setSchedulingSpec(schedulingSpec),
@@ -45,8 +44,7 @@ const tutorial = [
       new PipelineInfo.Details()
         .setInput(new Input().setPfs(new PFSInput().setRepo('images')))
         .setDescription('Very cool edges description')
-        .setOutputBranch('master')
-        .setCacheSize('64M'),
+        .setOutputBranch('master'),
     )
     .setState(PipelineState.PIPELINE_RUNNING),
 ];
@@ -64,8 +62,7 @@ const customerTeam = [
           ]),
         )
 
-        .setOutputBranch('master')
-        .setCacheSize('64M'),
+        .setOutputBranch('master'),
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('models'))
@@ -74,8 +71,7 @@ const customerTeam = [
       new PipelineInfo.Details()
         .setInput(new Input().setPfs(new PFSInput().setRepo('training')))
 
-        .setOutputBranch('master')
-        .setCacheSize('64M'),
+        .setOutputBranch('master'),
     ),
 
   new PipelineInfo()
@@ -90,8 +86,7 @@ const customerTeam = [
           ]),
         )
 
-        .setOutputBranch('master')
-        .setCacheSize('64M'),
+        .setOutputBranch('master'),
     ),
 
   new PipelineInfo()
@@ -101,8 +96,7 @@ const customerTeam = [
       new PipelineInfo.Details()
         .setInput(new Input().setPfs(new PFSInput().setRepo('raw_data')))
 
-        .setOutputBranch('master')
-        .setCacheSize('64M'),
+        .setOutputBranch('master'),
     ),
 
   new PipelineInfo()
@@ -117,8 +111,7 @@ const customerTeam = [
           ]),
         )
 
-        .setOutputBranch('master')
-        .setCacheSize('64M'),
+        .setOutputBranch('master'),
     ),
 
   new PipelineInfo()
@@ -133,8 +126,7 @@ const customerTeam = [
           ]),
         )
 
-        .setOutputBranch('master')
-        .setCacheSize('64M'),
+        .setOutputBranch('master'),
     ),
 
   new PipelineInfo()
@@ -149,8 +141,7 @@ const customerTeam = [
           ]),
         )
 
-        .setOutputBranch('master')
-        .setCacheSize('64M'),
+        .setOutputBranch('master'),
     ),
 
   new PipelineInfo()
@@ -165,8 +156,7 @@ const customerTeam = [
           ]),
         )
 
-        .setOutputBranch('master')
-        .setCacheSize('64M'),
+        .setOutputBranch('master'),
     ),
 ];
 
@@ -176,8 +166,7 @@ const cron = [
     .setDetails(
       new PipelineInfo.Details()
         .setInput(new Input().setCron(new CronInput().setRepo('cron')))
-        .setOutputBranch('master')
-        .setCacheSize('64M'),
+        .setOutputBranch('master'),
     ),
 ];
 

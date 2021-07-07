@@ -866,7 +866,6 @@ export const PipelineDocument = gql`
         image
       }
       inputString
-      cacheSize
       datumTimeoutS
       datumTries
       jobTimeoutS

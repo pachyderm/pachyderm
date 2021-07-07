@@ -379,10 +379,8 @@ describe('grpc/builders/pps', () => {
     );
     expect(pipelineInfo.getDetails()?.getInput()).toBe(undefined);
     expect(pipelineInfo.getDetails()?.getDescription()).toBe('');
-    expect(pipelineInfo.getDetails()?.getCacheSize()).toBe('');
     expect(pipelineInfo.getDetails()?.getSalt()).toBe('');
     expect(pipelineInfo.getDetails()?.getReason()).toBe('');
-    expect(pipelineInfo.getDetails()?.getMaxQueueSize()).toBe(1);
     expect(pipelineInfo.getDetails()?.getService()).toBe(undefined);
     expect(pipelineInfo.getDetails()?.getSpout()).toBe(undefined);
     expect(pipelineInfo.getDetails()?.getDatumSetSpec()).toBe(undefined);
@@ -448,10 +446,8 @@ describe('grpc/builders/pps', () => {
         },
       },
       description: 'yo yo yo!',
-      cacheSize: '12mb',
       salt: 'd5631d7df40d4b1195bc46f1f146d6a5',
       reason: 'because',
-      maxQueueSize: 11,
       service: {
         internalPort: 8888,
         externalPort: 30888,
@@ -518,12 +514,10 @@ describe('grpc/builders/pps', () => {
       'imagesPfs',
     );
     expect(pipelineInfo.getDetails()?.getDescription()).toBe('yo yo yo!');
-    expect(pipelineInfo.getDetails()?.getCacheSize()).toBe('12mb');
     expect(pipelineInfo.getDetails()?.getSalt()).toBe(
       'd5631d7df40d4b1195bc46f1f146d6a5',
     );
     expect(pipelineInfo.getReason()).toBe('because');
-    expect(pipelineInfo.getDetails()?.getMaxQueueSize()).toBe(11);
     expect(pipelineInfo.getDetails()?.getService()?.getIp()).toBe(
       '172.16.254.1',
     );

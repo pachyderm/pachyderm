@@ -52,7 +52,6 @@ describe('PipelineInfo', () => {
       `/project/${projectId}/repo/${pipelineId}/branch/master`,
     );
 
-    expect(getByText('Cache Size').nextElementSibling).toHaveTextContent('64M');
     expect(getByText('Datum Timeout').nextElementSibling).toHaveTextContent(
       'N/A',
     );
