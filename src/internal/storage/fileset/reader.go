@@ -77,3 +77,8 @@ func (fr *FileReader) Content(w io.Writer) error {
 	r := fr.chunks.NewReader(fr.ctx, fr.idx.File.DataRefs)
 	return r.Get(w)
 }
+
+// Hash returns the hash of the file.
+func (fr *FileReader) Hash() ([]byte, error) {
+	return hashDataRefs(fr.idx.File.DataRefs)
+}

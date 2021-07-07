@@ -48,7 +48,7 @@ func repoKeyCheck(key string) error {
 }
 
 // Repos returns a collection of repos
-func Repos(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func Repos(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		reposCollectionName,
 		db,
@@ -73,14 +73,14 @@ var CommitsBranchlessIndex = &col.Index{
 	},
 }
 
-var CommitsCommitsetIndex = &col.Index{
+var CommitsCommitSetIndex = &col.Index{
 	Name: "commitset",
 	Extract: func(val proto.Message) string {
 		return val.(*pfs.CommitInfo).Commit.ID
 	},
 }
 
-var commitsIndexes = []*col.Index{CommitsRepoIndex, CommitsBranchlessIndex, CommitsCommitsetIndex}
+var commitsIndexes = []*col.Index{CommitsRepoIndex, CommitsBranchlessIndex, CommitsCommitSetIndex}
 
 func CommitKey(commit *pfs.Commit) string {
 	return BranchKey(commit.Branch) + "=" + commit.ID
@@ -91,7 +91,7 @@ func CommitBranchlessKey(commit *pfs.Commit) string {
 }
 
 // Commits returns a collection of commits
-func Commits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func Commits(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		commitsCollectionName,
 		db,
@@ -116,7 +116,7 @@ func BranchKey(branch *pfs.Branch) string {
 }
 
 // Branches returns a collection of branches
-func Branches(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func Branches(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		branchesCollectionName,
 		db,

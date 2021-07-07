@@ -2,7 +2,9 @@
 
 This section outlines the operations exposed by Pachyderm's HTTP API [S3 Gateway](../../deploy-manage/manage/s3gateway/). 
 
-
+!!! Info
+    Since 1.13.3, all operations mentioning `<branch>.<repo>` also accept the syntax `<commit>.<repo>`.
+    
 ## `ListBuckets`
 
 Route: `GET /`.

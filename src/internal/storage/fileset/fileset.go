@@ -103,6 +103,8 @@ type File interface {
 	Index() *index.Index
 	// Content writes the content of the file.
 	Content(w io.Writer) error
+	// Hash returns the hash of the file.
+	Hash() ([]byte, error)
 }
 
 var _ File = &MergeFileReader{}

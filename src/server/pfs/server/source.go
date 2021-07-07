@@ -22,17 +22,14 @@ type Source interface {
 type source struct {
 	commitInfo *pfs.CommitInfo
 	fileSet    fileset.FileSet
-	full       bool
+	details    bool
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
-func NewSource(storage *fileset.Storage, commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
+func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
 	sc := &sourceConfig{}
 	for _, opt := range opts {
 		opt(sc)
-	}
-	if sc.full {
-		fs = storage.NewIndexResolver(fs)
 	}
 	fs = fileset.NewDirInserter(fs)
 	if sc.filter != nil {
@@ -41,7 +38,7 @@ func NewSource(storage *fileset.Storage, commitInfo *pfs.CommitInfo, fs fileset.
 	return &source{
 		commitInfo: commitInfo,
 		fileSet:    fs,
-		full:       sc.full,
+		details:    sc.details,
 	}
 }
 
@@ -51,7 +48,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	iter := fileset.NewIterator(ctx, s.fileSet)
-	cache := make(map[string]*pfs.FileInfo)
+	cache := make(map[string]*pfs.FileInfo_Details)
 	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
 		file := s.commitInfo.Commit.NewFile(idx.Path)
@@ -64,18 +61,22 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 		if fileset.IsDir(idx.Path) {
 			fi.FileType = pfs.FileType_DIR
 		}
-		if s.full {
-			cachedFi, ok := checkFileInfoCache(cache, idx)
+		if s.details {
+			fi.Details = &pfs.FileInfo_Details{}
+			cachedDetails, ok, err := s.checkFileDetailsCache(ctx, cache, f)
+			if err != nil {
+				return err
+			}
 			if ok {
-				fi.SizeBytes = cachedFi.SizeBytes
-				fi.Hash = cachedFi.Hash
+				fi.Details.SizeBytes = cachedDetails.SizeBytes
+				fi.Details.Hash = cachedDetails.Hash
 			} else {
-				computedFi, err := computeFileInfo(cache, iter, idx.Path)
+				computedDetails, err := s.computeFileDetails(ctx, cache, iter, idx.Path)
 				if err != nil {
 					return err
 				}
-				fi.SizeBytes = computedFi.SizeBytes
-				fi.Hash = computedFi.Hash
+				fi.Details.SizeBytes = computedDetails.SizeBytes
+				fi.Details.Hash = computedDetails.Hash
 			}
 		}
 		// TODO: Figure out how to remove directory infos from cache when they are no longer needed.
@@ -83,23 +84,28 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	})
 }
 
-func checkFileInfoCache(cache map[string]*pfs.FileInfo, idx *index.Index) (*pfs.FileInfo, bool) {
+func (s *source) checkFileDetailsCache(ctx context.Context, cache map[string]*pfs.FileInfo_Details, f fileset.File) (*pfs.FileInfo_Details, bool, error) {
+	idx := f.Index()
 	// Handle a cached directory file info.
 	fi, ok := cache[idx.Path]
 	if ok {
-		return fi, true
+		return fi, true, nil
 	}
 	// Handle a regular file info that has already been iterated through
 	// when computing the parent directory file info.
 	dir, _ := path.Split(idx.Path)
 	_, ok = cache[dir]
 	if ok {
-		return computeRegularFileInfo(idx), true
+		details, err := s.computeRegularFileDetails(ctx, f)
+		if err != nil {
+			return nil, false, err
+		}
+		return details, true, nil
 	}
-	return nil, false
+	return nil, false, nil
 }
 
-func computeFileInfo(cache map[string]*pfs.FileInfo, iter *fileset.Iterator, target string) (*pfs.FileInfo, error) {
+func (s *source) computeFileDetails(ctx context.Context, cache map[string]*pfs.FileInfo_Details, iter *fileset.Iterator, target string) (*pfs.FileInfo_Details, error) {
 	f, err := iter.Next()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -112,7 +118,7 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, iter *fileset.Iterator, tar
 		return nil, errors.Errorf("stream is wrong place to compute hash for %s", target)
 	}
 	if !fileset.IsDir(idx.Path) {
-		return computeRegularFileInfo(idx), nil
+		return s.computeRegularFileDetails(ctx, f)
 	}
 	var size uint64
 	h := pfs.NewHash()
@@ -128,31 +134,31 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, iter *fileset.Iterator, tar
 		if !strings.HasPrefix(idx2.Path, target) {
 			break
 		}
-		childFi, err := computeFileInfo(cache, iter, idx2.Path)
+		childDetails, err := s.computeFileDetails(ctx, cache, iter, idx2.Path)
 		if err != nil {
 			return nil, err
 		}
-		size += childFi.SizeBytes
-		h.Write(childFi.Hash)
+		size += childDetails.SizeBytes
+		h.Write(childDetails.Hash)
 	}
-	fi := &pfs.FileInfo{
+	details := &pfs.FileInfo_Details{
 		SizeBytes: size,
 		Hash:      h.Sum(nil),
 	}
-	cache[target] = fi
-	return fi, nil
+	cache[target] = details
+	return details, nil
 }
 
-func computeRegularFileInfo(idx *index.Index) *pfs.FileInfo {
-	h := pfs.NewHash()
-	for _, dataRef := range idx.File.DataRefs {
-		h.Write([]byte(dataRef.Hash))
+func (s *source) computeRegularFileDetails(ctx context.Context, f fileset.File) (*pfs.FileInfo_Details, error) {
+	details := &pfs.FileInfo_Details{
+		SizeBytes: uint64(index.SizeBytes(f.Index())),
 	}
-	return &pfs.FileInfo{
-		FileType:  pfs.FileType_FILE,
-		SizeBytes: uint64(index.SizeBytes(idx)),
-		Hash:      h.Sum(nil),
+	var err error
+	details.Hash, err = f.Hash()
+	if err != nil {
+		return nil, err
 	}
+	return details, nil
 }
 
 type errOnEmpty struct {

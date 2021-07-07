@@ -221,7 +221,7 @@ func (m *Master) createSubtask(subtask *Task) error {
 		subtask.ID = uuid.NewWithoutDashes()
 	}
 	subtaskKey := path.Join(m.taskID, subtask.ID)
-	subtaskInfo := &TaskInfo{Task: subtask}
+	subtaskInfo := &TaskInfo{Task: subtask, State: State_RUNNING}
 	if _, err := col.NewSTM(m.taskEntry.ctx, m.etcdClient, func(stm col.STM) error {
 		return m.subtaskCol.ReadWrite(stm).Put(subtaskKey, subtaskInfo)
 	}); err != nil {

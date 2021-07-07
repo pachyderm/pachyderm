@@ -27,17 +27,17 @@ a limited time for free!
 !!! Note
       While Pachyderm maintains a few clusters that are instantly
       available, none may be available during periods of high traffic. If
-      you see your workspace is in a *starting* state, you might have to wait a few
+      your workspace is in a *starting* state, you might have to wait a few
       minutes for it to be ready.
 
 ## 2- Install pachctl
 Hub enables you to access your workspace through Pachyderm 
-CLI `pachctl` and the web interface called the Dashboard.
-Although you can perform most simple actions directly in the Dashboard,
+CLI `pachctl` and the web interface called the **Console**.
+Although you can perform most simple actions directly in the Console,
 `pachctl` provides full functionality. Most likely, you will use
 `pachctl` for any operation beyond the most basic workflow.
 We recommend that you use `pachctl` for all data operations and
-the Dashboard to view your data and graphical representation of your
+the Console to view your data and graphical representation of your
 pipelines.
 
 After your workspace creation, open a terminal window and [install 'pachctl'](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl).
@@ -55,17 +55,10 @@ After your workspace creation, open a terminal window and [install 'pachctl'](ht
 
       ![Pachyderm workspace connect](../images/hub_cluster_connect.png)
 
-      **Note**
-            Your token has a limited lifetime. The following error means that your authentication
-            token has expired. Close the pop-up window and re-connect.
-            ```shell
-               error authenticating with Pachyderm cluster: otp is invalid or has expired
-            ```
-
 1. Verify that you have set the correct context:
 
       ```shell
-      pachctl config get active-context
+      $ pachctl config get active-context
       ```
       The system should return the name of your workspace.
       ```
@@ -75,10 +68,10 @@ After your workspace creation, open a terminal window and [install 'pachctl'](ht
 1. Create a test repo:
 
       ```shell
-      pachctl create repo test
+      $ pachctl create repo test
       ```
       ```shell
-      pachctl list repo
+      $ pachctl list repo
       ```
       **System response**
       ```
@@ -86,16 +79,17 @@ After your workspace creation, open a terminal window and [install 'pachctl'](ht
       test 5 seconds ago 0B            OWNER    
       ```
 
-1. Check the repo in your dashboard:
+1. Check the repo in your console:
 
-      In the Hub UI, click the **Details** button next to your workspace name,
-      then **Dash**. Your dashboard opens in a new window.
-
-      ![repo_ready](../images/hub_dash_ready.png)
+      In the Hub UI, click the **...** button next to your workspace name,
+      then **Console**. 
+      
+      Your console opens in a new window. Click **View Project**. 
+      Your should see your newly created repo **test**.
 
 ## Next Step
 
 You have successfully deployed and configured a Pachyderm
 workspace in Hub.
 
-Next: [Beginner Tutorial](../getting_started/beginner_tutorial.md)
+Next, start creating your first pipelines: [Beginner Tutorial](../getting_started/beginner_tutorial.md).

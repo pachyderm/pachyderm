@@ -1,0 +1,80 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.postgresql.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      suite: pachyderm
+  serviceName: postgres-headless
+  template:
+    metadata:
+      labels:
+        app: postgres
+        suite: pachyderm
+      name: postgres
+      namespace: default
+    spec:
+      {{- if .Values.imagePullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret | quote }}
+      {{- end }}
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: pgc
+        - name: POSTGRES_HOST_AUTH_METHOD
+          # TODO: Remove trust as auth method
+          value: trust
+        image: postgres:13.0-alpine
+        imagePullPolicy: IfNotPresent
+        name: postgres
+        ports:
+        - containerPort: 5432
+          name: client-port
+        {{- if .Values.postgresql.resources }}
+        resources: {{ toYaml .Values.postgresql.resources | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /var/lib/postgresql
+          name: postgres-storage
+        - mountPath: /docker-entrypoint-initdb.d
+          name: postgres-init
+      volumes:
+      - configMap:
+          name: postgres-init-cm
+        name: postgres-init
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        app: postgres
+        suite: pachyderm
+      name: postgres-storage
+      namespace: {{ .Release.Namespace }}
+    spec:
+      {{- if or .Values.etcd.storageClass  (eq .Values.deployTarget "GOOGLE") (eq .Values.deployTarget "MICROSOFT") (eq .Values.deployTarget "AMAZON") }}
+      storageClassName: {{ .Values.postgresql.storageClass | default "postgresql-storage-class" }}
+      {{- end }}
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage:
+              {{- if .Values.postgresql.storageSize }} {{ .Values.postgresql.storageSize }}
+              {{- else if eq .Values.deployTarget "MICROSOFT" }} 256Gi # 1,100 IOPS https://azure.microsoft.com/en-us/pricing/details/managed-disks/
+              {{- else if eq .Values.deployTarget "GOOGLE" }} 50Gi     # 1,500 IOPS https://cloud.google.com/compute/docs/disks/performance
+              {{- else if eq .Values.deployTarget "AMAZON" }} 500Gi     # 1,500 IOPS https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html
+              {{- else }} 10Gi  # Default
+              {{- end }}
+{{- end }}

@@ -2,20 +2,25 @@ package client
 
 import "github.com/pachyderm/pachyderm/v2/src/pfs"
 
+type putFileConfig struct {
+	tag    string
+	append bool
+}
+
 // PutFileOption configures a PutFile call.
-type PutFileOption func(*pfs.PutFile)
+type PutFileOption func(*putFileConfig)
 
 // WithAppendPutFile configures the PutFile call to append to existing files.
 func WithAppendPutFile() PutFileOption {
-	return func(pf *pfs.PutFile) {
-		pf.Append = true
+	return func(pf *putFileConfig) {
+		pf.append = true
 	}
 }
 
 // WithTagPutFile configures the PutFile call to apply to a particular tag.
 func WithTagPutFile(tag string) PutFileOption {
-	return func(pf *pfs.PutFile) {
-		pf.Tag = tag
+	return func(pf *putFileConfig) {
+		pf.tag = tag
 	}
 }
 

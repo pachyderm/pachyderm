@@ -74,13 +74,6 @@ func WithValidator(validator func(string) error) UnorderedWriterOption {
 // WriterOption configures a file set writer.
 type WriterOption func(w *Writer)
 
-// WithNoUpload sets the writer to no upload (will not upload chunks).
-func WithNoUpload() WriterOption {
-	return func(w *Writer) {
-		w.noUpload = true
-	}
-}
-
 // WithIndexCallback sets a function to be called after each index is written.
 // If WithNoUpload is set, the function is called after the index would have been written.
 func WithIndexCallback(cb func(*index.Index) error) WriterOption {

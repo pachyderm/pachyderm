@@ -56,9 +56,9 @@ Requests:
 
 func sprintCreateRepo(request *pfs.CreateRepoRequest) string {
 	if request.Update {
-		return fmt.Sprintf("update repo %s", pfspretty.CompactPrintRepo(request.Repo))
+		return fmt.Sprintf("update repo %s", request.Repo)
 	}
-	return fmt.Sprintf("create repo %s", pfspretty.CompactPrintRepo(request.Repo))
+	return fmt.Sprintf("create repo %s", request.Repo)
 }
 
 func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
@@ -66,7 +66,7 @@ func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
 	if request.Force {
 		force = " --force"
 	}
-	return fmt.Sprintf("delete repo %s %s", pfspretty.CompactPrintRepo(request.Repo), force)
+	return fmt.Sprintf("delete repo %s %s", request.Repo, force)
 }
 
 func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.TransactionResponse) string {
@@ -76,24 +76,24 @@ func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.Tr
 	} else {
 		commit = response.Commit.ID
 	}
-	return fmt.Sprintf("start commit %s (%s)", pfspretty.CompactPrintBranch(request.Branch), commit)
+	return fmt.Sprintf("start commit %s (%s)", request.Branch, commit)
 }
 
 func sprintFinishCommit(request *pfs.FinishCommitRequest) string {
 	return fmt.Sprintf("finish commit %s", pfspretty.CompactPrintCommit(request.Commit))
 }
 
-func sprintSquashCommitset(request *pfs.SquashCommitsetRequest) string {
-	return fmt.Sprintf("squash commitset %s", request.Commitset.ID)
+func sprintSquashCommitSet(request *pfs.SquashCommitSetRequest) string {
+	return fmt.Sprintf("squash commitset %s", request.CommitSet.ID)
 }
 
 func sprintCreateBranch(request *pfs.CreateBranchRequest) string {
 	provenance := ""
 	for _, p := range request.Provenance {
-		provenance = fmt.Sprintf("%s -p %s", provenance, pfspretty.CompactPrintBranch(p))
+		provenance = fmt.Sprintf("%s -p %s", provenance, p)
 	}
 
-	return fmt.Sprintf("create branch %s", pfspretty.CompactPrintBranch(request.Branch))
+	return fmt.Sprintf("create branch %s", request.Branch)
 }
 
 func sprintDeleteBranch(request *pfs.DeleteBranchRequest) string {
@@ -101,7 +101,7 @@ func sprintDeleteBranch(request *pfs.DeleteBranchRequest) string {
 	if request.Force {
 		force = " --force"
 	}
-	return fmt.Sprintf("delete branch %s%s", pfspretty.CompactPrintBranch(request.Branch), force)
+	return fmt.Sprintf("delete branch %s%s", request.Branch, force)
 }
 
 func sprintUpdateJobState(request *pps.UpdateJobStateRequest) string {
@@ -158,8 +158,8 @@ func transactionRequests(
 			}
 		} else if request.FinishCommit != nil {
 			line = sprintFinishCommit(request.FinishCommit)
-		} else if request.SquashCommitset != nil {
-			line = sprintSquashCommitset(request.SquashCommitset)
+		} else if request.SquashCommitSet != nil {
+			line = sprintSquashCommitSet(request.SquashCommitSet)
 		} else if request.CreateBranch != nil {
 			line = sprintCreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {

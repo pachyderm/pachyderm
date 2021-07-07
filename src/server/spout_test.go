@@ -37,9 +37,6 @@ func TestSpoutPachctl(t *testing.T) {
 		defer tu.DeleteAll(t)
 		c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
-		dataRepo := tu.UniqueString("TestSpoutAuth_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
 		// create a spout pipeline
 		pipeline := tu.UniqueString("pipelinespoutauth")
 		_, err := c.PpsAPIClient.CreatePipeline(
@@ -75,7 +72,7 @@ func TestSpoutPachctl(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
-				fileLength := files[0].SizeBytes
+				fileLength := files[0].Details.SizeBytes
 				if fileLength <= prevLength {
 					t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
 				}
@@ -87,7 +84,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// make sure we can delete commits
 		commitInfo, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		require.NoError(t, c.SquashCommitset(commitInfo.Commit.ID))
+		require.NoError(t, c.SquashCommitSet(commitInfo.Commit.ID))
 
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
@@ -98,13 +95,8 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 	})
 	t.Run("SpoutAuthEnabledAfter", func(t *testing.T) {
-		// TODO(2.0 required): The pipeline is still in the running state after auth is activated
-		t.Skip("pipeline is still running after activating auth")
 		tu.DeleteAll(t)
 		c := tu.GetPachClient(t)
-
-		dataRepo := tu.UniqueString("TestSpoutAuthEnabledAfter_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
 
 		// create a spout pipeline
 		pipeline := tu.UniqueString("pipelinespoutauthenabledafter")
@@ -142,46 +134,15 @@ func TestSpoutPachctl(t *testing.T) {
 			})
 		}))
 
-		// now let's authenticate, and make sure the spout fails due to a lack of authorization
+		// activate auth, which will generate a new PPS token for the pipeline and trigger
+		// the RC to be recreated
 		c = tu.GetAuthenticatedPachClient(t, auth.RootUser)
 		defer tu.DeleteAll(t)
-
-		require.NoErrorWithinTRetry(t, 10*time.Second, func() error {
-			pipelineInfo, err := c.InspectPipeline(pipeline)
-			if err != nil {
-				return err
-			}
-			if pipelineInfo.State != pps.PipelineState_PIPELINE_FAILURE {
-				return errors.Errorf("incorrect pipeline state, expected %s, got %s", pps.PipelineState_PIPELINE_FAILURE, pipelineInfo.State)
-			}
-			return nil
-		})
 
 		// make sure we can delete commits
 		commitInfo, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		require.NoError(t, c.SquashCommitset(commitInfo.Commit.ID))
-
-		// now let's update the pipeline and make sure it works again
-		_, err = c.PpsAPIClient.CreatePipeline(
-			c.Ctx(),
-			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
-				Transform: &pps.Transform{
-					Cmd: []string{"/bin/sh"},
-					Stdin: []string{
-						"while [ : ]",
-						"do",
-						"sleep 2",
-						"date > date",
-						basicPutFile("./date*"),
-						"done"},
-				},
-				Update:    true,
-				Reprocess: true,         // to ensure subscribe commit will only read commits since the update
-				Spout:     &pps.Spout{}, // this needs to be non-nil to make it a spout
-			})
-		require.NoError(t, err)
+		require.NoError(t, c.SquashCommitSet(commitInfo.Commit.ID))
 
 		// get 6 successive commits
 		countBreakFunc = newCountBreakFunc(6)
@@ -199,13 +160,19 @@ func TestSpoutPachctl(t *testing.T) {
 			})
 		}))
 
-		// finally, let's make sure that the provenance is in a consistent state after running the spout test
+		// make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
 				return errors.New(resp.Error)
 			}
 			return nil
 		}))
+
+		// Make sure the pipeline is still running
+		pipelineInfo, err := c.InspectPipeline(pipeline, false)
+		require.NoError(t, err)
+
+		require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
 	})
 
 	testSpout(t, true)
@@ -227,9 +194,6 @@ func testSpout(t *testing.T, usePachctl bool) {
 	}
 
 	t.Run("SpoutBasic", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestSpoutBasic_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
 		// create a spout pipeline
 		pipeline := tu.UniqueString("pipelinespoutbasic")
 		_, err := c.PpsAPIClient.CreatePipeline(
@@ -264,7 +228,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
-				fileLength := files[0].SizeBytes
+				fileLength := files[0].Details.SizeBytes
 				if fileLength <= prevLength {
 					t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
 				}
@@ -276,7 +240,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// make sure we can delete commits
 		commitInfo, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		require.NoError(t, c.SquashCommitset(commitInfo.Commit.ID))
+		require.NoError(t, c.SquashCommitSet(commitInfo.Commit.ID))
 
 		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
@@ -303,8 +267,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// commitInfo, err := c.PfsAPIClient.InspectCommit(
 		// 	c.Ctx(),
 		// 	&pfs.InspectCommitRequest{
-		// 		Commit:     client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", ""),
-		// 		Block: pfs.CommitState_STARTED,
+		// 		Commit: client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", ""),
+		// 		Wait:   pfs.CommitState_STARTED,
 		// 	})
 		// require.NoError(t, err)
 		// require.Equal(t, 3, len(commitInfo.Subvenance))
@@ -320,9 +284,6 @@ func testSpout(t *testing.T, usePachctl bool) {
 	})
 
 	t.Run("SpoutOverwrite", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestSpoutOverwrite_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
 		pipeline := tu.UniqueString("pipelinespoutoverwrite")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
@@ -360,7 +321,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
-				fileLength := files[0].SizeBytes
+				fileLength := files[0].Details.SizeBytes
 				if count > 2 && fileLength != prevLength {
 					t.Errorf("File length was expected to stay the same. Prev: %v, Cur: %v", prevLength, fileLength)
 				}
@@ -379,9 +340,6 @@ func testSpout(t *testing.T, usePachctl bool) {
 	})
 
 	t.Run("SpoutProvenance", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestSpoutProvenance_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
 		// create a pipeline
 		pipeline := tu.UniqueString("pipelinespoutprovenance")
 		_, err := c.PpsAPIClient.CreatePipeline(

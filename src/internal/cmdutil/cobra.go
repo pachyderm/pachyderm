@@ -98,11 +98,12 @@ func ErrorAndExit(format string, args ...interface{}) {
 	if errString := strings.TrimSpace(fmt.Sprintf(format, args...)); errString != "" {
 		fmt.Fprintf(os.Stderr, "%s\n", errString)
 	}
-	err, ok := args[0].(error)
-	if PrintErrorStacks && ok {
-		errors.ForEachStackFrame(err, func(frame errors.Frame) {
-			fmt.Fprintf(os.Stderr, "%+v\n", frame)
-		})
+	if len(args) > 0 && PrintErrorStacks {
+		if err, ok := args[0].(error); ok {
+			errors.ForEachStackFrame(err, func(frame errors.Frame) {
+				fmt.Fprintf(os.Stderr, "%+v\n", frame)
+			})
+		}
 	}
 	os.Exit(1)
 }
@@ -229,31 +230,6 @@ func ParseBranches(args []string) ([]*pfs.Branch, error) {
 			return nil, err
 		}
 		results = append(results, branch)
-	}
-	return results, nil
-}
-
-// ParseCommitProvenance takes an argument of the form "repo@branch=commit" and
-// returns the corresponding *pfs.CommitProvenance.
-func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
-	commit, err := ParseCommit(arg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pfs.CommitProvenance{Commit: commit}, nil
-}
-
-// ParseCommitProvenances converts all arguments to *pfs.CommitProvenance structs using the
-// semantics of ParseCommitProvenance
-func ParseCommitProvenances(args []string) ([]*pfs.CommitProvenance, error) {
-	var results []*pfs.CommitProvenance
-	for _, arg := range args {
-		prov, err := ParseCommitProvenance(arg)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, prov)
 	}
 	return results, nil
 }

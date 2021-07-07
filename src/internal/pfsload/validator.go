@@ -98,7 +98,7 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
 	}); err != nil {
 		return err
 	}
-	return client.BlockCommitset(commit.ID, func(ci *pfs.CommitInfo) error {
+	return client.WaitCommitSet(commit.ID, func(ci *pfs.CommitInfo) error {
 		return validate(client, ci.Commit, files)
 	})
 }
@@ -111,7 +111,7 @@ func validate(client Client, commit *pfs.Commit, files []*file) (retErr error) {
 			}
 		}
 	}()
-	r, err := client.GetFileTar(context.Background(), commit, "**")
+	r, err := client.GetFileTar(client.Ctx(), commit, "**")
 	if err != nil {
 		return err
 	}

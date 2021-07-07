@@ -1,0 +1,4 @@
+pachd:
+  service:
+    labels:
+      myApp: Blah123

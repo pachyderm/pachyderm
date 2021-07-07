@@ -46,7 +46,6 @@ type workerOptions struct {
 	labels                map[string]string   // k8s labels attached to the RC and workers
 	annotations           map[string]string   // k8s annotations attached to the RC and workers
 	parallelism           int32               // Number of replicas the RC maintains
-	cacheSize             string              // Size of cache that sidecar uses
 	resourceRequests      *v1.ResourceList    // Resources requested by pipeline/job pods
 	resourceLimits        *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the user and init containers
 	sidecarResourceLimits *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the sidecar container
@@ -85,8 +84,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		pullPolicy = "IfNotPresent"
 	}
 
-	// Set up sidecar env vars
-	sidecarEnv := []v1.EnvVar{{
+	// Environment variables that are shared between both containers
+	commonEnv := []v1.EnvVar{{
 		Name:  "PACH_ROOT",
 		Value: a.storageRoot,
 	}, {
@@ -96,13 +95,22 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
 	}, {
-		Name:  "PORT",
-		Value: strconv.FormatUint(uint64(a.port), 10),
+		Name:  "POSTGRES_USER",
+		Value: a.env.Config().PostgresUser,
 	}, {
-		Name:  "HTTP_PORT",
-		Value: strconv.FormatUint(uint64(a.httpPort), 10),
+		Name:  "POSTGRES_PASSWORD",
+		Value: a.env.Config().PostgresPassword,
 	}, {
-		Name:  "PEER_PORT",
+		Name:  "POSTGRES_DATABASE_NAME",
+		Value: a.env.Config().PostgresDBName,
+	}, {
+		Name:  "POSTGRES_HOST",
+		Value: a.env.Config().PostgresHost,
+	}, {
+		Name:  "POSTGRES_PORT",
+		Value: strconv.FormatInt(int64(a.env.Config().PostgresPort), 10),
+	}, {
+		Name:  client.PeerPortEnv,
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
 	}, {
 		Name:  client.PPSSpecCommitEnv,
@@ -110,6 +118,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
+	},
+	}
+
+	// Set up sidecar env vars
+	sidecarEnv := []v1.EnvVar{{
+		Name:  "PORT",
+		Value: strconv.FormatUint(uint64(a.port), 10),
 	}, {
 		Name: "PACHD_POD_NAME",
 		ValueFrom: &v1.EnvVarSource{
@@ -121,27 +136,14 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  "GC_PERCENT",
 		Value: strconv.FormatInt(int64(a.gcPercent), 10),
-	}, {
-		Name:  "POSTGRES_DATABASE_NAME",
-		Value: a.env.Config().PostgresDBName,
-	}, {
-		Name:  "METRICS",
-		Value: strconv.FormatBool(a.env.Config().Metrics),
 	}}
-	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+
 	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
+	sidecarEnv = append(sidecarEnv, commonEnv...)
 
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
 		// Set core pach env vars
-		{
-			Name:  "PACH_ROOT",
-			Value: a.storageRoot,
-		},
-		{
-			Name:  "PACH_NAMESPACE",
-			Value: a.namespace,
-		},
 		{
 			Name:  "PACH_IN_WORKER",
 			Value: "true",
@@ -173,23 +175,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 			},
 		},
 		{
-			Name:  client.PPSSpecCommitEnv,
-			Value: options.specCommit,
-		},
-		{
 			Name:  client.PPSWorkerPortEnv,
 			Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
 		},
-		{
-			Name:  client.PeerPortEnv,
-			Value: strconv.FormatUint(uint64(a.peerPort), 10),
-		},
-		{
-			Name:  "METRICS",
-			Value: strconv.FormatBool(a.env.Config().Metrics),
-		},
 	}...)
-	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+	workerEnv = append(workerEnv, commonEnv...)
 
 	// Set S3GatewayPort in the worker (for user code) and sidecar (for serving)
 	if options.s3GatewayPort != 0 {
@@ -255,7 +245,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	userVolumeMounts = append(userVolumeMounts, secretMount)
 
 	// mount secret for spouts using pachctl
-	if pipelineInfo.Spout != nil {
+	if pipelineInfo.Details.Spout != nil {
 		pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount("spout-pachctl-secret-" + pipelineInfo.Pipeline.Name)
 		options.volumes = append(options.volumes, pachctlSecretVolume)
 		sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
@@ -267,7 +257,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	// 64M, but is overridden by the CacheSize setting for the sidecar.
 	cpuZeroQuantity := resource.MustParse("0")
 	memDefaultQuantity := resource.MustParse("64M")
-	memSidecarQuantity := resource.MustParse(options.cacheSize)
+	memSidecarQuantity := resource.MustParse("64M")
 
 	// Get service account name for worker from env or use default
 	workerServiceAccountName, ok := os.LookupEnv(assets.WorkerServiceAccountEnvVar)
@@ -282,20 +272,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 			ContainerPort: options.s3GatewayPort,
 		})
 	}
-	if !a.noExposeDockerSocket {
-		options.volumes = append(options.volumes, v1.Volume{
-			Name: "docker",
-			VolumeSource: v1.VolumeSource{
-				HostPath: &v1.HostPathVolumeSource{
-					Path: "/var/run/docker.sock",
-				},
-			},
-		})
-		userVolumeMounts = append(userVolumeMounts, v1.VolumeMount{
-			Name:      "docker",
-			MountPath: "/var/run/docker.sock",
-		})
-	}
+
 	zeroVal := int64(0)
 	workerImage := a.workerImage
 	var securityContext *v1.PodSecurityContext
@@ -308,6 +285,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}
 	if resp.State != enterprise.State_ACTIVE {
 		workerImage = assets.AddRegistry("", workerImage)
+	}
+	envFrom := []v1.EnvFromSource{
+		{
+			SecretRef: &v1.SecretEnvSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: client.StorageSecretName,
+				},
+			},
+		},
 	}
 	podSpec := v1.PodSpec{
 		InitContainers: []v1.Container{
@@ -332,6 +318,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 				Command:         []string{"/pach-bin/worker"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             workerEnv,
+				EnvFrom:         envFrom,
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceCPU:    cpuZeroQuantity,
@@ -346,6 +333,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 				Command:         []string{"/pachd", "--mode", "sidecar"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
+				EnvFrom:         envFrom,
 				VolumeMounts:    sidecarVolumeMounts,
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
@@ -451,35 +439,35 @@ func hashAuthToken(token string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
 	pipelineName := pipelineInfo.Pipeline.Name
 	pipelineVersion := pipelineInfo.Version
 	var resourceRequests *v1.ResourceList
 	var resourceLimits *v1.ResourceList
 	var sidecarResourceLimits *v1.ResourceList
-	if pipelineInfo.ResourceRequests != nil {
+	if pipelineInfo.Details.ResourceRequests != nil {
 		var err error
 		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not determine resource request")
 		}
 	}
-	if pipelineInfo.ResourceLimits != nil {
+	if pipelineInfo.Details.ResourceLimits != nil {
 		var err error
-		resourceLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.ResourceLimits)
+		resourceLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.Details.ResourceLimits)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not determine resource limit")
 		}
 	}
-	if pipelineInfo.SidecarResourceLimits != nil {
+	if pipelineInfo.Details.SidecarResourceLimits != nil {
 		var err error
-		sidecarResourceLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.SidecarResourceLimits)
+		sidecarResourceLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.Details.SidecarResourceLimits)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not determine sidecar resource limit")
 		}
 	}
 
-	transform := pipelineInfo.Transform
+	transform := pipelineInfo.Details.Transform
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels[pipelineNameLabel] = pipelineName
@@ -566,15 +554,12 @@ func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *
 	annotations := map[string]string{
 		pipelineNameLabel:         pipelineName,
 		pachVersionAnnotation:     version.PrettyVersion(),
-		pipelineVersionAnnotation: strconv.FormatUint(ptr.Version, 10),
-		hashedAuthTokenAnnotation: hashAuthToken(ptr.AuthToken),
-	}
-	if a.iamRole != "" {
-		annotations["iam.amazonaws.com/role"] = a.iamRole
+		pipelineVersionAnnotation: strconv.FormatUint(pipelineInfo.Version, 10),
+		hashedAuthTokenAnnotation: hashAuthToken(pipelineInfo.AuthToken),
 	}
 
 	// add the user's custom metadata (annotations and labels).
-	metadata := pipelineInfo.GetMetadata()
+	metadata := pipelineInfo.Details.GetMetadata()
 	if metadata != nil {
 		for k, v := range metadata.Annotations {
 			if annotations[k] == "" {
@@ -592,15 +577,15 @@ func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *
 	// A service can be present either directly on the pipeline spec
 	// or on the spout field of the spec.
 	var service *pps.Service
-	if pipelineInfo.Spout != nil && pipelineInfo.Service != nil {
+	if pipelineInfo.Details.Spout != nil && pipelineInfo.Details.Service != nil {
 		return nil, errors.New("only one of pipeline.service or pipeline.spout can be set")
-	} else if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil {
-		service = pipelineInfo.Spout.Service
+	} else if pipelineInfo.Details.Spout != nil && pipelineInfo.Details.Spout.Service != nil {
+		service = pipelineInfo.Details.Spout.Service
 	} else {
-		service = pipelineInfo.Service
+		service = pipelineInfo.Details.Service
 	}
 	var s3GatewayPort int32
-	if ppsutil.ContainsS3Inputs(pipelineInfo.Input) || pipelineInfo.S3Out {
+	if ppsutil.ContainsS3Inputs(pipelineInfo.Details.Input) || pipelineInfo.Details.S3Out {
 		s3GatewayPort = int32(a.env.Config().S3GatewayPort)
 	}
 
@@ -608,7 +593,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *
 	return &workerOptions{
 		rcName:                rcName,
 		s3GatewayPort:         s3GatewayPort,
-		specCommit:            ptr.SpecCommit.ID,
+		specCommit:            pipelineInfo.SpecCommit.ID,
 		labels:                labels,
 		annotations:           annotations,
 		parallelism:           int32(0), // pipelines start w/ 0 workers & are scaled up
@@ -620,15 +605,14 @@ func (a *apiServer) getWorkerOptions(ptr *pps.StoredPipelineInfo, pipelineInfo *
 		volumes:               volumes,
 		volumeMounts:          volumeMounts,
 		imagePullSecrets:      imagePullSecrets,
-		cacheSize:             pipelineInfo.CacheSize,
 		service:               service,
-		schedulingSpec:        pipelineInfo.SchedulingSpec,
-		podSpec:               pipelineInfo.PodSpec,
-		podPatch:              pipelineInfo.PodPatch,
+		schedulingSpec:        pipelineInfo.Details.SchedulingSpec,
+		podSpec:               pipelineInfo.Details.PodSpec,
+		podPatch:              pipelineInfo.Details.PodPatch,
 	}, nil
 }
 
-func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	var cfg config.Config
 	err := cfg.InitV2()
 	if err != nil {
@@ -638,8 +622,8 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.Stor
 	if err != nil {
 		return errors.Wrapf(err, "error getting the active context")
 	}
-	context.SessionToken = ptr.AuthToken
-	context.PachdAddress = "localhost:653"
+	context.SessionToken = pipelineInfo.AuthToken
+	context.PachdAddress = "localhost:1653"
 
 	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -679,7 +663,7 @@ type noValidOptionsErr struct {
 	error
 }
 
-func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
+func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", // ctx never used, but we want the right one in scope for future uses
 		"pipeline", pipelineInfo.Pipeline.Name)
@@ -689,13 +673,13 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.StoredPip
 	}()
 
 	// create pachctl secret used in spouts
-	if pipelineInfo.Spout != nil {
-		if err := a.createWorkerPachctlSecret(ctx, ptr, pipelineInfo); err != nil {
+	if pipelineInfo.Details.Spout != nil {
+		if err := a.createWorkerPachctlSecret(ctx, pipelineInfo); err != nil {
 			return err
 		}
 	}
 
-	options, err := a.getWorkerOptions(ptr, pipelineInfo)
+	options, err := a.getWorkerOptions(pipelineInfo)
 	if err != nil {
 		return noValidOptionsErr{err}
 	}

@@ -84,6 +84,9 @@ const (
 
 	// SecretAdminRole is a role which grants the ability to manage secrets
 	SecretAdminRole = "secretAdmin"
+
+	// PachdLogReaderRole is a role which grants the ability to pull pachd logs
+	PachdLogReaderRole = "pachdLogReader"
 )
 
 var (

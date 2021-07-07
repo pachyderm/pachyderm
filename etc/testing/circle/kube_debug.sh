@@ -25,6 +25,7 @@ cmds=(
   'kubectl get all --all-namespaces'
   'kubectl describe pod -l suite=pachyderm,app=pachd'
   'kubectl describe pod -l suite=pachyderm,app=etcd'
+  'curl -s http://$(minikube ip):30656/metrics'
   # Set --tail b/c by default 'kubectl logs' only outputs 10 lines if -l is set
   'kubectl logs --tail=1500 -l suite=pachyderm,app=pachd'
   'kubectl logs --tail=1500 -l suite=pachyderm,app=pachd --previous # if pachd restarted'

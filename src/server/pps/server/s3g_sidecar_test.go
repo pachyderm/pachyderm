@@ -174,7 +174,7 @@ func TestS3Input(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.BlockJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -258,7 +258,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.BlockJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -313,7 +313,7 @@ func TestS3Output(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.BlockJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -399,7 +399,7 @@ func TestFullS3(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.BlockJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -473,7 +473,7 @@ func TestS3SkippedDatums(t *testing.T) {
 					fmt.Sprintf(
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs)
-						"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
+						"aws --endpoint=http://pachd.%s:1600 s3 cp s3://master.%s/round /tmp/bg",
 						Namespace, background,
 					),
 					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
@@ -505,7 +505,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = c.BlockCommit(pipeline, "master", "")
+		_, err = c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
 
 		// Part 1: add files in pfs input w/o changing s3 input. Old files in
@@ -523,7 +523,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(client.NewCommit(pfsin, "master", ""), iS, strings.NewReader(iS)))
 
-			_, err = c.BlockCommit(pipeline, "master", "")
+			_, err = c.WaitCommit(pipeline, "master", "")
 			require.NoError(t, err)
 
 			jis, err := c.ListJob(pipeline, nil, 0, false)
@@ -564,7 +564,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
 		c.FinishCommit(s3in, s3c.Branch.Name, s3c.ID)
 
-		_, err = c.BlockCommit(pipeline, "master", "")
+		_, err = c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
 
 		jis, err := c.ListJob(pipeline, nil, 0, false)
@@ -630,7 +630,7 @@ func TestS3SkippedDatums(t *testing.T) {
 					fmt.Sprintf(
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs)
-						"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
+						"aws --endpoint=http://pachd.%s:1600 s3 cp s3://master.%s/round /tmp/bg",
 						Namespace, background,
 					),
 					"cat /pfs/in/* >/tmp/pfsin",
@@ -678,7 +678,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			// Put new file in 'repo' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(masterCommit, iS, strings.NewReader(iS)))
 
-			_, err = c.BlockCommit(pipeline, "master", "")
+			_, err = c.WaitCommit(pipeline, "master", "")
 			require.NoError(t, err)
 			jis, err := c.ListJob(pipeline, nil, 0, false)
 			require.NoError(t, err)

@@ -21,12 +21,12 @@ type APIServer interface {
 	FinishCommitInTransaction(*txncontext.TransactionContext, *pfs_client.FinishCommitRequest) error
 	InspectCommitInTransaction(*txncontext.TransactionContext, *pfs_client.InspectCommitRequest) (*pfs_client.CommitInfo, error)
 
-	InspectCommitsetInTransaction(*txncontext.TransactionContext, *pfs_client.Commitset) ([]*pfs_client.CommitInfo, error)
-	SquashCommitsetInTransaction(*txncontext.TransactionContext, *pfs_client.SquashCommitsetRequest) error
+	InspectCommitSetInTransaction(*txncontext.TransactionContext, *pfs_client.CommitSet) ([]*pfs_client.CommitInfo, error)
+	SquashCommitSetInTransaction(*txncontext.TransactionContext, *pfs_client.SquashCommitSetRequest) error
 
 	CreateBranchInTransaction(*txncontext.TransactionContext, *pfs_client.CreateBranchRequest) error
 	InspectBranchInTransaction(*txncontext.TransactionContext, *pfs_client.InspectBranchRequest) (*pfs_client.BranchInfo, error)
 	DeleteBranchInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteBranchRequest) error
 
-	AddFilesetInTransaction(*txncontext.TransactionContext, *pfs_client.AddFilesetRequest) error
+	AddFileSetInTransaction(*txncontext.TransactionContext, *pfs_client.AddFileSetRequest) error
 }

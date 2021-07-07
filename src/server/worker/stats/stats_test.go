@@ -55,7 +55,6 @@ func TestPrometheusStats(t *testing.T) {
 			Input:        client.NewPFSInput(dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
-			EnableStats:  true,
 		},
 	)
 	require.NoError(t, err)
@@ -83,7 +82,7 @@ func TestPrometheusStats(t *testing.T) {
 	require.NoError(t, c.PutFile(commit, "test", strings.NewReader("fail")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
-	_, err = c.BlockCommitsetAll(commit.ID)
+	_, err = c.WaitCommitSetAll(commit.ID)
 	require.NoError(t, err)
 
 	port := os.Getenv("PROM_PORT")
@@ -251,7 +250,6 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 			Input:        client.NewPFSInput(dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
-			EnableStats:  true,
 		},
 	)
 	require.NoError(t, err)
@@ -262,14 +260,14 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 
 	// If the error exists, the stats commit will never close, and this will
 	// timeout
-	_, err = c.BlockCommitsetAll(commit.ID)
+	_, err = c.WaitCommitSetAll(commit.ID)
 	require.NoError(t, err)
 
 	// Make sure the job succeeded as well
 	jobs, err := c.ListJob(pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	jobInfo, err := c.BlockJob(pipeline, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(pipeline, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }

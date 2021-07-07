@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
@@ -46,11 +47,7 @@ import (
 const (
 	// MaxListItemsLog specifies the maximum number of items we log in response to a List* API
 	MaxListItemsLog = 10
-	// StorageSecretName is the name of the Kubernetes secret in which
-	// storage credentials are stored.
-	// TODO: The value "pachyderm-storage-secret" is hardcoded in the obj package to avoid a
-	// obj -> client dependency, so any changes to this variable need to be applied there.
-	// The obj package should eventually get refactored so that it does not have this dependency.
+	// StorageSecretName is the name of the Kubernetes secret in which storage credentials are stored.
 	StorageSecretName = "pachyderm-storage-secret"
 	// PachctlSecretName is the name of the Kubernetes secret in which
 	// pachctl credentials are stored.
@@ -81,6 +78,9 @@ type TransactionAPIClient transaction.APIClient
 // DebugClient is an alias of debug.DebugClient
 type DebugClient debug.DebugClient
 
+// ProxyClient is an alias of proxy.APIClient
+type ProxyClient proxy.APIClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
@@ -91,6 +91,7 @@ type APIClient struct {
 	AdminAPIClient
 	TransactionAPIClient
 	DebugClient
+	ProxyClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 	License    license.APIClient
 
@@ -438,9 +439,9 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 
 	var port uint16
 	if context.EnterpriseServer {
-		port, err = fw.RunForEnterpriseServer(0, 650)
+		port, err = fw.RunForEnterpriseServer(0, 1650)
 	} else {
-		port, err = fw.RunForDaemon(0, 650)
+		port, err = fw.RunForPachd(0, 1650)
 	}
 
 	if err != nil {
@@ -809,6 +810,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
 	c.DebugClient = debug.NewDebugClient(clientConn)
+	c.ProxyClient = proxy.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = grpc_health_v1.NewHealthClient(clientConn)
 	return nil

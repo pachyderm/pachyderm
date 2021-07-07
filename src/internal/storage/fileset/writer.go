@@ -29,7 +29,6 @@ type Writer struct {
 	idx                *index.Index
 	deleteIdx          *index.Index
 	lastIdx            *index.Index
-	noUpload           bool
 	indexFunc          func(*index.Index) error
 	ttl                time.Duration
 }
@@ -44,9 +43,6 @@ func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chu
 		opt(w)
 	}
 	var chunkWriterOpts []chunk.WriterOption
-	if w.noUpload {
-		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
-	}
 	w.additive = index.NewWriter(ctx, chunks, "additive-index-writer")
 	w.deletive = index.NewWriter(ctx, chunks, "deletive-index-writer")
 	w.cw = chunks.NewWriter(ctx, "chunk-writer", w.callback, chunkWriterOpts...)
@@ -135,10 +131,8 @@ func (w *Writer) callback(annotations []*chunk.Annotation) error {
 			w.lastIdx = idx
 		}
 		if idx.Path != w.lastIdx.Path || idx.File.Tag != w.lastIdx.File.Tag {
-			if !w.noUpload {
-				if err := w.additive.WriteIndex(w.lastIdx); err != nil {
-					return err
-				}
+			if err := w.additive.WriteIndex(w.lastIdx); err != nil {
+				return err
 			}
 			if w.indexFunc != nil {
 				if err := w.indexFunc(w.lastIdx); err != nil {
@@ -162,19 +156,14 @@ func (w *Writer) Close() (*ID, error) {
 	// Write out the last index.
 	if w.lastIdx != nil {
 		idx := w.lastIdx
-		if !w.noUpload {
-			if err := w.additive.WriteIndex(idx); err != nil {
-				return nil, err
-			}
+		if err := w.additive.WriteIndex(idx); err != nil {
+			return nil, err
 		}
 		if w.indexFunc != nil {
 			if err := w.indexFunc(idx); err != nil {
 				return nil, err
 			}
 		}
-	}
-	if w.noUpload {
-		return nil, nil
 	}
 	// Close the index writers.
 	additiveIdx, err := w.additive.Close()

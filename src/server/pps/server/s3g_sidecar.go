@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -11,18 +10,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	logrus "github.com/sirupsen/logrus"
@@ -63,27 +59,18 @@ func (a *apiServer) ServeSidecarS3G() {
 	if err := backoff.RetryNotify(func() error {
 		retryCtx, retryCancel := context.WithCancel(context.Background())
 		defer retryCancel()
+
+		if err := a.pipelines.ReadOnly(retryCtx).Get(pipelineName, s.pipelineInfo); err != nil {
+			return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
+		}
+
 		// Set auth token for s.pachClient (pipelinePtr.AuthToken will be empty if
 		// auth is off)
-		pipelinePtr := &pps.StoredPipelineInfo{}
-		err := a.pipelines.ReadOnly(retryCtx).Get(pipelineName, pipelinePtr)
-		if err != nil {
-			return errors.Wrapf(err, "could not get auth token from etcdPipelineInfo")
-		}
-		s.pachClient.SetAuthToken(pipelinePtr.AuthToken)
+		s.pachClient.SetAuthToken(s.pipelineInfo.AuthToken)
 
-		buf := bytes.Buffer{}
-		commit := client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewCommit("", specCommit)
-		if err := s.pachClient.GetFile(commit, ppsconsts.SpecFile, &buf); err != nil {
-			return errors.Wrapf(err, "sidecar s3 gateway: could not read pipeline spec commit: could not read existing PipelineInfo from PFS")
+		if err := ppsutil.GetPipelineDetails(s.pachClient, s.pipelineInfo); err != nil {
+			return errors.Wrapf(err, "sidecar s3 gateway: could not get pipeline details")
 		}
-		if err := proto.Unmarshal(buf.Bytes(), s.pipelineInfo); err != nil {
-			return errors.Wrapf(err, "sidecar s3 gateway: could not read pipeline spec commit: could not unmarshal PipelineInfo bytes from PFS")
-		}
-		if !ppsutil.ContainsS3Inputs(s.pipelineInfo.Input) && !s.pipelineInfo.S3Out {
-			return nil // break out of backoff (nothing to serve via S3 gateway)
-		}
-
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logrus.Errorf("error starting sidecar s3 gateway: %v; retrying in %d", err, d)
@@ -94,7 +81,7 @@ func (a *apiServer) ServeSidecarS3G() {
 		logrus.Errorf("restarting startup of sidecar s3 gateway: %v", err)
 		a.ServeSidecarS3G()
 	}
-	if !ppsutil.ContainsS3Inputs(s.pipelineInfo.Input) && !s.pipelineInfo.S3Out {
+	if !ppsutil.ContainsS3Inputs(s.pipelineInfo.Details.Input) && !s.pipelineInfo.Details.S3Out {
 		return // break early (nothing to serve via S3 gateway)
 	}
 
@@ -139,7 +126,7 @@ func (s *sidecarS3G) createK8sServices() {
 			path.Join(s.apiServer.etcdPrefix,
 				s3gSidecarLockPath,
 				s.pipelineInfo.Pipeline.Name,
-				s.pipelineInfo.Salt))
+				s.pipelineInfo.Details.Salt))
 		ctx, err := masterLock.Lock(s.pachClient.Ctx())
 		if err != nil {
 			// retry obtaining lock
@@ -185,7 +172,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 
 	// Initialize new S3 gateway
 	var inputBuckets []*s3.Bucket
-	pps.VisitInput(jobInfo.Input, func(in *pps.Input) error {
+	pps.VisitInput(jobInfo.Details.Input, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
 			inputBuckets = append(inputBuckets, &s3.Bucket{
 				Commit: client.NewSystemRepo(in.Pfs.Repo, in.Pfs.RepoType).NewCommit(in.Pfs.Branch, in.Pfs.Commit),
@@ -195,7 +182,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		return nil
 	})
 	var outputBucket *s3.Bucket
-	if s.s.pipelineInfo.S3Out {
+	if s.s.pipelineInfo.Details.S3Out {
 		outputBucket = &s3.Bucket{
 			Commit: jobInfo.OutputCommit,
 			Name:   "out",
@@ -220,11 +207,11 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		server.Addr = ":" + strport
 		return nil
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error creating sidecar s3 gateway handler for %q: %v; retrying in %v", ppsdb.JobKey(job), err, d)
+		logrus.Errorf("error creating sidecar s3 gateway handler for %q: %v; retrying in %v", job, err, d)
 		return nil
 	})
 	if err != nil {
-		logrus.Errorf("permanent error creating sidecar s3 gateway handler for %q: %v", ppsdb.JobKey(job), err)
+		logrus.Errorf("permanent error creating sidecar s3 gateway handler for %q: %v", job, err)
 		return // give up. Worker will fail the job
 	}
 	go func() {
@@ -233,7 +220,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			if err == nil || errors.Is(err, http.ErrServerClosed) {
 				break // server was shutdown/closed
 			}
-			logrus.Errorf("error serving sidecar s3 gateway handler for %q: %v; strike %d/3", ppsdb.JobKey(job), err, i+1)
+			logrus.Errorf("error serving sidecar s3 gateway handler for %q: %v; strike %d/3", job, err, i+1)
 		}
 	}()
 	s.s.servers[job.ID] = server
@@ -256,7 +243,7 @@ func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *
 		defer cancel()
 		return server.Shutdown(timeoutCtx)
 	}, b, func(err error, d time.Duration) error {
-		logrus.Errorf("could not kill sidecar s3 gateway server for job %q: %v; retrying in %v", ppsdb.JobKey(job), err, d)
+		logrus.Errorf("could not kill sidecar s3 gateway server for job %q: %v; retrying in %v", job, err, d)
 		return nil
 	}); err != nil {
 		// last chance -- try calling Close(), and if that doesn't work, force
@@ -265,7 +252,7 @@ func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *
 			// panic here instead of ignoring the error and moving on because
 			// otherwise the worker process won't release the s3 gateway port and
 			// all future s3 jobs will fail.
-			panic(fmt.Sprintf("could not kill sidecar s3 gateway server for job %q: %v; giving up", ppsdb.JobKey(job), err))
+			panic(fmt.Sprintf("could not kill sidecar s3 gateway server for job %q: %v; giving up", job, err))
 		}
 	}
 	delete(s.s.servers, job.ID) // remove server from map no matter what
@@ -327,7 +314,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 }
 
 func (s *k8sServiceCreatingJobHandler) OnTerminate(_ context.Context, job *pps.Job) {
-	if !ppsutil.ContainsS3Inputs(s.s.pipelineInfo.Input) && !s.s.pipelineInfo.S3Out {
+	if !ppsutil.ContainsS3Inputs(s.s.pipelineInfo.Details.Input) && !s.s.pipelineInfo.Details.S3Out {
 		return // Nothing to delete; this isn't an s3 pipeline (shouldn't happen)
 	}
 
@@ -340,10 +327,10 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(_ context.Context, job *pps.J
 		}
 		return err
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error deleting kubernetes service for s3 %q gateway sidecar: %v; retrying in %v", ppsdb.JobKey(job), err, d)
+		logrus.Errorf("error deleting kubernetes service for s3 %q gateway sidecar: %v; retrying in %v", job, err, d)
 		return nil
 	}); err != nil {
-		logrus.Errorf("permanent error deleting kubernetes service for %q s3 gateway sidecar: %v", ppsdb.JobKey(job), err)
+		logrus.Errorf("permanent error deleting kubernetes service for %q s3 gateway sidecar: %v", job, err)
 	}
 }
 
@@ -376,7 +363,7 @@ func (h *handleJobsCtx) start() {
 			}
 
 			var key string
-			jobInfo := &pps.StoredJobInfo{}
+			jobInfo := &pps.JobInfo{}
 			if err := e.Unmarshal(&key, jobInfo); err != nil {
 				logrus.Errorf("sidecar s3 gateway watch unmarshal error: %v", err)
 			}
@@ -384,6 +371,11 @@ func (h *handleJobsCtx) start() {
 			// create new ctx for this job
 			jobCtx, jobCancel := context.WithCancel(context.Background())
 			h.processJobEvent(jobCtx, e.Type, jobInfo.Job)
+			// TODO(2.0 required): this is not true - this will continue to get PUT
+			// notifications on every job update - this needs to be refactored
+			// (preferrably with just one watcher, will likely require a way to know
+			// when initial PUTs are complete so we can remove dead jobs after
+			// recovering from a failed watcher):
 			// spin off handler for job termination. 'watcher' will not see any job
 			// state updates after the first because job state updates don't update
 			// the pipelines index, so this establishes a watcher that will.
@@ -425,38 +417,38 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	// 'e' is a Put event (new or updated job)
 	pachClient := h.s.pachClient.WithCtx(jobCtx)
 	// Inspect the job and make sure it's relevant, as this worker may be old
-	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin serving inputs over s3 gateway", ppsdb.JobKey(job))
+	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin serving inputs over s3 gateway", job)
 
 	var jobInfo *pps.JobInfo
 	if err := backoff.RetryNotify(func() error {
 		var err error
-		jobInfo, err = pachClient.InspectJob(h.s.pipelineInfo.Pipeline.Name, job.ID, false)
+		jobInfo, err = pachClient.InspectJob(h.s.pipelineInfo.Pipeline.Name, job.ID, true)
 		if err != nil {
 			if col.IsErrNotFound(err) {
 				// TODO(msteffen): I'm not sure what this means--maybe that the service
 				// was created and immediately deleted, and there's a pending deletion
 				// event? In any case, without a job that exists there's nothing to act on
-				logrus.Errorf("sidecar s3 gateway: job %q not found", ppsdb.JobKey(job))
+				logrus.Errorf("sidecar s3 gateway: job %q not found", job)
 				return nil
 			}
 			return err
 		}
 		return nil
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error inspecting job %q: %v; retrying in %v", ppsdb.JobKey(job), err, d)
+		logrus.Errorf("error inspecting job %q: %v; retrying in %v", job, err, d)
 		return nil
 	}); err != nil {
-		logrus.Errorf("permanent error inspecting job %q: %v", ppsdb.JobKey(job), err)
+		logrus.Errorf("permanent error inspecting job %q: %v", job, err)
 		return // leak the job; better than getting stuck?
 	}
 	if jobInfo.PipelineVersion < h.s.pipelineInfo.Version {
-		logrus.Infof("skipping job %v as it uses old pipeline version %d", ppsdb.JobKey(job), jobInfo.PipelineVersion)
+		logrus.Infof("skipping job %v as it uses old pipeline version %d", job, jobInfo.PipelineVersion)
 		return
 	}
 	if jobInfo.PipelineVersion > h.s.pipelineInfo.Version {
 		logrus.Infof("skipping job %q as its pipeline version version %d is "+
 			"greater than this worker's pipeline version (%d), this should "+
-			"automatically resolve when the worker is updated", ppsdb.JobKey(job),
+			"automatically resolve when the worker is updated", job,
 			jobInfo.PipelineVersion, h.s.pipelineInfo.Version)
 		return
 	}

@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
 	units "github.com/docker/go-units"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -186,8 +188,7 @@ func TestCopy(t *testing.T) {
 	}))
 	// No new chunks should get created by the copy.
 	finalChunkCount := countChunks(t, fileSets)
-	// TODO: figure out why we make 1 more chunk.
-	require.Equal(t, initialChunkCount, finalChunkCount-1)
+	require.Equal(t, initialChunkCount, finalChunkCount)
 }
 
 func countChunks(t *testing.T, s *Storage) (count int64) {
@@ -196,4 +197,65 @@ func countChunks(t *testing.T, s *Storage) (count int64) {
 		return nil
 	}))
 	return count
+}
+
+func TestStableHash(t *testing.T) {
+	ctx := context.Background()
+	storage := newTestStorage(t)
+	seed := time.Now().UTC().UnixNano()
+	msg := fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
+	random := rand.New(rand.NewSource(seed))
+	data := randutil.Bytes(random, 100*units.MB)
+	var ids []ID
+	write := func(data []byte) {
+		w := storage.NewWriter(ctx)
+		require.NoError(t, w.Add("test", DefaultFileTag, bytes.NewReader(data)), msg)
+		id, err := w.Close()
+		require.NoError(t, err, msg)
+		ids = append(ids, *id)
+	}
+	getHash := func() []byte {
+		fs, err := storage.Open(ctx, ids)
+		require.NoError(t, err, msg)
+		var found bool
+		var hash []byte
+		require.NoError(t, fs.Iterate(ctx, func(f File) error {
+			if found {
+				return errors.New("more than one file found")
+			}
+			found = true
+			var err error
+			hash, err = f.Hash()
+			return err
+		}), msg)
+		if !found {
+			t.Fatal("file not found")
+		}
+		return hash
+
+	}
+	// Compute hash after writing to one writer.
+	write(data)
+	stableHash := getHash()
+	// Compute hash after writing to two writers.
+	ids = nil
+	size := len(data) / 2
+	for offset := 0; offset < len(data); offset += size {
+		write(data[offset : offset+size])
+	}
+	require.True(t, bytes.Equal(stableHash, getHash()), msg)
+	// Compute hash after writing to ten writers.
+	ids = nil
+	size = len(data) / 10
+	for offset := 0; offset < len(data); offset += size {
+		write(data[offset : offset+size])
+	}
+	require.True(t, bytes.Equal(stableHash, getHash()), msg)
+	// Compute hash after writing to one hundred writers.
+	ids = nil
+	size = len(data) / 100
+	for offset := 0; offset < len(data); offset += size {
+		write(data[offset : offset+size])
+	}
+	require.True(t, bytes.Equal(stableHash, getHash()), msg)
 }

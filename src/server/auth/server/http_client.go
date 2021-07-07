@@ -7,7 +7,7 @@ import (
 )
 
 // localhostIdentityServer is the URL we can reach the embedded identity server at
-const localhostIdentityServer = "http://localhost:658/"
+const localhostIdentityServer = "http://localhost:1658/"
 
 // RewriteRoundTripper replaces the expected hostname with a new hostname.
 // If a scheme is specified it's also replaced.

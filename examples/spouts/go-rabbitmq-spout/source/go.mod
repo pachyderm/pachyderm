@@ -1,13 +1,13 @@
 module github.com/pachyderm/pachyderm/examples/spouts/go-rabbitmq-spout/source
+
 go 1.16
 
 require (
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
-	github.com/pachyderm/pachyderm v1.12.0
+	github.com/pachyderm/pachyderm/v2 v2.0.0-alpha.23
 	github.com/streadway/amqp v1.0.0
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43 // indirect
 	golang.org/x/text v0.3.4 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
