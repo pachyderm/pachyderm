@@ -272,12 +272,12 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		// Only verify the ETag when it's of the same length as PFS file
 		// hashes. This is because s3 clients will generally use md5 for
 		// ETags, and would otherwise fail.
-		expectedETag := fmt.Sprintf("%x", fileInfo.Details.Hash)
+		expectedETag := fmt.Sprintf("%x", fileInfo.Hash)
 		if len(part.ETag) == len(expectedETag) && part.ETag != expectedETag {
 			return nil, s2.InvalidPartError(r)
 		}
 
-		if i < len(parts)-1 && fileInfo.Details.SizeBytes < 5*1024*1024 {
+		if i < len(parts)-1 && fileInfo.SizeBytes < 5*1024*1024 {
 			// each part, except for the last, is expected to be at least 5mb
 			// in s3
 			return nil, s2.EntityTooSmallError(r)
@@ -304,7 +304,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 
 	result := s2.CompleteMultipartResult{Location: globalLocation}
 	if fileInfo != nil {
-		result.ETag = fmt.Sprintf("%x", fileInfo.Details.Hash)
+		result.ETag = fmt.Sprintf("%x", fileInfo.Hash)
 		result.Version = fileInfo.File.Commit.ID
 	}
 
@@ -355,7 +355,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 
 		result.Parts = append(result.Parts, &s2.Part{
 			PartNumber: partNumber,
-			ETag:       fmt.Sprintf("%x", fileInfo.Details.Hash),
+			ETag:       fmt.Sprintf("%x", fileInfo.Hash),
 		})
 
 		return nil
@@ -399,5 +399,5 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 		return "", err
 	}
 
-	return fmt.Sprintf("%x", fileInfo.Details.Hash), nil
+	return fmt.Sprintf("%x", fileInfo.Hash), nil
 }

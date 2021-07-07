@@ -76,9 +76,9 @@ func TestEnableDashTLSNoName(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"deployTarget":             "LOCAL",
-			"dash.ingress.tls.enabled": "true",
-			"dash.ingress.host":        "http://blah.com",
+			"deployTarget":        "LOCAL",
+			"ingress.tls.enabled": "true",
+			"ingress.host":        "http://blah.com",
 		},
 	}
 
@@ -93,15 +93,15 @@ func TestEnableDashTLSExistingSecret(t *testing.T) {
 	expectedSecretName := "blah"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"deployTarget":                "LOCAL",
-			"dash.ingress.tls.enabled":    "true",
-			"dash.ingress.tls.secretName": expectedSecretName,
-			"dash.ingress.enabled":        "true",
-			"dash.ingress.host":           "http://blah.com",
+			"deployTarget":           "LOCAL",
+			"ingress.tls.enabled":    "true",
+			"ingress.tls.secretName": expectedSecretName,
+			"ingress.enabled":        "true",
+			"ingress.host":           "http://blah.com",
 		},
 	}
 
-	output := helm.RenderTemplate(t, options, helmChartPath, "secret", []string{"templates/dash/ingress.yaml"})
+	output := helm.RenderTemplate(t, options, helmChartPath, "secret", []string{"templates/ingress/ingress.yaml"})
 	var ingress *v1beta1.Ingress
 
 	helm.UnmarshalK8SYaml(t, output, &ingress)
@@ -121,9 +121,9 @@ func TestDashTLSNewSecretNoEnable(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"deployTarget":                   "LOCAL",
-			"dash.ingress.tls.newSecret.crt": "blah",
-			"dash.ingress.host":              "http://blah.com",
+			"deployTarget":              "LOCAL",
+			"ingress.tls.newSecret.crt": "blah",
+			"ingress.host":              "http://blah.com",
 		},
 	}
 

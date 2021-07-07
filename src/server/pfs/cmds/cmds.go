@@ -402,7 +402,7 @@ $ {{alias}} test -p XXX`,
 	commands = append(commands, cmdutil.CreateAlias(inspectCommit, "inspect commit"))
 
 	var from string
-	var number int
+	var number int64
 	var originStr string
 	listCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>[@<branch>]",
@@ -455,7 +455,7 @@ $ {{alias}} foo@master --from XXX`,
 				Repo:       branch.Repo,
 				From:       fromCommit,
 				To:         toCommit,
-				Number:     uint64(number),
+				Number:     number,
 				All:        all,
 				OriginKind: origin,
 			})
@@ -482,7 +482,7 @@ $ {{alias}} foo@master --from XXX`,
 		}),
 	}
 	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
-	listCommit.Flags().IntVarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
+	listCommit.Flags().Int64VarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	listCommit.Flags().BoolVar(&all, "all", false, "return all types of commits, including aliases")
 	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
@@ -1221,7 +1221,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				if err != nil {
 					return err
 				}
-				f, err := progress.Create(outputPath, int64(fi.Details.SizeBytes))
+				f, err := progress.Create(outputPath, int64(fi.SizeBytes))
 				if err != nil {
 					return err
 				}
@@ -1508,9 +1508,14 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 			defer c.Close()
 
-			return c.DeleteFile(file.Commit, file.Path)
+			var opts []client.DeleteFileOption
+			if recursive {
+				opts = append(opts, client.WithRecursiveDeleteFile())
+			}
+			return c.DeleteFile(file.Commit, file.Path, opts...)
 		}),
 	}
+	deleteFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively delete the files in a directory.")
 	shell.RegisterCompletionFunc(deleteFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteFile, "delete file"))
 

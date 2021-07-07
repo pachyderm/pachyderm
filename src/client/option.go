@@ -24,13 +24,25 @@ func WithTagPutFile(tag string) PutFileOption {
 	}
 }
 
+type deleteFileConfig struct {
+	tag       string
+	recursive bool
+}
+
 // DeleteFileOption configures a DeleteFile call.
-type DeleteFileOption func(*pfs.DeleteFile)
+type DeleteFileOption func(*deleteFileConfig)
 
 // WithTagDeleteFile configures the DeleteFile call to apply to a particular tag.
 func WithTagDeleteFile(tag string) DeleteFileOption {
-	return func(df *pfs.DeleteFile) {
-		df.Tag = tag
+	return func(dfc *deleteFileConfig) {
+		dfc.tag = tag
+	}
+}
+
+// WithRecursiveDeleteFile configures the DeleteFile call to recursively delete the files in a directory.
+func WithRecursiveDeleteFile() DeleteFileOption {
+	return func(dfc *deleteFileConfig) {
+		dfc.recursive = true
 	}
 }
 

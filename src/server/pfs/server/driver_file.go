@@ -202,7 +202,6 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 		return nil, err
 	}
 	opts := []SourceOption{
-		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
@@ -224,14 +223,13 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return ret, nil
 }
 
-func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, cb func(*pfs.FileInfo) error) error {
+func (d *driver) listFile(ctx context.Context, file *pfs.File, cb func(*pfs.FileInfo) error) error {
 	name := cleanPath(file.Path)
 	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(name), index.WithTag(file.Tag))
 	if err != nil {
 		return err
 	}
 	opts := []SourceOption{
-		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				// Check for directory match (don't return directory in list)
@@ -294,7 +292,6 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, 
 		return err
 	}
 	opts := []SourceOption{
-		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				return mf(idx.Path)
@@ -363,7 +360,6 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 			return err
 		}
 		opts := []SourceOption{
-			WithDetails(),
 			WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 				return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 					return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
@@ -377,7 +373,6 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 		return err
 	}
 	opts := []SourceOption{
-		WithDetails(),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
@@ -506,13 +501,20 @@ func (d *driver) getOrComputeTotal(ctx context.Context, commit *pfs.Commit) (*fi
 	return d.commitStore.GetTotalFileSet(ctx, commit)
 }
 
-// sizeOfCommit gets the size of a commit.
-func (d *driver) sizeOfCommit(ctx context.Context, commit *pfs.Commit) (int64, error) {
+func (d *driver) commitSizeUpperBound(ctx context.Context, commit *pfs.Commit) (int64, error) {
 	fsid, err := d.getFileSet(ctx, commit)
 	if err != nil {
 		return 0, err
 	}
-	return d.storage.SizeOf(ctx, *fsid)
+	return d.storage.SizeUpperBound(ctx, *fsid)
+}
+
+func (d *driver) commitSize(ctx context.Context, commit *pfs.Commit) (int64, error) {
+	fsid, err := d.getFileSet(ctx, commit)
+	if err != nil {
+		return 0, err
+	}
+	return d.storage.Size(ctx, *fsid)
 }
 
 func newFileNotFound(commitID string, path string) *pacherr.ErrNotExist {

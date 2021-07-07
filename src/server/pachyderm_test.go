@@ -170,21 +170,21 @@ func TestRepoSize(t *testing.T) {
 	// check data repo size
 	repoInfo, err := c.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.Equal(t, uint64(6), repoInfo.SizeBytes)
+	require.Equal(t, int64(6), repoInfo.Details.SizeBytes)
 
 	// check pipeline repo size
 	repoInfo, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, uint64(6), repoInfo.SizeBytes)
+	require.Equal(t, int64(6), repoInfo.Details.SizeBytes)
 
 	// ensure size is updated when we delete a commit
 	require.NoError(t, c.SquashCommitSet(commit1.ID))
 	repoInfo, err = c.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), repoInfo.SizeBytes)
+	require.Equal(t, int64(3), repoInfo.Details.SizeBytes)
 	repoInfo, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), repoInfo.SizeBytes)
+	require.Equal(t, int64(3), repoInfo.Details.SizeBytes)
 }
 
 func TestPFSPipeline(t *testing.T) {
@@ -326,7 +326,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 
 		fileInfo, err := c.InspectFile(outputCommit, fileName)
 		require.NoError(t, err)
-		require.Equal(t, chunkSize+i*units.MB, int(fileInfo.Details.SizeBytes))
+		require.Equal(t, chunkSize+i*units.MB, int(fileInfo.SizeBytes))
 
 		require.NoError(t, c.GetFile(outputCommit, fileName, &buf))
 		// we don't wanna use the `require` package here since it prints
@@ -1546,7 +1546,7 @@ func TestProvenance(t *testing.T) {
 
 	for _, ci := range commitInfos {
 		if ci.Commit.Branch.Repo.Name == cPipeline && ci.Commit.Branch.Repo.Type == pfs.UserRepoType {
-			require.Equal(t, uint64(0), ci.Details.SizeBytes)
+			require.Equal(t, int64(0), ci.Details.SizeBytes)
 		}
 	}
 
@@ -3079,9 +3079,7 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
-func TestStandby(t *testing.T) {
-	// TODO(2.0 required): Investigate flakiness.
-	t.Skip("Investigate flakiness")
+func TestAutoscalingStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3090,14 +3088,14 @@ func TestStandby(t *testing.T) {
 	t.Run("ChainOf10", func(t *testing.T) {
 		require.NoError(t, c.DeleteAll())
 
-		dataRepo := tu.UniqueString("TestStandby_data")
+		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		dataCommit := client.NewCommit(dataRepo, "master", "")
 
 		numPipelines := 10
 		pipelines := make([]string, numPipelines)
 		for i := 0; i < numPipelines; i++ {
-			pipelines[i] = tu.UniqueString("TestStandby")
+			pipelines[i] = tu.UniqueString("TestAutoscalingStandby")
 			input := dataRepo
 			if i > 0 {
 				input = pipelines[i-1]
@@ -3115,7 +3113,7 @@ func TestStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		require.NoErrorWithinTRetry(t, time.Second*120, func() error {
 			pis, err := c.ListPipeline(false)
 			require.NoError(t, err)
 			var standby int
@@ -3131,11 +3129,13 @@ func TestStandby(t *testing.T) {
 		})
 
 		require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo")))
+		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+		require.NoError(t, err)
 
 		var eg errgroup.Group
 		var finished bool
 		eg.Go(func() error {
-			_, err := c.WaitCommitSetAll(dataCommit.ID)
+			_, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 			require.NoError(t, err)
 			finished = true
 			return nil
@@ -3161,9 +3161,9 @@ func TestStandby(t *testing.T) {
 	t.Run("ManyCommits", func(t *testing.T) {
 		require.NoError(t, c.DeleteAll())
 
-		dataRepo := tu.UniqueString("TestStandby_data")
+		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
 		dataCommit := client.NewCommit(dataRepo, "master", "")
-		pipeline := tu.UniqueString("TestStandby")
+		pipeline := tu.UniqueString("TestAutoscalingStandby")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
@@ -3172,7 +3172,8 @@ func TestStandby(t *testing.T) {
 					Cmd:   []string{"sh"},
 					Stdin: []string{"echo $PPS_POD_NAME >/pfs/out/pod"},
 				},
-				Input: client.NewPFSInput(dataRepo, "/"),
+				Input:       client.NewPFSInput(dataRepo, "/"),
+				Autoscaling: true,
 			},
 		)
 		require.NoError(t, err)
@@ -3184,11 +3185,22 @@ func TestStandby(t *testing.T) {
 		require.NoError(t, err)
 		commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
+		nonAliasCommits := 0
+		for _, v := range commitInfos {
+			if v.Origin.Kind != pfs.OriginKind_ALIAS {
+				nonAliasCommits++
+			}
+		}
+		require.Equal(t, 3, nonAliasCommits)
 		pod := ""
 		commitInfos, err = c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
 		require.NoError(t, err)
-		for _, ci := range commitInfos {
+		for i, ci := range commitInfos {
+			// the last commit accessed (the oldest commit) will not have any files in it
+			// since it's created as a result of the spec commit
+			if i == len(commitInfos)-1 {
+				break
+			}
 			var buffer bytes.Buffer
 			require.NoError(t, c.GetFile(ci.Commit, "pod", &buffer))
 			if pod == "" {
@@ -3977,7 +3989,7 @@ func TestGetLogs(t *testing.T) {
 		pathLog := c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
 		base64Hash := "kstrTGrFE58QWlxEpCRBt3aT8NJPNY0rso6XK7a4+wM="
-		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Details.Hash))
+		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
 		base64Log := c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
 		numLogs = 0
@@ -9648,6 +9660,137 @@ func TestNonrootPipeline(t *testing.T) {
 			require.Equal(t, "foo", buf.String())
 		}
 	}
+}
+
+func TestRewindCrossPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestRewindCrossPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("pipeline")
+	create := func(update bool, repos ...string) error {
+		var indivInputs []*pps.Input
+		var stdin []string
+		for _, r := range repos {
+			indivInputs = append(indivInputs, client.NewPFSInput(r, "/*"))
+			stdin = append(stdin, fmt.Sprintf("cp /pfs/%s/* /pfs/out/", r))
+		}
+		var input *pps.Input
+		if len(repos) > 1 {
+			input = client.NewCrossInput(indivInputs...)
+		} else {
+			input = indivInputs[0]
+		}
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"bash"},
+					Stdin: stdin,
+				},
+				Input:  input,
+				Update: update,
+			})
+		return err
+	}
+	require.NoError(t, create(false, dataRepo))
+
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "first", strings.NewReader("first")))
+	_, err := c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// make a new repo, and update the pipeline to take it as input
+	laterRepo := tu.UniqueString("LaterRepo")
+	require.NoError(t, c.CreateRepo(laterRepo))
+	require.NoError(t, create(true, dataRepo, laterRepo))
+
+	// save the current commit set ID
+	oldCommit, err := c.InspectCommit(dataRepo, "master", "")
+	require.NoError(t, err)
+
+	// add new files to both repos
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "second", strings.NewReader("second")))
+	require.NoError(t, c.PutFile(client.NewCommit(laterRepo, "master", ""), "later", strings.NewReader("later")))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	fmt.Println("moving to ", oldCommit)
+	// now, move dataRepo back to the saved commit
+	require.NoError(t, c.CreateBranch(dataRepo, "master", "master", oldCommit.Commit.ID, nil))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	info, err := c.InspectCommit(dataRepo, "master", "")
+	require.NoError(t, err)
+
+	// the new commit cannot reuse the old ID
+	require.NotEqual(t, info.Commit.ID, oldCommit.Commit.ID)
+
+	// laterRepo has the same contents
+	files, err := c.ListFileAll(client.NewCommit(laterRepo, "master", info.Commit.ID), "/")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(files))
+	require.Equal(t, "/later", files[0].File.Path)
+
+	// which is reflected in the output
+	files, err = c.ListFileAll(client.NewCommit(pipeline, "master", info.Commit.ID), "/")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(files))
+	require.ElementsEqualUnderFn(t, []string{"/first", "/later"}, files, func(f interface{}) interface{} { return f.(*pfs.FileInfo).File.Path })
+}
+
+func TestMoveBranchTrigger(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestRewindTrigger_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// create a pipeline taking both master and the trigger branch as input
+	pipeline := tu.UniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+					"cp /pfs/trigger/* /pfs/out/",
+				},
+			},
+			Input: client.NewCrossInput(
+				client.NewPFSInput(dataRepo, "/*"),
+				client.NewPFSInputOpts("trigger", dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+					Branch:  "toMove",
+					Commits: 1,
+				}),
+			),
+		})
+	require.NoError(t, err)
+
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "foo", strings.NewReader("bar")))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// create the trigger source branch
+	require.NoError(t, c.CreateBranch(dataRepo, "toMove", "master", "", nil))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// make sure the trigger triggered
+	files, err := c.ListFileAll(client.NewCommit(dataRepo, "trigger", ""), "/")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(files))
+	require.Equal(t, "/foo", files[0].File.Path)
 }
 
 func monitorReplicas(t testing.TB, pipeline string, n int) {

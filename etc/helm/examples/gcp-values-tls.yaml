@@ -3,13 +3,12 @@
 
 deployTarget: GOOGLE
 
-dash:
-  ingress:
+ingress:
+  enabled: true
+  host: "blah.com"
+  tls:
     enabled: true
-    host: "blah.com"
-    tls:
-      enabled: true
-      secretName: "pach-tls" #Will use same secret as pach
+    secretName: "pach-tls" #Will use same secret as pach
 
 pachd:
   storage:
