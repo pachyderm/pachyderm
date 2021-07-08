@@ -8,7 +8,7 @@ Types other than `USER` indicate System Repos, which hold certain auxiliary info
 
 - `USER`: That keeps track of your data one commit at a time.
 - `SPEC`: That keeps track of the pipeline's specification version used by a given job. 
-- `META`: That holds the statistics of your transformation. 
+- `META`: That holds the statistics of your transformation.
 
 Each pipeline comes with one `SPEC` and one `META` repo. Every time a job commits the result of a transformation to a pipeline output commit, it also commits to the pipeline's meta repo. Deleting the output repo of a pipeline (which happens per default when deleting a pipeline) will also delete its `SPEC` and `META` repo.
 
@@ -27,13 +27,13 @@ Along with the introduction of GlobalID, we are introducing 2 new definitions:
 
 
 ## Inititialization
-We are basing this example on our open CV example. 
+We are basing this example on our [open CV](../opencv/README.md) example. 
 In the `examples/globalID` directory, run the following targets: 
 ```shell
 make clean
 make init
 ```
-## GlobalID - An unique ID to trace all of the commits and jobs that resulted from an initial change in your DAG
+## GlobalID - A unique ID to trace all of the commits and jobs that resulted from an initial change in your DAG
 With GlobalId, all provenance-dependent commits share the same ID (commitset). 
 You can list all commitset by running the following command:
 ```shell
@@ -85,8 +85,8 @@ This includes the 2 jobs triggered in the process, each of which will also share
     REPO  BRANCH COMMIT                           FINISHED      SIZE ORIGIN DESCRIPTION
    **edges master 336f02bdbbbb446e91ba27d2d2b516c6 7 minutes ago -    AUTO**
 
-    edges master 3141ea4783d8452c9e299717c3e0e0eb 7 minutes ago -    ALIAS
-    edges master 1ec7f101f290445a8958b19da33b20a3 7 minutes ago -    AUTO
+    edges master 3141ea4783d8452c9e299717c3e0e0eb 7 minutes ago -     ALIAS
+    edges master 1ec7f101f290445a8958b19da33b20a3 7 minutes ago -     AUTO
     ```
     ```
     REPO  BRANCH COMMIT                           FINISHED      SIZE ORIGIN DESCRIPTION
@@ -164,10 +164,22 @@ This includes the 2 jobs triggered in the process, each of which will also share
     Because they are not the result of a user change or the automatic cascade of following commits that ensues in the DAG,
     their type is **`ALIAS`**. 
 
-
-    All the components (pipelines specs versions, pipeline jobs, and commits in all repos of the DAG) 
-    now share one unique identifier as shown below.
-
+- All the components (pipelines specs versions, pipeline jobs, and commits in all repos of the DAG) 
+    now share one unique identifier as shown below:
+    ```shell
+    pachctl inpect commitset 336f02bdbbbb446e91ba27d2d2b516c6
+    ```
+    ```
+    REPO         BRANCH COMMIT                           FINISHED      SIZE ORIGIN DESCRIPTION
+    images       master 336f02bdbbbb446e91ba27d2d2b516c6 5 minutes ago -    USER
+    edges.spec   master 336f02bdbbbb446e91ba27d2d2b516c6 5 minutes ago -    ALIAS
+    montage.spec master 336f02bdbbbb446e91ba27d2d2b516c6 5 minutes ago -    ALIAS
+    montage.meta master 336f02bdbbbb446e91ba27d2d2b516c6 4 minutes ago -    AUTO
+    edges        master 336f02bdbbbb446e91ba27d2d2b516c6 5 minutes ago -    AUTO
+    edges.meta   master 336f02bdbbbb446e91ba27d2d2b516c6 5 minutes ago -    AUTO
+    montage      master 336f02bdbbbb446e91ba27d2d2b516c6 4 minutes ago -    AUTO
+    ```
+    The same commitset in a diagram:
     ![commitset_after_putfile](./img/commitset_after_putfile.png)
 
 ### 2- Let our initial change now be an `update pipeline`
