@@ -118,13 +118,13 @@ jobs:
       #- run: git config --global user.name buildbot
       - run:
           name: Clone Pachyderm
-      #    #command: git clone -b ${CIRCLE_TAG} https://github.com/pachyderm/pachyderm.git pachyderm # Chart releaser only supports https clone, not ssh
+      #    #command: git clone -b ${CIRCLE_TAG} --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm # Chart releaser only supports https clone, not ssh
           command: git clone -b v2.0.0-beta.1 --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm
       - run:
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: cr package pachyderm/etc/helm/pachyderm
-      #- run: cr upload -o pachyderm -r helmchart --skip-existing
+      - run: cr upload -o pachyderm -r helmchart --skip-existing
       #- run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart -r helmchart --package-path ../.cr-release-packages --push
 workflows:
   #circleci:
