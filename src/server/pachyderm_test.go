@@ -9539,7 +9539,11 @@ func TestNonrootPipeline(t *testing.T) {
 			Input:        client.NewPFSInput(dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
-			PodPatch:     `[{"op": "add",  "path": "/securityContext/runAsUser",  "value": 1000}]`,
+			PodPatch: `[
+				{"op": "add",  "path": "/securityContext",  "value": {}},
+				{"op": "add",  "path": "/securityContext/runAsUser",  "value": 1000}
+			]`,
+			Autoscaling: false,
 		},
 	)
 	require.NoError(t, err)

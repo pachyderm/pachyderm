@@ -550,6 +550,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		{Name: "WORKER_IMAGE_PULL_POLICY", Value: "IfNotPresent"},
 		{Name: WorkerServiceAccountEnvVar, Value: opts.WorkerServiceAccountName},
 		{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
+		{Name: "WORKER_USES_ROOT", Value: strconv.FormatBool(opts.RunAsRoot)},
 		{Name: "LOG_LEVEL", Value: opts.LogLevel},
 		{
 			Name: "PACH_NAMESPACE",
