@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/components",
-  "version": "1.4.5",
+  "version": "1.5.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -21,7 +21,9 @@
     "test": "jest"
   },
   "devDependencies": {
+    "@apollo/client": "^3.3.1",
     "@pachyderm/config": "^0.5.0",
+    "@sentry/react": "^6.8.0",
     "@storybook/addon-actions": "^6.1.1",
     "@storybook/addon-essentials": "^6.1.21",
     "@storybook/addon-links": "^6.1.1",
@@ -69,6 +71,8 @@
     "splitting": "^1.0.6"
   },
   "peerDependencies": {
+    "@apollo/client": ">=3.3.1",
+    "@sentry/react": ">=6.8.0",
     "react": ">=17.0.0",
     "react-dom": ">=17.0.0",
     "react-router-dom": ">=5.2.0",
