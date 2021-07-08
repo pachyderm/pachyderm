@@ -19173,13 +19173,12 @@ proto.pps_v2.JobState = {
  * @enum {number}
  */
 proto.pps_v2.DatumState = {
-  DATUM_STATE_UNKNOWN: 0,
+  UNKNOWN: 0,
   FAILED: 1,
   SUCCESS: 2,
   SKIPPED: 3,
   STARTING: 4,
-  RECOVERED: 5,
-  UNPROCESSED: 6
+  RECOVERED: 5
 };
 
 /**

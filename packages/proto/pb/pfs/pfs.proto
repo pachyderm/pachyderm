@@ -204,6 +204,7 @@ message FinishCommitRequest {
   // will overwrite the description set in StartCommit
   string description = 2;
   bool error = 3;
+  bool force = 4;
 }
 
 message InspectCommitRequest {
@@ -218,6 +219,8 @@ message ListCommitRequest {
   Commit to = 3;
   int64 number = 4;
   bool reverse = 5;  // Return commits oldest to newest
+  bool all = 6; // Return commits of all kinds (without this, aliases are excluded)
+  OriginKind origin_kind = 7; // Return only commits of this kind (mutually exclusive with all)
 }
 
 message InspectCommitSetRequest {
@@ -239,6 +242,8 @@ message SubscribeCommitRequest {
   Commit from = 3;
   // Don't return commits until they're in (at least) the desired state.
   CommitState state = 4;
+  bool all = 5; // Return commits of all kinds (without this, aliases are excluded)
+  OriginKind origin_kind = 6; // Return only commits of this kind (mutually exclusive with all)
 }
 
 message ClearCommitRequest {

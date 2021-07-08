@@ -640,6 +640,8 @@ export class FinishCommitRequest extends jspb.Message {
     setDescription(value: string): FinishCommitRequest;
     getError(): boolean;
     setError(value: boolean): FinishCommitRequest;
+    getForce(): boolean;
+    setForce(value: boolean): FinishCommitRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): FinishCommitRequest.AsObject;
@@ -656,6 +658,7 @@ export namespace FinishCommitRequest {
         commit?: Commit.AsObject,
         description: string,
         error: boolean,
+        force: boolean,
     }
 }
 
@@ -705,6 +708,10 @@ export class ListCommitRequest extends jspb.Message {
     setNumber(value: number): ListCommitRequest;
     getReverse(): boolean;
     setReverse(value: boolean): ListCommitRequest;
+    getAll(): boolean;
+    setAll(value: boolean): ListCommitRequest;
+    getOriginKind(): OriginKind;
+    setOriginKind(value: OriginKind): ListCommitRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListCommitRequest.AsObject;
@@ -723,6 +730,8 @@ export namespace ListCommitRequest {
         to?: Commit.AsObject,
         number: number,
         reverse: boolean,
+        all: boolean,
+        originKind: OriginKind,
     }
 }
 
@@ -807,6 +816,10 @@ export class SubscribeCommitRequest extends jspb.Message {
     setFrom(value?: Commit): SubscribeCommitRequest;
     getState(): CommitState;
     setState(value: CommitState): SubscribeCommitRequest;
+    getAll(): boolean;
+    setAll(value: boolean): SubscribeCommitRequest;
+    getOriginKind(): OriginKind;
+    setOriginKind(value: OriginKind): SubscribeCommitRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SubscribeCommitRequest.AsObject;
@@ -824,6 +837,8 @@ export namespace SubscribeCommitRequest {
         branch: string,
         from?: Commit.AsObject,
         state: CommitState,
+        all: boolean,
+        originKind: OriginKind,
     }
 }
 

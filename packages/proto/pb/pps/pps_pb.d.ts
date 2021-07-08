@@ -2340,13 +2340,12 @@ export enum JobState {
 }
 
 export enum DatumState {
-    DATUM_STATE_UNKNOWN = 0,
+    UNKNOWN = 0,
     FAILED = 1,
     SUCCESS = 2,
     SKIPPED = 3,
     STARTING = 4,
     RECOVERED = 5,
-    UNPROCESSED = 6,
 }
 
 export enum WorkerState {

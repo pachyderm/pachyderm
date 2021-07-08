@@ -5847,7 +5847,8 @@ proto.pfs_v2.FinishCommitRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     commit: (f = msg.getCommit()) && proto.pfs_v2.Commit.toObject(includeInstance, f),
     description: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    error: jspb.Message.getBooleanFieldWithDefault(msg, 3, false)
+    error: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
+    force: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
   };
 
   if (includeInstance) {
@@ -5897,6 +5898,10 @@ proto.pfs_v2.FinishCommitRequest.deserializeBinaryFromReader = function(msg, rea
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setError(value);
       break;
+    case 4:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setForce(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -5945,6 +5950,13 @@ proto.pfs_v2.FinishCommitRequest.serializeBinaryToWriter = function(message, wri
   if (f) {
     writer.writeBool(
       3,
+      f
+    );
+  }
+  f = message.getForce();
+  if (f) {
+    writer.writeBool(
+      4,
       f
     );
   }
@@ -6021,6 +6033,24 @@ proto.pfs_v2.FinishCommitRequest.prototype.getError = function() {
  */
 proto.pfs_v2.FinishCommitRequest.prototype.setError = function(value) {
   return jspb.Message.setProto3BooleanField(this, 3, value);
+};
+
+
+/**
+ * optional bool force = 4;
+ * @return {boolean}
+ */
+proto.pfs_v2.FinishCommitRequest.prototype.getForce = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 4, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pfs_v2.FinishCommitRequest} returns this
+ */
+proto.pfs_v2.FinishCommitRequest.prototype.setForce = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 4, value);
 };
 
 
@@ -6241,7 +6271,9 @@ proto.pfs_v2.ListCommitRequest.toObject = function(includeInstance, msg) {
     from: (f = msg.getFrom()) && proto.pfs_v2.Commit.toObject(includeInstance, f),
     to: (f = msg.getTo()) && proto.pfs_v2.Commit.toObject(includeInstance, f),
     number: jspb.Message.getFieldWithDefault(msg, 4, 0),
-    reverse: jspb.Message.getBooleanFieldWithDefault(msg, 5, false)
+    reverse: jspb.Message.getBooleanFieldWithDefault(msg, 5, false),
+    all: jspb.Message.getBooleanFieldWithDefault(msg, 6, false),
+    originKind: jspb.Message.getFieldWithDefault(msg, 7, 0)
   };
 
   if (includeInstance) {
@@ -6300,6 +6332,14 @@ proto.pfs_v2.ListCommitRequest.deserializeBinaryFromReader = function(msg, reade
     case 5:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setReverse(value);
+      break;
+    case 6:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setAll(value);
+      break;
+    case 7:
+      var value = /** @type {!proto.pfs_v2.OriginKind} */ (reader.readEnum());
+      msg.setOriginKind(value);
       break;
     default:
       reader.skipField();
@@ -6365,6 +6405,20 @@ proto.pfs_v2.ListCommitRequest.serializeBinaryToWriter = function(message, write
   if (f) {
     writer.writeBool(
       5,
+      f
+    );
+  }
+  f = message.getAll();
+  if (f) {
+    writer.writeBool(
+      6,
+      f
+    );
+  }
+  f = message.getOriginKind();
+  if (f !== 0.0) {
+    writer.writeEnum(
+      7,
       f
     );
   }
@@ -6515,6 +6569,42 @@ proto.pfs_v2.ListCommitRequest.prototype.getReverse = function() {
  */
 proto.pfs_v2.ListCommitRequest.prototype.setReverse = function(value) {
   return jspb.Message.setProto3BooleanField(this, 5, value);
+};
+
+
+/**
+ * optional bool all = 6;
+ * @return {boolean}
+ */
+proto.pfs_v2.ListCommitRequest.prototype.getAll = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 6, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pfs_v2.ListCommitRequest} returns this
+ */
+proto.pfs_v2.ListCommitRequest.prototype.setAll = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 6, value);
+};
+
+
+/**
+ * optional OriginKind origin_kind = 7;
+ * @return {!proto.pfs_v2.OriginKind}
+ */
+proto.pfs_v2.ListCommitRequest.prototype.getOriginKind = function() {
+  return /** @type {!proto.pfs_v2.OriginKind} */ (jspb.Message.getFieldWithDefault(this, 7, 0));
+};
+
+
+/**
+ * @param {!proto.pfs_v2.OriginKind} value
+ * @return {!proto.pfs_v2.ListCommitRequest} returns this
+ */
+proto.pfs_v2.ListCommitRequest.prototype.setOriginKind = function(value) {
+  return jspb.Message.setProto3EnumField(this, 7, value);
 };
 
 
@@ -6986,7 +7076,9 @@ proto.pfs_v2.SubscribeCommitRequest.toObject = function(includeInstance, msg) {
     repo: (f = msg.getRepo()) && proto.pfs_v2.Repo.toObject(includeInstance, f),
     branch: jspb.Message.getFieldWithDefault(msg, 2, ""),
     from: (f = msg.getFrom()) && proto.pfs_v2.Commit.toObject(includeInstance, f),
-    state: jspb.Message.getFieldWithDefault(msg, 4, 0)
+    state: jspb.Message.getFieldWithDefault(msg, 4, 0),
+    all: jspb.Message.getBooleanFieldWithDefault(msg, 5, false),
+    originKind: jspb.Message.getFieldWithDefault(msg, 6, 0)
   };
 
   if (includeInstance) {
@@ -7040,6 +7132,14 @@ proto.pfs_v2.SubscribeCommitRequest.deserializeBinaryFromReader = function(msg, 
     case 4:
       var value = /** @type {!proto.pfs_v2.CommitState} */ (reader.readEnum());
       msg.setState(value);
+      break;
+    case 5:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setAll(value);
+      break;
+    case 6:
+      var value = /** @type {!proto.pfs_v2.OriginKind} */ (reader.readEnum());
+      msg.setOriginKind(value);
       break;
     default:
       reader.skipField();
@@ -7097,6 +7197,20 @@ proto.pfs_v2.SubscribeCommitRequest.serializeBinaryToWriter = function(message, 
   if (f !== 0.0) {
     writer.writeEnum(
       4,
+      f
+    );
+  }
+  f = message.getAll();
+  if (f) {
+    writer.writeBool(
+      5,
+      f
+    );
+  }
+  f = message.getOriginKind();
+  if (f !== 0.0) {
+    writer.writeEnum(
+      6,
       f
     );
   }
@@ -7210,6 +7324,42 @@ proto.pfs_v2.SubscribeCommitRequest.prototype.getState = function() {
  */
 proto.pfs_v2.SubscribeCommitRequest.prototype.setState = function(value) {
   return jspb.Message.setProto3EnumField(this, 4, value);
+};
+
+
+/**
+ * optional bool all = 5;
+ * @return {boolean}
+ */
+proto.pfs_v2.SubscribeCommitRequest.prototype.getAll = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 5, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pfs_v2.SubscribeCommitRequest} returns this
+ */
+proto.pfs_v2.SubscribeCommitRequest.prototype.setAll = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 5, value);
+};
+
+
+/**
+ * optional OriginKind origin_kind = 6;
+ * @return {!proto.pfs_v2.OriginKind}
+ */
+proto.pfs_v2.SubscribeCommitRequest.prototype.getOriginKind = function() {
+  return /** @type {!proto.pfs_v2.OriginKind} */ (jspb.Message.getFieldWithDefault(this, 6, 0));
+};
+
+
+/**
+ * @param {!proto.pfs_v2.OriginKind} value
+ * @return {!proto.pfs_v2.SubscribeCommitRequest} returns this
+ */
+proto.pfs_v2.SubscribeCommitRequest.prototype.setOriginKind = function(value) {
+  return jspb.Message.setProto3EnumField(this, 6, value);
 };
 
 
