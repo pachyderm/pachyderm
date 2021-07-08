@@ -81,13 +81,7 @@ jobs:
           path: /tmp/test-results
   helm-build:
     docker:
-      # specify the version
       - image: circleci/golang:1.15
-
-      # Specify service dependencies here if necessary
-      # CircleCI maintains a library of pre-built images
-      # documented at https://circleci.com/docs/2.0/circleci-images/
-      # - image: circleci/postgres:9.4
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
@@ -108,26 +102,22 @@ jobs:
             - "/go/pkg/mod"
   helm-publish:
     docker:
-      - image: chainlink/chart-releaser:v1.1.1
+      - image: gcr.io/public-builds/chart-releaser:v1.2.1
     steps:
-      ## Set CR_Token to GH Token
-      ## package repo: cr package pachyderm
-      ## create release: cr upload -o pachyderm -r helmchart
-      ## cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --push
-      - add_ssh_keys:
-          fingerprints:
-            - 3e:5e:ce:88:3a:42:ca:26:5e:90:66:f7:78:60:12:e1
-      - run:
-          name: Avoid hosts unknown for github
-          command: echo "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" >> ~/.ssh/known_hosts
+      # Set CR_Token to GH Personal Access Token (Found in pachydermbuildbot GH Acount)
+      # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
       - run: git config --global user.email buildbot@pachyderm.io
       - run: git config --global user.name buildbot
       - run:
-          name: Clone GitHub repository
-          command: git clone -b ${CIRCLE_TAG} $CIRCLE_REPOSITORY_URL .
-      - run: cr package pachyderm
-      - run: cr upload -o pachyderm -r helmchart
-      - run: cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --push
+          name: Clone Pachyderm
+          command: git clone -b ${CIRCLE_TAG} --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm 
+      - run:
+          # the helmchart git repo hosts the helm repository (gh-pages) Chart releaser only supports https clone, not ssh
+          name: Clone Helmchart
+          command: git clone https://github.com/pachyderm/helmchart.git helmchart
+      - run: cr package pachyderm/etc/helm/pachyderm
+      - run: cr upload -o pachyderm -r helmchart --skip-existing
+      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --package-path ../.cr-release-packages --push
 workflows:
   circleci:
     jobs:
@@ -153,6 +143,7 @@ workflows:
     jobs:
       - helm-build:
           filters:
+            # Note: Not ignoring branches, so will be run on branches as well as tags
             tags:
               only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
       - helm-publish:
