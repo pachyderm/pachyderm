@@ -1,8 +1,18 @@
+>![pach_logo](../img/pach_logo.svg) INFO Pachyderm 2.0 introduces profound architectual changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 
-## Before You Start
+# Global ID - comming soon
+>![pach_logo](./img/pach_logo.svg) The Global Identifier is available in version **2.0 and higher**.
 
-Global ID can be seen as **a common TAG that marks all the commits and jobs involved in the chain reaction that takes place in your data-driven DAG when triggered by an initial change (a put file in a repo, an updated pipeline, a squash commit...). 
+## Intro
+Global ID can be seen as **a common TAG that marks all the commits and jobs created by your data-driven DAG when triggered by an initial change (a put file in a repo, an updated pipeline, a squash commit...). 
 
+This example will walk you through 3 different user changes (put file, update pipeline edges, update pipeline montage) and illustrate how each of them affects the origin of each resulting commit.
+The example is based on our openCV example.
+
+## Getting ready
+***Key concepts***
 Note, as a reminder, that we have **3 types of repos**. 
 Types other than `USER` indicate System Repos, which hold certain auxiliary information about pipelines. 
 
@@ -25,6 +35,27 @@ Along with the introduction of GlobalID, we are introducing 2 new definitions:
 - `commitset`: A commitset is the set of all commits (`USER`,`AUTO`, `ALIAS`) connected through provenance relationships. They share a common ID. Note that all jobs triggered by the initial `USER` commit ALSO share this same ID as jobID.
 - `jobset`: Similarly, a jobset is the set of jobs created due to commits in a CommitSet. 
 
+Find all these concepts in our documentation:
+-[Repo](https://docs.pachyderm.com/latest/concepts/data-concepts/repo/)
+-[Commit](https://docs.pachyderm.com/latest/concepts/data-concepts/commit/)
+-[CommitID](https://docs.pachyderm.com/latest/concepts/advanced-concepts/globalID/)
+
+***Prerequisite***
+- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
+
+***Getting started***
+- Clone this repo.
+- Make sure Pachyderm is running. You should be able to connect to your Pachyderm cluster via the `pachctl` CLI. 
+Run a quick:
+```shell
+$ pachctl version
+
+COMPONENT           VERSION
+pachctl             2.0.0
+pachd               2.0.0
+```
+Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the same major & minor versions of your pachctl and pachd. 
 
 ## Inititialization
 We are basing this example on our [open CV](../opencv/README.md) example. 
@@ -34,7 +65,7 @@ make clean
 make init
 ```
 ## GlobalID - A unique ID to trace all of the commits and jobs that resulted from an initial change in your DAG
-With GlobalId, all provenance-dependent commits share the same ID (commitset). 
+With GlobalID, all provenance-dependent commits share the same ID (commitset). 
 You can list all commitset by running the following command:
 ```shell
 pachctl list commitset
@@ -115,25 +146,6 @@ This includes the 2 jobs triggered in the process, each of which will also share
     "origin": {
         "kind": "AUTO"
     },
-    ```
-    as mentionned here:
-    ```json
-    "directProvenance": [
-        {
-        "repo": {
-            "name": "edges",
-            "type": "spec"
-        },
-        "name": "master"
-        },
-        {
-        "repo": {
-            "name": "images",
-            "type": "user"
-        },
-        "name": "master"
-        }
-    ]
     ```
 - Repeat the same command on the montage repo and note the same origin of the commit.
 
