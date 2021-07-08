@@ -112,12 +112,12 @@ jobs:
           name: Clone Pachyderm
           command: git clone -b ${CIRCLE_TAG} --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm 
       - run:
-          # Needed to update the chart repository (gh-pages) Chart releaser only supports https clone, not ssh
+          # the helmchart git repo hosts the helm repository (gh-pages) Chart releaser only supports https clone, not ssh
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: cr package pachyderm/etc/helm/pachyderm
       - run: cr upload -o pachyderm -r helmchart --skip-existing
-      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --package-path ../.cr-release-packages --pr #--push
+      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --package-path ../.cr-release-packages --push
 workflows:
   circleci:
     jobs:

@@ -92,7 +92,9 @@ annotations:
 
 This will ensure the release is marked as a pre-release on artifact hub
 
-git commit -am "Update Pachyderm version in helm for $(pachctl version --client-only) release"
+Commit your change to the repo:
+
+```git commit -am "Update Pachyderm version in helm for <new pachyderm version> release"```
 
 ### Update the changelog [apply step only when running point-release target]
 
@@ -101,6 +103,8 @@ Update the changelog in the branch and commit it locally. Edit `CHANGELOG.md`
 ```shell
 git commit -am "Update change log for $(pachctl version --client-only) release"
 ```
+
+Note: The changelog must be the last commit to be properly parsed by `etc/build/make_changelog.sh`
 
 ### Push changes [apply step only when running point-release target]
 
@@ -207,3 +211,8 @@ All of these can be accomplished by:
   `git tag -l | xargs git tag -d; git fetch origin master --tags`). This
   prevents the release process from failing with `tag already exists`.
 - Run `make point-release` (or follow the release process for custom releases)
+
+Helm
+- Delete the release from the https://github.com/pachyderm/helmchart repo
+- Rollback the commit on the gh-pages branch which added the release to the index.yaml 
+in https://github.com/pachyderm/helmchart
