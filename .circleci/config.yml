@@ -125,7 +125,8 @@ jobs:
       - run: git config --global user.name buildbot
       - run:
           name: Clone GitHub repository
-          command: git clone -b ${CIRCLE_TAG} $CIRCLE_REPOSITORY_URL pachyderm
+          #command: git clone -b ${CIRCLE_TAG} $CIRCLE_REPOSITORY_URL pachyderm
+          command: git clone $CIRCLE_REPOSITORY_URL pachyderm
       - run:
           name: Clone GitHub repository
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
