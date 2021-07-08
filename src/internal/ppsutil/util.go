@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"crypto/md5"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
@@ -433,7 +435,10 @@ func ContainsS3Inputs(in *pps.Input) bool {
 // sidecar server) and the worker (which passes the endpoint to the user code)
 // need to know it.
 func SidecarS3GatewayService(pipeline, commitSetId string) string {
-	return fmt.Sprintf("s3-%v-%v", strings.ToLower(pipeline), commitSetId)
+	hash := md5.New()
+	hash.Write([]byte(pipeline))
+	hash.Write([]byte(commitSetId))
+	return "s3-" + pfs.EncodeHash(hash.Sum(nil))
 }
 
 // ErrorState returns true if s is an error state for a pipeline, that is, a

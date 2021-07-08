@@ -137,7 +137,7 @@ func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver
 	require.NoError(t, err)
 
 	go func() {
-		server.HttpServer.Serve(listener)
+		server.Serve(listener)
 	}()
 
 	port := listener.Addr().(*net.TCPAddr).Port
@@ -149,5 +149,5 @@ func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver
 		runner(t, pachClient, minioClient)
 	})
 
-	require.NoError(t, server.HttpServer.Shutdown(context.Background()))
+	require.NoError(t, server.Shutdown(context.Background()))
 }

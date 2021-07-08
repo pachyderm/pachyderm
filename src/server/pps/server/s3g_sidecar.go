@@ -85,7 +85,7 @@ func (a *apiServer) ServeSidecarS3G() {
 
 	go func() {
 		for i := 0; i < 2; i++ { // If too many errors, the worker will fail the job
-			err := s.server.HttpServer.ListenAndServe()
+			err := s.server.ListenAndServe()
 			if err == nil || errors.Is(err, http.ErrServerClosed) {
 				break // server was shutdown/closed
 			}
@@ -213,11 +213,20 @@ func (s *k8sServiceCreatingJobHandler) S3G() *sidecarS3G {
 
 func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
 	// Create kubernetes service for the current job ('jobInfo')
-	labels := map[string]string{
+	copyMap := func(m map[string]string) map[string]string {
+		nm := make(map[string]string)
+		for k, v := range m {
+			nm[k] = v
+		}
+		return nm
+	}
+	selectorlabels := map[string]string{
 		"app":       ppsutil.PipelineRcName(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion),
 		"suite":     "pachyderm",
 		"component": "worker",
 	}
+	svcLabels := copyMap(selectorlabels)
+	svcLabels["job"] = jobInfo.Job.ID // for reference, we also want to leave info about the job in the service definition
 	service := &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
@@ -225,10 +234,10 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID),
-			Labels: labels,
+			Labels: svcLabels,
 		},
 		Spec: v1.ServiceSpec{
-			Selector: labels,
+			Selector: selectorlabels,
 			// Create a headless service so that the worker's kube proxy doesn't
 			// have to get a routing path for the service IP (i.e. the worker kube
 			// proxy can have stale routes and clients running inside the worker

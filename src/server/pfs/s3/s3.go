@@ -120,7 +120,7 @@ func Router(driver Driver, clientFactory ClientFactory) *mux.Router {
 // to configure handlers (mux.Routers) corresponding to different request URI hostnames.
 // This way one http Server can respond differently and accordingly to each specific job.
 type S3Server struct {
-	HttpServer  *http.Server
+	*http.Server
 	routerMap   map[string]*mux.Router
 	routersLock sync.RWMutex
 }
@@ -151,7 +151,7 @@ func Server(port uint16, defaultRouter *mux.Router) *S3Server {
 		"source": "s3gateway",
 	})
 	s3Server := S3Server{routerMap: make(map[string]*mux.Router)}
-	s3Server.HttpServer = &http.Server{
+	s3Server.Server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
 		ReadTimeout:  requestTimeout,
 		WriteTimeout: requestTimeout,

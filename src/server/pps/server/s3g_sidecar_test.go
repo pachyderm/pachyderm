@@ -230,7 +230,7 @@ func TestS3Chain(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	dataCommit := client.NewCommit(dataRepo, "master", "")
 
-	numPipelines := 10
+	numPipelines := 5
 	pipelines := make([]string, numPipelines)
 	for i := 0; i < numPipelines; i++ {
 		pipelines[i] = tu.UniqueString(t.Name())
@@ -728,7 +728,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		pipelineCommit := client.NewCommit(pipeline, "master", "")
 		// Add files to 'repo'. Old files in 'repo' should be reprocessed in every
 		// job, changing the 'background' field in the output
-		for i := 1; i < 7; i++ {
+		for i := 1; i <= 5; i++ {
 			// Increment "/round" in 'background'
 			iS := strconv.Itoa(i)
 			bgc, err := c.StartCommit(background, "master")
