@@ -24,7 +24,6 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 
@@ -957,6 +956,7 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 		if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 			Commit: commitInfo.Commit,
 			Error:  true,
+			Force:  true,
 		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
 			return err
 		}
@@ -964,6 +964,7 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 		if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 			Commit: ppsutil.MetaCommit(commitInfo.Commit),
 			Error:  true,
+			Force:  true,
 		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
 			return err
 		}
@@ -1001,7 +1002,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	// TODO: Auth?
 	if err := a.collectDatums(ctx, request.Datum.Job, func(meta *datum.Meta, pfsState *pfs.File) error {
 		if common.DatumID(meta.Inputs) == request.Datum.ID {
-			response = convertDatumMetaToInfo(meta)
+			response = convertDatumMetaToInfo(meta, request.Datum.Job)
 			response.PfsState = pfsState
 		}
 		return nil
@@ -1017,14 +1018,14 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 	// TODO: Auth?
 	if request.Input != nil {
 		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
-			meta.State = datum.State_UNPROCESSED
-			di := convertDatumMetaToInfo(meta)
+			di := convertDatumMetaToInfo(meta, nil)
+			di.State = pps.DatumState_UNKNOWN
 			di.Datum.ID = ""
 			return server.Send(di)
 		})
 	}
 	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
-		return server.Send(convertDatumMetaToInfo(meta))
+		return server.Send(convertDatumMetaToInfo(meta, request.Job))
 	})
 }
 
@@ -1056,7 +1057,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	})
 }
 
-func convertDatumMetaToInfo(meta *datum.Meta) *pps.DatumInfo {
+func convertDatumMetaToInfo(meta *datum.Meta, sourceJob *pps.Job) *pps.DatumInfo {
 	di := &pps.DatumInfo{
 		Datum: &pps.Datum{
 			Job: meta.Job,
@@ -1068,6 +1069,9 @@ func convertDatumMetaToInfo(meta *datum.Meta) *pps.DatumInfo {
 	for _, input := range meta.Inputs {
 		di.Data = append(di.Data, input.FileInfo)
 	}
+	if meta.Job != nil && !proto.Equal(meta.Job, sourceJob) {
+		di.State = pps.DatumState_SKIPPED
+	}
 	return di
 }
 
@@ -1078,8 +1082,6 @@ func convertDatumState(state datum.State) pps.DatumState {
 		return pps.DatumState_FAILED
 	case datum.State_RECOVERED:
 		return pps.DatumState_RECOVERED
-	case datum.State_UNPROCESSED:
-		return pps.DatumState_UNPROCESSED
 	default:
 		return pps.DatumState_SUCCESS
 	}
@@ -1416,12 +1418,6 @@ func now() *types.Timestamp {
 }
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
-	// TODO: Remove when at feature parity.
-	var err error
-	request, err = a.validateV2Features(request)
-	if err != nil {
-		return err
-	}
 	if request.Pipeline == nil {
 		return errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
 	}
@@ -1456,17 +1452,6 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
 	}
 	return nil
-}
-
-// TODO: Implement the appropriate features.
-func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps.CreatePipelineRequest, error) {
-	if request.CacheSize != "" {
-		return nil, errors.Errorf("CacheSize not implemented")
-	}
-	if request.MaxQueueSize != 0 {
-		return nil, errors.Errorf("MaxQueueSize not implemented")
-	}
-	return request, nil
 }
 
 func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
@@ -1536,9 +1521,6 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	}
 	if pipelineInfo.Details.OutputBranch == "" {
 		return errors.New("pipeline needs to specify an output branch")
-	}
-	if _, err := resource.ParseQuantity(pipelineInfo.Details.CacheSize); err != nil {
-		return errors.Wrapf(err, "could not parse cacheSize '%s'", pipelineInfo.Details.CacheSize)
 	}
 	if pipelineInfo.Details.JobTimeout != nil {
 		_, err := types.DurationFromProto(pipelineInfo.Details.JobTimeout)
@@ -1839,9 +1821,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			ResourceLimits:        request.ResourceLimits,
 			SidecarResourceLimits: request.SidecarResourceLimits,
 			Description:           request.Description,
-			CacheSize:             request.CacheSize,
 			Salt:                  request.Salt,
-			MaxQueueSize:          request.MaxQueueSize,
 			Service:               request.Service,
 			Spout:                 request.Spout,
 			DatumSetSpec:          request.DatumSetSpec,
@@ -2266,12 +2246,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Details.OutputBranch == "" {
 		// Output branches default to master
 		pipelineInfo.Details.OutputBranch = "master"
-	}
-	if pipelineInfo.Details.CacheSize == "" {
-		pipelineInfo.Details.CacheSize = "64M"
-	}
-	if pipelineInfo.Details.MaxQueueSize < 1 {
-		pipelineInfo.Details.MaxQueueSize = 1
 	}
 	if pipelineInfo.Details.DatumTries == 0 {
 		pipelineInfo.Details.DatumTries = DefaultDatumTries

@@ -60,7 +60,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// get 6 successive commits, and ensure that the file size increases each time
 		// since the spout should be appending to that file on each commit
 		countBreakFunc := newCountBreakFunc(6)
-		var prevLength uint64
+		var prevLength int64
 		count := 0
 		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
@@ -72,7 +72,7 @@ func TestSpoutPachctl(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
-				fileLength := files[0].Details.SizeBytes
+				fileLength := files[0].SizeBytes
 				if fileLength <= prevLength {
 					t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
 				}
@@ -216,7 +216,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// get 6 successive commits, and ensure that the file size increases each
 		// time since the spout should be appending to that file on each commit
 		countBreakFunc := newCountBreakFunc(6)
-		var prevLength uint64
+		var prevLength int64
 		count := 0
 		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
@@ -228,7 +228,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
-				fileLength := files[0].Details.SizeBytes
+				fileLength := files[0].SizeBytes
 				if fileLength <= prevLength {
 					t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
 				}
@@ -310,7 +310,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// on each commit so the commits should have files that stay the same size
 		countBreakFunc := newCountBreakFunc(6)
 		var count int
-		var prevLength uint64
+		var prevLength int64
 		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				count++
@@ -321,7 +321,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 				require.NoError(t, err)
 				require.Equal(t, 1, len(files))
 
-				fileLength := files[0].Details.SizeBytes
+				fileLength := files[0].SizeBytes
 				if count > 2 && fileLength != prevLength {
 					t.Errorf("File length was expected to stay the same. Prev: %v, Cur: %v", prevLength, fileLength)
 				}

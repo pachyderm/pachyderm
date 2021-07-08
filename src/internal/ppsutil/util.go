@@ -282,8 +282,6 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		SidecarResourceLimits: pipelineInfo.Details.SidecarResourceLimits,
 		Input:                 pipelineInfo.Details.Input,
 		Description:           pipelineInfo.Details.Description,
-		CacheSize:             pipelineInfo.Details.CacheSize,
-		MaxQueueSize:          pipelineInfo.Details.MaxQueueSize,
 		Service:               pipelineInfo.Details.Service,
 		DatumSetSpec:          pipelineInfo.Details.DatumSetSpec,
 		DatumTimeout:          pipelineInfo.Details.DatumTimeout,
@@ -379,12 +377,14 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,
 			Error:  commitError,
+			Force:  true,
 		}); err != nil {
 			return err
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: MetaCommit(jobInfo.OutputCommit),
 			Error:  commitError,
+			Force:  true,
 		}); err != nil {
 			return err
 		}

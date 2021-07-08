@@ -1,0 +1,65 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.pachd.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/port: "1656"
+    prometheus.io/scrape: "true"
+  labels:
+    app: pachd
+    suite: pachyderm
+    {{- if .Values.pachd.service.labels }}
+    {{- toYaml .Values.pachd.service.labels | nindent 4 }}
+    {{- end }}
+  name: pachd
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: api-grpc-port
+    {{- if eq .Values.pachd.service.type "NodePort" }}
+    nodePort: 30650
+    port: 1650
+    {{- else }}
+    port: 30650
+    {{- end }}
+    protocol: TCP
+    targetPort: api-grpc-port
+  - name: oidc-port
+    {{- if eq .Values.pachd.service.type "NodePort" }}
+    nodePort: 30657
+    port: 1657
+    {{- else }}
+    port: 30657
+    {{- end }}
+    targetPort: oidc-port
+  - name: identity-port
+    {{- if eq .Values.pachd.service.type "NodePort" }}
+    nodePort: 30658
+    port: 1658
+    {{- else }}
+    port: 30658
+    {{- end }}
+    targetPort: identity-port
+  - name: s3gateway-port
+    {{- if eq .Values.pachd.service.type "NodePort" }}
+    nodePort: 30600
+    port: 1600
+    {{- else }}
+    port: 30600
+    {{- end }}
+    targetPort: s3gateway-port
+  - name: prom-metrics
+    {{- if eq .Values.pachd.service.type "NodePort" }}
+    nodePort: 30656
+    {{- end }}
+    port: 1656
+    protocol: TCP
+    targetPort: prom-metrics
+  selector:
+    app: pachd
+  type: {{ .Values.pachd.service.type }}
+{{- end }}

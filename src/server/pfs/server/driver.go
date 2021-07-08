@@ -242,21 +242,21 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 	if repo == nil {
 		return nil, errors.New("repo cannot be nil")
 	}
-	result := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(repo), result); err != nil {
+	repoInfo := &pfs.RepoInfo{}
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(repo), repoInfo); err != nil {
 		return nil, err
 	}
 	if includeAuth {
 		permissions, roles, err := d.getPermissions(txnCtx.ClientContext, repo)
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
-				return result, nil
+				return repoInfo, nil
 			}
 			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for %q", repo)
 		}
-		result.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
+		repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
 	}
-	return result, nil
+	return repoInfo, nil
 }
 
 func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Permission, []string, error) {
@@ -275,11 +275,11 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	repoInfo := &pfs.RepoInfo{}
 
 	processFunc := func(string) error {
-		size, err := d.getRepoSize(ctx, repoInfo.Repo)
+		size, err := d.repoSizeUpperBound(ctx, repoInfo.Repo)
 		if err != nil {
 			return err
 		}
-		repoInfo.SizeBytes = uint64(size)
+		repoInfo.SizeBytesUpperBound = size
 		if includeAuth && authSeemsActive {
 			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
 			if err == nil {
@@ -532,7 +532,7 @@ func (d *driver) startCommit(
 	// Finally, create the commit
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommit), newCommitInfo); err != nil {
 		if col.IsErrExists(err) {
-			return nil, pfsserver.ErrInconsistentCommit{Commit: newCommit, Branch: newCommit.Branch}
+			return nil, errors.EnsureStack(pfsserver.ErrInconsistentCommit{Commit: newCommit, Branch: newCommit.Branch})
 		}
 		return nil, err
 	}
@@ -544,9 +544,33 @@ func (d *driver) startCommit(
 	return newCommit, nil
 }
 
+func (d *driver) looksLikePipelineOutput(txnCtx *txncontext.TransactionContext, info *pfs.CommitInfo) (bool, error) {
+	if info.Commit.Branch.Repo.Type == pfs.MetaRepoType {
+		// assume meta repos are part of a pipeline
+		return true, nil
+	}
+	if len(info.DirectProvenance) == 0 {
+		// no provenance, definitely not an active pipeline
+		return false, nil
+	}
+	if len(info.DirectProvenance) == 1 && info.DirectProvenance[0].Repo.Type == pfs.SpecRepoType {
+		// this is a spout, don't get in the way of user commit management
+		return false, nil
+	}
+	// finally, check for a companion meta repo
+	// this could still technically be a branch with provenance in the same repo as pipeline output
+	metaRepo := client.NewSystemRepo(info.Commit.Branch.Repo.Name, pfs.MetaRepoType)
+	if _, err := d.inspectRepo(txnCtx, metaRepo, false); err != nil && !col.IsErrNotFound(err) {
+		return false, errors.Wrapf(err, "checking for meta repo for %s", info.Commit.Branch.Repo)
+	} else {
+		// no error means there was a meta repo, and so this looks like a pipeline
+		return err == nil, nil
+	}
+}
+
 // TODO: Need to block operations on the commit before kicking off the compaction / finishing the commit.
 // We are going to want to move the compaction to the read side, and just mark the commit as finished here.
-func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description string, commitError bool) error {
+func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description string, commitError, force bool) error {
 	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
@@ -558,6 +582,13 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	}
 	if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
+	}
+	if !force {
+		if isPipeline, err := d.looksLikePipelineOutput(txnCtx, commitInfo); err != nil {
+			return err
+		} else if isPipeline {
+			return errors.Errorf("cannot finish a pipeline output or meta commit, use 'stop job' instead")
+		}
 	}
 	if description != "" {
 		commitInfo.Description = description
@@ -602,6 +633,21 @@ func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, p
 		}
 	}
 	return nil
+}
+
+// resolveAlias finds the first ancestor of the source commit which is not an alias (possibly source itself)
+func (d *driver) resolveAlias(txnCtx *txncontext.TransactionContext, source *pfs.Commit) (*pfs.CommitInfo, error) {
+	baseInfo, err := d.resolveCommit(txnCtx.SqlTx, proto.Clone(source).(*pfs.Commit))
+	if err != nil {
+		return nil, err
+	}
+
+	for baseInfo.Origin.Kind == pfs.OriginKind_ALIAS {
+		if baseInfo, err = d.resolveCommit(txnCtx.SqlTx, baseInfo.ParentCommit); err != nil {
+			return nil, err
+		}
+	}
+	return baseInfo, nil
 }
 
 func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.Commit, branch *pfs.Branch) (*pfs.CommitInfo, error) {
@@ -662,11 +708,17 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			return nil, err
 		}
 	} else {
-		if commit.ID == txnCtx.CommitSetID && proto.Equal(commit.Branch, branchInfo.Branch) {
-			// We can reuse the existing commit only if it is already on this branch
-		} else if commitInfo.Origin.Kind != pfs.OriginKind_AUTO || !proto.Equal(commitInfo.ParentCommit, parent) {
-			// A commit at the current transaction's ID already exists - make sure it is an alias with the right parent
-			return nil, pfsserver.ErrInconsistentCommit{Commit: parent, Branch: branch}
+		// A commit at the current transaction's ID already exists, make sure it is already compatible
+		parentRoot, err := d.resolveAlias(txnCtx, parent)
+		if err != nil {
+			return nil, err
+		}
+		prevRoot, err := d.resolveAlias(txnCtx, commitInfo.Commit)
+		if err != nil {
+			return nil, err
+		}
+		if !proto.Equal(parentRoot.Commit, prevRoot.Commit) {
+			return nil, errors.EnsureStack(pfsserver.ErrInconsistentCommit{Commit: parent, Branch: branch})
 		}
 	}
 
@@ -679,7 +731,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 	return commitInfo, nil
 }
 
-func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
+func (d *driver) repoSizeUpperBound(ctx context.Context, repo *pfs.Repo) (int64, error) {
 	repoInfo := new(pfs.RepoInfo)
 	if err := d.repos.ReadOnly(ctx).Get(pfsdb.RepoKey(repo), repoInfo); err != nil {
 		return 0, err
@@ -690,7 +742,24 @@ func (d *driver) getRepoSize(ctx context.Context, repo *pfs.Repo) (int64, error)
 			if err := d.branches.ReadOnly(ctx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
 				return 0, err
 			}
-			return d.sizeOfCommit(ctx, branchInfo.Head)
+			return d.commitSizeUpperBound(ctx, branchInfo.Head)
+		}
+	}
+	return 0, nil
+}
+
+func (d *driver) repoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
+	repoInfo := new(pfs.RepoInfo)
+	if err := d.repos.ReadOnly(ctx).Get(pfsdb.RepoKey(repo), repoInfo); err != nil {
+		return 0, err
+	}
+	for _, branch := range repoInfo.Branches {
+		if branch.Name == "master" {
+			branchInfo := &pfs.BranchInfo{}
+			if err := d.branches.ReadOnly(ctx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
+				return 0, err
+			}
+			return d.commitSize(ctx, branchInfo.Head)
 		}
 	}
 	return 0, nil
@@ -831,7 +900,15 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			}
 
 			// finally create open 'commit'
-			if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(newCommit), newCommitInfo); err != nil {
+			if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(
+				pfsdb.CommitKey(newCommit),
+				newCommitInfo,
+			); err != nil && col.IsErrExists(err) {
+				return errors.EnsureStack(pfsserver.ErrInconsistentCommit{
+					Commit: newCommit,
+					Branch: newCommit.Branch,
+				})
+			} else if err != nil {
 				return err
 			}
 		}
@@ -913,14 +990,14 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	}
 
 	if commitInfo.Finished != nil {
-		size, err := d.sizeOfCommit(ctx, commitInfo.Commit)
+		size, err := d.commitSize(ctx, commitInfo.Commit)
 		if err != nil {
 			return nil, err
 		}
 		if commitInfo.Details == nil {
 			commitInfo.Details = &pfs.CommitInfo_Details{}
 		}
-		commitInfo.Details.SizeBytes = uint64(size)
+		commitInfo.Details.SizeBytes = size
 	}
 	return commitInfo, nil
 }
@@ -1053,7 +1130,30 @@ func (d *driver) getCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit
 	return commitInfo, nil
 }
 
-func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, cb func(*pfs.CommitInfo) error) error {
+// passesCommitOriginFilter is a helper function for listCommit and
+// subscribeCommit to apply filtering to the returned commits.  By default we
+// skip over alias commits, but we allow users to request all the commits with
+// 'all', or a specific type of commit with 'originKind'.
+func passesCommitOriginFilter(commitInfo *pfs.CommitInfo, all bool, originKind pfs.OriginKind) bool {
+	if all {
+		return true
+	} else if originKind != pfs.OriginKind_ORIGIN_KIND_UNKNOWN {
+		return commitInfo.Origin.Kind == originKind
+	}
+	return commitInfo.Origin.Kind != pfs.OriginKind_ALIAS
+}
+
+func (d *driver) listCommit(
+	ctx context.Context,
+	repo *pfs.Repo,
+	to *pfs.Commit,
+	from *pfs.Commit,
+	number int64,
+	reverse bool,
+	all bool,
+	originKind pfs.OriginKind,
+	cb func(*pfs.CommitInfo) error,
+) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
@@ -1090,7 +1190,7 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 
 	// if number is 0, we return all commits that match the criteria
 	if number == 0 {
-		number = math.MaxUint64
+		number = math.MaxInt64
 	}
 
 	if from != nil && to == nil {
@@ -1111,6 +1211,11 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 				if reverse {
 					ci = cis[len(cis)-1-i]
 				}
+				var err error
+				ci.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, ci.Commit)
+				if err != nil {
+					return err
+				}
 				if err := cb(ci); err != nil {
 					return err
 				}
@@ -1130,7 +1235,9 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 				}
 				lastRev = createRev
 			}
-			cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
+			if passesCommitOriginFilter(ci, all, originKind) {
+				cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
+			}
 			return nil
 		}
 
@@ -1161,18 +1268,20 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		}
 		cursor := to
 		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
-			var commitInfo pfs.CommitInfo
-			if err := d.commits.ReadOnly(ctx).Get(pfsdb.CommitKey(cursor), &commitInfo); err != nil {
+			commitInfo := &pfs.CommitInfo{}
+			if err := d.commits.ReadOnly(ctx).Get(pfsdb.CommitKey(cursor), commitInfo); err != nil {
 				return err
 			}
-			if err := cb(&commitInfo); err != nil {
-				if errors.Is(err, errutil.ErrBreak) {
-					return nil
+			if passesCommitOriginFilter(commitInfo, all, originKind) {
+				if err := cb(commitInfo); err != nil {
+					if errors.Is(err, errutil.ErrBreak) {
+						return nil
+					}
+					return err
 				}
-				return err
+				number--
 			}
 			cursor = commitInfo.ParentCommit
-			number--
 		}
 	}
 	return nil
@@ -1438,7 +1547,16 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 	return nil
 }
 
-func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit, state pfs.CommitState, cb func(*pfs.CommitInfo) error) error {
+func (d *driver) subscribeCommit(
+	ctx context.Context,
+	repo *pfs.Repo,
+	branch string,
+	from *pfs.Commit,
+	state pfs.CommitState,
+	all bool,
+	originKind pfs.OriginKind,
+	cb func(*pfs.CommitInfo) error,
+) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
@@ -1462,6 +1580,11 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 
 		// if branch is provided, make sure the commit was created on that branch
 		if branch != "" && commitInfo.Commit.Branch.Name != branch {
+			return nil
+		}
+
+		// If the origin of the commit doesn't match what we're interested in, skip it
+		if !passesCommitOriginFilter(commitInfo, all, originKind) {
 			return nil
 		}
 
@@ -1509,6 +1632,9 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 	if err := d.validateTrigger(txnCtx, branch, trigger); err != nil {
 		return err
+	}
+	if len(provenance) > 0 && trigger != nil {
+		return errors.New("a branch cannot have both provenance and a trigger")
 	}
 
 	var err error
@@ -1646,7 +1772,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 
 	if commit != nil && ci.Finished != nil {
-		if err = d.triggerCommit(txnCtx, ci.Commit); err != nil {
+		if err = d.triggerCommit(txnCtx, branchInfo.Head); err != nil {
 			return err
 		}
 	}

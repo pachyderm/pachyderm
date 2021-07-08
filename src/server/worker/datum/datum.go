@@ -84,7 +84,7 @@ func shouldCreateSetFunc(setSpec *SetSpec) func(*Meta) bool {
 		var size int64
 		return func(meta *Meta) bool {
 			for _, input := range meta.Inputs {
-				size += int64(input.FileInfo.Details.SizeBytes)
+				size += int64(input.FileInfo.SizeBytes)
 			}
 			if size >= setSpec.SizeBytes {
 				size = 0
@@ -266,7 +266,7 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 			pfssync.WithHeaderCallback(func(hdr *tar.Header) error {
 				mu.Lock()
 				defer mu.Unlock()
-				d.meta.Stats.DownloadBytes += uint64(hdr.Size)
+				d.meta.Stats.DownloadBytes += hdr.Size
 				return nil
 			}),
 		}
@@ -346,7 +346,7 @@ func (d *Datum) uploadOutput() error {
 		start := time.Now()
 		d.meta.Stats.UploadBytes = 0
 		if err := d.upload(d.set.pfsOutputClient, path.Join(d.PFSStorageRoot(), OutputPrefix), func(hdr *tar.Header) error {
-			d.meta.Stats.UploadBytes += uint64(hdr.Size)
+			d.meta.Stats.UploadBytes += hdr.Size
 			return nil
 		}); err != nil {
 			return err

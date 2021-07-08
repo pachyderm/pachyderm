@@ -1,5 +1,7 @@
 package dbutil
 
+import "time"
+
 // Option configures a DB.
 type Option func(*dbConfig)
 
@@ -31,5 +33,27 @@ func WithDBName(DBName string) Option {
 func WithMaxOpenConns(n int) Option {
 	return func(dbc *dbConfig) {
 		dbc.maxOpenConns = n
+	}
+}
+
+// WithMaxIdleConns sets the maximum number of idle database connections to keep available for
+// future queries.
+func WithMaxIdleConns(n int) Option {
+	return func(dbc *dbConfig) {
+		dbc.maxIdleConns = n
+	}
+}
+
+// WithConnMaxLifetime sets the maximum time a database connection may be reused for.
+func WithConnMaxLifetime(d time.Duration) Option {
+	return func(dbc *dbConfig) {
+		dbc.connMaxLifetime = d
+	}
+}
+
+// WithConnMaxIdleTime sets the maximum time a database connection may be idle for.
+func WithConnMaxIdleTime(d time.Duration) Option {
+	return func(dbc *dbConfig) {
+		dbc.connMaxIdleTime = d
 	}
 }

@@ -384,7 +384,10 @@ func (c *postgresReadOnlyCollection) Count() (int64, error) {
 func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
 
-	watcher := newPostgresWatcher(c.db, c.listener, c.tableWatchChannel(), c.template, nil, nil, options)
+	watcher, err := newPostgresWatcher(c.db, c.listener, c.tableWatchChannel(), c.template, nil, nil, options)
+	if err != nil {
+		return nil, err
+	}
 
 	go func() {
 		// Do a list of the collection to get the initial state
@@ -431,7 +434,10 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
 
-	watcher := newPostgresWatcher(c.db, c.listener, c.indexWatchChannel("key", key), c.template, nil, nil, options)
+	watcher, err := newPostgresWatcher(c.db, c.listener, c.indexWatchChannel("key", key), c.template, nil, nil, options)
+	if err != nil {
+		return nil, err
+	}
 
 	go func() {
 		// Load the initial state of the row
@@ -478,7 +484,10 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 	options := watch.SumOptions(opts...)
 
 	channelName := c.indexWatchChannel(indexFieldName(index), indexVal)
-	watcher := newPostgresWatcher(c.db, c.listener, channelName, c.template, nil, nil, options)
+	watcher, err := newPostgresWatcher(c.db, c.listener, channelName, c.template, nil, nil, options)
+	if err != nil {
+		return nil, err
+	}
 
 	go func() {
 		// Do a list of the collection to get the initial state

@@ -1,0 +1,17 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if and (eq .Values.deployTarget "GOOGLE") (not .Values.postgresql.storageClass) }}
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgresql-storage-class
+parameters:
+  type: pd-ssd
+provisioner: kubernetes.io/gce-pd
+{{ end -}}

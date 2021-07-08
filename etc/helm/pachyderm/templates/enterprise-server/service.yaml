@@ -1,0 +1,57 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.enterpriseServer.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/port: "1656"
+    prometheus.io/scrape: "true"
+  labels:
+    app: pach-enterprise
+    suite: pachyderm
+    {{- if .Values.enterpriseServer.service.labels }}
+    {{- toYaml .Values.enterpriseServer.service.labels | nindent 4 }}
+    {{- end }}
+  name: pach-enterprise
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: api-grpc-port
+    {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
+    nodePort: 31650
+    port: 1650
+    {{- else }}
+    port: 30650
+    {{- end }}
+    protocol: TCP
+    targetPort: api-grpc-port
+  - name: oidc-port
+    {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
+    nodePort: 31657
+    port: 1657
+    {{ else }}
+    port: 31657
+    {{- end }}
+    targetPort: oidc-port
+  - name: identity-port
+    {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
+    nodePort: 31658
+    port: 1658
+    {{ else }}
+    port: 31658
+    {{- end }}
+    targetPort: identity-port
+  - name: prom-metrics
+    {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
+    nodePort: 31656
+    {{- end }}
+    port: 1656
+    protocol: TCP
+    targetPort: prom-metrics
+  selector:
+    app: pach-enterprise
+  type: {{ .Values.enterpriseServer.service.type }}
+{{- end }}

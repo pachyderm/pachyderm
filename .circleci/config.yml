@@ -58,14 +58,18 @@ jobs:
       - run: etc/testing/circle/build.sh 
       - run: etc/testing/circle/launch.sh 
       - run: etc/testing/circle/run_tests.sh 
-      - save_cache:
-         key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-         paths:
-         - /home/circleci/.go_workspace/pkg/mod
-      - save_cache:
-         key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}-{{ .BuildNum }}
-         paths:
-         - /home/circleci/.gocache
+      - when:
+          condition: 
+            equal: [MISC, <<parameters.bucket>> ]
+          steps:
+            - save_cache:
+                key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+                paths:
+                  - /home/circleci/.go_workspace/pkg/mod
+            - save_cache:
+                key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}-{{ .BuildNum }}
+                paths:
+                  - /home/circleci/.gocache
       - run: etc/testing/circle/upload_stats.sh 
       - run:
           name: Dump debugging info in case of failure
@@ -75,7 +79,45 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
-
+  helm-build:
+    docker:
+      - image: circleci/golang:1.15
+    working_directory: ~/project/etc/helm
+    steps:
+      - checkout:
+          path: ~/project
+      - run: mkdir /home/circleci/bin
+      - restore_cache:
+          keys:
+            - go-mod-helm-v4-{{ checksum "go.sum" }}
+      - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
+      - run: wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz -O - | tar -xzO kubeval > /home/circleci/bin/kubeval && chmod +x /home/circleci/bin/kubeval
+      - run: make lint
+      - run: make test
+      - run: make kubeval-gcp
+      - run: make kubeval-aws
+      - save_cache:
+          key: go-mod-helm-v4-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+  helm-publish:
+    docker:
+      - image: gcr.io/public-builds/chart-releaser:v1.2.1
+    steps:
+      # Set CR_Token to GH Personal Access Token (Found in pachydermbuildbot GH Acount)
+      # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
+      - run: git config --global user.email buildbot@pachyderm.io
+      - run: git config --global user.name buildbot
+      - run:
+          name: Clone Pachyderm
+          command: git clone -b ${CIRCLE_TAG} --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm 
+      - run:
+          # the helmchart git repo hosts the helm repository (gh-pages) Chart releaser only supports https clone, not ssh
+          name: Clone Helmchart
+          command: git clone https://github.com/pachyderm/helmchart.git helmchart
+      - run: cr package pachyderm/etc/helm/pachyderm
+      - run: cr upload -o pachyderm -r helmchart --skip-existing
+      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --package-path ../.cr-release-packages --push
 workflows:
   circleci:
     jobs:
@@ -96,4 +138,19 @@ workflows:
               - PPS5
               - PPS6
               - EXAMPLES
-              - OBJECT
+              - INTERNAL
+  helm:
+    jobs:
+      - helm-build:
+          filters:
+            # Note: Not ignoring branches, so will be run on branches as well as tags
+            tags:
+              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+      - helm-publish:
+          requires:
+            - helm-build
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/

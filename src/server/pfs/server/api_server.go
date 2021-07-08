@@ -104,21 +104,24 @@ func (a *apiServer) InspectRepoInTransaction(txnCtx *txncontext.TransactionConte
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	var info *pfs.RepoInfo
+	var repoInfo *pfs.RepoInfo
 	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		info, err = a.InspectRepoInTransaction(txnCtx, request)
+		repoInfo, err = a.InspectRepoInTransaction(txnCtx, request)
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	size, err := a.driver.getRepoSize(ctx, info.Repo)
+	size, err := a.driver.repoSize(ctx, repoInfo.Repo)
 	if err != nil {
 		return nil, err
 	}
-	info.SizeBytes = uint64(size)
-	return info, nil
+	if repoInfo.Details == nil {
+		repoInfo.Details = &pfs.RepoInfo_Details{}
+	}
+	repoInfo.Details.SizeBytes = size
+	return repoInfo, nil
 }
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
@@ -171,7 +174,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
-		return a.driver.finishCommit(txnCtx, request.Commit, request.Description, request.Error)
+		return a.driver.finishCommit(txnCtx, request.Commit, request.Description, request.Error, request.Force)
 	})
 }
 
@@ -220,7 +223,7 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.Number, request.Reverse, func(ci *pfs.CommitInfo) error {
+	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.Number, request.Reverse, request.All, request.OriginKind, func(ci *pfs.CommitInfo) error {
 		sent++
 		return respServer.Send(ci)
 	})
@@ -275,7 +278,7 @@ func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashComm
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.From, request.State, stream.Send)
+	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.From, request.State, request.All, request.OriginKind, stream.Send)
 }
 
 // ClearCommit deletes all data in the commit.
@@ -549,11 +552,7 @@ func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
 		}); err != nil {
 			return err
 		}
-		// TODO(2.0 required) - SizeBytes requires constructing the src with
-		// `WithDetails` which we don't do here, so we can't get the size from here
-		// that easily.  One option is to always calculate the size of files in the
-		// source.
-		// bytesWritten += int64(fi.Details.SizeBytes)
+		bytesWritten += int64(fi.SizeBytes)
 		return nil
 	})
 	return bytesWritten, err
@@ -607,7 +606,7 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.listFile(server.Context(), request.File, request.Details, func(fi *pfs.FileInfo) error {
+	return a.driver.listFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
 		sent++
 		return server.Send(fi)
 	})

@@ -40,7 +40,11 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(repoInfo.Created))
 	}
-	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.SizeBytes)))
+	if repoInfo.Details == nil {
+		fmt.Fprintf(w, "<= %s\t", units.BytesSize(float64(repoInfo.SizeBytesUpperBound)))
+	} else {
+		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.Details.SizeBytes)))
+	}
 	if repoInfo.AuthInfo != nil {
 		fmt.Fprintf(w, "%s\t", repoInfo.AuthInfo.Roles)
 	}
@@ -69,9 +73,8 @@ func PrintDetailedRepoInfo(w io.Writer, repoInfo *PrintableRepoInfo) error {
 Description: {{.Description}}{{end}}{{if .FullTimestamps}}
 Created: {{.Created}}{{else}}
 Created: {{prettyAgo .Created}}{{end}}
-Size of HEAD on master: {{prettySize .SizeBytes}}{{if .AuthInfo}}
-Access level: {{ range .AuthInfo.Permissions }}
-  {{ .String}}{{end}}{{end}}
+Size of HEAD on master: {{prettySize .Details.SizeBytes}}{{if .AuthInfo}}
+Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 `)
 	if err != nil {
 		return err
@@ -152,7 +155,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 		}
 	}
 	if commitInfo.Details == nil {
-		fmt.Fprintf(w, "-\t")
+		fmt.Fprintf(w, "<= %s\t", units.BytesSize(float64(commitInfo.SizeBytesUpperBound)))
 	} else {
 		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.Details.SizeBytes)))
 	}
@@ -270,11 +273,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 			fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
 		}
 	}
-	if fileInfo.Details != nil {
-		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(fileInfo.Details.SizeBytes)))
-	} else {
-		fmt.Fprintf(w, "-\t")
-	}
+	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(fileInfo.SizeBytes)))
 	fmt.Fprintln(w)
 }
 
@@ -294,7 +293,7 @@ func PrintDetailedFileInfo(w io.Writer, fileInfo *pfs.FileInfo) error {
 		`Path: {{.File.Path}}
 Tag: {{.File.Tag}}
 Type: {{fileType .FileType}}
-Size: {{prettySize .Details.SizeBytes}}
+Size: {{prettySize .SizeBytes}}
 `)
 	if err != nil {
 		return err

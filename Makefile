@@ -234,10 +234,6 @@ test-postgres:
 test-pfs-server: test-postgres
 	./etc/testing/pfs_server.sh $(TIMEOUT) $(TESTFLAGS)
 
-test-pfs-storage: test-postgres
-	go test -count=1 ./src/internal/storage/... -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -count=1 ./src/internal/migrations/... $(TESTFLAGS)
-
 test-pps: launch-stats docker-build-spout-test 
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
@@ -246,7 +242,6 @@ test-pps: launch-stats docker-build-spout-test
 test-cmds:
 	go install -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/internal/deploy/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
@@ -260,18 +255,6 @@ test-transaction:
 
 test-client:
 	go test -count=1 -cover $$(go list ./src/client/...) $(TESTFLAGS)
-
-test-object-clients:
-	# The parallelism is lowered here because these tests run several pachd
-	# deployments in kubernetes which may contest resources.
-	go test -count=1 ./src/internal/obj/integrationtests -timeout $(TIMEOUT) -parallel=2 $(TESTFLAGS)
-	go test -count=1 ./src/internal/obj -timeout $(TIMEOUT) $(TESTFLAGS)
-
-test-libs:
-	go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off $(TESTFLAGS)
-	go test -count=1 ./src/internal/cert -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -count=1 ./src/internal/work -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-s3gateway-conformance:
 	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
