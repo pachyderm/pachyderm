@@ -2,7 +2,7 @@
 > - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
 > - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 
-# Global ID - comming soon
+# Global ID - coming soon
 >![pach_logo](./img/pach_logo.svg) The Global Identifier is available in version **2.0 and higher**.
 
 ## Intro
