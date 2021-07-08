@@ -146,7 +146,7 @@ workflows:
             # Note: Not ignoring branches, so will be run on branches as well as tags
             tags:
               only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-      - helm-publish # TODO Add back semi-colon
+      - helm-publish:
           requires:
             - helm-build
           filters:
