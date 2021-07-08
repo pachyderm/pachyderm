@@ -6,9 +6,9 @@
 >![pach_logo](./img/pach_logo.svg) The Global Identifier is available in version **2.0 and higher**.
 
 ## Intro
-Global ID can be seen as **a common TAG that marks all the commits and jobs created by your data-driven DAG when triggered by an initial change (a put file in a repo, an updated pipeline, a squash commit...). 
+Global ID can be seen as **a common TAG that marks all the commits and jobs created by your data-driven DAG when triggered by an initial change (a put file in a repo, an updated pipeline, a squash commit...)**. 
 
-This example will walk you through 3 different user changes (put file, update pipeline edges, update pipeline montage) and illustrate how each of them affects the origin of each resulting commit.
+This example will walk you through 3 different user changes (put file, update pipeline edges, update pipeline montage) and illustrate how each of them affects the origin of the resulting commits.
 The example is based on our openCV example.
 
 ## Getting ready
@@ -36,6 +36,7 @@ Along with the introduction of GlobalID, we are introducing 2 new definitions:
 - `jobset`: Similarly, a jobset is the set of jobs created due to commits in a CommitSet. 
 
 Find all these concepts in our documentation:
+
 -[Repo](https://docs.pachyderm.com/latest/concepts/data-concepts/repo/)
 -[Commit](https://docs.pachyderm.com/latest/concepts/data-concepts/commit/)
 -[CommitID](https://docs.pachyderm.com/latest/concepts/advanced-concepts/globalID/)
