@@ -24,6 +24,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"golang.org/x/net/context"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -217,6 +218,69 @@ func TestS3Input(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func TestS3Chain(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, userToken := initPachClient(t)
+
+	dataRepo := tu.UniqueString(t.Name() + "_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	dataCommit := client.NewCommit(dataRepo, "master", "")
+
+	numPipelines := 10
+	pipelines := make([]string, numPipelines)
+	for i := 0; i < numPipelines; i++ {
+		pipelines[i] = tu.UniqueString(t.Name())
+		input := dataRepo
+		if i > 0 {
+			input = pipelines[i-1]
+		}
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipelines[i]),
+				Transform: &pps.Transform{
+					Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
+					Cmd:   []string{"bash", "-x"},
+					Stdin: []string{
+						"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
+						"echo '1' >> /tmp/s3in",
+						"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/s3in s3://out/file",
+					},
+					Env: map[string]string{
+						"AWS_ACCESS_KEY_ID":     userToken,
+						"AWS_SECRET_ACCESS_KEY": userToken,
+					},
+				},
+				ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+				Input: &pps.Input{
+					Pfs: &pps.PFSInput{
+						Name:   "s3g_in",
+						Repo:   input,
+						Branch: "master",
+						S3:     true,
+						Glob:   "/",
+					},
+				},
+				S3Out: true,
+			},
+		)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("")))
+	commitInfo, err := c.InspectCommit(dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
+	require.NoError(t, err)
+
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	for i := 0; i < numPipelines; i++ {
+		var buf bytes.Buffer
+		c.GetFile(client.NewCommit(pipelines[i], "master", ""), "/file", &buf)
+		require.Equal(t, i+1, strings.Count(buf.String(), "1\n"))
+	}
 }
 
 func TestNamespaceInEndpoint(t *testing.T) {
