@@ -129,9 +129,9 @@ jobs:
       - run:
           name: Clone GitHub repository
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
-      - run: cr package pachyderm/etc/helm/pachyderm
-      - run: cr upload -o pachyderm -r helmchart --skip-existing
-      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart -r helmchart --package-path ../.cr-release-packages --push
+      #- run: cr package pachyderm/etc/helm/pachyderm
+      #- run: cr upload -o pachyderm -r helmchart --skip-existing
+      #- run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart -r helmchart --package-path ../.cr-release-packages --push
 workflows:
   circleci:
     jobs:
@@ -157,13 +157,14 @@ workflows:
     jobs:
       - helm-build:
           filters:
+            # Note: Not ignoring branches, so will be run on branches as well as tags
             tags:
               only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
       - helm-publish:
           requires:
             - helm-build
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          #filters:
+          #  branches:
+          #    ignore: /.*/
+          #  tags:
+          #    only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
