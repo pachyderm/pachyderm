@@ -122,6 +122,8 @@ const config = {
     plugins: [new TsconfigPathsPlugin()],
   },
   externals: {
+    '@apollo/client': '@apollo/client',
+    '@sentry/react': '@sentry/react',
     react: 'react',
     'react-dom': 'react-dom',
     'react-router-dom': 'react-router-dom',

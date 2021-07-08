@@ -2,6 +2,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './index.module.css';
 
 export {default as generatePathWithSearch} from './lib/generatePathWithSearch';
+export {default as sentryLink} from './lib/sentryLink';
 export {default as useLoginWindow} from './hooks/useLoginWindow';
 export {default as useOutsideClick} from './hooks/useOutsideClick';
 export {default as useClipboardCopy} from './hooks/useClipboardCopy';

@@ -7,7 +7,7 @@ import {
   Severity,
 } from '@sentry/react';
 
-export const sentryLink = () =>
+const sentryLink = () =>
   new ApolloLink((operation, forward) => {
     const breadcrumb: Breadcrumb = {
       category: operation.query.definitions[0].kind,
@@ -46,3 +46,5 @@ export const sentryLink = () =>
       };
     });
   });
+
+export default sentryLink;
