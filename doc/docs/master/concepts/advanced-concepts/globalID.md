@@ -4,7 +4,7 @@
 Pachyderm provides users with a simple way to follow a change throughout their DAG (i.e., Traverse Provenance and Subvenance).
 
 When you commit data to Pachyderm, your new commit has an ID associated with it that you can easily check by running `pachctl list commit repo@branch`. 
-All resulting downstream commits and job will then share that ID (Global Identifier).
+All resulting downstream commits and jobs will then share that ID (Global Identifier).
 
 !!! Info "In other terms"
     Commit and job IDs **represent a logically-related set of objects**. 
@@ -76,7 +76,7 @@ The commitset and jobset above have been created after
 a `pachctl put file images@master -i images.txt` in the images repo of the open cv example.
 
 
-The following diagram illustrate the commitset and its various components:
+The following diagram illustrates the commitset and its various components:
     ![commitset_after_putfile](../images/commitset_after_putfile.png)
 
 
