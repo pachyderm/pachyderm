@@ -10,11 +10,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
@@ -268,20 +270,28 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 		return cb(appendTxn)
 	}
 
-	return env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		directTxn := NewDirectTransaction(env, txnCtx)
-		if overrideID != nil {
-			id, err := overrideID(txnCtx)
-			if err != nil {
-				return err
+	useOverride := overrideID != nil
+	for {
+		if err := env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			directTxn := NewDirectTransaction(env, txnCtx)
+			if useOverride {
+				id, err := overrideID(txnCtx)
+				if err != nil {
+					return err
+				}
+				if id != "" {
+					txnCtx.CommitSetID = id
+				}
 			}
-			if id != "" {
-				txnCtx.CommitSetID = id
-			}
-		}
 
-		return cb(directTxn)
-	})
+			return cb(directTxn)
+		}); useOverride && err != nil && errors.Is(err, pfsserver.ErrInconsistentCommit{}) {
+			// try one more time with the random transaction ID
+			useOverride = false
+		} else {
+			return err
+		}
+	}
 }
 
 // WithWriteContext will call the given callback with a txncontext.TransactionContext

@@ -227,7 +227,7 @@ func (c APIClient) inspectCommit(repoName string, branchName string, commitID st
 // If `to` and `from` are the same commit, no commits will be returned.
 // `number` determines how many commits are returned.  If `number` is 0,
 // all commits that match the aforementioned criteria are returned.
-func (c APIClient) ListCommit(repo *pfs.Repo, to, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
+func (c APIClient) ListCommit(repo *pfs.Repo, to, from *pfs.Commit, number int64) ([]*pfs.CommitInfo, error) {
 	var result []*pfs.CommitInfo
 	if err := c.ListCommitF(repo, to, from, number, false, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
@@ -248,7 +248,7 @@ func (c APIClient) ListCommit(repo *pfs.Repo, to, from *pfs.Commit, number uint6
 // `number` determines how many commits are returned.  If `number` is 0,
 // `reverse` lists the commits from oldest to newest, rather than newest to oldest
 // all commits that match the aforementioned criteria are passed to f.
-func (c APIClient) ListCommitF(repo *pfs.Repo, to, from *pfs.Commit, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
+func (c APIClient) ListCommitF(repo *pfs.Repo, to, from *pfs.Commit, number int64, reverse bool, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.ListCommitRequest{
 		Repo:    repo,
 		Number:  number,

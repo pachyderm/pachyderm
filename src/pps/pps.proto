@@ -158,13 +158,12 @@ message Datum {
 }
 
 enum DatumState {
-  DATUM_STATE_UNKNOWN = 0;
+  UNKNOWN = 0; // or not part of a job
   FAILED = 1;
   SUCCESS = 2;
   SKIPPED = 3;
   STARTING = 4;
   RECOVERED = 5;
-  UNPROCESSED = 6;
 }
 
 message DatumInfo {
@@ -187,8 +186,8 @@ message ProcessStats {
   google.protobuf.Duration download_time = 1;
   google.protobuf.Duration process_time = 2;
   google.protobuf.Duration upload_time = 3;
-  uint64 download_bytes = 4;
-  uint64 upload_bytes = 5;
+  int64 download_bytes = 4;
+  int64 upload_bytes = 5;
 }
 
 message AggregateProcessStats {

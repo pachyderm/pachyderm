@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -310,7 +311,12 @@ func TestPFS(suite *testing.T) {
 				ids = append(ids, c.ID)
 			}
 			for _, repo := range []string{"a", "b", "c"} {
-				cis, err := env.PachClient.ListCommit(client.NewRepo(repo), nil, nil, 0)
+				listCommitClient, err := env.PachClient.PfsAPIClient.ListCommit(env.PachClient.Ctx(), &pfs.ListCommitRequest{
+					Repo: client.NewRepo(repo),
+					All:  true,
+				})
+				require.NoError(t, err)
+				cis, err := clientsdk.ListCommit(listCommitClient)
 				require.NoError(t, err)
 				// There will be some empty commits on each branch from creation, ignore
 				// those and just check that the latest commits match.
@@ -323,19 +329,12 @@ func TestPFS(suite *testing.T) {
 
 		checkRepoCommits([]*pfs.Commit{commit3, commit2, commit1})
 
-		// Rewind branch b.master to commit2 - fails because this commitset already has an entry on 'master'
-		require.YesError(t, env.PachClient.CreateBranch("b", "master", "master", commit2.ID, provB))
-		// But we can create a new commit by aliasing the old commit and setting it as the head
-		_, err = env.PachClient.PfsAPIClient.CreateBranch(env.PachClient.Ctx(), &pfs.CreateBranchRequest{
-			Head:         client.NewCommit("b", "master", commit2.ID),
-			Branch:       client.NewBranch("b", "master"),
-			NewCommitSet: true,
-			Provenance:   provB,
-		})
-		require.NoError(t, err)
+		// Rewind branch b.master to commit2 must create a new commit set because the old one already has an entry on 'master'
+		require.NoError(t, env.PachClient.CreateBranch("b", "master", "master", commit2.ID, provB))
 		ci, err := env.PachClient.InspectCommit("b", "master", "")
 		require.NoError(t, err)
 		commit4 := ci.Commit
+		require.NotEqual(t, commit4.ID, commit2.ID)
 
 		checkRepoCommits([]*pfs.Commit{commit4, commit3, commit2, commit1})
 
@@ -357,7 +356,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, repo, repoInfo.Repo.Name)
 		require.NotNil(t, repoInfo.Created)
-		require.Equal(t, 0, int(repoInfo.SizeBytes))
+		require.Equal(t, 0, int(repoInfo.Details.SizeBytes))
 
 		require.YesError(t, env.PachClient.CreateRepo(repo))
 		_, err = env.PachClient.InspectRepo("nonexistent")
@@ -822,12 +821,12 @@ func TestPFS(suite *testing.T) {
 
 		commitInfo, err := env.PachClient.InspectCommit(repo, "master", "")
 		require.NoError(t, err)
-		require.Equal(t, uint64(0), commitInfo.Details.SizeBytes)
+		require.Equal(t, int64(0), commitInfo.Details.SizeBytes)
 
 		// Check that repo size is back to 0
 		repoInfo, err := env.PachClient.InspectRepo(repo)
 		require.NoError(t, err)
-		require.Equal(t, uint64(0), repoInfo.SizeBytes)
+		require.Equal(t, int64(0), repoInfo.Details.SizeBytes)
 	})
 
 	suite.Run("SquashCommitSetFinished", func(t *testing.T) {
@@ -851,7 +850,7 @@ func TestPFS(suite *testing.T) {
 		// commits (even if they're finished) - do an inspect commit instead.
 		commitInfo, err := env.PachClient.InspectCommit(repo, commit.Branch.Name, commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, uint64(4), commitInfo.Details.SizeBytes)
+		require.Equal(t, int64(4), commitInfo.Details.SizeBytes)
 
 		require.NoError(t, env.PachClient.SquashCommitSet(commit.ID))
 
@@ -868,7 +867,7 @@ func TestPFS(suite *testing.T) {
 		// Check that repo size is back to 0
 		repoInfo, err := env.PachClient.InspectRepo(repo)
 		require.NoError(t, err)
-		require.Equal(t, 0, int(repoInfo.SizeBytes))
+		require.Equal(t, 0, int(repoInfo.Details.SizeBytes))
 	})
 
 	suite.Run("BasicFile", func(t *testing.T) {
@@ -1293,7 +1292,7 @@ func TestPFS(suite *testing.T) {
 
 		fileInfo, err := env.PachClient.InspectFile(commit1, "foo")
 		require.NoError(t, err)
-		require.Equal(t, fileSize, int(fileInfo.Details.SizeBytes))
+		require.Equal(t, fileSize, int(fileInfo.SizeBytes))
 
 		var buffer bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(commit1, "foo", &buffer))
@@ -1429,7 +1428,7 @@ func TestPFS(suite *testing.T) {
 			fileInfo, err := env.PachClient.InspectFile(commit1, "foo")
 			require.NoError(t, err)
 			require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
-			require.Equal(t, len(fileContent1), int(fileInfo.Details.SizeBytes))
+			require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
 		}
 		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
@@ -1445,12 +1444,12 @@ func TestPFS(suite *testing.T) {
 		fileInfo, err := env.PachClient.InspectFile(commit2, "foo")
 		require.NoError(t, err)
 		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
-		require.Equal(t, len(fileContent1+fileContent2), int(fileInfo.Details.SizeBytes))
+		require.Equal(t, len(fileContent1+fileContent2), int(fileInfo.SizeBytes))
 
 		fileInfo, err = env.PachClient.InspectFile(commit2, "foo")
 		require.NoError(t, err)
 		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
-		require.Equal(t, len(fileContent1)+len(fileContent2), int(fileInfo.Details.SizeBytes))
+		require.Equal(t, len(fileContent1)+len(fileContent2), int(fileInfo.SizeBytes))
 
 		fileContent3 := "bar\n"
 		commit3, err := env.PachClient.StartCommit(repo, "master")
@@ -1483,7 +1482,7 @@ func TestPFS(suite *testing.T) {
 
 		fileInfo, err := env.PachClient.InspectFile(commit, "/file")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent1), int(fileInfo.Details.SizeBytes))
+		require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
 		require.Equal(t, "/file", fileInfo.File.Path)
 		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 
@@ -1494,7 +1493,7 @@ func TestPFS(suite *testing.T) {
 
 		fileInfo, err = env.PachClient.InspectFile(commit, "file")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent1)*2, int(fileInfo.Details.SizeBytes))
+		require.Equal(t, len(fileContent1)*2, int(fileInfo.SizeBytes))
 		require.Equal(t, "/file", fileInfo.File.Path)
 
 		_, err = env.PachClient.StartCommit(repo, "master")
@@ -1505,7 +1504,7 @@ func TestPFS(suite *testing.T) {
 
 		fileInfo, err = env.PachClient.InspectFile(commit, "file")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent2), int(fileInfo.Details.SizeBytes))
+		require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
 	})
 
 	suite.Run("InspectFile3", func(t *testing.T) {
@@ -1571,17 +1570,17 @@ func TestPFS(suite *testing.T) {
 
 		fileInfo, err := env.PachClient.InspectFile(commit1, "dir/foo")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent), int(fileInfo.Details.SizeBytes))
+		require.Equal(t, len(fileContent), int(fileInfo.SizeBytes))
 		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 
 		fileInfo, err = env.PachClient.InspectFile(commit1, "dir")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent), int(fileInfo.Details.SizeBytes))
+		require.Equal(t, len(fileContent), int(fileInfo.SizeBytes))
 		require.Equal(t, pfs.FileType_DIR, fileInfo.FileType)
 
 		_, err = env.PachClient.InspectFile(commit1, "")
 		require.NoError(t, err)
-		require.Equal(t, len(fileContent), int(fileInfo.Details.SizeBytes))
+		require.Equal(t, len(fileContent), int(fileInfo.SizeBytes))
 		require.Equal(t, pfs.FileType_DIR, fileInfo.FileType)
 	})
 
@@ -1691,7 +1690,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 2, len(fileInfos))
 			require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
-			require.True(t, fileInfos[0].Details.SizeBytes == fileInfos[1].Details.SizeBytes && fileInfos[0].Details.SizeBytes == uint64(len(fileContent1)))
+			require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == int64(len(fileContent1)))
 
 		}
 		checks()
@@ -1770,7 +1769,7 @@ func TestPFS(suite *testing.T) {
 		fileInfos, err = env.PachClient.ListFileAll(commit, "dir")
 		require.NoError(t, err)
 		require.Equal(t, 3, len(fileInfos))
-		require.Equal(t, int(fileInfos[2].Details.SizeBytes), len(fileContent)*2)
+		require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent)*2)
 
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1781,7 +1780,7 @@ func TestPFS(suite *testing.T) {
 		fileInfos, err = env.PachClient.ListFileAll(commit, "dir")
 		require.NoError(t, err)
 		require.Equal(t, 3, len(fileInfos))
-		require.Equal(t, int(fileInfos[2].Details.SizeBytes), len(fileContent))
+		require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent))
 
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -2147,7 +2146,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("OffsetRead", func(t *testing.T) {
-		// TODO(2.0 required): Decide on how to expose offset read.
+		// TODO(2.0 optional): Decide on how to expose offset read.
 		t.Skip("Offset read exists (inefficient), just need to decide on how to expose it in V2")
 		//t.Parallel()
 		//env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2309,7 +2308,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 
 		// Size should be 0 because the files were not added to master
-		require.Equal(t, int(info.SizeBytes), 0)
+		require.Equal(t, int(info.Details.SizeBytes), 0)
 	})
 
 	suite.Run("InspectRepoComplex", func(t *testing.T) {
@@ -2342,14 +2341,11 @@ func TestPFS(suite *testing.T) {
 		info, err := env.PachClient.InspectRepo(repo)
 		require.NoError(t, err)
 
-		require.Equal(t, totalSize, int(info.SizeBytes))
+		require.Equal(t, totalSize, int(info.Details.SizeBytes))
 
 		infos, err := env.PachClient.ListRepo()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(infos))
-		info = infos[0]
-
-		require.Equal(t, totalSize, int(info.SizeBytes))
 	})
 
 	suite.Run("Create", func(t *testing.T) {
@@ -4334,7 +4330,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("ReadSizeLimited", func(t *testing.T) {
-		// TODO(2.0 required): Decide on how to expose offset read.
+		// TODO(2.0 optional): Decide on how to expose offset read.
 		t.Skip("Offset read exists (inefficient), just need to decide on how to expose it in V2")
 		//	t.Parallel()
 		//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -4367,7 +4363,7 @@ func TestPFS(suite *testing.T) {
 		check := func() {
 			fileInfo, err := env.PachClient.InspectFile(commit, "readme")
 			require.NoError(t, err)
-			require.True(t, fileInfo.Details.SizeBytes > 0)
+			require.True(t, fileInfo.SizeBytes > 0)
 		}
 		check()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
@@ -4396,7 +4392,7 @@ func TestPFS(suite *testing.T) {
 			for _, path := range paths {
 				fileInfo, err := env.PachClient.InspectFile(repoProto.NewCommit("master", ""), path)
 				require.NoError(t, err)
-				require.True(t, fileInfo.Details.SizeBytes > 0)
+				require.True(t, fileInfo.SizeBytes > 0)
 			}
 		}
 		check()

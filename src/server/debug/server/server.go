@@ -371,7 +371,7 @@ func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APICl
 			if errutil.IsNotFoundError(err) {
 				repoPrefix := join("input-repos", repoInfo.Repo.Name)
 				return collectDebugFile(tw, "commits", func(w io.Writer) error {
-					return pachClient.ListCommitF(repoInfo.Repo, nil, nil, uint64(limit), false, func(ci *pfs.CommitInfo) error {
+					return pachClient.ListCommitF(repoInfo.Repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
 						return s.marshaller.Marshal(w, ci)
 					})
 				}, repoPrefix)
@@ -443,7 +443,7 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 			return err
 		}
 		if err := collectDebugFile(tw, "commits", func(w io.Writer) error {
-			return pachClient.ListCommitF(client.NewRepo(pipelineInfo.Pipeline.Name), nil, nil, uint64(limit), false, func(ci *pfs.CommitInfo) error {
+			return pachClient.ListCommitF(client.NewRepo(pipelineInfo.Pipeline.Name), nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
 				return s.marshaller.Marshal(w, ci)
 			})
 		}, prefix...); err != nil {

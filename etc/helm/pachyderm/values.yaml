@@ -42,21 +42,6 @@ dash:
     graphqlPort: 4000
     oauthPachdClientID: ""
     pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
-  ingress:
-    enabled: false
-    annotations: {}
-    host: ""
-    # There are three options for TLS:
-    # 1. Disabled
-    # 2. Enabled, existingSecret, specify secret name
-    # 3. Enabled, newSecret, must specify cert, key, secretName and set newSecret.create to true
-    tls:
-      enabled: false
-      secretName: ""
-      newSecret:
-        create: false
-        crt: ""
-        key: ""
 
   service:
     # labels specifies labels to add to the dash service.
@@ -131,6 +116,22 @@ enterpriseServer:
     # tag defaults to the chart’s specified appVersion.
     tag: ""
 
+ingress:
+  enabled: false
+  annotations: {}
+  host: ""
+  # There are three options for TLS:
+  # 1. Disabled
+  # 2. Enabled, existingSecret, specify secret name
+  # 3. Enabled, newSecret, must specify cert, key, secretName and set newSecret.create to true
+  tls:
+    enabled: false
+    secretName: ""
+    newSecret:
+      create: false
+      crt: ""
+      key: ""
+
 pachd:
   enabled: true
   affinity: {}
@@ -172,7 +173,7 @@ pachd:
     password: ""
   requireCriticalServersOnly: false
   # If enabled, External service creates a service which is safe to
-  # be exposed externally 
+  # be exposed externally
   externalService:
     enabled: false
     # (Optional) specify the existing IP Address of the load balancer

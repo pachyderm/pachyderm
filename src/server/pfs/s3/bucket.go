@@ -25,8 +25,8 @@ func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 	return s2.Contents{
 		Key:          fileInfo.File.Path,
 		LastModified: t,
-		ETag:         fmt.Sprintf("%x", fileInfo.Details.Hash),
-		Size:         fileInfo.Details.SizeBytes,
+		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
+		Size:         uint64(fileInfo.SizeBytes),
 		StorageClass: globalStorageClass,
 		Owner:        defaultUser,
 	}, nil
