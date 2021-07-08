@@ -2,12 +2,14 @@ import {render, waitFor, within} from '@testing-library/react';
 import React from 'react';
 
 import jobs from '@dash-backend/mock/fixtures/jobs';
+import jobSets from '@dash-backend/mock/fixtures/jobSets';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
-import JobListComponent from '../JobList';
+import JobListComponent, {JobSetList as JobSetListComponent} from '../JobList';
 
 describe('JobList', () => {
   const JobList = withContextProviders(JobListComponent);
+  const JobSetList = withContextProviders(JobSetListComponent);
 
   afterEach(() => {
     window.history.pushState({}, document.title, '/');
@@ -164,5 +166,29 @@ describe('JobList', () => {
 
     expect(await findByText('Empty State Title')).toBeInTheDocument();
     expect(queryByRole('list')).not.toBeInTheDocument();
+  });
+
+  describe('JobSets', () => {
+    it('should display the list of jobSets for a given project', async () => {
+      const {getByRole, queryByTestId} = render(
+        <JobSetList
+          projectId="2"
+          emptyStateTitle="Empty State Title"
+          emptyStateMessage="Empty State Message"
+        />,
+      );
+
+      await waitFor(() =>
+        expect(
+          queryByTestId('JobListStatic__loadingdots'),
+        ).not.toBeInTheDocument(),
+      );
+
+      const {queryAllByRole} = within(getByRole('list'));
+
+      expect(queryAllByRole('listitem').length).toBe(
+        Object.keys(jobSets['2']).length,
+      );
+    });
   });
 });

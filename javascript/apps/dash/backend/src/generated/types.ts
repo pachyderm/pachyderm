@@ -1536,6 +1536,14 @@ export type JobQuery = {__typename?: 'Query'} & {
     } & JobOverviewFragment;
 };
 
+export type JobSetsQueryVariables = Exact<{
+  args: JobSetsQueryArgs;
+}>;
+
+export type JobSetsQuery = {__typename?: 'Query'} & {
+  jobSets: Array<{__typename?: 'JobSet'} & JobSetFieldsFragment>;
+};
+
 export type JobsQueryVariables = Exact<{
   args: JobsQueryArgs;
 }>;

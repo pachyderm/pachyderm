@@ -2,10 +2,14 @@ import {Chip, ChipGroup} from '@pachyderm/components';
 import React from 'react';
 
 import readableJobState from '@dash-frontend/lib/readableJobState';
-import {JobsQuery, JobState} from '@graphqlTypes';
+import {
+  JobOverviewFragment,
+  JobSetFieldsFragment,
+  JobState,
+} from '@graphqlTypes';
 import getListTitle from 'lib/getListTitle';
 
-import {JobFilters} from '../../hooks/useJobList';
+import {JobFilters} from '../../hooks/useJobFilters';
 
 import useJobListStatusFilter from './hooks/useJobListStatusFilter';
 import styles from './JobListStatusFilter.module.css';
@@ -16,7 +20,7 @@ export const jobStates = Object.values(JobState).map((state) => ({
 }));
 
 interface JobListStatusFilterProps {
-  jobs: JobsQuery['jobs'];
+  jobs: (JobOverviewFragment | JobSetFieldsFragment)[];
   selectedFilters: JobFilters;
 }
 

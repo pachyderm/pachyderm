@@ -1,8 +1,11 @@
 import {useMemo} from 'react';
 
-import {useJobs} from '@dash-frontend/hooks/useJobs';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import {JobsQueryArgs, JobState} from '@graphqlTypes';
+import {
+  JobOverviewFragment,
+  JobSetFieldsFragment,
+  JobState,
+} from '@graphqlTypes';
 
 export type JobFilters = {
   [key in JobState]?: boolean;
@@ -15,8 +18,11 @@ const convertToObject = (JobStateList: JobState[]) => {
   }, {});
 };
 
-const useJobList = ({projectId, pipelineId}: JobsQueryArgs) => {
-  const {jobs, loading} = useJobs({projectId, pipelineId});
+interface UseJobFiltersArgs {
+  jobs: (JobOverviewFragment | JobSetFieldsFragment)[];
+}
+
+const useJobFilters = ({jobs}: UseJobFiltersArgs) => {
   const {viewState} = useUrlQueryState();
 
   const selectedFilters: JobFilters = useMemo(() => {
@@ -35,12 +41,10 @@ const useJobList = ({projectId, pipelineId}: JobsQueryArgs) => {
   const noFiltersSelected = filteredJobs?.length === 0 && jobs?.length !== 0;
 
   return {
-    jobs,
     filteredJobs,
     noFiltersSelected,
     selectedFilters,
-    loading,
   };
 };
 
-export default useJobList;
+export default useJobFilters;

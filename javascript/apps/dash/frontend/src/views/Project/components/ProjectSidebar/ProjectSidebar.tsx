@@ -5,7 +5,7 @@ import {
   CREATE_FIRST_JOB_MESSAGE,
   LETS_START_TITLE,
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
-import JobList from '@dash-frontend/components/JobList';
+import {JobSetList} from '@dash-frontend/components/JobList/JobList';
 import Sidebar from '@dash-frontend/components/Sidebar';
 
 import {
@@ -34,7 +34,7 @@ const ProjectSidebar = () => {
       >
         <Switch>
           <Route path={JOBS_PATH} exact>
-            <JobList
+            <JobSetList
               projectId={projectId}
               expandActions
               showStatusFilter

@@ -486,6 +486,61 @@ export type JobQueryResult = Apollo.QueryResult<
   Types.JobQuery,
   Types.JobQueryVariables
 >;
+export const JobSetsDocument = gql`
+  query jobSets($args: JobSetsQueryArgs!) {
+    jobSets(args: $args) {
+      ...JobSetFields
+    }
+  }
+  ${JobSetFieldsFragmentDoc}
+`;
+
+/**
+ * __useJobSetsQuery__
+ *
+ * To run a query within a React component, call `useJobSetsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useJobSetsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useJobSetsQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useJobSetsQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.JobSetsQuery,
+    Types.JobSetsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.JobSetsQuery, Types.JobSetsQueryVariables>(
+    JobSetsDocument,
+    options,
+  );
+}
+export function useJobSetsLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.JobSetsQuery,
+    Types.JobSetsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<Types.JobSetsQuery, Types.JobSetsQueryVariables>(
+    JobSetsDocument,
+    options,
+  );
+}
+export type JobSetsQueryHookResult = ReturnType<typeof useJobSetsQuery>;
+export type JobSetsLazyQueryHookResult = ReturnType<typeof useJobSetsLazyQuery>;
+export type JobSetsQueryResult = Apollo.QueryResult<
+  Types.JobSetsQuery,
+  Types.JobSetsQueryVariables
+>;
 export const JobsDocument = gql`
   query jobs($args: JobsQueryArgs!) {
     jobs(args: $args) {

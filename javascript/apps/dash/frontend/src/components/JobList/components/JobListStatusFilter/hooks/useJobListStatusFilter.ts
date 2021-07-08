@@ -2,12 +2,16 @@ import cloneDeep from 'lodash/cloneDeep';
 import countBy from 'lodash/countBy';
 import {useCallback, useMemo} from 'react';
 
-import {JobFilters} from '@dash-frontend/components/JobList/hooks/useJobList';
+import {JobFilters} from '@dash-frontend/components/JobList/hooks/useJobFilters';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import {JobsQuery, JobState} from '@graphqlTypes';
+import {
+  JobOverviewFragment,
+  JobSetFieldsFragment,
+  JobState,
+} from '@graphqlTypes';
 
 const useJobListStatusFilter = (
-  jobs: JobsQuery['jobs'],
+  jobs: (JobOverviewFragment | JobSetFieldsFragment)[],
   selectedFilters: JobFilters,
 ) => {
   const {setUrlFromViewState} = useUrlQueryState();

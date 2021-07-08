@@ -2,7 +2,7 @@ import {useMemo} from 'react';
 import {useRouteMatch} from 'react-router';
 
 import useCurrentProject from '@dash-frontend/hooks/useCurrentProject';
-import {useJobs} from '@dash-frontend/hooks/useJobs';
+import {useJobSets} from '@dash-frontend/hooks/useJobSets';
 import {JOBS_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {
   jobsRoute,
@@ -12,15 +12,15 @@ import {JobState} from '@graphqlTypes';
 
 const useProjectHeader = () => {
   const {projectId, currentProject, loading} = useCurrentProject();
-  const {jobs} = useJobs({projectId});
+  const {jobSets} = useJobSets({projectId});
   const jobsMatch = useRouteMatch({
     path: JOBS_PATH,
     exact: true,
   });
 
   const numOfFailedJobs = useMemo(
-    () => jobs.filter((job) => job.state === JobState.JOB_FAILURE).length,
-    [jobs],
+    () => jobSets.filter((job) => job.state === JobState.JOB_FAILURE).length,
+    [jobSets],
   );
 
   const seeJobsUrl = currentProject?.id
