@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@grpc/grpc-js": "1.2.2",
-    "@pachyderm/proto": "2.0.0-alpha.30.0",
+    "@pachyderm/proto": "2.0.0-beta.1.0",
     "apollo-server-express": "2.19.0",
     "bunyan": "1.8.15",
     "cookie-parser": "1.4.5",
