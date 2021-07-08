@@ -104,7 +104,6 @@ jobs:
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
     steps:
-      - checkout
       ## Set CR_Token to GH Token
       # Circle's "checkout" step does a shallow clone, not allowing the repo to be modified (index.yml in helmcharts must be updated)
       # Instead just clone both repos manually
@@ -117,13 +116,13 @@ jobs:
       #    command: echo "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" >> ~/.ssh/known_hosts
       #- run: git config --global user.email buildbot@pachyderm.io
       #- run: git config --global user.name buildbot
-      #- run:
-      #    name: Clone GitHub repository
+      - run:
+          name: Clone GitHub repository
       #    #command: git clone -b ${CIRCLE_TAG} https://github.com/pachyderm/pachyderm.git pachyderm # Chart releaser only supports https clone, not ssh
-      #    command: git clone https://github.com/pachyderm/pachyderm.git pachyderm
-      #- run:
-      #    name: Clone GitHub repository
-      #    command: git clone https://github.com/pachyderm/helmchart.git helmchart
+          command: git clone https://github.com/pachyderm/pachyderm.git pachyderm
+      - run:
+          name: Clone GitHub repository
+          command: git clone https://github.com/pachyderm/helmchart.git helmchart
       #- run: cr package pachyderm/etc/helm/pachyderm
       #- run: cr upload -o pachyderm -r helmchart --skip-existing
       #- run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart -r helmchart --package-path ../.cr-release-packages --push
