@@ -6175,16 +6175,16 @@ func TestCronPipeline(t *testing.T) {
 						return nil
 					})
 				}))
-				commits, err := c.ListCommit(client.NewRepo(repo), nil, nil, 0)
+				commits, err := c.ListCommit(client.NewRepo(pipeline8), nil, nil, 0)
 				require.NoError(t, err)
 
 				userCommitCount := 0
 				for _, v := range commits {
-					if v.Origin.Kind == pfs.OriginKind_USER {
+					if v.Origin.Kind == pfs.OriginKind_AUTO {
 						userCommitCount++
 					}
 				}
-				require.Equal(t, 4, userCommitCount)
+				require.Equal(t, 5, userCommitCount)
 				return nil
 			})
 		}))
