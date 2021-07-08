@@ -77,7 +77,9 @@ git commit -m"Increment version for $(pachctl version --client-only) release"
 
 `etc/helm/pachyderm/Chart.yaml`
 
-Update the `appVersion` section to the new pachyderm version
+Update the `appVersion` key to the new pachyderm version
+
+Update the `version` key to the new pachyderm version (Helm and pachyderm versions will be kept in lock step)
 
 Note: When releasing an alpha/beta/RC version, ensure the helmchart is marked as a pre-release
 
@@ -87,6 +89,8 @@ Note: When releasing an alpha/beta/RC version, ensure the helmchart is marked as
 annotations:
   artifacthub.io/prerelease: "true"
 ```
+
+This will ensure the release is marked as a pre-release on artifact hub
 
 git commit -am "Update Pachyderm version in helm for $(pachctl version --client-only) release"
 
