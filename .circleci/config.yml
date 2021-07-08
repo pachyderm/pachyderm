@@ -133,8 +133,8 @@ jobs:
       #- run: cr upload -o pachyderm -r helmchart --skip-existing
       #- run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart -r helmchart --package-path ../.cr-release-packages --push
 workflows:
-  circleci:
-    jobs:
+  #circleci:
+  #  jobs:
       #- circleci:
       #    matrix:
       #      parameters:
