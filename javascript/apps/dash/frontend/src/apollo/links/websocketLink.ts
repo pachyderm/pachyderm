@@ -1,6 +1,7 @@
 import {ApolloLink, Operation, FetchResult, Observable} from '@apollo/client';
 import {print} from 'graphql';
 import {createClient, ClientOptions, Client} from 'graphql-ws';
+import noop from 'lodash/noop';
 
 interface RestartableClient extends Client {
   restart: () => void;
@@ -10,9 +11,7 @@ export const createRestartableClient = (
   options: ClientOptions,
 ): RestartableClient => {
   let restartRequested = false;
-  let restart = () => {
-    restartRequested = true;
-  };
+  let restart = noop;
 
   const client = createClient({
     ...options,
