@@ -116,7 +116,8 @@ jobs:
       ## cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --push
       - add_ssh_keys:
           fingerprints:
-            - 50:ec:eb:fa:12:58:e8:8c:51:37:7f:01:13:2c:3e:89
+            - 50:ec:eb:fa:12:58:e8:8c:51:37:7f:01:13:2c:3e:89 # Helmchart Repo Deploy Key
+            - 08:85:86:41:59:60:f3:0b:17:1d:49:57:46:31:09:af # Pachyderm Repo Deploy Key (Setup in circle under pachyderm project settings)
       - run:
           name: Avoid hosts unknown for github
           command: echo "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" >> ~/.ssh/known_hosts
@@ -124,10 +125,13 @@ jobs:
       - run: git config --global user.name buildbot
       - run:
           name: Clone GitHub repository
-          command: git clone -b ${CIRCLE_TAG} $CIRCLE_REPOSITORY_URL .
-      - run: cr package etc/helm/pachyderm
-      - run: cr upload -o pachyderm -r helmchart
-      - run: cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --push
+          command: git clone -b ${CIRCLE_TAG} $CIRCLE_REPOSITORY_URL pachyderm
+      - run:
+          name: Clone GitHub repository
+          command: git clone https://github.com/pachyderm/helmchart.git helmchart
+      - run: cr package pachyderm/etc/helm/pachyderm
+      - run: cr upload -o pachyderm -r helmchart --skip-existing
+      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart -r helmchart --package-path ../.cr-release-packages --push
 workflows:
   circleci:
     jobs:
