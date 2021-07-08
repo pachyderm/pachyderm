@@ -104,61 +104,53 @@ jobs:
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
     steps:
-      ## Set CR_Token to GH Token
-      # Circle's "checkout" step does a shallow clone, not allowing the repo to be modified (index.yml in helmcharts must be updated)
-      # Instead just clone both repos manually
-      #- add_ssh_keys:
-      #    fingerprints:
-      #      - 50:ec:eb:fa:12:58:e8:8c:51:37:7f:01:13:2c:3e:89 # Helmchart Repo Deploy Key
-      #      - 08:85:86:41:59:60:f3:0b:17:1d:49:57:46:31:09:af # Pachyderm Repo Deploy Key (Setup in circle under pachyderm project settings)
-      #- run:
-      #    name: Avoid hosts unknown for github
-      #    command: echo "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" >> ~/.ssh/known_hosts
+      # Set CR_Token to GH Personal Access Token (Found in pachydermbuildbot GH Acount)
+      # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
       - run: git config --global user.email buildbot@pachyderm.io
       - run: git config --global user.name buildbot
       - run:
           name: Clone Pachyderm
-      #    #command: git clone -b ${CIRCLE_TAG} --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm # Chart releaser only supports https clone, not ssh
-          command: git clone -b v2.0.0-beta.1 --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm
+          command: git clone -b ${CIRCLE_TAG} --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm 
       - run:
+          # Needed to update the chart repository (gh-pages) Chart releaser only supports https clone, not ssh
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: cr package pachyderm/etc/helm/pachyderm
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --package-path ../.cr-release-packages --pr #--push
 workflows:
-  #circleci:
-  #  jobs:
-      #- circleci:
-      #    matrix:
-      #      parameters:
-      #        bucket:
-      #        - MISC
-      #        # If you want to update the number of PPS buckets, you'll neet to
-      #        # update the value of PPS_BUCKETS above
-      #        - AUTH
-      #        - ENTERPRISE
-      #        - PFS
-      #        - PPS1
-      #        - PPS2
-      #        - PPS3
-      #        - PPS4
-      #        - PPS5
-      #        - PPS6
-      #        - EXAMPLES
-      #        - INTERNAL
+  circleci:
+    jobs:
+      - circleci:
+          matrix:
+            parameters:
+              bucket:
+              - MISC
+              # If you want to update the number of PPS buckets, you'll neet to
+              # update the value of PPS_BUCKETS above
+              - AUTH
+              - ENTERPRISE
+              - PFS
+              - PPS1
+              - PPS2
+              - PPS3
+              - PPS4
+              - PPS5
+              - PPS6
+              - EXAMPLES
+              - INTERNAL
   helm:
     jobs:
-      #- helm-build:
-      #    filters:
-      #      # Note: Not ignoring branches, so will be run on branches as well as tags
-      #      tags:
-      #        only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+      - helm-build:
+          filters:
+            # Note: Not ignoring branches, so will be run on branches as well as tags
+            tags:
+              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
       - helm-publish # TODO Add back semi-colon
-          #requires:
-          #  - helm-build
-          #filters:
-          #  branches:
-          #    ignore: /.*/
-          #  tags:
-          #    only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          requires:
+            - helm-build
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
