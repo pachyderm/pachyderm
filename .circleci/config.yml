@@ -119,7 +119,7 @@ jobs:
       - run:
           name: Clone GitHub repository
       #    #command: git clone -b ${CIRCLE_TAG} https://github.com/pachyderm/pachyderm.git pachyderm # Chart releaser only supports https clone, not ssh
-          command: git clone https://github.com/pachyderm/pachyderm.git pachyderm
+          command: git clone -b v2.0.0-beta.1 --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm
       - run:
           name: Clone GitHub repository
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
