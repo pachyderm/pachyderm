@@ -82,6 +82,7 @@ type authorizeFunc func(context.Context, *auth.AuthorizeRequest) (*auth.Authoriz
 type getPermissionsFunc func(context.Context, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
 type getPermissionsForPrincipalFunc func(context.Context, *auth.GetPermissionsForPrincipalRequest) (*auth.GetPermissionsResponse, error)
 type whoAmIFunc func(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
+type getRolesForPermissionFunc func(context.Context, *auth.GetRolesForPermissionRequest) (*auth.GetRolesForPermissionResponse, error)
 type getOIDCLoginFunc func(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error)
 type getRobotTokenFunc func(context.Context, *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error)
 type revokeAuthTokenFunc func(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
@@ -110,6 +111,7 @@ type mockGetPermissionsForPrincipal struct {
 	handler getPermissionsForPrincipalFunc
 }
 type mockWhoAmI struct{ handler whoAmIFunc }
+type mockGetRolesForPermission struct{ handler getRolesForPermissionFunc }
 type mockGetOIDCLogin struct{ handler getOIDCLoginFunc }
 type mockGetRobotToken struct{ handler getRobotTokenFunc }
 type mockRevokeAuthToken struct{ handler revokeAuthTokenFunc }
@@ -133,6 +135,7 @@ func (mock *mockGetRoleBinding) Use(cb getRoleBindingFunc)                      
 func (mock *mockAuthenticate) Use(cb authenticateFunc)                             { mock.handler = cb }
 func (mock *mockAuthorize) Use(cb authorizeFunc)                                   { mock.handler = cb }
 func (mock *mockWhoAmI) Use(cb whoAmIFunc)                                         { mock.handler = cb }
+func (mock *mockGetRolesForPermission) Use(cb getRolesForPermissionFunc)           { mock.handler = cb }
 func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)                             { mock.handler = cb }
 func (mock *mockGetRobotToken) Use(cb getRobotTokenFunc)                           { mock.handler = cb }
 func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)                       { mock.handler = cb }
@@ -166,6 +169,7 @@ type mockAuthServer struct {
 	GetPermissions             mockGetPermissions
 	GetPermissionsForPrincipal mockGetPermissionsForPrincipal
 	WhoAmI                     mockWhoAmI
+	GetRolesForPermission      mockGetRolesForPermission
 	GetOIDCLogin               mockGetOIDCLogin
 	GetRobotToken              mockGetRobotToken
 	RevokeAuthToken            mockRevokeAuthToken
@@ -246,6 +250,12 @@ func (api *authServerAPI) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (
 		return api.mock.WhoAmI.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.WhoAmI")
+}
+func (api *authServerAPI) GetRolesForPermission(ctx context.Context, req *auth.GetRolesForPermissionRequest) (*auth.GetRolesForPermissionResponse, error) {
+	if api.mock.GetRolesForPermission.handler != nil {
+		return api.mock.GetRolesForPermission.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.GetRolesForPermission")
 }
 func (api *authServerAPI) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error) {
 	if api.mock.GetOIDCLogin.handler != nil {
