@@ -514,6 +514,9 @@ func (c *authBuilderClient) Authorize(ctx context.Context, req *auth.AuthorizeRe
 func (c *authBuilderClient) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest, opts ...grpc.CallOption) (*auth.WhoAmIResponse, error) {
 	return nil, unsupportedError("WhoAmI")
 }
+func (c *authBuilderClient) GetRolesForPermission(ctx context.Context, req *auth.GetRolesForPermissionRequest, opts ...grpc.CallOption) (*auth.GetRolesForPermissionResponse, error) {
+	return nil, unsupportedError("GetRolesForPermission")
+}
 func (c *authBuilderClient) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRequest, opts ...grpc.CallOption) (*auth.GetRobotTokenResponse, error) {
 	return nil, unsupportedError("GetRobotToken")
 }
