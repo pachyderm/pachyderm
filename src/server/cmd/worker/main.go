@@ -67,9 +67,7 @@ func do(config interface{}) error {
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
 
 	// Enable cloud profilers if the configuration allows.
-	if err := profileutil.StartCloudProfiler("pachyderm-worker", env.Config()); err != nil {
-		return errors.Wrapf(err, "error starting cloud profiler")
-	}
+	profileutil.StartCloudProfiler("pachyderm-worker", env.Config())
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())

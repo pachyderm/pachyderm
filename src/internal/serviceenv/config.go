@@ -60,10 +60,11 @@ type GlobalConfiguration struct {
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
 
 	// If set to the name of a GCP project, enable GCP-specific continuous profiling and send
-	// profiles that project: https://cloud.google.com/profiler/docs.  Requires that pachd have
-	// google application credentials (through environment variables or workload identity), and
-	// that the service account associated with the credentials has 'cloudprofiler.agent' on the
-	// target project.
+	// profiles to that project: https://cloud.google.com/profiler/docs.  Requires that pachd
+	// has google application credentials (through environment variables or workload identity),
+	// and that the service account associated with the credentials has 'cloudprofiler.agent' on
+	// the target project.  If set on a pachd pod, propagates to workers and sidecars (which
+	// also need permission).
 	GoogleCloudProfilerProject string `env:"GOOGLE_CLOUD_PROFILER_PROJECT"`
 }
 

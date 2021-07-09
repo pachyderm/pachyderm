@@ -14,21 +14,26 @@ import (
 // https://cloud.google.com/profiler/docs
 //
 // Service is the name of this binary (pachd, worker, etc.).
-func StartCloudProfiler(service string, config *serviceenv.Configuration) error {
+//
+// If there is a problem starting the cloud profiler, it logs a message but we continue.
+func StartCloudProfiler(service string, config *serviceenv.Configuration) {
 	if config == nil {
 		log.Warn("nil configuration passed to StartCloudProfiler; profiling not enabled")
-		return nil
+		return
 	}
 	p := config.GoogleCloudProfilerProject
 	if p == "" {
-		return nil
+		return
 	}
-	log.Debugf("enabling google cloud profiler; sending profiles to project %q", p)
-	return profiler.Start(profiler.Config{
+	log.Infof("enabling google cloud profiler; sending profiles to project %q", p)
+	err := profiler.Start(profiler.Config{
 		Service:        service,
 		ServiceVersion: version.PrettyPrintVersion(version.Version),
 		MutexProfiling: true,
 		DebugLogging:   false,
 		ProjectID:      p,
 	})
+	if err != nil {
+		log.WithError(err).Error("failed to start cloud profiler; profiling not enabled")
+	}
 }
