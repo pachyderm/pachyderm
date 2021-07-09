@@ -14,7 +14,7 @@ import (
 var (
 	blockedSecondsMetric = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "pachyderm",
-		Subsystem: "object_storage",
+		Subsystem: "pfs_object_storage",
 		Name:      "limited_seconds_total",
 		Help:      "Total",
 	}, []string{"op"})

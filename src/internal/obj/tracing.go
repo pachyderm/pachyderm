@@ -13,21 +13,21 @@ import (
 var (
 	objectOperationMetric = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "pachyderm",
-		Subsystem: "object_storage",
+		Subsystem: "pfs_object_storage",
 		Name:      "operation_count_total",
 		Help:      "Number of object storage operations, by storage type and operation name",
 	}, []string{"provider", "op"})
 
 	objectBytesReadMetrics = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "pachyderm",
-		Subsystem: "object_storage",
+		Subsystem: "pfs_object_storage",
 		Name:      "read_bytes_total",
 		Help:      "Number of bytes read from object storage, by storage type",
 	}, []string{"provider"})
 
 	objectBytesWrittenMetrics = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "pachyderm",
-		Subsystem: "object_storage",
+		Subsystem: "pfs_object_storage",
 		Name:      "written_bytes_total",
 		Help:      "Number of bytes written to object storage, by storage type",
 	}, []string{"provider"})

@@ -16,19 +16,19 @@ import (
 var (
 	cacheHitMetric = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: "pachyderm",
-		Subsystem: "object_storage_cache",
+		Subsystem: "pfs_object_storage_cache",
 		Name:      "hits_total",
 		Help:      "Number of object storage gets served from cache",
 	})
 	cacheMissMetric = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: "pachyderm",
-		Subsystem: "object_storage_cache",
+		Subsystem: "pfs_object_storage_cache",
 		Name:      "misses_total",
 		Help:      "Number of object storage gets that were not served from cache",
 	})
 	cacheEvictionMetric = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: "pachyderm",
-		Subsystem: "object_storage_cache",
+		Subsystem: "pfs_object_storage_cache",
 		Name:      "evictions_total",
 		Help:      "Number of objects evicted from LRU cache",
 	})
