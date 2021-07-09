@@ -9,11 +9,48 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
 	"github.com/gogo/protobuf/proto"
 	logrus "github.com/sirupsen/logrus"
+)
+
+var (
+	dexRequestCountMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "auth_dex",
+		Name:      "http_requests_total",
+		Help:      "Count of http requests handled by Dex, by response status code and HTTP method",
+	}, []string{"code", "method"})
+	dexRequestsInFlightMetric = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "pachyderm",
+		Subsystem: "auth_dex",
+		Name:      "http_requests_in_flight",
+		Help:      "Number of requests currently being handled by Dex",
+	})
+	dexRequestsDurationMetric = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "pachyderm",
+		Subsystem: "auth_dex",
+		Name:      "http_requests_duration_seconds",
+		Help:      "Histogram of time spent processing Dex requests, by response status code and HTTP method",
+		Buckets:   []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30, 60, 300, 600},
+	}, []string{"code", "method"})
+	dexApprovalErrorCountMetric = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "auth_dex",
+		Name:      "approval_errors_total",
+		Help:      "Count of HTTP requests to /approval that ended in error",
+	})
+	dexStartupErrorCountMetric = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "auth_dex",
+		Name:      "startup_errors_total",
+		Help:      "Count of HTTP requests that were rejected because the server can't start",
+	})
 )
 
 // webDir is the path to find the static assets for the web server.
@@ -170,27 +207,32 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 	return func(rw http.ResponseWriter, r *http.Request) {
 		authReq, err := w.storageProvider.GetAuthRequest(r.FormValue("req"))
 		if err != nil {
+			dexApprovalErrorCountMetric.Inc()
 			w.logger.WithError(err).Error("failed to get auth request")
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if !authReq.LoggedIn {
+			dexApprovalErrorCountMetric.Inc()
 			w.logger.Error("auth request does not have an identity for approval")
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		tx, err := w.env.GetDBClient().BeginTxx(r.Context(), &sql.TxOptions{})
 		if err != nil {
+			dexApprovalErrorCountMetric.Inc()
 			w.logger.WithError(err).Error("failed to start transaction")
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if err := addUserInTx(r.Context(), tx, authReq.Claims.Email); err != nil {
+			dexApprovalErrorCountMetric.Inc()
 			w.logger.WithError(err).Error("unable to record user identity for login")
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if err := tx.Commit(); err != nil {
+			dexApprovalErrorCountMetric.Inc()
 			w.logger.WithError(err).Error("failed to commit transaction")
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
@@ -204,6 +246,7 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	server, err := w.getServer(r.Context())
 	if server == nil {
+		dexStartupErrorCountMetric.Inc()
 		logrus.WithError(err).Error("unable to start Dex server")
 		http.Error(rw, "unable to start Dex server, check logs", http.StatusInternalServerError)
 		return
@@ -212,5 +255,9 @@ func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/approval", w.interceptApproval(server))
 	mux.HandleFunc("/", server.ServeHTTP)
-	mux.ServeHTTP(rw, r)
+
+	instrumented := promhttp.InstrumentHandlerInFlight(dexRequestsInFlightMetric,
+		promhttp.InstrumentHandlerDuration(dexRequestsDurationMetric,
+			promhttp.InstrumentHandlerCounter(dexRequestCountMetric, mux)))
+	instrumented.ServeHTTP(rw, r)
 }
