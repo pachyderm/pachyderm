@@ -1,4 +1,5 @@
 import {render, waitFor, within} from '@testing-library/react';
+import {formatDistanceToNow, fromUnixTime} from 'date-fns';
 import React from 'react';
 import {Route} from 'react-router';
 
@@ -111,7 +112,11 @@ describe('Job Details', () => {
     expect(getByTestId('InfoPanel__id')).toHaveTextContent(jobId);
     expect(getByTestId('InfoPanel__pipeline')).toHaveTextContent('likelihoods');
     expect(getByTestId('InfoPanel__state')).toHaveTextContent('Failure');
-    expect(getByTestId('InfoPanel__started')).toHaveTextContent('4 months ago');
+    expect(getByTestId('InfoPanel__started')).toHaveTextContent(
+      formatDistanceToNow(fromUnixTime(1614136189), {
+        addSuffix: true,
+      }),
+    );
   });
 
   it('should display correct pipeline job based on url', async () => {
