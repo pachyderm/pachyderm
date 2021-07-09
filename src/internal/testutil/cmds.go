@@ -114,7 +114,7 @@ which match >/dev/null || {
 	template.Must(template.New("").Parse(dedent(cmd))).Execute(buf, subsMap)
 	res := exec.Command("/bin/bash")
 	res.Stderr = os.Stderr
-	// useful for debugging, but makes travis too noisy:
+	// useful for debugging, but makes logs too noisy:
 	// res.Stdout = os.Stdout
 	res.Stdin = buf
 	res.Env = os.Environ()

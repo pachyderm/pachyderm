@@ -51,7 +51,7 @@ below.
 ### Prerequisites
 
 1. Make sure the HEAD commit (that you're about to release) has a passing
-   build on travis.
+   build on circleci.
 2. Make sure that you have no uncommitted files in the current branch.
 
 ### Update client version [apply step only when running point-release target]
