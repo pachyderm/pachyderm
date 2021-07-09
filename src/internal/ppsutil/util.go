@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"crypto/md5"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
@@ -432,8 +434,11 @@ func ContainsS3Inputs(in *pps.Input) bool {
 // is in ppsutil because both PPS (which creates the service, in the s3 gateway
 // sidecar server) and the worker (which passes the endpoint to the user code)
 // need to know it.
-func SidecarS3GatewayService(jobID string) string {
-	return "s3-" + jobID
+func SidecarS3GatewayService(pipeline, commitSetId string) string {
+	hash := md5.New()
+	hash.Write([]byte(pipeline))
+	hash.Write([]byte(commitSetId))
+	return "s3-" + pfs.EncodeHash(hash.Sum(nil))
 }
 
 // ErrorState returns true if s is an error state for a pipeline, that is, a
