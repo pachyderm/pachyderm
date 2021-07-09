@@ -25,10 +25,10 @@ import {JobSetQueryArgs, JobQueryArgs, ServiceArgs} from '../lib/types';
 import {DEFAULT_JOBS_LIMIT} from '../services/constants/pps';
 import streamToObjectArray from '../utils/streamToObjectArray';
 
-interface ListArgs {
+export interface ListArgs {
   limit?: number | null;
 }
-interface ListJobArgs extends ListArgs {
+export interface ListJobArgs extends ListArgs {
   pipelineId?: string | null;
 }
 
