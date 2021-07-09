@@ -99,7 +99,7 @@ case "${BUCKET}" in
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
-      go test -v -count=1 ./src/server/pps/server -timeout 300s
+      go test -v -count=1 ./src/server/pps/server -timeout 420s
     fi
     ;;
   AUTH)
