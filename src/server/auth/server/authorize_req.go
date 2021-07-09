@@ -121,9 +121,9 @@ func (r *authorizeRequest) evaluateRoleBindingForSubject(subject string, binding
 				return err
 			}
 
-			r.roleMap[role] = roleDefinition
+			r.roleMap[role] = roleDefinition.role
 
-			for _, permission := range roleDefinition.Permissions {
+			for _, permission := range roleDefinition.role.Permissions {
 				if _, ok := r.permissions[permission]; ok {
 					r.satisfiedPermissions = append(r.satisfiedPermissions, permission)
 					delete(r.permissions, permission)

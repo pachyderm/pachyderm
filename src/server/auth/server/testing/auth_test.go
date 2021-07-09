@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -2874,6 +2875,26 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	pachdLogsIter = aliceClient.GetLogs("", "", nil, "", false, false, 0)
 	pachdLogsIter.Next()
 	require.NoError(t, pachdLogsIter.Err())
+}
+
+// TestRolesForPermission tests all users can look up the roles that correspond to
+// a given permission.
+func TestRolesForPermission(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	resp, err := aliceClient.GetRolesForPermission(aliceClient.Ctx(), &auth.GetRolesForPermissionRequest{Permission: auth.Permission_REPO_READ})
+	require.NoError(t, err)
+
+	names := make([]string, len(resp.Roles))
+	for i, r := range resp.Roles {
+		names[i] = r.Name
+	}
+	sort.Strings(names)
+	require.Equal(t, []string{"clusterAdmin", "repoOwner", "repoReader", "repoWriter"}, names)
 }
 
 // TODO: This test mirrors TestLoad in src/server/pfs/server/testing/load_test.go.
