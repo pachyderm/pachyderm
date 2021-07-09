@@ -12,6 +12,13 @@ pachd:
       hostPath: /tmp/pachyderm/
   metrics:
     enabled: false
+  resources:
+    limits:
+      cpu: 250m
+      memory: 512M
+    requests:
+      cpu: 250m
+      memory: 512M
 postgresql:
   service:
     type: NodePort
