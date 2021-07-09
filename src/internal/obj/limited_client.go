@@ -12,11 +12,12 @@ import (
 )
 
 var (
-	blockedSecondsMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+	blockedSecondsMetric = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "pachyderm",
 		Subsystem: "pfs_object_storage",
-		Name:      "limited_seconds_total",
-		Help:      "Total",
+		Name:      "limited_seconds",
+		Help:      "Distribution of time spent waiting behind the limitedClient semaphore.",
+		Buckets:   []float64{0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 10, 30, 60},
 	}, []string{"op"})
 )
 
@@ -55,7 +56,7 @@ func (loc *limitedClient) Put(ctx context.Context, name string, r io.Reader) err
 	if err := loc.writersSem.Acquire(ctx, limitClientSemCost); err != nil {
 		return err
 	}
-	blockedSecondsMetric.WithLabelValues("put").Add(time.Since(t).Seconds())
+	blockedSecondsMetric.WithLabelValues("put").Observe(time.Since(t).Seconds())
 	defer loc.writersSem.Release(limitClientSemCost)
 	return loc.Client.Put(ctx, name, r)
 }
@@ -65,7 +66,7 @@ func (loc *limitedClient) Get(ctx context.Context, name string, w io.Writer) err
 	if err := loc.readersSem.Acquire(ctx, limitClientSemCost); err != nil {
 		return err
 	}
-	blockedSecondsMetric.WithLabelValues("get").Add(time.Since(t).Seconds())
+	blockedSecondsMetric.WithLabelValues("get").Observe(time.Since(t).Seconds())
 	defer loc.readersSem.Release(limitClientSemCost)
 	return loc.Client.Get(ctx, name, w)
 }
