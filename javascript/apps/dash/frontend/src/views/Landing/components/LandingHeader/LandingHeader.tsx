@@ -17,7 +17,7 @@ const LandingHeader = () => {
         <Group align="center" justify="center" spacing={24}>
           <a className={styles.logo} href="/">
             <LogoElephant />
-            <span className={styles.dashboard}>Dashboard</span>
+            <span className={styles.dashboard}>Console</span>
           </a>
           {workspaceName && (
             <>
