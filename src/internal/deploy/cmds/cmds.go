@@ -639,7 +639,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			// Require credentials to access S3 for pachd deployments.
 			// Enterprise server deployments don't require an S3 bucket, so they don't need credentials.
 			if creds == "" && !enterpriseServer {
-				return errors.Errorf("one of --credentials, or --iam-role needs to be provided")
+				return errors.Errorf("--credentials needs to be provided")
 			}
 
 			// populate 'amazonCreds' & validate
