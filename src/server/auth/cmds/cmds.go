@@ -70,7 +70,7 @@ func newClient(enterprise bool) (*client.APIClient, error) {
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
 	var enterprise, supplyRootToken, onlyActivate bool
-	var issuer, redirect, clientId string
+	var issuer, redirect, secret, clientId string
 	var trustedPeers, scopes []string
 	activate := &cobra.Command{
 		Short: "Activate Pachyderm's auth system",
@@ -85,6 +85,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 
 			var rootToken string
 			if supplyRootToken {
+				fmt.Printf("Root token:\n")
 				rootToken, err = cmdutil.ReadPassword("")
 				if err != nil {
 					return errors.Wrapf(err, "error reading token")
@@ -158,6 +159,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 						Id:           clientId,
 						Name:         clientId,
 						TrustedPeers: trustedPeers,
+						Secret:       secret,
 						RedirectUris: []string{redirect},
 					},
 				})
@@ -198,6 +200,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 					Client: &identity.OIDCClient{
 						Id:           clientId,
 						Name:         clientId,
+						Secret:       secret,
 						TrustedPeers: trustedPeers,
 						RedirectUris: []string{redirect},
 					},
@@ -236,6 +239,7 @@ Prompt the user to input a root token on stdin, rather than generating a random 
 	activate.PersistentFlags().StringVar(&issuer, "issuer", "http://localhost:30658/", "The issuer for the OIDC service")
 	activate.PersistentFlags().StringVar(&redirect, "redirect", "http://localhost:30657/authorization-code/callback", "The redirect URL for the OIDC service")
 	activate.PersistentFlags().StringVar(&clientId, "client-id", "pachd", "The client ID for this pachd")
+	activate.PersistentFlags().StringVar(&secret, "client-secret", "", "The client secret for this pachd")
 	activate.PersistentFlags().StringSliceVar(&trustedPeers, "trusted-peers", []string{}, "Comma-separated list of OIDC client IDs to trust")
 	activate.PersistentFlags().StringSliceVar(&scopes, "scopes", auth.DefaultOIDCScopes, "Comma-separated list of scopes to request")
 
