@@ -1056,7 +1056,7 @@ func WriteAmazonAssets(encoder serde.Encoder, opts *AssetOpts, region string, bu
 		return err
 	}
 	var secret map[string][]byte
-	if creds.ID != "" {
+	if creds != nil && creds.ID != "" {
 		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro, "", advancedConfig)
 	}
 	return WriteSecret(encoder, secret, opts)
