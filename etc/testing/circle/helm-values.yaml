@@ -13,9 +13,6 @@ pachd:
   metrics:
     enabled: false
   resources:
-    limits:
-      cpu: 250m
-      memory: 512M
     requests:
       cpu: 250m
       memory: 512M
