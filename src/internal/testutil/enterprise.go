@@ -10,7 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 )
 
-// GetTestEnterpriseCode Pulls the enterprise code out of the env var stored in travis
+// GetTestEnterpriseCode Pulls the enterprise code out of the env var stored in CI
 func GetTestEnterpriseCode(t testing.TB) string {
 	acode, exists := os.LookupEnv("ENT_ACT_CODE")
 	if !exists {

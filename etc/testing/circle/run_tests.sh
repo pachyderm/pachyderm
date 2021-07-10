@@ -76,12 +76,10 @@ case "${BUCKET}" in
     make test-deploy-manifests
     make test-s3gateway-unit
     make test-worker
-    if [[ "${TRAVIS_SECURE_ENV_VARS:-""}" == "true" ]]; then
-        # these tests require secure env vars to run, which aren't available
-        # when the PR is coming from an outside contributor - so we just
-        # disable them
-        make test-tls
-    fi
+    # these tests require secure env vars to run, which aren't available
+    # when the PR is coming from an outside contributor - so we just
+    # disable them
+    # make test-tls
     ;;
   INTERNAL)
     go install -v ./src/testing/match
