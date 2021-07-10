@@ -19,3 +19,8 @@ pachd:
 postgresql:
   service:
     type: NodePort
+etcd:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512M
