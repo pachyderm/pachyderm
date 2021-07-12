@@ -5,11 +5,13 @@ import {
   Switch,
   useClipboardCopy,
 } from '@pachyderm/components';
+import {format, fromUnixTime} from 'date-fns';
 import React, {useCallback, useEffect, useState} from 'react';
 
 import Header from '@dash-frontend/components/Header';
 import {GetLogsQuery} from '@graphqlTypes';
 
+import {LOGS_DATE_FORMAT} from '../../../constants/logsViewersConstants';
 import useDownloadText from '../../hooks/useDownloadText';
 
 import styles from './LogsModalHeader.module.css';
@@ -39,7 +41,15 @@ const LogsModalHeader: React.FC<LogsModalHeaderProps> = ({
     return Object.entries(selectedLogsMap)
       .reduce((acc: string[], [index, selected]) => {
         if (selected) {
-          acc.push(logs[Number(index)]?.message || '');
+          const message = logs[Number(index)]?.message;
+          const timestamp = logs[Number(index)]?.timestamp;
+          acc.push(
+            `${
+              timestamp
+                ? format(fromUnixTime(timestamp.seconds), LOGS_DATE_FORMAT)
+                : LOGS_DATE_FORMAT.replace(/(.*?)/, ' ')
+            } ${message || ''}`,
+          );
         }
         return acc;
       }, [])

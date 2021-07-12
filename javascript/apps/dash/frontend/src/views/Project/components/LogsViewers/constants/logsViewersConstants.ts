@@ -9,3 +9,5 @@ export const LOGS_DEFAULT_DROPDOWN_OPTIONS: DropdownItem[] = [
 ];
 export const PIPELINE_START_TIME_OPTION = 'Last Pipeline Job';
 export const JOB_START_TIME_OPTION = 'Job Start Time';
+
+export const LOGS_DATE_FORMAT = 'MM-dd-yyyy H:mm:ss';

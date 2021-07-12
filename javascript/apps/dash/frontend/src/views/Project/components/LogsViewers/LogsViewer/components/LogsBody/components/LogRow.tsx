@@ -13,6 +13,8 @@ import {areEqual} from 'react-window';
 
 import {GetLogsQuery} from '@graphqlTypes';
 
+import {LOGS_DATE_FORMAT} from '../../../../constants/logsViewersConstants';
+
 import styles from './LogRow.module.css';
 
 type LogRowProps = {
@@ -51,7 +53,7 @@ const LogRow: React.FC<LogRowProps> = ({
 
   const formattedTimestamp = useMemo(() => {
     if (timestamp) {
-      return format(fromUnixTime(timestamp.seconds), 'MM-dd-yyyy H:mm:ss');
+      return format(fromUnixTime(timestamp.seconds), LOGS_DATE_FORMAT);
     }
     return '';
   }, [timestamp]);
