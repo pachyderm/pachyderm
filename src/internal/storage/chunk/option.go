@@ -81,6 +81,7 @@ func StorageOptions(conf *serviceenv.Configuration) ([]StorageOption, error) {
 		if err != nil {
 			return nil, err
 		}
+		diskCache = obj.TracingObjClient("DiskCache", diskCache)
 		opts = append(opts, WithObjectCache(diskCache, conf.StorageDiskCacheSize))
 	}
 	return opts, nil

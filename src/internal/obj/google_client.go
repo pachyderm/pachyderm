@@ -1,18 +1,22 @@
 package obj
 
 import (
+	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+	ghttp "google.golang.org/api/transport/http"
 )
 
 type googleClient struct {
@@ -21,7 +25,19 @@ type googleClient struct {
 }
 
 func newGoogleClient(bucket string, opts []option.ClientOption) (*googleClient, error) {
+	ctx := context.Background()
 	opts = append(opts, option.WithScopes(storage.ScopeFullControl))
+
+	// We have to build the transport and supply it to NewClient in order to instrument the
+	// roundtripper.  If we pass the instrumented client directly to NewClient with
+	// WithHTTPClient, the client won't have any credentials and won't be able to make requests.
+	tr, err := ghttp.NewTransport(ctx, promutil.InstrumentRoundTripper("google_cloud_storage", http.DefaultTransport), opts...)
+	if err != nil {
+		return nil, fmt.Errorf("init google transport: %w", err)
+	}
+	opts = append(opts, option.WithHTTPClient(&http.Client{
+		Transport: tr,
+	}))
 	client, err := storage.NewClient(context.Background(), opts...)
 	if err != nil {
 		return nil, err
