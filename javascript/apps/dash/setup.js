@@ -86,7 +86,7 @@ const writePachdAddress = async () => {
 const activateAuth = async () => {
   console.log('Activating auth...');
   try {
-    await executePachCommand('auth activate');
+    await executePachCommand('auth activate --only-activate');
     console.log('Auth activated ✅');
   } catch (e) {
     if (String(e).includes('ID already exists')) {
@@ -175,7 +175,8 @@ const configureOIDCProvider = async () => {
         "localhost_issuer": true,
         "client_id": "pachd",
         "client_secret": "notsecret",
-        "redirect_uri": "http://localhost:30657/authorization-code/callback"
+        "redirect_uri": "http://localhost:30657/authorization-code/callback",
+        "scopes": ["email", "openid", "profile", "groups"]
       }`);
     console.log('OIDC Provider configured ✅');
   } catch (e) {
@@ -210,18 +211,25 @@ const configureDashClient = async () => {
   }
 }
 
-const setupTrustedPeers = async () => {
-  console.log('Setting up trusted peers...');
+const configurePachClient = async () => {
+  console.log('Creating pachd client...');
   try {
-    await executePachCommand(`idp update-client <<EOF
+    await executePachCommand(`idp create-client <<EOF
     {
       "id": "pachd",
+      "name": "pachd",
+      "secret": "notsecret",
+      "redirect_uris": ["http://localhost:30657/authorization-code/callback"],
       "trusted_peers": ["dash"]
     }`);
-    console.log('Trusted peers added ✅');
+    console.log('Pachd client created  ✅');
   } catch (e) {
-    console.log('Problem setting up trusted peers:', e);
-    exit(1);
+    if (String(e).includes('ID already exists')) {
+      console.log('Pachd client was previously configured ⚠️');
+    } else {
+      console.log('Problem configuring dash client:', e);
+      exit(1);
+    }
   }
 }
 
@@ -234,7 +242,7 @@ const setup = async () => {
   await configureGithubConnector();
   await configureOIDCProvider();
   await configureDashClient();
-  await setupTrustedPeers();
+  await configurePachClient();
 }
 
 setup();
