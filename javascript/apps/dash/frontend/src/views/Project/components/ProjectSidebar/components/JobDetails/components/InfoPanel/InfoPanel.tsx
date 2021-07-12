@@ -98,33 +98,6 @@ const InfoPanel = () => {
           <FileDocSVG className={styles.readLogsSvg} width={20} height={24} />
         </Link>
       </div>
-      <Description
-        term="Inputs"
-        lines={9}
-        loading={loading}
-        data-testid="InfoPanel__inputs"
-      >
-        {job?.inputString ? (
-          <PipelineInput
-            inputString={job.inputString}
-            branchId={job.inputBranch || 'master'}
-            projectId={projectId}
-          />
-        ) : (
-          'N/A'
-        )}
-      </Description>
-
-      <Description
-        term="Transform"
-        loading={loading}
-        lines={3}
-        data-testid="InfoPanel__transform"
-      >
-        {transformString}
-      </Description>
-
-      <hr className={styles.divider} />
 
       <Description term="ID" loading={loading} data-testid="InfoPanel__id">
         {job?.id}
@@ -156,6 +129,34 @@ const InfoPanel = () => {
         data-testid="InfoPanel__duration"
       >
         {duration}
+      </Description>
+
+      <hr className={styles.divider} />
+
+      <Description
+        term="Inputs"
+        lines={9}
+        loading={loading}
+        data-testid="InfoPanel__inputs"
+      >
+        {job?.inputString ? (
+          <PipelineInput
+            inputString={job.inputString}
+            branchId={job.inputBranch || 'master'}
+            projectId={projectId}
+          />
+        ) : (
+          'N/A'
+        )}
+      </Description>
+
+      <Description
+        term="Transform"
+        loading={loading}
+        lines={3}
+        data-testid="InfoPanel__transform"
+      >
+        {transformString}
       </Description>
     </dl>
   );
