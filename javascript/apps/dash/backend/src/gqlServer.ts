@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
+import * as Sentry from '@sentry/node';
 import {ApolloServer, gql} from 'apollo-server-express';
 
 import loggingPlugin from '@dash-backend/apollo/plugins/loggingPlugin';
@@ -19,6 +20,8 @@ const gqlServer = new ApolloServer({
   },
   // TODO: Maybe move this and add global error messaging
   formatError: (error) => {
+    Sentry.captureException(`[ApolloServer error]: ${error}`);
+
     if (error.extensions?.code === 'INTERNAL_SERVER_ERROR') {
       error.message = 'Something went wrong';
     }

@@ -1,11 +1,20 @@
 import {onError} from '@apollo/client/link/error';
+import {captureException} from '@sentry/react';
 import {History as BrowserHistory} from 'history';
 
 import logout from '@dash-frontend/lib/logout';
 
 export const errorLink = (browserHistory: BrowserHistory) =>
-  onError(({graphQLErrors, operation}) => {
+  onError(({graphQLErrors, networkError, operation}) => {
     if (graphQLErrors) {
+      graphQLErrors.forEach(({message, locations, path}) => {
+        if (message || locations || path) {
+          captureException(
+            `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`,
+          );
+        }
+      });
+
       if (
         graphQLErrors.some(
           (error) => error.extensions?.code === 'UNAUTHENTICATED',
@@ -30,5 +39,7 @@ export const errorLink = (browserHistory: BrowserHistory) =>
       ) {
         browserHistory.push('/error');
       }
+    } else if (networkError) {
+      captureException(`[Network error]: ${networkError}`);
     }
   });

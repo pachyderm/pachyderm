@@ -2,6 +2,7 @@ import {Server} from 'http';
 import {AddressInfo} from 'net';
 import path from 'path';
 
+import * as Sentry from '@sentry/node';
 import cookieParser from 'cookie-parser';
 import {renderFile} from 'ejs';
 import express, {Express} from 'express';
@@ -63,6 +64,11 @@ const attachDownloadHandler = (app: Express) => {
 
 const createServer = () => {
   const app = express();
+
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    tracesSampleRate: 0.5,
+  });
 
   gqlServer.applyMiddleware({app});
 

@@ -4,6 +4,7 @@ import {
   NormalizedCacheObject,
   ApolloLink,
 } from '@apollo/client';
+import {sentryLink} from '@pachyderm/components';
 import {History as BrowserHistory} from 'history';
 
 import {errorLink} from '@dash-frontend/apollo/links/errorLink';
@@ -57,6 +58,7 @@ const createApolloClient = (
 
   const link = ApolloLink.from([
     contextLink(),
+    sentryLink(),
     errorLink(browserHistory),
     split,
   ]);

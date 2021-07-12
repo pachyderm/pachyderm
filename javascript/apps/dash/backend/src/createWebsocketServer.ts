@@ -2,6 +2,7 @@ import fs from 'fs';
 import {Server} from 'http';
 import path from 'path';
 
+import * as Sentry from '@sentry/node';
 import {AuthenticationError} from 'apollo-server-errors';
 import {makeExecutableSchema} from 'graphql-tools';
 import {useServer as createServer} from 'graphql-ws/lib/use/ws';
@@ -66,6 +67,9 @@ const createWebsocketServer = (server: Server) => {
         });
       },
       onError: (_ctx, msg, errors) => {
+        Sentry.captureException(
+          `[WebSocketServer error]: Message: ${msg}, Errors: ${errors}`,
+        );
         log.error({EventSource: 'Websocket', Event: 'Error', errors, msg});
       },
       onComplete: (_ctx, msg) => {
