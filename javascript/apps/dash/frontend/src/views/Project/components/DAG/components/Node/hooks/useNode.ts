@@ -3,11 +3,9 @@ import {select} from 'd3-selection';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useRouteMatch} from 'react-router';
 
+import useIsViewingJob from '@dash-frontend/hooks/useIsViewingJob';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
-import {
-  JOB_PATH,
-  PIPELINE_JOB_PATH,
-} from '@dash-frontend/views/Project/constants/projectPaths';
+import {PIPELINE_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {Node, NodeState, NodeType} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
 import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
@@ -19,7 +17,7 @@ const useNode = (node: Node, isInteractive: boolean) => {
   const [showSuccess, setShowSuccess] = useState(false);
   const {copy, supported, copied, reset} = useClipboardCopy(node.name);
   const [showLeaveJob, setShowLeaveJob] = useState(false);
-  const isViewingJob = useRouteMatch(JOB_PATH);
+  const isViewingJob = useIsViewingJob();
 
   const isEgress = node.type === NodeType.EGRESS;
   const noAccess = !node.access;
@@ -38,7 +36,7 @@ const useNode = (node: Node, isInteractive: boolean) => {
   }, [node]);
 
   const onClick = useCallback(() => {
-    if (isViewingJob && !isEgress) {
+    if (isViewingJob && !isEgress && node.type !== NodeType.PIPELINE) {
       setShowLeaveJob(true);
       return;
     }

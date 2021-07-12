@@ -3,6 +3,7 @@ import {useHistory} from 'react-router';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
+  jobRoute,
   pipelineRoute,
   repoRoute,
 } from '@dash-frontend/views/Project/utils/routes';
@@ -10,8 +11,11 @@ import {Node, NodeType} from '@graphqlTypes';
 
 import deriveRouteParamFromNode from '../lib/deriveRepoNameFromNode';
 
+import useIsViewingJob from './useIsViewingJob';
+
 const useRouteController = () => {
-  const {projectId, repoId, pipelineId} = useUrlState();
+  const {projectId, repoId, pipelineId, jobId} = useUrlState();
+  const isViewingJob = useIsViewingJob();
   const browserHistory = useHistory();
 
   const navigateToNode = useCallback(
@@ -29,15 +33,27 @@ const useRouteController = () => {
           }),
         );
       } else {
-        browserHistory.push(
-          pipelineRoute({
-            projectId,
-            pipelineId: deriveRouteParamFromNode(n),
-          }),
-        );
+        const pipelineId = deriveRouteParamFromNode(n);
+
+        if (isViewingJob) {
+          browserHistory.push(
+            jobRoute({
+              projectId,
+              pipelineId,
+              jobId,
+            }),
+          );
+        } else {
+          browserHistory.push(
+            pipelineRoute({
+              projectId,
+              pipelineId,
+            }),
+          );
+        }
       }
     },
-    [projectId, browserHistory],
+    [projectId, browserHistory, jobId, isViewingJob],
   );
 
   const selectedNode = useMemo(() => {
