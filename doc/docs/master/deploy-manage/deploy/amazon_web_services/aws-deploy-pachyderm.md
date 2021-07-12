@@ -231,7 +231,11 @@ Refer to our generic ["Helm Install"](./helm_install.md) page for more informati
   **System Response:**
 
   ```shell
-  TODO
+  NAME: pachd
+  LAST DEPLOYED: Mon Jul 12 18:28:59 2021
+  NAMESPACE: default
+  STATUS: deployed
+  REVISION: 1
   ```
 
   The deployment takes some time. You can run `kubectl get pods` periodically
@@ -245,7 +249,7 @@ Refer to our generic ["Helm Install"](./helm_install.md) page for more informati
   **System Response**
 
   ```
-  <TODO>
+  pod/pachd-74c5766c4d-ctj82 condition met
   ```
 
   **Note:** If you see a few restarts on the `pachd` nodes, it means that
@@ -292,12 +296,11 @@ If you specified `LoadBalancer` in the `values.yaml` file:
       $ pachctl config get active-context`
       ```
 
+      Your cluster context name should show up.
+
 If you're not exposing `pachd` publicly, you can run:
 
-  ```shell
-  # Background this process because it blocks.
-  $ pachctl port-forward
-  ```
-
-
-Your cluster context name should show up. 
+```shell
+# Background this process because it blocks.
+$ pachctl port-forward
+``` 
