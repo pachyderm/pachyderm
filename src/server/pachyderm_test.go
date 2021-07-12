@@ -27,7 +27,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -6045,7 +6044,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
-			client.NewCronInputOpts("time", "", "1-59/1 * * * *", true), // every minute
+			client.NewCronInputOpts("time", "", "*/1 * * * *", true), // every minute
 			"",
 			false,
 		))
@@ -6086,24 +6085,14 @@ func TestCronPipeline(t *testing.T) {
 				countBreakFunc := newCountBreakFunc(4)
 				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
-						_, err := c.WaitCommitSetAll(ci.Commit.ID)
+						_, err := c.WaitCommit(repo, "", ci.Commit.ID)
 						require.NoError(t, err)
-						if ci.Origin.Kind != pfs.OriginKind_ALIAS {
-							files, err := c.ListFileAll(ci.Commit, "/")
-							require.NoError(t, err)
-							require.Equal(t, 1, len(files))
-						}
+						files, err := c.ListFileAll(ci.Commit, "/")
+						require.NoError(t, err)
+						require.Equal(t, 1, len(files))
 						return nil
 					})
 				}))
-				listCommitClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
-					Repo:       client.NewRepo(repo),
-					OriginKind: pfs.OriginKind_USER,
-				})
-				require.NoError(t, err)
-				commits, err := clientsdk.ListCommit(listCommitClient)
-				require.NoError(t, err)
-				require.Equal(t, 4, len(commits))
 				return nil
 			})
 		}))
