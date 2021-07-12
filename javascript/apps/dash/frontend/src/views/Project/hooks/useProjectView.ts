@@ -19,6 +19,8 @@ import {DagDirection, Node} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
 
 const SIDEBAR_WIDTH = 384;
+const MIN_DAG_HEIGHT = 300;
+const DAG_TOP_PADDING = 100;
 export const MAX_SCALE_VALUE = 1.5;
 const DEFAULT_MINIMUM_SCALE_VALUE = 0.6;
 
@@ -63,8 +65,8 @@ const dagReducer = (state: DagState, action: DagAction): DagState => {
 };
 
 export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
-  const [svgSize] = useState({
-    height: Math.max(300, window.innerHeight - 100),
+  const [svgSize, setSvgSize] = useState({
+    height: Math.max(MIN_DAG_HEIGHT, window.innerHeight - DAG_TOP_PADDING),
     width: window.innerWidth,
   });
   const {isOpen, overlay, sidebarSize} = useSidebarInfo();
@@ -185,6 +187,17 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
       setSliderZoomValue(startScale);
     }
   }, [dagDirection, graphExtents, nodeHeight, nodeWidth, startScale, svgSize]);
+
+  // set window resize listener for svg parent size
+  useEffect(() => {
+    const resizeSvg = () =>
+      setSvgSize({
+        height: Math.max(MIN_DAG_HEIGHT, window.innerHeight - DAG_TOP_PADDING),
+        width: window.innerWidth,
+      });
+    window.addEventListener('resize', resizeSvg, true);
+    return () => window.removeEventListener('resize', resizeSvg);
+  }, []);
 
   //initialize zoom and set minimum scale as dags update
   useEffect(() => {
