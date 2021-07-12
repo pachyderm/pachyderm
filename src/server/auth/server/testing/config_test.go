@@ -29,7 +29,7 @@ func TestSetGetConfigBasic(t *testing.T) {
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
+		Issuer:          "http://pachd:1658/",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/test",
@@ -61,14 +61,14 @@ func TestIssuerNotLocalhost(t *testing.T) {
 	// set the issuer to locahost:1658 so we don't need to set LocalhostIssuer = true
 	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer: "http://localhost:1658/",
+			Issuer: "http://pachd:1658/",
 		},
 	})
 	require.NoError(t, err)
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:1658/",
+		Issuer:          "http://pachd:1658/",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/test",
@@ -107,7 +107,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 
 	// Alice tries to set the current configuration and fails
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
+		Issuer:          "http://pachd:1658/",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/test",
@@ -166,7 +166,7 @@ func TestConfigRestartAuth(t *testing.T) {
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
+		Issuer:          "http://pachd:1658/",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/test",
@@ -252,7 +252,7 @@ func TestSetGetNilConfig(t *testing.T) {
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
+		Issuer:          "http://pachd:1658/",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/test",

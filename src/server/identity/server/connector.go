@@ -10,24 +10,33 @@ import (
 	"github.com/dexidp/dex/pkg/log"
 )
 
+const localhostIdentityServer = "localhost:30658"
+
 var (
 	_ connector.CallbackConnector = &placeholder{}
 )
 
 // placeholder is a fake Dex connector which redirects the user to a static page with instructions.
 // This is necessary because Dex won't start the web server unless a connector is configured.
-type placeholderConfig struct{}
-
-func (placeholderConfig) Open(id string, logger log.Logger) (connector.Connector, error) {
-	return &placeholder{}, nil
+type placeholderConfig struct {
+	LocalhostIssuer bool
 }
 
-type placeholder struct{}
+func (p placeholderConfig) Open(id string, logger log.Logger) (connector.Connector, error) {
+	return &placeholder{LocalhostIssuer: p.LocalhostIssuer}, nil
+}
 
-func (*placeholder) LoginURL(s connector.Scopes, callbackURL, state string) (string, error) {
+type placeholder struct {
+	LocalhostIssuer bool
+}
+
+func (p *placeholder) LoginURL(s connector.Scopes, callbackURL, state string) (string, error) {
 	u, err := url.Parse(callbackURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse callbackURL %q: %v", callbackURL, err)
+	}
+	if p.LocalhostIssuer {
+		u.Host = localhostIdentityServer
 	}
 	u.Path = "/static/not-configured.html"
 	return u.String(), nil

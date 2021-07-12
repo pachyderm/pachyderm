@@ -290,8 +290,9 @@ func TestShortenIDTokenExpiry(t *testing.T) {
 	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer:        "http://localhost:30658/",
-			IdTokenExpiry: "1h",
+			Issuer:          "http://pachd:1658/",
+			IdTokenExpiry:   "1h",
+			LocalhostIssuer: true,
 		},
 	})
 	require.NoError(t, err)

@@ -23,7 +23,7 @@ const DexMockConnectorEmail = `kilgore@kilgore.trout`
 // OIDCOIDCConfig is an auth config which can be used to connect to the identity service in tests
 func OIDCOIDCConfig() *auth.OIDCConfig {
 	return &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
+		Issuer:          "http://pachd:1658/",
 		ClientID:        "pachyderm",
 		ClientSecret:    "notsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/callback",
@@ -42,7 +42,8 @@ func ConfigureOIDCProvider(t *testing.T) error {
 
 	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer: "http://localhost:30658/",
+			Issuer:          "http://pachd:1658/",
+			LocalhostIssuer: true,
 		},
 	})
 	require.NoError(t, err)
@@ -52,7 +53,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 		resp, err := adminClient.GetIdentityServerConfig(adminClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			"http://localhost:30658/", resp.Config.Issuer,
+			"http://pachd:1658/", resp.Config.Issuer,
 		)
 	}, backoff.NewTestingBackOff()))
 

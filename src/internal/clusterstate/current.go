@@ -94,4 +94,7 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 		collections := []col.PostgresCollection{}
 		collections = append(collections, licenseserver.AllCollections()...)
 		return col.SetupPostgresCollections(ctx, env.Tx, collections...)
+	}).
+	Apply("identity config localhost issuer field", func(ctx context.Context, env migrations.Env) error {
+		return identity.AddLocalhostIssuerConfig(ctx, env.Tx)
 	})

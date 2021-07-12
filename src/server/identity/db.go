@@ -40,3 +40,11 @@ ALTER TABLE identity.config ADD COLUMN
 	id_token_expiry VARCHAR(4096)`)
 	return err
 }
+
+// AddTokenExpiryConfig adds expiry fields for token lifespan to the server config
+func AddLocalhostIssuerConfig(ctx context.Context, tx *sqlx.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+ALTER TABLE identity.config ADD COLUMN
+	localhost_issuer BOOLEAN DEFAULT FALSE`)
+	return err
+}

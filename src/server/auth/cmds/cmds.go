@@ -149,7 +149,8 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 			if activeContext == enterpriseContext || enterprise {
 				if _, err := c.SetIdentityServerConfig(c.Ctx(), &identity.SetIdentityServerConfigRequest{
 					Config: &identity.IdentityServerConfig{
-						Issuer: issuer,
+						Issuer:          issuer,
+						LocalhostIssuer: true,
 					}}); err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure identity server issuer")
 				}
@@ -234,7 +235,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 Prompt the user to input a root token on stdin, rather than generating a random one.`[1:])
 	activate.PersistentFlags().BoolVar(&onlyActivate, "only-activate", false, "Activate auth without configuring the OIDC service")
 	activate.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Activate auth on the active enterprise context")
-	activate.PersistentFlags().StringVar(&issuer, "issuer", "http://localhost:30658/", "The issuer for the OIDC service")
+	activate.PersistentFlags().StringVar(&issuer, "issuer", "http://pachd:1658/", "The issuer for the OIDC service")
 	activate.PersistentFlags().StringVar(&redirect, "redirect", "http://localhost:30657/authorization-code/callback", "The redirect URL for the OIDC service")
 	activate.PersistentFlags().StringVar(&clientId, "client-id", "pachd", "The client ID for this pachd")
 	activate.PersistentFlags().StringSliceVar(&trustedPeers, "trusted-peers", []string{}, "Comma-separated list of OIDC client IDs to trust")
