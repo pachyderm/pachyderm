@@ -191,13 +191,17 @@ launch-enterprise: check-kubectl check-kubectl-connection install
 	kubectl wait --for=condition=ready pod -l app=pach-enterprise --namespace enterprise --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-clean-launch: check-kubectl install
-	yes | helm delete pachyderm
+clean-launch: check-kubectl
+	helm delete pachyderm || true
+	helm delete enterprise || true
 	kubectl delete pvc -l suite=pachyderm
+	kubectl delete pvc -l suite=pachyderm -n enterprise
 
-clean-launch-dev: check-kubectl install
-	yes | helm delete pachyderm
+clean-launch-dev: check-kubectl
+	helm delete pachyderm || true
+	helm delete enterprise || true
 	kubectl delete pvc -l suite=pachyderm
+	kubectl delete pvc -l suite=pachyderm -n enterprise
 
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
