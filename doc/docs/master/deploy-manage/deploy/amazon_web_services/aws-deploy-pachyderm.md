@@ -115,103 +115,106 @@ Make sure the **IAM role of your cluster has access to the S3 bucket that you cr
 
       ```json
       {
-      "Version": "2012-10-17",
-      "Statement": [
-            {
-      "Effect": "Allow",
+            "Version": "2012-10-17",
+            "Statement": [
+                  {
+            "Effect": "Allow",
+                  "Action": [
+                        "s3:ListBucket"
+                  ],
+                  "Resource": [
+                        "arn:aws:s3:::<your-bucket>"
+                  ]},{
+            "Effect": "Allow",
             "Action": [
-                  "s3:ListBucket"
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:DeleteObject"
             ],
             "Resource": [
-                  "arn:aws:s3:::<your-bucket>"
-            ]},{
-      "Effect": "Allow",
-      "Action": [
-            "s3:PutObject",
-      "s3:GetObject",
-      "s3:DeleteObject"
-      ],
-      "Resource": [
-            "arn:aws:s3:::<your-bucket>/*"
-      ]}
-      ]}
+                  "arn:aws:s3:::<your-bucket>/*"
+            ]}
+            ]
+      }
       ```
 
       Replace `<your-bucket>` with the name of your S3 bucket.
 
 1. Create a name for the new policy.
 
-
 ### Create your values.yaml   
 
-Update your values.yaml with your bucket name ([see example of values.yaml here](https://github.com/pachyderm/helmchart/blob/v2.0.x/examples/gcp-values.yaml)) or use our minimal example below.
+Update your values.yaml with your bucket name ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-values.yaml)) or use our minimal example below.
 
 
 === "values.yaml with an added policy to your cluster IAM Role"
-      ```yaml
-      # SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
-      # SPDX-License-Identifier: Apache-2.0
-      pachd:
-      storage:
-      backend: AMAZON
-      amazon:
-            bucket: pachyderm-bucket-02114 
-            region: us-east-2
-      serviceAccount:
-      additionalAnnotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
 
-      worker:
-      serviceAccount:
-      additionalAnnotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
-      ```
-=== "values.yaml passing AWS credentials (account ID and KEY)"
-      ```yaml
-      # SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
-      # SPDX-License-Identifier: Apache-2.0
-      pachd:
-      storage:
-      backend: AMAZON
-      amazon:
-            bucket: pachyderm-bucket-02114 
-            region: us-east-2
-            id: AKIASYRNEUJWABZTZBF5
-            secret: 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
-      serviceAccount:
-      additionalAnnotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+```yaml
+deployTarget: AMAZON
 
-      worker:
-      serviceAccount:
-      additionalAnnotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
-      ```
+pachd:
+  storage:
+    amazon:
+      bucket: blah
+      region: us-east-2
+  serviceAccount:
+    additionalAnnotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+
+worker:
+  serviceAccount:
+    additionalAnnotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+```
 
 !!! Note
-      * The **worker nodes on which Pachyderm is deployed must be associated
-      with the IAM role that is assigned to the Kubernetes cluster**.
-      If you created your cluster by using `eksctl` or `kops` 
-      the nodes must have a dedicated IAM role already assigned.
+- The **worker nodes on which Pachyderm is deployed must be associated with the IAM role that is assigned to the Kubernetes cluster**. 
+If you created your cluster by using `eksctl` or `kops` the nodes must have a dedicated IAM role already assigned.
+-  The IAM role of your cluster must have correct trust relationships:
 
-      * The IAM role of your cluster must have correct trust relationships.
+      1. Click the **Trust relationships > Edit trust relationship**.
+      1. Append the following statement to your JSON relationship:
 
-            1. Click the **Trust relationships > Edit trust relationship**.
-            1. Append the following statement to your JSON relationship:
-                  ```json
-                  {
-                  "Version": "2012-10-17",
-                  "Statement": [
-                        {
-                        "Effect": "Allow",
-                        "Principal": {
-                        "Service": "ec2.amazonaws.com"
-                        },
-                        "Action": "sts:AssumeRole"
-                        }
-                  ]
-                  }
-                  ```
+```json
+{
+      "Version": "2012-10-17",
+      "Statement": [
+            {
+            "Effect": "Allow",
+            "Principal": {
+            "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+            }
+      ]
+}
+```
+
+=== "values.yaml passing AWS credentials (account ID and KEY)"
+
+```yaml
+deployTarget: AMAZON
+
+pachd:
+  storage:
+    amazon:
+      bucket: blah
+      # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+      id: AKIAIOSFODNN7EXAMPLE
+      # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+      secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+      region: us-east-2
+```
+
+**Load Balancer Setup**
+If you would like to expose your pachd instance to the internet via load balancer, add the following config under `pachd` to your `values.yaml`
+
+**NOTE:** It is strongly recommended to configure SSL when exposing Pachyderm publicly
+
+```yaml
+  service:
+    type: LoadBalancer
+```
 
 ### Deploy Pachyderm on the Kubernetes cluster
 
@@ -219,42 +222,35 @@ Refer to our generic ["Helm Install"](./helm_install.md) page for more informati
 
 - Now you can deploy a Pachyderm cluster by running this command:
 
-      ```shell
-      $ helm repo add pachyderm https://pachyderm.github.io/helmchart
-      $ helm repo update
-      $ helm install pachyderm -f my_values.yaml pachyderm/pachyderm --version <version-of-the-chart>
+  ```shell
+  $ helm repo add pachyderm https://pachyderm.github.io/helmchart
+  $ helm repo update
+  $ helm install pachyderm -f my_values.yaml pachyderm/pachyderm --version <version-of-the-chart>
+  ```
 
-      ```
+  **System Response:**
 
-      **System Response:**
+  ```shell
+  TODO
+  ```
 
-      ```shell
+  The deployment takes some time. You can run `kubectl get pods` periodically
+  to check the status of deployment. When Pachyderm is deployed, the command
+  shows all pods as `READY`:
 
+  ```shell
+  $ kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+  ```
 
-      Pachyderm is launching. Check its status with "kubectl get all"
-      ```
+  **System Response**
 
+  ```
+  <TODO>
+  ```
 
-      The deployment takes some time. You can run `kubectl get pods` periodically
-      to check the status of deployment. When Pachyderm is deployed, the command
-      shows all pods as `READY`:
-
-      ```shell
-      $ kubectl get pods
-      ```
-
-      **System Response**
-
-      ```
-      NAME                     READY     STATUS    RESTARTS   AGE
-      dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
-      etcd-0                   1/1       Running   0          4m
-      pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
-      ```
-
-      **Note:** If you see a few restarts on the `pachd` nodes, it means that
-      Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
-      Kubernetes restarted those pods. You can safely ignore this message.
+  **Note:** If you see a few restarts on the `pachd` nodes, it means that
+  Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
+  Kubernetes restarted those pods. You can safely ignore this message.
 
 - Verify that the Pachyderm cluster is up and running:
 
@@ -269,43 +265,39 @@ Refer to our generic ["Helm Install"](./helm_install.md) page for more informati
       pachctl             {{ config.pach_latest_version }}
       pachd               {{ config.pach_latest_version }}
       ```
-     
-- Finally, make sure [`pachtl` talks with your cluster](#4-have-pachctl-and-your-cluster-communicate).
+
+Finally, make sure [`pachtl` talks with your cluster](#4-have-pachctl-and-your-cluster-communicate).
 
 ## 4- Have 'pachctl' and your Cluster Communicate
 
-Assuming your `pachd` is running as shown above, 
-make sure that `pachctl` can talk to the cluster by either:
+Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
-- Running a port-forward:
+If you specified `LoadBalancer` in the `values.yaml` file:
 
-```shell
-# Background this process because it blocks.
-$ pachctl port-forward   
-```
+  1. Retrieve the external IP address of the service.  When listing your services again, you should see an external IP address allocated to the `pachd` service 
 
-- Exposing your cluster to the internet by setting up a LoadBalancer as follow:
+      ```shell
+      $ kubectl get service
+      ```
 
-!!! Warning 
-      The following setup of a LoadBalancer only applies to pachd.
+  1. Update the context of your cluster with their direct url, using the external IP address above:
 
-1. To get an external IP address for a Cluster, edit its k8s service, 
-```shell
-$ kubectl edit service pachd
-```
-and change its `spec.type` value from `ClusterIP` to `LoadBalancer`. 
+      ```shell
+      $ echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      ```
 
-1. Retrieve the external IP address of the edited service.
-When listing your services again, you should see an external IP address allocated to the service you just edited. 
-```shell
-$ kubectl get service
-```
-1. Update the context of your cluster with their direct url, using the external IP address above:
-```shell
-$ echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
-```
-1. Check that your are using the right context: 
-```shell
-$ pachctl config get active-context`
-```
+  1. Check that your are using the right context: 
+
+      ```shell
+      $ pachctl config get active-context`
+      ```
+
+If you're not exposing `pachd` publicly, you can run:
+
+  ```shell
+  # Background this process because it blocks.
+  $ pachctl port-forward
+  ```
+
+
 Your cluster context name should show up. 

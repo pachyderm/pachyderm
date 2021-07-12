@@ -163,17 +163,12 @@ deploy Pachyderm on your local cluster by following these steps:
 
 * Install Pachyderm's latest helm chart ([helm v3](https://helm.sh/docs/intro/)):
    ```shell
-   $ helm install pachd pachyderm/pachyderm --set pachd.storage.backend=LOCAL
+   $ helm install pachd pachyderm/pachyderm --set deployTarget=LOCAL
    ```
 
 !!! Info "See Also"
       More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/).
 
-!!! Note
-    If you are using Kind:
-    ```shell
-    helm install pachd pachyderm/pachyderm --set pachd.storage.backend=LOCAL,pachd.exposeDockerSocket=false 
-    ```
 ## Check your install
 Check the status of the Pachyderm pods by periodically
 running `kubectl get pods`. When Pachyderm is ready for use,
