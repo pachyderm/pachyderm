@@ -77,6 +77,7 @@ func TestEnableDashTLSNoName(t *testing.T) {
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"deployTarget":        "LOCAL",
+			"dash.enabled":        "true",
 			"ingress.tls.enabled": "true",
 			"ingress.host":        "http://blah.com",
 		},
@@ -94,6 +95,7 @@ func TestEnableDashTLSExistingSecret(t *testing.T) {
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"deployTarget":           "LOCAL",
+			"dash.enabled":           "true",
 			"ingress.tls.enabled":    "true",
 			"ingress.tls.secretName": expectedSecretName,
 			"ingress.enabled":        "true",
@@ -122,6 +124,7 @@ func TestDashTLSNewSecretNoEnable(t *testing.T) {
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"deployTarget":              "LOCAL",
+			"dash.enabled":              "true",
 			"ingress.tls.newSecret.crt": "blah",
 			"ingress.host":              "http://blah.com",
 		},
