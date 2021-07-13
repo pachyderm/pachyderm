@@ -1,6 +1,6 @@
 {
     "pipeline": {
-      "name": "reduce"
+      "name": "reduce_inner"
     },
     "description": "A pipeline that consolidates all purchases by zipcode in one file.",
     "input": {
@@ -12,7 +12,7 @@
    },
    "transform": {
     "cmd": [ "bash" ],
-    "stdin": [ "echo 'processing datum'", "ls -l /pfs/inner_join/*/", "FILES=/pfs/inner_join/*/*", "for f in $FILES", "do", "ls -l $f" , "cat $f", "done" ]
+    "stdin": [ "set -x", "FILES=/pfs/inner_join/*/*", "for f in $FILES", "do", "directory=`dirname $f`", "out=`basename $directory`",  "cat $f >> /pfs/out/${out}.txt", "done" ]
   }
   }
   
