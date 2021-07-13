@@ -15,7 +15,7 @@ commands or through their language client equivalents.
 
 
 Once a pipeline has finished a job, **you can access metadata about the datums
-processed during that job** in the associated meta [system repo](../../reference/system_repos.md).
+processed during that job** in the associated meta [system repo](../../../data-concepts/repo/#definition).
 
 !!! example
 
@@ -32,7 +32,7 @@ processed during that job** in the associated meta [system repo](../../reference
     ```
 
 ## Meta directory
-The **meta directory holds each datum's JSON metadata**, and can be accessed using a `get file``:
+The **meta directory holds each datum's JSON metadata**, and can be accessed using a `get file`:
 
 !!! example
 
