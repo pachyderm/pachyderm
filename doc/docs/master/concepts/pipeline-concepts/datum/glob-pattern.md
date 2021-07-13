@@ -6,6 +6,8 @@ the most important aspects of distributed computation.
 Pachyderm uses **glob patterns** to provide flexibility to
 define data distribution.
 
+TODO: I would instead focus on the fact that PFS inputs are essentially like this (although I wouldn't word it as "glob pattern is applied to the root", rather glob pattern applied to all of the directories / files with the matching ones being the datums produced for the PFS input). Also, datums are actually determined by how the inputs are composed. If you just have a PFS input, then you basically get this. If you have a cross of multiple PFS inputs, then you generally get more datums than input files / directories. 
+
 You can think of each input repository as a filesystem where
 the glob pattern is applied to the root. 
 The files and directories that match the
@@ -20,7 +22,7 @@ that will be processed by the worker(s) that run your pipeline code.
      For example, the `ls *.md` command matches all files with the
      `.md` file extension.
 
-
+TODO: I would just remove this line, the examples below seem to be what we want. Also, I would be very clear that the below are just some examples, globs have much more flexibility than what is shown in the examples below.
 In Pachyderm, the `/` and `*` indicators are most
 commonly used globs.
 
@@ -33,6 +35,7 @@ Let's list the glob patterns at your disposal. We will later illustrate their us
 | `/*/*`| Pachyderm processes **each filesystem object in each subdirectory as a separate datum**.|
 | `/**` | Pachyderm processes **each filesystem object in all directories and subdirectories as a separate datum**.|
 
+TODO: I would just say subset of the files / directories.
 Glob patterns also let you take only a particular directory or subset of
 directories as an input instead of the whole repo.
 We will elaborate on this more in the following example.
@@ -62,12 +65,11 @@ state with a `json` file for each city in that state:
         /Vancouver.json
 ```
 
-
 Now let's consider what the following glob patterns would match respectively:
 
 |Glob Pattern| Corresponding match| Example|
 |-----------------|---------------------------------||
-| `/`| This pattern matches `/`, the root directory itself, meaning **all the data would be one large datum**. All changes in any of the files and directories trigger Pachyderm to process the whole repository contents as a single datum.|*If you add a new file `Sacramento.json` to the `California/` directory, Pachyderm processes all changed files and folders in the repo as a single datum.*|
+| `/`| This pattern matches `/`, the root directory itself, meaning **all the data would be one large datum**. All changes in any of the files and directories trigger Pachyderm to process the whole repository contents as a single datum.|*If you add a new file `Sacramento.json` to the `California/` directory, Pachyderm processes all changed files and directories in the repo as a single datum.*|
 | `/*`| This pattern matches **everything under the root directory**. It defines **one datum per state**, which means that all the cities for a given state are processed together by a single worker, but each state is processed independently.|*If you add a new file `Sacramento.json` to the `California/` directory, Pachyderm processes the `California/` datum only*.|
 | `/Colorado/*`| This pattern matches **files only under the `/Colorado` directory**. It defines **one datum per city**.|*If you add a new file `Alamosa.json` to the `Colorado/` directory and `Sacramento.json` to the `California/` directory, Pachyderm processes the `Alamosa.json` datum only.*|
 | `/C*`|  This pattern matches all **files under the root directory that start with the character `C`.**| *In the example, the `California` and  `Colorado` directories will each define a datum.*|
@@ -195,6 +197,7 @@ You can use the `pachctl list datum <job_number>` command to check the datums pr
 !!! note "Note"  
     Now that the 3 datums have been processed, their ID field is showing.
 
+TODO: Enabling stats isn't a thing in 2.0. We always have a meta commit in 2.0 which serves the same purpose as stats in 1.x.
 !!! info "Enabling Stats"
     - Running `list datum` on a given job execution of a pipeline that [enables stats](https://docs.pachyderm.com/latest/enterprise/stats/#enabling-stats-for-a-pipeline) allows you to additionally display the STATUS (running, failed, success) and TIME of each datum.
     - You might want to follow up with [inspect datum <ID>](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_datum/) to detail the files that a specific datum includes.

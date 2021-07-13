@@ -12,9 +12,18 @@ independently with a single execution of the user code and
 then the results of all the datums are merged together to
 create the final output commit.
 
+TODO: Inputs are based on branches, not repositories. Although that may
+be a common way to think about it since people will typically just use the master branch as input,
+it is an important distinction that should be clear in the docs.  
+
 A datum defines the input data. An input can take one or multiple
 repositories. Pachyderm has the following types of inputs that
 combine multiple repositories:
+
+TODO: I would focus more on these inputs being a composition of other inputs rather than
+referring to branches being combined in a certain way. It seems like the PFS input should be mentioned first,
+then the below inputs could be described as a way of composing inputs with a PFS input usually being the most
+primitive input. 
 
 **Cross**
 :    A cross input creates a cross-product of multiple repositories.
