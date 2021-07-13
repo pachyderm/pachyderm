@@ -14,7 +14,7 @@ deployTarget: ""
 
 dash:
   # enabled controls whether the dash manifests are created or not.
-  enabled: true
+  enabled: false
   image:
     # repository is the image repo to pull from; together with tag it
     # replicates the --dash-image & --registry arguments to pachctl
