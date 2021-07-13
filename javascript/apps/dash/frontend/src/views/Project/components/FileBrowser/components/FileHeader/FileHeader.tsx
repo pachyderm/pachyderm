@@ -18,8 +18,8 @@ type FileHeaderProps = {
 };
 
 const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
-  const {repoId, commitId, branchId, projectId} = useUrlState();
-  const {fileToPreview} = useFileBrowser();
+  const {repoId, commitId, branchId, projectId, filePath} = useUrlState();
+  const {fileToPreview, loading} = useFileBrowser();
   const {repo} = useCurrentRepo();
 
   const {previousCommit, nextCommit} = useMemo(() => {
@@ -53,6 +53,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
                 branchId,
                 projectId,
                 commitId: previousCommit,
+                filePath: filePath || undefined,
               })}
             >
               <ArrowSVG className={styles.directionLeft} />
@@ -73,6 +74,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
                 branchId,
                 projectId,
                 commitId: nextCommit,
+                filePath: filePath || undefined,
               })}
             >
               Next
@@ -80,7 +82,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
             </Link>
           </Tooltip>
         )}
-        {!fileToPreview && (
+        {!loading && !fileToPreview && (
           <Search
             value={fileFilter}
             className={styles.search}

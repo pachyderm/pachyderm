@@ -19,6 +19,8 @@ const SUPPORTED_PREVIEW_MINOR_TYPES: string[] = [
   'html',
   'xml',
   'htm',
+  'txt',
+  'yml',
 ];
 
 const useFileDisplay = (file: File) => {
@@ -73,6 +75,8 @@ const useFileDisplay = (file: File) => {
       case 'md':
       case 'csv':
       case 'json':
+      case 'yml':
+      case 'txt':
         fileMajorType = 'document';
         break;
       case 'apng':

@@ -12,7 +12,10 @@ import {Route, Switch, useHistory} from 'react-router';
 
 import Breadcrumb from '@dash-frontend/components/Breadcrumb';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
+import {
+  repoRoute,
+  fileBrowserRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 
 import {
   FILE_BROWSER_DIR_PATH,
@@ -26,7 +29,7 @@ import styles from './FileBrowser.module.css';
 import useFileBrowser from './hooks/useFileBrowser';
 
 const FileBrowser: React.FC = () => {
-  const {repoId, branchId, projectId} = useUrlState();
+  const {repoId, branchId, projectId, filePath, commitId} = useUrlState();
   const browserHistory = useHistory();
 
   const {
@@ -40,6 +43,17 @@ const FileBrowser: React.FC = () => {
     loading,
     fileToPreview,
   } = useFileBrowser();
+
+  if (filePath && !loading && !fileToPreview) {
+    browserHistory.push(
+      fileBrowserRoute({
+        repoId,
+        branchId,
+        projectId,
+        commitId,
+      }),
+    );
+  }
 
   return (
     <FullPageModal

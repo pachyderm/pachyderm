@@ -19,7 +19,7 @@ const IFramePreview: React.FC<FilePreviewProps> = ({
         className={styles.base}
         src={downloadLink}
         title={fileName}
-        sandbox="true"
+        sandbox=""
       />
     </ContentWrapper>
   );

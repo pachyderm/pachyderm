@@ -29,7 +29,7 @@ const useFileBrowser = () => {
   );
 
   const fileToPreview = useMemo(() => {
-    const hasFileType = path.slice(path.lastIndexOf('.') + 1);
+    const hasFileType = path.slice(path.lastIndexOf('.') + 1) !== '';
     return hasFileType && files.find((file) => file.path === path);
   }, [path, files]);
 

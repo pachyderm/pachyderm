@@ -30,7 +30,7 @@ const WebPreview: React.FC<FilePreviewProps> = ({downloadLink, fileName}) => {
         className={styles.base}
         srcDoc={JSON.stringify(data)}
         title={fileName}
-        sandbox="true"
+        sandbox=""
       />
     </ContentWrapper>
   );

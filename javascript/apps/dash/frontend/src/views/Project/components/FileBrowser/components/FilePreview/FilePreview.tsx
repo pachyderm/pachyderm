@@ -45,6 +45,8 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
         switch (fileType) {
           case 'pdf':
           case 'xml':
+          case 'yml':
+          case 'txt':
             return (
               <IFramePreview downloadLink={fileLink} fileName={fileName} />
             );
