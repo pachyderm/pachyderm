@@ -2,6 +2,7 @@ import {
   Branch,
   Commit,
   CommitInfo,
+  CreateRepoRequest,
   File,
   FileInfo,
   FileType,
@@ -53,6 +54,12 @@ export type CommitInfoObject = {
   sizeBytes?: CommitInfo.Details.AsObject['sizeBytes'];
   started?: TimestampObject;
   finished?: TimestampObject;
+};
+
+export type CreateRepoRequestObject = {
+  repo: RepoObject;
+  description?: CreateRepoRequest.AsObject['description'];
+  update?: CreateRepoRequest.AsObject['update'];
 };
 
 export const fileFromObject = ({
@@ -158,3 +165,17 @@ export const commitInfoFromObject = ({
     .setDetails(new CommitInfo.Details().setSizeBytes(sizeBytes))
     .setStarted(started ? timestampFromObject(started) : undefined)
     .setFinished(finished ? timestampFromObject(finished) : undefined);
+
+export const createRepoRequestFromObject = ({
+  repo,
+  description = '',
+  update = false,
+}: CreateRepoRequestObject) => {
+  const request = new CreateRepoRequest();
+
+  request.setRepo(repoFromObject(repo));
+  request.setDescription(description);
+  request.setUpdate(update);
+
+  return request;
+};

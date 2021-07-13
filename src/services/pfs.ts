@@ -9,10 +9,13 @@ import {
   ListRepoRequest,
   RepoInfo,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
+import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 import {extract} from 'tar-stream';
 
 import {
+  createRepoRequestFromObject,
+  CreateRepoRequestObject,
   fileFromObject,
   FileObject,
   repoFromObject,
@@ -118,6 +121,17 @@ const pfs = ({
             return resolve(res.toObject());
           },
         );
+      });
+    },
+    createRepo: (request: CreateRepoRequestObject) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const createRepoRequest = createRepoRequestFromObject(request);
+        client.createRepo(createRepoRequest, credentialMetadata, (error) => {
+          if (error) {
+            return reject(error);
+          }
+          return resolve({});
+        });
       });
     },
   };
