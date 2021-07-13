@@ -3,10 +3,11 @@ module github.com/pachyderm/pachyderm/v2
 go 1.16
 
 require (
-	cloud.google.com/go/storage v1.3.0
-	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
+	cloud.google.com/go/storage v1.5.0
+	github.com/Azure/azure-sdk-for-go v40.5.0+incompatible
+	github.com/araddon/gou v0.0.0-20190110011759-c797efecbb61
 	github.com/aws/aws-lambda-go v1.13.3
-	github.com/aws/aws-sdk-go v1.27.0
+	github.com/aws/aws-sdk-go v1.29.34
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -27,8 +28,7 @@ require (
 	github.com/fatih/color v1.9.0
 	github.com/fsouza/go-dockerclient v1.4.1
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/protobuf v1.3.3
-	github.com/google/go-cmp v0.5.0 // indirect
+	github.com/golang/protobuf v1.4.2
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0
@@ -43,6 +43,7 @@ require (
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/lib/pq v1.10.0
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
+	github.com/lytics/cloudstorage v0.2.6
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
 	github.com/mattn/go-tty v0.0.3 // indirect
@@ -52,6 +53,7 @@ require (
 	github.com/opentracing/opentracing-go v1.1.1-0.20200124165624-2876d2018785
 	github.com/pachyderm/ohmyglob v0.0.0-20210308211843-d5b47775fc36
 	github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520
+	github.com/pborman/uuid v1.2.1
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
