@@ -11,7 +11,7 @@ import {toGQLProjectStatus} from '@dash-backend/lib/gqlEnumMappers';
 import {GRPCClient} from '@dash-backend/lib/types';
 import {ProjectStatus, QueryResolvers} from '@graphqlTypes';
 
-import {jobSetsToGQLJobSet} from './builders/pps';
+import {jobSetsToGQLJobSets} from './builders/pps';
 
 interface ProjectsResolver {
   Query: {
@@ -124,7 +124,7 @@ const projectsResolver: ProjectsResolver = {
         sizeDisplay: formatBytes(totalSizeBytes),
         repoCount: repos.length,
         pipelineCount: pipelines.length,
-        jobSets: jobSetsToGQLJobSet(jobSets),
+        jobSets: jobSetsToGQLJobSets(jobSets),
       };
     },
   },

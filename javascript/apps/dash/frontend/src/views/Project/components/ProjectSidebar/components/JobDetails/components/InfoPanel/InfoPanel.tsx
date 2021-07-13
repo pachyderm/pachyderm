@@ -1,5 +1,9 @@
 import {FileDocSVG, Link} from '@pachyderm/components';
-import {fromUnixTime, formatDistanceToNow, formatDistance} from 'date-fns';
+import {
+  fromUnixTime,
+  formatDistanceToNow,
+  formatDistanceStrict,
+} from 'date-fns';
 import React, {useMemo} from 'react';
 import {useRouteMatch, Redirect} from 'react-router';
 
@@ -52,21 +56,21 @@ const InfoPanel = () => {
   }, [job?.transform]);
 
   const started = useMemo(() => {
-    return job?.createdAt
-      ? formatDistanceToNow(fromUnixTime(job.createdAt), {
+    return job?.startedAt
+      ? formatDistanceToNow(fromUnixTime(job.startedAt), {
           addSuffix: true,
         })
       : 'N/A';
-  }, [job?.createdAt]);
+  }, [job?.startedAt]);
 
   const duration = useMemo(() => {
-    return job?.finishedAt && job?.createdAt
-      ? formatDistance(
+    return job?.finishedAt && job?.startedAt
+      ? formatDistanceStrict(
           fromUnixTime(job.finishedAt),
-          fromUnixTime(job.createdAt),
+          fromUnixTime(job.startedAt),
         )
       : 'N/A';
-  }, [job?.createdAt, job?.finishedAt]);
+  }, [job?.startedAt, job?.finishedAt]);
 
   if (
     error?.graphQLErrors.some(

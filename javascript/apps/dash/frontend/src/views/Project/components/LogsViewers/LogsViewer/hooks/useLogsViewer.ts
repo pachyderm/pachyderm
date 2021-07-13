@@ -3,6 +3,7 @@ import {useCallback, useEffect, useState} from 'react';
 
 import useLogs from '@dash-frontend/hooks/useLogs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {Maybe} from '@graphqlTypes';
 
 import {LOGS_DEFAULT_DROPDOWN_OPTIONS} from '../../constants/logsViewersConstants';
 
@@ -17,7 +18,7 @@ export const defaultValues: {[key: string]: number} = {
 const useLogsViewer = (
   onCloseCallback: () => void,
   dropdownLabel: string,
-  startTime?: number,
+  startTime?: Maybe<number>,
 ) => {
   const {closeModal, isOpen} = useModal(true);
   const {projectId, pipelineId, jobId} = useUrlState();
@@ -28,7 +29,7 @@ const useLogsViewer = (
 
   const [selectedTime, setSelectedTime] = useState(dropdownLabel);
 
-  const dropdownValues: {[key: string]: number | undefined} = {
+  const dropdownValues: {[key: string]: Maybe<number> | undefined} = {
     [dropdownLabel]: startTime,
     ...defaultValues,
   };

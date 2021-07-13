@@ -143,7 +143,8 @@ export enum InputType {
 export type Job = {
   __typename?: 'Job';
   id: Scalars['ID'];
-  createdAt: Scalars['Int'];
+  createdAt?: Maybe<Scalars['Int']>;
+  startedAt?: Maybe<Scalars['Int']>;
   finishedAt?: Maybe<Scalars['Int']>;
   state: JobState;
   pipelineName: Scalars['String'];
@@ -161,7 +162,7 @@ export type JobQueryArgs = {
 export type JobSet = {
   __typename?: 'JobSet';
   id: Scalars['ID'];
-  createdAt: Scalars['Int'];
+  createdAt?: Maybe<Scalars['Int']>;
   state: JobState;
   jobs: Array<Job>;
 };
@@ -898,7 +899,8 @@ export type JobResolvers<
   ParentType extends ResolversParentTypes['Job'] = ResolversParentTypes['Job'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  createdAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  startedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   finishedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
   pipelineName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -925,7 +927,7 @@ export type JobSetResolvers<
   ParentType extends ResolversParentTypes['JobSet'] = ResolversParentTypes['JobSet'],
 > = ResolversObject<{
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  createdAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
   jobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -1371,7 +1373,7 @@ export type IResolvers<ContextType = Context> = Resolvers<ContextType>;
 
 export type JobOverviewFragment = {__typename?: 'Job'} & Pick<
   Job,
-  'id' | 'state' | 'createdAt' | 'finishedAt' | 'pipelineName'
+  'id' | 'state' | 'createdAt' | 'startedAt' | 'finishedAt' | 'pipelineName'
 >;
 
 export type JobSetFieldsFragment = {__typename?: 'JobSet'} & Pick<

@@ -113,7 +113,7 @@ describe('Job Details', () => {
     expect(getByTestId('InfoPanel__pipeline')).toHaveTextContent('likelihoods');
     expect(getByTestId('InfoPanel__state')).toHaveTextContent('Failure');
     expect(getByTestId('InfoPanel__started')).toHaveTextContent(
-      formatDistanceToNow(fromUnixTime(1614136189), {
+      formatDistanceToNow(fromUnixTime(1614136190), {
         addSuffix: true,
       }),
     );

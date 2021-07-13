@@ -160,7 +160,8 @@ type Pach {
 
 type Job {
   id: ID!
-  createdAt: Int!
+  createdAt: Int
+  startedAt: Int
   finishedAt: Int
   state: JobState!
   pipelineName: String!
@@ -306,7 +307,7 @@ type AuthConfig {
 
 type JobSet {
   id: ID!
-  createdAt: Int!
+  createdAt: Int
   state: JobState!
   jobs: [Job!]!
 }

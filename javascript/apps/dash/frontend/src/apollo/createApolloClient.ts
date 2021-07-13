@@ -9,8 +9,9 @@ import {History as BrowserHistory} from 'history';
 
 import {errorLink} from '@dash-frontend/apollo/links/errorLink';
 import {GET_LOGGED_IN_QUERY} from '@dash-frontend/queries/GetLoggedInQuery';
-import {Node, Link, Dag, LoggedInQuery} from '@graphqlTypes';
+import {LoggedInQuery} from '@graphqlTypes';
 
+import cacheConfig from './cacheConfig';
 import {contextLink} from './links/contextLink';
 import {splitLink} from './links/splitLink';
 
@@ -19,41 +20,7 @@ const createApolloClient = (
 ): {
   client: ApolloClient<NormalizedCacheObject>;
 } => {
-  const cache = new InMemoryCache({
-    typePolicies: {
-      Subscription: {
-        fields: {
-          dags: {
-            merge(_existing: Dag[], incoming: Dag[]) {
-              return incoming;
-            },
-          },
-        },
-      },
-      Dag: {
-        fields: {
-          nodes: {
-            merge(_existing: Node[], incoming: Node[]) {
-              return incoming;
-            },
-          },
-          links: {
-            merge(_existing: Link[], incoming: Link[]) {
-              return incoming;
-            },
-          },
-        },
-      },
-      Job: {
-        // This is important, as a Job ID is not globally unique. However,
-        // the combination of both id and pipelineName is.
-        keyFields: ['id', 'pipelineName'],
-      },
-      Commit: {
-        keyFields: ['id', 'repoName'],
-      },
-    },
-  });
+  const cache = new InMemoryCache(cacheConfig);
   const {split, restartWebsocket} = splitLink();
 
   const link = ApolloLink.from([

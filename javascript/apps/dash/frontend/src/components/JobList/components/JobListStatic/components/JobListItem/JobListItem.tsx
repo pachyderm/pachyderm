@@ -37,10 +37,14 @@ const JobListItem: React.FC<JobListItemProps> = ({
       >
         <Tooltip
           tooltipKey="Job Details"
-          tooltipText={`See details for Job ID: ${job.id} Created: ${format(
-            fromUnixTime(job.createdAt),
-            'MM/dd/yyyy h:mmaaa',
-          )}`}
+          tooltipText={`See details for Job ID: ${job.id} \n ${
+            job.createdAt
+              ? `Created: ${format(
+                  fromUnixTime(job.createdAt),
+                  'MM/dd/yyyy h:mmaaa',
+                )}`
+              : 'Creating...'
+          }`}
         >
           <div className={styles.innerContent}>
             <span
@@ -55,12 +59,14 @@ const JobListItem: React.FC<JobListItemProps> = ({
             <span
               className={classNames(styles.timestamp, styles.innerContentItem)}
             >
-              {`Created ${formatDistanceToNowStrict(
-                fromUnixTime(job.createdAt),
-                {
-                  addSuffix: true,
-                },
-              )}`}
+              {job.createdAt
+                ? `Created ${formatDistanceToNowStrict(
+                    fromUnixTime(job.createdAt),
+                    {
+                      addSuffix: true,
+                    },
+                  )}`
+                : 'Creating...'}
             </span>
 
             {expandActions ? (

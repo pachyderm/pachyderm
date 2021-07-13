@@ -20,6 +20,7 @@ import {
   JobState as GQLJobState,
   Repo,
   Branch as GQLBranch,
+  JobSet,
 } from '@graphqlTypes';
 
 const derivePipelineType = (pipelineInfo: PipelineInfo.AsObject) => {
@@ -92,7 +93,8 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
   return {
     id: jobInfo.job?.id || '',
     state: toGQLJobState(jobInfo.state),
-    createdAt: jobInfo.started?.seconds || 0,
+    createdAt: jobInfo.created?.seconds,
+    startedAt: jobInfo.started?.seconds,
     finishedAt: jobInfo.finished?.seconds,
     pipelineName: jobInfo.job?.pipeline?.name || '',
     transform: jobInfo.details?.transform,
@@ -134,21 +136,23 @@ const getAggregateJobState = (jobs: Job[]) => {
   return GQLJobState.JOB_SUCCESS;
 };
 
-export const jobInfosToGQLJobSet = (jobInfos: JobInfo.AsObject[]) => {
+export const jobInfosToGQLJobSet = (jobInfos: JobInfo.AsObject[]): JobSet => {
   const jobs = jobInfos
     .map(jobInfoToGQLJob)
-    .sort((a, b) => (a.finishedAt || 0) - (b.finishedAt || 0));
+    .sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
 
   return {
     id: jobs[0].id,
     // grab the oldest jobs createdAt date
-    createdAt: jobs[jobs.length - 1].createdAt,
+    createdAt: jobs[0].createdAt,
     state: getAggregateJobState(jobs),
     jobs,
   };
 };
 
-export const jobSetsToGQLJobSet = (jobSet: JobSetInfo.AsObject[]) => {
+export const jobSetsToGQLJobSets = (
+  jobSet: JobSetInfo.AsObject[],
+): JobSet[] => {
   return jobSet.map((jobSet) => jobInfosToGQLJobSet(jobSet.jobsList));
 };
 

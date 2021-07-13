@@ -1,6 +1,8 @@
 import {FullPageModal} from '@pachyderm/components';
 import React from 'react';
 
+import {Maybe} from '@graphqlTypes';
+
 import LogsBody from './components/LogsBody';
 import LogsListHeader from './components/LogsListHeader';
 import LogsModalHeader from './components/LogsModalHeader';
@@ -9,7 +11,7 @@ import styles from './LogsViewer.module.css';
 
 export type LogsViewerProps = {
   headerText: string;
-  startTime?: number;
+  startTime?: Maybe<number>;
   onCloseCallback: () => void;
   loading: boolean;
   dropdownLabel: string;

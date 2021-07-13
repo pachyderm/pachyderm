@@ -3,7 +3,7 @@ import {QueryResolvers} from '@dash-backend/generated/types';
 import {
   jobInfosToGQLJobSet,
   jobInfoToGQLJob,
-  jobSetsToGQLJobSet,
+  jobSetsToGQLJobSets,
 } from './builders/pps';
 
 interface PipelineJobResolver {
@@ -40,7 +40,7 @@ const pipelineJobResolver: PipelineJobResolver = {
       );
     },
     jobSets: async (_parent, _args, {pachClient}) => {
-      return jobSetsToGQLJobSet(await pachClient.pps().listJobSets());
+      return jobSetsToGQLJobSets(await pachClient.pps().listJobSets());
     },
   },
 };

@@ -22,6 +22,7 @@ import ws from 'ws';
 
 import mockServer from '@dash-backend/mock';
 import keys from '@dash-backend/mock/fixtures/keys';
+import cacheConfig from '@dash-frontend/apollo/cacheConfig';
 import {Account} from '@graphqlTypes';
 
 import graphqlServer from '.';
@@ -109,7 +110,10 @@ const executeQuery = async <T>(
     fetch: fetch,
   });
 
-  const client = new ApolloClient({cache: new InMemoryCache(), link});
+  const client = new ApolloClient({
+    cache: new InMemoryCache(cacheConfig),
+    link,
+  });
 
   const context = {
     headers: {
@@ -141,7 +145,10 @@ const executeMutation = async <T>(
     fetch: fetch,
   });
 
-  const client = new ApolloClient({cache: new InMemoryCache(), link});
+  const client = new ApolloClient({
+    cache: new InMemoryCache(cacheConfig),
+    link,
+  });
 
   const context = {
     headers: {
