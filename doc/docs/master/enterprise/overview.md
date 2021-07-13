@@ -20,7 +20,3 @@ Pachyderm Enterprise Edition includes a full UI for visualizing pipelines and ex
 ![alt tag](auth/auth_dash5.png)
 
 Enterprise-scale deployments require access controls and multitenancy.  Pachyderm Enterprise Edition gives teams the ability to control access to production pipelines, data, and configuration.  Administrators can silo data, prevent unintended modifications to production pipelines, and support multiple data scientists or even multiple data science groups.
-
-## Administrative Controls, Interactive Pipeline Configuration
-
-With Pachyderm Enterprise, cluster admins don't have to rely solely on command line tools and language libraries to configure and control Pachyderm. With new versions of our UI you can control, scale, and configure Pachyderm interactively.
