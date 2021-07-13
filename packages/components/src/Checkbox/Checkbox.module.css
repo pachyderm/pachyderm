@@ -25,14 +25,14 @@
 }
 
 .checkbox > path {
-  transition: fill .2s;
+  transition: fill 0.2s;
 }
 
-.input:hover + .checkbox > path {
+.input:not(:disabled):hover + .checkbox > path {
   fill: var(--hover-plum);
 }
 
-.input:focus + .checkbox > path {
+.input:not(:disabled):focus + .checkbox > path {
   fill: var(--pachyderm-plum);
 }
 
@@ -43,4 +43,13 @@
 
 .small > .label {
   font-size: var(--font-size-body-medium);
+}
+
+.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.input:disabled {
+  cursor: not-allowed;
 }

@@ -13,12 +13,17 @@
   width: 100%;
 }
 
-.base:hover {
+.base:not(:disabled):hover {
   color: var(--pachyderm-plum);
 }
 
-.base:hover .icon path {
+.base:not(:disabled):hover .icon path {
   fill: var(--pachyderm-plum);
+}
+
+.disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
 .children {

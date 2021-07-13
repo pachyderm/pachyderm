@@ -59,3 +59,11 @@ export const Search = () => {
     </SearchableDropdown>
   );
 };
+
+export const Disabled = () => {
+  return (
+    <DefaultDropdown items={items} buttonOpts={{disabled: true}}>
+      Difficulty
+    </DefaultDropdown>
+  );
+};

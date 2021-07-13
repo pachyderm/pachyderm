@@ -17,6 +17,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   className,
   color = 'black',
   hideChevron = false,
+  disabled = false,
   ...rest
 }) => {
   const dropdownButtonRef = useRef<HTMLButtonElement>(null);
@@ -26,6 +27,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   const mergedClasses = classnames(styles.base, className, {
     [styles.hideChevron]: hideChevron,
     [styles.purple]: color === 'purple',
+    [styles.disabled]: disabled,
   });
 
   return (
@@ -38,6 +40,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
       onClick={toggleDropdown}
       onKeyDown={handleKeyDown}
       type="button"
+      disabled={disabled}
       {...rest}
     >
       <span className={styles.children}>{children}</span>

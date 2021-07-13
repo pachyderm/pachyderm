@@ -8,7 +8,8 @@ import {DropdownItem, SearchableDropdown, DropdownProps} from '../';
 describe('Dropdown', () => {
   const renderTestbed = ({
     closeOnClick = false,
-  }: {closeOnClick?: boolean} = {}) => {
+    disabled = false,
+  }: {closeOnClick?: boolean; disabled?: boolean} = {}) => {
     const onSelect = jest.fn();
 
     const items: DropdownItem[] = [
@@ -25,6 +26,7 @@ describe('Dropdown', () => {
           onSelect={onSelect}
           items={items}
           emptyResultsContent={'No results found.'}
+          buttonOpts={{disabled}}
         >
           Button
         </SearchableDropdown>
@@ -92,6 +94,17 @@ describe('Dropdown', () => {
 
     await waitFor(() => expect(queryByRole('menu')).toBeNull());
     expect(getByTestId('DropdownButton__button')).toHaveFocus();
+  });
+
+  it('should disable the dropdown when buttonOpts disabled is true', async () => {
+    const {getByText, queryByRole} = renderTestbed({
+      disabled: true,
+    });
+
+    const button = getByText('Button');
+    expect(queryByRole('menu')).toBeNull();
+    click(button);
+    expect(queryByRole('menu')).toBeNull();
   });
 
   describe('keyboard interactions', () => {

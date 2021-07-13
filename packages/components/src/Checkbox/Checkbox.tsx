@@ -25,6 +25,7 @@ export interface PureCheckboxProps
   selected: boolean;
   label?: React.ReactNode;
   small?: boolean;
+  disabled?: boolean;
 }
 
 export const Checkbox: React.FC<CheckboxProps> = ({
@@ -35,6 +36,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
   validationOptions = {},
   onChange,
   onBlur,
+  disabled = false,
   ...rest
 }) => {
   const {register, watch} = useFormContext();
@@ -43,6 +45,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
 
   const classes = classNames(styles.base, className, {
     [styles.small]: small,
+    [styles.disabled]: disabled,
   });
 
   const {handleChange, handleBlur, ...inputProps} = useRHFInputProps({
@@ -59,6 +62,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
           className={styles.input}
           onChange={handleChange}
           onBlur={handleBlur}
+          disabled={disabled}
           {...rest}
           {...inputProps}
         />
@@ -90,16 +94,23 @@ export const PureCheckbox: React.FC<PureCheckboxProps> = ({
   label,
   small = false,
   className,
+  disabled = false,
   ...rest
 }) => {
   const classes = classNames(styles.base, className, {
     [styles.small]: small,
+    [styles.disabled]: disabled,
   });
 
   return (
     <label className={classes}>
       <div className={styles.checkboxContainer}>
-        <input type="checkbox" className={styles.input} {...rest} />
+        <input
+          type="checkbox"
+          className={styles.input}
+          disabled={disabled}
+          {...rest}
+        />
 
         {!selected && (
           <CheckboxSVG
