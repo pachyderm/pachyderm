@@ -109,7 +109,7 @@ spec:
               resource: requests.memory
         {{- end }}
         - name: CLUSTER_DEPLOYMENT_ID
-          value: {{ default (randAlphaNum 32) .Values.pachd.clusterDeploymentID | quote }}
+          value: {{ include "pachyderm.clusterDeploymentId" . | quote }}
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
         - name: PACHD_POD_NAME

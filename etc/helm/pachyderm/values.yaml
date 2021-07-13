@@ -189,6 +189,7 @@ pachd:
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
+  enterpriseLicenseKey: ""
   serviceAccount:
     create: true
     additionalAnnotations: {}
@@ -353,3 +354,6 @@ postgresql:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
+
+config:
+  

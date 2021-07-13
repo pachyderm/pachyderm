@@ -23,3 +23,7 @@ LOCAL
 {{- define "pachyderm.dashSecret" -}}
 {{ default (randAlphaNum 32) .Values.dash.config.oauthClientSecret }}
 {{- end -}}
+
+{{- define "pachyderm.clusterDeploymentId" -}}
+{{ default (randAlphaNum 32) .Values.pachd.clusterDeploymentID }}
+{{- end -}}
