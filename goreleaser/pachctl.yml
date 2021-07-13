@@ -57,6 +57,7 @@ nfpms:
       linux: ""
       amd64: amd64
     vendor: Pachyderm
+    maintainer: Pachyderm <jdoliner@pachyerm.io>
     homepage: https://www.pachyderm.com/
     description: "Reproducible data science"
     formats:
