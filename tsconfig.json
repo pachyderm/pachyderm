@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "strict": true,
+    "declaration": true,
+    "target": "es5",
+    "lib": ["esnext"],
+    "esModuleInterop": true,
+    "strictPropertyInitialization": false
+  },
+  "include": ["./src"]
+}
