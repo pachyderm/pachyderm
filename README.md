@@ -1,2 +1,2 @@
-# js-pachyderm
-js client for pachyderm 
+# node-pachyderm
+node client for pachyderm 
