@@ -1,10 +1,9 @@
 import {FileInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 
 import {QueryResolvers} from '@dash-backend/generated/types';
+import {FILE_DOWNLOAD_LIMIT} from '@dash-backend/lib/constants';
 import formatBytes from '@dash-backend/lib/formatBytes';
 import {toGQLFileType} from '@dash-backend/lib/gqlEnumMappers';
-
-const FILE_DOWNLOAD_LIMIT = 2e8;
 
 interface FileResolver {
   Query: {
