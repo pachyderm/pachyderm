@@ -11,6 +11,7 @@ export type BodyHeaderDropdownProps = {
   formCtx: UseFormReturn;
   buttonText: string;
   color?: DropdownButtonProps['color'];
+  disabled?: DropdownButtonProps['disabled'];
 };
 
 const BodyHeaderDropdown: React.FC<BodyHeaderDropdownProps> = ({
@@ -18,10 +19,15 @@ const BodyHeaderDropdown: React.FC<BodyHeaderDropdownProps> = ({
   formCtx,
   buttonText,
   children,
+  disabled,
 }) => {
   return (
     <Dropdown formCtx={formCtx}>
-      <Dropdown.Button className={styles.dropdownButton} color={color}>
+      <Dropdown.Button
+        className={styles.dropdownButton}
+        color={color}
+        disabled={disabled}
+      >
         {buttonText}
       </Dropdown.Button>
       <Dropdown.Menu pin="right" className={styles.dropdownMenu}>
