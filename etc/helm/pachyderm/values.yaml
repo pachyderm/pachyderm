@@ -195,6 +195,7 @@ pachd:
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
+  enterpriseLicenseKey: ""
   serviceAccount:
     create: true
     additionalAnnotations: {}
@@ -402,3 +403,6 @@ cloudsqlAuthProxy:
     labels: {}
     # type specifies the Kubernetes type of the cloudsql auth proxy service.
     type: ClusterIP
+
+config:
+  

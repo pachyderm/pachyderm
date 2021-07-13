@@ -1,0 +1,28 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pachyderm-config-{{ date "20060102150405" .Release.Time }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      containers:
+      - name: config-pod
+        image: pachyderm/config-pod:0.1
+        command: [ "/config-pod" ]
+        volumeMounts:
+        - name: config
+          mountPath: "/pachConfig"
+      restartPolicy: Never
+      volumes:
+      - name: config
+        secret: 
+          secretName: pachyderm-config
+  backoffLimit: 4
