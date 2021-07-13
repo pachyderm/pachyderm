@@ -231,8 +231,8 @@ func (op *pipelineOp) run() error {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 		// start a monitor to poll k8s and update us when it goes into a running state
-		op.startCrashingPipelineMonitor()
 		op.startPipelineMonitor()
+		op.startCrashingPipelineMonitor()
 		// Surprisingly, scaleUpPipeline() is necessary, in case a pipelines is
 		// quickly transitioned to CRASHING after coming out of STANDBY. Because the
 		// pipeline controller reads the current state of the pipeline after each
@@ -410,7 +410,6 @@ func (op *pipelineOp) createPipelineResources() error {
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
-	op.stopCrashingPipelineMonitor()
 	op.m.startMonitor(op.pipelineInfo)
 	op.pipelineInfo.Details.WorkerRc = op.rc.ObjectMeta.Name
 }

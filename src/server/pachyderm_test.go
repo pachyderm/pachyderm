@@ -4674,9 +4674,9 @@ func TestPipelineCrashing(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineCrashing_data")
 	pipelineName := tu.UniqueString("TestPipelineCrashing_pipeline")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
+
+	create := func(gpu bool) error {
+		req := pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -4684,12 +4684,7 @@ func TestPipelineCrashing(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			ResourceLimits: &pps.ResourceSpec{
-				Gpu: &pps.GPUSpec{
-					Type:   "nvidia.com/gpu",
-					Number: 1,
-				},
-			},
+
 			Input: &pps.Input{
 				Pfs: &pps.PFSInput{
 					Repo:   dataRepo,
@@ -4697,8 +4692,20 @@ func TestPipelineCrashing(t *testing.T) {
 					Glob:   "/*",
 				},
 			},
-		})
-	require.NoError(t, err)
+			Update: true,
+		}
+		if gpu {
+			req.ResourceLimits = &pps.ResourceSpec{
+				Gpu: &pps.GPUSpec{
+					Type:   "nvidia.com/gpu",
+					Number: 1,
+				},
+			}
+		}
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), &req)
+		return err
+	}
+	require.NoError(t, create(true))
 
 	require.NoError(t, backoff.Retry(func() error {
 		pi, err := c.InspectPipeline(pipelineName, false)
@@ -4707,6 +4714,18 @@ func TestPipelineCrashing(t *testing.T) {
 			return errors.Errorf("pipeline in wrong state: %s", pi.State.String())
 		}
 		require.True(t, pi.Reason != "")
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	// recreate with no gpu
+	require.NoError(t, create(false))
+	// wait for pipeline to restart and enter running
+	require.NoError(t, backoff.Retry(func() error {
+		pi, err := c.InspectPipeline(pipelineName, false)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_RUNNING {
+			return errors.Errorf("pipeline in wrong state: %s", pi.State.String())
+		}
 		return nil
 	}, backoff.NewTestingBackOff()))
 }
