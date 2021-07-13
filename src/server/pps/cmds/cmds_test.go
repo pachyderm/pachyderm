@@ -772,8 +772,8 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		return tu.BashCmd(`
 		pachctl list pipeline \
-		| match 'name: my-pipeline' \
-		| match 'crashing'
+		| match my-pipeline \
+		| match crashing
 		`).Run()
 	})
 
@@ -785,8 +785,8 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		return tu.BashCmd(`
 		pachctl list pipeline \
-		| match 'name: my-pipeline' \
-		| match 'running'
+		| match my-pipeline \
+		| match running
 		`).Run()
 	})
 }
