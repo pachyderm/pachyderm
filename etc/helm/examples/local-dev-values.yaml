@@ -14,7 +14,7 @@ pachd:
   metrics:
     enabled: false
 
-dash:
+console:
   enabled: false
   config:
     issuerURI: "http://pachd:1658"
