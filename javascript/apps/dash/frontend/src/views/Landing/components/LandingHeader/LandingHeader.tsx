@@ -1,4 +1,4 @@
-import {Group, ButtonLink} from '@pachyderm/components';
+import {Group, Link} from '@pachyderm/components';
 import React from 'react';
 
 import Header from '@dash-frontend/components/Header';
@@ -30,9 +30,13 @@ const LandingHeader = () => {
         </Group>
 
         <Group spacing={24} align="center">
-          <ButtonLink className={styles.support} small>
+          <Link
+            className={styles.support}
+            small
+            href="mailto:support@pachyderm.com"
+          >
             Support
-          </ButtonLink>
+          </Link>
           <div className={styles.divider} />
           <Account />
         </Group>
