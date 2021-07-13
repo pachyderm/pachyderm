@@ -1,3 +1,4 @@
-jestcache
-node_modules
+.jestcache/
+.circleci/
+node_modules/
 src

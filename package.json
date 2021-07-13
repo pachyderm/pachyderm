@@ -1,7 +1,7 @@
 {
-  "name": "@pachyderm/js-pachyderm",
+  "name": "@pachyderm/node-pachyderm",
   "version": "0.0.1",
-  "description": "js client for pachyderm",
+  "description": "node client for pachyderm",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -15,13 +15,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pachyderm/js-pachyderm.git"
+    "url": "git+https://github.com/pachyderm/node-pachyderm.git"
   },
   "license": "Apache License 2.0",
   "bugs": {
-    "url": "https://github.com/pachyderm/js-pachyderm/issues"
+    "url": "https://github.com/pachyderm/node-pachyderm/issues"
   },
-  "homepage": "https://github.com/pachyderm/js-pachyderm#readme",
+  "homepage": "https://github.com/pachyderm/node-pachyderm#readme",
   "dependencies": {
     "@grpc/grpc-js": "1.2.2",
     "@pachyderm/proto": "2.0.0-beta.1.0",
