@@ -24,7 +24,6 @@ const demo = async () => {
   await pachClient.pfs().createRepo({
     repo: { name: "test" },
   });
-  const response = await pachClient.pfs().listRepo();
 };
 
 demo();
