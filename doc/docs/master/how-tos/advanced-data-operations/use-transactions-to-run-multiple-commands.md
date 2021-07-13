@@ -91,16 +91,16 @@ pachctl start transaction
 **System Response:**
 
 ```shell
-Started new transaction: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
+Started new transaction: 0d6f0bc337a0493696e382034a2a2055
 pachctl pachctl create branch data@master --head staging
-Added to transaction: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
+Added to transaction: 0d6f0bc337a0493696e382034a2a2055
 pachctl create branch parameters@master --head staging
-Added to transaction: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
+Added to transaction: 0d6f0bc337a0493696e382034a2a2055
 pachctl finish transaction
-Completed transaction with 2 requests: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
+Completed transaction with 2 requests: 0d6f0bc337a0493696e382034a2a2055
 ```
 
-When you finish the transaction, both repositories switch to
+When you finish the transaction, both repositories switch
 to the master branch at the same time which triggers one job to process
 those commits together.
 
@@ -122,7 +122,7 @@ pachctl start transaction
 **System Response:**
 
 ```shell
-Started new transaction: 7a81eab5-e6c6-430a-a5c0-1deb06852ca5
+Started new transaction: 7a81eab5e6c6430aa5c01deb06852ca5
 ```
 
 This command generates a transaction object in the cluster and saves
@@ -139,7 +139,7 @@ is stored at `~/.pachyderm/config.json`.
            "default": {},
            "local-2": {
              "source": 3,
-             "active_transaction": "7a81eab5-e6c6-430a-a5c0-1deb06852ca5",
+             "active_transaction": "7a81eab5e6c6430aa5c01deb06852ca5",
              "cluster_name": "minikube",
              "auth_info": "minikube",
              "namespace": "default"
@@ -162,7 +162,7 @@ pachctl finish transaction
 **System Response:**
 
 ```shell
-Completed transaction with 1 requests: 7a81eab5-e6c6-430a-a5c0-1deb06852ca5
+Completed transaction with 1 requests: 7a81eab5e6c6430aa5c01deb06852ca5
 ```
 
 ## Other Transaction Commands
@@ -185,13 +185,16 @@ transaction instead of running directly. These supported commands include:
 ```shell
 create repo
 delete repo
+update repo
 start commit
 finish commit
 delete commit
+squash commitset
 create branch
 delete branch
 create pipeline
 update pipeline
+edit pipeline
 ```
 
 Each time you add a command to a transaction, Pachyderm validates the
