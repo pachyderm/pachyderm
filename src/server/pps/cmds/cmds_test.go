@@ -28,6 +28,7 @@ import (
 	"bytes"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -738,4 +739,54 @@ func TestNoWarningTagSpecified(t *testing.T) {
 	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:20.04")
 	require.NoError(t, err)
 	require.Equal(t, "", stderr)
+}
+
+func TestPipelineCrashingRecovers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+	`).Run())
+
+	// prevent new pods from being scheduled
+	require.NoError(t, tu.BashCmd(`
+		kubectl cordon minikube
+	`).Run())
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo data
+		pachctl create pipeline <<EOF
+		  pipeline:
+		    name: my-pipeline
+		  input:
+		    pfs:
+		      glob: /*
+		      repo: data
+		  transform:
+		    cmd: [ /bin/bash ]
+		    stdin:
+		      - "cp /pfs/data/* /pfs/out"
+		EOF
+		`).Run())
+
+	require.NoErrorWithinT(t, 10*time.Second, func() error {
+		return tu.BashCmd(`
+		pachctl list pipeline \
+		| match 'name: my-pipeline' \
+		| match 'crashing'
+		`).Run()
+	})
+
+	// prevent new pods from being scheduled
+	require.NoError(t, tu.BashCmd(`
+		kubectl uncordon minikube
+	`).Run())
+
+	require.NoErrorWithinT(t, 10*time.Second, func() error {
+		return tu.BashCmd(`
+		pachctl list pipeline \
+		| match 'name: my-pipeline' \
+		| match 'running'
+		`).Run()
+	})
 }
