@@ -194,12 +194,10 @@ launch-enterprise: check-kubectl check-kubectl-connection install
 clean-launch: check-kubectl
 	helm delete pachyderm || true
 	helm delete enterprise || true
-	kubectl delete pvc -l suite=pachyderm
-	kubectl delete pvc -l suite=pachyderm -n enterprise
-
-clean-launch-dev: check-kubectl
-	helm delete pachyderm || true
-	helm delete enterprise || true
+	# These resources were not cleaned up by the old pachctl undeploy
+	kubectl delete roles.rbac.authorization.k8s.io,rolebindings.rbac.authorization.k8s.io -l suite=pachyderm
+	kubectl delete clusterroles.rbac.authorization.k8s.io,clusterrolebindings.rbac.authorization.k8s.io -l suite=pachyderm
+	# Helm won't clean statefulset PVCs by design
 	kubectl delete pvc -l suite=pachyderm
 	kubectl delete pvc -l suite=pachyderm -n enterprise
 
@@ -216,7 +214,7 @@ proto: docker-build-proto
 	./etc/proto/build.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-auth test-identity test-license test-enterprise test-worker test-admin test-pps
+test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-auth test-identity test-license test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
@@ -426,7 +424,6 @@ check-buckets:
 	launch \
 	launch-dev \
 	clean-launch \
-	clean-launch-dev \
 	test-proto-static \
 	test-deploy-manifests \
 	regenerate-test-deploy-manifests \
