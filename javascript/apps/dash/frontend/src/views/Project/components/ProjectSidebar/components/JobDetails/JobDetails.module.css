@@ -5,7 +5,7 @@
 }
 
 .heading {
-  margin-top: 1rem;
+  margin-top: 2rem;
   font-size: 1rem;
   font-weight: 600;
   line-height: 2.8125rem;
@@ -36,14 +36,15 @@
   margin-left: 0;
   margin-right: 0;
   padding: 0;
-  min-width: 12.625rem;
-  width: 12.625rem;
+  min-width: 10.5rem;
+  width: 10.5rem;
   max-height: calc(100vh - var(--header-height) - var(--sidebar-header-height));
   overflow-y: auto;
 }
 
 .pipelineSpec {
   flex: 1;
+  overflow: hidden;
   border-left: 1px solid var(--line-grey);
 }
 

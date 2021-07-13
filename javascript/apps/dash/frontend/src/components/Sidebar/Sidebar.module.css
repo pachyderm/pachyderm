@@ -6,30 +6,19 @@
   height: 100%;
   flex-direction: column;
   border-left: solid 1px var(--line-grey);
+  pointer-events: all;
 }
 
 .base.sm {
   width: var(--sidebar-width-sm);
 }
 
-.overlay.sm {
-  width: calc(100vw - var(--sidebar-width-sm));
-}
-
 .base.md {
   width: var(--sidebar-width-md);
 }
 
-.overlay.md {
-  width: calc(100vw - var(--sidebar-width-md));
-}
-
 .base.lg {
   width: var(--sidebar-width-lg);
-}
-
-.overlay.lg {
-  width: calc(100vw - var(--sidebar-width-lg));
 }
 
 .fixed {
@@ -49,12 +38,14 @@
 
 .overlay {
   position: fixed;
+  width: 100%;
   background-color: var(--border-grey);
   opacity: 0;
   top: var(--header-height);
   left: 0;
   bottom: 0;
   transition: opacity 0.1s;
+  pointer-events: all;
 }
 
 .overlay.open {
@@ -76,4 +67,37 @@
 
 .closeSvg path {
   fill: var(--placeholder-grey);
+}
+
+.dragBar {
+  height: 100%;
+  width: 0.35rem;
+  position: absolute;
+  left: -0.35rem;
+  z-index: 1;
+}
+
+.dragBar:hover {
+  background-color: var(--line-grey);
+  cursor: ew-resize;
+}
+
+.dragBar.active {
+  background-color: var(--hover-grey);
+  pointer-events: none;
+  user-select: none;
+}
+
+.resizable {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  pointer-events: none;
+}
+
+.resizable.active {
+  cursor: ew-resize;
+  pointer-events: all;
 }

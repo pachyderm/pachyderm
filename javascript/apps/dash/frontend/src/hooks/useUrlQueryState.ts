@@ -6,6 +6,7 @@ import {DagDirection, JobState} from '@graphqlTypes';
 
 interface UrlState {
   dagDirection?: DagDirection;
+  sidebarWidth?: number;
   jobFilters?: JobState[];
 }
 

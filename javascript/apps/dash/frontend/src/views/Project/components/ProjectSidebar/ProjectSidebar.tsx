@@ -28,9 +28,10 @@ const ProjectSidebar = () => {
       <Sidebar
         fixed
         overlay={overlay}
-        size={sidebarSize}
+        defaultSize={sidebarSize}
         onClose={handleClose}
         data-testid={'ProjectSidebar__sidebar'}
+        resizable
       >
         <Switch>
           <Route path={JOBS_PATH} exact>
