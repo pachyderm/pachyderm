@@ -47,13 +47,11 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
         "debug": bool,
         "user": string,
         "working_dir": string,
+        "dockerfile": string,
       },
       "parallelism_spec": {
         // Set at most one of the following:
         "constant": int
-      },
-      "hashtree_spec": {
-      "constant": int,
       },
       "resource_requests": {
         "memory": string,
@@ -85,27 +83,13 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
       "egress": {
         "URL": "s3://bucket/dir"
       },
-      "standby": bool,
       "autoscaling": bool,
-      "cache_size": string,
-      "enable_stats": bool,
       "service": {
         "internal_port": int,
         "external_port": int
       },
       "spout": {
       \\ Optionally, you can combine a spout with a service:
-      "service": {
-            "internal_port": int,
-            "external_port": int
-        }
-      },
-      "max_queue_size": int,
-      "chunk_spec": {
-        "number": int,
-        "size_bytes": int,
-        "chunks_per_worker": int
-      },
       "scheduling_spec": {
         "node_selector": {string: string},
         "priority_class_name": string
