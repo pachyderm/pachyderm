@@ -4727,7 +4727,6 @@ func TestPipelineCrashing(t *testing.T) {
 		if pi.State != pps.PipelineState_PIPELINE_RUNNING {
 			return errors.Errorf("pipeline in wrong state: %s", pi.State.String())
 		}
-		require.True(t, pi.Reason != "")
 		return nil
 	}, backoff.NewTestingBackOff()))
 }

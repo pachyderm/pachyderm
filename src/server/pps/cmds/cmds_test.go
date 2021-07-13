@@ -777,7 +777,7 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 		`).Run()
 	})
 
-	// prevent new pods from being scheduled
+	// allow new pods to be scheduled
 	require.NoError(t, tu.BashCmd(`
 		kubectl uncordon minikube
 	`).Run())
