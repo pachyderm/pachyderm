@@ -410,7 +410,6 @@ func (op *pipelineOp) createPipelineResources() error {
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
-	op.stopCrashingPipelineMonitor()
 	op.m.startMonitor(op.pipelineInfo)
 	op.pipelineInfo.Details.WorkerRc = op.rc.ObjectMeta.Name
 }
