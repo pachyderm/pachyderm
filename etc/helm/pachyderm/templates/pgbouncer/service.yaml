@@ -1,3 +1,8 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.pgbouncer.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -12,7 +17,8 @@ spec:
   - name: client-port
     nodePort: 32228
     port: 5432
-    targetPort: 0
   selector:
     app: pg-bouncer
+    suite: pachyderm
   type: {{ .Values.pgbouncer.service.type }}
+{{- end }}

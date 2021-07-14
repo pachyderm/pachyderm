@@ -1,3 +1,8 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.pgbouncer.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -43,4 +48,5 @@ spec:
           requests:
             cpu: 250m
             memory: 256M
-      serviceAccountName: pachyderm
+      #serviceAccountName: pachyderm
+{{- end }}

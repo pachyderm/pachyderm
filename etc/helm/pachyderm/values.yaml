@@ -338,6 +338,11 @@ worker:
     # the --worker-service-account argument to pachctl deploy.
     name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
 
+pgbouncer:
+  enabled: true
+  service:
+    type: ClusterIP
+
 postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
   enabled: true
