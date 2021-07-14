@@ -187,7 +187,9 @@ export type JobObject = {
 
 export type JobInfoObject = {
   job: Pick<Job.AsObject, 'id' | 'pipeline'>;
-  createdAt: JobInfo.AsObject['started'];
+  createdAt?: JobInfo.AsObject['created'];
+  startedAt?: JobInfo.AsObject['started'];
+  finishedAt?: JobInfo.AsObject['finished'];
   state: JobState;
   input?: InputObject;
 };
@@ -585,15 +587,32 @@ export const jobFromObject = ({id, pipeline}: JobObject) => {
 export const jobInfoFromObject = ({
   job: {id, pipeline: {name} = {name: ''}},
   createdAt,
+  startedAt,
+  finishedAt,
   state,
   input,
 }: JobInfoObject) => {
   const jobInfo = new JobInfo()
     .setState(state)
-    .setStarted(
-      timestampFromObject({seconds: createdAt?.seconds || 0, nanos: 0}),
-    )
     .setJob(new Job().setId(id).setPipeline(new Pipeline().setName(name)));
+
+  if (createdAt) {
+    jobInfo.setCreated(
+      timestampFromObject({seconds: createdAt?.seconds || 0, nanos: 0}),
+    );
+  }
+
+  if (startedAt) {
+    jobInfo.setStarted(
+      timestampFromObject({seconds: startedAt?.seconds || 0, nanos: 0}),
+    );
+  }
+
+  if (finishedAt) {
+    jobInfo.setFinished(
+      timestampFromObject({seconds: finishedAt?.seconds || 0, nanos: 0}),
+    );
+  }
 
   if (input) {
     jobInfo.setDetails(new JobInfo.Details().setInput(inputFromObject(input)));
