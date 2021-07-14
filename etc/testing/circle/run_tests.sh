@@ -76,12 +76,10 @@ case "${BUCKET}" in
     make test-deploy-manifests
     make test-s3gateway-unit
     make test-worker
-    if [[ "${TRAVIS_SECURE_ENV_VARS:-""}" == "true" ]]; then
-        # these tests require secure env vars to run, which aren't available
-        # when the PR is coming from an outside contributor - so we just
-        # disable them
-        make test-tls
-    fi
+    # these tests require secure env vars to run, which aren't available
+    # when the PR is coming from an outside contributor - so we just
+    # disable them
+    # make test-tls
     ;;
   INTERNAL)
     go install -v ./src/testing/match
@@ -99,7 +97,7 @@ case "${BUCKET}" in
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
-      go test -v -count=1 ./src/server/pps/server -timeout 300s
+      go test -v -count=1 ./src/server/pps/server -timeout 420s
     fi
     ;;
   AUTH)

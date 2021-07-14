@@ -4,6 +4,7 @@
 deployTarget: GOOGLE
 
 dash:
+  enabled: true
   image:
     tag: "newVersion"
 

@@ -30,8 +30,8 @@ That origin can be of 3 types:
 - `USER`: The commit is the result of a user change (`put file`, `update pipeline`, `delete file`...)
 !!! Info
     Every initial change is a `USER` change.
-- `AUTO`: Pachyderm's pipelines being data-driven, the initial commit will automatically trigger downstream processing jobs in your pipeline. Those output commits will be of `AUTO` origin.
-- `ALIAS`: Neither `USER` nor `AUTO` - `ALIAS` commits are essentially empty commits. They have the same content than their parent commit and are mainly used for [global IDs](). 
+- `AUTO`: Pachyderm's pipelines are data-driven. A data commit to a data repository may trigger downstream processing jobs in your pipeline(s). The output commits from triggered jobs will be of type `AUTO`.
+- `ALIAS`: Neither `USER` nor `AUTO` - `ALIAS` commits are essentially empty commits. They have the same content as their parent commit and are mainly used for [global IDs](). 
 
 
 !!! Warning "Important Note"

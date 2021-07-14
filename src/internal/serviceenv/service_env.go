@@ -4,32 +4,36 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	dex_storage "github.com/dexidp/dex/storage"
 	"github.com/dlmiddlecote/sqlstats"
+	loki "github.com/grafana/loki/pkg/logcli/client"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/jmoiron/sqlx"
+	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	kube "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
-	"github.com/prometheus/client_golang/prometheus"
-
-	etcd "github.com/coreos/etcd/clientv3"
-	dex_storage "github.com/dexidp/dex/storage"
-	loki "github.com/grafana/loki/pkg/logcli/client"
-	"github.com/jmoiron/sqlx"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
-	kube "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 const clusterIDKey = "cluster-id"
@@ -200,7 +204,11 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 	}
 	// Initialize pach client
 	return backoff.Retry(func() error {
-		pachClient, err := client.NewFromURI(env.pachAddress)
+		pachClient, err := client.NewFromURI(
+			env.pachAddress,
+			client.WithAdditionalUnaryClientInterceptors(grpc_prometheus.UnaryClientInterceptor),
+			client.WithAdditionalStreamClientInterceptors(grpc_prometheus.StreamClientInterceptor),
+		)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize pach client")
 		}
@@ -215,6 +223,10 @@ func (env *NonblockingServiceEnv) initEtcdClient() error {
 		return errors.New("cannot initialize etcd client with empty etcd address")
 	}
 	// Initialize etcd
+	opts := client.DefaultDialOptions() // SA1019 can't call grpc.Dial directly
+	opts = append(opts,
+		grpc.WithChainUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
+		grpc.WithChainStreamInterceptor(grpc_prometheus.StreamClientInterceptor))
 	return backoff.Retry(func() error {
 		var err error
 		env.etcdClient, err = etcd.New(etcd.Config{
@@ -222,7 +234,7 @@ func (env *NonblockingServiceEnv) initEtcdClient() error {
 			// Use a long timeout with Etcd so that Pachyderm doesn't crash loop
 			// while waiting for etcd to come up (makes startup net faster)
 			DialTimeout:        3 * time.Minute,
-			DialOptions:        client.DefaultDialOptions(), // SA1019 can't call grpc.Dial directly
+			DialOptions:        opts,
 			MaxCallSendMsgSize: math.MaxInt32,
 			MaxCallRecvMsgSize: math.MaxInt32,
 		})
@@ -258,6 +270,9 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 					Insecure: true,
 				},
 			}
+		}
+		cfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+			return promutil.InstrumentRoundTripper("kubernetes", rt)
 		}
 		env.kubeClient, err = kube.NewForConfig(cfg)
 		if err != nil {

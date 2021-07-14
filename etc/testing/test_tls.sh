@@ -22,7 +22,7 @@ etc/deploy/gen_pachd_tls.sh "$hostport" ""
 # Restart pachyderm with the given certs
 etc/deploy/restart_with_tls.sh "$hostport" "${PWD}/pachd.pem" "${PWD}/pachd.key"
 
-set +x # Do not log our activation code when running this script in Travis
+set +x # Do not log our activation code when running this script in CI
 echo "$ENT_ACT_CODE" | pachctl license activate && echo
 set -x
 

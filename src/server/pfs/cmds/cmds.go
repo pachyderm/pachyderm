@@ -1428,6 +1428,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
+	var branchStr string
 	var seed int64
 	runLoadTest := &cobra.Command{
 		Use:     "{{alias}} <spec>",
@@ -1435,17 +1436,27 @@ Objects are a low-level resource and should not be accessed directly by most use
 		Long:    "Run a PFS load test.",
 		Example: pfsload.LoadSpecification,
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+			var branch *pfs.Branch
+			if branchStr != "" {
+				var err error
+				branch, err = cmdutil.ParseBranch(branchStr)
+				if err != nil {
+					return err
+				}
+			}
+
 			spec, err := ioutil.ReadFile(args[0])
 			if err != nil {
 				return err
 			}
-			resp, err := env.Client("user").RunPFSLoadTest(spec, seed)
+			resp, err := env.Client("user").RunPFSLoadTest(spec, branch, seed)
 			if err != nil {
 				return err
 			}
 			return cmdutil.Encoder(output, env.Stdout()).EncodeProto(resp)
 		}),
 	}
+	runLoadTest.Flags().StringVarP(&branchStr, "branch", "b", "", "The branch to use for generating the load.")
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pfs-load-test"))
 

@@ -241,7 +241,7 @@ func replicas(r int32) *int32 {
 func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend Backend) {
 	if persistentDiskBackend == LocalBackend {
 		// For local deployments, we set the resource requirements and cache sizes
-		// low so that pachyderm clusters will fit inside e.g. minikube or travis
+		// low so that pachyderm clusters will fit inside e.g. minikube or CI
 		if opts.PachdNonCacheMemRequest == "" {
 			opts.PachdNonCacheMemRequest = "512M"
 		}
@@ -1056,7 +1056,7 @@ func WriteAmazonAssets(encoder serde.Encoder, opts *AssetOpts, region string, bu
 		return err
 	}
 	var secret map[string][]byte
-	if creds.ID != "" {
+	if creds != nil && creds.ID != "" {
 		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro, "", advancedConfig)
 	}
 	return WriteSecret(encoder, secret, opts)

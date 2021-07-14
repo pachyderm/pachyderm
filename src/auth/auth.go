@@ -208,7 +208,7 @@ type ErrNotAuthorized struct {
 const errNotAuthorizedMsg = "not authorized to perform this operation"
 
 func (e *ErrNotAuthorized) Error() string {
-	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
+	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v. Run `pachctl auth roles-for-permission` to find roles that grant a given permission.", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
 }
 
 // IsErrNotAuthorized checks if an error is a ErrNotAuthorized

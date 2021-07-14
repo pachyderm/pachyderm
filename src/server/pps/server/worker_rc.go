@@ -201,6 +201,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 	}
+	if p := a.env.Config().GoogleCloudProfilerProject; p != "" {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
+		workerEnv = append(workerEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
+	}
 
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.

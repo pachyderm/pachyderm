@@ -129,10 +129,10 @@ func fileHash(t *testing.T, name string) (int64, []byte) {
 }
 
 func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
-	server, err := Server(0, driver, func() (*client.APIClient, error) {
+	router := Router(driver, func() (*client.APIClient, error) {
 		return pachClient.WithCtx(context.Background()), nil
 	})
-	require.NoError(t, err)
+	server := Server(0, router)
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 

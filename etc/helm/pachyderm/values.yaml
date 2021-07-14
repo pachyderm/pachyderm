@@ -14,7 +14,7 @@ deployTarget: ""
 
 dash:
   # enabled controls whether the dash manifests are created or not.
-  enabled: true
+  enabled: false
   image:
     # repository is the image repo to pull from; together with tag it
     # replicates the --dash-image & --registry arguments to pachctl
@@ -338,7 +338,6 @@ worker:
     # name sets the name of the worker service account.  Analogous to
     # the --worker-service-account argument to pachctl deploy.
     name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
-  usesRoot: false
 
 postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.

@@ -1190,6 +1190,14 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	return &auth.GetUsersResponse{Usernames: users}, nil
 }
 
+// GetRolesForPermission implements the protobuf auth.GetRolesForPermission RPC
+func (a *apiServer) GetRolesForPermission(ctx context.Context, req *auth.GetRolesForPermissionRequest) (resp *auth.GetRolesForPermissionResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	return &auth.GetRolesForPermissionResponse{Roles: rolesForPermission(req.Permission)}, nil
+}
+
 func setToList(set map[string]bool) []string {
 	if set == nil {
 		return []string{}
