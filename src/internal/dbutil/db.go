@@ -91,7 +91,17 @@ func GetDSN(opts ...Option) string {
 // NewDB creates a new DB.
 func NewDB(opts ...Option) (*sqlx.DB, error) {
 	dbc := newConfig(opts...)
-	db, err := sqlx.Open("postgres", getDSN(dbc))
+	if dbc.name == "" {
+		panic("must specify database name")
+	}
+	if dbc.host == "" {
+		panic("must specify database host")
+	}
+	if dbc.user == "" {
+		panic("must specify user")
+	}
+	dsn := getDSN(dbc)
+	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
 	}

@@ -18,7 +18,9 @@ import (
 
 const (
 	DefaultPostgresHost     = "127.0.0.1"
-	DefaultPostgresPort     = 30229
+	DefaultPostgresPort     = 30228
+	DefaultPGBouncerHost    = DefaultPostgresHost
+	DefaultPGBouncerPort    = 30229
 	DefaultPostgresUser     = "pachyderm"
 	DefaultPostgresPassword = "correcthorsebatterystaple"
 	DefaultPostgresDatabase = "pachyderm"
@@ -40,30 +42,14 @@ type TestDatabaseDeployment interface {
 	NewDatabaseConfig(t testing.TB) serviceenv.ConfigOption
 }
 
-// NewTestDBConfig connects to postgres using the default settings, creates a
-// database with a unique name then returns a ServiceEnv config option to
-// connect to the new database. After test test or suite finishes, the database
-// is dropped.
-func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
-	opts := []dbutil.Option{
-		dbutil.WithHostPort(dbHost(), dbPort()),
-	}
-	db := openEphemeralDB(t, opts...)
-	dbName := createEphemeralDB(t, db)
-	return func(config *serviceenv.Configuration) {
-		serviceenv.WithPostgresHostPort(dbHost(), dbPort())(config)
-		config.PostgresDBName = dbName
-	}
-}
-
-func dbHost() string {
+func postgresHost() string {
 	if host, ok := os.LookupEnv("POSTGRES_HOST"); ok {
 		return host
 	}
 	return DefaultPostgresHost
 }
 
-func dbPort() int {
+func postgresPort() int {
 	if port, ok := os.LookupEnv("POSTGRES_PORT"); ok {
 		if portInt, err := strconv.Atoi(port); err == nil {
 			return portInt
@@ -72,25 +58,68 @@ func dbPort() int {
 	return DefaultPostgresPort
 }
 
-// NewTestDB connects to postgres using the default settings, creates a database
-// with a unique name then returns a sqlx.DB configured to use the newly created
-// database. After the test or suite finishes, the database is dropped.
-func NewTestDB(t testing.TB) *sqlx.DB {
+func pgBouncerHost() string {
+	if host, ok := os.LookupEnv("PG_BOUNCER_HOST"); ok {
+		return host
+	}
+	return DefaultPGBouncerHost
+}
+
+func pgBouncerPort() int {
+	if port, ok := os.LookupEnv("PG_BOUNCER_PORT"); ok {
+		if portInt, err := strconv.Atoi(port); err == nil {
+			return portInt
+		}
+	}
+	return DefaultPGBouncerPort
+}
+
+func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
+	host, port := postgresHost(), postgresPort()
 	opts := []dbutil.Option{
-		dbutil.WithHostPort(dbHost(), dbPort()),
+		dbutil.WithHostPort(host, port),
 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithDBName(DefaultPostgresDatabase),
 	}
 	db := openEphemeralDB(t, opts...)
 	dbName := createEphemeralDB(t, db)
-	opts2 := []dbutil.Option{
-		dbutil.WithHostPort(dbHost(), dbPort()),
+
+	return []dbutil.Option{
 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
 		dbutil.WithDBName(dbName),
 		dbutil.WithMaxOpenConns(maxOpenConnsPerPool),
+
+		dbutil.WithHostPort(host, port),
 	}
-	return openEphemeralDB(t, opts2...)
+}
+
+// NewTestDBOptions creates an ephemeral db and returns options that can be used to connect to it.
+func NewTestDBOptions(t testing.TB) []dbutil.Option {
+	host, port := pgBouncerHost(), pgBouncerPort()
+	opts := []dbutil.Option{
+		dbutil.WithHostPort(host, port),
+		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+		dbutil.WithMaxOpenConns(1),
+		dbutil.WithDBName(DefaultPostgresDatabase),
+	}
+	db := openEphemeralDB(t, opts...)
+	dbName := createEphemeralDB(t, db)
+
+	return []dbutil.Option{
+		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+		dbutil.WithDBName(dbName),
+		dbutil.WithMaxOpenConns(maxOpenConnsPerPool),
+
+		dbutil.WithHostPort(host, port),
+	}
+}
+
+// NewTestDB connects to postgres using the default settings, creates a database
+// with a unique name then returns a sqlx.DB configured to use the newly created
+// database. After the test or suite finishes, the database is dropped.
+func NewTestDB(t testing.TB) *sqlx.DB {
+	return openEphemeralDB(t, NewTestDBOptions(t)...)
 }
 
 // openEphemeralDB connects to a database using opts and returns it.
