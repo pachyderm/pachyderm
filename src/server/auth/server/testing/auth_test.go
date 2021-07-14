@@ -2428,7 +2428,7 @@ func TestDeletePipelineMissingInput(t *testing.T) {
 		false,
 	))
 
-	// force-delete input and output repos
+	// force-delete input repo
 	require.NoError(t, aliceClient.DeleteRepo(repo, true))
 
 	// Attempt to delete the pipeline--must succeed
