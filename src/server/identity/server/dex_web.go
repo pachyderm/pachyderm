@@ -219,6 +219,7 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			return
 		}
 		tx, err := w.env.GetDBClient().BeginTxx(r.Context(), &sql.TxOptions{})
+		defer tx.Commit()
 		if err != nil {
 			dexApprovalErrorCountMetric.Inc()
 			w.logger.WithError(err).Error("failed to start transaction")

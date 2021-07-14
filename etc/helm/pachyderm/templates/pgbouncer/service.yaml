@@ -14,10 +14,10 @@ metadata:
 spec:
   ports:
   - name: client-port
-    #nodePort: 32228
+    nodePort: 32229
     port: 5432
   selector:
     app: pg-bouncer
     suite: pachyderm
-  type: {{ .Values.pgbouncer.service.type }}
+  type: NodePort
 {{- end }}

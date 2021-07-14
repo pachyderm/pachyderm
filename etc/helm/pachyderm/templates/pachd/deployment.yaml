@@ -66,7 +66,7 @@ spec:
         - name: PG_BOUNCER_HOST
           value: pg-bouncer
         - name: PG_BOUNCER_PORT
-          value: 5432
+          value: "5432"
         - name: LOKI_LOGGING
           value: {{ .Values.pachd.lokiLogging | quote}}
         - name: PACH_ROOT

@@ -49,7 +49,7 @@ type GlobalConfiguration struct {
 	SessionDurationMinutes int `env:"SESSION_DURATION_MINUTES,default=43200"`
 
 	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
-	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`
+	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=pachyderm"`
 	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
 
 	// PPSSpecCommitID and PPSPipelineName are only set for workers and sidecar
