@@ -1,8 +1,13 @@
 # Datum Metadata
 
 ## Datum Statistics
-The [`pachctl inspect datum`](./glob-pattern/#test-your-datums)
-commands (or its language client equivalents) provides the following information for each datum
+Pachyderm stores information about each datum that
+a pipeline processes, including timing information, size information,
+and `/pfs` snapshots. 
+You can view these statistics by running the [`pachctl inspect datum`](./glob-pattern/#test-your-datums)
+command (or its language client equivalents).
+
+In particular, Pachyderm provides the following information for each datum
 processed by your pipelines:
 
 - The amount of data that was uploaded and downloaded
@@ -90,5 +95,5 @@ The pfs directory has both the **input files** of datums, and the resulting **ou
     /pfs/47be06d9e614700397d8d56272a1a5e039df82bf931e8e3c9d34bccbfbc8b349/images/     dir  238.3KiB
     /pfs/47be06d9e614700397d8d56272a1a5e039df82bf931e8e3c9d34bccbfbc8b349/out/        dir  1.292MiB
     ```
-    
+
 Use `pachctl list file montage.meta@master:/pfs/` to list the files in the pfs directory.

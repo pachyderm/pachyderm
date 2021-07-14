@@ -900,30 +900,6 @@ If not explicitly specified, cache_size defaults to 64M.
     then only files which are 250M or smaller will be cached; 
     files larger than 250M will not be cached.
 
-### Enable Stats (optional)
-
-The `enable_stats` parameter turns on statistics tracking for the pipeline.
-When you enable the statistics tracking, the pipeline automatically creates
-and commits datum processing information to a special branch in its output
-repo called `"stats"`. This branch stores information about each datum that
-the pipeline processes, including timing information, size information, logs,
-and `/pfs` snapshots. You can view this statistics by running the `pachctl
-inspect datum` and `pachctl list datum` commands, as well as through the web UI.
-Do not enable statistics tracking for S3-enabled pipelines.
-
-Once turned on, statistics tracking cannot be disabled for the pipeline. You can
-turn it off by deleting the pipeline, setting `enable_stats` to `false` or
-completely removing it from your pipeline spec, and recreating the pipeline from
-that updated spec file. While the pipeline that collects the stats
-exists, the storage space used by the stats cannot be released.
-
-!!! note
-    Enabling stats results in slight storage use increase for logs and timing
-    information.
-    However, stats do not use as much extra storage as it might appear because
-    snapshots of the `/pfs` directory that are the largest stored assets
-    do not require extra space.
-
 ### Reprocess Datums (optional)
 
 Per default, Pachyderm avoids repeated processing of unchanged datums (i.e., it processes only the datums that have changed and skip the unchanged datums). This [**incremental behavior**](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/#example-1-one-file-in-the-input-datum-one-file-in-the-output-datum) ensures efficient resource utilization. However, you might need to alter this behavior for specific use cases and **force the reprocessing of all of your datums systematically**. This is especially useful when your pipeline makes an external call to other resources, such as a deployment or triggering an external pipeline system.  Set `"reprocess_spec": "every_job"` in order to enable this behavior. 
