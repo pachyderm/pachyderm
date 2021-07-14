@@ -17,4 +17,5 @@ type APIServer interface {
 	StopJobInTransaction(*txncontext.TransactionContext, *pps_client.StopJobRequest) error
 	UpdateJobStateInTransaction(*txncontext.TransactionContext, *pps_client.UpdateJobStateRequest) error
 	CreatePipelineInTransaction(*txncontext.TransactionContext, *pps_client.CreatePipelineRequest, *string, *uint64) error
+	InspectPipelineInTransaction(*txncontext.TransactionContext, string, bool) (*pps_client.PipelineInfo, error)
 }

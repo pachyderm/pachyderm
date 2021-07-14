@@ -2327,7 +2327,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 	var response *pps.PipelineInfo
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		response, err = a.inspectPipelineInTransaction(txnCtx, name, details)
+		response, err = a.InspectPipelineInTransaction(txnCtx, name, details)
 		return err
 	}); err != nil {
 		return nil, err
@@ -2335,7 +2335,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 	return response, nil
 }
 
-func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, name string, details bool) (*pps.PipelineInfo, error) {
+func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, name string, details bool) (*pps.PipelineInfo, error) {
 	kubeClient := a.env.GetKubeClient()
 	name, ancestors, err := ancestry.Parse(name)
 	if err != nil {

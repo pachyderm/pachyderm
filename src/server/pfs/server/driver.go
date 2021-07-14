@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -345,6 +346,13 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		return err
 	}
 
+	if !force {
+		if _, err := d.env.PpsServer().InspectPipelineInTransaction(txnCtx, repo.Name, false); err == nil {
+			return errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
+		} else if err != nil && !errutil.IsNotFoundError(err) {
+			return err
+		}
+	}
 	// if this is a user repo, delete any dependent repos
 	if repo.Type == pfs.UserRepoType {
 		var dependentRepos []pfs.RepoInfo
@@ -544,30 +552,6 @@ func (d *driver) startCommit(
 	return newCommit, nil
 }
 
-func (d *driver) looksLikePipelineOutput(txnCtx *txncontext.TransactionContext, info *pfs.CommitInfo) (bool, error) {
-	if info.Commit.Branch.Repo.Type == pfs.MetaRepoType {
-		// assume meta repos are part of a pipeline
-		return true, nil
-	}
-	if len(info.DirectProvenance) == 0 {
-		// no provenance, definitely not an active pipeline
-		return false, nil
-	}
-	if len(info.DirectProvenance) == 1 && info.DirectProvenance[0].Repo.Type == pfs.SpecRepoType {
-		// this is a spout, don't get in the way of user commit management
-		return false, nil
-	}
-	// finally, check for a companion meta repo
-	// this could still technically be a branch with provenance in the same repo as pipeline output
-	metaRepo := client.NewSystemRepo(info.Commit.Branch.Repo.Name, pfs.MetaRepoType)
-	if _, err := d.inspectRepo(txnCtx, metaRepo, false); err != nil && !col.IsErrNotFound(err) {
-		return false, errors.Wrapf(err, "checking for meta repo for %s", info.Commit.Branch.Repo)
-	} else {
-		// no error means there was a meta repo, and so this looks like a pipeline
-		return err == nil, nil
-	}
-}
-
 // TODO: Need to block operations on the commit before kicking off the compaction / finishing the commit.
 // We are going to want to move the compaction to the read side, and just mark the commit as finished here.
 func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description string, commitError, force bool) error {
@@ -584,11 +568,14 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
 	if !force {
-		if isPipeline, err := d.looksLikePipelineOutput(txnCtx, commitInfo); err != nil {
+		if info, err := d.env.PpsServer().InspectPipelineInTransaction(txnCtx,
+			commit.Branch.Repo.Name, false,
+		); err != nil && !errutil.IsNotFoundError(err) {
 			return err
-		} else if isPipeline {
+		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
 			return errors.Errorf("cannot finish a pipeline output or meta commit, use 'stop job' instead")
 		}
+		// otherwise, this either isn't a pipeline at all, or is a spout or service for which we should allow finishing
 	}
 	if description != "" {
 		commitInfo.Description = description
