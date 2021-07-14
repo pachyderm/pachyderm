@@ -2737,39 +2737,48 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			return err
 		}
 
-		// check if the caller is authorized to update this pipeline
-		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpUpdate, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
-			return err
-		}
-
-		// Remove branch provenance to prevent new output and meta commits from being created
-		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
-			Provenance: nil,
-		}); err != nil {
-			return err
-		}
-		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
-			Provenance: nil,
-		}); err != nil && !errutil.IsNotFoundError(err) {
-			// don't error if we're stopping a spout or service pipeline
-			return err
-		}
-
-		newPipelineInfo := &pps.PipelineInfo{}
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
-			if newPipelineInfo.Version != pipelineInfo.Version {
-				// If the pipeline has changed, restart the transaction and try again
-				return col.ErrTransactionConflict{}
+		// make sure the repo exists
+		if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
+			Repo: client.NewRepo(request.Pipeline.Name),
+		}); err == nil {
+			// check if the caller is authorized to update this pipeline
+			if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpUpdate, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
+				return err
 			}
-			newPipelineInfo.Stopped = true
-			return nil
-		}); err != nil {
+
+			// Remove branch provenance to prevent new output and meta commits from being created
+			if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				Branch:     client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
+				Provenance: nil,
+			}); err != nil {
+				return err
+			}
+			if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+				Provenance: nil,
+			}); err != nil && !errutil.IsNotFoundError(err) {
+				// don't error if we're stopping a spout or service pipeline
+				return err
+			}
+
+			newPipelineInfo := &pps.PipelineInfo{}
+			if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
+				if newPipelineInfo.Version != pipelineInfo.Version {
+					// If the pipeline has changed, restart the transaction and try again
+					return col.ErrTransactionConflict{}
+				}
+				newPipelineInfo.Stopped = true
+				return nil
+			}); err != nil {
+				return err
+			}
+		} else if !col.IsErrNotFound(err) {
 			return err
 		}
 
 		// Kill any remaining jobs
+		// if the pipeline output repo doesn't exist, we technically run this without authorization,
+		// but it's not clear what authorization means in that case, and those jobs are doomed, anyway
 		return a.stopAllJobsInPipeline(txnCtx, request.Pipeline)
 	}); err != nil {
 		return nil, err
