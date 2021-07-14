@@ -12,8 +12,9 @@ to run multiple commands at the same time, you can use transactions.
 This functionality is useful in particular for pipelines with multiple
 inputs. If you need to update two or more input repos, you might not want
 pipeline jobs for each state change. You can issue a transaction
-to start commits in each of the input repos, which creates a single
-downstream commit in the pipeline repo. After the transaction, you
+to start commits in each of the input repos, which puts them both in
+the same [commit set](), creating a single downstream commit 
+in the pipeline repo. After the transaction, you
 can put files and finish the commits at will, and the pipeline job
 will run once all the input commits have been finished.
 
