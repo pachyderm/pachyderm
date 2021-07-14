@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pg-bouncer
+    suite: pachyderm
+  name: pg-bouncer
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pg-bouncer
+      suite: pachyderm
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: pg-bouncer
+        suite: pachyderm
+      name: pg-bouncer
+      namespace: default
+    spec:
+      containers:
+      - env:
+        - name: DB_USER
+          value: pachyderm
+        - name: DB_PASSWORD
+          value: elephantastic
+        - name: DB_HOST
+          value: postgres.default
+        - name: AUTH_TYPE
+          value: trust
+        - name: MAX_CLIENT_CONN
+          value: "1000"
+        image: edoburu/pgbouncer:1.15.0
+        imagePullPolicy: IfNotPresent
+        name: pg-bouncer
+        ports:
+        - containerPort: 5432
+          name: client-port
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256M
+      serviceAccountName: pachyderm
