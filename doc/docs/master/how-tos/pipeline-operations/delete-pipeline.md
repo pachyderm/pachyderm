@@ -11,7 +11,7 @@ Only authorized users can delete pipelines.
 
 When you delete a pipeline, all attributes, such as the output repository
 and the job history is deleted as well.
-You can use the `--keep repo` flag that preserves the output repo with
+You can use the `--keep-repo` flag that preserves the output repo with
 all its branches and provenance. Only the information about the pipeline
 history itself is erased. Later, you can recreate the pipeline by using
 the `pachctl create pipeline` command. If the output repository by the same
