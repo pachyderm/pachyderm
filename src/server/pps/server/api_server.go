@@ -2582,23 +2582,6 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		if err := a.authorizePipelineOp(ctx, pipelineOpDelete, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
-		if request.KeepRepo {
-			// Remove branch provenance
-			if err := pachClient.CreateBranch(
-				request.Pipeline.Name,
-				pipelineInfo.Details.OutputBranch,
-				"",
-				"",
-				nil,
-			); err != nil {
-				return err
-			}
-		} else {
-			// delete the pipeline's output repo
-			if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
-				return err
-			}
-		}
 	}
 
 	// If necessary, revoke the pipeline's auth token and remove it from its
@@ -2622,7 +2605,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 
 	// Delete all of the pipeline's jobs - we shouldn't need to worry about any
-	// new jobs since the output repo has already been deleted or disconnected.
+	// new jobs since the pipeline has already been stopped.
 	var eg errgroup.Group
 	jobInfo := &pps.JobInfo{}
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline.Name, jobInfo, col.DefaultOptions(), func(string) error {
@@ -2654,16 +2637,42 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 			return nil
 		})
 	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
 	// Delete PipelineInfo
-	eg.Go(func() error {
-		if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-			return a.pipelines.ReadWrite(sqlTx).Delete(request.Pipeline.Name)
-		}); err != nil {
-			return errors.Wrapf(err, "collection.Delete")
+	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		return a.pipelines.ReadWrite(sqlTx).Delete(request.Pipeline.Name)
+	}); err != nil {
+		return errors.Wrapf(err, "collection.Delete")
+	}
+
+	if request.KeepRepo {
+		// Remove branch provenance from output and meta
+		if err := pachClient.CreateBranch(
+			request.Pipeline.Name,
+			pipelineInfo.Details.OutputBranch,
+			"",
+			"",
+			nil,
+		); err != nil {
+			return err
 		}
-		return nil
-	})
-	return eg.Wait()
+		if _, err := pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{
+			Branch: client.
+				NewSystemRepo(request.Pipeline.Name, pfs.MetaRepoType).
+				NewBranch(pipelineInfo.Details.OutputBranch),
+		}); err != nil && !errutil.IsNotFoundError(err) {
+			return grpcutil.ScrubGRPC(err)
+		}
+	} else {
+		// delete the pipeline's output repo
+		if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // StartPipeline implements the protobuf pps.StartPipeline RPC
