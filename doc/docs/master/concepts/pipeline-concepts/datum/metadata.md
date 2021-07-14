@@ -1,6 +1,8 @@
 # Datum Metadata
 
-Datum metadata provides the following information for any datums
+## Datum Statistics
+The [`pachctl inspect datum`](./glob-pattern/#test-your-datums)
+commands (or its language client equivalents) provides the following information for each datum
 processed by your pipelines:
 
 - The amount of data that was uploaded and downloaded
@@ -9,15 +11,17 @@ processed by your pipelines:
 - Success/failure information, including any error encountered for failed datums
 - The directory structure of input data that was seen by the job.
 
-This information is
-available through the `pachctl inspect datum` and `pachctl list datum`
-commands or through their language client equivalents.
+Use the `pachctl list datum <pipeline>@<job ID>` to retrieve the list of datums processed by a given job, and pick the datum ID you want to inspect.
+## Meta Repo
+Once a pipeline has finished a job, **you can access additional execution metadata about the datums
+processed** in the associated meta [system repo](../../../data-concepts/repo/#definition).
+That information can be useful when troubleshooting a failed job.
 
+!!! Info
+    A meta repo contains 2 directories:
 
-Once a pipeline has finished a job, **you can access metadata about the datums
-processed during that job** in the associated meta [system repo](../../../data-concepts/repo/#definition).
-
-!!! example
+    - `/meta/`: The `meta` directory holds datums' statistics
+    - `/pfs`: The `pfs` directory holds the input data of datums, and their resulting output data
 
     ```shell
     pachctl list file edges.meta@master
@@ -31,7 +35,8 @@ processed during that job** in the associated meta [system repo](../../../data-c
     /pfs/      dir  371.9KiB
     ```
 
-## Meta directory
+
+### Meta directory
 The **meta directory holds each datum's JSON metadata**, and can be accessed using a `get file`:
 
 !!! example
@@ -67,21 +72,23 @@ The **meta directory holds each datum's JSON metadata**, and can be accessed usi
       "index": "1"
     }
     ```
-
-## Pfs Directory
-The **pfs directory has both the input and the output data that was committed in this datum**:
+Use`pachctl list file edges.meta@master:/meta/` to list the files in the meta directory.
+### Pfs Directory
+The pfs directory has both the **input files** of datums, and the resulting **output files** that were committed to the output repo:
 
 !!! example
 
     ```shell
-    pachctl list file edges@stats:/002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/pfs
+    pachctl list file montage.meta@master:/pfs/47be06d9e614700397d8d56272a1a5e039df82bf931e8e3c9d34bccbfbc8b349/
     ```
 
     **System response:**
 
     ```shell
-    NAME                                                                         TYPE SIZE
-    /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/pfs/images dir  78.7KiB  
-    /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/pfs/out    dir  37.15KiB
+    NAME                                                                          TAG TYPE SIZE
+    /pfs/47be06d9e614700397d8d56272a1a5e039df82bf931e8e3c9d34bccbfbc8b349/edges/      dir  133.6KiB
+    /pfs/47be06d9e614700397d8d56272a1a5e039df82bf931e8e3c9d34bccbfbc8b349/images/     dir  238.3KiB
+    /pfs/47be06d9e614700397d8d56272a1a5e039df82bf931e8e3c9d34bccbfbc8b349/out/        dir  1.292MiB
     ```
-
+    
+Use `pachctl list file montage.meta@master:/pfs/` to list the files in the pfs directory.

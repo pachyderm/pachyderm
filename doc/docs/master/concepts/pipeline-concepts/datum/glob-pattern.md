@@ -169,32 +169,59 @@ You can use the `pachctl list datum -f <my_pipeline_spec.json>` command to previ
     ```
     **System Response:**
 
-    ```shell
-        ID FILES                                                STATUS TIME
-    -  images@8c958d1523f3428a98ac97fbfc367bae:/g2QnNqa.jpg -      -
-    -  images@8c958d1523f3428a98ac97fbfc367bae:/8MN9Kg0.jpg -      -
-    -  images@8c958d1523f3428a98ac97fbfc367bae:/46Q8nDz.jpg -      -
+    ```
+      ID FILES                                                STATUS TIME
+    -  images@b8687e9720f04b7ab53ae8c64541003b:/46Q8nDz.jpg -      -
+    -  images@b8687e9720f04b7ab53ae8c64541003b:/8MN9Kg0.jpg -      -
+    -  images@b8687e9720f04b7ab53ae8c64541003b:/Togu2RY.jpg -      -
+    -  images@b8687e9720f04b7ab53ae8c64541003b:/g2QnNqa.jpg -      -
+    -  images@b8687e9720f04b7ab53ae8c64541003b:/w7RVTsv.jpg -      -
     ```
 
 ### Running list datum on a past job 
-You can use the `pachctl list datum <job_number>` command to check the datums processed by a given job.
+You can use the `pachctl list datum <pipeline>@<job_number>` command to check the datums processed by a given job.
 
 !!! example
     ```shell
-    pachctl list datum d10979d9f9894610bb287fa5e0d734b5
+    pachctl list datum edges@b8687e9720f04b7ab53ae8c64541003b
     ```
     **System Response:**
 
-    ```shell
-        ID                                                                   FILES                                                STATUS TIME
-    ebd35bb33c5f772f02d7dfc4735ad1dde8cc923474a1ee28a19b16b2990d29592e30 images@8c958d1523f3428a98ac97fbfc367bae:/g2QnNqa.jpg -      -
-    ebd3ce3cdbab9b78cc58f40aa2019a5a6bce82d1f70441bd5d41a625b7769cce9bc4 images@8c958d1523f3428a98ac97fbfc367bae:/8MN9Kg0.jpg -      -
-    ebd32cf84c73cfcc4237ac4afdfe6f27beee3cb039d38613421149122e1f9faff349 images@8c958d1523f3428a98ac97fbfc367bae:/46Q8nDz.jpg -      -
+    ```
+      ID                                                               FILES                                                STATUS  TIME
+    a4149cd1907145f982e0eb49c50af3f1d4d8fecaa8647d62f2d9d93e30578df8 images@b8687e9720f04b7ab53ae8c64541003b:/w7RVTsv.jpg success Less than a second
+    e2b4628dd88b179051ba0576e06fac12ae2e4d16165296212d0e98de501d17df images@b8687e9720f04b7ab53ae8c64541003b:/Togu2RY.jpg success Less than a second
+    353b6d2a5ac78f56facc7979e190affbb8f75c6f74da84b758216a8df77db473 images@7856142de8714c11b004610ea7af2378:/8MN9Kg0.jpg skipped Less than a second
+    b751702850acad5502dc51c3e7e7a1ac10ba2199fdb839989cd0c5430ee10b84 images@fc9a12ee149a4499a1a7da0a31971b37:/46Q8nDz.jpg skipped Less than a second
+    de9e3703322eff2ab90e89ff01a18c448af9870f17e78438c5b0f56588af9c44 images@7856142de8714c11b004610ea7af2378:/g2QnNqa.jpg skipped Less than a second
     ```
 
 !!! note "Note"  
-    Now that the 3 datums have been processed, their ID field is showing.
+    In this example, you can see that the job `b8687e9720f04b7ab53ae8c64541003b` only processed 2 datums from the images input repo. The rest was skipped as it had been processed by previous jobs already. Notice that the ID of the datums is now showing.
 
-!!! info "Enabling Stats"
-    - Running `list datum` on a given job execution of a pipeline that [enables stats](https://docs.pachyderm.com/latest/enterprise/stats/#enabling-stats-for-a-pipeline) allows you to additionally display the STATUS (running, failed, success) and TIME of each datum.
-    - You might want to follow up with [inspect datum <ID>](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_datum/) to detail the files that a specific datum includes.
+!!! info "Stats and Datum Metadata"
+    - Running `list datum` on a given job execution of a pipeline allows you to additionally display the STATUS (running, failed, success) and TIME of each datum.
+    - You might want to follow up with [inspect datum pipeline@job_number datum ID](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_datum/) to detail the files that a specific datum includes.
+    
+        ```shell
+        $ pachctl inspect datum edges@b8687e9720f04b7ab53ae8c64541003b a4149cd1907145f982e0eb49c50af3f1d4d8fecaa8647d62f2d9d93e30578df8
+        ```
+        **System Response:**
+        ```
+        ID	a4149cd1907145f982e0eb49c50af3f1d4d8fecaa8647d62f2d9d93e30578df8
+        Job ID	b8687e9720f04b7ab53ae8c64541003b
+        State	SUCCESS
+        Data Downloaded	606.3KiB
+        Data Uploaded	26.96KiB
+        Total Time	582.000134ms
+        Download Time	40.062075ms
+        Process Time	535.387088ms
+        Upload Time	6.550971ms
+        PFS State:
+          REPO         COMMIT                             PATH
+          edges.meta   b8687e9720f04b7ab53ae8c64541003b   /pfs/a4149cd1907145f982e0eb49c50af3f1d4d8fecaa8647d62f2d9d93e30578df8
+        Inputs:
+          REPO     COMMIT                             PATH
+          images   b8687e9720f04b7ab53ae8c64541003b   /w7RVTsv.jpg
+        ```
+        Add `--raw` for a full JSON version of the [datum's metadata](../metadata/).
