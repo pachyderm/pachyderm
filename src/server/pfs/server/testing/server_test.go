@@ -4577,22 +4577,23 @@ func TestPFS(suite *testing.T) {
 
 		repo := "repo"
 		file := "foo"
+		data := "bar"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		commitA, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.PutFile(repo, "master", "", file, strings.NewReader("foo")))
+		require.NoError(t, env.PachClient.PutFile(client.NewCommit(repo, "master", ""), file, strings.NewReader(data)))
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master", ""))
 
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master", ""))
 
-		require.NoError(t, env.PachClient.SquashCommit(repo, commitA.Branch.Name, commitA.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(commitA.ID))
 
 		var b bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(repo, "master", "", file, &b))
-		require.Equal(t, "foo", b.String())
+		require.NoError(t, env.PachClient.GetFile(client.NewCommit(repo, "master", ""), file, &b))
+		require.Equal(t, data, b.String())
 	})
 
 	suite.Run("DeferredProcessing", func(t *testing.T) {
