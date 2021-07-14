@@ -68,8 +68,8 @@ func readLine(r io.Reader) (string, error) {
 
 // InteractiveConfirm will ask the user to confirm an action on the command-line with a y/n response.
 func InteractiveConfirm(env Env) (bool, error) {
-	fmt.Fprintf(env.Err(), "Are you sure you want to do this? (y/N): ")
-	s, err := readLine(env.In())
+	fmt.Fprintf(env.Stderr(), "Are you sure you want to do this? (y/N): ")
+	s, err := readLine(env.Stdin())
 	if err != nil {
 		return false, err
 	}

@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -81,7 +82,7 @@ If the job fails, the output commit will not be populated with data.`,
 				return errors.Wrap(err, "error from InspectJob")
 			}
 			if raw {
-				return cmdutil.Encoder(output, env.Out()).EncodeProto(jobInfo)
+				return cmdutil.Encoder(output, env.Stdout()).EncodeProto(jobInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -89,7 +90,7 @@ If the job fails, the output commit will not be populated with data.`,
 				JobInfo:        jobInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedJobInfo(env.Out(), pji)
+			return pretty.PrintDetailedJobInfo(env.Stdout(), pji)
 		}),
 	}
 	inspectJob.Flags().AddFlagSet(outputFlags)
@@ -111,7 +112,7 @@ If the job fails, the output commit will not be populated with data.`,
 				errors.Wrap(err, "error from InspectJob")
 			}
 			if raw {
-				return cmdutil.Encoder(output, env.Out()).EncodeProto(jobInfo)
+				return cmdutil.Encoder(output, env.Stdout()).EncodeProto(jobInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -119,7 +120,7 @@ If the job fails, the output commit will not be populated with data.`,
 				JobInfo:        jobInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedJobInfo(env.Out(), pji)
+			return pretty.PrintDetailedJobInfo(env.Stdout(), pji)
 		}),
 	}
 	waitJob.Flags().AddFlagSet(outputFlags)
@@ -144,7 +145,7 @@ If the job fails, the output commit will not be populated with data.`,
 			}
 
 			if raw {
-				encoder := cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				for _, jobInfo := range jobInfos {
 					if err := encoder.EncodeProto(jobInfo); err != nil {
 						return err
@@ -185,7 +186,7 @@ $ {{alias}}`,
 			}
 
 			if raw {
-				e := cmdutil.Encoder(output, env.Out())
+				e := cmdutil.Encoder(output, env.Stdout())
 				return clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
 					return e.EncodeProto(jobSetInfo)
 				})
@@ -250,7 +251,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			}
 
 			if raw {
-				encoder := cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				return env.Client("user").ListJobFilterF(pipelineName, commits, history, true, filter, func(ji *ppsclient.JobInfo) error {
 					return encoder.EncodeProto(ji)
 				})
@@ -374,7 +375,7 @@ each datum.`,
 				if output != "" {
 					return errors.New("cannot set --output (-o) without --raw")
 				}
-				writer := tabwriter.NewWriter(env.Out(), pretty.DatumHeader)
+				writer := tabwriter.NewWriter(env.Stdout(), pretty.DatumHeader)
 				printF = func(di *ppsclient.DatumInfo) error {
 					pretty.PrintDatumInfo(writer, di)
 					return nil
@@ -385,7 +386,7 @@ each datum.`,
 					}
 				}()
 			} else {
-				encoder := cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				printF = func(di *ppsclient.DatumInfo) error {
 					return encoder.EncodeProto(di)
 				}
@@ -432,11 +433,11 @@ each datum.`,
 				return err
 			}
 			if raw {
-				return cmdutil.Encoder(output, env.Out()).EncodeProto(datumInfo)
+				return cmdutil.Encoder(output, env.Stdout()).EncodeProto(datumInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			pretty.PrintDetailedDatumInfo(env.Out(), datumInfo)
+			pretty.PrintDetailedDatumInfo(env.Stdout(), datumInfo)
 			return nil
 		}),
 	}
@@ -535,7 +536,7 @@ each datum.`,
 				if raw {
 					buf.Reset()
 					if err := encoder.Encode(iter.Message()); err != nil {
-						fmt.Fprintf(env.Err(), "error marshalling \"%v\": %s\n", iter.Message(), err)
+						fmt.Fprintf(env.Stderr(), "error marshalling \"%v\": %s\n", iter.Message(), err)
 					}
 					fmt.Println(buf.String())
 				} else if iter.Message().User && !master && !worker {
@@ -682,7 +683,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			if raw {
-				return cmdutil.Encoder(output, env.Out()).EncodeProto(pipelineInfo)
+				return cmdutil.Encoder(output, env.Stdout()).EncodeProto(pipelineInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -690,7 +691,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				PipelineInfo:   pipelineInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedPipelineInfo(env.Out(), pi)
+			return pretty.PrintDetailedPipelineInfo(env.Stdout(), pi)
 		}),
 	}
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
@@ -703,14 +704,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Use:   "{{alias}} <pipeline>",
 		Short: "Edit the manifest for a pipeline in your text editor.",
 		Long:  "Edit the manifest for a pipeline in your text editor.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-
-			pipelineInfo, err := client.InspectPipeline(args[0], true)
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) (retErr error) {
+			pipelineInfo, err := env.Client("user").InspectPipeline(args[0], true)
 			if err != nil {
 				return err
 			}
@@ -737,9 +732,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			editorArgs = strings.Split(editor, " ")
 			editorArgs = append(editorArgs, f.Name())
 			if err := cmdutil.RunIO(cmdutil.IO{
-				Stdin:  os.Stdin,
-				Stdout: os.Stdout,
-				Stderr: os.Stderr,
+				Stdin:  env.Stdin(),
+				Stdout: env.Stdout(),
+				Stderr: env.Stderr(),
 			}, editorArgs...); err != nil {
 				return err
 			}
@@ -757,7 +752,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			request.Update = true
 			request.Reprocess = reprocess
-			return txncmds.WithActiveTransaction(client, func(txClient *pachdclient.APIClient) error {
+			return txncmds.WithActiveTransaction(env, func(txClient *pachdclient.APIClient) error {
 				_, err := txClient.PpsAPIClient.CreatePipeline(
 					txClient.Ctx(),
 					request,
@@ -812,7 +807,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return grpcutil.ScrubGRPC(err)
 			}
 			if raw {
-				encoder := cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				for _, pipelineInfo := range pipelineInfos {
 					if err := encoder.EncodeProto(pipelineInfo); err != nil {
 						return err
@@ -820,7 +815,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				}
 				return nil
 			} else if spec {
-				encoder := cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				for _, pipelineInfo := range pipelineInfos {
 					if err := encoder.EncodeProto(ppsutil.PipelineReqFromInfo(pipelineInfo)); err != nil {
 						return err
@@ -830,11 +825,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			for _, pi := range pipelineInfos {
 				if ppsutil.ErrorState(pi.State) {
-					fmt.Fprintln(env.Err(), "One or more pipelines have encountered errors, use inspect pipeline to get more info.")
+					fmt.Fprintln(env.Stderr(), "One or more pipelines have encountered errors, use inspect pipeline to get more info.")
 					break
 				}
 			}
-			writer := tabwriter.NewWriter(env.Out(), pretty.PipelineHeader)
+			writer := tabwriter.NewWriter(env.Stdout(), pretty.PipelineHeader)
 			for _, pipelineInfo := range pipelineInfos {
 				pretty.PrintPipelineInfo(writer, pipelineInfo, fullTimestamps)
 			}
@@ -965,7 +960,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return grpcutil.ScrubGRPC(err)
 			}
 
-			writer := tabwriter.NewWriter(env.Out(), pretty.SecretHeader)
+			writer := tabwriter.NewWriter(env.Stdout(), pretty.SecretHeader)
 			pretty.PrintSecretInfo(writer, secretInfo)
 			return writer.Flush()
 		}),
@@ -982,7 +977,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return grpcutil.ScrubGRPC(err)
 			}
 
-			writer := tabwriter.NewWriter(env.Out(), pretty.SecretHeader)
+			writer := tabwriter.NewWriter(env.Stdout(), pretty.SecretHeader)
 			for _, si := range secretInfos.GetSecretInfo() {
 				pretty.PrintSecretInfo(writer, si)
 			}
@@ -1032,12 +1027,12 @@ func pipelineHelper(env cmdutil.Env, reprocess bool, pushImages bool, registry, 
 
 		if request.Transform != nil && request.Transform.Image != "" {
 			if !strings.Contains(request.Transform.Image, ":") {
-				fmt.Fprintf(env.Err(),
+				fmt.Fprintf(env.Stderr(),
 					"WARNING: please specify a tag for the docker image in your transform.image spec.\n"+
 						"For example, change 'python' to 'python:3' or 'bash' to 'bash:5'. This improves\n"+
 						"reproducibility of your pipelines.\n\n")
 			} else if strings.HasSuffix(request.Transform.Image, ":latest") {
-				fmt.Fprintf(env.Err(),
+				fmt.Fprintf(env.Stderr(),
 					"WARNING: please do not specify the ':latest' tag for the docker image in your\n"+
 						"transform.image spec. For example, change 'python:latest' to 'python:3' or\n"+
 						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
@@ -1090,7 +1085,7 @@ func dockerBuildHelper(env cmdutil.Env, request *ppsclient.CreatePipelineRequest
 		if username == "" {
 			// request the username if it hasn't been specified yet
 			fmt.Printf("Username for %s: ", registry)
-			reader := bufio.NewReader(env.In())
+			reader := bufio.NewReader(env.Stdin())
 			username, err = reader.ReadString('\n')
 			if err != nil {
 				return errors.Wrapf(err, "could not read username")

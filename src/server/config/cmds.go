@@ -65,7 +65,7 @@ func Cmds() []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(env.Out(), "%v\n", cfg.V2.Metrics)
+			fmt.Fprintf(env.Stdout(), "%v\n", cfg.V2.Metrics)
 			return nil
 		}),
 	}
@@ -107,9 +107,9 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			if activeContext == "" {
-				fmt.Fprintln(env.Out(), "NONE")
+				fmt.Fprintln(env.Stdout(), "NONE")
 			} else {
-				fmt.Fprintf(env.Out(), "%s\n", activeContext)
+				fmt.Fprintf(env.Stdout(), "%s\n", activeContext)
 			}
 			return nil
 		}),
@@ -148,9 +148,9 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			if activeContext == "" {
-				fmt.Fprintln(env.Out(), "NONE")
+				fmt.Fprintln(env.Stdout(), "NONE")
 			} else {
-				fmt.Fprintf(env.Out(), "%s\n", activeContext)
+				fmt.Fprintf(env.Stdout(), "%s\n", activeContext)
 			}
 			return nil
 		}),
@@ -191,11 +191,11 @@ func Cmds() []*cobra.Command {
 				return errors.Errorf("context does not exist: %s", args[0])
 			}
 
-			if err = cmdutil.Encoder("json", env.Out()).EncodeProto(context); err != nil {
+			if err = cmdutil.Encoder("json", env.Stdout()).EncodeProto(context); err != nil {
 				return err
 			}
 
-			fmt.Fprintln(env.Out())
+			fmt.Fprintln(env.Stdout())
 			return nil
 		}),
 	}
@@ -227,7 +227,7 @@ func Cmds() []*cobra.Command {
 			var buf bytes.Buffer
 			var decoder *json.Decoder
 
-			contextReader := io.TeeReader(env.In(), &buf)
+			contextReader := io.TeeReader(env.Stdin(), &buf)
 			decoder = json.NewDecoder(contextReader)
 
 			if err := jsonpb.UnmarshalNext(decoder, &context); err != nil {
@@ -347,7 +347,7 @@ func Cmds() []*cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(env.Out(), "editing the currently active context %q\n", name)
+				fmt.Fprintf(env.Stdout(), "editing the currently active context %q\n", name)
 			}
 
 			// Use this method since we want to differentiate between no
@@ -440,10 +440,10 @@ func Cmds() []*cobra.Command {
 
 			activeEnterpriseContext, err := deduceActiveEnterpriseContext(cfg)
 			if err != nil {
-				fmt.Fprintf(env.Out(), "Unable to connect with server to deduce enterprise context: %v\n", err.Error())
+				fmt.Fprintf(env.Stdout(), "Unable to connect with server to deduce enterprise context: %v\n", err.Error())
 			}
 
-			fmt.Fprintln(env.Out(), listContextHeader)
+			fmt.Fprintln(env.Stdout(), listContextHeader)
 			for _, key := range keys {
 				var activeMarker string
 				if key == activeContext {
@@ -453,7 +453,7 @@ func Cmds() []*cobra.Command {
 				if key == activeEnterpriseContext {
 					activeEnterpriseMarker = "E"
 				}
-				fmt.Fprintf(env.Out(), "%s\t%s\n", activeEnterpriseMarker+activeMarker, key)
+				fmt.Fprintf(env.Stdout(), "%s\t%s\n", activeEnterpriseMarker+activeMarker, key)
 			}
 			return nil
 		}),

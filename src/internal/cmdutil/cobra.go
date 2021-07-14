@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -63,12 +64,12 @@ type Env interface {
 	// EnterpriseClient returns the client for talking to the enterprise server
 	EnterpriseClient(string, ...client.Option) *client.APIClient
 
-	// In returns the input reader (defaults to os.Stdin)
-	In() io.Reader
-	// Out returns the output writer (defaults to os.Stdout)
-	Out() io.Writer
-	// Err returns the error writer (defaults to os.Stderr)
-	Err() io.Writer
+	// Stdin returns the input reader (defaults to os.Stdin)
+	Stdin() io.Reader
+	// Stdout returns the output writer (defaults to os.Stdout)
+	Stdout() io.Writer
+	// Stderr returns the error writer (defaults to os.Stderr)
+	Stderr() io.Writer
 
 	// Close is called automatically at the end of the Run function and closes any
 	// open connections.
@@ -102,20 +103,20 @@ func (env *realEnv) EnterpriseClient(name string, options ...client.Option) *cli
 		if err != nil {
 			return nil, err
 		}
-		fmt.Fprintf(env.Out(), "Using enterprise context: %v\n", c.ClientContextName())
+		fmt.Fprintf(env.Stdout(), "Using enterprise context: %v\n", c.ClientContextName())
 		return c, nil
 	})
 }
 
-func (env *realEnv) In() io.Reader {
+func (env *realEnv) Stdin() io.Reader {
 	return env.cmd.InOrStdin()
 }
 
-func (env *realEnv) Out() io.Writer {
+func (env *realEnv) Stdout() io.Writer {
 	return env.cmd.OutOrStdout()
 }
 
-func (env *realEnv) Err() io.Writer {
+func (env *realEnv) Stderr() io.Writer {
 	return env.cmd.ErrOrStderr()
 }
 
@@ -151,6 +152,7 @@ func withEnv(cmd *cobra.Command, cb func(Env) error) (retErr error) {
 		if err := env.Close(); retErr == nil {
 			retErr = err
 		}
+		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	defer func() {
 		// recover only if a fatalError type was thrown, anything else is a
@@ -172,7 +174,7 @@ func RunFixedArgs(numArgs int, run func([]string, Env) error) func(*cobra.Comman
 	return func(cmd *cobra.Command, args []string) error {
 		return withEnv(cmd, func(env Env) error {
 			if len(args) != numArgs {
-				fmt.Fprintf(env.Err(), "expected %d arguments, got %d\n\n", numArgs, len(args))
+				fmt.Fprintf(env.Stderr(), "expected %d arguments, got %d\n\n", numArgs, len(args))
 				cmd.Usage()
 				return nil
 			}
@@ -187,7 +189,7 @@ func RunBoundedArgs(min int, max int, run func([]string, Env) error) func(*cobra
 	return func(cmd *cobra.Command, args []string) error {
 		return withEnv(cmd, func(env Env) error {
 			if len(args) < min || len(args) > max {
-				fmt.Fprintf(env.Err(), "expected %d to %d arguments, got %d\n\n", min, max, len(args))
+				fmt.Fprintf(env.Stderr(), "expected %d to %d arguments, got %d\n\n", min, max, len(args))
 				cmd.Usage()
 				return nil
 			}
@@ -202,7 +204,7 @@ func RunMinimumArgs(min int, run func([]string, Env) error) func(*cobra.Command,
 	return func(cmd *cobra.Command, args []string) error {
 		return withEnv(cmd, func(env Env) error {
 			if len(args) < min {
-				fmt.Fprintf(env.Err(), "expected at least %d arguments, got %d\n\n", min, len(args))
+				fmt.Fprintf(env.Stderr(), "expected at least %d arguments, got %d\n\n", min, len(args))
 				cmd.Usage()
 				return nil
 			}

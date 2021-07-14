@@ -79,7 +79,7 @@ func WithActiveTransaction(env cmdutil.Env, callback func(*client.APIClient) err
 	}
 	err = callback(c)
 	if err == nil && txn != nil {
-		fmt.Fprintf(env.Out(), "Added to transaction: %s\n", txn.ID)
+		fmt.Fprintf(env.Stdout(), "Added to transaction: %s\n", txn.ID)
 	}
 	return err
 }

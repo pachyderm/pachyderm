@@ -54,7 +54,7 @@ func deserializeYAML(env cmdutil.Env, file string, target interface{}) error {
 	var rawConfigBytes []byte
 	if file == "-" {
 		var err error
-		rawConfigBytes, err = ioutil.ReadAll(env.In())
+		rawConfigBytes, err = ioutil.ReadAll(env.Stdin())
 		if err != nil {
 			return errors.Wrapf(err, "could not read config from stdin")
 		}
@@ -108,7 +108,7 @@ func GetIdentityServerConfigCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(env.Out(), string(yamlStr))
+			fmt.Fprintln(env.Stdout(), string(yamlStr))
 			return nil
 		}),
 	}
@@ -190,7 +190,7 @@ func GetIDPConnectorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(env.Out(), string(yamlStr))
+			fmt.Fprintln(env.Stdout(), string(yamlStr))
 			return nil
 		}),
 	}
@@ -224,7 +224,7 @@ func ListIDPConnectorsCmd() *cobra.Command {
 			}
 
 			for _, conn := range resp.Connectors {
-				fmt.Fprintf(env.Out(), "%v - %v (%v)\n", conn.Id, conn.Name, conn.Type)
+				fmt.Fprintf(env.Stdout(), "%v - %v (%v)\n", conn.Id, conn.Name, conn.Type)
 			}
 			return nil
 		}),
@@ -250,7 +250,7 @@ func CreateOIDCClientCmd() *cobra.Command {
 				return grpcutil.ScrubGRPC(err)
 			}
 
-			fmt.Fprintf(env.Out(), "Client secret: %q\n", resp.Client.Secret)
+			fmt.Fprintf(env.Stdout(), "Client secret: %q\n", resp.Client.Secret)
 			return nil
 		}),
 	}
@@ -290,7 +290,7 @@ func GetOIDCClientCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(env.Out(), string(yamlStr))
+			fmt.Fprintln(env.Stdout(), string(yamlStr))
 			return nil
 		}),
 	}
@@ -333,7 +333,7 @@ func ListOIDCClientsCmd() *cobra.Command {
 			}
 
 			for _, client := range resp.Clients {
-				fmt.Fprintf(env.Out(), "%v\n", client.Id)
+				fmt.Fprintf(env.Stdout(), "%v\n", client.Id)
 			}
 			return nil
 		}),

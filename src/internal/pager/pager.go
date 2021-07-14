@@ -19,7 +19,7 @@ var (
 // (normally /usr/bin/less). If noop is true it's just a pass through.
 func Page(noop bool, env cmdutil.Env, run func(out io.Writer) error) error {
 	if noop {
-		return run(env.Out())
+		return run(env.Stdout())
 	}
 	var eg errgroup.Group
 	r, w := io.Pipe()
@@ -33,8 +33,8 @@ func Page(noop bool, env cmdutil.Env, run func(out io.Writer) error) error {
 		}
 		cmd := exec.Command(pager[0], pager[1:]...)
 		cmd.Stdin = r
-		cmd.Stdout = env.Out()
-		cmd.Stderr = env.Err()
+		cmd.Stdout = env.Stdout()
+		cmd.Stderr = env.Stderr()
 		return cmd.Run()
 	})
 	return eg.Wait()

@@ -31,7 +31,7 @@ func GetConfigCmd() *cobra.Command {
 				return grpcutil.ScrubGRPC(err)
 			}
 			if resp.Configuration == nil {
-				fmt.Fprintln(env.Err(), "no auth config set")
+				fmt.Fprintln(env.Stderr(), "no auth config set")
 				return nil
 			}
 
@@ -54,7 +54,7 @@ func GetConfigCmd() *cobra.Command {
 			if err := e.Encode(resp.Configuration); err != nil {
 				return err
 			}
-			fmt.Fprintln(env.Out(), buf.String())
+			fmt.Fprintln(env.Stdout(), buf.String())
 			return nil
 		}),
 	}

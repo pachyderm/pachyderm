@@ -6,7 +6,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 
 	"github.com/gogo/protobuf/types"
@@ -36,7 +35,7 @@ func ActivateCmd() *cobra.Command {
 			}
 			c := env.EnterpriseClient("user")
 			if _, err := c.License.Activate(c.Ctx(), req); err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			if onlyActivate {
@@ -46,7 +45,7 @@ func ActivateCmd() *cobra.Command {
 			// inspect the activated cluster for its Deployment Id
 			clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
 			if inspectErr != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(inspectErr), "could not inspect cluster")
+				return errors.Wrapf(err, "could not inspect cluster")
 			}
 
 			// Register the localhost as a cluster
@@ -59,7 +58,7 @@ func ActivateCmd() *cobra.Command {
 					EnterpriseServer:    true,
 				})
 			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not register pachd with the license service")
+				return errors.Wrapf(err, "could not register pachd with the license service")
 			}
 
 			// activate the Enterprise service
@@ -70,7 +69,7 @@ func ActivateCmd() *cobra.Command {
 					LicenseServer: "grpc://localhost:1653",
 				})
 			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not activate the enterprise service")
+				return errors.Wrapf(err, "could not activate the enterprise service")
 			}
 
 			return nil
@@ -96,10 +95,10 @@ func AddClusterCmd() *cobra.Command {
 				Secret:  secret,
 			})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
-			fmt.Fprintf(env.Out(), "Shared secret: %v\n", resp.Secret)
+			fmt.Fprintf(env.Stdout(), "Shared secret: %v\n", resp.Secret)
 
 			return nil
 		}),
@@ -124,7 +123,7 @@ func UpdateClusterCmd() *cobra.Command {
 				UserAddress:         userAddress,
 				ClusterDeploymentId: clusterDeploymentId,
 			})
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 	updateCluster.PersistentFlags().StringVar(&id, "id", "", `The id for the cluster to update`)
@@ -145,7 +144,7 @@ func DeleteClusterCmd() *cobra.Command {
 			_, err := c.License.DeleteCluster(c.Ctx(), &license.DeleteClusterRequest{
 				Id: id,
 			})
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 	deleteCluster.PersistentFlags().StringVar(&id, "id", "", `The id for the cluster to delete`)
@@ -161,11 +160,11 @@ func ListClustersCmd() *cobra.Command {
 			c := env.EnterpriseClient("user")
 			resp, err := c.License.ListClusters(c.Ctx(), &license.ListClustersRequest{})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			for _, cluster := range resp.Clusters {
-				fmt.Fprintf(env.Out(), "id: %v\naddress: %v\nversion: %v\nauth_enabled: %v\nlast_heartbeat: %v\n---\n", cluster.Id, cluster.Address, cluster.Version, cluster.AuthEnabled, cluster.LastHeartbeat)
+				fmt.Fprintf(env.Stdout(), "id: %v\naddress: %v\nversion: %v\nauth_enabled: %v\nlast_heartbeat: %v\n---\n", cluster.Id, cluster.Address, cluster.Version, cluster.AuthEnabled, cluster.LastHeartbeat)
 			}
 
 			return nil
@@ -184,9 +183,9 @@ func DeleteAllCmd() *cobra.Command {
 		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			c := env.EnterpriseClient("user")
 			if _, err := c.License.DeleteAll(c.Ctx(), &license.DeleteAllRequest{}); err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
-			fmt.Fprintf(env.Out(), "All data deleted from license server.")
+			fmt.Fprintf(env.Stdout(), "All data deleted from license server.")
 			return nil
 		}),
 	}
@@ -203,17 +202,17 @@ func GetStateCmd() *cobra.Command {
 			c := env.EnterpriseClient("user")
 			resp, err := c.License.GetActivationCode(c.Ctx(), &license.GetActivationCodeRequest{})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if resp.State == enterprise.State_NONE {
-				fmt.Fprintln(env.Out(), "No Pachyderm Enterprise license is configured")
+				fmt.Fprintln(env.Stdout(), "No Pachyderm Enterprise license is configured")
 				return nil
 			}
 			ts, err := types.TimestampFromProto(resp.Info.Expires)
 			if err != nil {
 				return errors.Wrapf(err, "expiration timestamp could not be parsed")
 			}
-			fmt.Fprintf(env.Out(), "Pachyderm Enterprise token state: %s\nExpiration: %s\nLicense: %s\n",
+			fmt.Fprintf(env.Stdout(), "Pachyderm Enterprise token state: %s\nExpiration: %s\nLicense: %s\n",
 				resp.State.String(), ts.String(), resp.ActivationCode)
 			return nil
 		}),

@@ -118,7 +118,7 @@ func mountCmds() []*cobra.Command {
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
 					Stdout: &stdout,
-					Stderr: env.Err(),
+					Stderr: env.Stderr(),
 				}, "sh"); err != nil {
 					return err
 				}
@@ -128,12 +128,12 @@ func mountCmds() []*cobra.Command {
 					mounts = append(mounts, scanner.Text())
 				}
 				if len(mounts) == 0 {
-					fmt.Fprintln(env.Err(), "No mounts found.")
+					fmt.Fprintln(env.Stderr(), "No mounts found.")
 					return nil
 				}
-				fmt.Fprintf(env.Err(), "This will unmount the following filesystems:\n")
+				fmt.Fprintf(env.Stderr(), "This will unmount the following filesystems:\n")
 				for _, mount := range mounts {
-					fmt.Fprintf(env.Err(), "%s\n", mount)
+					fmt.Fprintf(env.Stderr(), "%s\n", mount)
 				}
 
 				if ok, err := cmdutil.InteractiveConfirm(env); err != nil {

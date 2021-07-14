@@ -23,16 +23,16 @@ func makeUndeployCmd() *cobra.Command {
 		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			// TODO(ys): remove the `--namespace` flag here eventually
 			if namespace != "" {
-				fmt.Fprintf(env.Err(), "WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
+				fmt.Fprintf(env.Stderr(), "WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
 			}
 			// TODO(ys): remove the `--all` flag here eventually
 			if all {
-				fmt.Fprintf(env.Err(), "WARNING: The `--all` flag is deprecated and will be removed in a future version. Please use `--metadata` instead.\n")
+				fmt.Fprintf(env.Stderr(), "WARNING: The `--all` flag is deprecated and will be removed in a future version. Please use `--metadata` instead.\n")
 				includingMetadata = true
 			}
 
 			if includingMetadata {
-				fmt.Fprintf(env.Err(), `
+				fmt.Fprintf(env.Stderr(), `
 You are going to delete persistent volumes where metadata is stored. If your
 persistent volumes were dynamically provisioned (i.e. if you used the
 "--dynamic-etcd-nodes" flag), the underlying volumes will be removed, making

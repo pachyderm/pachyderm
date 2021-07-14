@@ -121,7 +121,7 @@ or type (e.g. csv, binary, images, etc).`,
 				return errors.Errorf("repo %s not found", args[0])
 			}
 			if raw {
-				return cmdutil.Encoder(output, env.Out()).EncodeProto(repoInfo)
+				return cmdutil.Encoder(output, env.Stdout()).EncodeProto(repoInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -129,7 +129,7 @@ or type (e.g. csv, binary, images, etc).`,
 				RepoInfo:       repoInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedRepoInfo(env.Out(), ri)
+			return pretty.PrintDetailedRepoInfo(env.Stdout(), ri)
 		}),
 	}
 	inspectRepo.Flags().AddFlagSet(outputFlags)
@@ -155,7 +155,7 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			}
 			if raw {
-				encoder := cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				for _, repoInfo := range repoInfos {
 					if err := encoder.EncodeProto(repoInfo); err != nil {
 						return err
@@ -170,7 +170,7 @@ or type (e.g. csv, binary, images, etc).`,
 			if (len(repoInfos) > 0) && (repoInfos[0].AuthInfo != nil) {
 				header = pretty.RepoAuthHeader
 			}
-			writer := tabwriter.NewWriter(env.Out(), header)
+			writer := tabwriter.NewWriter(env.Stdout(), header)
 			for _, repoInfo := range repoInfos {
 				pretty.PrintRepoInfo(writer, repoInfo, fullTimestamps)
 			}
@@ -280,7 +280,7 @@ $ {{alias}} test -p XXX`,
 				return err
 			})
 			if err == nil {
-				fmt.Fprintln(env.Out(), commit.ID)
+				fmt.Fprintln(env.Stdout(), commit.ID)
 			}
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -346,7 +346,7 @@ $ {{alias}} test -p XXX`,
 				return errors.Errorf("commit %s not found", commit.ID)
 			}
 			if raw {
-				return cmdutil.Encoder(output, env.Out()).EncodeProto(commitInfo)
+				return cmdutil.Encoder(output, env.Stdout()).EncodeProto(commitInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -354,7 +354,7 @@ $ {{alias}} test -p XXX`,
 				CommitInfo:     commitInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedCommitInfo(env.Out(), ci)
+			return pretty.PrintDetailedCommitInfo(env.Stdout(), ci)
 		}),
 	}
 	inspectCommit.Flags().AddFlagSet(outputFlags)
@@ -381,7 +381,7 @@ $ {{alias}} foo@master -n 20
 
 # return commits in repo "foo" since commit XXX
 $ {{alias}} foo@master --from XXX`,
-		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) (retErr error) {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
@@ -406,6 +406,7 @@ $ {{alias}} foo@master --from XXX`,
 				return err
 			}
 
+			c := env.Client("user")
 			listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
 				Repo:       branch.Repo,
 				From:       fromCommit,
@@ -419,21 +420,24 @@ $ {{alias}} foo@master --from XXX`,
 			}
 
 			if raw {
-				encoder := cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				return clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
 					return encoder.EncodeProto(ci)
 				})
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			writer := tabwriter.NewWriter(env.Out(), pretty.CommitHeader)
-			if err := clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
+
+			writer := tabwriter.NewWriter(env.Stdout(), pretty.CommitHeader)
+			defer func() {
+				if err := writer.Flush(); retErr == nil {
+					retErr = err
+				}
+			}()
+			return clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
-			}); err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			return writer.Flush()
+			})
 		}),
 	}
 	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
@@ -466,7 +470,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 			}
 
 			if raw {
-				return cmdutil.Encoder(output, env.Out()).EncodeProto(commitInfo)
+				return cmdutil.Encoder(output, env.Stdout()).EncodeProto(commitInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -475,7 +479,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 				CommitInfo:     commitInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedCommitInfo(env.Out(), ci)
+			return pretty.PrintDetailedCommitInfo(env.Stdout(), ci)
 		}),
 	}
 	waitCommit.Flags().AddFlagSet(outputFlags)
@@ -518,6 +522,7 @@ $ {{alias}} test@master --new`,
 				return err
 			}
 
+			c := env.Client("user")
 			subscribeClient, err := c.PfsAPIClient.SubscribeCommit(c.Ctx(), &pfs.SubscribeCommitRequest{
 				Repo:       branch.Repo,
 				Branch:     branch.Name,
@@ -531,7 +536,7 @@ $ {{alias}} test@master --new`,
 			}
 
 			if raw {
-				encoder = cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				return clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
 					return encoder.EncodeProto(ci)
 				})
@@ -539,15 +544,15 @@ $ {{alias}} test@master --new`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			w := tabwriter.NewWriter(env.Out(), pretty.CommitHeader)
+			writer := tabwriter.NewWriter(env.Stdout(), pretty.CommitHeader)
 			defer func() {
-				if err := w.Flush(); retErr == nil {
+				if err := writer.Flush(); retErr == nil {
 					retErr = err
 				}
 			}()
 
 			return clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
-				pretty.PrintCommitInfo(w, ci, fullTimestamps)
+				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			})
 		}),
@@ -564,7 +569,7 @@ $ {{alias}} test@master --new`,
 
 	writeCommitTable := func(env cmdutil.Env, commitInfos []*pfs.CommitInfo) error {
 		if raw {
-			encoder := cmdutil.Encoder(output, env.Out())
+			encoder := cmdutil.Encoder(output, env.Stdout())
 			for _, commitInfo := range commitInfos {
 				if err := encoder.EncodeProto(commitInfo); err != nil {
 					return err
@@ -655,23 +660,26 @@ $ {{alias}}`,
 			}
 
 			if raw {
-				e := cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
-					return e.EncodeProto(commitSetInfo)
+					return encoder.EncodeProto(commitSetInfo)
 				})
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			return pager.Page(noPager, env, func(w io.Writer) error {
+			return pager.Page(noPager, env, func(w io.Writer) (retErr error) {
 				writer := tabwriter.NewWriter(w, pretty.CommitSetHeader)
-				if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+				defer func() {
+					if err := writer.Flush(); retErr == nil {
+						retErr = err
+					}
+				}()
+
+				return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 					pretty.PrintCommitSetInfo(writer, commitSetInfo, fullTimestamps)
 					return nil
-				}); err != nil {
-					return err
-				}
-				return writer.Flush()
+				})
 			})
 		}),
 	}
@@ -786,12 +794,12 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return errors.Errorf("branch %s not found", args[0])
 			}
 			if raw {
-				return cmdutil.Encoder(output, env.Out()).EncodeProto(branchInfo)
+				return cmdutil.Encoder(output, env.Stdout()).EncodeProto(branchInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			return pretty.PrintDetailedBranchInfo(env.Out(), branchInfo)
+			return pretty.PrintDetailedBranchInfo(env.Stdout(), branchInfo)
 		}),
 	}
 	inspectBranch.Flags().AddFlagSet(outputFlags)
@@ -803,7 +811,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 		Use:   "{{alias}} <repo>",
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
-		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) (retErr error) {
 			c := env.Client("user")
 			branchClient, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
@@ -811,23 +819,25 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 
 			if raw {
-				encoder := cmdutil.Encoder(output, env.Out())
-				err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+				encoder := cmdutil.Encoder(output, env.Stdout())
+				return clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
 					return encoder.EncodeProto(branch)
 				})
-				return grpcutil.ScrubGRPC(err)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			writer := tabwriter.NewWriter(env.Out(), pretty.BranchHeader)
-			if err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+			writer := tabwriter.NewWriter(env.Stdout(), pretty.BranchHeader)
+			defer func() {
+				if err := writer.Flush(); retErr == nil {
+					retErr = err
+				}
+			}()
+
+			return clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
 				pretty.PrintBranch(writer, branch)
 				return nil
-			}); err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			return writer.Flush()
+			})
 		}),
 	}
 	listBranch.Flags().AddFlagSet(outputFlags)
@@ -937,7 +947,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 				// User has provided a file listing sources, one per line. Read sources
 				var r io.Reader
 				if inputFile == "-" {
-					r = env.In()
+					r = env.Stdin()
 				} else if url, err := url.Parse(inputFile); err == nil && url.Scheme != "" {
 					resp, err := http.Get(url.String())
 					if err != nil {
@@ -1092,7 +1102,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 			var w io.Writer
 			// If an output path is given, print the output to stdout
 			if outputPath == "" {
-				w = env.Out()
+				w = env.Stdout()
 			} else {
 				if url, err := url.Parse(outputPath); err == nil && url.Scheme != "" {
 					return env.Client("user").GetFileURL(file.Commit, file.Path, url.String())
@@ -1133,11 +1143,11 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				return errors.Errorf("file %s not found", file.Path)
 			}
 			if raw {
-				return cmdutil.Encoder(output, env.Out()).EncodeProto(fileInfo)
+				return cmdutil.Encoder(output, env.Stdout()).EncodeProto(fileInfo)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			return pretty.PrintDetailedFileInfo(env.Out(), fileInfo)
+			return pretty.PrintDetailedFileInfo(env.Stdout(), fileInfo)
 		}),
 	}
 	inspectFile.Flags().AddFlagSet(outputFlags)
@@ -1173,35 +1183,41 @@ $ {{alias}} foo@master --history all
 # list file under directory "dir[1]" on branch "master" in repo "foo"
 # the path is interpreted as a glob pattern: quote and protect regex characters
 $ {{alias}} 'foo@master:dir\[1\]'`,
-		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
+		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) (retErr error) {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
 			}
+
 			history, err := cmdutil.ParseHistory(history)
 			if err != nil {
 				return errors.Wrapf(err, "error parsing history flag")
 			}
+
 			if raw {
-				encoder := cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				return env.Client("user").ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
 					return encoder.EncodeProto(fi)
 				})
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
+
 			header := pretty.FileHeader
 			if history != 0 {
 				header = pretty.FileHeaderWithCommit
 			}
-			writer := tabwriter.NewWriter(env.Out(), header)
-			if err := env.Client("user").ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
+			writer := tabwriter.NewWriter(env.Stdout(), header)
+			defer func() {
+				if err := writer.Flush(); retErr == nil {
+					retErr = err
+				}
+			}()
+
+			return env.Client("user").ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
 				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
 				return nil
-			}); err != nil {
-				return err
-			}
-			return writer.Flush()
+			})
 		}),
 	}
 	listFile.Flags().AddFlagSet(outputFlags)
@@ -1227,12 +1243,14 @@ $ {{alias}} "foo@master:data/*"`,
 			if err != nil {
 				return err
 			}
+
 			fileInfos, err := env.Client("user").GlobFileAll(file.Commit, file.Path)
 			if err != nil {
 				return err
 			}
+
 			if raw {
-				encoder := cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				for _, fileInfo := range fileInfos {
 					if err := encoder.EncodeProto(fileInfo); err != nil {
 						return err
@@ -1242,7 +1260,8 @@ $ {{alias}} "foo@master:data/*"`,
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			writer := tabwriter.NewWriter(env.Out(), pretty.FileHeader)
+
+			writer := tabwriter.NewWriter(env.Stdout(), pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
 				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 			}
@@ -1287,7 +1306,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				if nameOnly {
 					writer = tabwriter.NewWriter(w, pretty.DiffFileHeader)
 					defer func() {
-						if err := writer.Flush(); err != nil && retErr == nil {
+						if err := writer.Flush(); retErr == nil {
 							retErr = err
 						}
 					}()
@@ -1319,7 +1338,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 							return err
 						}
 						defer func() {
-							if err := os.RemoveAll(nPath); err != nil && retErr == nil {
+							if err := os.RemoveAll(nPath); retErr == nil {
 								retErr = err
 							}
 						}()
@@ -1327,14 +1346,14 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 					if oFI != nil {
 						oPath, err = dlFile(env.Client("user"), oFI.File)
 						defer func() {
-							if err := os.RemoveAll(oPath); err != nil && retErr == nil {
+							if err := os.RemoveAll(oPath); retErr == nil {
 								retErr = err
 							}
 						}()
 					}
 					cmd := exec.Command(diffCmd[0], append(diffCmd[1:], oPath, nPath)...)
 					cmd.Stdout = w
-					cmd.Stderr = env.Err()
+					cmd.Stderr = env.Stderr()
 					// Diff returns exit code 1 when it finds differences
 					// between the files, so we catch it.
 					if err := cmd.Run(); err != nil && cmd.ProcessState.ExitCode() != 1 {
@@ -1392,16 +1411,16 @@ Objects are a low-level resource and should not be accessed directly by most use
 			if err := env.Client("user").Fsck(fix, func(resp *pfs.FsckResponse) error {
 				if resp.Error != "" {
 					errors = true
-					fmt.Fprintf(env.Out(), "Error: %s\n", resp.Error)
+					fmt.Fprintf(env.Stdout(), "Error: %s\n", resp.Error)
 				} else {
-					fmt.Fprintf(env.Out(), "Fix applied: %v", resp.Fix)
+					fmt.Fprintf(env.Stdout(), "Fix applied: %v", resp.Fix)
 				}
 				return nil
 			}); err != nil {
 				return err
 			}
 			if !errors {
-				fmt.Fprintln(env.Out(), "No errors found.")
+				fmt.Fprintln(env.Stdout(), "No errors found.")
 			}
 			return nil
 		}),
@@ -1424,7 +1443,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 			if err != nil {
 				return err
 			}
-			return cmdutil.Encoder(output, env.Out()).EncodeProto(resp)
+			return cmdutil.Encoder(output, env.Stdout()).EncodeProto(resp)
 		}),
 	}
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
@@ -1452,7 +1471,7 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 		if recursive {
 			return errors.New("cannot set -r and read from stdin (must also set -f or -i)")
 		}
-		// TODO: this escapes the environment rather than using env.In(), so the behavior can't be tested
+		// TODO: this escapes the environment rather than using env.Stdin(), so the behavior can't be tested
 		stdin := progress.Stdin()
 		defer stdin.Finish()
 		return mf.PutFile(path, stdin, opts...)

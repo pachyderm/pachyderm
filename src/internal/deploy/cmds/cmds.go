@@ -405,7 +405,7 @@ func standardDeployCmds() []*cobra.Command {
 	}
 	deployPreRun := cmdutil.Run(func(args []string, env cmdutil.Env) error {
 		if version.IsUnstable() {
-			fmt.Fprintf(env.Err(), "WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
+			fmt.Fprintf(env.Stderr(), "WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
 
 			if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 				return err
@@ -655,7 +655,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 
 				if !awsAccessKeyIDRE.MatchString(amazonCreds.ID) {
-					fmt.Fprintf(env.Err(), "The AWS Access Key seems invalid (does not match %q)\n", awsAccessKeyIDRE)
+					fmt.Fprintf(env.Stderr(), "The AWS Access Key seems invalid (does not match %q)\n", awsAccessKeyIDRE)
 					if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 						return err
 					} else if !ok {
@@ -664,7 +664,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 
 				if !awsSecretRE.MatchString(amazonCreds.Secret) {
-					fmt.Fprintf(env.Err(), "The AWS Secret seems invalid (does not match %q)\n", awsSecretRE)
+					fmt.Fprintf(env.Stderr(), "The AWS Secret seems invalid (does not match %q)\n", awsSecretRE)
 					if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 						return err
 					} else if !ok {
@@ -693,7 +693,7 @@ If <object store backend> is \"s3\", then the arguments are:
 
 			region := args[0]
 			if !awsRegionRE.MatchString(region) {
-				fmt.Fprintf(env.Err(), "The AWS region seems invalid (does not match %q)\n", awsRegionRE)
+				fmt.Fprintf(env.Stderr(), "The AWS region seems invalid (does not match %q)\n", awsRegionRE)
 				if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 					return err
 				} else if !ok {

@@ -20,7 +20,7 @@ func Cmds() []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(env.Out(), ci.ID)
+			fmt.Fprintln(env.Stdout(), ci.ID)
 			return nil
 		}),
 	}

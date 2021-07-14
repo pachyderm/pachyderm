@@ -376,7 +376,7 @@ Environment variables:
 
 			if clientOnly {
 				if raw {
-					return cmdutil.Encoder(output, env.Out()).EncodeProto(version.Version)
+					return cmdutil.Encoder(output, env.Stdout()).EncodeProto(version.Version)
 				}
 				fmt.Println(version.PrettyPrintVersion(version.Version))
 				return nil
@@ -391,9 +391,9 @@ Environment variables:
 			}()
 
 			// Print header + client version
-			writer := ansiterm.NewTabWriter(env.Out(), 20, 1, 3, ' ', 0)
+			writer := ansiterm.NewTabWriter(env.Stdout(), 20, 1, 3, ' ', 0)
 			if raw {
-				if err := cmdutil.Encoder(output, env.Out()).EncodeProto(version.Version); err != nil {
+				if err := cmdutil.Encoder(output, env.Stdout()).EncodeProto(version.Version); err != nil {
 					return err
 				}
 			} else {
@@ -430,7 +430,7 @@ Environment variables:
 
 			// print server version
 			if raw {
-				return cmdutil.Encoder(output, env.Out()).EncodeProto(version)
+				return cmdutil.Encoder(output, env.Stdout()).EncodeProto(version)
 			}
 			printVersion(writer, "pachd", version)
 			return writer.Flush()
@@ -614,14 +614,14 @@ This resets the cluster to its initial state.`,
 				// config was last read
 				cfg, err := config.Read(true, false)
 				if err != nil {
-					fmt.Fprintf(env.Err(), "failed to read config file: %v\n", err)
+					fmt.Fprintf(env.Stderr(), "failed to read config file: %v\n", err)
 					return
 				}
 				context, ok := cfg.V2.Contexts[contextName]
 				if ok {
 					context.PortForwarders = nil
 					if err := cfg.Write(); err != nil {
-						fmt.Fprintf(env.Err(), "failed to write config file: %v\n", err)
+						fmt.Fprintf(env.Stderr(), "failed to write config file: %v\n", err)
 					}
 				}
 			}()
@@ -964,7 +964,7 @@ func createCompletions(env cmdutil.Env, rootCmd *cobra.Command, install bool, in
 
 		dest = f
 	} else {
-		dest = env.Out()
+		dest = env.Stdout()
 	}
 
 	// Remove 'hidden' flag from all commands so we can get completions for them as well

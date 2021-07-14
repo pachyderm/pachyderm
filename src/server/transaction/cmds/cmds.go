@@ -55,7 +55,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 			if raw {
-				encoder := cmdutil.Encoder(output, env.Out())
+				encoder := cmdutil.Encoder(output, env.Stdout())
 				for _, transaction := range transactions {
 					if err := encoder.EncodeProto(transaction); err != nil {
 						return err
@@ -65,7 +65,7 @@ transaction' or cancelled with 'delete transaction'.`,
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			writer := tabwriter.NewWriter(env.Out(), pretty.TransactionHeader)
+			writer := tabwriter.NewWriter(env.Stdout(), pretty.TransactionHeader)
 			for _, transaction := range transactions {
 				pretty.PrintTransactionInfo(writer, transaction, fullTimestamps)
 			}
@@ -224,7 +224,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return errors.Errorf("transaction %s not found", txn.ID)
 			}
 			if raw {
-				return cmdutil.Encoder(output, env.Out()).EncodeProto(info)
+				return cmdutil.Encoder(output, env.Stdout()).EncodeProto(info)
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
