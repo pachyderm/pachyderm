@@ -10,7 +10,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -28,29 +27,30 @@ const debug = false
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"
 	return &pps.PipelineInfo{
-		Pipeline:     client.NewPipeline(name),
-		OutputBranch: "master",
-		Transform: &pps.Transform{
-			Cmd:        []string{"bash"},
-			Stdin:      []string{"cp inputRepo/* out"},
-			WorkingDir: client.PPSInputPrefix,
-		},
-		ParallelismSpec: &pps.ParallelismSpec{
-			Constant: 1,
-		},
-		ResourceRequests: &pps.ResourceSpec{
-			Memory: "100M",
-			Cpu:    0.5,
-		},
-		Input: &pps.Input{
-			Pfs: &pps.PFSInput{
-				Name:   "inputRepo",
-				Repo:   "inputRepo",
-				Branch: "master",
-				Glob:   "/*",
+		Pipeline: client.NewPipeline(name),
+		Details: &pps.PipelineInfo_Details{
+			OutputBranch: "master",
+			Transform: &pps.Transform{
+				Cmd:        []string{"bash"},
+				Stdin:      []string{"cp inputRepo/* out"},
+				WorkingDir: client.PPSInputPrefix,
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			ResourceRequests: &pps.ResourceSpec{
+				Memory: "100M",
+				Cpu:    0.5,
+			},
+			Input: &pps.Input{
+				Pfs: &pps.PFSInput{
+					Name:   "inputRepo",
+					Repo:   "inputRepo",
+					Branch: "master",
+					Glob:   "/*",
+				},
 			},
 		},
-		SpecCommit: client.NewCommit(ppsconsts.SpecRepo, name, ""),
 	}
 }
 
@@ -66,8 +66,8 @@ type testDriver struct {
 	inner driver.Driver
 }
 
-func (td *testDriver) PipelineJobs() col.PostgresCollection {
-	return td.inner.PipelineJobs()
+func (td *testDriver) Jobs() col.PostgresCollection {
+	return td.inner.Jobs()
 }
 func (td *testDriver) Pipelines() col.PostgresCollection {
 	return td.inner.Pipelines()
@@ -99,8 +99,8 @@ func (td *testDriver) WithContext(ctx context.Context) driver.Driver {
 func (td *testDriver) WithActiveData(inputs []*common.Input, dir string, cb func() error) error {
 	return td.inner.WithActiveData(inputs, dir, cb)
 }
-func (td *testDriver) UserCodeEnv(pipelineJobID string, commit *pfs.Commit, inputs []*common.Input) []string {
-	return td.inner.UserCodeEnv(pipelineJobID, commit, inputs)
+func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input) []string {
+	return td.inner.UserCodeEnv(jobID, commit, inputs)
 }
 func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return td.inner.RunUserCode(ctx, logger, env)
@@ -108,11 +108,11 @@ func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger,
 func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return td.inner.RunUserErrorHandlingCode(ctx, logger, env)
 }
-func (td *testDriver) DeletePipelineJob(sqlTx *sqlx.Tx, pji *pps.StoredPipelineJobInfo) error {
-	return td.inner.DeletePipelineJob(sqlTx, pji)
+func (td *testDriver) DeleteJob(sqlTx *sqlx.Tx, ji *pps.JobInfo) error {
+	return td.inner.DeleteJob(sqlTx, ji)
 }
-func (td *testDriver) UpdatePipelineJobState(pipelineJobID string, state pps.PipelineJobState, reason string) error {
-	return td.inner.UpdatePipelineJobState(pipelineJobID, state, reason)
+func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
+	return td.inner.UpdateJobState(job, state, reason)
 }
 func (td *testDriver) NewSQLTx(cb func(*sqlx.Tx) error) error {
 	return td.inner.NewSQLTx(cb)

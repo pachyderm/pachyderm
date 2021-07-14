@@ -38,79 +38,6 @@ func getIsActiveContextEnterpriseServer() (bool, error) {
 	return ctx.EnterpriseServer, nil
 }
 
-// ActivateCmd returns a cobra.Command to activate the license service,
-// register the current pachd and activate enterprise features.
-// This always runs against the current enterprise context, and can
-// be used to activate a single-node pachd deployment or the enterprise
-// server in a multi-node deployment.
-func ActivateCmd() *cobra.Command {
-	activate := &cobra.Command{
-		Use:   "{{alias}}",
-		Short: "Activate the license server and enable enterprise features",
-		Long:  "Activate the license server and enable enterprise features",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			key, err := cmdutil.ReadPassword("Enterprise key: ")
-			if err != nil {
-				return errors.Wrapf(err, "could not read enterprise key")
-			}
-
-			c, err := newClient(true)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
-			// Activate the license server
-			req := &license.ActivateRequest{
-				ActivationCode: key,
-			}
-			if _, err := c.License.Activate(c.Ctx(), req); err != nil {
-				return err
-			}
-
-			// inspect the activated cluster for its Deployment Id
-			clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
-			if inspectErr != nil {
-				return errors.Wrapf(inspectErr, "could not inspect cluster")
-			}
-
-			// inspect the active context to determine whether its pointing at an enterprise server
-			enterpriseServer, err := getIsActiveContextEnterpriseServer()
-			if err != nil {
-				return err
-			}
-
-			// Register the localhost as a cluster
-			resp, err := c.License.AddCluster(c.Ctx(),
-				&license.AddClusterRequest{
-					Id:                  "localhost",
-					Address:             "grpc://localhost:653",
-					UserAddress:         "grpc://localhost:653",
-					ClusterDeploymentId: clusterInfo.DeploymentID,
-					EnterpriseServer:    enterpriseServer,
-				})
-			if err != nil {
-				return errors.Wrapf(err, "could not register pachd with the license service")
-			}
-
-			// activate the Enterprise service
-			_, err = c.Enterprise.Activate(c.Ctx(),
-				&enterprise.ActivateRequest{
-					Id:            "localhost",
-					Secret:        resp.Secret,
-					LicenseServer: "grpc://localhost:653",
-				})
-			if err != nil {
-				return errors.Wrapf(err, "could not activate the enterprise service")
-			}
-
-			return nil
-		}),
-	}
-
-	return cmdutil.CreateAlias(activate, "enterprise activate")
-}
-
 // DeactivateCmd returns a cobra.Command to deactivate the enterprise service.
 func DeactivateCmd() *cobra.Command {
 	deactivate := &cobra.Command{
@@ -203,7 +130,15 @@ func RegisterCmd() *cobra.Command {
 					LicenseServer: enterpriseAddr,
 				})
 			if err != nil {
-				return errors.Wrapf(err, "could not register with the license server")
+				err = errors.Wrapf(err, "could not register with the license server.")
+				_, deleteErr := ec.License.DeleteCluster(ec.Ctx(), &license.DeleteClusterRequest{Id: id})
+				if deleteErr != nil {
+					deleteErr := errors.Wrapf(deleteErr, "also failed to rollback creation of cluster with ID, %v."+
+						"To retry enterprise registration, first delete this cluster with 'pachctl license delete-cluster --id %v'.: %v",
+						id, id, deleteErr.Error())
+					return errors.Wrap(err, deleteErr.Error())
+				}
+				return err
 			}
 
 			return nil
@@ -223,13 +158,14 @@ func RegisterCmd() *cobra.Command {
 // publicly-accessible to accessible only by the owner, who can subsequently add
 // users
 func GetStateCmd() *cobra.Command {
+	var isEnterprise bool
 	getState := &cobra.Command{
 		Short: "Check whether the Pachyderm cluster has enterprise features " +
 			"activated",
 		Long: "Check whether the Pachyderm cluster has enterprise features " +
 			"activated",
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient(isEnterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -252,6 +188,7 @@ func GetStateCmd() *cobra.Command {
 			return nil
 		}),
 	}
+	getState.PersistentFlags().BoolVar(&isEnterprise, "enterprise", false, "Activate auth on the active enterprise context")
 	return cmdutil.CreateAlias(getState, "enterprise get-state")
 }
 
@@ -306,6 +243,29 @@ func SyncContextsCmd() *cobra.Command {
 	return cmdutil.CreateAlias(syncContexts, "enterprise sync-contexts")
 }
 
+// HeartbeatCmd triggers an explicit heartbeat to the license server
+func HeartbeatCmd() *cobra.Command {
+	var isEnterprise bool
+	heartbeat := &cobra.Command{
+		Short: "Sync the enterprise state with the license server immediately.",
+		Long:  "Sync the enterprise state with the license server immediately.",
+		Run: cmdutil.Run(func(args []string) error {
+			c, err := newClient(isEnterprise)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			_, err = c.Enterprise.Heartbeat(c.Ctx(), &enterprise.HeartbeatRequest{})
+			if err != nil {
+				return errors.Wrapf(err, "could not sync with license server")
+			}
+			return nil
+		}),
+	}
+	heartbeat.PersistentFlags().BoolVar(&isEnterprise, "enterprise", false, "Make the enterprise server refresh it's state")
+	return cmdutil.CreateAlias(heartbeat, "enterprise heartbeat")
+}
+
 // Cmds returns pachctl commands related to Pachyderm Enterprise
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
@@ -316,11 +276,11 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(enterprise, "enterprise"))
 
-	commands = append(commands, ActivateCmd())
 	commands = append(commands, RegisterCmd())
 	commands = append(commands, DeactivateCmd())
 	commands = append(commands, GetStateCmd())
 	commands = append(commands, SyncContextsCmd())
+	commands = append(commands, HeartbeatCmd())
 
 	return commands
 }

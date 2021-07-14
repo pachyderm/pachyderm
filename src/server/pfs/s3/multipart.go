@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -59,11 +60,11 @@ func multipartKeepArgs(path string) (repo string, branch string, key string, upl
 }
 
 func parentDirPath(bucket *Bucket, key string, uploadID string) string {
-	commitID := bucket.Commit
+	commitID := bucket.Commit.ID
 	if commitID == "" {
 		commitID = "latest"
 	}
-	return path.Join(bucket.Repo, bucket.Branch, commitID, key, uploadID)
+	return path.Join(bucket.Commit.Branch.Repo.Name, bucket.Commit.Branch.Repo.Type, bucket.Commit.Branch.Name, commitID, key, uploadID)
 }
 
 func chunkPath(bucket *Bucket, key string, uploadID string, partNumber int) string {
@@ -113,7 +114,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 	}
 
 	globPattern := keepPath(bucket, "*", "*")
-	err = pc.GlobFile(c.repo, "master", "", globPattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(client.NewCommit(c.repo, "master", ""), globPattern, func(fileInfo *pfsClient.FileInfo) error {
 		_, _, key, uploadID, err := multipartKeepArgs(fileInfo.File.Path)
 		if err != nil {
 			return nil
@@ -175,16 +176,18 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 
 	uploadID := uuid.NewWithoutDashes()
 
-	if err := pc.PutFile(c.repo, "master", "", keepPath(bucket, key, uploadID), strings.NewReader("")); err != nil {
+	if err := pc.PutFile(client.NewCommit(c.repo, "master", ""), keepPath(bucket, key, uploadID), strings.NewReader("")); err != nil {
 		return "", err
 	}
 
 	return uploadID, nil
 }
 
-func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID string) error {
-	c.logger.Debugf("AbortMultipart: bucketName=%+v, key=%+v, uploadID=%+v", bucketName, key, uploadID)
-
+func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID string) (retErr error) {
+	c.logger.Infof("AbortMultipart: bucketName=%+v, key=%+v, uploadID=%+v", bucketName, key, uploadID)
+	defer func(start time.Time) {
+		c.logger.Infof("AbortMultipart: duration=%v, error=%v", time.Since(start), retErr)
+	}(time.Now())
 	pc, err := c.requestClient(r)
 	if err != nil {
 		return err
@@ -199,12 +202,12 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 		return err
 	}
 
-	_, err = pc.InspectFile(c.repo, "master", "", keepPath(bucket, key, uploadID))
+	_, err = pc.InspectFile(client.NewCommit(c.repo, "master", ""), keepPath(bucket, key, uploadID))
 	if err != nil {
 		return s2.NoSuchUploadError(r)
 	}
 
-	err = pc.DeleteFile(c.repo, "master", "", parentDirPath(bucket, key, uploadID))
+	err = pc.DeleteFile(client.NewCommit(c.repo, "master", ""), parentDirPath(bucket, key, uploadID))
 	if err != nil {
 		return s2.InternalError(r, err)
 	}
@@ -212,9 +215,11 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 	return nil
 }
 
-func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadID string, parts []*s2.Part) (*s2.CompleteMultipartResult, error) {
+func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadID string, parts []*s2.Part) (res *s2.CompleteMultipartResult, retErr error) {
 	c.logger.Debugf("CompleteMultipart: bucketName=%+v, key=%+v, uploadID=%+v, parts=%+v", bucketName, key, uploadID, parts)
-
+	defer func(start time.Time) {
+		c.logger.Infof("CompleteMultipart: duration=%v, result=%+v, error=%v", time.Since(start), res, retErr)
+	}(time.Now())
 	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
@@ -236,7 +241,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		return nil, s2.NotImplementedError(r)
 	}
 
-	_, err = pc.InspectFile(c.repo, "master", "", keepPath(bucket, key, uploadID))
+	_, err = pc.InspectFile(client.NewCommit(c.repo, "master", ""), keepPath(bucket, key, uploadID))
 	if err != nil {
 		if pfsServer.IsFileNotFoundErr(err) {
 			return nil, s2.NoSuchUploadError(r)
@@ -244,24 +249,14 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		return nil, err
 	}
 
-	// check if the destination file already exists, and if so, delete it
-	_, err = pc.InspectFile(bucket.Repo, bucket.Branch, bucket.Commit, key)
-	if err != nil && !pfsServer.IsFileNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
-		return nil, err
-	} else if err == nil {
-		err = pc.DeleteFile(bucket.Repo, bucket.Branch, bucket.Commit, key)
-		if err != nil {
-			if errutil.IsWriteToOutputBranchError(err) {
-				return nil, writeToOutputBranchError(r)
-			}
-			return nil, err
-		}
-	}
+	// S3 "supports" concurrent complete calls on the same upload ID.
+	// Write to a random file ID in our directory to avoid conflict
+	tmpPath := uuid.NewWithoutDashes()
 
 	for i, part := range parts {
 		srcPath := chunkPath(bucket, key, uploadID, part.PartNumber)
 
-		fileInfo, err := pc.InspectFile(c.repo, "master", "", srcPath)
+		fileInfo, err := pc.InspectFile(client.NewCommit(c.repo, "master", ""), srcPath)
 		if err != nil {
 			if pfsServer.IsFileNotFoundErr(err) {
 				return nil, s2.InvalidPartError(r)
@@ -283,21 +278,28 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 			return nil, s2.EntityTooSmallError(r)
 		}
 
-		err = pc.CopyFile(bucket.Repo, bucket.Branch, bucket.Commit, key, c.repo, "master", "", srcPath, client.WithAppendCopyFile())
-		if err != nil {
-			if errutil.IsWriteToOutputBranchError(err) {
-				return nil, writeToOutputBranchError(r)
-			}
+		if err := pc.CopyFile(
+			client.NewCommit(c.repo, "master", ""), tmpPath,
+			client.NewCommit(c.repo, "master", ""), srcPath,
+			client.WithAppendCopyFile()); err != nil {
 			return nil, err
 		}
 	}
 
-	err = pc.DeleteFile(c.repo, "master", "", parentDirPath(bucket, key, uploadID))
+	// overwrite file, for "last write wins" behavior
+	if err := pc.CopyFile(bucket.Commit, key, client.NewCommit(c.repo, "master", ""), tmpPath); err != nil {
+		if errutil.IsWriteToOutputBranchError(err) {
+			return nil, writeToOutputBranchError(r)
+		}
+		return nil, err
+	}
+
+	err = pc.DeleteFile(client.NewCommit(c.repo, "master", ""), parentDirPath(bucket, key, uploadID))
 	if err != nil {
 		return nil, err
 	}
 
-	fileInfo, err := pc.InspectFile(bucket.Repo, bucket.Branch, bucket.Commit, key)
+	fileInfo, err := pc.InspectFile(bucket.Commit, key)
 	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
 		return nil, err
 	}
@@ -336,7 +338,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 	}
 
 	globPattern := path.Join(parentDirPath(bucket, key, uploadID), "*")
-	err = pc.GlobFile(c.repo, "master", "", globPattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(client.NewCommit(c.repo, "master", ""), globPattern, func(fileInfo *pfsClient.FileInfo) error {
 		_, _, _, _, partNumber, err := multipartChunkArgs(fileInfo.File.Path)
 		if err != nil {
 			return nil
@@ -381,7 +383,7 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 		return "", err
 	}
 
-	_, err = pc.InspectFile(c.repo, "master", "", keepPath(bucket, key, uploadID))
+	_, err = pc.InspectFile(client.NewCommit(c.repo, "master", ""), keepPath(bucket, key, uploadID))
 	if err != nil {
 		if pfsServer.IsFileNotFoundErr(err) {
 			return "", s2.NoSuchUploadError(r)
@@ -390,11 +392,11 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 	}
 
 	path := chunkPath(bucket, key, uploadID, partNumber)
-	if err := pc.PutFile(c.repo, "master", "", path, reader); err != nil {
+	if err := pc.PutFile(client.NewCommit(c.repo, "master", ""), path, reader); err != nil {
 		return "", err
 	}
 
-	fileInfo, err := pc.InspectFile(c.repo, "master", "", path)
+	fileInfo, err := pc.InspectFile(client.NewCommit(c.repo, "master", ""), path)
 	if err != nil {
 		return "", err
 	}

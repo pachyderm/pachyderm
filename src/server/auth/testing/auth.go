@@ -4,7 +4,8 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // InactiveAPIServer (in the auth/testing package) is an implementation of the
@@ -34,37 +35,37 @@ func (a *InactiveAPIServer) ModifyRoleBinding(context.Context, *auth.ModifyRoleB
 }
 
 // GetRoleBindingInTransaction implements the GetRoleBinding RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetRoleBindingInTransaction(*txnenv.TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error) {
+func (a *InactiveAPIServer) GetRoleBindingInTransaction(*txncontext.TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
 // ModifyRoleBindingInTransaction implements the ModifyRoleBinding RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) ModifyRoleBindingInTransaction(*txnenv.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+func (a *InactiveAPIServer) ModifyRoleBindingInTransaction(*txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
 // AddPipelineReaderToRepoInTransaction implements the AddPipelineReaderToRepoInTransaction internal API
-func (a *InactiveAPIServer) AddPipelineReaderToRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
+func (a *InactiveAPIServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
 	return auth.ErrNotActivated
 }
 
 // AddPipelineWriterToRepoInTransaction implements the AddPipelineWriterToRepoInTransaction internal API
-func (a *InactiveAPIServer) AddPipelineWriterToRepoInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) error {
+func (a *InactiveAPIServer) AddPipelineWriterToRepoInTransaction(txnCtx *txncontext.TransactionContext, pipeline string) error {
 	return auth.ErrNotActivated
 }
 
 // RemovePipelineReaderToRepoInTransaction implements the RemovePipelineReaderToRepoInTransaction internal API
-func (a *InactiveAPIServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
+func (a *InactiveAPIServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
 	return auth.ErrNotActivated
 }
 
 // CreateRoleBindingInTransaction implements the CreateRoleBinding RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) CreateRoleBindingInTransaction(*txnenv.TransactionContext, string, []string, *auth.Resource) error {
+func (a *InactiveAPIServer) CreateRoleBindingInTransaction(*txncontext.TransactionContext, string, []string, *auth.Resource) error {
 	return auth.ErrNotActivated
 }
 
 // DeleteRoleBindingInTransaction implements the DeleteRoleBinding RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) DeleteRoleBindingInTransaction(*txnenv.TransactionContext, *auth.Resource) error {
+func (a *InactiveAPIServer) DeleteRoleBindingInTransaction(*txncontext.TransactionContext, *auth.Resource) error {
 	return auth.ErrNotActivated
 }
 
@@ -90,12 +91,17 @@ func (a *InactiveAPIServer) Authorize(context.Context, *auth.AuthorizeRequest) (
 
 // AuthorizeInTransaction is the same as the Authorize RPC but for use inside a
 // running transaction.  It also returns a NotActivatedError.
-func (a *InactiveAPIServer) AuthorizeInTransaction(*txnenv.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
+func (a *InactiveAPIServer) AuthorizeInTransaction(*txncontext.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
 // WhoAmI implements the WhoAmI RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetRolesForPermission implements the GetRolesForPermission RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetRolesForPermission(context.Context, *auth.GetRolesForPermissionRequest) (*auth.GetRolesForPermissionResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
@@ -105,7 +111,7 @@ func (a *InactiveAPIServer) GetRobotToken(context.Context, *auth.GetRobotTokenRe
 }
 
 // GetPipelineAuthTokenInTransaction is the same as GetAuthToken but for use inside a running transaction.
-func (a *InactiveAPIServer) GetPipelineAuthTokenInTransaction(*txnenv.TransactionContext, string) (string, error) {
+func (a *InactiveAPIServer) GetPipelineAuthTokenInTransaction(*txncontext.TransactionContext, string) (string, error) {
 	return "", auth.ErrNotActivated
 }
 
@@ -120,7 +126,7 @@ func (a *InactiveAPIServer) RevokeAuthToken(context.Context, *auth.RevokeAuthTok
 }
 
 // RevokeAuthTokenInTransaction is the same as RevokeAuthToken but for use inside a running transaction
-func (a *InactiveAPIServer) RevokeAuthTokenInTransaction(*txnenv.TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
+func (a *InactiveAPIServer) RevokeAuthTokenInTransaction(*txncontext.TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
@@ -182,4 +188,24 @@ func (a *InactiveAPIServer) DeleteExpiredAuthTokens(context.Context, *auth.Delet
 // RotateRootToken implements the RotateRootToken RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) RotateRootToken(context.Context, *auth.RotateRootTokenRequest) (*auth.RotateRootTokenResponse, error) {
 	return nil, auth.ErrNotActivated
+}
+
+// CheckRepoIsAuthorized returns nil when auth is not activated
+func (a *InactiveAPIServer) CheckRepoIsAuthorized(context.Context, *pfs.Repo, ...auth.Permission) error {
+	return nil
+}
+
+// CheckClusterIsAuthorized returns nil when auth is not activated
+func (a *InactiveAPIServer) CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error {
+	return nil
+}
+
+// CheckClusterIsAuthorizedInTransaction returns nil when auth is not activated
+func (a *InactiveAPIServer) CheckClusterIsAuthorizedInTransaction(*txncontext.TransactionContext, ...auth.Permission) error {
+	return nil
+}
+
+// CheckRepoIsAuthorizedInTransaction returns nil when auth is not activated
+func (a *InactiveAPIServer) CheckRepoIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error {
+	return nil
 }

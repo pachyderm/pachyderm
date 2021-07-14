@@ -34,7 +34,7 @@ The following table explains how Pachyderm uses those permissions:
 
 | Permission       | Description   |
 | ---------------- | ------------- |
-| Access to nodes    | Required for the `coefficient` option in the `parallelism` parameter of the pipeline spec. `coefficient` determines the number of worker nodes to run for your pipeline. If this permission cannot be granted, `constant` can be used instead. |
+| Access to nodes    | Used for metrics reporting, disabling should not affect Pachyderm's operation. |
 | Access to pods, replica controllers, and services | Pachyderm uses this permission to monitor the created pipelines. The permissions related to `replicationcontrollers` and `services` are used in the setup and deletion of pipelines. Each pipeline has its own RC and service in addition to the pods.
 | Access to secrets | Required to give various kinds of credentials to pipelines, including storage credentials to access S3 or other object storage backends, Docker credentials to pull from a private registry, and others. |
 

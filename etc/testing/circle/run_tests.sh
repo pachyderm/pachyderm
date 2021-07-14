@@ -13,11 +13,11 @@ export PACH_PORT
 ENTERPRISE_PORT="31650"
 export ENTEPRRISE_PORT
 
-POSTGRES_SERVICE_HOST="$(minikube ip)"
-export POSTGRES_SERVICE_HOST
+POSTGRES_HOST="$(minikube ip)"
+export POSTGRES_HOST
 
-POSTGRES_SERVICE_PORT=32228
-export POSTGRES_SERVICE_PORT
+POSTGRES_PORT=32228
+export POSTGRES_PORT
 
 TESTFLAGS="-v | stdbuf -i0 tee -a /tmp/results"
 export TESTFLAGS
@@ -25,6 +25,9 @@ export TESTFLAGS
 # make launch-kube connects with kubernetes, so it should just be available
 minikube status
 kubectl version
+
+# any tests that build images will do it directly in minikube's docker registry
+eval $(minikube docker-env)
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
@@ -63,21 +66,24 @@ go clean -testcache
 
 case "${BUCKET}" in
  MISC)
-    #make lint
+    make lint
+    make check-buckets
     make enterprise-code-checkin-test
+    go install -v ./src/testing/match
     make test-cmds
-    make test-libs
     make test-proto-static
     make test-transaction
     make test-deploy-manifests
     make test-s3gateway-unit
     make test-worker
-    if [[ "${TRAVIS_SECURE_ENV_VARS:-""}" == "true" ]]; then
-        # these tests require secure env vars to run, which aren't available
-        # when the PR is coming from an outside contributor - so we just
-        # disable them
-        make test-tls
-    fi
+    # these tests require secure env vars to run, which aren't available
+    # when the PR is coming from an outside contributor - so we just
+    # disable them
+    # make test-tls
+    ;;
+  INTERNAL)
+    go install -v ./src/testing/match
+    bash -ceo pipefail "go test -p 1 -count 1 ./src/internal/... ${TESTFLAGS}"
     ;;
   EXAMPLES)
     echo "Running the example test suite"
@@ -85,22 +91,18 @@ case "${BUCKET}" in
     ;;
   PFS)
     make test-pfs-server
-    make test-pfs-storage
     ;;
   PPS?)
     make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
-      go test -v -count=1 ./src/server/pps/server -timeout 300s
+      go test -v -count=1 ./src/server/pps/server -timeout 420s
     fi
     ;;
   AUTH)
     make test-identity
     make test-auth
-    ;;
-  OBJECT)
-    make test-object-clients
     ;;
   ENTERPRISE)
     make test-license

@@ -51,12 +51,12 @@ below.
 ### Prerequisites
 
 1. Make sure the HEAD commit (that you're about to release) has a passing
-   build on travis.
+   build on circleci.
 2. Make sure that you have no uncommitted files in the current branch.
 
 ### Update client version [apply step only when running point-release target]
 
-Update `src/client/version/client.go` version values.
+Update `src/version/client.go` version values.
 
 - for a major release, increment the MajorVersion and set the MinorVersion and
   MicroVersion to 0; e.g. `2.0.0`.
@@ -69,52 +69,32 @@ Commit these changes locally (you will push to GitHub in a later step):
 
 ```shell
 make VERSION_ADDITIONAL= install
-git add src/client/version/client.go
+git add src/version/client.go
 git commit -m"Increment version for $(pachctl version --client-only) release"
 ```
 
-### Update dash, IDE versions [apply step only when running point-release target]
+### Update the Pachyderm version in the Helm Chart
 
-If you want to update the version of the Pachyderm dash or IDE associated with
-this release, change `defaultDashVersion` or `defaultIDEVersion` respectively in
-`./src/server/pkg/deploy/cmds/cmds.go`.
+`etc/helm/pachyderm/Chart.yaml`
 
-### Update compatibility versions [apply step only when running point-release target]
+Update the `appVersion` key to the new pachyderm version
 
-Commit these changes locally (you will push to GitHub in a later step):
+Update the `version` key to the new pachyderm version (Helm and pachyderm versions will be kept in lock step)
 
-```shell
-make compatibility
-git add etc/compatibility
-git commit -m"Update compatibility for $(pachctl version --client-only) release"
+Note: When releasing an alpha/beta/RC version, ensure the helmchart is marked as a pre-release
+
+`etc/helm/pachyderm/Chart.yaml`
+
+```
+annotations:
+  artifacthub.io/prerelease: "true"
 ```
 
-Note: The update to "latest" will cause dash CI to default run with the
-release pointed to be latest. The latest link is only update for
-Major/Minor/Point releases. In order to test a new version of dash with
-RC/Alpha/Beta/Custom release, modify the deployment manifest to test it
-manually.
+This will ensure the release is marked as a pre-release on artifact hub
 
-### Regenerate golden deployment manifests [apply step only when running point-release target]
+Commit your change to the repo:
 
-```shell
-make VERSION_ADDITIONAL= regenerate-test-deploy-manifests
-git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only) release"
-```
-
-### Update the testfaster hash [apply step only when running point-release target]
-
-Update the test faster hash to point to the latest git commit.
-
-```shell
-git log --pretty=format:%H | head -n 1
-```
-Copy the commit hash printed from the above command. Search for "git checkout" in
-`.testfaster.yml` file. Replace the hash value with the one from above git log cmd.
-
-```shell
-git commit -am "Update test faster hash for $(pachctl version --client-only) release"
-```
+```git commit -am "Update Pachyderm version in helm for <new pachyderm version> release"```
 
 ### Update the changelog [apply step only when running point-release target]
 
@@ -124,9 +104,11 @@ Update the changelog in the branch and commit it locally. Edit `CHANGELOG.md`
 git commit -am "Update change log for $(pachctl version --client-only) release"
 ```
 
+Note: The changelog must be the last commit to be properly parsed by `etc/build/make_changelog.sh`
+
 ### Push changes [apply step only when running point-release target]
 
-In a typical point release you will have 5 commits to push to the server.
+In a typical point release you will have 3 commits to push to the server.
 
 ```shell
 git push
@@ -158,6 +140,9 @@ are correct. Edit the release on GitHub to manually update any changes.
     We’ve just released Pachyderm <X.Y.Z> — check it out!
     * RELEASE NOTES with links to PRs
 ```
+
+### Helm
+The helm chart will be released when the release tag is pushed to the repo. 
 
 ### New major or minor releases
 
@@ -226,3 +211,8 @@ All of these can be accomplished by:
   `git tag -l | xargs git tag -d; git fetch origin master --tags`). This
   prevents the release process from failing with `tag already exists`.
 - Run `make point-release` (or follow the release process for custom releases)
+
+Helm
+- Delete the release from the https://github.com/pachyderm/helmchart repo
+- Rollback the commit on the gh-pages branch which added the release to the index.yaml 
+in https://github.com/pachyderm/helmchart

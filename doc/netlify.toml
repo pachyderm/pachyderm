@@ -58,7 +58,6 @@
   status = 301
   force = true
 
-
 [[redirects]]
   from = "/1.10.x/*"
   to = "/latest/archive/"
@@ -88,6 +87,36 @@
   to = "/latest/concepts/:splat"
   status = 301
   force = true
+
+[[redirects]]
+  from = "/:version/how-tos/basic-data-operations/export-data-out-pachyderm/"
+  to = "/:version/how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/how-tos/pipeline-operations/"
+  to = "/:version/how-tos/pipeline-operations/create-pipeline/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/2.0.x/how-tos/advanced-data-operations/splitting-data/*"
+  to = "/latest/"
+  status = 301
+  force = true 
+  
+[[redirects]]
+  from = "/2.0.x/how-tos/pipeline-operations/run_pipeline/"
+  to = "/latest/"
+  status = 301
+  force = true 
+
+[[redirects]]
+  from = "/2.0.x/how-tos/developer-workflow/build-pipelines/"
+  to = "/latest/"
+  status = 301
+  force = true 
 
 [[redirects]]
   from = "/latest/how-tos/use-jupyterhub/"
@@ -211,6 +240,12 @@
 
 [[redirects]]
   from = "/hub/hub_getting_started/"
+  to = "/latest/hub/hub_getting_started/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/pachhub/pachhub_getting_started/"
   to = "/latest/hub/hub_getting_started/"
   status = 301
   force = true

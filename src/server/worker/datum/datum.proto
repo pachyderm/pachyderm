@@ -15,17 +15,17 @@ enum State {
 }
 
 message Meta {
-  string pipeline_job_id = 1 [(gogoproto.customname) = "PipelineJobID"];
+  pps_v2.Job job = 1;
   repeated common.Input inputs = 2;
   string hash = 3;
   State state = 4;
   string reason = 5;
-  pps.ProcessStats stats = 6;
+  pps_v2.ProcessStats stats = 6;
   int64 index = 7;
 }
 
 message Stats {
-  pps.ProcessStats process_stats = 1;
+  pps_v2.ProcessStats process_stats = 1;
   int64 processed = 2;
   int64 skipped = 3;
   int64 failed = 4;

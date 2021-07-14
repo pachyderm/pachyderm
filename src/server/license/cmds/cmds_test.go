@@ -16,7 +16,7 @@ func TestActivate(t *testing.T) {
 	defer tu.DeleteAll(t)
 	code := tu.GetTestEnterpriseCode(t)
 
-	require.NoError(t, tu.BashCmd(`echo {{.license}} | pachctl license activate`,
+	require.NoError(t, tu.BashCmd(`echo {{.license}} | pachctl license activate --no-register`,
 		"license", code).Run())
 
 	require.NoError(t, tu.BashCmd(`pachctl license get-state | match ACTIVE`).Run())
@@ -30,19 +30,19 @@ func TestClusterCRUD(t *testing.T) {
 	tu.ActivateEnterprise(t, tu.GetPachClient(t))
 	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
-		pachctl license add-cluster --id {{.id}} --address grpc://localhost:653
+		pachctl license add-cluster --id {{.id}} --address grpc://localhost:1653
 		pachctl license list-clusters \
                   | match 'id: {{.id}}' \
-                  | match 'address: grpc://localhost:653' \
+                  | match 'address: grpc://localhost:1653' \
                   | match 'id: localhost' \
-                  | match 'address: grpc://localhost:650'
-		pachctl license update-cluster --id {{.id}} --address grpc://127.0.0.1:650
+                  | match 'address: grpc://localhost:1650'
+		pachctl license update-cluster --id {{.id}} --address grpc://127.0.0.1:1650
 		pachctl license list-clusters \
-                  | match 'address: grpc://127.0.0.1:650' \
-                  | match 'address: grpc://localhost:650'
+                  | match 'address: grpc://127.0.0.1:1650' \
+                  | match 'address: grpc://localhost:1650'
 		pachctl license delete-cluster --id {{.id}}
 		pachctl license list-clusters \
-		  | match -v 'address: grpc://127.0.0.1:650' \
+		  | match -v 'address: grpc://127.0.0.1:1650' \
 		  | match -v 'id: {{.id}}'
 		`,
 		"id", tu.UniqueString("cluster"),

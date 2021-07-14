@@ -1,11 +1,9 @@
 package transform
 
 import (
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/gogo/protobuf/proto"
+
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
@@ -17,26 +15,16 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		return err
 	}
 	logger.Logf("transform spawner started")
-	return forEachCommit(driver, reg.startPipelineJob)
-}
 
-func forEachCommit(driver driver.Driver, cb func(*pfs.CommitInfo) error) error {
-	pachClient := driver.PachClient()
-	pipelineInfo := driver.PipelineInfo()
-	return pachClient.SubscribeCommit(
-		pipelineInfo.Pipeline.Name,
-		"",
-		client.NewCommitProvenance(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name, pipelineInfo.SpecCommit.ID),
-		"",
-		pfs.CommitState_READY,
-		func(commitInfo *pfs.CommitInfo) error {
-			err := cb(commitInfo)
-			// TODO: Figure out how to clean up jobs after deleted commit. Just cleaning up here is not a good solution because
-			// we are not guaranteed to hit this code path after a deletion.
-			if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) || ppsserver.IsPipelineJobFinishedErr(err) {
+	return driver.PachClient().SubscribeJob(
+		driver.PipelineInfo().Pipeline.Name,
+		true,
+		func(jobInfo *pps.JobInfo) error {
+			if jobInfo.PipelineVersion != driver.PipelineInfo().Version {
+				// Skip this job - we should be shut down soon, but don't error out in the meantime
 				return nil
 			}
-			return err
+			return reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
 		},
 	)
 }

@@ -5,7 +5,7 @@ the `python-pachyderm` client is preinstalled in your JupyterHub instance
 This section describes a few basic operations that you can execute from JupyterHub
 to interact with Pachyderm.
 
-After you log in, use the [python-pachyderm](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html#header-functions)
+After you log in, use the [python-pachyderm](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html#header-functions)
 client API to manage Pachyderm directly from your Jupyter notebook.
 
 You need to create a new Notebook and add your code in a new cell.
@@ -64,7 +64,7 @@ choice, use one of the following examples to create a pipeline:
   This code likely will not work as is. To run a pipeline, you need to specify
   `main.py` and `requirements.txt` files in the root directory of your
   JupyterHub notebook. For more information, see the
-  [OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/master/examples/opencv/opencv.py).
+  [OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/1.13.x/examples/opencv/opencv.py).
 
 * By using the `create_pipeline` method:
 
@@ -129,7 +129,7 @@ choice, use one of the following examples to create a pipeline:
    ```
 
 For more information, see the
-[OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/master/examples/opencv/opencv.py).
+[OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/1.13.x/examples/opencv/opencv.py).
 
 ## Create a Repository
 

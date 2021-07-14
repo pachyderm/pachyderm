@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
@@ -55,9 +56,9 @@ Requests:
 
 func sprintCreateRepo(request *pfs.CreateRepoRequest) string {
 	if request.Update {
-		return fmt.Sprintf("update repo %s", request.Repo.Name)
+		return fmt.Sprintf("update repo %s", request.Repo)
 	}
-	return fmt.Sprintf("create repo %s", request.Repo.Name)
+	return fmt.Sprintf("create repo %s", request.Repo)
 }
 
 func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
@@ -65,37 +66,34 @@ func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
 	if request.Force {
 		force = " --force"
 	}
-	if request.All {
-		return fmt.Sprintf("delete repo --all%s", force)
-	}
-	return fmt.Sprintf("delete repo %s %s", request.Repo.Name, force)
+	return fmt.Sprintf("delete repo %s %s", request.Repo, force)
 }
 
 func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.TransactionResponse) string {
-	commit := "unknown"
+	var commit string
 	if response == nil || response.Commit == nil {
 		commit = "ERROR (unknown response type)"
 	} else {
 		commit = response.Commit.ID
 	}
-	return fmt.Sprintf("start commit %s@%s (%s)", request.Branch.Repo.Name, request.Branch.Name, commit)
+	return fmt.Sprintf("start commit %s (%s)", request.Branch, commit)
 }
 
 func sprintFinishCommit(request *pfs.FinishCommitRequest) string {
-	return fmt.Sprintf("finish commit %s@%s", request.Commit.Branch.Repo.Name, request.Commit.ID)
+	return fmt.Sprintf("finish commit %s", pfspretty.CompactPrintCommit(request.Commit))
 }
 
-// func sprintSquashCommit(request *pfs.SquashCommitRequest) string {
-// 	return fmt.Sprintf("squash commit %s@%s", request.Commit.Repo.Name, request.Commit.ID)
-// }
+func sprintSquashCommitSet(request *pfs.SquashCommitSetRequest) string {
+	return fmt.Sprintf("squash commitset %s", request.CommitSet.ID)
+}
 
 func sprintCreateBranch(request *pfs.CreateBranchRequest) string {
 	provenance := ""
 	for _, p := range request.Provenance {
-		provenance = fmt.Sprintf("%s -p %s@%s", provenance, p.Repo.Name, p.Name)
+		provenance = fmt.Sprintf("%s -p %s", provenance, p)
 	}
 
-	return fmt.Sprintf("create branch %s@%s", request.Branch.Repo.Name, request.Branch.Name)
+	return fmt.Sprintf("create branch %s", request.Branch)
 }
 
 func sprintDeleteBranch(request *pfs.DeleteBranchRequest) string {
@@ -103,21 +101,21 @@ func sprintDeleteBranch(request *pfs.DeleteBranchRequest) string {
 	if request.Force {
 		force = " --force"
 	}
-	return fmt.Sprintf("delete branch %s@%s%s", request.Branch.Repo.Name, request.Branch.Name, force)
+	return fmt.Sprintf("delete branch %s%s", request.Branch, force)
 }
 
-func sprintUpdatePipelineJobState(request *pps.UpdatePipelineJobStateRequest) string {
+func sprintUpdateJobState(request *pps.UpdateJobStateRequest) string {
 	state := func() string {
 		switch request.State {
-		case pps.PipelineJobState_JOB_STARTING:
+		case pps.JobState_JOB_STARTING:
 			return "STARTING"
-		case pps.PipelineJobState_JOB_RUNNING:
+		case pps.JobState_JOB_RUNNING:
 			return "RUNNING"
-		case pps.PipelineJobState_JOB_FAILURE:
+		case pps.JobState_JOB_FAILURE:
 			return "FAILURE"
-		case pps.PipelineJobState_JOB_SUCCESS:
+		case pps.JobState_JOB_SUCCESS:
 			return "SUCCESS"
-		case pps.PipelineJobState_JOB_KILLED:
+		case pps.JobState_JOB_KILLED:
 			return "KILLED"
 		default:
 			return "<unknown state>"
@@ -125,7 +123,7 @@ func sprintUpdatePipelineJobState(request *pps.UpdatePipelineJobStateRequest) st
 	}()
 	return fmt.Sprintf(
 		"update job %s -> %s (%s)",
-		request.PipelineJob.ID, state, request.Reason,
+		request.Job.ID, state, request.Reason,
 	)
 }
 
@@ -160,14 +158,14 @@ func transactionRequests(
 			}
 		} else if request.FinishCommit != nil {
 			line = sprintFinishCommit(request.FinishCommit)
-			// } else if request.SquashCommit != nil {
-			// 	line = sprintSquashCommit(request.SquashCommit)
+		} else if request.SquashCommitSet != nil {
+			line = sprintSquashCommitSet(request.SquashCommitSet)
 		} else if request.CreateBranch != nil {
 			line = sprintCreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {
 			line = sprintDeleteBranch(request.DeleteBranch)
-		} else if request.UpdatePipelineJobState != nil {
-			line = sprintUpdatePipelineJobState(request.UpdatePipelineJobState)
+		} else if request.UpdateJobState != nil {
+			line = sprintUpdateJobState(request.UpdateJobState)
 		} else if request.CreatePipeline != nil {
 			line = sprintCreatePipeline(request.CreatePipeline)
 		} else {

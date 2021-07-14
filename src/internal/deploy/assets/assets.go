@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
 
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -38,20 +37,16 @@ const (
 var (
 	suite = "pachyderm"
 
-	pachdImage     = "pachyderm/pachd"
-	grpcProxyImage = "pachyderm/grpc-proxy:0.4.10"
-	dashName       = "dash"
-	workerImage    = "pachyderm/worker"
-	pauseImage     = "gcr.io/google_containers/pause-amd64:3.0"
+	pachdImage  = "pachyderm/pachd"
+	workerImage = "pachyderm/worker"
 
 	// ServiceAccountName is the name of Pachyderm's service account.
 	// It's public because it's needed by pps.APIServer to create the RCs for
 	// workers.
 	ServiceAccountName = "pachyderm"
-	grpcProxyName      = "grpc-proxy"
 	pachdName          = "pachd"
 	// PrometheusPort hosts the prometheus stats for scraping
-	PrometheusPort = 656
+	PrometheusPort = 1656
 
 	enterpriseServerName = "pach-enterprise"
 
@@ -67,7 +62,7 @@ var (
 	}, {
 		APIGroups: []string{""},
 		Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
-		Resources: []string{"replicationcontrollers", "services"},
+		Resources: []string{"replicationcontrollers", "services", "replicationcontrollers/scale"},
 	}, {
 		APIGroups: []string{""},
 		Verbs:     []string{"get", "list", "watch", "create", "update", "delete", "deletecollection"},
@@ -87,7 +82,9 @@ var (
 	IAMAnnotation = "iam.amazonaws.com/role"
 
 	// OidcPort is the port where OIDC ID Providers can send auth assertions
-	OidcPort = int32(657)
+	OidcPort = int32(1657)
+
+	IdentityPort = int32(1658)
 )
 
 // Backend is the type used to enumerate what system provides object storage or
@@ -170,15 +167,11 @@ type AssetOpts struct {
 	LogLevel   string
 	Metrics    bool
 	Dynamic    bool
-	DashOnly   bool
-	NoDash     bool
-	DashImage  string
 	Registry   string
 	EtcdPrefix string
 	PachdPort  int32
-	TracePort  int32
-	HTTPPort   int32
 	PeerPort   int32
+	RunAsRoot  bool
 
 	// NoGuaranteed will not generate assets that have both resource limits and
 	// resource requests set which causes kubernetes to give the pods
@@ -195,13 +188,6 @@ type AssetOpts struct {
 	// pachd node. If empty, assets.go will choose a default size.
 	PachdNonCacheMemRequest string
 
-	// IAM role that the Pachyderm deployment should assume when talking to AWS
-	// services (if using kube2iam + metadata service + IAM role to delegate
-	// permissions to pachd via its instance).
-	// This is in AssetOpts rather than AmazonCreds because it must be passed
-	// as an annotation on the pachd pod rather than as a k8s secret
-	IAMRole string
-
 	// ImagePullSecret specifies an image pull secret that gets attached to the
 	// various deployments so that their images can be pulled from a private
 	// registry.
@@ -216,9 +202,6 @@ type AssetOpts struct {
 
 	// Namespace is the kubernetes namespace to deploy to.
 	Namespace string
-
-	// NoExposeDockerSocket if true prevents pipelines from accessing the docker socket.
-	NoExposeDockerSocket bool
 
 	// If set, the files indictated by 'TLS.ServerCert' and 'TLS.ServerKey' are
 	// placed into a Kubernetes secret and used by pachd nodes to authenticate
@@ -258,7 +241,7 @@ func replicas(r int32) *int32 {
 func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend Backend) {
 	if persistentDiskBackend == LocalBackend {
 		// For local deployments, we set the resource requirements and cache sizes
-		// low so that pachyderm clusters will fit inside e.g. minikube or travis
+		// low so that pachyderm clusters will fit inside e.g. minikube or CI
 		if opts.PachdNonCacheMemRequest == "" {
 			opts.PachdNonCacheMemRequest = "512M"
 		}
@@ -449,33 +432,6 @@ func GetBackendSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) 
 		}
 }
 
-// GetSecretEnvVars returns the environment variable specs for the storage secret.
-func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
-	var envVars []v1.EnvVar
-	if storageBackend != "" {
-		envVars = append(envVars, v1.EnvVar{
-			Name:  obj.StorageBackendEnvVar,
-			Value: storageBackend,
-		})
-	}
-	trueVal := true
-	for _, e := range obj.EnvVarToSecretKey {
-		envVars = append(envVars, v1.EnvVar{
-			Name: e.Key,
-			ValueFrom: &v1.EnvVarSource{
-				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
-						Name: client.StorageSecretName,
-					},
-					Key:      e.Value,
-					Optional: &trueVal,
-				},
-			},
-		})
-	}
-	return envVars
-}
-
 func getStorageEnvVars(opts *AssetOpts) []v1.EnvVar {
 	return []v1.EnvVar{
 		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.UploadConcurrencyLimit)},
@@ -509,16 +465,11 @@ func imagePullSecrets(opts *AssetOpts) []v1.LocalObjectReference {
 func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath string) *apps.Deployment {
 	// set port defaults
 	if opts.PachdPort == 0 {
-		opts.PachdPort = 650
+		opts.PachdPort = 1650
 	}
-	if opts.TracePort == 0 {
-		opts.TracePort = 651
-	}
-	if opts.HTTPPort == 0 {
-		opts.HTTPPort = 652
-	}
+
 	if opts.PeerPort == 0 {
-		opts.PeerPort = 653
+		opts.PeerPort = 1653
 	}
 	mem := resource.MustParse(opts.PachdNonCacheMemRequest)
 	cpu := resource.MustParse(opts.PachdCPURequest)
@@ -598,11 +549,9 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		{Name: "WORKER_SIDECAR_IMAGE", Value: image},
 		{Name: "WORKER_IMAGE_PULL_POLICY", Value: "IfNotPresent"},
 		{Name: WorkerServiceAccountEnvVar, Value: opts.WorkerServiceAccountName},
-		{Name: "PACHD_VERSION", Value: opts.Version},
 		{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
+		{Name: "WORKER_USES_ROOT", Value: strconv.FormatBool(opts.RunAsRoot)},
 		{Name: "LOG_LEVEL", Value: opts.LogLevel},
-		{Name: "IAM_ROLE", Value: opts.IAMRole},
-		{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
 		{
 			Name: "PACH_NAMESPACE",
 			ValueFrom: &v1.EnvVarSource{
@@ -636,10 +585,25 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		// from it for setting up the worker client. Probably should not be pulling directly from environment variables.
 		{
 			Name:  client.PPSWorkerPortEnv,
-			Value: "80",
+			Value: "1080",
+		},
+		{
+			Name:  "POSTGRES_USER",
+			Value: "postgres",
+		},
+		{
+			Name:  "POSTGRES_PASSWORD",
+			Value: "",
+		},
+		{
+			Name:  "POSTGRES_HOST",
+			Value: "postgres", // refers to "postgres" service, may be overriden for an external postgres deployment
+		},
+		{
+			Name:  "POSTGRES_PORT",
+			Value: "5432",
 		},
 	}
-	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)
 
 	name := pachdName
@@ -649,6 +613,23 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		command = append(command, "--mode=enterprise")
 	}
 
+	var securityContext *v1.PodSecurityContext
+	if opts.RunAsRoot {
+		rootUID := int64(0)
+		securityContext = &v1.PodSecurityContext{
+			RunAsUser: &rootUID,
+		}
+	}
+
+	envFrom := []v1.EnvFromSource{
+		{
+			SecretRef: &v1.SecretEnvSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: client.StorageSecretName,
+				},
+			},
+		},
+	}
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -661,8 +642,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 				MatchLabels: labels(name),
 			},
 			Template: v1.PodTemplateSpec{
-				ObjectMeta: objectMeta(name, labels(name),
-					map[string]string{IAMAnnotation: opts.IAMRole}, opts.Namespace),
+				ObjectMeta: objectMeta(name, labels(name), nil, opts.Namespace),
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
@@ -670,6 +650,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 							Image:   image,
 							Command: command,
 							Env:     envVars,
+							EnvFrom: envFrom,
 							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: opts.PachdPort, // also set in cmd/pachd/main.go
@@ -677,23 +658,14 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 									Name:          "api-grpc-port",
 								},
 								{
-									ContainerPort: opts.TracePort, // also set in cmd/pachd/main.go
-									Name:          "trace-port",
-								},
-								{
-									ContainerPort: opts.HTTPPort, // also set in cmd/pachd/main.go
-									Protocol:      "TCP",
-									Name:          "api-http-port",
-								},
-								{
 									ContainerPort: opts.PeerPort, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "peer-port",
 								},
 								{
-									ContainerPort: githook.GitHookPort,
+									ContainerPort: IdentityPort,
 									Protocol:      "TCP",
-									Name:          "api-git-port",
+									Name:          "identity-port",
 								},
 								{
 									ContainerPort: OidcPort,
@@ -716,6 +688,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 					ServiceAccountName: ServiceAccountName,
 					Volumes:            volumes,
 					ImagePullSecrets:   imagePullSecrets(opts),
+					SecurityContext:    securityContext,
 				},
 			},
 		},
@@ -743,46 +716,31 @@ func PachdService(opts *AssetOpts) *v1.Service {
 				// NOTE: do not put any new ports before `api-grpc-port`, as
 				// it'll change k8s SERVICE_PORT env var values
 				{
-					Port:     650, // also set in cmd/pachd/main.go
+					Port:     1650, // also set in cmd/pachd/main.go
 					Name:     "api-grpc-port",
 					NodePort: 30650,
 				},
 				{
-					Port:     651, // also set in cmd/pachd/main.go
-					Name:     "trace-port",
-					NodePort: 30651,
-				},
-				{
-					Port:     652, // also set in cmd/pachd/main.go
-					Name:     "api-http-port",
-					NodePort: 30652,
-				},
-				{
 					Port:     OidcPort,
 					Name:     "oidc-port",
-					NodePort: 30000 + OidcPort,
+					NodePort: 30657,
 				},
 				{
-					Port:     658,
+					Port:     IdentityPort,
 					Name:     "identity-port",
 					NodePort: 30658,
 				},
 				{
-					Port:     githook.GitHookPort,
-					Name:     "api-git-port",
-					NodePort: githook.NodePort(),
-				},
-				{
-					Port:     600, // also set in cmd/pachd/main.go
+					Port:     1600, // also set in cmd/pachd/main.go
 					Name:     "s3gateway-port",
 					NodePort: 30600,
 				},
 				{
-					Port:       656,
+					Port:       1656,
 					Name:       "prometheus-metrics",
 					NodePort:   30656,
 					Protocol:   v1.ProtocolTCP,
-					TargetPort: intstr.FromInt(656),
+					TargetPort: intstr.FromInt(1656),
 				},
 			},
 		},
@@ -809,105 +767,7 @@ func PachdPeerService(opts *AssetOpts) *v1.Service {
 				{
 					Port:       30653,
 					Name:       "api-grpc-peer-port",
-					TargetPort: intstr.FromInt(653), // also set in cmd/pachd/main.go
-				},
-			},
-		},
-	}
-}
-
-// GithookService returns a k8s service that exposes a public IP
-func GithookService(namespace string) *v1.Service {
-	name := "githook"
-	return &v1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: objectMeta(name, labels(name), nil, namespace),
-		Spec: v1.ServiceSpec{
-			Type: v1.ServiceTypeLoadBalancer,
-			Selector: map[string]string{
-				"app": pachdName,
-			},
-			Ports: []v1.ServicePort{
-				{
-					TargetPort: intstr.FromInt(githook.GitHookPort),
-					Name:       "api-git-port",
-					Port:       githook.ExternalPort(),
-				},
-			},
-		},
-	}
-}
-
-// DashDeployment creates a Deployment for the pachyderm dashboard.
-func DashDeployment(opts *AssetOpts) *apps.Deployment {
-	return &apps.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Deployment",
-			APIVersion: "apps/v1",
-		},
-		ObjectMeta: objectMeta(dashName, labels(dashName), nil, opts.Namespace),
-		Spec: apps.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels(dashName),
-			},
-			Template: v1.PodTemplateSpec{
-				ObjectMeta: objectMeta(dashName, labels(dashName), nil, opts.Namespace),
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name:  dashName,
-							Image: AddRegistry(opts.Registry, opts.DashImage),
-							Ports: []v1.ContainerPort{
-								{
-									ContainerPort: 8080,
-									Name:          "dash-http",
-								},
-							},
-							ImagePullPolicy: "IfNotPresent",
-						},
-						{
-							Name:  grpcProxyName,
-							Image: AddRegistry(opts.Registry, grpcProxyImage),
-							Ports: []v1.ContainerPort{
-								{
-									ContainerPort: 8081,
-									Name:          "grpc-proxy-http",
-								},
-							},
-							ImagePullPolicy: "IfNotPresent",
-						},
-					},
-					ImagePullSecrets: imagePullSecrets(opts),
-				},
-			},
-		},
-	}
-}
-
-// DashService creates a Service for the pachyderm dashboard.
-func DashService(opts *AssetOpts) *v1.Service {
-	return &v1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: objectMeta(dashName, labels(dashName), nil, opts.Namespace),
-		Spec: v1.ServiceSpec{
-			Type:     v1.ServiceTypeNodePort,
-			Selector: labels(dashName),
-			Ports: []v1.ServicePort{
-				{
-					Port:     8080,
-					Name:     "dash-http",
-					NodePort: 30080,
-				},
-				{
-					Port:     8081,
-					Name:     "grpc-proxy-http",
-					NodePort: 30081,
+					TargetPort: intstr.FromInt(1653), // also set in cmd/pachd/main.go
 				},
 			},
 		},
@@ -931,21 +791,18 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 		s3V2 = "1"
 	}
 	return map[string][]byte{
-		"minio-bucket":    []byte(bucket),
-		"minio-id":        []byte(id),
-		"minio-secret":    []byte(secret),
-		"minio-endpoint":  []byte(endpoint),
-		"minio-secure":    []byte(secureV),
-		"minio-signature": []byte(s3V2),
+		obj.MinioBucketEnvVar:    []byte(bucket),
+		obj.MinioIDEnvVar:        []byte(id),
+		obj.MinioSecretEnvVar:    []byte(secret),
+		obj.MinioEndpointEnvVar:  []byte(endpoint),
+		obj.MinioSecureEnvVar:    []byte(secureV),
+		obj.MinioSignatureEnvVar: []byte(s3V2),
 	}
 }
 
 // WriteSecret writes a JSON-encoded k8s secret to the given writer.
 // The secret uses the given map as data.
 func WriteSecret(encoder serde.Encoder, data map[string][]byte, opts *AssetOpts) error {
-	if opts.DashOnly {
-		return nil
-	}
 	secret := &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -973,59 +830,34 @@ func LocalSecret() map[string][]byte {
 //   advancedConfig - advanced configuration
 func AmazonSecret(region, bucket, id, secret, token, distribution, endpoint string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
 	s := amazonBasicSecret(region, bucket, distribution, advancedConfig)
-	s["amazon-id"] = []byte(id)
-	s["amazon-secret"] = []byte(secret)
-	s["amazon-token"] = []byte(token)
-	s["custom-endpoint"] = []byte(endpoint)
+	s[obj.AmazonIDEnvVar] = []byte(id)
+	s[obj.AmazonSecretEnvVar] = []byte(secret)
+	s[obj.AmazonTokenEnvVar] = []byte(token)
+	s[obj.CustomEndpointEnvVar] = []byte(endpoint)
 	return s
-}
-
-// AmazonVaultSecret creates an amazon secret with the following parameters:
-//   region         - AWS region
-//   bucket         - S3 bucket name
-//   vaultAddress   - address/hostport of vault
-//   vaultRole      - pachd's role in vault
-//   vaultToken     - pachd's vault token
-//   distribution   - cloudfront distribution
-//   advancedConfig - advanced configuration
-func AmazonVaultSecret(region, bucket, vaultAddress, vaultRole, vaultToken, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
-	s := amazonBasicSecret(region, bucket, distribution, advancedConfig)
-	s["amazon-vault-addr"] = []byte(vaultAddress)
-	s["amazon-vault-role"] = []byte(vaultRole)
-	s["amazon-vault-token"] = []byte(vaultToken)
-	return s
-}
-
-// AmazonIAMRoleSecret creates an amazon secret with the following parameters:
-//   region         - AWS region
-//   bucket         - S3 bucket name
-//   distribution   - cloudfront distribution
-//   advancedConfig - advanced configuration
-func AmazonIAMRoleSecret(region, bucket, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
-	return amazonBasicSecret(region, bucket, distribution, advancedConfig)
 }
 
 func amazonBasicSecret(region, bucket, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
 	return map[string][]byte{
-		"amazon-region":       []byte(region),
-		"amazon-bucket":       []byte(bucket),
-		"amazon-distribution": []byte(distribution),
-		"retries":             []byte(strconv.Itoa(advancedConfig.Retries)),
-		"timeout":             []byte(advancedConfig.Timeout),
-		"upload-acl":          []byte(advancedConfig.UploadACL),
-		"part-size":           []byte(strconv.FormatInt(advancedConfig.PartSize, 10)),
-		"max-upload-parts":    []byte(strconv.Itoa(advancedConfig.MaxUploadParts)),
-		"disable-ssl":         []byte(strconv.FormatBool(advancedConfig.DisableSSL)),
-		"no-verify-ssl":       []byte(strconv.FormatBool(advancedConfig.NoVerifySSL)),
-		"log-options":         []byte(advancedConfig.LogOptions),
+		obj.AmazonRegionEnvVar:       []byte(region),
+		obj.AmazonBucketEnvVar:       []byte(bucket),
+		obj.AmazonDistributionEnvVar: []byte(distribution),
+		obj.RetriesEnvVar:            []byte(strconv.Itoa(advancedConfig.Retries)),
+		obj.TimeoutEnvVar:            []byte(advancedConfig.Timeout),
+		obj.UploadACLEnvVar:          []byte(advancedConfig.UploadACL),
+		obj.PartSizeEnvVar:           []byte(strconv.FormatInt(advancedConfig.PartSize, 10)),
+		obj.MaxUploadPartsEnvVar:     []byte(strconv.Itoa(advancedConfig.MaxUploadParts)),
+		obj.DisableSSLEnvVar:         []byte(strconv.FormatBool(advancedConfig.DisableSSL)),
+		obj.NoVerifySSLEnvVar:        []byte(strconv.FormatBool(advancedConfig.NoVerifySSL)),
+		obj.LogOptionsEnvVar:         []byte(advancedConfig.LogOptions),
 	}
 }
 
 // GoogleSecret creates a google secret with a bucket name.
 func GoogleSecret(bucket string, cred string) map[string][]byte {
 	return map[string][]byte{
-		"google-bucket": []byte(bucket),
-		"google-cred":   []byte(cred),
+		obj.GoogleBucketEnvVar: []byte(bucket),
+		obj.GoogleCredEnvVar:   []byte(cred),
 	}
 }
 
@@ -1035,19 +867,10 @@ func GoogleSecret(bucket string, cred string) map[string][]byte {
 //   secret    - Azure storage account key
 func MicrosoftSecret(container string, id string, secret string) map[string][]byte {
 	return map[string][]byte{
-		"microsoft-container": []byte(container),
-		"microsoft-id":        []byte(id),
-		"microsoft-secret":    []byte(secret),
+		obj.MicrosoftContainerEnvVar: []byte(container),
+		obj.MicrosoftIDEnvVar:        []byte(id),
+		obj.MicrosoftSecretEnvVar:    []byte(secret),
 	}
-}
-
-// WriteDashboardAssets writes the k8s config for deploying the Pachyderm
-// dashboard to 'encoder'
-func WriteDashboardAssets(encoder serde.Encoder, opts *AssetOpts) error {
-	if err := encoder.Encode(DashService(opts)); err != nil {
-		return err
-	}
-	return encoder.Encode(DashDeployment(opts))
 }
 
 // WriteAssets writes the assets to encoder.
@@ -1055,12 +878,6 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 	persistentDiskBackend Backend, volumeSize int,
 	hostPath string) error {
 	fillDefaultResourceRequests(opts, persistentDiskBackend)
-	if opts.DashOnly {
-		if dashErr := WriteDashboardAssets(encoder, opts); dashErr != nil {
-			return dashErr
-		}
-		return nil
-	}
 
 	for _, sa := range ServiceAccounts(opts) {
 		if err := encoder.Encode(sa); err != nil {
@@ -1117,11 +934,6 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 	if err := encoder.Encode(PachdDeployment(opts, objectStoreBackend, hostPath)); err != nil {
 		return err
 	}
-	if !opts.NoDash {
-		if err := WriteDashboardAssets(encoder, opts); err != nil {
-			return err
-		}
-	}
 	if opts.TLS != nil {
 		if err := WriteTLSSecret(encoder, opts); err != nil {
 			return err
@@ -1136,9 +948,6 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 // key
 func WriteTLSSecret(encoder serde.Encoder, opts *AssetOpts) error {
 	// Validate arguments
-	if opts.DashOnly {
-		return nil
-	}
 	if opts.TLS == nil {
 		return errors.Errorf("internal error: WriteTLSSecret called but opts.TLS is nil")
 	}
@@ -1239,11 +1048,6 @@ type AmazonCreds struct {
 	ID     string // Access Key ID
 	Secret string // Secret Access Key
 	Token  string // Access token (if using temporary security credentials
-
-	// Vault options (if getting AWS credentials from Vault)
-	VaultAddress string // normally addresses come from env, but don't have vault service name
-	VaultRole    string
-	VaultToken   string
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
@@ -1252,12 +1056,8 @@ func WriteAmazonAssets(encoder serde.Encoder, opts *AssetOpts, region string, bu
 		return err
 	}
 	var secret map[string][]byte
-	if creds == nil {
-		secret = AmazonIAMRoleSecret(region, bucket, cloudfrontDistro, advancedConfig)
-	} else if creds.ID != "" {
+	if creds != nil && creds.ID != "" {
 		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro, "", advancedConfig)
-	} else if creds.VaultAddress != "" {
-		secret = AmazonVaultSecret(region, bucket, creds.VaultAddress, creds.VaultRole, creds.VaultToken, cloudfrontDistro, advancedConfig)
 	}
 	return WriteSecret(encoder, secret, opts)
 }
@@ -1276,19 +1076,6 @@ func WriteMicrosoftAssets(encoder serde.Encoder, opts *AssetOpts, container stri
 		return err
 	}
 	return WriteSecret(encoder, MicrosoftSecret(container, id, secret), opts)
-}
-
-// Images returns a list of all the images that are used by a pachyderm deployment.
-func Images(opts *AssetOpts) []string {
-	return []string{
-		versionedWorkerImage(opts),
-		etcdImage,
-		postgresImage,
-		grpcProxyImage,
-		pauseImage,
-		versionedPachdImage(opts),
-		opts.DashImage,
-	}
 }
 
 // AddRegistry switches the registry that an image is targeting, unless registry is blank

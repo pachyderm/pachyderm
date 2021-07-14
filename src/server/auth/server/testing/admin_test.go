@@ -156,13 +156,13 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	err = aliceClient.PutFile(repo, commit.Branch.Name, commit.ID, "/file", strings.NewReader("test data"))
+	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
-	err = bobClient.GetFile(repo, "master", "", "/file", buf)
+	err = bobClient.GetFile(commit, "/file", buf)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -191,7 +191,7 @@ func TestSuperAdminRWO(t *testing.T) {
 
 	// now bob can read from the repo
 	buf.Reset()
-	require.NoError(t, bobClient.GetFile(repo, "master", "", "/file", buf))
+	require.NoError(t, bobClient.GetFile(commit, "/file", buf))
 	require.Matches(t, "test data", buf.String())
 
 	// bob can write to the repo
@@ -216,7 +216,7 @@ func TestSuperAdminRWO(t *testing.T) {
 
 	// bob can no longer read from the repo
 	buf.Reset()
-	err = bobClient.GetFile(repo, "master", "", "/file", buf)
+	err = bobClient.GetFile(commit, "/file", buf)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -258,13 +258,13 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	err = aliceClient.PutFile(repo, commit.Branch.Name, commit.ID, "/file", strings.NewReader("test data"))
+	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
-	err = bobClient.GetFile(repo, "master", "", "/file", buf)
+	err = bobClient.GetFile(commit, "/file", buf)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -293,7 +293,7 @@ func TestFSAdminRWO(t *testing.T) {
 
 	// now bob can read from the repo
 	buf.Reset()
-	require.NoError(t, bobClient.GetFile(repo, "master", "", "/file", buf))
+	require.NoError(t, bobClient.GetFile(commit, "/file", buf))
 	require.Matches(t, "test data", buf.String())
 
 	// bob can write to the repo
@@ -318,7 +318,7 @@ func TestFSAdminRWO(t *testing.T) {
 
 	// bob can no longer read from the repo
 	buf.Reset()
-	err = bobClient.GetFile(repo, "master", "", "/file", buf)
+	err = bobClient.GetFile(commit, "/file", buf)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -382,7 +382,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	// now alice can write to the repo
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	err = aliceClient.PutFile(repo, commit.Branch.Name, commit.ID, "/file", strings.NewReader("test data"))
+	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 1, CommitCnt(t, rootClient, repo)) // check that a new commit was created
@@ -469,16 +469,13 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	// alice makes an input commit
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	err = aliceClient.PutFile(repo, commit.Branch.Name, commit.ID, "/file1", strings.NewReader("test data"))
+	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -501,23 +498,20 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	// Make sure alice cannot read the input repo (i.e. if the pipeline runs as
 	// alice, it will fail)
 	buf := &bytes.Buffer{}
-	err = aliceClient.GetFile(repo, "master", "", "/file1", buf)
+	err = aliceClient.GetFile(commit, "/file1", buf)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
 	// Admin creates an input commit
 	commit, err = rootClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	err = rootClient.PutFile(repo, commit.Branch.Name, commit.ID, "/file2", strings.NewReader("test data"))
+	err = rootClient.PutFile(commit, "/file2", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, rootClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
 	// make sure the pipeline still runs (i.e. it's not running as alice)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.FlushCommitAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := rootClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 }
@@ -555,15 +549,12 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	err = aliceClient.PutFile(repo, commit.Branch.Name, commit.ID, tu.UniqueString("/file1"),
+	err = aliceClient.PutFile(commit, tu.UniqueString("/file1"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -575,7 +566,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		})
 	rootClient.Enterprise.Activate(rootClient.Ctx(),
 		&enterprise.ActivateRequest{
-			LicenseServer: "localhost:650",
+			LicenseServer: "localhost:1650",
 			Id:            "localhost",
 			Secret:        "localhost",
 		})
@@ -596,15 +587,12 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make sure alice's pipeline still runs successfully
 	commit, err = rootClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	err = rootClient.PutFile(repo, commit.Branch.Name, commit.ID, tu.UniqueString("/file2"),
+	err = rootClient.PutFile(commit, tu.UniqueString("/file2"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, rootClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.FlushCommitAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := rootClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 }
@@ -1004,10 +992,6 @@ func TestRevokePachUserToken(t *testing.T) {
 	_, err := rootClient.RevokeAuthTokensForUser(rootClient.Ctx(), &auth.RevokeAuthTokensForUserRequest{Username: auth.RootUser})
 	require.YesError(t, err)
 	require.Matches(t, "cannot revoke tokens for pach: users", err.Error())
-
-	_, err = rootClient.RevokeAuthTokensForUser(rootClient.Ctx(), &auth.RevokeAuthTokensForUserRequest{Username: auth.PpsUser})
-	require.YesError(t, err)
-	require.Matches(t, "cannot revoke tokens for pach: users", err.Error())
 }
 
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)
@@ -1043,16 +1027,13 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	// alice makes an input commit
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	err = aliceClient.PutFile(repo, commit.Branch.Name, commit.ID, "/file1", strings.NewReader("test data"))
+	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
+		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -1075,8 +1056,8 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 
 // TestDeleteRCInStandby creates a pipeline, waits for it to enter standby, and
 // then deletes its RC. This should not crash the PPS master, and the
-// flush-commit run on an input commit should eventually return (though the
-// pipeline may fail rather than processing anything in this state)
+// commit should eventually finish (though the pipeline may fail rather than
+// processing anything in this state)
 //
 // Note: Like 'TestNoOutputRepoDoesntCrashPPSMaster', this test doesn't use the
 // admin client at all, but it uses the kubernetes client, so out of prudence it
@@ -1093,7 +1074,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(repo))
-	err := c.PutFile(repo, "master", "", "/file.1", strings.NewReader("1"))
+	err := c.PutFile(client.NewCommit(repo, "master", ""), "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
@@ -1108,19 +1089,17 @@ func TestDeleteRCInStandby(t *testing.T) {
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 			Input:           client.NewPFSInput(repo, "/*"),
-			Standby:         true,
+			Autoscaling:     true,
 		})
 	require.NoError(t, err)
 
 	// Wait for pipeline to process input commit & go into standby
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := c.FlushCommitAll(
-			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)})
+		_, err := c.WaitCommit(pipeline, "master", "")
 		return err
 	})
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -1134,139 +1113,18 @@ func TestDeleteRCInStandby(t *testing.T) {
 	tu.DeletePipelineRC(t, pipeline)
 
 	// Create new input commit (to force pipeline out of standby) & make sure
-	// flush-commit returns (pipeline either fails or restarts RC & finishes)
-	err = c.PutFile(repo, "master", "", "/file.2", strings.NewReader("1"))
+	// the pipeline either fails or restarts RC & finishes
+	err = c.PutFile(client.NewCommit(repo, "master", ""), "/file.2", strings.NewReader("1"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := c.FlushCommitAll(
-			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)})
+		_, err := c.WaitCommit(pipeline, "master", "")
 		return err
 	})
-}
-
-// TestNoOutputRepoDoesntCrashPPSMaster creates a pipeline, then deletes its
-// output repo while it's running (failing the pipeline and preventing the PPS
-// master from finishing the pipeline's output commit) and makes sure new
-// pipelines can be created (i.e. that the PPS master doesn't crashloop due to
-// the missing output repo). This test also exists in pachyderm_test.go, but
-// duplicating it here ensures that Pachyderm handles this case correctly even
-// when the missing output repo yields "access denied" instead of "not found"
-// errors.
-//
-// Note: arguably deleting the output repo of a pipeline, even one that's
-// stopped, should be prevented. However, the way that PPS currently uses PFS
-// (stopping a pipeline = removing output branch subvenance) we have no way to
-// prevent that. Thus, this test at least makes sure that doing such a thing
-// doesn't break the PPS master.
-//
-// Note: This test actually doesn't use the admin client or admin privileges
-// anywhere. However, it restarts pachd, so it shouldn't be run in parallel with
-// any other test (which is expected of tests in auth_test.go)
-func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
-
-	// Create input repo w/ initial commit
-	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
-	err := aliceClient.PutFile(repo, "master", "", "/file.1", strings.NewReader("1"))
-	require.NoError(t, err)
-
-	// Create pipeline
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
-		pipeline,
-		"", // default image: DefaultUserImage
-		[]string{"bash"},
-		[]string{
-			"sleep 10",
-			"cp /pfs/*/* /pfs/out/",
-		},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
-		"", // default output branch: master
-		false,
-	))
-
-	// force-delete output repo while 'sleep 10' is running, failing the pipeline
-	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
-
-	// make sure the pipeline is failed
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := aliceClient.InspectPipeline(pipeline)
-		if err != nil {
-			return err
-		}
-		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
-			return errors.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
-		}
-		return nil
-	})
-
-	// Delete the pachd pod, so that it restarts and the PPS master has to process
-	// the failed pipeline
-	tu.DeletePachdPod(t) // delete the pachd pod
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		_, err := aliceClient.Version() // wait for pachd to come back
-		return err
-	})
-
-	// Create a new input commit, and flush its output to 'pipeline', to make sure
-	// the pipeline either restarts the RC and recreates the output repo, or fails
-	err = aliceClient.PutFile(repo, "master", "", "/file.2", strings.NewReader("2"))
-	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		// TODO(msteffen): While not currently possible, PFS could return
-		// CommitDeleted here. This should detect that error, but first:
-		// - src/server/pfs/pfs.go should be moved to src/client/pfs (w/ other err
-		//   handling code)
-		// - packages depending on that code should be migrated
-		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
-		if _, err := aliceClient.FlushCommitAll(
-			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)}); err != nil {
-			return errors.Wrapf(err, "unexpected error value")
-		}
-		return nil
-	})
-
-	// Create a new pipeline, make sure FlushCommit eventually returns, and check
-	// pipeline output (i.e. the PPS master does not crashloop--pipeline2
-	// eventually starts successfully)
-	pipeline2 := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
-		pipeline2,
-		"", // default image: DefaultUserImage
-		[]string{"bash"},
-		[]string{"cp /pfs/*/* /pfs/out/"},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
-		"", // default output branch: master
-		false,
-	))
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
-			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline2)})
-		return err
-	})
-	buf := &bytes.Buffer{}
-	require.NoError(t, aliceClient.GetFile(pipeline2, "master", "", "/file.1", buf))
-	require.Equal(t, "1", buf.String())
-	buf.Reset()
-	require.NoError(t, aliceClient.GetFile(pipeline2, "master", "", "/file.2", buf))
-	require.Equal(t, "2", buf.String())
 }
 
 // TestPipelineFailingWithOpenCommit creates a pipeline, then revokes its access
 // to its output repo while it's running, causing it to fail. Then it makes sure
-// that FlushCommit still works and that the pipeline's output commit was
+// that FlushJob still works and that the pipeline's output commit was
 // successfully finished (though as an empty commit)
 //
 // Note: This test actually doesn't use the admin client or admin privileges
@@ -1285,8 +1143,9 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
+	commit := client.NewCommit(repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	err := aliceClient.PutFile(repo, "master", "", "/file.1", strings.NewReader("1"))
+	err := aliceClient.PutFile(commit, "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
@@ -1309,17 +1168,14 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	// that it fails)
 	require.NoError(t, rootClient.ModifyRepoRoleBinding(repo, fmt.Sprintf("pipeline:%s", pipeline), []string{}))
 
-	// make sure flush-commit returns (pipeline either
-	// fails or restarts RC & finishes)
+	// make sure the pipeline either fails or restarts RC & finishes
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.FlushCommitAll(
-			[]*pfs.Commit{client.NewCommit(repo, "master", "")},
-			[]*pfs.Repo{client.NewRepo(pipeline)})
+		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
 	// make sure the pipeline is failed
-	pi, err := rootClient.InspectPipeline(pipeline)
+	pi, err := rootClient.InspectPipeline(pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
 }

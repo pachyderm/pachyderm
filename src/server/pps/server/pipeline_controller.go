@@ -3,11 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -50,7 +53,6 @@ type pipelineOp struct {
 	// a pachyderm client wrapping this operation's context (child of the PPS
 	// master's context, and cancelled at the end of step())
 	ctx          context.Context
-	ptr          *pps.StoredPipelineInfo
 	pipelineInfo *pps.PipelineInfo
 	rc           *v1.ReplicationController
 }
@@ -62,10 +64,10 @@ var (
 	errStaleRC      = errors.New("RC doesn't match pipeline version (likely stale)")
 )
 
-// step takes 'ptr', a newly-changed pipeline pointer in etcd, and
-// 1. retrieves its full pipeline spec and RC
+// step takes 'pipelineInfo', a newly-changed pipeline pointer in the pipeline collection, and
+// 1. retrieves its full pipeline spec and RC into the 'Details' field
 // 2. makes whatever changes are needed to bring the RC in line with the (new) spec
-// 3. updates 'ptr', if needed, to reflect the action it just took
+// 3. updates 'pipelineInfo', if needed, to reflect the action it just took
 func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 	log.Infof("PPS master: processing event for %q", pipeline)
 
@@ -91,7 +93,16 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 	// Retrieve pipelineInfo from the spec repo
 	op, err := m.newPipelineOp(opCtx, pipeline)
 	if err != nil {
-		// fail immediately without retry
+		// Don't put the pipeline in a failing state if we're in the middle
+		// of activating auth, retry in a bit
+		if auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err) {
+			return stepError{
+				error:        errors.Wrap(err, "couldn't initialize pipeline op"),
+				failPipeline: false,
+			}
+		}
+
+		// otherwise fail immediately without retry
 		return stepError{
 			error:        errors.Wrap(err, "couldn't initialize pipeline op"),
 			failPipeline: true,
@@ -110,33 +121,37 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 
 func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipelineOp, error) {
 	op := &pipelineOp{
-		m:   m,
-		ctx: ctx,
-		ptr: &pps.StoredPipelineInfo{},
+		m:            m,
+		ctx:          ctx,
+		pipelineInfo: &pps.PipelineInfo{},
 	}
-	// get latest StoredPipelineInfo (events can pile up, so that the current state
+	// get latest PipelineInfo (events can pile up, so that the current state
 	// doesn't match the event being processed)
-	if err := m.a.pipelines.ReadOnly(ctx).Get(pipeline, op.ptr); err != nil {
-		return nil, errors.Wrapf(err, "could not retrieve etcd pipeline info for %q", pipeline)
+	if err := m.a.pipelines.ReadOnly(ctx).Get(pipeline, op.pipelineInfo); err != nil {
+		return nil, errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
 	}
-	// Update trace with any new pipeline info from getPipelineInfo()
 	tracing.TagAnySpan(ctx,
-		"current-state", op.ptr.State.String(),
-		"spec-commit", pretty.CompactPrintCommitSafe(op.ptr.SpecCommit))
-	// set op.pipelineInfo
-	if err := op.getPipelineInfo(); err != nil {
-		return nil, err
+		"current-state", op.pipelineInfo.State.String(),
+		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
+	// set op.pipelineInfo.Details
+
+	// this reads the pipelineInfo associated with 'op's pipeline, as most other
+	// methods (e.g.  getRC, though not failPipeline) assume that
+	// op.pipelineInfo.Details is set.
+	pachClient := op.m.a.env.GetPachClient(op.ctx)
+	if err := ppsutil.GetPipelineDetails(pachClient, op.pipelineInfo); err != nil {
+		return nil, newRetriableError(err, "error retrieving spec")
 	}
 	return op, nil
 }
 
 func (op *pipelineOp) run() error {
 	// Bring 'pipeline' into the correct state by taking appropriate action
-	switch op.ptr.State {
+	switch op.pipelineInfo.State {
 	case pps.PipelineState_PIPELINE_STARTING, pps.PipelineState_PIPELINE_RESTARTING:
 		if op.rc != nil && !op.rcIsFresh() {
 			// old RC is not down yet
-			return op.restartPipeline("stale RC") // step() will be called again after etcd write
+			return op.restartPipeline("stale RC") // step() will be called again after collection write
 		} else if op.rc == nil {
 			// default: old RC (if any) is down but new RC is not up yet
 			if err := op.createPipelineResources(); err != nil {
@@ -151,7 +166,7 @@ func (op *pipelineOp) run() error {
 		return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
 	case pps.PipelineState_PIPELINE_RUNNING:
 		if !op.rcIsFresh() {
-			return op.restartPipeline("stale RC") // step() will be called again after etcd write
+			return op.restartPipeline("stale RC") // step() will be called again after collection write
 		}
 		if op.pipelineInfo.Stopped {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
@@ -159,12 +174,12 @@ func (op *pipelineOp) run() error {
 
 		op.stopCrashingPipelineMonitor()
 		op.startPipelineMonitor()
-		// default: scale up if pipeline start hasn't propagated to etcd yet
+		// default: scale up if pipeline start hasn't propagated to the collection yet
 		// Note: mostly this should do nothing, as this runs several times per job
 		return op.scaleUpPipeline()
 	case pps.PipelineState_PIPELINE_STANDBY:
 		if !op.rcIsFresh() {
-			return op.restartPipeline("stale RC") // step() will be called again after etcd write
+			return op.restartPipeline("stale RC") // step() will be called again after collection write
 		}
 		if op.pipelineInfo.Stopped {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
@@ -177,11 +192,11 @@ func (op *pipelineOp) run() error {
 		return op.scaleDownPipeline()
 	case pps.PipelineState_PIPELINE_PAUSED:
 		if !op.rcIsFresh() {
-			return op.restartPipeline("stale RC") // step() will be called again after etcd write
+			return op.restartPipeline("stale RC") // step() will be called again after collection write
 		}
 		if !op.pipelineInfo.Stopped {
 			// StartPipeline has been called (so spec commit is updated), but new spec
-			// commit hasn't been propagated to etcdPipelineInfo or RC yet
+			// commit hasn't been propagated to PipelineInfo or RC yet
 			if err := op.scaleUpPipeline(); err != nil {
 				return err
 			}
@@ -191,7 +206,7 @@ func (op *pipelineOp) run() error {
 		// stopped
 		op.stopPipelineMonitor()
 		op.stopCrashingPipelineMonitor()
-		// default: scale down if pause/standby hasn't propagated to etcd yet
+		// default: scale down if pause/standby hasn't propagated to collection yet
 		return op.scaleDownPipeline()
 	case pps.PipelineState_PIPELINE_FAILURE:
 		// pipeline fails if it encounters an unrecoverable error
@@ -210,14 +225,14 @@ func (op *pipelineOp) run() error {
 		return nil
 	case pps.PipelineState_PIPELINE_CRASHING:
 		if !op.rcIsFresh() {
-			return op.restartPipeline("stale RC") // step() will be called again after etcd write
+			return op.restartPipeline("stale RC") // step() will be called again after collection write
 		}
 		if op.pipelineInfo.Stopped {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 		// start a monitor to poll k8s and update us when it goes into a running state
-		op.startCrashingPipelineMonitor()
 		op.startPipelineMonitor()
+		op.startCrashingPipelineMonitor()
 		// Surprisingly, scaleUpPipeline() is necessary, in case a pipelines is
 		// quickly transitioned to CRASHING after coming out of STANDBY. Because the
 		// pipeline controller reads the current state of the pipeline after each
@@ -228,21 +243,6 @@ func (op *pipelineOp) run() error {
 		// In general, CRASHING is actually almost identical to RUNNING (except for
 		// the monitorCrashing goro)
 		return op.scaleUpPipeline()
-	}
-	return nil
-}
-
-// getPipelineInfo reads the pipelineInfo associated with 'op's pipeline. This
-// should be one of the first calls made on 'op', as most other methods (e.g.
-// getRC, though not failPipeline) assume that op.pipelineInfo is set.
-func (op *pipelineOp) getPipelineInfo() error {
-	err := op.m.a.sudo(op.ctx, func(superUserClient *client.APIClient) error {
-		var err error
-		op.pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, op.ptr)
-		return err
-	})
-	if err != nil {
-		return newRetriableError(err, "error retrieving spec")
 	}
 	return nil
 }
@@ -261,7 +261,7 @@ func (op *pipelineOp) getPipelineInfo() error {
 // caller shouldn't continue with other operations
 func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(op.ctx,
-		"/pps.Master/GetRC", "pipeline", op.ptr.Pipeline.Name)
+		"/pps.Master/GetRC", "pipeline", op.pipelineInfo.Pipeline.Name)
 	defer func(span opentracing.Span) {
 		tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
 		tracing.FinishAnySpan(span)
@@ -269,7 +269,7 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 
 	kubeClient := op.m.a.env.GetKubeClient()
 	namespace := op.m.a.namespace
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.ptr.Pipeline.Name)
+	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.pipelineInfo.Pipeline.Name)
 
 	// count error types separately, so that this only errors if the pipeline is
 	// stuck and not changing
@@ -279,7 +279,7 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 		// List all RCs, so stale RCs from old pipelines are noticed and deleted
 		rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(
 			metav1.ListOptions{LabelSelector: selector})
-		if err != nil && !isNotFoundErr(err) {
+		if err != nil && !errutil.IsNotFoundError(err) {
 			return err
 		}
 		if len(rcs.Items) == 0 {
@@ -331,54 +331,54 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 			}
 			return err //return whatever the most recent error was
 		}
-		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", op.ptr.Pipeline.Name, err, d)
+		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", op.pipelineInfo.Pipeline.Name, err, d)
 		return nil
 	})
 }
 
 // rcIsFresh returns a boolean indicating whether op.rc has the right labels
-// corresponding to op.ptr. If this returns false, it likely means the current
-// RC is using e.g. an old spec commit or something.
+// corresponding to op.pipelineInfo. If this returns false, it likely means the
+// current RC is using e.g. an old spec commit or something.
 func (op *pipelineOp) rcIsFresh() bool {
 	if op.rc == nil {
-		log.Errorf("PPS master: RC for %q is nil", op.ptr.Pipeline.Name)
+		log.Errorf("PPS master: RC for %q is nil", op.pipelineInfo.Pipeline.Name)
 		return false
 	}
 	expectedName := ""
 	if op.pipelineInfo != nil {
-		expectedName = ppsutil.PipelineRcName(op.ptr.Pipeline.Name, op.pipelineInfo.Version)
+		expectedName = ppsutil.PipelineRcName(op.pipelineInfo.Pipeline.Name, op.pipelineInfo.Version)
 	}
 
 	// establish current RC properties
 	rcName := op.rc.ObjectMeta.Name
 	rcPachVersion := op.rc.ObjectMeta.Annotations[pachVersionAnnotation]
 	rcAuthTokenHash := op.rc.ObjectMeta.Annotations[hashedAuthTokenAnnotation]
-	rcSpecCommit := op.rc.ObjectMeta.Annotations[specCommitAnnotation]
+	rcPipelineVersion := op.rc.ObjectMeta.Annotations[pipelineVersionAnnotation]
 	switch {
-	case rcAuthTokenHash != hashAuthToken(op.ptr.AuthToken):
+	case rcAuthTokenHash != hashAuthToken(op.pipelineInfo.AuthToken):
 		log.Errorf("PPS master: auth token in %q is stale %s != %s",
-			op.ptr.Pipeline.Name, rcAuthTokenHash, hashAuthToken(op.ptr.AuthToken))
+			op.pipelineInfo.Pipeline.Name, rcAuthTokenHash, hashAuthToken(op.pipelineInfo.AuthToken))
 		return false
-	case rcSpecCommit != op.ptr.SpecCommit.ID:
-		log.Errorf("PPS master: spec commit in %q looks stale %s != %s",
-			op.ptr.Pipeline.Name, rcSpecCommit, op.ptr.SpecCommit.ID)
+	case rcPipelineVersion != strconv.FormatUint(op.pipelineInfo.Version, 10):
+		log.Errorf("PPS master: pipeline version in %q looks stale %s != %d",
+			op.pipelineInfo.Pipeline.Name, rcPipelineVersion, op.pipelineInfo.Version)
 		return false
 	case rcPachVersion != version.PrettyVersion():
 		log.Errorf("PPS master: %q is using stale pachd v%s != current v%s",
-			op.ptr.Pipeline.Name, rcPachVersion, version.PrettyVersion())
+			op.pipelineInfo.Pipeline.Name, rcPachVersion, version.PrettyVersion())
 		return false
 	case expectedName != "" && rcName != expectedName:
 		log.Errorf("PPS master: %q has an unexpected (likely stale) name %q != %q",
-			op.ptr.Pipeline.Name, rcName, expectedName)
+			op.pipelineInfo.Pipeline.Name, rcName, expectedName)
 	}
 	return true
 }
 
-// setPipelineState set's op's state in etcd to 'state'. This will trigger an
-// etcd watch event and cause step() to eventually run again.
+// setPipelineState set's op's state in the collection to 'state'. This will trigger a
+// collection watch event and cause step() to eventually run again.
 func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) error {
 	if err := op.m.a.setPipelineState(op.ctx,
-		op.ptr.Pipeline.Name, state, reason); err != nil {
+		op.pipelineInfo.Pipeline.Name, state, reason); err != nil {
 		// don't bother failing if we can't set the state
 		return stepError{
 			error: errors.Wrapf(err, "could not set pipeline state to %v"+
@@ -391,8 +391,8 @@ func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) e
 
 // createPipelineResources creates the RC and any services for op's pipeline.
 func (op *pipelineOp) createPipelineResources() error {
-	log.Infof("PPS master: creating resources for pipeline %q", op.ptr.Pipeline.Name)
-	if err := op.m.a.createWorkerSvcAndRc(op.ctx, op.ptr, op.pipelineInfo); err != nil {
+	log.Infof("PPS master: creating resources for pipeline %q", op.pipelineInfo.Pipeline.Name)
+	if err := op.m.a.createWorkerSvcAndRc(op.ctx, op.pipelineInfo); err != nil {
 		if errors.As(err, &noValidOptionsErr{}) {
 			// these errors indicate invalid pipelineInfo, don't retry
 			return stepError{
@@ -410,20 +410,20 @@ func (op *pipelineOp) createPipelineResources() error {
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
-	op.stopCrashingPipelineMonitor()
-	op.m.startMonitor(op.pipelineInfo, op.ptr)
+	op.m.startMonitor(op.pipelineInfo)
+	op.pipelineInfo.Details.WorkerRc = op.rc.ObjectMeta.Name
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
-	op.m.startCrashingMonitor(op.ptr.Parallelism, op.pipelineInfo)
+	op.m.startCrashingMonitor(op.pipelineInfo)
 }
 
 func (op *pipelineOp) stopPipelineMonitor() {
-	op.m.cancelMonitor(op.ptr.Pipeline.Name)
+	op.m.cancelMonitor(op.pipelineInfo.Pipeline.Name)
 }
 
 func (op *pipelineOp) stopCrashingPipelineMonitor() {
-	op.m.cancelCrashingMonitor(op.ptr.Pipeline.Name)
+	op.m.cancelCrashingMonitor(op.pipelineInfo.Pipeline.Name)
 }
 
 // finishPipelineOutputCommits finishes any output commits of
@@ -439,26 +439,26 @@ func (op *pipelineOp) stopCrashingPipelineMonitor() {
 // event. This pipeline's output commits will stay open until another watch
 // event arrives for the pipeline and finishPipelineOutputCommits is retried.
 func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
-	log.Infof("PPS master: finishing output commits for pipeline %q", op.ptr.Pipeline.Name)
+	log.Infof("PPS master: finishing output commits for pipeline %q", op.pipelineInfo.Pipeline.Name)
 
 	pachClient := op.m.a.env.GetPachClient(op.ctx)
 	if span, _ctx := tracing.AddSpanToAnyExisting(op.ctx,
-		"/pps.Master/FinishPipelineOutputCommits", "pipeline", op.ptr.Pipeline.Name); span != nil {
+		"/pps.Master/FinishPipelineOutputCommits", "pipeline", op.pipelineInfo.Pipeline.Name); span != nil {
 		pachClient = pachClient.WithCtx(_ctx) // copy span back into pachClient
 		defer func() {
 			tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
 			tracing.FinishAnySpan(span)
 		}()
 	}
-	pachClient.SetAuthToken(op.ptr.AuthToken)
+	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
 
-	if err := pachClient.ListCommitF(op.ptr.Pipeline.Name, op.pipelineInfo.OutputBranch, "", "", "", 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopPipelineJobOutputCommit(commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.Branch.Name, commitInfo.Commit.ID)
+	if err := pachClient.ListCommitF(client.NewRepo(op.pipelineInfo.Pipeline.Name), client.NewCommit(op.pipelineInfo.Pipeline.Name, op.pipelineInfo.Details.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
+		return pachClient.StopJob(op.pipelineInfo.Pipeline.Name, commitInfo.Commit.ID)
 	}); err != nil {
-		if isNotFoundErr(err) {
+		if errutil.IsNotFoundError(err) {
 			return nil // already deleted
 		}
-		return errors.Wrapf(err, "could not finish output commits of pipeline %q", op.ptr.Pipeline.Name)
+		return errors.Wrapf(err, "could not finish output commits of pipeline %q", op.pipelineInfo.Pipeline.Name)
 	}
 	return nil
 }
@@ -466,7 +466,7 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 // deletePipelineResources deletes the RC and services associated with op's
 // pipeline. It doesn't return a stepError, leaving retry behavior to the caller
 func (op *pipelineOp) deletePipelineResources() error {
-	if err := op.m.deletePipelineResources(op.ptr.Pipeline.Name); err != nil {
+	if err := op.m.deletePipelineResources(op.pipelineInfo.Pipeline.Name); err != nil {
 		return err
 	}
 	return nil
@@ -496,9 +496,9 @@ func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error 
 // scaleUpPipeline edits the RC associated with op's pipeline & spins up the
 // configured number of workers.
 func (op *pipelineOp) scaleUpPipeline() (retErr error) {
-	log.Infof("PPS master: scaling up workers for %q", op.ptr.Pipeline.Name)
+	log.Infof("PPS master: scaling up workers for %q", op.pipelineInfo.Pipeline.Name)
 	span, _ := tracing.AddSpanToAnyExisting(op.ctx,
-		"/pps.Master/ScaleUpPipeline", "pipeline", op.ptr.Pipeline.Name)
+		"/pps.Master/ScaleUpPipeline", "pipeline", op.pipelineInfo.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			log.Errorf("PPS master: error scaling up: %v", retErr)
@@ -508,28 +508,31 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 	}()
 
 	// compute target pipeline parallelism
-	parallelism := int(op.ptr.Parallelism)
-	if parallelism == 0 {
-		log.Errorf("PPS master: error getting number of workers (defaulting to 1 worker)")
-		parallelism = 1
+	parallelism := uint64(1)
+	if op.pipelineInfo.Details.ParallelismSpec != nil {
+		parallelism = op.pipelineInfo.Details.ParallelismSpec.Constant
 	}
 
 	// update pipeline RC
 	return op.updateRC(func(rc *v1.ReplicationController) {
-		if rc.Spec.Replicas != nil && *op.rc.Spec.Replicas == int32(parallelism) {
+		if rc.Spec.Replicas != nil && *op.rc.Spec.Replicas > 0 {
 			return // prior attempt succeeded
 		}
 		rc.Spec.Replicas = new(int32)
-		*rc.Spec.Replicas = int32(parallelism)
+		if op.pipelineInfo.Details.Autoscaling {
+			*rc.Spec.Replicas = 1
+		} else {
+			*rc.Spec.Replicas = int32(parallelism)
+		}
 	})
 }
 
 // scaleDownPipeline edits the RC associated with op's pipeline & spins down the
 // configured number of workers.
 func (op *pipelineOp) scaleDownPipeline() (retErr error) {
-	log.Infof("PPS master: scaling down workers for %q", op.ptr.Pipeline.Name)
+	log.Infof("PPS master: scaling down workers for %q", op.pipelineInfo.Pipeline.Name)
 	span, _ := tracing.AddSpanToAnyExisting(op.ctx,
-		"/pps.Master/ScaleDownPipeline", "pipeline", op.ptr.Pipeline.Name)
+		"/pps.Master/ScaleDownPipeline", "pipeline", op.pipelineInfo.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			log.Errorf("PPS master: error scaling down: %v", retErr)
@@ -575,5 +578,5 @@ func (op *pipelineOp) restartPipeline(reason string) error {
 		return errors.Wrap(err, "error restarting pipeline")
 	}
 
-	return errors.Errorf("restarting pipeline %q: %s", op.ptr.Pipeline.Name, reason)
+	return errors.Errorf("restarting pipeline %q: %s", op.pipelineInfo.Pipeline.Name, reason)
 }

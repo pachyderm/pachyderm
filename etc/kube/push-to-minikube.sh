@@ -11,11 +11,6 @@ if [ -f /TESTFASTER_PREWARM_COMPLETE ]; then
     exit 0
 fi
 
-if [ -n "$TRAVIS_BUILD_NUMBER" ]; then
-    echo "Detected running in Travis, nothing to do."
-    exit 0
-fi
-
 # Detect if minikube was started with --vm-driver=none by inspecting the output
 # from 'minikube docker-env'
 if minikube docker-env \

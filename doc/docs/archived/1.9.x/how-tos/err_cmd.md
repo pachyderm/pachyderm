@@ -66,4 +66,4 @@ successfully processed, only these two successful datums are used in
 the next pipeline.
 
 !!! note "See Also:"
-    [Example err_cmd pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/err_cmd/)
+    [Example err_cmd pipeline](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/err_cmd/)

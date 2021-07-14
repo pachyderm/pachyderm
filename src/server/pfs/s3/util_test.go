@@ -82,12 +82,9 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime *time.
 	}
 }
 
-func putListFileTestObject(t *testing.T, pachClient *client.APIClient, repo string, commitID string, dir string, i int) {
+func putListFileTestObject(t *testing.T, mf client.ModifyFile, dir string, i int) {
 	t.Helper()
-	require.NoError(t, pachClient.PutFile(
-		repo,
-		"",
-		commitID,
+	require.NoError(t, mf.PutFile(
 		fmt.Sprintf("%s%d", dir, i),
 		strings.NewReader(fmt.Sprintf("%d\n", i)),
 	))
@@ -132,10 +129,10 @@ func fileHash(t *testing.T, name string) (int64, []byte) {
 }
 
 func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
-	server, err := Server(0, driver, func() (*client.APIClient, error) {
+	router := Router(driver, func() (*client.APIClient, error) {
 		return pachClient.WithCtx(context.Background()), nil
 	})
-	require.NoError(t, err)
+	server := Server(0, router)
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 

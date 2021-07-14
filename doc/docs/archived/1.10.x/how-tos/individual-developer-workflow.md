@@ -23,7 +23,7 @@ be written in any language and can use any libraries of choice. Whether
 your code is as simple as a bash command or as complicated as a
 TensorFlow neural network, it needs to be built with all the required
 dependencies into a container that can run anywhere, including inside
-of Pachyderm. See [Examples](https://github.com/pachyderm/pachyderm/tree/master/examples).
+of Pachyderm. See [Examples](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples).
 
 Your code does not have to import any special Pachyderm
 functionality or libraries. However, it must meet the
@@ -87,7 +87,7 @@ To build a Docker image, complete the following steps:
 1. If you do not have a registry, create one with a preferred provider.
 If you decide to use DockerHub, follow the [Docker Hub Quickstart](https://docs.docker.com/docker-hub/) to
 create a repository for your project.
-1. Create a `Dockerfile` for your project. See the [OpenCV example](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/Dockerfile).
+1. Create a `Dockerfile` for your project. See the [OpenCV example](https://github.com/pachyderm/pachyderm/blob/1.13.x/examples/opencv/Dockerfile).
 1. Log in to an image registry.
 
    * If you use DockerHub, run:
@@ -184,7 +184,7 @@ To create a Pipeline, complete the following steps:
 
    You can specify a local file or a file stored in a remote
    location, such as a GitHub repository. For example,
-   `https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json`.
+   `https://raw.githubusercontent.com/pachyderm/pachyderm/1.13.x/examples/opencv/edges.json`.
 
 !!! note "See Also:"
     - [Pipeline Specification](../reference/pipeline_spec.md)

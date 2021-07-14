@@ -8,8 +8,7 @@ message DataRef {
   // The chunk the referenced data is located in.
   Ref ref = 1;
   // The hash of the data being referenced.
-  // This field is empty when it is equal to the chunk hash (the ref is the whole chunk).
-  string hash = 2;
+  bytes hash = 2;
   // The offset and size used for accessing the data within the chunk.
   int64 offset_bytes = 3;
   int64 size_bytes = 4;
@@ -21,7 +20,8 @@ enum CompressionAlgo {
 }
 
 enum EncryptionAlgo {
-  CHACHA20 = 0;
+  ENCRYPTION_ALGO_UNKNOWN = 0;
+  CHACHA20 = 1;
 }
 
 message Ref {

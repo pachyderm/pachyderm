@@ -44,14 +44,12 @@ func mainError(err error) {
 }
 
 const (
-	cannotParseErr                     = "cannot parse"
-	cannotSetBothRequiredAndDefaultErr = "cannot set both required and default"
-	duplicateRestrictToKeyErr          = "duplicate restrict to key"
-	envKeyNotSetWhenRequiredErr        = "env key not set when required"
-	expectedPointerErr                 = "expected pointer"
-	expectedStructErr                  = "expected struct"
-	fieldTypeNotAllowedErr             = "field type not allowed"
-	invalidTagErr                      = "invalid tag, must be KEY,{required},{default=DEFAULT_VALUE}"
+	cannotParseErr              = "cannot parse"
+	envKeyNotSetWhenRequiredErr = "env key not set when required"
+	expectedPointerErr          = "expected pointer"
+	expectedStructErr           = "expected struct"
+	fieldTypeNotAllowedErr      = "field type not allowed"
+	invalidTagErr               = "invalid tag, must be KEY,{required},{default=DEFAULT_VALUE}"
 )
 
 func populate(object interface{}, decoders []Decoder) error {

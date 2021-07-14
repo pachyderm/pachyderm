@@ -25,7 +25,7 @@ Pachyderm requires the following types of persistent storage:
       The metadata service generally requires a small persistent volume size (i.e. 10GB) **but high IOPS (1500)**. Pachyderm recommends SSD **gp3** for this persistent EBS volume which delivers a baseline performance of 3,000 IOPS and 125MB/s at any volume size. Any other disk choice may require to oversize the volume significantly to ensure enough IOPS.
 
 
-See [volume types](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html)
+See [volume types](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html).
 
 If you expect your cluster to be very long
 running or scale to thousands of jobs per commits, you might need to go add
@@ -213,6 +213,8 @@ To deploy Pachyderm with an IAM role, complete the following steps:
       pachctl             {{ config.pach_latest_version }}
       pachd               {{ config.pach_latest_version }}
       ```
+     
+      * Finally, make sure [`pachtl` talks with your cluster](#have-pachctl-and-your-cluster-communicate).
 
       * If you want to access the Pachyderm UI or use the S3 gateway, you need to
       forward Pachyderm ports. Open a new terminal window and run the
@@ -285,10 +287,50 @@ steps:
       pachd               {{ config.pach_latest_version }}
       ```
 
+      * Finally, make sure [`pachtl` talks with your cluster](#have-pachctl-and-your-cluster-communicate).
+
       * If you want to access the Pachyderm UI or use S3 gateway, you need to
       forward Pachyderm ports. Open a new terminal window and run the
       following command:
 
       ```shell
-      pachctl port-forward
+      pachctl port-forward 
       ```
+
+## Have 'pachctl' and your Cluster Communicate
+
+Finally, assuming your `pachd` is running as shown above, 
+make sure that `pachctl` can talk to the cluster by:
+
+- Running a port-forward:
+
+```shell
+# Background this process because it blocks.
+pachctl port-forward   
+```
+
+- Exposing your cluster to the internet by setting up a LoadBalancer as follow:
+
+!!! Warning 
+      The following setup of a LoadBalancer only applies to pachd.
+
+1. To get an external IP address for a Cluster, edit its k8s service, 
+```shell
+kubectl edit service pachd
+```
+and change its `spec.type` value from `NodePort` to `LoadBalancer`. 
+
+1. Retrieve the external IP address of the edited service.
+When listing your services again, you should see an external IP address allocated to the service you just edited. 
+```shell
+kubectl get service
+```
+1. Update the context of your cluster with their direct url, using the external IP address above:
+```shell
+echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
+```
+1. Check that your are using the right context: 
+```shell
+pachctl config get active-context`
+```
+Your cluster context name set above should show up. 

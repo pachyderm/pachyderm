@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package license;
+package license_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/license";
 
 import "google/protobuf/timestamp.proto";
@@ -20,14 +20,14 @@ message ActivateRequest {
 }
 
 message ActivateResponse {
-  enterprise.TokenInfo info = 1;
+  enterprise_v2.TokenInfo info = 1;
 }
 
 message GetActivationCodeRequest {}
 
 message GetActivationCodeResponse {
-  enterprise.State state = 1;
-  enterprise.TokenInfo info = 2;
+  enterprise_v2.State state = 1;
+  enterprise_v2.TokenInfo info = 2;
   string activation_code = 3;
 }
 
@@ -65,6 +65,7 @@ message ClusterStatus {
   string address = 2;
   string version = 3;
   bool auth_enabled = 4 [(gogoproto.moretags) = "db:\"auth_enabled\""];
+  string client_id = 7 [(gogoproto.moretags) = "db:\"client_id\""];
   google.protobuf.Timestamp last_heartbeat = 5 [(gogoproto.moretags) = "db:\"last_heartbeat\"", (gogoproto.stdtime) = true]; 
   google.protobuf.Timestamp created_at = 6 [(gogoproto.moretags) = "db:\"created_at\"", (gogoproto.stdtime) = true]; 
 }
@@ -91,10 +92,11 @@ message HeartbeatRequest {
   string secret = 2;
   string version = 3;
   bool auth_enabled = 4;
+  string client_id = 5;
 }
 
 message HeartbeatResponse {
-  enterprise.LicenseRecord license = 1;
+  enterprise_v2.LicenseRecord license = 1;
 }
 
 message UserClusterInfo {

@@ -10,6 +10,7 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -51,7 +52,7 @@ func (a *apiServer) LogReq(request interface{}) {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
+func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string, heartbeat bool) (ec.APIServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewEtcdCollection(
 		env.GetEtcdClient(),
@@ -70,7 +71,10 @@ func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string) (ec.APISe
 		configCol:            col.NewEtcdCollection(env.GetEtcdClient(), etcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
 	}
 	go s.enterpriseTokenCache.Watch()
-	go s.heartbeatRoutine()
+
+	if heartbeat {
+		go s.heartbeatRoutine()
+	}
 	return s, nil
 }
 
@@ -81,7 +85,7 @@ func (a *apiServer) heartbeatRoutine() {
 		func() {
 			ctx, cancel := context.WithTimeout(context.Background(), heartbeatTimeout)
 			defer cancel()
-			if err := a.heartbeatIfConfigured(ctx); err != nil {
+			if err := a.heartbeatIfConfigured(ctx); err != nil && !lc.IsErrNotActivated(err) {
 				logrus.WithError(err).Error("enterprise license heartbeat process failed")
 			}
 		}()
@@ -140,9 +144,15 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		return nil, err
 	}
 
-	authEnabled, err := localClient.IsAuthActive()
-	if err != nil {
+	var clientID string
+	authEnabled := true
+	config, err := a.env.AuthServer().GetConfiguration(ctx, &auth.GetConfigurationRequest{})
+	if err != nil && auth.IsErrNotActivated(err) {
+		authEnabled = false
+	} else if err != nil {
 		return nil, err
+	} else {
+		clientID = config.Configuration.ClientID
 	}
 
 	pachClient, err := client.NewFromURI(licenseServer)
@@ -155,6 +165,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		Secret:      secret,
 		Version:     versionResp,
 		AuthEnabled: authEnabled,
+		ClientId:    clientID,
 	})
 }
 

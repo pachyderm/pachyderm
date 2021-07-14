@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -85,11 +86,11 @@ type ppsMaster struct {
 	monitorCancels         map[string]func() // protected by monitorCancelsMu
 	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
 
-	// fields for the pollPipelines and pollPipelinePods goros
+	// fields for the pollPipelines, pollPipelinePods, and watchPipelines goros
 	pollPipelinesMu sync.Mutex
 	pollCancel      func() // protected by pollPipelinesMu
 	pollPodsCancel  func() // protected by pollPipelinesMu
-	pollEtcdCancel  func() // protected by pollPipelinesMu
+	watchCancel     func() // protected by pollPipelinesMu
 
 	// channel through which pipeline events are passed
 	eventCh chan *pipelineEvent
@@ -102,7 +103,6 @@ func (a *apiServer) master() {
 		a:                      a,
 		monitorCancels:         make(map[string]func()),
 		crashingMonitorCancels: make(map[string]func()),
-		eventCh:                make(chan *pipelineEvent, 1), // avoid thrashing
 	}
 
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
@@ -137,6 +137,7 @@ func (a *apiServer) setPipelineCrashing(ctx context.Context, pipelineName string
 func (m *ppsMaster) run() {
 	// close m.eventCh after all cancels have returned and therefore all pollers
 	// (which are what write to m.eventCh) have exited
+	m.eventCh = make(chan *pipelineEvent, 1)
 	defer close(m.eventCh)
 	defer m.cancelAllMonitorsAndCrashingMonitors()
 	// start pollers in the background--cancel functions ensure poll/monitor
@@ -146,8 +147,8 @@ func (m *ppsMaster) run() {
 	defer m.cancelPipelinePoller()
 	m.startPipelinePodsPoller()
 	defer m.cancelPipelinePodsPoller()
-	m.startPipelineEtcdPoller()
-	defer m.cancelPipelineEtcdPoller()
+	m.startPipelineWatcher()
+	defer m.cancelPipelineWatcher()
 
 eventLoop:
 	for {
@@ -235,7 +236,7 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 	}
 	for _, service := range services.Items {
 		if err := kubeClient.CoreV1().Services(namespace).Delete(service.Name, opts); err != nil {
-			if !isNotFoundErr(err) {
+			if !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "could not delete service %q", service.Name)
 			}
 		}
@@ -248,7 +249,7 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 	}
 	for _, secret := range secrets.Items {
 		if err := kubeClient.CoreV1().Secrets(namespace).Delete(secret.Name, opts); err != nil {
-			if !isNotFoundErr(err) {
+			if !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "could not delete secret %q", secret.Name)
 			}
 		}
@@ -262,7 +263,7 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 	}
 	for _, rc := range rcs.Items {
 		if err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(rc.Name, opts); err != nil {
-			if !isNotFoundErr(err) {
+			if !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "could not delete RC %q", rc.Name)
 			}
 		}

@@ -5,6 +5,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
+	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
+	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
@@ -24,10 +28,22 @@ type TestServiceEnv struct {
 	KubeClient       *kube.Clientset
 	LokiClient       *loki.Client
 	DBClient         *sqlx.DB
-	PostgresListener *col.PostgresListener
+	PostgresListener col.PostgresListener
 	DexDB            dex_storage.Storage
 	Log              *log.Logger
 	Ctx              context.Context
+
+	// Auth is the registered auth APIServer
+	Auth auth_server.APIServer
+
+	// Pps is the registered pps APIServer
+	Pps pps_server.APIServer
+
+	// Pfs is the registered pfs APIServer
+	Pfs pfs_server.APIServer
+
+	// Enterprise is the registered pfs APIServer
+	Enterprise enterprise_server.APIServer
 
 	// Ready is a channel that blocks `GetPachClient` until it's closed.
 	// This avoids a race when we need to instantiate the server before
@@ -55,7 +71,7 @@ func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
 func (s *TestServiceEnv) GetDBClient() *sqlx.DB {
 	return s.DBClient
 }
-func (s *TestServiceEnv) GetPostgresListener() *col.PostgresListener {
+func (s *TestServiceEnv) GetPostgresListener() col.PostgresListener {
 	return s.PostgresListener
 }
 
@@ -93,4 +109,44 @@ func (s *TestServiceEnv) Close() error {
 		eg.Go(listener.Close)
 	}
 	return eg.Wait()
+}
+
+// AuthServer returns the registered PFS APIServer
+func (env *TestServiceEnv) AuthServer() auth_server.APIServer {
+	return env.Auth
+}
+
+// PpsServer returns the registered PPS APIServer
+func (env *TestServiceEnv) PpsServer() pps_server.APIServer {
+	return env.Pps
+}
+
+// PfsServer returns the registered PFS APIServer
+func (env *TestServiceEnv) PfsServer() pfs_server.APIServer {
+	return env.Pfs
+}
+
+// SetAuthServer returns the registered PFS APIServer
+func (env *TestServiceEnv) SetAuthServer(s auth_server.APIServer) {
+	env.Auth = s
+}
+
+// SetPpsServer returns the registered PPS APIServer
+func (env *TestServiceEnv) SetPpsServer(s pps_server.APIServer) {
+	env.Pps = s
+}
+
+// SetPfsServer returns the registered PFS APIServer
+func (env *TestServiceEnv) SetPfsServer(s pfs_server.APIServer) {
+	env.Pfs = s
+}
+
+// EnterpriseServer returns the registered Enterprise APIServer
+func (env *TestServiceEnv) EnterpriseServer() enterprise_server.APIServer {
+	return env.Enterprise
+}
+
+// SetEnterpriseServer returns the registered Enterprise APIServer
+func (env *TestServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
+	env.Enterprise = s
 }

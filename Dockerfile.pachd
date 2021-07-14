@@ -1,14 +1,21 @@
-# syntax=docker/dockerfile:1.0-experimental
-ARG GO_VERSION
-FROM golang:${GO_VERSION}
-RUN apt update && apt install ca-certificates
-RUN go get github.com/go-bindata/go-bindata/...
-WORKDIR /app
-COPY . .
+FROM alpine:3.10 AS pachyderm_build
+
+RUN mkdir -p /tmp/to-copy/tmp && chmod -R 777 /tmp/to-copy 
+RUN apk add -U ca-certificates
+
+FROM scratch
+
+MAINTAINER jdoliner@pachyerm.io
+
+LABEL name="Pachyderm" \
+      vendor="Pachyderm"
+
 COPY LICENSE /licenses
-ARG LD_FLAGS
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go-bindata -o src/server/cmd/worker/assets/assets.go -pkg assets /etc/ssl/certs/... && \
-    CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o pachd "src/server/cmd/pachd/main.go" && \
-    CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o worker "src/server/cmd/worker/main.go"
+COPY pachd /pachd
+COPY dex-assets /dex-assets
+COPY --from=pachyderm_build /tmp/to-copy /
+COPY --from=pachyderm_build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+USER 1000
+
+ENTRYPOINT ["/pachd"]

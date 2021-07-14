@@ -10,7 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 )
 
-// GetTestEnterpriseCode Pulls the enterprise code out of the env var stored in travis
+// GetTestEnterpriseCode Pulls the enterprise code out of the env var stored in CI
 func GetTestEnterpriseCode(t testing.TB) string {
 	acode, exists := os.LookupEnv("ENT_ACT_CODE")
 	if !exists {
@@ -34,9 +34,9 @@ func ActivateEnterprise(t testing.TB, c *client.APIClient) {
 		&license.AddClusterRequest{
 			Id:               "localhost",
 			Secret:           "localhost",
-			Address:          "grpc://localhost:650",
-			UserAddress:      "grpc://localhost:650",
-			EnterpriseServer: false,
+			Address:          "grpc://localhost:1650",
+			UserAddress:      "grpc://localhost:1650",
+			EnterpriseServer: true,
 		})
 	if err != nil && !license.IsErrDuplicateClusterID(err) {
 		require.NoError(t, err)
@@ -46,7 +46,7 @@ func ActivateEnterprise(t testing.TB, c *client.APIClient) {
 		&enterprise.ActivateRequest{
 			Id:            "localhost",
 			Secret:        "localhost",
-			LicenseServer: "grpc://localhost:650",
+			LicenseServer: "grpc://localhost:1650",
 		})
 	require.NoError(t, err)
 }

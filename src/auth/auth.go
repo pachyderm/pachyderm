@@ -47,12 +47,6 @@ const (
 	// be removed from the set of cluster super-admins.
 	RootUser = "pach:root"
 
-	// PpsUser is a special, unrevokable cluster administrator account used by PPS
-	// to create pipeline tokens, close commits, and do other necessary PPS work.
-	// It's not possible to authenticate as ppsUser (pps reads the auth token for
-	// this user directly from etcd).
-	PpsUser = `pach:pps`
-
 	// ClusterAdminRole is the role for cluster admins, who have full access to all APIs
 	ClusterAdminRole = "clusterAdmin"
 
@@ -87,6 +81,12 @@ const (
 
 	// AllClusterUsersSubject is a subject which applies a role binding to all authenticated users
 	AllClusterUsersSubject = "allClusterUsers"
+
+	// SecretAdminRole is a role which grants the ability to manage secrets
+	SecretAdminRole = "secretAdmin"
+
+	// PachdLogReaderRole is a role which grants the ability to pull pachd logs
+	PachdLogReaderRole = "pachdLogReader"
 )
 
 var (
@@ -208,7 +208,7 @@ type ErrNotAuthorized struct {
 const errNotAuthorizedMsg = "not authorized to perform this operation"
 
 func (e *ErrNotAuthorized) Error() string {
-	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
+	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v. Run `pachctl auth roles-for-permission` to find roles that grant a given permission.", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
 }
 
 // IsErrNotAuthorized checks if an error is a ErrNotAuthorized

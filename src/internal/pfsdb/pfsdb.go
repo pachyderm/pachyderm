@@ -14,11 +14,9 @@ import (
 )
 
 const (
-	reposCollectionName       = "repos"
-	branchesCollectionName    = "branches"
-	commitsCollectionName     = "commits"
-	openCommitsCollectionName = "open_commits"
-	jobsCollectionName        = "jobs"
+	reposCollectionName    = "repos"
+	branchesCollectionName = "branches"
+	commitsCollectionName  = "commits"
 )
 
 var ReposTypeIndex = &col.Index{
@@ -50,7 +48,7 @@ func repoKeyCheck(key string) error {
 }
 
 // Repos returns a collection of repos
-func Repos(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func Repos(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		reposCollectionName,
 		db,
@@ -68,14 +66,32 @@ var CommitsRepoIndex = &col.Index{
 	},
 }
 
-var commitsIndexes = []*col.Index{CommitsRepoIndex}
+var CommitsBranchlessIndex = &col.Index{
+	Name: "branchless",
+	Extract: func(val proto.Message) string {
+		return CommitBranchlessKey(val.(*pfs.CommitInfo).Commit)
+	},
+}
+
+var CommitsCommitSetIndex = &col.Index{
+	Name: "commitset",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.CommitInfo).Commit.ID
+	},
+}
+
+var commitsIndexes = []*col.Index{CommitsRepoIndex, CommitsBranchlessIndex, CommitsCommitSetIndex}
 
 func CommitKey(commit *pfs.Commit) string {
+	return BranchKey(commit.Branch) + "=" + commit.ID
+}
+
+func CommitBranchlessKey(commit *pfs.Commit) string {
 	return RepoKey(commit.Branch.Repo) + "@" + commit.ID
 }
 
 // Commits returns a collection of commits
-func Commits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func Commits(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		commitsCollectionName,
 		db,
@@ -100,7 +116,7 @@ func BranchKey(branch *pfs.Branch) string {
 }
 
 // Branches returns a collection of branches
-func Branches(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func Branches(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		branchesCollectionName,
 		db,
@@ -120,34 +136,6 @@ func Branches(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollectio
 	)
 }
 
-var openCommitsIndexes = []*col.Index{}
-
-// OpenCommits returns a collection of open commits
-func OpenCommits(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
-	return col.NewPostgresCollection(
-		openCommitsCollectionName,
-		db,
-		listener,
-		&pfs.Commit{},
-		openCommitsIndexes,
-		nil,
-	)
-}
-
-var jobsIndexes = []*col.Index{}
-
-// Jobs returns a collection of jobs
-func Jobs(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
-	return col.NewPostgresCollection(
-		jobsCollectionName,
-		db,
-		listener,
-		&pfs.StoredJobInfo{},
-		jobsIndexes,
-		nil,
-	)
-}
-
 // AllCollections returns a list of all the PFS collections for
 // postgres-initialization purposes. These collections are not usable for
 // querying.
@@ -156,7 +144,5 @@ func AllCollections() []col.PostgresCollection {
 		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes, nil),
 		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes, nil),
 		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes, nil),
-		col.NewPostgresCollection(openCommitsCollectionName, nil, nil, nil, openCommitsIndexes, nil),
-		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, jobsIndexes, nil),
 	}
 }

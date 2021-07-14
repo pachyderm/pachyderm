@@ -221,7 +221,7 @@ func (m *Master) createSubtask(subtask *Task) error {
 		subtask.ID = uuid.NewWithoutDashes()
 	}
 	subtaskKey := path.Join(m.taskID, subtask.ID)
-	subtaskInfo := &TaskInfo{Task: subtask}
+	subtaskInfo := &TaskInfo{Task: subtask, State: State_RUNNING}
 	if _, err := col.NewSTM(m.taskEntry.ctx, m.etcdClient, func(stm col.STM) error {
 		return m.subtaskCol.ReadWrite(stm).Put(subtaskKey, subtaskInfo)
 	}); err != nil {
@@ -233,6 +233,7 @@ func (m *Master) createSubtask(subtask *Task) error {
 func (m *Master) deleteSubtasks() error {
 	_, err := col.NewSTM(context.Background(), m.etcdClient, func(stm col.STM) error {
 		m.subtaskCol.ReadWrite(stm).DeleteAllPrefix(m.taskID)
+		m.claimCol.ReadWrite(stm).DeleteAllPrefix(m.taskID)
 		return nil
 	})
 	return err
@@ -241,6 +242,7 @@ func (m *Master) deleteSubtasks() error {
 func (tq *TaskQueue) deleteTask(taskID string) error {
 	_, err := col.NewSTM(context.Background(), tq.etcdClient, func(stm col.STM) error {
 		tq.subtaskCol.ReadWrite(stm).DeleteAllPrefix(taskID)
+		tq.claimCol.ReadWrite(stm).DeleteAllPrefix(taskID)
 		return tq.taskCol.ReadWrite(stm).Delete(taskID)
 	})
 	return err
@@ -249,6 +251,7 @@ func (tq *TaskQueue) deleteTask(taskID string) error {
 func (tq *TaskQueue) deleteAllTasks() error {
 	_, err := col.NewSTM(context.Background(), tq.etcdClient, func(stm col.STM) error {
 		tq.subtaskCol.ReadWrite(stm).DeleteAll()
+		tq.claimCol.ReadWrite(stm).DeleteAll()
 		tq.taskCol.ReadWrite(stm).DeleteAll()
 		return nil
 	})
@@ -387,4 +390,17 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 			fmt.Printf("errored in subtask callback: %v\n", err)
 		}
 	}
+}
+
+// TaskCount returns how many subtasks are in the queue and how many are claimed.
+func (w *Worker) TaskCount(ctx context.Context) (subTasks int64, claims int64, _ error) {
+	nSubTasks, rev, err := w.subtaskCol.ReadOnly(ctx).CountRev(0)
+	if err != nil {
+		return 0, 0, err
+	}
+	nClaims, _, err := w.claimCol.ReadOnly(ctx).CountRev(rev)
+	if err != nil {
+		return 0, 0, err
+	}
+	return nSubTasks, nClaims, nil
 }

@@ -23,8 +23,13 @@ func newClient() (*client.APIClient, error) {
 	return c, nil
 }
 
-// ActivateCmd returns a cobra.Command to activate the license service
+// ActivateCmd returns a cobra.Command to activate the license service,
+// register the current pachd and activate enterprise features.
+// This always runs against the current enterprise context, and can
+// be used to activate a single-node pachd deployment or the enterprise
+// server in a multi-node deployment.
 func ActivateCmd() *cobra.Command {
+	var onlyActivate bool
 	activate := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Activate the license server with an activation code",
@@ -49,10 +54,45 @@ func ActivateCmd() *cobra.Command {
 				return err
 			}
 
+			if onlyActivate {
+				return nil
+			}
+
+			// inspect the activated cluster for its Deployment Id
+			clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
+			if inspectErr != nil {
+				return errors.Wrapf(inspectErr, "could not inspect cluster")
+			}
+
+			// Register the localhost as a cluster
+			resp, err := c.License.AddCluster(c.Ctx(),
+				&license.AddClusterRequest{
+					Id:                  "localhost",
+					Address:             "grpc://localhost:1653",
+					UserAddress:         "grpc://localhost:1653",
+					ClusterDeploymentId: clusterInfo.DeploymentID,
+					EnterpriseServer:    true,
+				})
+			if err != nil {
+				return errors.Wrapf(err, "could not register pachd with the license service")
+			}
+
+			// activate the Enterprise service
+			_, err = c.Enterprise.Activate(c.Ctx(),
+				&enterprise.ActivateRequest{
+					Id:            "localhost",
+					Secret:        resp.Secret,
+					LicenseServer: "grpc://localhost:1653",
+				})
+			if err != nil {
+				return errors.Wrapf(err, "could not activate the enterprise service")
+			}
+
 			return nil
+
 		}),
 	}
-
+	activate.PersistentFlags().BoolVar(&onlyActivate, "no-register", false, "Activate auth on the active enterprise context")
 	return cmdutil.CreateAlias(activate, "license activate")
 }
 

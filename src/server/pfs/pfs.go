@@ -3,9 +3,12 @@ package pfs
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ErrFileNotFound represents a file-not-found error.
@@ -33,10 +36,9 @@ type ErrCommitNotFound struct {
 	Commit *pfs.Commit
 }
 
-// ErrNoHead represents an error encountered because a branch has no head (e.g.
-// inspectCommit(master) when 'master' has no commits)
-type ErrNoHead struct {
-	Branch *pfs.Branch
+// ErrCommitSetNotFound represents a commitset-not-found error.
+type ErrCommitSetNotFound struct {
+	CommitSet *pfs.CommitSet
 }
 
 // ErrCommitExists represents an error where the commit already exists.
@@ -47,6 +49,11 @@ type ErrCommitExists struct {
 // ErrCommitFinished represents an error where the commit has been finished
 // (e.g from PutFile or DeleteFile)
 type ErrCommitFinished struct {
+	Commit *pfs.Commit
+}
+
+// ErrCommitError represents an error where the commit has been finished with an error.
+type ErrCommitError struct {
 	Commit *pfs.Commit
 }
 
@@ -72,45 +79,75 @@ type ErrCommitNotFinished struct {
 	Commit *pfs.Commit
 }
 
+// ErrAmbiguousCommit represents an error where a user-specified commit did not
+// specify a branch and resolved to multiple commits on different branches.
+type ErrAmbiguousCommit struct {
+	Commit *pfs.Commit
+}
+
+// ErrInconsistentCommit represents an error where a transaction attempts to
+// create a CommitSet with multiple commits in the same branch, which would
+// result in inconsistent data dependencies.
+type ErrInconsistentCommit struct {
+	Branch *pfs.Branch
+	Commit *pfs.Commit
+}
+
+func (e ErrInconsistentCommit) Is(other error) bool {
+	_, ok := other.(ErrInconsistentCommit)
+	return ok
+}
+
+// ErrCommitOnOutputBranch represents an error where an attempt was made to start
+// a commit on an output branch (a branch that is provenant on other branches).
+// Users should not manually try to start a commit in an output branch, this
+// should only be done internally in PFS.
+type ErrCommitOnOutputBranch struct {
+	Branch *pfs.Branch
+}
+
 func (e ErrFileNotFound) Error() string {
-	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo.Name, e.File.Commit.ID)
+	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo, e.File.Commit.ID)
 }
 
 func (e ErrRepoNotFound) Error() string {
-	return fmt.Sprintf("repo %v not found", e.Repo.Name)
+	return fmt.Sprintf("repo %v not found", e.Repo)
 }
 
 func (e ErrRepoExists) Error() string {
-	return fmt.Sprintf("repo %v already exists", e.Repo.Name)
+	return fmt.Sprintf("repo %v already exists", e.Repo)
 }
 
 func (e ErrRepoDeleted) Error() string {
-	return fmt.Sprintf("repo %v was deleted", e.Repo.Name)
+	return fmt.Sprintf("repo %v was deleted", e.Repo)
 }
 
 func (e ErrCommitNotFound) Error() string {
-	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo)
 }
 
-func (e ErrNoHead) Error() string {
-	// the dashboard is matching on this message in stats. Please open an issue on the dash before changing this
-	return fmt.Sprintf("the branch \"%s\" has no head (create one with 'start commit')", e.Branch.Name)
+func (e ErrCommitSetNotFound) Error() string {
+	return fmt.Sprintf("no commits found for commitset %v", e.CommitSet.ID)
 }
 
 func (e ErrCommitExists) Error() string {
-	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, e.Commit.Branch.Repo)
 }
 
 func (e ErrCommitFinished) Error() string {
-	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, e.Commit.Branch.Repo)
+}
+
+func (e ErrCommitError) Error() string {
+	return fmt.Sprintf("commit %v in repo %v finished with an error", e.Commit.ID, e.Commit.Branch.Repo)
 }
 
 func (e ErrCommitDeleted) Error() string {
-	return fmt.Sprintf("commit %v@%v was deleted", e.Commit.Branch.Repo.Name, e.Commit.ID)
+	return fmt.Sprintf("commit %v@%v was deleted", e.Commit.Branch.Repo, e.Commit.ID)
 }
 
 func (e ErrParentCommitNotFound) Error() string {
-	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo.Name)
+	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo)
 }
 
 func (e ErrOutputCommitNotFinished) Error() string {
@@ -121,17 +158,33 @@ func (e ErrCommitNotFinished) Error() string {
 	return fmt.Sprintf("commit %v not finished", e.Commit.ID)
 }
 
+func (e ErrAmbiguousCommit) Error() string {
+	return fmt.Sprintf("commit %v is ambiguous (specify the branch to resolve)", e.Commit.ID)
+}
+
+func (e ErrInconsistentCommit) Error() string {
+	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", e.Commit, e.Branch.Name)
+}
+
+func (e ErrCommitOnOutputBranch) Error() string {
+	return fmt.Sprintf("cannot start a commit on an output branch: %s", e.Branch)
+}
+
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
+	commitsetNotFoundRe       = regexp.MustCompile("no commits found for commitset")
 	commitDeletedRe           = regexp.MustCompile("commit [^ ]+ was deleted")
 	commitFinishedRe          = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
+	commitErrorRe             = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ finished with an error")
 	repoNotFoundRe            = regexp.MustCompile(`repos [a-zA-Z0-9.\-_]{1,255} not found`)
 	repoExistsRe              = regexp.MustCompile(`repo ?[a-zA-Z0-9.\-_]{1,255} already exists`)
 	branchNotFoundRe          = regexp.MustCompile(`branches [a-zA-Z0-9.\-_@]{1,255} not found`)
 	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
-	hasNoHeadRe               = regexp.MustCompile(`the branch .+ has no head \(create one with 'start commit'\)`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
 	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")
+	ambiguousCommitRe         = regexp.MustCompile("commit .+ is ambiguous")
+	inconsistentCommitRe      = regexp.MustCompile("branch already has a commit in this transaction")
+	commitOnOutputBranchRe    = regexp.MustCompile("cannot start a commit on an output branch")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -141,6 +194,15 @@ func IsCommitNotFoundErr(err error) bool {
 		return false
 	}
 	return commitNotFoundRe.MatchString(grpcutil.ScrubGRPC(err).Error())
+}
+
+// IsCommitSetNotFoundErr returns true if 'err' has an error message that matches
+// ErrCommitSetNotFound
+func IsCommitSetNotFoundErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return commitsetNotFoundRe.MatchString(grpcutil.ScrubGRPC(err).Error())
 }
 
 // IsCommitDeletedErr returns true if 'err' has an error message that matches
@@ -159,6 +221,15 @@ func IsCommitFinishedErr(err error) bool {
 		return false
 	}
 	return commitFinishedRe.MatchString(grpcutil.ScrubGRPC(err).Error())
+}
+
+// IsCommitError returns true of 'err' has an error message that matches
+// ErrCommitError
+func IsCommitErrorErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return commitErrorRe.MatchString(grpcutil.ScrubGRPC(err).Error())
 }
 
 // IsRepoNotFoundErr returns true if 'err' is an error message about a repo
@@ -194,16 +265,13 @@ func IsFileNotFoundErr(err error) bool {
 	if err == nil {
 		return false
 	}
-	return fileNotFoundRe.MatchString(err.Error())
-}
-
-// IsNoHeadErr returns true if the err is due to an operation that cannot be
-// performed on a headless branch
-func IsNoHeadErr(err error) bool {
-	if err == nil {
-		return false
+	if fileNotFoundRe.MatchString(err.Error()) {
+		return true
 	}
-	return hasNoHeadRe.MatchString(err.Error())
+	if status.Code(err) == codes.NotFound && strings.Contains(err.Error(), "commit") {
+		return true
+	}
+	return false
 }
 
 // IsOutputCommitNotFinishedErr returns true if the err is due to an operation
@@ -222,4 +290,32 @@ func IsCommitNotFinishedErr(err error) bool {
 		return false
 	}
 	return commitNotFinishedRe.MatchString(err.Error())
+}
+
+// IsAmbiguousCommitErr returns true if the err is due to attempting to resolve
+// a commit without specifying a branch when it is required to uniquely identify
+// the commit.
+func IsAmbiguousCommitErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return ambiguousCommitRe.MatchString(err.Error())
+}
+
+// IsInconsistentCommitErr returns true if the err is due to an attempt to have
+// multiple commits in a single branch within a transaction.
+func IsInconsistentCommitErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return inconsistentCommitRe.MatchString(err.Error())
+}
+
+// IsCommitOnOutputBranchErr returns true if the err is due to an attempt to
+// start a commit on an output branch.
+func IsCommitOnOutputBranchErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return commitOnOutputBranchRe.MatchString(err.Error())
 }

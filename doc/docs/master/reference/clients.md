@@ -40,9 +40,10 @@ information.
 
 ## Python Client
 
-The Python client is officially supported by the Pachyderm team. It implements almost all of the functionality that is provided with the `pachctl` CLI tool, and, thus, you can easily integrated operations like `put file` into your applications.
+The Python client is officially supported by the Pachyderm team. 
+It implements almost all of the functionalities provided with the `pachctl` CLI tool allowing you to easily integrate operations like `create repo`, `put a file,` or `create pipeline` into your python applications.
 
-For more info, check out [the repo](http://github.com/pachyderm/python-pachyderm).
+For more info, check out our Github [repo](https://github.com/pachyderm/python-pachyderm/blob/master/README.md).
 
 ## Scala Client
 

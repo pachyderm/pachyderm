@@ -2,7 +2,6 @@ package transform
 
 import (
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -15,15 +14,10 @@ import (
 // its public interface only allows getting the status of a task and canceling
 // the currently-processing datum.
 type Status struct {
-	mutex         sync.Mutex
-	pipelineJobID string
-	stats         *pps.ProcessStats
-	queueSize     *int64
-	dataProcessed *int64
-	dataRecovered *int64
-	datum         []*pps.InputFile
-	cancel        func()
-	started       time.Time
+	mutex       sync.Mutex
+	jobID       string
+	datumStatus *pps.DatumStatus
+	cancel      func()
 }
 
 func convertInputs(inputs []*common.Input) []*pps.InputFile {
@@ -43,48 +37,38 @@ func (s *Status) withLock(cb func()) {
 	s.mutex.Unlock()
 }
 
-func (s *Status) withPipelineJob(pipelineJobID string, cb func() error) error {
+func (s *Status) withJob(jobID string, cb func() error) error {
 	s.withLock(func() {
-		s.pipelineJobID = pipelineJobID
+		s.jobID = jobID
 	})
 
 	defer s.withLock(func() {
-		s.pipelineJobID = ""
+		s.jobID = ""
 	})
 
 	return cb()
 }
 
-// TODO: Probably should use this in worker.
-//func (s *Status) withStats(stats *pps.ProcessStats, queueSize *int64, dataProcessed, dataRecovered *int64, cb func() error) error {
-//	s.withLock(func() {
-//		s.stats = stats
-//		s.queueSize = queueSize
-//		s.dataProcessed = dataProcessed
-//		s.dataRecovered = dataRecovered
-//	})
-//
-//	defer s.withLock(func() {
-//		s.stats = nil
-//		s.queueSize = nil
-//		s.dataProcessed = nil
-//		s.dataRecovered = nil
-//	})
-//
-//	return cb()
-//}
-
 func (s *Status) withDatum(inputs []*common.Input, cancel func(), cb func() error) error {
+	var err error
 	s.withLock(func() {
-		s.datum = convertInputs(inputs)
+		status := &pps.DatumStatus{
+			Data: convertInputs(inputs),
+		}
+		status.Started, err = types.TimestampProto(time.Now())
+		if err != nil {
+			return
+		}
+		s.datumStatus = status
 		s.cancel = cancel
-		s.started = time.Now()
 	})
+	if err != nil {
+		return err
+	}
 
 	defer s.withLock(func() {
-		s.datum = nil
+		s.datumStatus = nil
 		s.cancel = nil
-		s.started = time.Time{}
 	})
 
 	return cb()
@@ -95,34 +79,18 @@ func (s *Status) GetStatus() (*pps.WorkerStatus, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	started, err := types.TimestampProto(s.started)
-	if err != nil {
-		return nil, err
-	}
-	result := &pps.WorkerStatus{
-		PipelineJobID: s.pipelineJobID,
-		Data:          s.datum,
-		Started:       started,
-		Stats:         s.stats,
-	}
-	if s.queueSize != nil {
-		result.QueueSize = atomic.LoadInt64(s.queueSize)
-	}
-	if s.dataProcessed != nil {
-		result.DataProcessed = atomic.LoadInt64(s.dataProcessed)
-	}
-	if s.dataRecovered != nil {
-		result.DataRecovered = atomic.LoadInt64(s.dataRecovered)
-	}
-	return result, nil
+	return &pps.WorkerStatus{
+		JobID:       s.jobID,
+		DatumStatus: s.datumStatus,
+	}, nil
 }
 
 // Cancel cancels the currently running datum if it matches the specified job and inputs
-func (s *Status) Cancel(pipelineJobID string, datumFilter []string) bool {
+func (s *Status) Cancel(jobID string, datumFilter []string) bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if pipelineJobID == s.pipelineJobID && common.MatchDatum(datumFilter, s.datum) {
+	if jobID == s.jobID && common.MatchDatum(datumFilter, s.datumStatus.Data) {
 		// Fields will be cleared as the worker stack unwinds
 		s.cancel()
 		return true

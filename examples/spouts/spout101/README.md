@@ -1,7 +1,4 @@
 # Spout Pipelines - An introductory example
->![pach_logo](./img/pach_logo.svg) This new implementation of the spout functionality is available in version **1.12 and higher**.
-
-
 ## Intro
 A spout is a type of pipeline that ingests 
 streaming data (message queue, database transactions logs,
@@ -35,14 +32,9 @@ for new S3 objects notifications via an Amazon™ SQS queue
 or connected to an IMAP email account
 to analyze the polarity of its emails.
 
-
->![pach_logo](./img/pach_logo.svg) Note that the use
-of the [build pipelines](https://docs.pachyderm.com/latest/how-tos/developer-workflow/build-pipelines/) for spouts has not yet been made available
-in the 1.12.0 version of Pachyderm. Stay tuned.
-
 ## Getting ready
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
+- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/hub/hub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
 - [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
 ***Getting started***
@@ -53,8 +45,8 @@ Run a quick:
 $ pachctl version
 
 COMPONENT           VERSION
-pachctl             1.12.0
-pachd               1.12.0
+pachctl             2.0.0
+pachd               2.0.0
 ```
 Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the same major & minor versions of your pachctl and pachd. 
 

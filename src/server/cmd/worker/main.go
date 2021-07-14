@@ -14,10 +14,10 @@ import (
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/cmd/worker/assets"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
@@ -30,16 +30,6 @@ import (
 
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
-
-	// Copy certs embedded via go-bindata to /etc/ssl/certs. Because the
-	// container running this app is user-specified, we don't otherwise have
-	// control over the certs that are available.
-	//
-	// If an error occurs, don't hard-fail, but do record if any certs are
-	// known to be missing so we can inform the user.
-	if err := assets.RestoreAssets("/", "etc/ssl/certs"); err != nil {
-		log.Warnf("failed to inject TLS certs: %v", err)
-	}
 
 	// append pachyderm bins to path to allow use of pachctl
 	os.Setenv("PATH", os.Getenv("PATH")+":/pach-bin")
@@ -55,23 +45,29 @@ func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
-	pipelinePtr := &pps.StoredPipelineInfo{}
-	if err := pipelines.ReadOnly(ctx).Get(env.Config().PPSPipelineName, pipelinePtr); err != nil {
+	pipelineInfo := &pps.PipelineInfo{}
+	if err := pipelines.ReadOnly(ctx).Get(env.Config().PPSPipelineName, pipelineInfo); err != nil {
 		return nil, err
 	}
-	pachClient.SetAuthToken(pipelinePtr.AuthToken)
+	pachClient.SetAuthToken(pipelineInfo.AuthToken)
 	// Notice we use the SpecCommitID from our env, not from etcd. This is
 	// because the value in etcd might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	pipelinePtr.SpecCommit.ID = env.Config().PPSSpecCommitID
-	return ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
+	pipelineInfo.SpecCommit.ID = env.Config().PPSSpecCommitID
+	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
+		return nil, err
+	}
+	return pipelineInfo, nil
 }
 
 func do(config interface{}) error {
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	tracing.InstallJaegerTracerFromEnv()
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
+
+	// Enable cloud profilers if the configuration allows.
+	profileutil.StartCloudProfiler("pachyderm-worker", env.Config())
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())

@@ -5,7 +5,7 @@ set -Eex
 export PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
 
 # Parse flags
-VERSION=v1.13.0
+VERSION=v1.19.0
 minikube_args=(
   "--vm-driver=docker"
   "--kubernetes-version=${VERSION}"
@@ -21,10 +21,6 @@ while getopts ":v" opt; do
       ;;
   esac
 done
-
-if [[ -n "${TRAVIS}" ]]; then
-  minikube_args+=("--bootstrapper=kubeadm")
-fi
 
 minikube start "${minikube_args[@]}"
 

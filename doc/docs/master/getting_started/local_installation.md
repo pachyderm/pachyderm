@@ -37,6 +37,7 @@ Before you deploy Pachyderm, make sure that you have installed:
 - A Kubernetes cluster running on your local environment: 
       - [Docker Desktop](#using-kubernetes-on-docker-desktop),
       - [Minikube](#using-minikube)
+      - [Kind](#using-kind)
       - Oracle® VirtualBox™
 - [Pachyderm Command Line Interface](#install-pachctl)
 - [Helm](https://helm.sh/docs/intro/install/) depending on your installation choice.
@@ -74,18 +75,33 @@ by following these steps:
 1. In the Docker Desktop Preferences, enable Kubernetes:
    ![Docker Desktop Enable K8s](../images/k8s_docker_desktop.png)
 
+2. From the command prompt, confirm that Kubernetes is running:
+   ```shell
+   kubectl get all
+   ```
+   ```
+   NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+   service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   5d
+   ```
+
+   * To reset your Kubernetes cluster that runs on Docker Desktop, click
+   the **Reset Kubernetes cluster** button. See image above. 
+
+### Using Kind
+
+!!! Note
+      Please note that Kind is *experimental* still.
+
+1. Install Kind according to its [documentation](https://kind.sigs.k8s.io/).
+
 1. From the command prompt, confirm that Kubernetes is running:
    ```shell
    kubectl get all
    ```
    ```
    NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
-   service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   56d
+   service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   5d
    ```
-
-   * To reset your Kubernetes cluster that runs on Docker Desktop, click
-   the **Reset Kubernetes cluster** button. See image above. 
-
 
 ### Install `pachctl`
 
@@ -180,6 +196,11 @@ deploy Pachyderm on your local cluster by following these steps:
          ```shell
          kubectl create -f ./pachyderm.json
          ```
+!!! Note
+    If you are using Kind:
+    ```shell
+      pachctl deploy local --no-expose-docker-socket
+    ```
 
 ### Using Helm
 * Get the Repo Info:

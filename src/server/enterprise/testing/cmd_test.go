@@ -37,8 +37,8 @@ func TestRegisterPachd(t *testing.T) {
 	defer resetClusterState(t)
 
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl enterprise activate
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
+		echo {{.license}} | pachctl license activate
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650
 		pachctl enterprise get-state | match ACTIVE
 		pachctl license list-clusters \
 		  | match 'id: {{.id}}' \
@@ -56,9 +56,9 @@ func TestRegisterAuthenticated(t *testing.T) {
 
 	cluster := tu.UniqueString("cluster")
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl enterprise activate
-		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
+		echo {{.license}} | pachctl license activate
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:1658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650
 
 		pachctl enterprise get-state | match ACTIVE
 		pachctl license list-clusters \
@@ -79,9 +79,9 @@ func TestEnterpriseRoleBindings(t *testing.T) {
 	defer resetClusterState(t)
 
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl enterprise activate
-		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
+		echo {{.license}} | pachctl license activate
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:1658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 		pachctl auth set enterprise clusterAdmin robot:test1
 		pachctl auth get enterprise | match robot:test1
@@ -100,9 +100,9 @@ func TestGetAndUseRobotToken(t *testing.T) {
 	defer resetClusterState(t)
 
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl enterprise activate
-		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
+		echo {{.license}} | pachctl license activate
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:1658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 		pachctl auth get-robot-token --enterprise -q {{.alice}} | tail -1 | pachctl auth use-auth-token --enterprise
 		pachctl auth get-robot-token -q {{.bob}} | pachctl auth use-auth-token
@@ -124,9 +124,9 @@ func TestConfig(t *testing.T) {
 	defer resetClusterState(t)
 
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl enterprise activate
-		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		echo {{.license}} | pachctl license activate
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:1658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:1650 --pachd-address pachd.default:1650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 			`,
 		"id", tu.UniqueString("cluster"),
@@ -138,20 +138,20 @@ func TestConfig(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth set-config --enterprise <<EOF
 {
-	"issuer": "http://pach-enterprise.enterprise:658",
+	"issuer": "http://pach-enterprise.enterprise:1658",
         "localhost_issuer": true,
 	"client_id": localhost,
-	"redirect_uri": "http://pach-enterprise.enterprise:650"
+	"redirect_uri": "http://pach-enterprise.enterprise:1650"
 }
 EOF
 	`).Run())
 
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth get-config --enterprise \
-		  | match '"issuer": "http://pach-enterprise.enterprise:658"' \
+		  | match '"issuer": "http://pach-enterprise.enterprise:1658"' \
 		  | match '"localhost_issuer": true' \
 		  | match '"client_id": "localhost"' \
-		  | match '"redirect_uri": "http://pach-enterprise.enterprise:650"'
+		  | match '"redirect_uri": "http://pach-enterprise.enterprise:1650"'
 		`,
 	).Run())
 }
@@ -165,9 +165,9 @@ func TestLoginEnterprise(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl enterprise activate
-		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
+		echo {{.license}} | pachctl license activate
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:1658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 		echo '{"id": "test", "name": "test", "type": "mockPassword", "config": {"username": "admin", "password": "password"}}' | pachctl idp create-connector
 		`,
@@ -210,9 +210,9 @@ func TestLoginPachd(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl enterprise activate
-		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
+		echo {{.license}} | pachctl license activate
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:1658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650
 		echo {{.token}} | pachctl auth activate --supply-root-token --client-id pachd2
 		echo '{"id": "test", "name": "test", "type": "mockPassword", "config": {"username": "admin", "password": "password"}}' | pachctl idp create-connector
 		`,
@@ -253,9 +253,9 @@ func TestSyncContexts(t *testing.T) {
 
 	// register a new cluster
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl enterprise activate
-		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650 --pachd-user-address grpc://pachd.default:655 --cluster-deployment-id {{.clusterId}} 
+		echo {{.license}} | pachctl license activate
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:1658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650 --pachd-user-address grpc://pachd.default:1655 --cluster-deployment-id {{.clusterId}} 
 		`,
 		"id", id,
 		"token", tu.RootToken,
@@ -275,7 +275,7 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl enterprise sync-contexts
 		pachctl config list context | match {{.id}}
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://pachd.default:655\"" 
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://pachd.default:1655\"" 
 		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
 		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
 		`,
@@ -311,6 +311,11 @@ func TestSyncContexts(t *testing.T) {
 		"clusterId", newClusterId,
 		"userAddress", "grpc://pachd.default:700",
 	).Run())
+
+	// make sure that the cluster with id = 'localhost' does not get synched, which is
+	// self referencing context record for the enterprise server.
+	// it should be filtered on the criteria of being set as an enterprise server record
+	require.YesError(t, tu.BashCmd(`pachctl config list context | match localhost`).Run())
 }
 
 // Tests RegisterCluster command's derived argument values if not provided
@@ -335,9 +340,9 @@ func TestRegisterDefaultArgs(t *testing.T) {
 
 	// register a new cluster
 	require.NoError(t, tu.BashCmd(`
-		echo {{.license}} | pachctl enterprise activate
-		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:650 --pachd-address grpc://pachd.default:650
+		echo {{.license}} | pachctl license activate
+		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:1658 --supply-root-token
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650
 
 		pachctl enterprise sync-contexts
 
@@ -351,5 +356,41 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		"license", tu.GetTestEnterpriseCode(t),
 		"clusterId", clusterId,
 		"pachdAddress", "grpc://"+host+":30650", // assert that a localhost address is registered
+	).Run())
+}
+
+// tests that Cluster Registration is undone when enterprise service fails to activate in the `enterprise register` subcommand
+func TestRegisterRollback(t *testing.T) {
+	resetClusterState(t)
+	defer resetClusterState(t)
+
+	id := tu.UniqueString("cluster")
+
+	require.NoError(t, tu.BashCmd(`
+		echo {{.license}} | pachctl license activate
+		`,
+		"license", tu.GetTestEnterpriseCode(t),
+	).Run())
+
+	// passing an unreachable enterprise-server-address to the `enterprise register` command
+	// causes it to fail, and rollback cluster record creation
+	require.YesError(t, tu.BashCmd(`
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc:/bad-address:1650 --pachd-address grpc://pachd.default:1650
+		`,
+		"id", id,
+	).Run())
+
+	// verify the cluster id is not present in the license server's registered clusters
+	require.YesError(t, tu.BashCmd(`
+		pachctl license list-clusters \
+			| match 'id: {{.id}}' \
+		`,
+		"id", id,
+	).Run())
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650
+		`,
+		"id", id,
 	).Run())
 }

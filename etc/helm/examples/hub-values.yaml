@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
+
+deployTarget: GOOGLE
+
+dash:
+  enabled: true
+  image:
+    tag: "newVersion"
+
+etcd:
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2G
+  service:
+    annotations:
+      prometheus.io/port: "2379"
+      prometheus.io/scrape: "true"
+  storageClass: "ssd-storage-class"
+  # storageSize is configured per workspace.
+  storageSize: "3Gi"
+
+ingress:
+  enabled: true
+  tls:
+    enabled: true
+    secretName: "dash-tls"
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+  host: "dash.test"
+
+pachd:
+  postgresql:
+    host: "169.254.169.254"
+    port: "5432"
+    ssl: "disable"
+    user: "postgres"
+    password: "Example-Password"
+  goMaxProcs: 3
+  # image.tag is configured per workspace.
+  lokiLogging: true
+  # metricsEndpoint is configured per Hub instance.
+  metricsEndpoint: "https://metrics.test/api/v1/metrics"
+  service:
+    type: "ClusterIP"
+  externalService:
+    enabled: true
+    loadBalancerIP: "192.168.1.1"
+    apiGRPCPort: 31400
+    apiHTTPPort: 30652
+    s3GatewayPort: 30600
+  storage:
+    google:
+      # bucket is configured per workspace.
+      bucket: "test-bucket"
+      cred: ""
+      # serviceAccountName is configured per workspace.
+      serviceAccountName: "test-service-account"
+    putFileConcurrencyLimit: 10
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2G
+    requests:
+      cpu: "1"
+      memory: 2G
+  tls:
+    enabled: true
+    secretName: "dash-tls"
+postgresql:
+  # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
+  enabled: false

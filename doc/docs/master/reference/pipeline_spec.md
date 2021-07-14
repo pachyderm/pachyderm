@@ -4,7 +4,7 @@ This document discusses each of the fields present in a pipeline specification.
 To see how to use a pipeline spec to create a pipeline, refer to the [pachctl
 create pipeline](./pachctl/pachctl_create_pipeline.md) section.
 
-#!!! Info
+!!! Info
     - Pachyderm's pipeline specifications can be written in JSON or YAML.
     - Pachyderm uses its json parser if the first character is `{`.
 ## Manifest Format
@@ -47,14 +47,11 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
         "debug": bool,
         "user": string,
         "working_dir": string,
+        "dockerfile": string,
       },
       "parallelism_spec": {
         // Set at most one of the following:
-        "constant": int,
-        "coefficient": number
-      },
-      "hashtree_spec": {
-      "constant": int,
+        "constant": int
       },
       "resource_requests": {
         "memory": string,
@@ -78,7 +75,7 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
       "datum_tries": int,
       "job_timeout": string,
       "input": {
-        <"pfs", "cross", "union", "join", "group", "cron", or "git" see below>
+        <"pfs", "cross", "union", "join", "group" or "cron" see below>
       },
       "s3_out": bool,
       "reprocess_spec": string,
@@ -86,26 +83,13 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
       "egress": {
         "URL": "s3://bucket/dir"
       },
-      "standby": bool,
       "autoscaling": bool,
-      "cache_size": string,
-      "enable_stats": bool,
       "service": {
         "internal_port": int,
         "external_port": int
       },
       "spout": {
       \\ Optionally, you can combine a spout with a service:
-      "service": {
-            "internal_port": int,
-            "external_port": int
-        }
-      },
-      "max_queue_size": int,
-      "chunk_spec": {
-        "number": int,
-        "size_bytes": int
-      },
       "scheduling_spec": {
         "node_selector": {string: string},
         "priority_class_name": string
@@ -238,16 +222,6 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
         "overwrite": bool
     }
 
-
-    ------------------------------------
-    "git" input
-    ------------------------------------
-
-    "git": {
-      "URL": string,
-      "name": string,
-      "branch": string
-    }
 
     ```
 === "YAML Sample"
@@ -392,17 +366,9 @@ flag. This defaults to `./Dockerfile`.
 ### Parallelism Spec (optional)
 
 `parallelism_spec` describes how Pachyderm parallelizes your pipeline.
-Currently, Pachyderm has two parallelism strategies: `constant` and
-`coefficient`.
 
-If you set the `constant` field, Pachyderm starts the number of workers
-that you specify. For example, set `"constant":10` to use 10 workers.
-
-If you set the `coefficient` field, Pachyderm starts a number of workers
-that is a multiple of your Kubernetes cluster’s size. For example, if your
-Kubernetes cluster has 10 nodes, and you set `"coefficient": 0.5`, Pachyderm
-starts five workers. If you set it to 2.0, Pachyderm starts 20 workers
-(two per Kubernetes node).
+Pachyderm starts the number of workers that you specify. For example, set
+`"constant":10` to use 10 workers.
 
 The default value is "constant=1".
 
@@ -559,7 +525,6 @@ exceptions, such as a spout, which does not need an `input`.
     "join": join_input,
     "group": group_input,
     "cron": cron_input,
-    "git": git_input,
 }
 ```
 
@@ -863,35 +828,6 @@ you want to join with other data.
 * `input.pfs.lazy` — see the description in [PFS Input](#pfs-input).
 * `input.pfs.empty_files` — see the description in [PFS Input](#pfs-input).
 
-#### Git Input
-
-!!! Warning
-    Git Inputs are an [experimental feature](../../contributing/supported-releases/#experimental).
-
-Git inputs allow you to pull code from a public git URL and execute that code as part of your pipeline. A pipeline with a Git Input will get triggered (i.e. will see a new input commit and will spawn a job) whenever you commit to your git repository.
-
-**Note:** This only works on cloud deployments, not local clusters.
-
-`input.git.URL` must be a URL of the form: `https://github.com/foo/bar.git`
-
-`input.git.name` is the name for the input, its semantics are similar to
-those of `input.pfs.name`. It is optional.
-
-`input.git.branch` is the name of the git branch to use as input.
-
-Git inputs also require some additional configuration. In order for new commits on your git repository to correspond to new commits on the Pachyderm Git Input repo, we need to setup a git webhook. At the moment, only GitHub is supported. (Though if you ask nicely, we can add support for GitLab or BitBucket).
-
-1. Create your Pachyderm pipeline with the Git Input.
-
-2. To get the URL of the webhook to your cluster, do `pachctl inspect pipeline` on your pipeline. You should see a `Githook URL` field with a URL set. Note - this will only work if you've deployed to a cloud provider (e.g. AWS, GKE). If you see `pending` as the value (and you've deployed on a cloud provider), it's possible that the service is still being provisioned. You can check `kubectl get svc` to make sure you see the `githook` service running.
-
-3. To setup the GitHub webhook, navigate to:
-
-```
-https://github.com/<your_org>/<your_repo>/settings/hooks/new
-```
-Or navigate to webhooks under settings. Then you'll want to copy the `Githook URL` into the 'Payload URL' field.
-
 ### Output Branch (optional)
 
 This is the branch where the pipeline outputs new commits.  By default,
@@ -922,15 +858,20 @@ in 1.13.0.
 
 ### Cache Size (optional)
 
-`cache_size` controls how much cache a pipeline's sidecar containers use. In
+`cache_size` controls how much **in-memory cache** a pipeline's sidecar containers use. In
 general, your pipeline's performance will increase with the cache size, but
 only up to a certain point depending on your workload.
 
 Every worker in every pipeline has a limited-functionality `pachd` server
 running adjacent to it, which proxies PFS reads and writes (this prevents
 thundering herds when jobs start and end, which is when all of a pipeline's
-workers are reading from and writing to PFS simultaneously). Part of what these
-"sidecar" pachd servers do is cache PFS reads. If a pipeline has a cross input,
+workers are reading from and writing to PFS simultaneously). 
+Part of what these "sidecar" pachd servers do is *cache PFS reads:*
+Any time the worker reads files from the input repo or writes files to the output repo,
+the sidecar manages those requests, 
+which will **cache the files in memory for better performance**.
+
+If a pipeline has a cross input,
 and a worker is downloading the same datum from one branch of the input
 repeatedly, then the cache can speed up processing significantly.
 
@@ -1043,9 +984,13 @@ against this limit.
 
 ### Chunk Spec (optional)
 `chunk_spec` specifies how a pipeline should chunk its datums.
- A chunk is the unit of work that workers claim. Each worker claims 1 or more datums 
- and it commits a full chunk once it's done processing it.
- 
+ A chunk is the unit of work that workers claim. Each worker claims 1 or more
+ datums and it commits a full chunk once it's done processing it. Generally you
+ should set this if your pipeline is experiencing "stragglers." I.e. situations
+ where most of the workers are idle but a few are still processing jobs. It can
+ fix this problem by spreading the datums out in to more granular chunks for
+ the workers to process.
+
 `chunk_spec.number` if nonzero, specifies that each chunk should contain `number`
  datums. Chunks may contain fewer if the total number of datums don't
  divide evenly. If you lower the chunk number to 1 it'll update after every datum, 
@@ -1055,6 +1000,9 @@ against this limit.
 `chunk_spec.size_bytes` , if nonzero, specifies a target size for each chunk of datums.
  Chunks may be larger or smaller than `size_bytes`, but will usually be
  pretty close to `size_bytes` in size.
+
+`chunk_spec.chunks_per_worker, if nonzero, specifies how many chunks should be
+ created for each worker. It can't be set with number or size_bytes.
 
 ### Scheduling Spec (optional)
 `scheduling_spec` specifies how the pods for a pipeline should be scheduled.

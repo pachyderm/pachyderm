@@ -8,14 +8,8 @@ include etc/govars.mk
 
 SHELL=/bin/bash -o pipefail
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
-# Don't set the version to the git hash in CI, as it breaks the go build cache.
-ifdef CIRCLE_BRANCH
-	export VERSION_ADDITIONAL = -CIbuild
-	export GC_FLAGS = ""
-else
-	export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
-	export GC_FLAGS = "all=-trimpath=${PWD}"
-endif
+export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
+export GC_FLAGS = "all=-trimpath=${PWD}"
 
 export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
@@ -82,11 +76,10 @@ release:
 	@make release-pachctl
 	@echo "Release $(VERSION) completed"
 
-release-helper: release-docker-images docker-push docker-push-pipeline-build
+release-helper: release-docker-images docker-push
 
 release-docker-images:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
 
 release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
@@ -94,15 +87,8 @@ release-pachctl:
 docker-build:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
-docker-build-pipeline-build: install
-	VERSION=$$($(PACHCTL) version --client-only) DOCKER_BUILDKIT=1 \
-	  goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
-
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
-
-docker-build-netcat:
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_netcat etc/netcat
 
 docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
@@ -126,9 +112,6 @@ docker-gpu: docker-build-gpu docker-push-gpu
 
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
-docker-build-test-entrypoint:
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_entrypoint etc/testing/entrypoint
-
 docker-tag:
 	docker tag pachyderm/pachd pachyderm/pachd:$(VERSION)
 	docker tag pachyderm/worker pachyderm/worker:$(VERSION)
@@ -139,12 +122,6 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/pachd:$(VERSION)
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
-
-docker-push-pipeline-build: install
-	$(SKIP) ls etc/pipeline-build | xargs -I {} docker push pachyderm/{}-build:$$($(PACHCTL) version --client-only)
-
-docker-push-pipeline-build-to-minikube: install
-	$(SKIP) ls etc/pipeline-build | xargs -I {} etc/kube/push-to-minikube.sh pachyderm/{}-build:$$($(PACHCTL) version --client-only)
 
 check-kubectl:
 	@# check that kubectl is installed
@@ -194,37 +171,35 @@ clean-launch-kube:
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
-	$(PACHCTL) deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
+	helm install pachyderm etc/helm/pachyderm --set deployTarget=LOCAL
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
+	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
-	$(PACHCTL) deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
+	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values.yaml
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
+	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-enterprise: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
-	$(PACHCTL) deploy local --no-guaranteed -d --enterprise-server --namespace enterprise  --pachd-memory-request 128M --postgres-memory-request 128M --etcd-memory-request 128M --pachd-cpu-request 100m --postgres-cpu-request 100m --etcd-cpu-request 100m --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
+	helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_ready.sh app=pach-enterprise enterprise; do sleep 1; done
+	kubectl wait --for=condition=ready pod -l app=pach-enterprise --namespace enterprise --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-clean-launch: check-kubectl install
-	yes | $(PACHCTL) undeploy
-
-clean-launch-dev: check-kubectl install
-	yes | $(PACHCTL) undeploy
-
-full-clean-launch: check-kubectl
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
+clean-launch: check-kubectl
+	helm delete pachyderm || true
+	helm delete enterprise || true
+	# These resources were not cleaned up by the old pachctl undeploy
+	kubectl delete roles.rbac.authorization.k8s.io,rolebindings.rbac.authorization.k8s.io -l suite=pachyderm
+	kubectl delete clusterroles.rbac.authorization.k8s.io,clusterrolebindings.rbac.authorization.k8s.io -l suite=pachyderm
+	# Helm won't clean statefulset PVCs by design
+	kubectl delete pvc -l suite=pachyderm
+	kubectl delete pvc -l suite=pachyderm -n enterprise
 
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
@@ -239,7 +214,7 @@ proto: docker-build-proto
 	./etc/proto/build.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-auth test-identity test-license test-enterprise test-worker test-admin test-pps
+test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-auth test-identity test-license test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
@@ -257,11 +232,7 @@ test-postgres:
 test-pfs-server: test-postgres
 	./etc/testing/pfs_server.sh $(TIMEOUT) $(TESTFLAGS)
 
-test-pfs-storage: test-postgres
-	go test -count=1 ./src/internal/storage/... -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -count=1 ./src/internal/migrations/... $(TESTFLAGS)
-
-test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
+test-pps: launch-stats docker-build-spout-test 
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
@@ -269,7 +240,6 @@ test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 test-cmds:
 	go install -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/internal/deploy/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
@@ -283,18 +253,6 @@ test-transaction:
 
 test-client:
 	go test -count=1 -cover $$(go list ./src/client/...) $(TESTFLAGS)
-
-test-object-clients:
-	# The parallelism is lowered here because these tests run several pachd
-	# deployments in kubernetes which may contest resources.
-	go test -count=1 ./src/internal/obj/integrationtests -timeout $(TIMEOUT) -parallel=2 $(TESTFLAGS)
-	go test -count=1 ./src/internal/obj -timeout $(TIMEOUT) $(TESTFLAGS)
-
-test-libs:
-	go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off $(TESTFLAGS)
-	go test -count=1 ./src/internal/cert -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -count=1 ./src/internal/work -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-s3gateway-conformance:
 	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
@@ -350,50 +308,25 @@ test-worker-helper:
 
 clean: clean-launch clean-launch-kube
 
-compatibility:
-	./etc/build/compatibility.sh
-
 clean-launch-kafka:
 	kubectl delete -f etc/kubernetes-kafka -R
 
 launch-kafka:
 	kubectl apply -f etc/kubernetes-kafka -R
-	until timeout 10s ./etc/kube/check_ready.sh app=kafka kafka; do sleep 10; done
-
+	kubectl wait --for=condition=ready pod -l app=kafka --timeout=5m
+	
 clean-launch-stats:
 	kubectl delete --filename etc/kubernetes-prometheus -R
 
 launch-stats:
 	kubectl apply --filename etc/kubernetes-prometheus -R
 
-clean-launch-monitoring:
-	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
-
-launch-monitoring:
-	kubectl create -f ./etc/plugin/monitoring
-	@echo "Waiting for services to spin up ..."
-	until timeout 5s ./etc/kube/check_ready.sh k8s-app=heapster kube-system; do sleep 5; done
-	until timeout 5s ./etc/kube/check_ready.sh k8s-app=influxdb kube-system; do sleep 5; done
-	until timeout 5s ./etc/kube/check_ready.sh k8s-app=grafana kube-system; do sleep 5; done
-	@echo "All services up. Now port forwarding grafana to localhost:3000"
-	kubectl --namespace=kube-system port-forward `kubectl --namespace=kube-system get pods -l k8s-app=grafana -o json | jq '.items[0].metadata.name' -r` 3000:3000 &
-
-clean-launch-logging: check-kubectl check-kubectl-connection
-	git submodule update --init
-	cd etc/plugin/logging && ./undeploy.sh
-
-launch-logging: check-kubectl check-kubectl-connection
-	@# Creates Fluentd / Elasticsearch / Kibana services for logging under --namespace=monitoring
-	git submodule update --init
-	cd etc/plugin/logging && ./deploy.sh
-	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
-
 launch-loki:
 	helm repo remove loki || true
 	helm repo add loki https://grafana.github.io/loki/charts
 	helm repo update
 	helm upgrade --install loki loki/loki-stack
-	until timeout 1s ./etc/kube/check_ready.sh release=loki; do sleep 1; done
+	kubectl wait --for=condition=ready pod -l release=loki --timeout=5m
 
 clean-launch-loki:
 	helm uninstall loki
@@ -403,9 +336,6 @@ logs: check-kubectl
 
 follow-logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs -f pod'
-
-google-cluster-manifest:
-	@$(PACHCTL) deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)
@@ -421,9 +351,6 @@ clean-google-cluster:
 	gcloud compute firewall-rules delete pachd
 	gsutil -m rm -r gs://$(BUCKET_NAME)
 	gcloud compute disks delete $(STORAGE_NAME)
-
-amazon-cluster-manifest: install
-	@$(PACHCTL) deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 amazon-cluster:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
@@ -446,9 +373,6 @@ amazon-clean:
 	*) echo "input parameter error, please input again ";continue;;esac; \
         fi;done;
 
-microsoft-cluster-manifest:
-	@$(PACHCTL) deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
-
 microsoft-cluster:
 	azure group create --name $(AZURE_RESOURCE_GROUP) --location $(AZURE_LOCATION)
 	azure storage account create $(AZURE_STORAGE_NAME) --location $(AZURE_LOCATION) --resource-group $(AZURE_RESOURCE_GROUP) --sku-name LRS --kind Storage
@@ -461,6 +385,9 @@ lint:
 
 spellcheck:
 	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
+
+check-buckets:
+	./etc/testing/circle/check_buckets.sh
 
 .PHONY: \
 	install \
@@ -476,9 +403,7 @@ spellcheck:
 	release-docker-images \
 	release-pachctl \
 	docker-build \
-	docker-build-pipeline-build \
 	docker-build-proto \
-	docker-build-netcat \
 	docker-build-gpu \
 	docker-build-kafka \
 	docker-build-spout-test \
@@ -489,7 +414,7 @@ spellcheck:
 	docker-build-test-entrypoint \
 	docker-tag \
 	docker-push \
-	docker-push-pipeline-build \
+	check-buckets \
 	check-kubectl \
 	check-kubectl-connection \
 	launch-kube \
@@ -499,8 +424,6 @@ spellcheck:
 	launch \
 	launch-dev \
 	clean-launch \
-	clean-launch-dev \
-	full-clean-launch \
 	test-proto-static \
 	test-deploy-manifests \
 	regenerate-test-deploy-manifests \
@@ -527,19 +450,12 @@ spellcheck:
 	test-worker \
 	test-worker-helper \
 	clean \
-	compatibility \
 	clean-launch-kafka \
 	launch-kafka \
 	clean-launch-stats \
 	launch-stats \
-	clean-launch-monitoring \
-	launch-monitoring \
-	clean-launch-logging \
-	launch-logging \
 	launch-loki \
 	clean-launch-loki \
-	launch-dex \
-	clean-launch-dex \
 	launch-enterprise \
 	logs \
 	follow-logs \

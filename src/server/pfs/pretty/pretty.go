@@ -9,6 +9,7 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -19,26 +20,32 @@ const (
 	// RepoAuthHeader is the header for repos with auth information attached.
 	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
-	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tPROGRESS\tDESCRIPTION\n"
+	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tDESCRIPTION\n"
+	// CommitSetHeader is the header for commitsets.
+	CommitSetHeader = "ID\tCOMMITS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// FileHeader is the header for files.
-	FileHeader = "NAME\tTYPE\tSIZE\t\n"
+	FileHeader = "NAME\tTAG\tTYPE\tSIZE\t\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
-	FileHeaderWithCommit = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
+	FileHeaderWithCommit = "COMMIT\tNAME\tTAG\tTYPE\tCOMMITTED\tSIZE\t\n"
 	// DiffFileHeader is the header for files produced by diff file.
 	DiffFileHeader = "OP\t" + FileHeader
 )
 
 // PrintRepoInfo pretty-prints repo info.
 func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", repoInfo.Repo.Name)
+	fmt.Fprintf(w, "%s\t", repoInfo.Repo)
 	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", repoInfo.Created.String())
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(repoInfo.Created))
 	}
-	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.SizeBytes)))
+	if repoInfo.Details == nil {
+		fmt.Fprintf(w, "<= %s\t", units.BytesSize(float64(repoInfo.SizeBytesUpperBound)))
+	} else {
+		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.Details.SizeBytes)))
+	}
 	if repoInfo.AuthInfo != nil {
 		fmt.Fprintf(w, "%s\t", repoInfo.AuthInfo.Roles)
 	}
@@ -67,7 +74,7 @@ func PrintDetailedRepoInfo(repoInfo *PrintableRepoInfo) error {
 Description: {{.Description}}{{end}}{{if .FullTimestamps}}
 Created: {{.Created}}{{else}}
 Created: {{prettyAgo .Created}}{{end}}
-Size of HEAD on master: {{prettySize .SizeBytes}}{{if .AuthInfo}}
+Size of HEAD on master: {{prettySize .Details.SizeBytes}}{{if .AuthInfo}}
 Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 `)
 	if err != nil {
@@ -136,7 +143,7 @@ Trigger: {{printTrigger .Trigger}} {{end}}
 
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo.Name)
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Name)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.Finished == nil {
@@ -148,21 +155,66 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 			fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Finished))
 		}
 	}
-	if commitInfo.Finished == nil {
-		fmt.Fprintf(w, "-\t")
+	if commitInfo.Details == nil {
+		fmt.Fprintf(w, "<= %s\t", units.BytesSize(float64(commitInfo.SizeBytesUpperBound)))
 	} else {
-		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.SizeBytes)))
+		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.Details.SizeBytes)))
 	}
-	if commitInfo.SubvenantCommitsTotal == 0 {
-		fmt.Fprintf(w, "-\t")
-	} else {
-		fmt.Fprintf(w, "%s\t", pretty.ProgressBar(
-			8,
-			int(commitInfo.SubvenantCommitsSuccess),
-			int(commitInfo.SubvenantCommitsTotal-commitInfo.SubvenantCommitsSuccess-commitInfo.SubvenantCommitsFailure),
-			int(commitInfo.SubvenantCommitsFailure)))
-	}
+	fmt.Fprintf(w, "%v\t", commitInfo.Origin.Kind)
 	fmt.Fprintf(w, "%s\t", commitInfo.Description)
+	fmt.Fprintln(w)
+}
+
+// PrintCommitSetInfo pretty-prints jobset info.
+func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimestamps bool) {
+	// Aggregate some data to print from the jobs in the jobset
+	success := 0
+	failure := 0
+	var created *types.Timestamp
+	var modified *types.Timestamp
+	for _, commitInfo := range commitSetInfo.Commits {
+		if commitInfo.Finished != nil {
+			if commitInfo.Error {
+				failure++
+			} else {
+				success++
+			}
+		}
+
+		if created == nil {
+			created = commitInfo.Started
+			modified = commitInfo.Started
+		} else {
+			if commitInfo.Started.Compare(created) < 0 {
+				created = commitInfo.Started
+			}
+			if commitInfo.Started.Compare(modified) > 0 {
+				modified = commitInfo.Started
+			}
+		}
+	}
+
+	fmt.Fprintf(w, "%s\t", commitSetInfo.CommitSet.ID)
+	fmt.Fprintf(w, "%d\t", len(commitSetInfo.Commits))
+	fmt.Fprintf(w, "%s\t", pretty.ProgressBar(8, success, len(commitSetInfo.Commits)-success-failure, failure))
+	if created != nil {
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", created.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(created))
+		}
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
+	if modified != nil {
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", modified.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(modified))
+		}
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
 	fmt.Fprintln(w)
 }
 
@@ -191,8 +243,7 @@ Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}
 Finished: {{prettyAgo .Finished}}{{end}}{{end}}
-Size: {{prettySize .SizeBytes}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Commit.Branch.Repo.Name}}@{{.Commit.ID}} ({{.Commit.Branch.Name}}) {{end}} {{end}}
+Size: {{prettySize .Details.SizeBytes}}
 `)
 	if err != nil {
 		return err
@@ -208,6 +259,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 		fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
 	}
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
+	fmt.Fprintf(w, "%s\t", fileInfo.File.Tag)
 	if fileInfo.FileType == pfs.FileType_FILE {
 		fmt.Fprint(w, "file\t")
 	} else {
@@ -240,6 +292,7 @@ func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTime
 func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
 		`Path: {{.File.Path}}
+Tag: {{.File.Tag}}
 Type: {{fileType .FileType}}
 Size: {{prettySize .SizeBytes}}
 `)
@@ -263,16 +316,10 @@ var funcMap = template.FuncMap{
 	"printTrigger": printTrigger,
 }
 
-// CompactPrintBranch renders 'b' as a compact string, e.g.
-// "myrepo@master:/my/file"
-func CompactPrintBranch(b *pfs.Branch) string {
-	return fmt.Sprintf("%s@%s", b.Repo.Name, b.Name)
-}
-
 // CompactPrintCommit renders 'c' as a compact string, e.g.
 // "myrepo@123abc:/my/file"
 func CompactPrintCommit(c *pfs.Commit) string {
-	return fmt.Sprintf("%s@%s", c.Branch.Repo.Name, c.ID)
+	return fmt.Sprintf("%s@%s", c.Branch.Repo, c.ID)
 }
 
 // CompactPrintCommitSafe is similar to CompactPrintCommit but accepts 'nil'
@@ -287,5 +334,5 @@ func CompactPrintCommitSafe(c *pfs.Commit) string {
 // CompactPrintFile renders 'f' as a compact string, e.g.
 // "myrepo@master:/my/file"
 func CompactPrintFile(f *pfs.File) string {
-	return fmt.Sprintf("%s@%s:%s", f.Commit.Branch.Repo.Name, f.Commit.ID, f.Path)
+	return fmt.Sprintf("%s@%s:%s", f.Commit.Branch.Repo, f.Commit.ID, f.Path)
 }

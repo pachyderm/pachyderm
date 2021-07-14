@@ -10,32 +10,62 @@ type Configuration struct {
 // GlobalConfiguration contains the global configuration.
 type GlobalConfiguration struct {
 	FeatureFlags
-	EtcdHost            string `env:"ETCD_SERVICE_HOST,required"`
-	EtcdPort            string `env:"ETCD_SERVICE_PORT,required"`
-	PPSWorkerPort       uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
-	Port                uint16 `env:"PORT,default=650"`
-	HTTPPort            uint16 `env:"HTTP_PORT,default=652"`
-	PeerPort            uint16 `env:"PEER_PORT,default=653"`
-	S3GatewayPort       uint16 `env:"S3GATEWAY_PORT,default=600"`
-	PPSEtcdPrefix       string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace           string `env:"PACH_NAMESPACE,default=default"`
-	StorageRoot         string `env:"PACH_ROOT,default=/pach"`
-	GCPercent           int    `env:"GC_PERCENT,default=50"`
-	LokiHost            string `env:"LOKI_SERVICE_HOST"`
-	LokiPort            string `env:"LOKI_SERVICE_PORT"`
-	SamlPort            uint16 `env:"SAML_PORT,default=654"`
-	OidcPort            uint16 `env:"OIDC_PORT,default=657"`
-	PostgresServiceHost string `env:"POSTGRES_SERVICE_HOST"`
-	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT"`
-	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
-	PostgresDBName      string `env:"POSTGRES_DATABASE_NAME"`
+	EtcdHost                       string `env:"ETCD_SERVICE_HOST,required"`
+	EtcdPort                       string `env:"ETCD_SERVICE_PORT,required"`
+	PPSWorkerPort                  uint16 `env:"PPS_WORKER_GRPC_PORT,default=1080"`
+	Port                           uint16 `env:"PORT,default=1650"`
+	PeerPort                       uint16 `env:"PEER_PORT,default=1653"`
+	S3GatewayPort                  uint16 `env:"S3GATEWAY_PORT,default=1600"`
+	PPSEtcdPrefix                  string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
+	Namespace                      string `env:"PACH_NAMESPACE,default=default"`
+	StorageRoot                    string `env:"PACH_ROOT,default=/pach"`
+	GCPercent                      int    `env:"GC_PERCENT,default=50"`
+	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
+	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
+	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
+	PostgresHost                   string `env:"POSTGRES_HOST"`
+	PostgresPort                   int    `env:"POSTGRES_PORT"`
+	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
+	PostgresDBName                 string `env:"POSTGRES_DATABASE_NAME"`
+	PostgresUser                   string `env:"POSTGRES_USER,default=postgres"`
+	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
+	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=10"`
+	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=2"`
+	PostgresConnMaxLifetimeSeconds int    `env:"POSTGRES_CONN_MAX_LIFETIME_SECONDS,default=0"`
+	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS,default=0"`
+	PachdServiceHost               string `env:"PACHD_SERVICE_HOST"`
+	PachdServicePort               string `env:"PACHD_SERVICE_PORT"`
 
-	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
-	// Because both pachd and worker need to know the spec commit (the worker so
-	// that it can avoid jobs for other versions of the same pipelines and the
-	// sidecar so that it can serve the S3 gateway) it's stored in the
+	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
+	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
+	LogLevel             string `env:"LOG_LEVEL,default=info"`
+	EnterpriseEtcdPrefix string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
+	Metrics              bool   `env:"METRICS,default=true"`
+	MetricsEndpoint      string `env:"METRICS_ENDPOINT,default="`
+
+	// SessionDurationMinutes it how long auth tokens are valid for, defaults to 30 days (30 * 24 * 60)
+	SessionDurationMinutes int `env:"SESSION_DURATION_MINUTES,default=43200"`
+
+	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
+	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`
+	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
+
+	// PPSSpecCommitID and PPSPipelineName are only set for workers and sidecar
+	// pachd instances. Because both pachd and worker need to know the spec commit
+	// (the worker so that it can avoid jobs for other versions of the same pipelines
+	// and the sidecar so that it can serve the S3 gateway) it's stored in the
 	// GlobalConfiguration, but it isn't set in a cluster's main pachd containers.
 	PPSSpecCommitID string `env:"PPS_SPEC_COMMIT"`
+	// The name of the pipeline that this worker belongs to
+	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
+
+	// If set to the name of a GCP project, enable GCP-specific continuous profiling and send
+	// profiles to that project: https://cloud.google.com/profiler/docs.  Requires that pachd
+	// has google application credentials (through environment variables or workload identity),
+	// and that the service account associated with the credentials has 'cloudprofiler.agent' on
+	// the target project.  If set on a pachd pod, propagates to workers and sidecars (which
+	// also need permission).
+	GoogleCloudProfilerProject string `env:"GOOGLE_CLOUD_PROFILER_PROJECT"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.
@@ -49,32 +79,18 @@ type PachdSpecificConfiguration struct {
 	StorageConfiguration
 	StorageBackend             string `env:"STORAGE_BACKEND,required"`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
-	EtcdPrefix                 string `env:"ETCD_PREFIX,default="`
 	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
-	AuthEtcdPrefix             string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
-	IdentityEtcdPrefix         string `env:"PACHYDERM_IDENTITY_ETCD_PREFIX,default=pachyderm_identity"`
-	EnterpriseEtcdPrefix       string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	KubeAddress                string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
-	Metrics                    bool   `env:"METRICS,default=true"`
 	Init                       bool   `env:"INIT,default=false"`
 	WorkerImage                string `env:"WORKER_IMAGE,default="`
 	WorkerSidecarImage         string `env:"WORKER_SIDECAR_IMAGE,default="`
 	WorkerImagePullPolicy      string `env:"WORKER_IMAGE_PULL_POLICY,default="`
-	LogLevel                   string `env:"LOG_LEVEL,default=info"`
-	IAMRole                    string `env:"IAM_ROLE,default="`
 	ImagePullSecret            string `env:"IMAGE_PULL_SECRET,default="`
-	NoExposeDockerSocket       bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
-	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
-	DeploymentID               string `env:"CLUSTER_DEPLOYMENT_ID,default="`
-	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
-	MetricsEndpoint            string `env:"METRICS_ENDPOINT",default="`
+	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=false"`
+	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName string `env:"PACHD_POD_NAME,required"`
-
-	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
-	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`
-	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
 }
 
 // StorageConfiguration contains the storage configuration.
@@ -86,10 +102,10 @@ type StorageConfiguration struct {
 	StoragePutFileConcurrencyLimit int    `env:"STORAGE_PUT_FILE_CONCURRENCY_LIMIT,default=100"`
 	StorageGCPolling               string `env:"STORAGE_GC_POLLING"`
 	StorageGCTimeout               string `env:"STORAGE_GC_TIMEOUT"`
-	StorageCompactionMaxFanIn      int    `env:"STORAGE_COMPACTION_MAX_FANIN,default=50"`
+	StorageCompactionMaxFanIn      int    `env:"STORAGE_COMPACTION_MAX_FANIN,default=10"`
 	StorageFileSetsMaxOpen         int    `env:"STORAGE_FILESETS_MAX_OPEN,default=50"`
 	StorageDiskCacheSize           int    `env:"STORAGE_DISK_CACHE_SIZE,default=100"`
-	StorageMemoryCacheSize         int    `env:"STORAGE_MEMORY_CACHE_SIZE,default=10"`
+	StorageMemoryCacheSize         int    `env:"STORAGE_MEMORY_CACHE_SIZE,default=100"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.
@@ -103,8 +119,6 @@ type WorkerSpecificConfiguration struct {
 	// Worker gets its own IP here, via the k8s downward API. It then writes that
 	// IP back to etcd so that pachd can discover it
 	PPSWorkerIP string `env:"PPS_WORKER_IP,required"`
-	// The name of the pipeline that this worker belongs to
-	PPSPipelineName string `env:"PPS_PIPELINE_NAME,required"`
 	// The name of this pod
 	PodName string `env:"PPS_POD_NAME,required"`
 }

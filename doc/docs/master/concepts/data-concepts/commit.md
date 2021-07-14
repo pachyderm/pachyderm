@@ -1,34 +1,54 @@
 # Commit
 
-A commit is a snapshot that preserves the state of your data at a point in time.
-It represents a single set of changes to files or directories
-in your Pachyderm repository. Commit is a user-defined operation, which means
-that you can start a commit, make changes, and then close the commit
-after you are done.
+## Definition
 
-Each commit has a unique identifier (ID) that you can reference in
-the `<repo>@<commitID>` format. When you create a new
-commit, the previous commit on which the new commit is based becomes
-the parent of the new commit. Your pipeline history
+In Pachyderm, commits are atomic operations that **snapshot and preserve the state of
+the files and directories in a repository** at a point in time. 
+Unlike Git commits, Pachyderm commits are centralized and transactional. 
+You can start a commit by running the `pachctl start commit` command, 
+make changes to the repository (`put file`, `delete file`, ...), 
+and close the commit by running the `pachctl finish commit` command. After the commit is
+finished, Pachyderm saves the new state of the repository.
+
+!!! Warning 
+    `start commit` can only be used on input repos (i.e. repos without [provenance](./provenance.md)).
+    You cannot manually start a commit in a pipeline [output or meta repo](./repo.md).
+
+
+When you create a new commit, the **previous commit on which the new commit is based becomes
+the parent** of the new commit. Your repo history
 consists of those parent-child relationships between your data commits.
+
+!!! Note
+    An initial commit has `<none>` as a parent.
+
+Additionally, **commits have an "origin"**. 
+You can see an origin as the answer to: **"What triggered the production of this commit"**. 
+
+That origin can be of 3 types:
+
+- `USER`: The commit is the result of a user change (`put file`, `update pipeline`, `delete file`...)
+!!! Info
+    Every initial change is a `USER` change.
+- `AUTO`: Pachyderm's pipelines are data-driven. A data commit to a data repository may trigger downstream processing jobs in your pipeline(s). The output commits from triggered jobs will be of type `AUTO`.
+- `ALIAS`: Neither `USER` nor `AUTO` - `ALIAS` commits are essentially empty commits. They have the same content as their parent commit and are mainly used for [global IDs](). 
+
+
+!!! Warning "Important Note"
+    **All commits must exist on exactly one branch**.  
+    When moving a commit from one [branch](./branch.md) to another, Pachyderm creates an alias commit on the other branch.
+
+
+Each commit has an identifier (ID) that you can reference in
+the `<repo>@<commitID>` format.
 
 You can obtain information about commits in a repository by running
 `list commit <repo>` or `inspect commit <commitID>`.
-In Pachyderm, commits are atomic operations that capture a state of
-the files and directories in a repository. Unlike Git commits, Pachyderm
-commits are centralized and transactional. You can start a commit by running
-the `pachctl start commit` command, make changes to the repository, and close
-the commit by running the `pachctl finish commit` command. After the commit is
-finished, Pachyderm saves the new state of the repository.
 
-When you *start*, or *open*, a commit, it means that you can make changes
-by using `put file`, `delete file`, or other commands. You can
-*finish*, or *close* a commit which means the commit is immutable and
-cannot be changed.
+## List commits
+The `pachctl list commit repo@branch` command returns the
+list of commits in the given branch of a repo.
 
-The `pachctl list commit repo@branch` command returns a
-timestamp, size, parent, and other information about the commit.
-The initial commit has `<none>` as a parent.
 
 !!! example
     ```shell
@@ -38,49 +58,68 @@ The initial commit has `<none>` as a parent.
     **System Response:**
 
     ```shell
-    REPO     BRANCH COMMIT                           PARENT                           STARTED        DURATION           SIZE
-    raw_data master 8248d97632874103823c7603fb8c851c 22cdb5ae05cb40868566586140ea5ed5 6 seconds ago  Less than a second 5.121MiB
-    raw_data master 22cdb5ae05cb40868566586140ea5ed5 <none>                           33 minutes ago Less than a second 2.561MiB
+    REPO   BRANCH COMMIT                           FINISHED        SIZE       ORIGIN DESCRIPTION
+    images master c6d7be4a13614f2baec2cb52d14310d0 33 minutes ago  5.121MiB    USER
+    images master 385b70f90c3247e69e4bdadff12e44b2 2 hours ago     2.561MiB    USER
     ```
 
-The `list commit <repo>` command displays all commits in all branches
-in the specified repository.
+    `list commit <repo>`, without mention of a branch, displays all commits in all branches of the specified repository.
 
-The `pachctl inspect commit` command enables you to view detailed
-information about a commit, such as the size, parent, and the original
-branch of the commit, as well as how long ago the commit was
-started and finished. The `--full-timestamps` flag, enables you to
-see the exact date and time of when the commit was opened and when it
-was finished.
-If you specify a branch instead of a specific commit, Pachyderm
-displays the information about the HEAD of the branch.
+## Inspect commit
+The `pachctl inspect commit repo@commitID` command enables you to view detailed
+information about a commit (size, parent, the original
+branch of the commit, how long ago the commit was
+started and finished...). 
+
+- The `--full-timestamps` flag will give you the exact date and time
+of when the commit was opened and finished.
+- If you specify a branch instead of a specific commit (`pachctl inspect commit repo@branch`), 
+Pachyderm displays the information about the HEAD of the branch.
 
 !!! example
+    Add a `--raw` flag to output a more detailed JSON version of the commit.
     ```shell
-    $ pachctl inspect commit raw_data@master --full-timestamps
+    $ pachctl inspect commit images@c6d7be4a13614f2baec2cb52d14310d0 --raw
     ```
 
     **System Response:**
 
-    ```shell
-    Commit: raw_data@8248d97632874103823c7603fb8c851c
-    Original Branch: master
-    Parent: 22cdb5ae05cb40868566586140ea5ed5
-    Started: 2019-07-29T18:09:51.397535516Z
-    Finished: 2019-07-29T18:09:51.500669562Z
-    Size: 5.121MiB
+    ```json
+    {
+        "commit": {
+            "branch": {
+            "repo": {
+                "name": "images",
+                "type": "user"
+            },
+            "name": "master"
+            },
+            "id": "c6d7be4a13614f2baec2cb52d14310d0"
+        },
+        "origin": {
+            "kind": "USER"
+        },
+        "parent_commit": {
+            "branch": {
+            "repo": {
+                "name": "images",
+                "type": "user"
+            },
+            "name": "master"
+            },
+            "id": "385b70f90c3247e69e4bdadff12e44b2"
+        },
+        "started": "2021-07-06T01:17:48.488831754Z",
+        "finished": "2021-07-06T01:17:48.488831754Z",
+        "details": {
+            "size_bytes": "244068"
+        }
+    }
     ```
 
-The `delete commit` command enables you to delete opened and closed
-commits, which results in permanent loss of all the data introduced in
-those commits. You can think about the `delete commit` command as an
-equivalent of the `rm -rf` command in Linux.
-It is an irreversible operation that should be used with caution.
-An alternative and a much safer way to revert incorrect data changes is to
-move the `HEAD` of the branch or create a new commit that removes
-the incorrect data.
+## Squash commit
 
-!!! example
-    ```shell
-    $ pachctl delete commit raw_data@8248d97632874103823c7603fb8c851c
-    ```
+See [`squash commitset`]().
+
+
+

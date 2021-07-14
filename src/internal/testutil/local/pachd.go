@@ -14,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
-	healthclient "github.com/pachyderm/pachyderm/v2/src/health"
 	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
@@ -36,29 +35,28 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
-	"github.com/pachyderm/pachyderm/v2/src/server/health"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
-	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	transactionclient "github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func RunLocal() (retErr error) {
 	config := &serviceenv.PachdFullConfiguration{}
 	cmdutil.Populate(config)
 
-	config.PostgresServiceSSL = "disable"
+	config.PostgresSSL = "disable"
 
 	f, err := os.OpenFile("/tmp/pach/pachd-log", os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
@@ -133,20 +131,19 @@ func RunLocal() (retErr error) {
 
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
-		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
+			pfsAPIServer, err := pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
 			if err != nil {
 				return err
 			}
 			pfsclient.RegisterAPIServer(externalServer.Server, pfsAPIServer)
+			env.SetPfsServer(pfsAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		var ppsAPIServer pps_server.APIServer
 		if err := logGRPCServerSetup("PPS API", func() error {
-			ppsAPIServer, err = pps_server.NewAPIServer(
+			ppsAPIServer, err := pps_server.NewAPIServer(
 				env,
 				txnEnv,
 				reporter,
@@ -155,6 +152,7 @@ func RunLocal() (retErr error) {
 				return err
 			}
 			ppsclient.RegisterAPIServer(externalServer.Server, ppsAPIServer)
+			env.SetPpsServer(ppsAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -174,14 +172,14 @@ func RunLocal() (retErr error) {
 			return err
 		}
 
-		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err = authserver.NewAuthServer(
+			authAPIServer, err := authserver.NewAuthServer(
 				env, txnEnv, true, requireNoncriticalServers, true)
 			if err != nil {
 				return err
 			}
 			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
+			env.SetAuthServer(authAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -202,7 +200,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), true)
 			if err != nil {
 				return err
 			}
@@ -212,8 +210,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -228,9 +225,10 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		healthServer := health.NewHealthServer()
+		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		if err := logGRPCServerSetup("Health", func() error {
-			healthclient.RegisterHealthServer(externalServer.Server, healthServer)
+			grpc_health_v1.RegisterHealthServer(externalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
@@ -251,12 +249,12 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+		txnEnv.Initialize(env, transactionAPIServer)
 		log.Printf("listening on %v", env.Config().Port)
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
-		healthServer.Ready()
+		healthServer.Resume()
 		return nil
 	}); err != nil {
 		return err
@@ -268,9 +266,8 @@ func RunLocal() (retErr error) {
 	}
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
-		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err = pfs_server.NewAPIServer(
+			pfsAPIServer, err := pfs_server.NewAPIServer(
 				env,
 				txnEnv,
 				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
@@ -283,9 +280,8 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		var ppsAPIServer pps_server.APIServer
 		if err := logGRPCServerSetup("PPS API", func() error {
-			ppsAPIServer, err = pps_server.NewAPIServer(
+			ppsAPIServer, err := pps_server.NewAPIServer(
 				env,
 				txnEnv,
 				reporter,
@@ -308,9 +304,8 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err = authserver.NewAuthServer(
+			authAPIServer, err := authserver.NewAuthServer(
 				env,
 				txnEnv,
 				false,
@@ -341,7 +336,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), false)
 			if err != nil {
 				return err
 			}
@@ -350,9 +345,11 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		healthServer := health.NewHealthServer()
+		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+
 		if err := logGRPCServerSetup("Health", func() error {
-			healthclient.RegisterHealthServer(internalServer.Server, healthServer)
+			grpc_health_v1.RegisterHealthServer(internalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
@@ -369,11 +366,11 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+		txnEnv.Initialize(env, transactionAPIServer)
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
-		healthServer.Ready()
+		healthServer.Resume()
 		return nil
 	}); err != nil {
 		return err
@@ -388,40 +385,12 @@ func RunLocal() (retErr error) {
 	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	// TODO: Make http server work with V2.
-	//go waitForError("HTTP Server", errChan, requireNoncriticalServers, func() error {
-	//	httpServer, err := pach_http.NewHTTPServer(address)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	server := http.Server{
-	//		Addr:    fmt.Sprintf(":%v", env.HTTPPort),
-	//		Handler: httpServer,
-	//	}
-
-	//	certPath, keyPath, err := tls.GetCertPaths()
-	//	if err != nil {
-	//		log.Warnf("pfs-over-HTTP - TLS disabled: %v", err)
-	//		return server.ListenAndServe()
-	//	}
-
-	//	cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-	//	err = cLoader.LoadAndStart()
-	//	if err != nil {
-	//		return errors.Wrapf(err, "couldn't load TLS cert for pfs-over-http: %v", err)
-	//	}
-
-	//	server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-
-	//	return server.ListenAndServeTLS(certPath, keyPath)
-	//})
-	go waitForError("Githook Server", errChan, requireNoncriticalServers, func() error {
-		return githook.RunGitHookServer(env)
-	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
+		router := s3.Router(s3.NewMasterDriver(), func() (*client.APIClient, error) {
 			return client.NewFromURI(fmt.Sprintf("localhost:%d", env.Config().PeerPort))
 		})
+		server := s3.Server(env.Config().S3GatewayPort, router)
+
 		if err != nil {
 			return err
 		}

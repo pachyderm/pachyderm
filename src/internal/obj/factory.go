@@ -1,6 +1,7 @@
 package obj
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
@@ -78,9 +80,6 @@ const (
 	AmazonIDEnvVar           = "AMAZON_ID"
 	AmazonSecretEnvVar       = "AMAZON_SECRET"
 	AmazonTokenEnvVar        = "AMAZON_TOKEN"
-	AmazonVaultAddrEnvVar    = "AMAZON_VAULT_ADDR"
-	AmazonVaultRoleEnvVar    = "AMAZON_VAULT_ROLE"
-	AmazonVaultTokenEnvVar   = "AMAZON_VAULT_TOKEN"
 	AmazonDistributionEnvVar = "AMAZON_DISTRIBUTION"
 	CustomEndpointEnvVar     = "CUSTOM_ENDPOINT"
 )
@@ -134,47 +133,6 @@ type AmazonAdvancedConfiguration struct {
 	LogOptions     string `env:"OBJ_LOG_OPTS, default="`
 }
 
-// EnvVarToSecretKey is an environment variable name to secret key mapping
-// This is being used to temporarily bridge the gap as we transition to a model
-// where object storage access in the workers is based on environment variables
-// and a library rather than mounting a secret to a sidecar container which
-// accesses object storage
-var EnvVarToSecretKey = []struct {
-	Key   string
-	Value string
-}{
-	{Key: GoogleBucketEnvVar, Value: "google-bucket"},
-	{Key: GoogleCredEnvVar, Value: "google-cred"},
-	{Key: MicrosoftContainerEnvVar, Value: "microsoft-container"},
-	{Key: MicrosoftIDEnvVar, Value: "microsoft-id"},
-	{Key: MicrosoftSecretEnvVar, Value: "microsoft-secret"},
-	{Key: MinioBucketEnvVar, Value: "minio-bucket"},
-	{Key: MinioEndpointEnvVar, Value: "minio-endpoint"},
-	{Key: MinioIDEnvVar, Value: "minio-id"},
-	{Key: MinioSecretEnvVar, Value: "minio-secret"},
-	{Key: MinioSecureEnvVar, Value: "minio-secure"},
-	{Key: MinioSignatureEnvVar, Value: "minio-signature"},
-	{Key: AmazonRegionEnvVar, Value: "amazon-region"},
-	{Key: AmazonBucketEnvVar, Value: "amazon-bucket"},
-	{Key: AmazonIDEnvVar, Value: "amazon-id"},
-	{Key: AmazonSecretEnvVar, Value: "amazon-secret"},
-	{Key: AmazonTokenEnvVar, Value: "amazon-token"},
-	{Key: AmazonVaultAddrEnvVar, Value: "amazon-vault-addr"},
-	{Key: AmazonVaultRoleEnvVar, Value: "amazon-vault-role"},
-	{Key: AmazonVaultTokenEnvVar, Value: "amazon-vault-token"},
-	{Key: AmazonDistributionEnvVar, Value: "amazon-distribution"},
-	{Key: CustomEndpointEnvVar, Value: "custom-endpoint"},
-	{Key: RetriesEnvVar, Value: "retries"},
-	{Key: TimeoutEnvVar, Value: "timeout"},
-	{Key: UploadACLEnvVar, Value: "upload-acl"},
-	{Key: ReverseEnvVar, Value: "reverse"},
-	{Key: PartSizeEnvVar, Value: "part-size"},
-	{Key: MaxUploadPartsEnvVar, Value: "max-upload-parts"},
-	{Key: DisableSSLEnvVar, Value: "disable-ssl"},
-	{Key: NoVerifySSLEnvVar, Value: "no-verify-ssl"},
-	{Key: LogOptionsEnvVar, Value: "log-options"},
-}
-
 // NewGoogleClient creates a google client with the given bucket name.
 func NewGoogleClient(bucket string, opts []option.ClientOption) (c Client, err error) {
 	if c, err = newGoogleClient(bucket, opts); err != nil {
@@ -184,7 +142,7 @@ func NewGoogleClient(bucket string, opts []option.ClientOption) (c Client, err e
 }
 
 func secretFile(name string) string {
-	return filepath.Join("/", "pachyderm-storage-secret", name)
+	return filepath.Join("/", client.StorageSecretName, name)
 }
 
 func readSecretFile(name string) (string, error) {
@@ -201,18 +159,18 @@ func readSecretFile(name string) (string, error) {
 func NewGoogleClientFromSecret(bucket string) (Client, error) {
 	var err error
 	if bucket == "" {
-		bucket, err = readSecretFile("/google-bucket")
+		bucket, err = readSecretFile(fmt.Sprintf("/%s", GoogleBucketEnvVar))
 		if err != nil {
 			return nil, errors.Errorf("google-bucket not found")
 		}
 	}
-	cred, err := readSecretFile("/google-cred")
+	cred, err := readSecretFile(fmt.Sprintf("/%s", GoogleCredEnvVar))
 	if err != nil {
 		return nil, errors.Errorf("google-cred not found")
 	}
 	var opts []option.ClientOption
 	if cred != "" {
-		opts = append(opts, option.WithCredentialsFile(secretFile("/google-cred")))
+		opts = append(opts, option.WithCredentialsFile(secretFile(fmt.Sprintf("/%s", GoogleCredEnvVar))))
 	} else {
 		opts = append(opts, option.WithTokenSource(google.ComputeTokenSource("")))
 	}
@@ -251,16 +209,16 @@ func NewMicrosoftClient(container string, accountName string, accountKey string)
 func NewMicrosoftClientFromSecret(container string) (Client, error) {
 	var err error
 	if container == "" {
-		container, err = readSecretFile("/microsoft-container")
+		container, err = readSecretFile(fmt.Sprintf("/%s", MicrosoftContainerEnvVar))
 		if err != nil {
 			return nil, errors.Errorf("microsoft-container not found")
 		}
 	}
-	id, err := readSecretFile("/microsoft-id")
+	id, err := readSecretFile(fmt.Sprintf("/%s", MicrosoftIDEnvVar))
 	if err != nil {
 		return nil, errors.Errorf("microsoft-id not found")
 	}
-	secret, err := readSecretFile("/microsoft-secret")
+	secret, err := readSecretFile(fmt.Sprintf("/%s", MicrosoftSecretEnvVar))
 	if err != nil {
 		return nil, errors.Errorf("microsoft-secret not found")
 	}
@@ -330,28 +288,28 @@ func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution str
 func NewMinioClientFromSecret(bucket string) (Client, error) {
 	var err error
 	if bucket == "" {
-		bucket, err = readSecretFile("/minio-bucket")
+		bucket, err = readSecretFile(fmt.Sprintf("/%s", MinioBucketEnvVar))
 		if err != nil {
 			return nil, err
 		}
 	}
-	endpoint, err := readSecretFile("/minio-endpoint")
+	endpoint, err := readSecretFile(fmt.Sprintf("/%s", MinioEndpointEnvVar))
 	if err != nil {
 		return nil, err
 	}
-	id, err := readSecretFile("/minio-id")
+	id, err := readSecretFile(fmt.Sprintf("/%s", MinioIDEnvVar))
 	if err != nil {
 		return nil, err
 	}
-	secret, err := readSecretFile("/minio-secret")
+	secret, err := readSecretFile(fmt.Sprintf("/%s", MinioSecretEnvVar))
 	if err != nil {
 		return nil, err
 	}
-	secure, err := readSecretFile("/minio-secure")
+	secure, err := readSecretFile(fmt.Sprintf("/%s", MinioSecureEnvVar))
 	if err != nil {
 		return nil, err
 	}
-	isS3V2, err := readSecretFile("/minio-signature")
+	isS3V2, err := readSecretFile(fmt.Sprintf("/%s", MinioSignatureEnvVar))
 	if err != nil {
 		return nil, err
 	}
@@ -392,54 +350,42 @@ func NewMinioClientFromEnv() (Client, error) {
 // will read the bucket from the secret.
 func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 	// Get AWS region (required for constructing an AWS client)
-	region, err := readSecretFile("/amazon-region")
+	region, err := readSecretFile(fmt.Sprintf("/%s", AmazonRegionEnvVar))
 	if err != nil {
 		return nil, errors.Errorf("amazon-region not found")
 	}
 
 	// Use or retrieve S3 bucket
 	if bucket == "" {
-		bucket, err = readSecretFile("/amazon-bucket")
+		bucket, err = readSecretFile(fmt.Sprintf("/%s", AmazonBucketEnvVar))
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Retrieve either static or vault credentials; if neither are found, we will
+	// Retrieve static credentials; if not found,
 	// use IAM roles (i.e. the EC2 metadata service)
 	var creds AmazonCreds
-	creds.ID, err = readSecretFile("/amazon-id")
+	creds.ID, err = readSecretFile(fmt.Sprintf("/%s", AmazonIDEnvVar))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	creds.Secret, err = readSecretFile("/amazon-secret")
+	creds.Secret, err = readSecretFile(fmt.Sprintf("/%s", AmazonSecretEnvVar))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	creds.Token, err = readSecretFile("/amazon-token")
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	creds.VaultAddress, err = readSecretFile("/amazon-vault-addr")
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	creds.VaultRole, err = readSecretFile("/amazon-vault-role")
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	creds.VaultToken, err = readSecretFile("/amazon-vault-token")
+	creds.Token, err = readSecretFile(fmt.Sprintf("/%s", AmazonTokenEnvVar))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 
 	// Get Cloudfront distribution (not required, though we can log a warning)
-	distribution, err := readSecretFile("/amazon-distribution")
+	distribution, err := readSecretFile(fmt.Sprintf("/%s", AmazonDistributionEnvVar))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	// Get endpoint for custom deployment (optional).
-	endpoint, err := readSecretFile("/custom-endpoint")
+	endpoint, err := readSecretFile(fmt.Sprintf("/%s", CustomEndpointEnvVar))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
@@ -461,9 +407,6 @@ func NewAmazonClientFromEnv() (Client, error) {
 	creds.ID, _ = os.LookupEnv(AmazonIDEnvVar)
 	creds.Secret, _ = os.LookupEnv(AmazonSecretEnvVar)
 	creds.Token, _ = os.LookupEnv(AmazonTokenEnvVar)
-	creds.VaultAddress, _ = os.LookupEnv(AmazonVaultAddrEnvVar)
-	creds.VaultRole, _ = os.LookupEnv(AmazonVaultRoleEnvVar)
-	creds.VaultToken, _ = os.LookupEnv(AmazonVaultTokenEnvVar)
 
 	distribution, _ := os.LookupEnv(AmazonDistributionEnvVar)
 	// Get endpoint for custom deployment (optional).

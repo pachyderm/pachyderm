@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 )
 
@@ -37,6 +38,7 @@ func newMicrosoftClient(container string, accountName string, accountKey string)
 	if err != nil {
 		return nil, err
 	}
+	client.HTTPClient.Transport = promutil.InstrumentRoundTripper("azure_storage", client.HTTPClient.Transport)
 	blobSvc := client.GetBlobService()
 	return &microsoftClient{container: (&blobSvc).GetContainerReference(container)}, nil
 }
@@ -167,8 +169,7 @@ func (w *microsoftWriter) writeBlock(block []byte) (retErr error) {
 
 	w.eg.Go(func() error {
 		defer w.limiter.Release()
-		//lint:ignore SA6002 []byte is sufficiently pointer-like for our purposes
-		defer bufPool.Put(block[:cap(block)])
+		defer bufPool.Put(block[:cap(block)]) //nolint:staticcheck // []byte is sufficiently pointer-like for our purposes
 		if err := w.blob.PutBlock(blockID, block, nil); err != nil {
 			w.err = err
 			return err

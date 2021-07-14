@@ -14,11 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	bucketFactor = 2.0
-	bucketCount  = 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
-)
-
 // This needs to be a global var, not a field on the logger, because multiple servers
 // create new loggers, and the prometheus registration uses a global namespace
 var reportMetricGauge prometheus.Gauge
@@ -137,7 +132,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 
 	// Recording the distribution of started times is meaningless
 	if state != "started" {
-		runTimeName := fmt.Sprintf("%v_time", rootStatName)
+		runTimeName := fmt.Sprintf("%v_seconds", rootStatName)
 		runTime, ok := l.histogram[runTimeName]
 		if !ok {
 			runTime = prometheus.NewHistogramVec(
@@ -146,7 +141,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 					Subsystem: fmt.Sprintf("pachd_%v", topLevelService(l.service)),
 					Name:      runTimeName,
 					Help:      fmt.Sprintf("Run time of %v", method),
-					Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
+					Buckets:   []float64{0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, 86400},
 				},
 				[]string{
 					"state", // Since both finished and errored API calls can have run times
@@ -167,29 +162,6 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 			hist.Observe(duration.Seconds())
 		}
 	}
-
-	secondsCountName := fmt.Sprintf("%v_seconds_count", rootStatName)
-	secondsCount, ok := l.counter[secondsCountName]
-	if !ok {
-		secondsCount = prometheus.NewCounter(
-			prometheus.CounterOpts{
-				Namespace: "pachyderm",
-				Subsystem: fmt.Sprintf("pachd_%v", topLevelService(l.service)),
-				Name:      secondsCountName,
-				Help:      fmt.Sprintf("cumulative number of seconds spent in %v", method),
-			},
-		)
-		if err := prometheus.Register(secondsCount); err != nil {
-			// metrics may be redundantly registered; ignore these errors
-			if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
-				l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", secondsCount, secondsCountName), err)
-			}
-		} else {
-			l.counter[secondsCountName] = secondsCount
-		}
-	}
-	secondsCount.Add(duration.Seconds())
-
 }
 
 func (l *logger) LogAtLevel(entry *logrus.Entry, level logrus.Level, args ...interface{}) {

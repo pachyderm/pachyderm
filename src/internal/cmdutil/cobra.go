@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/spf13/cobra"
 )
@@ -97,11 +98,12 @@ func ErrorAndExit(format string, args ...interface{}) {
 	if errString := strings.TrimSpace(fmt.Sprintf(format, args...)); errString != "" {
 		fmt.Fprintf(os.Stderr, "%s\n", errString)
 	}
-	err, ok := args[0].(error)
-	if PrintErrorStacks && ok {
-		errors.ForEachStackFrame(err, func(frame errors.Frame) {
-			fmt.Fprintf(os.Stderr, "%+v\n", frame)
-		})
+	if len(args) > 0 && PrintErrorStacks {
+		if err, ok := args[0].(error); ok {
+			errors.ForEachStackFrame(err, func(frame errors.Frame) {
+				fmt.Fprintf(os.Stderr, "%+v\n", frame)
+			})
+		}
 	}
 	os.Exit(1)
 }
@@ -111,7 +113,7 @@ func isValidBranch(name string) bool {
 	return err == nil
 }
 
-func repoFromString(name string) *pfs.Repo {
+func ParseRepo(name string) *pfs.Repo {
 	var repo pfs.Repo
 	if strings.Contains(name, ".") {
 		repoParts := strings.SplitN(name, ".", 2)
@@ -163,16 +165,7 @@ func parseFile(arg string) (*pfs.File, int, error) {
 			commit = parts[1]
 		}
 	}
-	return &pfs.File{
-		Commit: &pfs.Commit{
-			Branch: &pfs.Branch{
-				Repo: repoFromString(repo),
-				Name: branch,
-			},
-			ID: commit,
-		},
-		Path: path,
-	}, numFields, nil
+	return ParseRepo(repo).NewCommit(branch, commit).NewFile(path), numFields, nil
 }
 
 // ParseCommit takes an argument of the form "repo[@branch-or-commit]" and
@@ -214,6 +207,19 @@ func ParseBranch(arg string) (*pfs.Branch, error) {
 	return commit.Branch, nil
 }
 
+// ParseJob takes an argument of the form "pipeline@job-id" and returns
+// the corresponding *pps.Job.
+func ParseJob(arg string) (*pps.Job, error) {
+	parts := strings.SplitN(arg, "@", 2)
+	if parts[0] == "" {
+		return nil, errors.Errorf("invalid format \"%s\": pipeline must be specified", arg)
+	}
+	if len(parts) != 2 {
+		return nil, errors.Errorf("invalid format \"%s\": expected pipeline@job-id", arg)
+	}
+	return client.NewJob(parts[0], parts[1]), nil
+}
+
 // ParseBranches converts all arguments to *pfs.Commit structs using the
 // semantics of ParseBranch.
 func ParseBranches(args []string) ([]*pfs.Branch, error) {
@@ -224,31 +230,6 @@ func ParseBranches(args []string) ([]*pfs.Branch, error) {
 			return nil, err
 		}
 		results = append(results, branch)
-	}
-	return results, nil
-}
-
-// ParseCommitProvenance takes an argument of the form "repo@branch=commit" and
-// returns the corresponding *pfs.CommitProvenance.
-func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
-	commit, err := ParseCommit(arg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pfs.CommitProvenance{Commit: commit}, nil
-}
-
-// ParseCommitProvenances converts all arguments to *pfs.CommitProvenance structs using the
-// semantics of ParseCommitProvenance
-func ParseCommitProvenances(args []string) ([]*pfs.CommitProvenance, error) {
-	var results []*pfs.CommitProvenance
-	for _, arg := range args {
-		prov, err := ParseCommitProvenance(arg)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, prov)
 	}
 	return results, nil
 }

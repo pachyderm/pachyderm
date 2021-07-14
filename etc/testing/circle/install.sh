@@ -5,8 +5,6 @@ set -ex
 mkdir -p cached-deps
 
 # Install deps
-sudo snap install --classic goreleaser
-sudo snap install jq
 sudo apt update -y
 sudo apt-get install -y -qq \
   silversearcher-ag \
@@ -16,7 +14,8 @@ sudo apt-get install -y -qq \
   pkg-config \
   fuse \
   conntrack \
-  pv
+  pv \
+  shellcheck
 
 # Install fuse
 sudo modprobe fuse
@@ -42,7 +41,7 @@ fi
 # To get the latest minikube version:
 # curl https://api.github.com/repos/kubernetes/minikube/releases | jq -r .[].tag_name | sort -V | tail -n1
 if [ ! -f cached-deps/minikube ] ; then
-    MINIKUBE_VERSION=v1.13.1 # If changed, also do etc/kube/start-minikube.sh
+    MINIKUBE_VERSION=v1.19.0 # If changed, also do etc/kube/start-minikube.sh
     curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
         chmod +x ./minikube
         mv ./minikube cached-deps/minikube
@@ -72,4 +71,17 @@ if [ ! -f cached-deps/helm ]; then
   curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz \
       | tar xzf - linux-amd64/helm
       mv ./linux-amd64/helm cached-deps/helm
+fi
+
+# Install goreleaser 
+if [ ! -f cached-deps/goreleaser ]; then
+  GORELEASER_VERSION=0.169.0
+  curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
+      | tar xzf - -C cached-deps goreleaser
+fi
+
+# Install jq
+if [ ! -f cached-deps/jq ]; then
+  JQ_VERSION=1.6
+  curl -L https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-linux64 > cached-deps/jq
 fi

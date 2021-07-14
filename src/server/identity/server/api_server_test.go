@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -273,4 +274,40 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	listResp, err = adminClient.ListIDPConnectors(adminClient.Ctx(), &identity.ListIDPConnectorsRequest{})
 	require.NoError(t, err)
 	require.Equal(t, 0, len(listResp.Connectors))
+}
+
+// TestShortenIDTokenExpiry tests that we can configure Dex to issue ID tokens with a
+// expiration shorter than the default of 6 hours
+func TestShortenIDTokenExpiry(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	tu.ConfigureOIDCProvider(t)
+
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
+		Config: &identity.IdentityServerConfig{
+			Issuer:        "http://localhost:30658/",
+			IdTokenExpiry: "1h",
+		},
+	})
+	require.NoError(t, err)
+
+	token := tu.GetOIDCTokenForTrustedApp(t)
+
+	// Exchange the ID token for a pach token and confirm the expiration is < 1h
+	testClient := tu.GetUnauthenticatedPachClient(t)
+	authResp, err := testClient.Authenticate(testClient.Ctx(),
+		&auth.AuthenticateRequest{IdToken: token})
+	require.NoError(t, err)
+
+	testClient.SetAuthToken(authResp.PachToken)
+
+	// Check that testClient authenticated as the right user
+	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.True(t, time.Until(*whoAmIResp.Expiration) < time.Hour)
 }

@@ -1,15 +1,13 @@
 # Using `python-pachyderm` with Pachyderm IDE
 
 If you deployed Pachyderm IDE,
-the `python-pachyderm` client is preinstalled in your Pachyderm IDE instance
+the `python-pachyderm` client is preinstalled in your Pachyderm IDE instance.
+
 This section describes a few basic operations that you can execute from Pachyderm IDE
 to interact with Pachyderm.
 
-After you log in, use the [python-pachyderm](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html#header-functions)
+After you log in, use the [python-pachyderm](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html#header-functions)
 client API to manage Pachyderm directly from your Jupyter notebook.
-
-You need to create a new Notebook and add your code in a new cell.
-To run your code, click the **Run** button.
 
 The following code initializes the Python Pachyderm client in Pachyderm IDE:
 
@@ -17,9 +15,6 @@ The following code initializes the Python Pachyderm client in Pachyderm IDE:
 import python_pachyderm
 client = python_pachyderm.Client.new_in_cluster()
 ```
-
-!!! note
-    This function is different from the function you'd call locally.
 
 For example, you can check the current user by
 running the following code:
@@ -46,90 +41,90 @@ choice, use one of the following examples to create a pipeline:
 
 * By using the `create_python_pipeline` method:
 
-  ```python
-  import python_pachyderm
-  client = python_pachyderm.Client.new_in_cluster()
+    ```python
+    import python_pachyderm
+    client = python_pachyderm.Client.new_in_cluster()
 
-  def relpath(path):
-      return os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
+    def relpath(path):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
 
-  python_pachyderm.create_python_pipeline(
-      client,
-      relpath("test"),
-      python_pachyderm.Input(pfs=python_pachyderm.PFSInput(glob="/*", repo="input_repo")),
-  )
-  client.list_pipeline()
-  ```
+    python_pachyderm.create_python_pipeline(
+        client,
+        relpath("test"),
+        python_pachyderm.Input(pfs=python_pachyderm.PFSInput(glob="/*", repo="input_repo")),
+    )
+    client.list_pipeline()
+    ```
 
-  This code likely will not work as is. To run a pipeline, you need to specify
-  `main.py` and `requirements.txt` files in the root directory of your
-  JupyterHub notebook. For more information, see the
-  [OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/master/examples/opencv/opencv.py).
+    This code likely will not work as is. To run a pipeline, you need to specify
+    `main.py` and `requirements.txt` files in the root directory of your
+    JupyterHub notebook. For more information, see the
+    [OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/1.13.x/examples/opencv/opencv.py).
 
 * By using the `create_pipeline` method:
 
-  !!! note
-      The input repository must exist. Therefore, in the
-      code below we first create the repository and then
-      create the pipeline.
+    !!! note
+        The input repository must exist. Therefore, in the
+        code below we first create the repository and then
+        create the pipeline.
 
-  ```python
-  import python_pachyderm
-  client = python_pachyderm.Client.new_in_cluster()
-  client.create_repo('test')
+    ```python
+    import python_pachyderm
+    client = python_pachyderm.Client.new_in_cluster()
+    client.create_repo('test')
 
-  client.create_pipeline(
-      "test",
-      transform=python_pachyderm.Transform(cmd=["python3", "/test.py"], image="mytest/testimage"),
-      input=python_pachyderm.Input(pfs=python_pachyderm.PFSInput(glob="/", repo="input_repo")),
-  )
-  client.list_pipeline()
-  ```
+    client.create_pipeline(
+        "test",
+        transform=python_pachyderm.Transform(cmd=["python3", "/test.py"], image="mytest/testimage"),
+        input=python_pachyderm.Input(pfs=python_pachyderm.PFSInput(glob="/", repo="input_repo")),
+    )
+    client.list_pipeline()
+    ```
 
-  **System response:**
+    **System response:**
 
-   ```
-   pipeline_info {
-    pipeline {
-      name: "test"
-    }
-    transform {
-      image: "mytest/testimage"
-      cmd: "python3"
-      cmd: "/test.py"
-    }
-    created_at {
-      seconds: 1578520420
-      nanos: 789017291
-    }
-    version: 1
-    output_branch: "master"
-    resource_requests {
-      memory: "64M"
-    }
-    input {
-      pfs {
-        name: "input_repo"
-        repo: "input_repo"
-        branch: "master"
-        glob: "/"
+    ```
+    pipeline_info {
+      pipeline {
+        name: "test"
       }
-    }
-    cache_size: "64M"
-    salt: "8e57267114c24419a685e250e0fd491b"
-    max_queue_size: 1
-    spec_commit {
-      repo {
-        name: "__spec__"
+      transform {
+        image: "mytest/testimage"
+        cmd: "python3"
+        cmd: "/test.py"
       }
-      id: "c83631246a2142cdb93c7a6e4d16fcd2"
+      created_at {
+        seconds: 1578520420
+        nanos: 789017291
+      }
+      version: 1
+      output_branch: "master"
+      resource_requests {
+        memory: "64M"
+      }
+      input {
+        pfs {
+          name: "input_repo"
+          repo: "input_repo"
+          branch: "master"
+          glob: "/"
+        }
+      }
+      cache_size: "64M"
+      salt: "8e57267114c24419a685e250e0fd491b"
+      max_queue_size: 1
+      spec_commit {
+        repo {
+          name: "__spec__"
+        }
+        id: "c83631246a2142cdb93c7a6e4d16fcd2"
+      }
+      datum_tries: 3
     }
-    datum_tries: 3
-   }
-   ```
+    ```
 
 For more information, see the
-[OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/master/examples/opencv/opencv.py).
+[OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/1.13.x/examples/opencv/opencv.py).
 
 ## Create a Repository
 

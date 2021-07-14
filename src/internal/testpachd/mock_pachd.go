@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
@@ -81,6 +82,7 @@ type authorizeFunc func(context.Context, *auth.AuthorizeRequest) (*auth.Authoriz
 type getPermissionsFunc func(context.Context, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
 type getPermissionsForPrincipalFunc func(context.Context, *auth.GetPermissionsForPrincipalRequest) (*auth.GetPermissionsResponse, error)
 type whoAmIFunc func(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
+type getRolesForPermissionFunc func(context.Context, *auth.GetRolesForPermissionRequest) (*auth.GetRolesForPermissionResponse, error)
 type getOIDCLoginFunc func(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error)
 type getRobotTokenFunc func(context.Context, *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error)
 type revokeAuthTokenFunc func(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
@@ -109,6 +111,7 @@ type mockGetPermissionsForPrincipal struct {
 	handler getPermissionsForPrincipalFunc
 }
 type mockWhoAmI struct{ handler whoAmIFunc }
+type mockGetRolesForPermission struct{ handler getRolesForPermissionFunc }
 type mockGetOIDCLogin struct{ handler getOIDCLoginFunc }
 type mockGetRobotToken struct{ handler getRobotTokenFunc }
 type mockRevokeAuthToken struct{ handler revokeAuthTokenFunc }
@@ -132,6 +135,7 @@ func (mock *mockGetRoleBinding) Use(cb getRoleBindingFunc)                      
 func (mock *mockAuthenticate) Use(cb authenticateFunc)                             { mock.handler = cb }
 func (mock *mockAuthorize) Use(cb authorizeFunc)                                   { mock.handler = cb }
 func (mock *mockWhoAmI) Use(cb whoAmIFunc)                                         { mock.handler = cb }
+func (mock *mockGetRolesForPermission) Use(cb getRolesForPermissionFunc)           { mock.handler = cb }
 func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)                             { mock.handler = cb }
 func (mock *mockGetRobotToken) Use(cb getRobotTokenFunc)                           { mock.handler = cb }
 func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)                       { mock.handler = cb }
@@ -165,6 +169,7 @@ type mockAuthServer struct {
 	GetPermissions             mockGetPermissions
 	GetPermissionsForPrincipal mockGetPermissionsForPrincipal
 	WhoAmI                     mockWhoAmI
+	GetRolesForPermission      mockGetRolesForPermission
 	GetOIDCLogin               mockGetOIDCLogin
 	GetRobotToken              mockGetRobotToken
 	RevokeAuthToken            mockRevokeAuthToken
@@ -245,6 +250,12 @@ func (api *authServerAPI) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (
 		return api.mock.WhoAmI.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.WhoAmI")
+}
+func (api *authServerAPI) GetRolesForPermission(ctx context.Context, req *auth.GetRolesForPermissionRequest) (*auth.GetRolesForPermissionResponse, error) {
+	if api.mock.GetRolesForPermission.handler != nil {
+		return api.mock.GetRolesForPermission.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.GetRolesForPermission")
 }
 func (api *authServerAPI) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error) {
 	if api.mock.GetOIDCLogin.handler != nil {
@@ -398,22 +409,23 @@ func (api *enterpriseServerAPI) Heartbeat(ctx context.Context, req *enterprise.H
 type activateAuthPFSFunc func(context.Context, *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error)
 type createRepoFunc func(context.Context, *pfs.CreateRepoRequest) (*types.Empty, error)
 type inspectRepoFunc func(context.Context, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
-type listRepoFunc func(context.Context, *pfs.ListRepoRequest) (*pfs.ListRepoResponse, error)
+type listRepoFunc func(*pfs.ListRepoRequest, pfs.API_ListRepoServer) error
 type deleteRepoFunc func(context.Context, *pfs.DeleteRepoRequest) (*types.Empty, error)
 type startCommitFunc func(context.Context, *pfs.StartCommitRequest) (*pfs.Commit, error)
 type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*types.Empty, error)
 type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 type listCommitFunc func(*pfs.ListCommitRequest, pfs.API_ListCommitServer) error
-type squashCommitFunc func(context.Context, *pfs.SquashCommitRequest) (*types.Empty, error)
-type flushCommitFunc func(*pfs.FlushCommitRequest, pfs.API_FlushCommitServer) error
+type squashCommitSetFunc func(context.Context, *pfs.SquashCommitSetRequest) (*types.Empty, error)
+type inspectCommitSetFunc func(*pfs.InspectCommitSetRequest, pfs.API_InspectCommitSetServer) error
+type listCommitSetFunc func(*pfs.ListCommitSetRequest, pfs.API_ListCommitSetServer) error
 type subscribeCommitFunc func(*pfs.SubscribeCommitRequest, pfs.API_SubscribeCommitServer) error
 type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
 type createBranchFunc func(context.Context, *pfs.CreateBranchRequest) (*types.Empty, error)
 type inspectBranchFunc func(context.Context, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
-type listBranchFunc func(context.Context, *pfs.ListBranchRequest) (*pfs.BranchInfos, error)
+type listBranchFunc func(*pfs.ListBranchRequest, pfs.API_ListBranchServer) error
 type deleteBranchFunc func(context.Context, *pfs.DeleteBranchRequest) (*types.Empty, error)
 type modifyFileFunc func(pfs.API_ModifyFileServer) error
-type getFileFunc func(*pfs.GetFileRequest, pfs.API_GetFileServer) error
+type getFileTARFunc func(*pfs.GetFileRequest, pfs.API_GetFileTARServer) error
 type inspectFileFunc func(context.Context, *pfs.InspectFileRequest) (*pfs.FileInfo, error)
 type listFileFunc func(*pfs.ListFileRequest, pfs.API_ListFileServer) error
 type walkFileFunc func(*pfs.WalkFileRequest, pfs.API_WalkFileServer) error
@@ -421,10 +433,11 @@ type globFileFunc func(*pfs.GlobFileRequest, pfs.API_GlobFileServer) error
 type diffFileFunc func(*pfs.DiffFileRequest, pfs.API_DiffFileServer) error
 type deleteAllPFSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type fsckFunc func(*pfs.FsckRequest, pfs.API_FsckServer) error
-type createFilesetFunc func(pfs.API_CreateFilesetServer) error
-type addFilesetFunc func(context.Context, *pfs.AddFilesetRequest) (*types.Empty, error)
-type getFilesetFunc func(context.Context, *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error)
-type renewFilesetFunc func(context.Context, *pfs.RenewFilesetRequest) (*types.Empty, error)
+type createFileSetFunc func(pfs.API_CreateFileSetServer) error
+type addFileSetFunc func(context.Context, *pfs.AddFileSetRequest) (*types.Empty, error)
+type getFileSetFunc func(context.Context, *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error)
+type renewFileSetFunc func(context.Context, *pfs.RenewFileSetRequest) (*types.Empty, error)
+type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -435,8 +448,9 @@ type mockStartCommit struct{ handler startCommitFunc }
 type mockFinishCommit struct{ handler finishCommitFunc }
 type mockInspectCommit struct{ handler inspectCommitFunc }
 type mockListCommit struct{ handler listCommitFunc }
-type mockSquashCommit struct{ handler squashCommitFunc }
-type mockFlushCommit struct{ handler flushCommitFunc }
+type mockSquashCommitSet struct{ handler squashCommitSetFunc }
+type mockInspectCommitSet struct{ handler inspectCommitSetFunc }
+type mockListCommitSet struct{ handler listCommitSetFunc }
 type mockSubscribeCommit struct{ handler subscribeCommitFunc }
 type mockClearCommit struct{ handler clearCommitFunc }
 type mockCreateBranch struct{ handler createBranchFunc }
@@ -444,7 +458,7 @@ type mockInspectBranch struct{ handler inspectBranchFunc }
 type mockListBranch struct{ handler listBranchFunc }
 type mockDeleteBranch struct{ handler deleteBranchFunc }
 type mockModifyFile struct{ handler modifyFileFunc }
-type mockGetFile struct{ handler getFileFunc }
+type mockGetFileTAR struct{ handler getFileTARFunc }
 type mockInspectFile struct{ handler inspectFileFunc }
 type mockListFile struct{ handler listFileFunc }
 type mockWalkFile struct{ handler walkFileFunc }
@@ -452,78 +466,83 @@ type mockGlobFile struct{ handler globFileFunc }
 type mockDiffFile struct{ handler diffFileFunc }
 type mockDeleteAllPFS struct{ handler deleteAllPFSFunc }
 type mockFsck struct{ handler fsckFunc }
-type mockCreateFileset struct{ handler createFilesetFunc }
-type mockAddFileset struct{ handler addFilesetFunc }
-type mockGetFileset struct{ handler getFilesetFunc }
-type mockRenewFileset struct{ handler renewFilesetFunc }
+type mockCreateFileSet struct{ handler createFileSetFunc }
+type mockAddFileSet struct{ handler addFileSetFunc }
+type mockGetFileSet struct{ handler getFileSetFunc }
+type mockRenewFileSet struct{ handler renewFileSetFunc }
+type mockRunLoadTest struct{ handler runLoadTestFunc }
 
-func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc) { mock.handler = cb }
-func (mock *mockCreateRepo) Use(cb createRepoFunc)           { mock.handler = cb }
-func (mock *mockInspectRepo) Use(cb inspectRepoFunc)         { mock.handler = cb }
-func (mock *mockListRepo) Use(cb listRepoFunc)               { mock.handler = cb }
-func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)           { mock.handler = cb }
-func (mock *mockStartCommit) Use(cb startCommitFunc)         { mock.handler = cb }
-func (mock *mockFinishCommit) Use(cb finishCommitFunc)       { mock.handler = cb }
-func (mock *mockInspectCommit) Use(cb inspectCommitFunc)     { mock.handler = cb }
-func (mock *mockListCommit) Use(cb listCommitFunc)           { mock.handler = cb }
-func (mock *mockSquashCommit) Use(cb squashCommitFunc)       { mock.handler = cb }
-func (mock *mockFlushCommit) Use(cb flushCommitFunc)         { mock.handler = cb }
-func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc) { mock.handler = cb }
-func (mock *mockClearCommit) Use(cb clearCommitFunc)         { mock.handler = cb }
-func (mock *mockCreateBranch) Use(cb createBranchFunc)       { mock.handler = cb }
-func (mock *mockInspectBranch) Use(cb inspectBranchFunc)     { mock.handler = cb }
-func (mock *mockListBranch) Use(cb listBranchFunc)           { mock.handler = cb }
-func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)       { mock.handler = cb }
-func (mock *mockModifyFile) Use(cb modifyFileFunc)           { mock.handler = cb }
-func (mock *mockGetFile) Use(cb getFileFunc)                 { mock.handler = cb }
-func (mock *mockInspectFile) Use(cb inspectFileFunc)         { mock.handler = cb }
-func (mock *mockListFile) Use(cb listFileFunc)               { mock.handler = cb }
-func (mock *mockWalkFile) Use(cb walkFileFunc)               { mock.handler = cb }
-func (mock *mockGlobFile) Use(cb globFileFunc)               { mock.handler = cb }
-func (mock *mockDiffFile) Use(cb diffFileFunc)               { mock.handler = cb }
-func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)       { mock.handler = cb }
-func (mock *mockFsck) Use(cb fsckFunc)                       { mock.handler = cb }
-func (mock *mockCreateFileset) Use(cb createFilesetFunc)     { mock.handler = cb }
-func (mock *mockAddFileset) Use(cb addFilesetFunc)           { mock.handler = cb }
-func (mock *mockGetFileset) Use(cb getFilesetFunc)           { mock.handler = cb }
-func (mock *mockRenewFileset) Use(cb renewFilesetFunc)       { mock.handler = cb }
+func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)   { mock.handler = cb }
+func (mock *mockCreateRepo) Use(cb createRepoFunc)             { mock.handler = cb }
+func (mock *mockInspectRepo) Use(cb inspectRepoFunc)           { mock.handler = cb }
+func (mock *mockListRepo) Use(cb listRepoFunc)                 { mock.handler = cb }
+func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)             { mock.handler = cb }
+func (mock *mockStartCommit) Use(cb startCommitFunc)           { mock.handler = cb }
+func (mock *mockFinishCommit) Use(cb finishCommitFunc)         { mock.handler = cb }
+func (mock *mockInspectCommit) Use(cb inspectCommitFunc)       { mock.handler = cb }
+func (mock *mockListCommit) Use(cb listCommitFunc)             { mock.handler = cb }
+func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc)   { mock.handler = cb }
+func (mock *mockClearCommit) Use(cb clearCommitFunc)           { mock.handler = cb }
+func (mock *mockSquashCommitSet) Use(cb squashCommitSetFunc)   { mock.handler = cb }
+func (mock *mockInspectCommitSet) Use(cb inspectCommitSetFunc) { mock.handler = cb }
+func (mock *mockListCommitSet) Use(cb listCommitSetFunc)       { mock.handler = cb }
+func (mock *mockCreateBranch) Use(cb createBranchFunc)         { mock.handler = cb }
+func (mock *mockInspectBranch) Use(cb inspectBranchFunc)       { mock.handler = cb }
+func (mock *mockListBranch) Use(cb listBranchFunc)             { mock.handler = cb }
+func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)         { mock.handler = cb }
+func (mock *mockModifyFile) Use(cb modifyFileFunc)             { mock.handler = cb }
+func (mock *mockGetFileTAR) Use(cb getFileTARFunc)             { mock.handler = cb }
+func (mock *mockInspectFile) Use(cb inspectFileFunc)           { mock.handler = cb }
+func (mock *mockListFile) Use(cb listFileFunc)                 { mock.handler = cb }
+func (mock *mockWalkFile) Use(cb walkFileFunc)                 { mock.handler = cb }
+func (mock *mockGlobFile) Use(cb globFileFunc)                 { mock.handler = cb }
+func (mock *mockDiffFile) Use(cb diffFileFunc)                 { mock.handler = cb }
+func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)         { mock.handler = cb }
+func (mock *mockFsck) Use(cb fsckFunc)                         { mock.handler = cb }
+func (mock *mockCreateFileSet) Use(cb createFileSetFunc)       { mock.handler = cb }
+func (mock *mockAddFileSet) Use(cb addFileSetFunc)             { mock.handler = cb }
+func (mock *mockGetFileSet) Use(cb getFileSetFunc)             { mock.handler = cb }
+func (mock *mockRenewFileSet) Use(cb renewFileSetFunc)         { mock.handler = cb }
+func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)           { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
 }
 
 type mockPFSServer struct {
-	api             pfsServerAPI
-	ActivateAuth    mockActivateAuthPFS
-	CreateRepo      mockCreateRepo
-	InspectRepo     mockInspectRepo
-	ListRepo        mockListRepo
-	DeleteRepo      mockDeleteRepo
-	StartCommit     mockStartCommit
-	FinishCommit    mockFinishCommit
-	InspectCommit   mockInspectCommit
-	ListCommit      mockListCommit
-	SquashCommit    mockSquashCommit
-	FlushCommit     mockFlushCommit
-	SubscribeCommit mockSubscribeCommit
-	ClearCommit     mockClearCommit
-	CreateBranch    mockCreateBranch
-	InspectBranch   mockInspectBranch
-	ListBranch      mockListBranch
-	DeleteBranch    mockDeleteBranch
-	ModifyFile      mockModifyFile
-	GetFile         mockGetFile
-	InspectFile     mockInspectFile
-	ListFile        mockListFile
-	WalkFile        mockWalkFile
-	GlobFile        mockGlobFile
-	DiffFile        mockDiffFile
-	DeleteAll       mockDeleteAllPFS
-	Fsck            mockFsck
-	CreateFileset   mockCreateFileset
-	AddFileset      mockAddFileset
-	GetFileset      mockGetFileset
-	RenewFileset    mockRenewFileset
+	api              pfsServerAPI
+	ActivateAuth     mockActivateAuthPFS
+	CreateRepo       mockCreateRepo
+	InspectRepo      mockInspectRepo
+	ListRepo         mockListRepo
+	DeleteRepo       mockDeleteRepo
+	StartCommit      mockStartCommit
+	FinishCommit     mockFinishCommit
+	InspectCommit    mockInspectCommit
+	ListCommit       mockListCommit
+	SubscribeCommit  mockSubscribeCommit
+	ClearCommit      mockClearCommit
+	SquashCommitSet  mockSquashCommitSet
+	InspectCommitSet mockInspectCommitSet
+	ListCommitSet    mockListCommitSet
+	CreateBranch     mockCreateBranch
+	InspectBranch    mockInspectBranch
+	ListBranch       mockListBranch
+	DeleteBranch     mockDeleteBranch
+	ModifyFile       mockModifyFile
+	GetFileTAR       mockGetFileTAR
+	InspectFile      mockInspectFile
+	ListFile         mockListFile
+	WalkFile         mockWalkFile
+	GlobFile         mockGlobFile
+	DiffFile         mockDiffFile
+	DeleteAll        mockDeleteAllPFS
+	Fsck             mockFsck
+	CreateFileSet    mockCreateFileSet
+	AddFileSet       mockAddFileSet
+	GetFileSet       mockGetFileSet
+	RenewFileSet     mockRenewFileSet
+	RunLoadTest      mockRunLoadTest
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -544,11 +563,11 @@ func (api *pfsServerAPI) InspectRepo(ctx context.Context, req *pfs.InspectRepoRe
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.InspectRepo")
 }
-func (api *pfsServerAPI) ListRepo(ctx context.Context, req *pfs.ListRepoRequest) (*pfs.ListRepoResponse, error) {
+func (api *pfsServerAPI) ListRepo(req *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) error {
 	if api.mock.ListRepo.handler != nil {
-		return api.mock.ListRepo.handler(ctx, req)
+		return api.mock.ListRepo.handler(req, srv)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.ListRepo")
+	return errors.Errorf("unhandled pachd mock pfs.ListRepo")
 }
 func (api *pfsServerAPI) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest) (*types.Empty, error) {
 	if api.mock.DeleteRepo.handler != nil {
@@ -580,17 +599,23 @@ func (api *pfsServerAPI) ListCommit(req *pfs.ListCommitRequest, serv pfs.API_Lis
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListCommit")
 }
-func (api *pfsServerAPI) SquashCommit(ctx context.Context, req *pfs.SquashCommitRequest) (*types.Empty, error) {
-	if api.mock.SquashCommit.handler != nil {
-		return api.mock.SquashCommit.handler(ctx, req)
+func (api *pfsServerAPI) SquashCommitSet(ctx context.Context, req *pfs.SquashCommitSetRequest) (*types.Empty, error) {
+	if api.mock.SquashCommitSet.handler != nil {
+		return api.mock.SquashCommitSet.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.SquashCommit")
+	return nil, errors.Errorf("unhandled pachd mock pfs.SquashCommitSet")
 }
-func (api *pfsServerAPI) FlushCommit(req *pfs.FlushCommitRequest, serv pfs.API_FlushCommitServer) error {
-	if api.mock.FlushCommit.handler != nil {
-		return api.mock.FlushCommit.handler(req, serv)
+func (api *pfsServerAPI) InspectCommitSet(req *pfs.InspectCommitSetRequest, serv pfs.API_InspectCommitSetServer) error {
+	if api.mock.InspectCommitSet.handler != nil {
+		return api.mock.InspectCommitSet.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.FlushCommit")
+	return errors.Errorf("unhandled pachd mock pfs.InspectCommitSet")
+}
+func (api *pfsServerAPI) ListCommitSet(req *pfs.ListCommitSetRequest, serv pfs.API_ListCommitSetServer) error {
+	if api.mock.ListCommitSet.handler != nil {
+		return api.mock.ListCommitSet.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock pfs.ListCommitSet")
 }
 func (api *pfsServerAPI) SubscribeCommit(req *pfs.SubscribeCommitRequest, serv pfs.API_SubscribeCommitServer) error {
 	if api.mock.SubscribeCommit.handler != nil {
@@ -616,11 +641,11 @@ func (api *pfsServerAPI) InspectBranch(ctx context.Context, req *pfs.InspectBran
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.InspectBranch")
 }
-func (api *pfsServerAPI) ListBranch(ctx context.Context, req *pfs.ListBranchRequest) (*pfs.BranchInfos, error) {
+func (api *pfsServerAPI) ListBranch(req *pfs.ListBranchRequest, srv pfs.API_ListBranchServer) error {
 	if api.mock.ListBranch.handler != nil {
-		return api.mock.ListBranch.handler(ctx, req)
+		return api.mock.ListBranch.handler(req, srv)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.ListBranch")
+	return errors.Errorf("unhandled pachd mock pfs.ListBranch")
 }
 func (api *pfsServerAPI) DeleteBranch(ctx context.Context, req *pfs.DeleteBranchRequest) (*types.Empty, error) {
 	if api.mock.DeleteBranch.handler != nil {
@@ -634,11 +659,11 @@ func (api *pfsServerAPI) ModifyFile(serv pfs.API_ModifyFileServer) error {
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ModifyFile")
 }
-func (api *pfsServerAPI) GetFile(req *pfs.GetFileRequest, serv pfs.API_GetFileServer) error {
-	if api.mock.GetFile.handler != nil {
-		return api.mock.GetFile.handler(req, serv)
+func (api *pfsServerAPI) GetFileTAR(req *pfs.GetFileRequest, serv pfs.API_GetFileTARServer) error {
+	if api.mock.GetFileTAR.handler != nil {
+		return api.mock.GetFileTAR.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.GetFile")
+	return errors.Errorf("unhandled pachd mock pfs.GetFileTAR")
 }
 func (api *pfsServerAPI) InspectFile(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	if api.mock.InspectFile.handler != nil {
@@ -682,46 +707,53 @@ func (api *pfsServerAPI) Fsck(req *pfs.FsckRequest, serv pfs.API_FsckServer) err
 	}
 	return errors.Errorf("unhandled pachd mock pfs.Fsck")
 }
-func (api *pfsServerAPI) CreateFileset(srv pfs.API_CreateFilesetServer) error {
-	if api.mock.CreateFileset.handler != nil {
-		return api.mock.CreateFileset.handler(srv)
+func (api *pfsServerAPI) CreateFileSet(srv pfs.API_CreateFileSetServer) error {
+	if api.mock.CreateFileSet.handler != nil {
+		return api.mock.CreateFileSet.handler(srv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.CreateFileset")
+	return errors.Errorf("unhandled pachd mock pfs.CreateFileSet")
 }
-func (api *pfsServerAPI) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
-	if api.mock.AddFileset.handler != nil {
-		return api.mock.AddFileset.handler(ctx, req)
+func (api *pfsServerAPI) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (*types.Empty, error) {
+	if api.mock.AddFileSet.handler != nil {
+		return api.mock.AddFileSet.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileset")
+	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileSet")
 }
-func (api *pfsServerAPI) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error) {
-	if api.mock.AddFileset.handler != nil {
-		return api.mock.GetFileset.handler(ctx, req)
+func (api *pfsServerAPI) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error) {
+	if api.mock.AddFileSet.handler != nil {
+		return api.mock.GetFileSet.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileset")
+	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileSet")
 }
-func (api *pfsServerAPI) RenewFileset(ctx context.Context, req *pfs.RenewFilesetRequest) (*types.Empty, error) {
-	if api.mock.RenewFileset.handler != nil {
-		return api.mock.RenewFileset.handler(ctx, req)
+func (api *pfsServerAPI) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest) (*types.Empty, error) {
+	if api.mock.RenewFileSet.handler != nil {
+		return api.mock.RenewFileSet.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.RenewFileset")
+	return nil, errors.Errorf("unhandled pachd mock pfs.RenewFileSet")
+}
+func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error) {
+	if api.mock.RunLoadTest.handler != nil {
+		return api.mock.RunLoadTest.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.RunLoadTest")
 }
 
 /* PPS Server Mocks */
 
-type createPipelineJobFunc func(context.Context, *pps.CreatePipelineJobRequest) (*pps.PipelineJob, error)
-type inspectPipelineJobFunc func(context.Context, *pps.InspectPipelineJobRequest) (*pps.PipelineJobInfo, error)
-type listPipelineJobFunc func(*pps.ListPipelineJobRequest, pps.API_ListPipelineJobServer) error
-type flushPipelineJobFunc func(*pps.FlushPipelineJobRequest, pps.API_FlushPipelineJobServer) error
-type deletePipelineJobFunc func(context.Context, *pps.DeletePipelineJobRequest) (*types.Empty, error)
-type stopPipelineJobFunc func(context.Context, *pps.StopPipelineJobRequest) (*types.Empty, error)
-type updatePipelineJobStateFunc func(context.Context, *pps.UpdatePipelineJobStateRequest) (*types.Empty, error)
+type inspectJobFunc func(context.Context, *pps.InspectJobRequest) (*pps.JobInfo, error)
+type listJobFunc func(*pps.ListJobRequest, pps.API_ListJobServer) error
+type subscribeJobFunc func(*pps.SubscribeJobRequest, pps.API_SubscribeJobServer) error
+type deleteJobFunc func(context.Context, *pps.DeleteJobRequest) (*types.Empty, error)
+type stopJobFunc func(context.Context, *pps.StopJobRequest) (*types.Empty, error)
+type updateJobStateFunc func(context.Context, *pps.UpdateJobStateRequest) (*types.Empty, error)
+type inspectJobSetFunc func(*pps.InspectJobSetRequest, pps.API_InspectJobSetServer) error
+type listJobSetFunc func(*pps.ListJobSetRequest, pps.API_ListJobSetServer) error
 type inspectDatumFunc func(context.Context, *pps.InspectDatumRequest) (*pps.DatumInfo, error)
 type listDatumFunc func(*pps.ListDatumRequest, pps.API_ListDatumServer) error
 type restartDatumFunc func(context.Context, *pps.RestartDatumRequest) (*types.Empty, error)
 type createPipelineFunc func(context.Context, *pps.CreatePipelineRequest) (*types.Empty, error)
 type inspectPipelineFunc func(context.Context, *pps.InspectPipelineRequest) (*pps.PipelineInfo, error)
-type listPipelineFunc func(context.Context, *pps.ListPipelineRequest) (*pps.PipelineInfos, error)
+type listPipelineFunc func(*pps.ListPipelineRequest, pps.API_ListPipelineServer) error
 type deletePipelineFunc func(context.Context, *pps.DeletePipelineRequest) (*types.Empty, error)
 type startPipelineFunc func(context.Context, *pps.StartPipelineRequest) (*types.Empty, error)
 type stopPipelineFunc func(context.Context, *pps.StopPipelineRequest) (*types.Empty, error)
@@ -735,13 +767,14 @@ type deleteAllPPSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
 
-type mockCreatePipelineJob struct{ handler createPipelineJobFunc }
-type mockInspectPipelineJob struct{ handler inspectPipelineJobFunc }
-type mockListPipelineJob struct{ handler listPipelineJobFunc }
-type mockFlushPipelineJob struct{ handler flushPipelineJobFunc }
-type mockDeletePipelineJob struct{ handler deletePipelineJobFunc }
-type mockStopPipelineJob struct{ handler stopPipelineJobFunc }
-type mockUpdatePipelineJobState struct{ handler updatePipelineJobStateFunc }
+type mockInspectJob struct{ handler inspectJobFunc }
+type mockListJob struct{ handler listJobFunc }
+type mockSubscribeJob struct{ handler subscribeJobFunc }
+type mockDeleteJob struct{ handler deleteJobFunc }
+type mockStopJob struct{ handler stopJobFunc }
+type mockUpdateJobState struct{ handler updateJobStateFunc }
+type mockInspectJobSet struct{ handler inspectJobSetFunc }
+type mockListJobSet struct{ handler listJobSetFunc }
 type mockInspectDatum struct{ handler inspectDatumFunc }
 type mockListDatum struct{ handler listDatumFunc }
 type mockRestartDatum struct{ handler restartDatumFunc }
@@ -761,106 +794,114 @@ type mockDeleteAllPPS struct{ handler deleteAllPPSFunc }
 type mockGetLogs struct{ handler getLogsFunc }
 type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
 
-func (mock *mockCreatePipelineJob) Use(cb createPipelineJobFunc)           { mock.handler = cb }
-func (mock *mockInspectPipelineJob) Use(cb inspectPipelineJobFunc)         { mock.handler = cb }
-func (mock *mockListPipelineJob) Use(cb listPipelineJobFunc)               { mock.handler = cb }
-func (mock *mockFlushPipelineJob) Use(cb flushPipelineJobFunc)             { mock.handler = cb }
-func (mock *mockDeletePipelineJob) Use(cb deletePipelineJobFunc)           { mock.handler = cb }
-func (mock *mockStopPipelineJob) Use(cb stopPipelineJobFunc)               { mock.handler = cb }
-func (mock *mockUpdatePipelineJobState) Use(cb updatePipelineJobStateFunc) { mock.handler = cb }
-func (mock *mockInspectDatum) Use(cb inspectDatumFunc)                     { mock.handler = cb }
-func (mock *mockListDatum) Use(cb listDatumFunc)                           { mock.handler = cb }
-func (mock *mockRestartDatum) Use(cb restartDatumFunc)                     { mock.handler = cb }
-func (mock *mockCreatePipeline) Use(cb createPipelineFunc)                 { mock.handler = cb }
-func (mock *mockInspectPipeline) Use(cb inspectPipelineFunc)               { mock.handler = cb }
-func (mock *mockListPipeline) Use(cb listPipelineFunc)                     { mock.handler = cb }
-func (mock *mockDeletePipeline) Use(cb deletePipelineFunc)                 { mock.handler = cb }
-func (mock *mockStartPipeline) Use(cb startPipelineFunc)                   { mock.handler = cb }
-func (mock *mockStopPipeline) Use(cb stopPipelineFunc)                     { mock.handler = cb }
-func (mock *mockRunPipeline) Use(cb runPipelineFunc)                       { mock.handler = cb }
-func (mock *mockRunCron) Use(cb runCronFunc)                               { mock.handler = cb }
-func (mock *mockCreateSecret) Use(cb createSecretFunc)                     { mock.handler = cb }
-func (mock *mockDeleteSecret) Use(cb deleteSecretFunc)                     { mock.handler = cb }
-func (mock *mockInspectSecret) Use(cb inspectSecretFunc)                   { mock.handler = cb }
-func (mock *mockListSecret) Use(cb listSecretFunc)                         { mock.handler = cb }
-func (mock *mockDeleteAllPPS) Use(cb deleteAllPPSFunc)                     { mock.handler = cb }
-func (mock *mockGetLogs) Use(cb getLogsFunc)                               { mock.handler = cb }
-func (mock *mockActivateAuthPPS) Use(cb activateAuthPPSFunc)               { mock.handler = cb }
+func (mock *mockInspectJob) Use(cb inspectJobFunc)           { mock.handler = cb }
+func (mock *mockListJob) Use(cb listJobFunc)                 { mock.handler = cb }
+func (mock *mockSubscribeJob) Use(cb subscribeJobFunc)       { mock.handler = cb }
+func (mock *mockDeleteJob) Use(cb deleteJobFunc)             { mock.handler = cb }
+func (mock *mockStopJob) Use(cb stopJobFunc)                 { mock.handler = cb }
+func (mock *mockUpdateJobState) Use(cb updateJobStateFunc)   { mock.handler = cb }
+func (mock *mockInspectJobSet) Use(cb inspectJobSetFunc)     { mock.handler = cb }
+func (mock *mockListJobSet) Use(cb listJobSetFunc)           { mock.handler = cb }
+func (mock *mockInspectDatum) Use(cb inspectDatumFunc)       { mock.handler = cb }
+func (mock *mockListDatum) Use(cb listDatumFunc)             { mock.handler = cb }
+func (mock *mockRestartDatum) Use(cb restartDatumFunc)       { mock.handler = cb }
+func (mock *mockCreatePipeline) Use(cb createPipelineFunc)   { mock.handler = cb }
+func (mock *mockInspectPipeline) Use(cb inspectPipelineFunc) { mock.handler = cb }
+func (mock *mockListPipeline) Use(cb listPipelineFunc)       { mock.handler = cb }
+func (mock *mockDeletePipeline) Use(cb deletePipelineFunc)   { mock.handler = cb }
+func (mock *mockStartPipeline) Use(cb startPipelineFunc)     { mock.handler = cb }
+func (mock *mockStopPipeline) Use(cb stopPipelineFunc)       { mock.handler = cb }
+func (mock *mockRunPipeline) Use(cb runPipelineFunc)         { mock.handler = cb }
+func (mock *mockRunCron) Use(cb runCronFunc)                 { mock.handler = cb }
+func (mock *mockCreateSecret) Use(cb createSecretFunc)       { mock.handler = cb }
+func (mock *mockDeleteSecret) Use(cb deleteSecretFunc)       { mock.handler = cb }
+func (mock *mockInspectSecret) Use(cb inspectSecretFunc)     { mock.handler = cb }
+func (mock *mockListSecret) Use(cb listSecretFunc)           { mock.handler = cb }
+func (mock *mockDeleteAllPPS) Use(cb deleteAllPPSFunc)       { mock.handler = cb }
+func (mock *mockGetLogs) Use(cb getLogsFunc)                 { mock.handler = cb }
+func (mock *mockActivateAuthPPS) Use(cb activateAuthPPSFunc) { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
 }
 
 type mockPPSServer struct {
-	api                    ppsServerAPI
-	CreatePipelineJob      mockCreatePipelineJob
-	InspectPipelineJob     mockInspectPipelineJob
-	ListPipelineJob        mockListPipelineJob
-	FlushPipelineJob       mockFlushPipelineJob
-	DeletePipelineJob      mockDeletePipelineJob
-	StopPipelineJob        mockStopPipelineJob
-	UpdatePipelineJobState mockUpdatePipelineJobState
-	InspectDatum           mockInspectDatum
-	ListDatum              mockListDatum
-	RestartDatum           mockRestartDatum
-	CreatePipeline         mockCreatePipeline
-	InspectPipeline        mockInspectPipeline
-	ListPipeline           mockListPipeline
-	DeletePipeline         mockDeletePipeline
-	StartPipeline          mockStartPipeline
-	StopPipeline           mockStopPipeline
-	RunPipeline            mockRunPipeline
-	RunCron                mockRunCron
-	CreateSecret           mockCreateSecret
-	DeleteSecret           mockDeleteSecret
-	InspectSecret          mockInspectSecret
-	ListSecret             mockListSecret
-	DeleteAll              mockDeleteAllPPS
-	GetLogs                mockGetLogs
-	ActivateAuth           mockActivateAuthPPS
+	api             ppsServerAPI
+	InspectJob      mockInspectJob
+	ListJob         mockListJob
+	SubscribeJob    mockSubscribeJob
+	DeleteJob       mockDeleteJob
+	StopJob         mockStopJob
+	UpdateJobState  mockUpdateJobState
+	InspectJobSet   mockInspectJobSet
+	ListJobSet      mockListJobSet
+	InspectDatum    mockInspectDatum
+	ListDatum       mockListDatum
+	RestartDatum    mockRestartDatum
+	CreatePipeline  mockCreatePipeline
+	InspectPipeline mockInspectPipeline
+	ListPipeline    mockListPipeline
+	DeletePipeline  mockDeletePipeline
+	StartPipeline   mockStartPipeline
+	StopPipeline    mockStopPipeline
+	RunPipeline     mockRunPipeline
+	RunCron         mockRunCron
+	CreateSecret    mockCreateSecret
+	DeleteSecret    mockDeleteSecret
+	InspectSecret   mockInspectSecret
+	ListSecret      mockListSecret
+	DeleteAll       mockDeleteAllPPS
+	GetLogs         mockGetLogs
+	ActivateAuth    mockActivateAuthPPS
 }
 
-func (api *ppsServerAPI) CreatePipelineJob(ctx context.Context, req *pps.CreatePipelineJobRequest) (*pps.PipelineJob, error) {
-	if api.mock.CreatePipelineJob.handler != nil {
-		return api.mock.CreatePipelineJob.handler(ctx, req)
+func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
+	if api.mock.InspectJob.handler != nil {
+		return api.mock.InspectJob.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pps.CreatePipelineJob")
+	return nil, errors.Errorf("unhandled pachd mock pps.InspectJob")
 }
-func (api *ppsServerAPI) InspectPipelineJob(ctx context.Context, req *pps.InspectPipelineJobRequest) (*pps.PipelineJobInfo, error) {
-	if api.mock.InspectPipelineJob.handler != nil {
-		return api.mock.InspectPipelineJob.handler(ctx, req)
+func (api *ppsServerAPI) ListJob(req *pps.ListJobRequest, serv pps.API_ListJobServer) error {
+	if api.mock.ListJob.handler != nil {
+		return api.mock.ListJob.handler(req, serv)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pps.InspectPipelineJob")
+	return errors.Errorf("unhandled pachd mock pps.ListJob")
 }
-func (api *ppsServerAPI) ListPipelineJob(req *pps.ListPipelineJobRequest, serv pps.API_ListPipelineJobServer) error {
-	if api.mock.ListPipelineJob.handler != nil {
-		return api.mock.ListPipelineJob.handler(req, serv)
+func (api *ppsServerAPI) SubscribeJob(req *pps.SubscribeJobRequest, serv pps.API_SubscribeJobServer) error {
+	if api.mock.SubscribeJob.handler != nil {
+		return api.mock.SubscribeJob.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pps.ListPipelineJob")
+	return errors.Errorf("unhandled pachd mock pps.SubscribeJob")
 }
-func (api *ppsServerAPI) FlushPipelineJob(req *pps.FlushPipelineJobRequest, serv pps.API_FlushPipelineJobServer) error {
-	if api.mock.FlushPipelineJob.handler != nil {
-		return api.mock.FlushPipelineJob.handler(req, serv)
+func (api *ppsServerAPI) DeleteJob(ctx context.Context, req *pps.DeleteJobRequest) (*types.Empty, error) {
+	if api.mock.DeleteJob.handler != nil {
+		return api.mock.DeleteJob.handler(ctx, req)
 	}
-	return errors.Errorf("unhandled pachd mock pps.FlushPipelineJob")
+	return nil, errors.Errorf("unhandled pachd mock pps.DeleteJob")
 }
-func (api *ppsServerAPI) DeletePipelineJob(ctx context.Context, req *pps.DeletePipelineJobRequest) (*types.Empty, error) {
-	if api.mock.DeletePipelineJob.handler != nil {
-		return api.mock.DeletePipelineJob.handler(ctx, req)
+func (api *ppsServerAPI) UpdateJobState(ctx context.Context, req *pps.UpdateJobStateRequest) (*types.Empty, error) {
+	if api.mock.UpdateJobState.handler != nil {
+		return api.mock.UpdateJobState.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pps.DeletePipelineJob")
+	return nil, errors.Errorf("unhandled pachd mock pps.UpdateJobState")
 }
-func (api *ppsServerAPI) UpdatePipelineJobState(ctx context.Context, req *pps.UpdatePipelineJobStateRequest) (*types.Empty, error) {
-	if api.mock.UpdatePipelineJobState.handler != nil {
-		return api.mock.UpdatePipelineJobState.handler(ctx, req)
+func (api *ppsServerAPI) StopJob(ctx context.Context, req *pps.StopJobRequest) (*types.Empty, error) {
+	if api.mock.StopJob.handler != nil {
+		return api.mock.StopJob.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pps.UpdatePipelineJobState")
+	return nil, errors.Errorf("unhandled pachd mock pps.StopJob")
 }
-func (api *ppsServerAPI) StopPipelineJob(ctx context.Context, req *pps.StopPipelineJobRequest) (*types.Empty, error) {
-	if api.mock.StopPipelineJob.handler != nil {
-		return api.mock.StopPipelineJob.handler(ctx, req)
+func (api *ppsServerAPI) InspectJobSet(req *pps.InspectJobSetRequest, serv pps.API_InspectJobSetServer) error {
+	if api.mock.InspectJobSet.handler != nil {
+		return api.mock.InspectJobSet.handler(req, serv)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pps.StopPipelineJob")
+	return errors.Errorf("unhandled pachd mock pps.InspectJobSet")
+}
+func (api *ppsServerAPI) ListJobSet(req *pps.ListJobSetRequest, serv pps.API_ListJobSetServer) error {
+	if api.mock.ListJobSet.handler != nil {
+		return api.mock.ListJobSet.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock pps.ListJobSet")
 }
 func (api *ppsServerAPI) InspectDatum(ctx context.Context, req *pps.InspectDatumRequest) (*pps.DatumInfo, error) {
 	if api.mock.InspectDatum.handler != nil {
@@ -892,11 +933,11 @@ func (api *ppsServerAPI) InspectPipeline(ctx context.Context, req *pps.InspectPi
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.InspectPipeline")
 }
-func (api *ppsServerAPI) ListPipeline(ctx context.Context, req *pps.ListPipelineRequest) (*pps.PipelineInfos, error) {
+func (api *ppsServerAPI) ListPipeline(req *pps.ListPipelineRequest, srv pps.API_ListPipelineServer) error {
 	if api.mock.ListPipeline.handler != nil {
-		return api.mock.ListPipeline.handler(ctx, req)
+		return api.mock.ListPipeline.handler(req, srv)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pps.ListPipeline")
+	return errors.Errorf("unhandled pachd mock pps.ListPipeline")
 }
 func (api *ppsServerAPI) DeletePipeline(ctx context.Context, req *pps.DeletePipelineRequest) (*types.Empty, error) {
 	if api.mock.DeletePipeline.handler != nil {
@@ -1079,6 +1120,30 @@ func (api *versionServerAPI) GetVersion(ctx context.Context, req *types.Empty) (
 	return nil, errors.Errorf("unhandled pachd mock version.GetVersion")
 }
 
+/* Proxy Server Mocks */
+
+type listenFunc func(*proxy.ListenRequest, proxy.API_ListenServer) error
+
+type mockListen struct{ handler listenFunc }
+
+func (mock *mockListen) Use(cb listenFunc) { mock.handler = cb }
+
+type proxyServerAPI struct {
+	mock *mockProxyServer
+}
+
+type mockProxyServer struct {
+	api    proxyServerAPI
+	Listen mockListen
+}
+
+func (api *proxyServerAPI) Listen(req *proxy.ListenRequest, srv proxy.API_ListenServer) error {
+	if api.mock.Listen.handler != nil {
+		return api.mock.Listen.handler(req, srv)
+	}
+	return errors.Errorf("unhandled pachd mock proxy.Listen")
+}
+
 // MockPachd provides an interface for running the interface for a Pachd API
 // server locally without any of its dependencies. Tests may mock out specific
 // API calls by providing a handler function, and later check information about
@@ -1096,6 +1161,7 @@ type MockPachd struct {
 	Enterprise  mockEnterpriseServer
 	Version     mockVersionServer
 	Admin       mockAdminServer
+	Proxy       mockProxyServer
 }
 
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
@@ -1115,6 +1181,7 @@ func NewMockPachd(ctx context.Context) (*MockPachd, error) {
 	mock.Enterprise.api.mock = &mock.Enterprise
 	mock.Version.api.mock = &mock.Version
 	mock.Admin.api.mock = &mock.Admin
+	mock.Proxy.api.mock = &mock.Proxy
 
 	server, err := grpcutil.NewServer(ctx, false)
 	if err != nil {
@@ -1128,6 +1195,7 @@ func NewMockPachd(ctx context.Context) (*MockPachd, error) {
 	pps.RegisterAPIServer(server.Server, &mock.PPS.api)
 	transaction.RegisterAPIServer(server.Server, &mock.Transaction.api)
 	version.RegisterAPIServer(server.Server, &mock.Version.api)
+	proxy.RegisterAPIServer(server.Server, &mock.Proxy.api)
 
 	listener, err := server.ListenTCP("localhost", 0)
 	if err != nil {

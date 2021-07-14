@@ -12,6 +12,10 @@
 .goxc.json
 /protofix
 doc/_build
+/pachd
+/pachctl
+/pachctl-doc
+/worker
 
 # Release artifacts
 /VERSION
@@ -46,6 +50,7 @@ _tmp
 /etc/testing/s3gateway/s3-tests
 /etc/testing/s3gateway/*.txt
 /etc/testing/deploy-manifests/test
+bin/**
 
 .bucket
 .cluster_name

@@ -8,7 +8,7 @@ site_dir: site/master/
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
 repo_branch: master
-repo_docs_dir: doc/docs/2.0.x
+repo_docs_dir: doc/docs/master
 edit_uri: ""
 
 # Copyright
@@ -107,11 +107,11 @@ nav:
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting_started/index.md
+        - Quick Start - Get started on Hub: hub/hub_getting_started.md
         - Local Installation: getting_started/local_installation.md
-        - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
-        - Use Pachctl Shell: deploy-manage/manage/pachctl_shell.md
-        - Deploy Pachyderm on Windows: getting_started/wsl-deploy.md
         - Beginner Tutorial: getting_started/beginner_tutorial.md
+        - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
+        - Use pachctl Shell: deploy-manage/manage/pachctl_shell.md
     - Concepts:
         - Overview: concepts/index.md
         - Versioned Data Concepts:
@@ -139,6 +139,7 @@ nav:
                 - Group: concepts/pipeline-concepts/datum/group.md
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
+            - Global ID: concepts/advanced-concepts/globalID.md
             - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
             - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
     - How-Tos:
@@ -146,14 +147,13 @@ nav:
         - Workflow: 
             - Overview: how-tos/developer-workflow/index.md
             - Working with Pipelines: how-tos/developer-workflow/working-with-pipelines.md
-            - Build Pipelines: how-tos/developer-workflow/build-pipelines.md
             - Build Flag: how-tos/developer-workflow/build-flag.md  
             - CI/CD Integration: how-tos/developer-workflow/ci-cd-integration.md
             - Create a Machine Learning Workflow: how-tos/developer-workflow/create-ml-workflow.md
-        - Basic Data Operations:
-            - Load Your Data Into Pachyderm: how-tos/basic-data-operations/load-data-into-pachyderm.md
+        - Basic Data Operations: 
+            - Overview: how-tos/basic-data-operations/index.md
+            - Ingest Your Data with pachctl: how-tos/basic-data-operations/load-data-into-pachyderm.md
             - Export Your Data From Pachyderm:
-                - Overview: how-tos/basic-data-operations/export-data-out-pachyderm/index.md
                 - Export Your Data with pachctl: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl.md
                 - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md
                 - Mount a Repo to a Local Computer: how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer.md        
@@ -163,15 +163,10 @@ nav:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
             - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
-            - Run a Pipeline on a Specific Commit: how-tos/pipeline-operations/run_pipeline.md
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
             - Monitor Job Progress: how-tos/pipeline-operations/monitor-job-progress.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
-            - Split Data:
-                - Overview: how-tos/advanced-data-operations/splitting-data/index.md
-                - Splitting Data for Distributed Processing: how-tos/advanced-data-operations/splitting-data/splitting.md
-                - Adjusting Data Processing by Splitting Data: how-tos/advanced-data-operations/splitting-data/adjusting_data_processing_w_split.md
             - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md
             - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
             - Skip Failed Datums: how-tos/advanced-data-operations/err_cmd.md        
@@ -402,20 +397,17 @@ nav:
         - Overview: enterprise/index.md
         - Features: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
-        - Configure Access Controls:
-            - Overview: enterprise/auth/index.md
-            - Enable Access Controls: enterprise/auth/enable-auth.md
-            - Manage Users and Groups: enterprise/auth/manage-users-groups.md
-            - Manage Authentication Config: enterprise/auth/auth-config.md
-            - Configure a SAML Provider:
-              - Configure SAML: enterprise/auth/saml/index.md
-              - Use SAML: enterprise/auth/saml/saml_usage.md
-            - Configure an OIDC Provider:
-              - Overview: enterprise/auth/oidc/index.md
-              - Configure Pachyderm with Okta: enterprise/auth/oidc/configure-with-okta.md
-              - Configure Pachyderm with Keycloak: enterprise/auth/oidc/configure-keycloak.md
-              - Configure Pachyderm with Auth0: enterprise/auth/oidc/configure-auth0.md
-              - Configure Pachyderm with Google OAuth 2.0: enterprise/auth/oidc/configure-google-oidc.md
+        - Authentication & Authorization:
+            - Activation: enterprise/auth/index.md
+            - Authentication:
+                - Connect your IdP: enterprise/auth/authentication/idp-dex.md
+                - Login Flow: enterprise/auth/authentication/login.md
+            - Authorization: 
+                - Model overview: enterprise/auth/authorization/index.md
+                - Role Binding: enterprise/auth/authorization/role-binding.md
+        - Enterprise Server:
+            - Setup an Enterprise Server: enterprise/auth/enterprise-server/setup.md 
+            - Manage your Enterprise Server: enterprise/auth/enterprise-server/manage.md 
         - Advanced Statistics: enterprise/stats.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md

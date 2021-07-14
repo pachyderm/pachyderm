@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -37,9 +38,8 @@ func requestOIDCLogin(c *client.APIClient, openBrowser bool) (string, error) {
 		"")
 
 	if openBrowser {
-		err = browser.OpenURL(authURL)
-		if err != nil {
-			return "", err
+		if browser.OpenURL(authURL) != nil {
+			fmt.Println("Couldn't open a browser, visit the page manually.")
 		}
 	}
 
@@ -175,7 +175,15 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 						LocalhostIssuer: true,
 						Scopes:          scopes,
 					}}); err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
+					err = errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
+					_, deleteErr := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: oidcClient.Client.Id})
+					if deleteErr != nil {
+						deleteErr = errors.Wrapf(grpcutil.ScrubGRPC(deleteErr), "failed to rollback creation of client with ID: %v."+
+							"to retry auth activation, first delete this client with 'pachctl idp delete-client %v'.",
+							oidcClient.Client.Id, oidcClient.Client.Id)
+						return errors.Wrapf(err, deleteErr.Error())
+					}
+					return err
 				}
 			} else {
 				ec, err := newClient(true)
@@ -208,7 +216,15 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 						LocalhostIssuer: false,
 						Scopes:          scopes,
 					}}); err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
+					err = errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd.")
+					_, deleteErr := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: oidcClient.Client.Id})
+					if deleteErr != nil {
+						deleteErr = errors.Wrapf(grpcutil.ScrubGRPC(deleteErr), "failed to rollback creation of client with ID: %v."+
+							"to retry auth activation, first delete this client with 'pachctl idp delete-client %v'.",
+							oidcClient.Client.Id, oidcClient.Client.Id)
+						return errors.Wrapf(err, deleteErr.Error())
+					}
+					return err
 				}
 			}
 			return nil
@@ -719,6 +735,42 @@ func RotateRootToken() *cobra.Command {
 	return cmdutil.CreateAlias(rotateRootToken, "auth rotate-root-token")
 }
 
+// RolesForPermissionCmd lists the roles that would give a user a specific permission
+func RolesForPermissionCmd() *cobra.Command {
+	rotateRootToken := &cobra.Command{
+		Use:   "{{alias}} <permission>",
+		Short: "List roles that grant the given permission",
+		Long:  "List roles that grant the given permission",
+		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+			c, err := newClient(false)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			permission, ok := auth.Permission_value[strings.ToUpper(args[0])]
+			if !ok {
+				return fmt.Errorf("unknown permission %q", args[0])
+			}
+
+			resp, err := c.GetRolesForPermission(c.Ctx(), &auth.GetRolesForPermissionRequest{Permission: auth.Permission(permission)})
+			if err != nil {
+				return err
+			}
+
+			names := make([]string, len(resp.Roles))
+			for i, r := range resp.Roles {
+				names[i] = r.Name
+			}
+			sort.Strings(names)
+			fmt.Print(strings.Join(names, "\n"))
+			return nil
+		}),
+	}
+
+	return cmdutil.CreateAlias(rotateRootToken, "auth roles-for-permission")
+}
+
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
 func Cmds() []*cobra.Command {
@@ -766,5 +818,6 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, GetEnterpriseRoleBindingCmd())
 	commands = append(commands, SetEnterpriseRoleBindingCmd())
 	commands = append(commands, RotateRootToken())
+	commands = append(commands, RolesForPermissionCmd())
 	return commands
 }

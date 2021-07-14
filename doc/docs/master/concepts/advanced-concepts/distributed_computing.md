@@ -67,7 +67,6 @@ pipeline by defining the `parallelism` parameter in the
     "parallelism_spec": {
        // Exactly one of these two fields should be set
        "constant": int
-       "coefficient": double
     ```
 
 Pachyderm has the following parallelism strategies that you
@@ -76,7 +75,6 @@ can set in the pipeline spec:
 | Strategy    | Description        |
 | ----------- | ------------------ |
 | constant    | Pachyderm starts the specified number of workers. For example, <br> if you set `"constant":10`, Pachyderm spreads the computation workload among ten workers. |
-| coefficient | Pachyderm starts a number of workers that is a multiple of <br> your Kubernetes cluster size. For example, if your Kubernetes cluster has ten nodes, <br> and you set `"coefficient": 0.5`, Pachyderm starts five workers. If you set parallelism to `"coefficient": 2.0`, Pachyderm starts twenty workers. |
 
 By default, Pachyderm sets `parallelism` to `“constant": 1`, which means
 that it spawns one worker per Kubernetes node for this pipeline.
@@ -92,7 +90,6 @@ When data does come in, the pipeline will exit `standby` and spin up workers to 
 Multiple jobs can run in parallel and cause new workers to spin up. For example, if a job comes in with a single datum, it will cause a single worker to spin up. If another job with a single datum comes in while the first job is still running, another worker will spin up to work on the second job. Again this is bounded by the limit defined in the `parallelism_spec`.
 
 One limitation of autoscaling is that **it cannot dynamically scale down**. Suppose a job with many datums is near completion, only one worker is still working while the others are idle. Pachyderm does not yet have a way for the idle workers to steal work, and there are a few issues that prevent us from spinning down the idle workers. Kubernetes does not have a good way to scale down a controller and specify which pods should be killed, so scaling down may kill the worker pod that is still doing work. This means another worker will have to restart that work from scratch, and the job will take longer. Additionally, we want to keep the workers around to participate in the **distributed merge process** at the end of the job.
-
 
 !!! note "See Also:"
 

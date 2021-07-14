@@ -31,7 +31,6 @@ func newAPIServer(
 		Logger: log.NewLogger("transaction.API", env.Logger()),
 		driver: d,
 	}
-	go func() { env.GetPachClient(context.Background()) }() // Begin dialing connection on startup
 	return s, nil
 }
 

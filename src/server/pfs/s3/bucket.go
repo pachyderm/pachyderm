@@ -9,6 +9,8 @@ import (
 	glob "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
@@ -24,7 +26,7 @@ func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 		Key:          fileInfo.File.Path,
 		LastModified: t,
 		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
-		Size:         fileInfo.SizeBytes,
+		Size:         uint64(fileInfo.SizeBytes),
 		StorageClass: globalStorageClass,
 		Owner:        defaultUser,
 	}, nil
@@ -94,7 +96,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
-	err = pc.GlobFile(bucket.Repo, bucket.Branch, bucket.Commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(bucket.Commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
@@ -161,16 +163,16 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 		return err
 	}
 
-	err = pc.CreateRepo(bucket.Repo)
+	_, err = pc.PfsAPIClient.CreateRepo(pc.Ctx(), &pfs.CreateRepoRequest{Repo: bucket.Commit.Branch.Repo})
 	if err != nil {
 		if errutil.IsAlreadyExistError(err) {
 			// Bucket already exists - this is not an error so long as the
 			// branch being created is new. Verify if that is the case now,
 			// since PFS' `CreateBranch` won't error out.
-			_, err := pc.InspectBranch(bucket.Repo, bucket.Branch)
+			_, err := pc.PfsAPIClient.InspectBranch(pc.Ctx(), &pfs.InspectBranchRequest{Branch: bucket.Commit.Branch})
 			if err != nil {
 				if !pfsServer.IsBranchNotFoundErr(err) {
-					return s2.InternalError(r, err)
+					return s2.InternalError(r, grpcutil.ScrubGRPC(err))
 				}
 			} else {
 				return s2.BucketAlreadyOwnedByYouError(r)
@@ -178,16 +180,16 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 		} else if ancestry.IsInvalidNameError(err) {
 			return s2.InvalidBucketNameError(r)
 		} else {
-			return s2.InternalError(r, err)
+			return s2.InternalError(r, grpcutil.ScrubGRPC(err))
 		}
 	}
 
-	err = pc.CreateBranch(bucket.Repo, bucket.Branch, "", "", nil)
+	_, err = pc.PfsAPIClient.CreateBranch(pc.Ctx(), &pfs.CreateBranchRequest{Branch: bucket.Commit.Branch})
 	if err != nil {
 		if ancestry.IsInvalidNameError(err) {
 			return s2.InvalidBucketNameError(r)
 		}
-		return s2.InternalError(r, err)
+		return s2.InternalError(r, grpcutil.ScrubGRPC(err))
 	}
 
 	return nil
@@ -213,44 +215,42 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 	// `DeleteBranch` does not return an error if a non-existing branch is
 	// deleting. So first, we verify that the branch exists so we can
 	// otherwise return a 404.
-	branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Branch)
+	branchInfo, err := pc.PfsAPIClient.InspectBranch(pc.Ctx(), &pfs.InspectBranchRequest{Branch: bucket.Commit.Branch})
 	if err != nil {
-		return maybeNotFoundError(r, err)
+		return maybeNotFoundError(r, grpcutil.ScrubGRPC(err))
 	}
 
-	if branchInfo.Head != nil {
-		hasFiles := false
-		err = pc.WalkFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, branchInfo.Head.ID, "", func(fileInfo *pfsClient.FileInfo) error {
-			if fileInfo.FileType == pfsClient.FileType_FILE {
-				hasFiles = true
-				return errutil.ErrBreak
-			}
-			return nil
-		})
-		if err != nil {
-			return s2.InternalError(r, err)
+	hasFiles := false
+	err = pc.WalkFile(branchInfo.Head, "", func(fileInfo *pfsClient.FileInfo) error {
+		if fileInfo.FileType == pfsClient.FileType_FILE {
+			hasFiles = true
+			return errutil.ErrBreak
 		}
-
-		if hasFiles {
-			return s2.BucketNotEmptyError(r)
-		}
-	}
-
-	err = pc.DeleteBranch(bucket.Repo, bucket.Branch, false)
+		return nil
+	})
 	if err != nil {
 		return s2.InternalError(r, err)
 	}
 
-	repoInfo, err := pc.InspectRepo(bucket.Repo)
+	if hasFiles {
+		return s2.BucketNotEmptyError(r)
+	}
+
+	_, err = pc.PfsAPIClient.DeleteBranch(pc.Ctx(), &pfs.DeleteBranchRequest{Branch: bucket.Commit.Branch})
 	if err != nil {
-		return s2.InternalError(r, err)
+		return s2.InternalError(r, grpcutil.ScrubGRPC(err))
+	}
+
+	repoInfo, err := pc.PfsAPIClient.InspectRepo(pc.Ctx(), &pfs.InspectRepoRequest{Repo: bucket.Commit.Branch.Repo})
+	if err != nil {
+		return s2.InternalError(r, grpcutil.ScrubGRPC(err))
 	}
 
 	// delete the repo if this was the last branch
 	if len(repoInfo.Branches) == 0 {
-		err = pc.DeleteRepo(bucket.Repo, false)
+		_, err = pc.PfsAPIClient.DeleteRepo(pc.Ctx(), &pfs.DeleteRepoRequest{Repo: bucket.Commit.Branch.Repo})
 		if err != nil {
-			return s2.InternalError(r, err)
+			return s2.InternalError(r, grpcutil.ScrubGRPC(err))
 		}
 	}
 

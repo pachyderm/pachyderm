@@ -64,15 +64,15 @@ func WithParentID(parentID *ID) UnorderedWriterOption {
 	}
 }
 
-// WriterOption configures a file set writer.
-type WriterOption func(w *Writer)
-
-// WithNoUpload sets the writer to no upload (will not upload chunks).
-func WithNoUpload() WriterOption {
-	return func(w *Writer) {
-		w.noUpload = true
+// WithValidator sets the validator for paths being written to the unordered writer.
+func WithValidator(validator func(string) error) UnorderedWriterOption {
+	return func(uw *UnorderedWriter) {
+		uw.validator = validator
 	}
 }
+
+// WriterOption configures a file set writer.
+type WriterOption func(w *Writer)
 
 // WithIndexCallback sets a function to be called after each index is written.
 // If WithNoUpload is set, the function is called after the index would have been written.

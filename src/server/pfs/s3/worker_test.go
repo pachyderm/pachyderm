@@ -84,7 +84,7 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 }
 
 func workerRemoveObject(t *testing.T, s *workerTestState) {
-	require.NoError(t, s.pachClient.PutFile(s.outputRepo, s.outputBranch, "", "file", strings.NewReader("content")))
+	require.NoError(t, s.pachClient.PutFile(client.NewCommit(s.outputRepo, s.outputBranch, ""), "file", strings.NewReader("content")))
 
 	// as per PFS semantics, the second delete should be a no-op
 	require.NoError(t, s.minioClient.RemoveObject("out", "file"))
@@ -239,20 +239,28 @@ func TestWorkerDriver(t *testing.T) {
 	// create a master branch on the input repo
 	inputMasterCommit, err := pachClient.StartCommit(inputRepo, "master")
 	require.NoError(t, err)
-	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "", 0)
-	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "rootdir/", 1)
-	putListFileTestObject(t, pachClient, inputRepo, inputMasterCommit.ID, "rootdir/subdir/", 2)
+
+	require.NoError(t, pachClient.WithModifyFileClient(inputMasterCommit, func(mf client.ModifyFile) error {
+		putListFileTestObject(t, mf, "", 0)
+		putListFileTestObject(t, mf, "rootdir/", 1)
+		putListFileTestObject(t, mf, "rootdir/subdir/", 2)
+		return nil
+	}))
 	require.NoError(t, pachClient.FinishCommit(inputRepo, inputMasterCommit.Branch.Name, inputMasterCommit.ID))
 
 	// create a develop branch on the input repo
 	inputDevelopCommit, err := pachClient.StartCommit(inputRepo, "develop")
 	require.NoError(t, err)
-	for i := 0; i <= 100; i++ {
-		putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "", i)
-	}
-	for i := 0; i < 10; i++ {
-		putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "dir/", i)
-	}
+
+	require.NoError(t, pachClient.WithModifyFileClient(inputDevelopCommit, func(mf client.ModifyFile) error {
+		for i := 0; i <= 100; i++ {
+			putListFileTestObject(t, mf, "", i)
+		}
+		for i := 0; i < 10; i++ {
+			putListFileTestObject(t, mf, "dir/", i)
+		}
+		return nil
+	}))
 	require.NoError(t, pachClient.FinishCommit(inputRepo, inputDevelopCommit.Branch.Name, inputDevelopCommit.ID))
 
 	// create the output branch
@@ -261,22 +269,17 @@ func TestWorkerDriver(t *testing.T) {
 
 	driver := NewWorkerDriver(
 		[]*Bucket{
-			&Bucket{
-				Repo:   inputRepo,
-				Branch: inputMasterCommit.Branch.Name,
-				Commit: inputMasterCommit.ID,
+			{
+				Commit: inputMasterCommit,
 				Name:   "in1",
 			},
-			&Bucket{
-				Repo:   inputRepo,
-				Branch: inputDevelopCommit.Branch.Name,
-				Commit: inputDevelopCommit.ID,
+			{
+				Commit: inputDevelopCommit,
 				Name:   "in2",
 			},
 		},
 		&Bucket{
-			Repo:   outputRepo,
-			Branch: outputBranch,
+			Commit: client.NewRepo(outputRepo).NewCommit(outputBranch, ""),
 			Name:   "out",
 		},
 	)

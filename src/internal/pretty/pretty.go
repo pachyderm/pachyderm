@@ -52,7 +52,7 @@ func Duration(d *types.Duration) string {
 }
 
 // Size pretty-prints size amount of bytes as a human readable string.
-func Size(size uint64) string {
+func Size(size int64) string {
 	return units.BytesSize(float64(size))
 }
 

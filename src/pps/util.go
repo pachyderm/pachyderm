@@ -8,22 +8,22 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"gopkg.in/src-d/go-git.v4"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 )
 
 var (
 	// format strings for state name parsing errors
-	errInvalidPipelineJobStateName string
-	errInvalidPipelineStateName    string
+	errInvalidJobStateName      string
+	errInvalidPipelineStateName string
 )
 
 func init() {
 	// construct error messages from all current job and pipeline state names
 	var states []string
-	for i := int32(0); PipelineJobState_name[i] != ""; i++ {
-		states = append(states, strings.ToLower(strings.TrimPrefix(PipelineJobState_name[i], "JOB_")))
+	for i := int32(0); JobState_name[i] != ""; i++ {
+		states = append(states, strings.ToLower(strings.TrimPrefix(JobState_name[i], "JOB_")))
 	}
-	errInvalidPipelineJobStateName = fmt.Sprintf("state %%s must be one of %s, or %s, etc", strings.Join(states, ", "), PipelineJobState_name[0])
+	errInvalidJobStateName = fmt.Sprintf("state %%s must be one of %s, or %s, etc", strings.Join(states, ", "), JobState_name[0])
 	states = states[:0]
 	for i := int32(0); PipelineState_name[i] != ""; i++ {
 		states = append(states, strings.ToLower(strings.TrimPrefix(PipelineState_name[i], "PIPELINE_")))
@@ -31,29 +31,39 @@ func init() {
 	errInvalidPipelineStateName = fmt.Sprintf("state %%s must be one of %s, or %s, etc", strings.Join(states, ", "), PipelineState_name[0])
 }
 
+func (j *Job) String() string {
+	return fmt.Sprintf("%s@%s", j.Pipeline.Name, j.ID)
+}
+
 // VisitInput visits each input recursively in ascending order (root last)
-func VisitInput(input *Input, f func(*Input)) {
+func VisitInput(input *Input, f func(*Input) error) error {
+	err := visitInput(input, f)
+	if err != nil && errors.Is(err, errutil.ErrBreak) {
+		return nil
+	}
+	return err
+}
+
+func visitInput(input *Input, f func(*Input) error) error {
+	var source []*Input
 	switch {
 	case input == nil:
-		return // Spouts may have nil input
+		return nil // Spouts may have nil input
 	case input.Cross != nil:
-		for _, input := range input.Cross {
-			VisitInput(input, f)
-		}
+		source = input.Cross
 	case input.Join != nil:
-		for _, input := range input.Join {
-			VisitInput(input, f)
-		}
+		source = input.Join
 	case input.Group != nil:
-		for _, input := range input.Group {
-			VisitInput(input, f)
-		}
+		source = input.Group
 	case input.Union != nil:
-		for _, input := range input.Union {
-			VisitInput(input, f)
+		source = input.Union
+	}
+	for _, input := range source {
+		if err := visitInput(input, f); err != nil {
+			return err
 		}
 	}
-	f(input)
+	return f(input)
 }
 
 // InputName computes the name of an Input.
@@ -85,7 +95,7 @@ func InputName(input *Input) string {
 
 // SortInput sorts an Input.
 func SortInput(input *Input) {
-	VisitInput(input, func(input *Input) {
+	VisitInput(input, func(input *Input) error {
 		SortInputs := func(inputs []*Input) {
 			sort.SliceStable(inputs, func(i, j int) bool { return InputName(inputs[i]) < InputName(inputs[j]) })
 		}
@@ -99,13 +109,14 @@ func SortInput(input *Input) {
 		case input.Union != nil:
 			SortInputs(input.Union)
 		}
+		return nil
 	})
 }
 
 // InputBranches returns the branches in an Input.
 func InputBranches(input *Input) []*pfs.Branch {
 	var result []*pfs.Branch
-	VisitInput(input, func(input *Input) {
+	VisitInput(input, func(input *Input) error {
 		if input.Pfs != nil {
 			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{
@@ -124,61 +135,20 @@ func InputBranches(input *Input) []*pfs.Branch {
 				Name: "master",
 			})
 		}
-		if input.Git != nil {
-			result = append(result, &pfs.Branch{
-				Repo: &pfs.Repo{
-					Name: input.Pfs.Repo,
-					Type: pfs.UserRepoType,
-				},
-				Name: input.Git.Branch,
-			})
-		}
+		return nil
 	})
 	return result
 }
 
-// ValidateGitCloneURL returns an error if the provided URL is invalid
-func ValidateGitCloneURL(url string) error {
-	exampleURL := "https://github.com/org/foo.git"
-	if url == "" {
-		return errors.Errorf("clone URL is missing (example clone URL %v)", exampleURL)
-	}
-	// Use the git client's validator to make sure its a valid URL
-	o := &git.CloneOptions{
-		URL: url,
-	}
-	if err := o.Validate(); err != nil {
-		return err
-	}
-
-	// Make sure its the type that we want. Of the following we
-	// only accept the 'clone' type of url:
-	//     git_url: "git://github.com/sjezewski/testgithook.git",
-	//     ssh_url: "git@github.com:sjezewski/testgithook.git",
-	//     clone_url: "https://github.com/sjezewski/testgithook.git",
-	//     svn_url: "https://github.com/sjezewski/testgithook",
-
-	if !strings.HasSuffix(url, ".git") {
-		// svn_url case
-		return errors.Errorf("clone URL is missing .git suffix (example clone URL %v)", exampleURL)
-	}
-	if !strings.HasPrefix(url, "https://") {
-		// git_url or ssh_url cases
-		return errors.Errorf("clone URL must use https protocol (example clone URL %v)", exampleURL)
-	}
-
-	return nil
-}
-
-// PipelineJobStateFromName attempts to interpret a string as a
-// PipelineJobState, accepting either the enum names or the pretty printed state
+// JobStateFromName attempts to interpret a string as a
+// JobState, accepting either the enum names or the pretty printed state
 // names
-func PipelineJobStateFromName(name string) (PipelineJobState, error) {
+func JobStateFromName(name string) (JobState, error) {
 	canonical := "JOB_" + strings.TrimPrefix(strings.ToUpper(name), "JOB_")
-	if value, ok := PipelineJobState_value[canonical]; ok {
-		return PipelineJobState(value), nil
+	if value, ok := JobState_value[canonical]; ok {
+		return JobState(value), nil
 	}
-	return 0, fmt.Errorf(errInvalidPipelineJobStateName, name)
+	return 0, fmt.Errorf(errInvalidJobStateName, name)
 }
 
 // PipelineStateFromName attempts to interpret a string as a PipelineState,
