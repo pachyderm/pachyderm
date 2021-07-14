@@ -55,14 +55,18 @@ spec:
         - name: POSTGRES_USER
           value: {{ .Values.pachd.postgresql.user | quote}}
         {{- end }}
-        {{- if .Values.pachd.postgresql.dbName }}
-        - name: POSTGRES_DATABASE_NAME
-          value: {{ .Values.pachd.postgresql.dbName | quote}}
-        {{- end}}
+        {{- if .Values.pachd.postgresql.database }}
+        - name: POSTGRES_DATABASE
+          value: {{ .Values.pachd.postgresql.database | quote }}
+        {{- end }}
         {{- if .Values.pachd.postgresql.ssl }}
         - name: POSTGRES_SSL
           value: {{ .Values.pachd.postgresql.ssl | quote }}
-        {{- end}}
+        {{- end }}
+        - name: PG_BOUNCER_HOST
+          value: pg-bouncer
+        - name: PG_BOUNCER_PORT
+          value: "5432"
         - name: LOKI_LOGGING
           value: {{ .Values.pachd.lokiLogging | quote}}
         - name: PACH_ROOT

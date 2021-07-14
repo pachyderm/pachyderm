@@ -11,28 +11,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 )
 
 func TestPostgresCollections(suite *testing.T) {
-
-	PostgresCollectionTests(suite, newCollectionFunc(func(ctx context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
-		config := serviceenv.ConfigFromOptions(testutil.NewTestDBConfig(t))
-		options := []dbutil.Option{
-			dbutil.WithHostPort(config.PostgresHost, config.PostgresPort),
-			dbutil.WithDBName(config.PostgresDBName),
-			dbutil.WithMaxOpenConns(1), // All tests should be able to run on a single connection
-		}
-
-		db, err := dbutil.NewDB(options...)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			require.NoError(t, db.Close())
-		})
-
+	PostgresCollectionBasicTests(suite, newCollectionFunc(func(ctx context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
+		db, dsn := newTestDB(t)
 		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 			if err := col.CreatePostgresSchema(ctx, sqlTx); err != nil {
 				return err
@@ -40,7 +26,21 @@ func TestPostgresCollections(suite *testing.T) {
 			return col.SetupPostgresV0(ctx, sqlTx)
 		}))
 
-		dsn := dbutil.GetDSN(options...)
+		listener := col.NewPostgresListener(dsn)
+		t.Cleanup(func() {
+			require.NoError(t, listener.Close())
+		})
+		return db, listener
+	}))
+	PostgresCollectionWatchTests(suite, newCollectionFunc(func(ctx context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
+		db, dsn := newTestDirectDB(t)
+		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
+			if err := col.CreatePostgresSchema(ctx, sqlTx); err != nil {
+				return err
+			}
+			return col.SetupPostgresV0(ctx, sqlTx)
+		}))
+
 		listener := col.NewPostgresListener(dsn)
 		t.Cleanup(func() {
 			require.NoError(t, listener.Close())
@@ -51,28 +51,13 @@ func TestPostgresCollections(suite *testing.T) {
 
 // TODO: Add test for filling up watcher buffer.
 func TestPostgresCollectionsProxy(suite *testing.T) {
-
 	watchTests(suite, newCollectionFunc(func(_ context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
-		dbConfig := testutil.NewTestDBConfig(t)
-		config := serviceenv.ConfigFromOptions(dbConfig)
-		options := []dbutil.Option{
-			dbutil.WithHostPort(config.PostgresHost, config.PostgresPort),
-			dbutil.WithDBName(config.PostgresDBName),
-			dbutil.WithMaxOpenConns(1), // All tests should be able to run on a single connection
-		}
-
-		db, err := dbutil.NewDB(options...)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			require.NoError(t, db.Close())
-		})
-
-		env := testpachd.NewRealEnv(t, dbConfig)
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 		listener := client.NewProxyPostgresListener(func() (proxy.APIClient, error) { return env.PachClient.ProxyClient, nil })
 		t.Cleanup(func() {
 			require.NoError(t, listener.Close())
 		})
-		return db, listener
+		return env.ServiceEnv.GetDirectDBClient(), listener
 	}))
 }
 
@@ -99,9 +84,8 @@ func newCollectionFunc(setup func(context.Context, *testing.T) (*sqlx.DB, col.Po
 	}
 }
 
-func PostgresCollectionTests(suite *testing.T, newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback)) {
+func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback)) {
 	collectionTests(suite, newCollection)
-	watchTests(suite, newCollection)
 
 	// Postgres collections support getting multiple rows by a secondary index,
 	// although it requires loading the entire result set into memory to prevent
@@ -211,4 +195,30 @@ func PostgresCollectionTests(suite *testing.T, newCollection func(context.Contex
 	// DeleteByIndex(index *Index, indexVal string) error
 
 	// TODO: test keycheck function
+}
+
+func PostgresCollectionWatchTests(suite *testing.T, newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback)) {
+	watchTests(suite, newCollection)
+}
+
+func newTestDB(t testing.TB) (*sqlx.DB, string) {
+	options := testutil.NewTestDBOptions(t)
+	dsn := dbutil.GetDSN(options...)
+	db, err := dbutil.NewDB(options...)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, db.Close())
+	})
+	return db, dsn
+}
+
+func newTestDirectDB(t testing.TB) (*sqlx.DB, string) {
+	options := testutil.NewTestDirectDBOptions(t)
+	dsn := dbutil.GetDSN(options...)
+	db, err := dbutil.NewDB(options...)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, db.Close())
+	})
+	return db, dsn
 }
