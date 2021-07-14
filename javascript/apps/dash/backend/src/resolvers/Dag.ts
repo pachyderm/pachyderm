@@ -254,6 +254,10 @@ const normalizeDAGData = async (
     {id: 'root', children: elkChildren, edges: elkEdges},
     {
       layoutOptions: {
+        // the default value of '0' picks a psuedo random seed based
+        // on system time, which makes the algorithm non-deterministic
+        // https://www.eclipse.org/elk/reference/options/org-eclipse-elk-randomSeed.html
+        'org.eclipse.elk.randomSeed': '1',
         'org.eclipse.elk.algorithm': 'disco',
         'org.eclipse.elk.aspectRatio': horizontal ? '0.2' : '10',
         'org.eclipse.elk.mergeEdges': 'false',
