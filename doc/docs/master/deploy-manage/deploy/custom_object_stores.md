@@ -34,7 +34,9 @@ gcloud compute disks create --size=${STORAGE_SIZE}GB ${STORAGE_NAME}
 Then we can deploy Pachyderm:
 
 ```shell
-pachctl deploy custom --persistent-disk google --object-store s3 ${STORAGE_NAME} ${STORAGE_SIZE} <object store bucket> <object store id> <object store secret> <object store endpoint> --static-etcd-volume=${STORAGE_NAME}
+$ helm repo add pachyderm https://pachyderm.github.io/helmchart
+$ helm repo update
+$ helm install pachyderm --set deployTarget=CUSTOM pachyderm/pachyderm --version <version-of-the-chart>
 ```
 
 ## AWS + Custom Object Store

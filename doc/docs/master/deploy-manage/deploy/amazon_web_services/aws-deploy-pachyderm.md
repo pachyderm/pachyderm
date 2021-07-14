@@ -212,6 +212,7 @@ If you would like to expose your pachd instance to the internet via load balance
 **NOTE:** It is strongly recommended to configure SSL when exposing Pachyderm publicly
 
 ```yaml
+#pachd:
   service:
     type: LoadBalancer
 ```

@@ -327,29 +327,48 @@ you might accidentally deploy your cluster on Minikube.
     Merged "${CLUSTER_NAME}" as current context in /Users/test-user/.kube/config
     ```
 
+1. Create your values.yaml   
+
+    Update your values.yaml with your container name ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/microsoft-values.yaml)) or use our minimal example below.
+
+    ```yaml
+    deployTarget: MICROSOFT
+
+    pachd:
+      storage:
+        microsoft:
+          container: "foo"
+          id: "bar"
+          secret: "baz"
+    ```
+
+    **Load Balancer Setup**
+    If you would like to expose your pachd instance to the internet via load balancer, add the following config under `pachd` to your `values.yaml`
+
+    **NOTE:** It is strongly recommended to configure SSL when exposing Pachyderm publicly
+
+    ```yaml
+    #pachd:
+      service:
+        type: LoadBalancer
+    ```
+
 1. Run the following command:
 
     ```shell
-    pachctl deploy microsoft ${CONTAINER_NAME} ${STORAGE_ACCOUNT} ${STORAGE_KEY} ${STORAGE_SIZE} --dynamic-etcd-nodes 1
+    $ helm repo add pachyderm https://pachyderm.github.io/helmchart
+    $ helm repo update
+    $ helm install pachyderm -f my_values.yaml pachyderm/pachyderm --version <version-of-the-chart>
     ```
-    **Example:**
+
+    **System Response:**
 
     ```shell
-    pachctl deploy microsoft test-container teststorage <key> 10 --dynamic-etcd-nodes 1
-    serviceaccount/pachyderm configured
-    clusterrole.rbac.authorization.k8s.io/pachyderm configured
-    clusterrolebinding.rbac.authorization.k8s.io/pachyderm configured
-    service/etcd-headless created
-    statefulset.apps/etcd created
-    service/etcd configured
-    service/pachd configured
-    deployment.apps/pachd configured
-    service/dash configured
-    deployment.apps/dash configured
-    secret/pachyderm-storage-secret configured
-
-    Pachyderm is launching. Check its status with "kubectl get all"
-    Once launched, access the dashboard by running "pachctl port-forward"
+    NAME: pachd
+    LAST DEPLOYED: Mon Jul 12 18:28:59 2021
+    NAMESPACE: default
+    STATUS: deployed
+    REVISION: 1
     ```
 
     Because Pachyderm pulls containers from DockerHub, it might take some time
@@ -375,57 +394,35 @@ you might accidentally deploy your cluster on Minikube.
     the `etcd` nodes are ready which might result in the `pachd` nodes
     restarting. You can safely ignore those restarts.
 
-## Have 'pachctl' and your Cluster Communicate
+Have 'pachctl' and your Cluster Communicate
 
-Finally, assuming your `pachd` is running as shown above, 
-make sure that `pachctl` can talk to the cluster by:
+Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
-- Running a port-forward:
+If you specified `LoadBalancer` in the `values.yaml` file:
+
+  1. Retrieve the external IP address of the service.  When listing your services again, you should see an external IP address allocated to the `pachd` service 
+
+      ```shell
+      $ kubectl get service
+      ```
+
+  1. Update the context of your cluster with their direct url, using the external IP address above:
+
+      ```shell
+      $ echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      ```
+
+  1. Check that your are using the right context: 
+
+      ```shell
+      $ pachctl config get active-context`
+      ```
+
+      Your cluster context name should show up.
+
+If you're not exposing `pachd` publicly, you can run:
 
 ```shell
 # Background this process because it blocks.
-pachctl port-forward   
-```
-
-- Exposing your cluster to the internet by setting up a LoadBalancer as follow:
-
-!!! Warning 
-    The following setup of a LoadBalancer only applies to pachd.
-
-1. To get an external IP address for a Cluster, edit its k8s service, 
-```shell
-kubectl edit service pachd
-```
-and change its `spec.type` value from `NodePort` to `LoadBalancer`. 
-
-1. Retrieve the external IP address of the edited service.
-When listing your services again, you should see an external IP address allocated to the service you just edited. 
-```shell
-kubectl get service
-```
-1. Update the context of your cluster with their direct url, using the external IP address above:
-```shell
-echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
-```
-1. Check that your are using the right context: 
-```shell
-pachctl config get active-context`
-```
-Your cluster context name set above should show up. 
-    
-
-You are done! You can test to make sure the cluster is working
-by running `pachctl version` or even creating a new repo.
-
-```shell
-pachctl version
-```
-
-**System Response:**
-
-```shell
-COMPONENT           VERSION
-pachctl             {{ config.pach_latest_version }}
-pachd               {{ config.pach_latest_version }}
-```
-
+$ pachctl port-forward
+``` 
