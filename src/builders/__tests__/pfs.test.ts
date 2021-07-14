@@ -1,6 +1,7 @@
 import {
   commitFromObject,
   createRepoRequestFromObject,
+  deleteRepoRequestFromObject,
   fileFromObject,
   fileInfoFromObject,
   repoFromObject,
@@ -117,7 +118,7 @@ describe('grpc/builders/pfs', () => {
     expect(commit.getId()).toBe('4af40d34a0384f23a5b98d3bd7eaece1');
   });
 
-  it('should create reateRepoRequest from an object with defaults', () => {
+  it('should create createRepoRequest from an object with defaults', () => {
     const createRepoRequest = createRepoRequestFromObject({
       repo: {name: 'test'},
     });
@@ -127,7 +128,7 @@ describe('grpc/builders/pfs', () => {
     expect(createRepoRequest.getUpdate()).toBe(false);
   });
 
-  it('should create reateRepoRequest from an object', () => {
+  it('should create createRepoRequest from an object', () => {
     const createRepoRequest = createRepoRequestFromObject({
       repo: {name: 'test'},
       description: 'this is a discription.',
@@ -137,5 +138,24 @@ describe('grpc/builders/pfs', () => {
     expect(createRepoRequest.getRepo()?.getName()).toBe('test');
     expect(createRepoRequest.getDescription()).toBe('this is a discription.');
     expect(createRepoRequest.getUpdate()).toBe(true);
+  });
+
+  it('should create deleteRepoRequest from an object without force by default', () => {
+    const deleteRepoRequest = deleteRepoRequestFromObject({
+      repo: {name: 'test'},
+    });
+
+    expect(deleteRepoRequest.getRepo()?.getName()).toBe('test');
+    expect(deleteRepoRequest.getForce()).toBe(false);
+  });
+
+  it('should create deleteRepoRequest from an object with force', () => {
+    const deleteRepoRequest = deleteRepoRequestFromObject({
+      repo: {name: 'test'},
+      force: true
+    });
+
+    expect(deleteRepoRequest.getRepo()?.getName()).toBe('test');
+    expect(deleteRepoRequest.getForce()).toBe(true);
   });
 });

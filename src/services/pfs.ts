@@ -16,6 +16,8 @@ import {extract} from 'tar-stream';
 import {
   createRepoRequestFromObject,
   CreateRepoRequestObject,
+  deleteRepoRequestFromObject,
+  DeleteRepoRequestObject,
   fileFromObject,
   FileObject,
   repoFromObject,
@@ -134,6 +136,17 @@ const pfs = ({
         });
       });
     },
+    deleteRepo: (request: DeleteRepoRequestObject) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const deleteRepoRequest = deleteRepoRequestFromObject(request);
+        client.deleteRepo(deleteRepoRequest, credentialMetadata, (error) => {
+          if(error) {
+            return reject(error);
+          }
+          return resolve({});
+        })
+      })
+    }
   };
 };
 

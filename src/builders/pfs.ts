@@ -3,6 +3,7 @@ import {
   Commit,
   CommitInfo,
   CreateRepoRequest,
+  DeleteRepoRequest,
   File,
   FileInfo,
   FileType,
@@ -60,6 +61,11 @@ export type CreateRepoRequestObject = {
   repo: RepoObject;
   description?: CreateRepoRequest.AsObject['description'];
   update?: CreateRepoRequest.AsObject['update'];
+};
+
+export type DeleteRepoRequestObject = {
+  repo: RepoObject;
+  force?: DeleteRepoRequest.AsObject['force'];
 };
 
 export const fileFromObject = ({
@@ -176,6 +182,18 @@ export const createRepoRequestFromObject = ({
   request.setRepo(repoFromObject(repo));
   request.setDescription(description);
   request.setUpdate(update);
+
+  return request;
+};
+
+export const deleteRepoRequestFromObject = ({
+  repo,
+  force = false,
+}: DeleteRepoRequestObject) => {
+  const request = new DeleteRepoRequest();
+
+  request.setRepo(repoFromObject(repo));
+  request.setForce(force);
 
   return request;
 };
