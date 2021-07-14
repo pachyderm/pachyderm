@@ -23,10 +23,10 @@ type GlobalConfiguration struct {
 	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
 	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
 	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
-	PostgresHost                   string `env:"POSTGRES_HOST"`
-	PostgresPort                   int    `env:"POSTGRES_PORT"`
+	PGBouncerHost                  string `env:"PG_BOUNCER_HOST"`
+	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT"`
 	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
-	PostgresDBName                 string `env:"POSTGRES_DATABASE_NAME"`
+	PostgresDBName                 string `env:"POSTGRES_DATABASE"`
 	PostgresUser                   string `env:"POSTGRES_USER,default=postgres"`
 	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
 	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=10"`
@@ -47,7 +47,7 @@ type GlobalConfiguration struct {
 	SessionDurationMinutes int `env:"SESSION_DURATION_MINUTES,default=43200"`
 
 	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
-	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`
+	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=pachyderm"`
 	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
 
 	// PPSSpecCommitID and PPSPipelineName are only set for workers and sidecar
@@ -91,6 +91,9 @@ type PachdSpecificConfiguration struct {
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName string `env:"PACHD_POD_NAME,required"`
+
+	PostgresHost string `env:"POSTGRES_HOST"`
+	PostgresPort int    `env:"POSTGRES_PORT"`
 }
 
 // StorageConfiguration contains the storage configuration.

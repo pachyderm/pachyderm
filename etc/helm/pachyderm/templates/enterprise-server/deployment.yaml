@@ -41,6 +41,14 @@ spec:
           value: postgres
         - name: POSTGRES_PORT
           value: "5432"
+        - name: PG_BOUNCER_HOST
+          value: pg-bouncer
+        - name: PG_BOUNCER_PORT
+          value: "5432"
+        - name: POSTGRES_DATABASE
+          value: pachyderm
+        - name: POSTGRES_USER
+          value: pachyderm
         - name: CLUSTER_DEPLOYMENT_ID
           value: {{ default (randAlphaNum 32) .Values.enterpriseServer.clusterDeploymentID | quote }}
         image: "{{ .Values.enterpriseServer.image.repository }}:{{ default .Chart.AppVersion .Values.enterpriseServer.image.tag }}"

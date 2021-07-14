@@ -19,8 +19,8 @@ func (env *NonblockingServiceEnv) InitDexDB() {
 				Database: env.Config().IdentityServerDatabase,
 				User:     env.Config().IdentityServerUser,
 				Password: env.Config().IdentityServerPassword,
-				Host:     env.Config().PostgresHost,
-				Port:     uint16(env.Config().PostgresPort),
+				Host:     env.Config().PGBouncerHost,
+				Port:     uint16(env.Config().PGBouncerPort),
 			},
 			SSL: dex_sql.SSL{
 				Mode: env.Config().PostgresSSL,

@@ -226,10 +226,7 @@ enterprise-code-checkin-test:
 	  false; \
 	fi
 
-test-postgres:
-	./etc/testing/start_postgres.sh
-
-test-pfs-server: test-postgres
+test-pfs-server:
 	./etc/testing/pfs_server.sh $(TIMEOUT) $(TESTFLAGS)
 
 test-pps: launch-stats docker-build-spout-test 
@@ -268,7 +265,7 @@ test-s3gateway-integration:
 	fi
 	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
 
-test-s3gateway-unit: test-postgres
+test-s3gateway-unit: 
 	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-fuse:

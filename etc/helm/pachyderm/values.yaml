@@ -165,6 +165,14 @@ pachd:
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
+  postgresql:
+    host: "postgres"
+    port: "5432"
+    ssl: "disable"
+    user: "pachyderm"
+    password: ""
+    database: "pachyderm"
+
   requireCriticalServersOnly: false
   # If enabled, External service creates a service which is safe to
   # be exposed externally
@@ -338,6 +346,18 @@ worker:
     # name sets the name of the worker service account.  Analogous to
     # the --worker-service-account argument to pachctl deploy.
     name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
+
+pgbouncer:
+  enabled: true
+  service:
+    type: ClusterIP
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+    #  memory: "2G"
 
 postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.

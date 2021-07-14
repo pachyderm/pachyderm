@@ -24,5 +24,6 @@ etcd:
     requests:
       cpu: 250m
       memory: 512M
-worker:
-  usesRoot: true
+pgbouncer:
+  service:
+    type: NodePort
