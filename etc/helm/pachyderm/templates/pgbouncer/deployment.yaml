@@ -2,7 +2,6 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{- if .Values.pgbouncer.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -29,11 +28,11 @@ spec:
       containers:
       - env:
         - name: DB_USER
-          value: pachyderm
+          value: {{ .Values.global.postgresql.postgresqlUsername }}
         - name: DB_PASSWORD
-          value: elephantastic
+          value: {{ .Values.global.postgresql.postgresqlPassword }}
         - name: DB_HOST
-          value: postgres
+          value: {{ .Values.global.postgresql.postgresqlHost }}
         - name: AUTH_TYPE
           value: trust
         - name: MAX_CLIENT_CONN
@@ -48,5 +47,3 @@ spec:
           requests:
             cpu: 250m
             memory: 256M
-      #serviceAccountName: pachyderm
-{{- end }}

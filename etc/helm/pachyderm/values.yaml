@@ -12,6 +12,17 @@ imagePullSecret: ""
 # MINIO, MICROSOFT, CUSTOM or LOCAL.
 deployTarget: ""
 
+global:
+  postgresql:
+    postgresqlUsername: "pachyderm"
+    postgresqlPassword: "elephantastic"
+    postgresqlDatabase: "pachyderm"
+    # The postgresql database host to connect to. Defaults to built in postgres service
+    postgresqlHost: "postgres"
+    # The postgresql database port to connect to. Defaults to built in postgres service
+    postgresqlPort: "5432"
+    postgresqlSSL: "disable"
+
 dash:
   # enabled controls whether the dash manifests are created or not.
   enabled: false
@@ -162,17 +173,10 @@ pachd:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
+
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
-  postgresql:
-    host: "postgres"
-    port: "5432"
-    ssl: "disable"
-    user: "pachyderm"
-    password: ""
-    database: "pachyderm"
-
   requireCriticalServersOnly: false
   # If enabled, External service creates a service which is safe to
   # be exposed externally
@@ -340,7 +344,6 @@ worker:
     name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
 
 pgbouncer:
-  enabled: true
   service:
     type: ClusterIP
   resources: {}

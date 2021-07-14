@@ -33,9 +33,9 @@ spec:
       containers:
       - env:
         - name: POSTGRES_DB
-          value: pachyderm
+          value: {{ .Values.global.postgresql.postgresqlDatabase | quote }}
         - name: POSTGRES_USER
-          value: pachyderm
+          value: {{ .Values.global.postgresql.postgresqlUsername | quote }}
         - name: POSTGRES_HOST_AUTH_METHOD
           # TODO: Remove trust as auth method
           value: trust
