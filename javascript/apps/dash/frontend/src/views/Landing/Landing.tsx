@@ -45,7 +45,7 @@ const Landing: React.FC = () => {
                   placeholder=""
                   searchValue={searchValue}
                   onSearch={setSearchValue}
-                  showSearch
+                  showSearch={multiProject}
                 >
                   {multiProject ? (
                     <>
@@ -65,11 +65,13 @@ const Landing: React.FC = () => {
                     </TableView.Body.Tabs.Tab>
                   )}
                 </TableView.Body.Tabs>
+
                 <Group spacing={32}>
                   <DefaultDropdown
                     storeSelected
                     initialSelectId="Created On"
                     onSelect={handleSortSelect}
+                    buttonOpts={{disabled: !multiProject}}
                     items={[
                       {id: 'Created On', content: 'Created On'},
                       {id: 'Name A-Z', content: 'Name A-Z'},
@@ -81,6 +83,7 @@ const Landing: React.FC = () => {
                   <TableView.Body.Dropdown
                     formCtx={filterFormCtx}
                     buttonText={filterStatus}
+                    disabled={!multiProject}
                   >
                     <TableView.Body.Dropdown.Item
                       name="HEALTHY"
