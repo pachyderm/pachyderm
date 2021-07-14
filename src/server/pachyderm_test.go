@@ -9632,7 +9632,6 @@ func TestRewindCrossPipeline(t *testing.T) {
 	_, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	fmt.Println("moving to ", oldCommit)
 	// now, move dataRepo back to the saved commit
 	require.NoError(t, c.CreateBranch(dataRepo, "master", "master", oldCommit.Commit.ID, nil))
 	_, err = c.WaitCommit(pipeline, "master", "")

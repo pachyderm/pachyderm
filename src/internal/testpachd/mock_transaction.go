@@ -58,6 +58,16 @@ func (mock *mockCreatePipelineInTransaction) Use(cb createPipelineInTransactionF
 	mock.handler = cb
 }
 
+type inspectPipelineInTransactionFunc func(*txncontext.TransactionContext, string, bool) (*pps.PipelineInfo, error)
+
+type mockInspectPipelineInTransaction struct {
+	handler inspectPipelineInTransactionFunc
+}
+
+func (mock *mockInspectPipelineInTransaction) Use(cb inspectPipelineInTransactionFunc) {
+	mock.handler = cb
+}
+
 type ppsTransactionAPI struct {
 	ppsServerAPI
 	mock *MockPPSTransactionServer
@@ -66,12 +76,13 @@ type ppsTransactionAPI struct {
 // MockPPSTransactionServer provides a mocking interface for overriding PPS
 // behavior inside transactions.
 type MockPPSTransactionServer struct {
-	api                         ppsTransactionAPI
-	NewPropagater               mockNewPropagater
-	NewJobStopper               mockNewJobStopper
-	StopJobInTransaction        mockStopJobInTransaction
-	UpdateJobStateInTransaction mockUpdateJobStateInTransaction
-	CreatePipelineInTransaction mockCreatePipelineInTransaction
+	api                          ppsTransactionAPI
+	NewPropagater                mockNewPropagater
+	NewJobStopper                mockNewJobStopper
+	StopJobInTransaction         mockStopJobInTransaction
+	UpdateJobStateInTransaction  mockUpdateJobStateInTransaction
+	CreatePipelineInTransaction  mockCreatePipelineInTransaction
+	InspectPipelineInTransaction mockInspectPipelineInTransaction
 }
 
 type MockPPSPropagater struct{}
@@ -117,6 +128,13 @@ func (api *ppsTransactionAPI) CreatePipelineInTransaction(txnCtx *txncontext.Tra
 		return api.mock.CreatePipelineInTransaction.handler(txnCtx, req, filesetID, prevPipelineVersion)
 	}
 	return fmt.Errorf("unhandled pachd mock: pps.CreatePipelineInTransaction")
+}
+
+func (api *ppsTransactionAPI) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, pipeline string, details bool) (*pps.PipelineInfo, error) {
+	if api.mock.InspectPipelineInTransaction.handler != nil {
+		return api.mock.InspectPipelineInTransaction.handler(txnCtx, pipeline, details)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock: pps.InspectPipelineInTransaction")
 }
 
 // NewMockPPSTransactionServer instantiates a MockPPSTransactionServer

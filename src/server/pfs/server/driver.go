@@ -567,7 +567,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
-	if !force {
+	if !force && len(commitInfo.DirectProvenance) > 0 {
 		if info, err := d.env.PpsServer().InspectPipelineInTransaction(txnCtx,
 			commit.Branch.Repo.Name, false,
 		); err != nil && !errutil.IsNotFoundError(err) {
