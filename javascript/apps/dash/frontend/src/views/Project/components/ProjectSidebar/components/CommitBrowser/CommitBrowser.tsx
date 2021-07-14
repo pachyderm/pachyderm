@@ -44,10 +44,17 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
             return (
               <div className={styles.commit} key={commit.id}>
                 <div className={styles.commitTime}>
-                  Committed{' '}
-                  {formatDistanceToNow(commit.finished * 1000, {
+                  {commit.finished
+                    ? `Committed
+                  ${formatDistanceToNow(commit.finished * 1000, {
                     addSuffix: true,
-                  })}
+                  })}`
+                    : `Commit started ${formatDistanceToNow(
+                        commit.started * 1000,
+                        {
+                          addSuffix: true,
+                        },
+                      )}`}
                 </div>
                 <dl className={styles.commitInfo}>
                   <dt className={styles.commitData}>ID {commit.id}</dt>
