@@ -21,12 +21,19 @@ import {
 import {ServiceArgs} from '../lib/types';
 import streamToObjectArray from '../utils/streamToObjectArray';
 
+import {GRPC_MAX_MESSAGE_LENGTH} from './constants/pfs';
+
 const pfs = ({
   pachdAddress,
   channelCredentials,
   credentialMetadata,
 }: ServiceArgs) => {
-  const client = new APIClient(pachdAddress, channelCredentials);
+  const client = new APIClient(pachdAddress, channelCredentials, {
+    /* eslint-disable @typescript-eslint/naming-convention */
+    'grpc.max_receive_message_length': GRPC_MAX_MESSAGE_LENGTH,
+    'grpc.max_send_message_length': GRPC_MAX_MESSAGE_LENGTH,
+    /* eslint-enable @typescript-eslint/naming-convention */
+  });
 
   return {
     listFile: (params: FileObject) => {
@@ -62,7 +69,7 @@ const pfs = ({
 
         extractor.on('finish', () => {
           if (buffers.length) {
-            return resolve(buffers[0]);
+            return resolve(Buffer.concat(buffers));
           } else {
             return reject(new Error('File does not exist.'));
           }
