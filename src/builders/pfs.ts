@@ -7,6 +7,7 @@ import {
   File,
   FileInfo,
   FileType,
+  InspectFileRequest,
   Repo,
   Trigger,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
@@ -26,6 +27,10 @@ export type FileInfoObject = {
   hash: FileInfo.AsObject['hash'];
   sizeBytes: FileInfo.AsObject['sizeBytes'];
 };
+
+export type InspectFileRequestObject = {
+  file: File;
+}
 
 export type TriggerObject = {
   branch: Trigger.AsObject['branch'];
@@ -117,6 +122,16 @@ export const fileInfoFromObject = ({
 
   return fileInfo;
 };
+
+export const inspectFileRequestFromObject = ({
+  file
+}:InspectFileRequestObject) => {
+  const request = new InspectFileRequest();
+
+  request.setFile(file);
+
+  return request;
+}
 
 export const triggerFromObject = ({
   branch,

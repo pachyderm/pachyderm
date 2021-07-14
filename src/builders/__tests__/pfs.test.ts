@@ -4,6 +4,7 @@ import {
   deleteRepoRequestFromObject,
   fileFromObject,
   fileInfoFromObject,
+  inspectFileRequestFromObject,
   repoFromObject,
   triggerFromObject,
 } from '../pfs';
@@ -29,6 +30,17 @@ describe('grpc/builders/pfs', () => {
     expect(file.getCommit()?.getId()).toBe('master');
     expect(file.getCommit()?.getBranch()?.getRepo()?.getName()).toBe('neato');
     expect(file.getPath()).toBe('/');
+  });
+
+  it('should inspect a file from an object with defaults', () => {
+    const file = fileFromObject({
+      branch: {name: 'master', repo: {name: 'neato'}},
+    });
+    const inspectedFile = inspectFileRequestFromObject({file})
+
+    expect(inspectedFile.getFile()?.getCommit()?.getId()).toBe('master');
+    expect(inspectedFile.getFile()?.getCommit()?.getBranch()?.getRepo()?.getName()).toBe('neato');
+    expect(inspectedFile.getFile()?.getPath()).toBe('/');
   });
 
   it('should create FileInfo from an object', () => {

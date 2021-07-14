@@ -3,6 +3,7 @@ import {
   CommitInfo,
   FileInfo,
   GetFileRequest,
+  InspectFileRequest,
   InspectRepoRequest,
   ListCommitRequest,
   ListFileRequest,
@@ -18,6 +19,8 @@ import {
   CreateRepoRequestObject,
   deleteRepoRequestFromObject,
   DeleteRepoRequestObject,
+  inspectFileRequestFromObject,
+  InspectFileRequestObject,
   fileFromObject,
   FileObject,
   repoFromObject,
@@ -78,6 +81,26 @@ const pfs = ({
         );
         stream.on('end', () => extractor.end());
         stream.on('error', (err) => reject(err));
+      });
+    },
+    inspectFile: (params: FileObject) => {
+      return new Promise<FileInfo.AsObject>((resolve, reject) => {
+        const inspectFileRequest = new InspectFileRequest();
+        const file = fileFromObject(params);
+
+        inspectFileRequest.setFile(file);
+
+        client.inspectFile(
+          inspectFileRequest,
+          credentialMetadata,
+          (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+
+            return resolve(res.toObject());
+          },
+        );
       });
     },
     listCommit: (
