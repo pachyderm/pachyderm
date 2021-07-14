@@ -33,7 +33,9 @@ spec:
       containers:
       - env:
         - name: POSTGRES_DB
-          value: pgc
+          value: pachyderm
+        - name: POSTGRES_USER
+          value: pachyderm
         - name: POSTGRES_HOST_AUTH_METHOD
           # TODO: Remove trust as auth method
           value: trust

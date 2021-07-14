@@ -101,13 +101,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "POSTGRES_PASSWORD",
 		Value: a.env.Config().PostgresPassword,
 	}, {
-		Name:  "POSTGRES_DATABASE_NAME",
+		Name:  "POSTGRES_DB_NAME",
 		Value: a.env.Config().PostgresDBName,
 	}, {
-		Name:  "POSTGRES_HOST",
+		Name:  "PG_BOUNCER_HOST",
 		Value: a.env.Config().PostgresHost,
 	}, {
-		Name:  "POSTGRES_PORT",
+		Name:  "PG_BOUNCER_PORT",
 		Value: strconv.FormatInt(int64(a.env.Config().PostgresPort), 10),
 	}, {
 		Name:  client.PeerPortEnv,

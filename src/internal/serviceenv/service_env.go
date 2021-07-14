@@ -157,7 +157,9 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	env.etcdEg.Go(env.initEtcdClient)
 	env.clusterIdEg.Go(env.initClusterID)
 	env.dbEg.Go(env.initDBClient)
-	env.dbEg.Go(env.initDirectDBClient)
+	if config.PPSPipelineName != "" {
+		env.dbEg.Go(env.initDirectDBClient)
+	}
 	env.listener = env.newListener()
 	if env.config.LokiHost != "" && env.config.LokiPort != "" {
 		env.lokiClient = &loki.Client{
@@ -435,6 +437,9 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 }
 
 func (env *NonblockingServiceEnv) GetDirectDBClient() *sqlx.DB {
+	if env.config.PPSPipelineName == "" {
+		panic("worker cannot get direct db client")
+	}
 	if err := env.dbEg.Wait(); err != nil {
 		panic(err)
 	}

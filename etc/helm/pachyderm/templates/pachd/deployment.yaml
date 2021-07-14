@@ -55,6 +55,10 @@ spec:
         - name: POSTGRES_USER
           value: {{ .Values.pachd.postgresql.user | quote}}
         {{- end }}
+        {{- if .Values.pachd.postgresql.database }}
+        - name: POSTGRES_DATABASE
+          value: {{ .Values.pachd.postgresql.database | quote }}
+        {{- end }}
         {{- if .Values.pachd.postgresql.ssl }}
         - name: POSTGRES_SSL
           value: {{ .Values.pachd.postgresql.ssl | quote }}

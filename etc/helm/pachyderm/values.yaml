@@ -169,8 +169,10 @@ pachd:
     host: "postgres"
     port: "5432"
     ssl: "disable"
-    user: ""
+    user: "pachyderm"
     password: ""
+    database: "pachyderm"
+
   requireCriticalServersOnly: false
   # If enabled, External service creates a service which is safe to
   # be exposed externally
