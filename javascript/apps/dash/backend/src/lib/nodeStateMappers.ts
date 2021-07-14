@@ -3,10 +3,10 @@ import {NodeState, PipelineState, JobState} from '@graphqlTypes';
 export const gqlPipelineStateToNodeState = (pipelineState: PipelineState) => {
   switch (pipelineState) {
     case PipelineState.PIPELINE_RUNNING:
+    case PipelineState.PIPELINE_STANDBY:
       return NodeState.IDLE;
     case PipelineState.PIPELINE_PAUSED:
       return NodeState.PAUSED;
-    case PipelineState.PIPELINE_STANDBY:
     case PipelineState.PIPELINE_STARTING:
     case PipelineState.PIPELINE_RESTARTING:
       return NodeState.BUSY;
