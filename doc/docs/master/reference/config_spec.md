@@ -11,8 +11,8 @@ reference. If you wish to change a config value, you should do so via
   "user_id": string,
   "v2": {
     "active_context": string,
+    "active_enterprise_context": string,
     "contexts": {
-      string: {
         "source": int,
         "pachd_address": string,
         "server_cas": string,
@@ -21,12 +21,12 @@ reference. If you wish to change a config value, you should do so via
         "cluster_name": string,
         "auth_info": string,
         "namspace": string,
-        "cluster_id": string,
+        "cluster_deployment_id": string,
+        "enterprise_server": bool,
         "port_forwarders": {
           service_name: int,
           ...
         }
-      },
       ...
     },
     "metrics": bool
@@ -62,8 +62,12 @@ Whether metrics is enabled.
 
 ### Active Context
 
-`v2.active_context` specifies the name of the currently actively pachyderm
+`v2.active_context` specifies the name of the currently active pachyderm
 context, as specified in `v2.contexts`.
+
+### Active Enterprise Context
+
+`v2.active_enterprise_context` specifies the name of the currently active pachyderm enterprise context, as specified in `v2.contexts`. If left blank the `v2.active_context` value will be interpreted as the Active Enterprise Context.
 
 ### Contexts
 
@@ -115,10 +119,13 @@ from the Kubernetes context.
 The underlying Kubernetes cluster's namespace, extracted from the Kubernetes
 context.
 
-#### Cluster ID
+#### Cluster Deployment ID
 
-The pachyderm cluster ID that is used to ensure the operations run on the
+The pachyderm cluster deployment ID that is used to ensure the operations run on the
 expected cluster.
+
+#### Enterprise Server
+Whether the context represents an enterprise server.
 
 #### Port forwarders
 

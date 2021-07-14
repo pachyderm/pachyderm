@@ -49,8 +49,8 @@ and it is entirely a matter of a personal preference which one of them
 to follow. If you do not have a build-push process that you
 already follow, you might prefer to use Pachyderm's built-in functionality.
 
-To create a new image by using the Pachyderm commands, you need
-to use the `--build` flag with the `pachctl update pipeline`
+To push a new image by using the Pachyderm commands, you need
+to use the `--push-images` flag with the `pachctl update pipeline`
 command. By default, if you do not specify a registry with the `--registry`
 flag, Pachyderm uses [DockerHub](https://hub.docker.com).
 When you build your image with Pachyderm, it assigns a random
@@ -77,7 +77,7 @@ vary.
 To update the code in your pipeline, complete the following steps:
 
 1. Make the code changes.
-1. Verify that the Docker daemon is running:
+2. Verify that the Docker daemon is running:
 
    ```shell
    docker ps
@@ -102,10 +102,12 @@ To update the code in your pipeline, complete the following steps:
 
    * If you prefer to use Pachyderm commands:
 
-     1. Run the following command:
+     1. Build your new image using `docker build`
+     
+     2. Run the following command:
 
         ```shell
-        pachctl update pipeline -f <pipeline name> --build --registry <registry> --username <registry user>
+        pachctl update pipeline -f <pipeline name> --push-images --registry <registry> --username <registry user>
         ```
 
         If you use DockerHub, omit the `--registry` flag.
@@ -113,7 +115,7 @@ To update the code in your pipeline, complete the following steps:
         **Example:**
 
         ```shell
-        pachctl update pipeline -f edges.json --build --username testuser
+        pachctl update pipeline -f edges.json --push-images --username testuser
         ```
 
      1. When prompted, type your image registry password:
