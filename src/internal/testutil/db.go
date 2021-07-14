@@ -74,6 +74,31 @@ func pgBouncerPort() int {
 	return DefaultPGBouncerPort
 }
 
+// NewTestDBConfig creates an ephemeral database scoped to the life of the test, without connecting to it.
+// It returns a serviceenv.ConfigOption which can be used to configure the environment to connect directly, and indirectly to the database.
+func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
+	db := openEphemeralDB(t,
+		dbutil.WithDBName(DefaultPostgresDatabase),
+		dbutil.WithMaxOpenConns(1),
+		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+		dbutil.WithHostPort(DefaultPostgresHost, DefaultPostgresPort),
+	)
+	dbName := createEphemeralDB(t, db)
+	return func(c *serviceenv.Configuration) {
+		// common
+		c.PostgresDBName = dbName
+
+		// direct
+		c.PostgresHost = DefaultPostgresHost
+		c.PostgresPort = DefaultPostgresPort
+		// pg_bouncer
+		c.PGBouncerHost = DefaultPGBouncerHost
+		c.PGBouncerPort = DefaultPGBouncerPort
+
+		c.PostgresUser = DefaultPostgresUser
+	}
+}
+
 func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
 	host, port := postgresHost(), postgresPort()
 	opts := []dbutil.Option{

@@ -6,11 +6,14 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 )
 
 func TestPostgresCollections(suite *testing.T) {
@@ -48,14 +51,14 @@ func TestPostgresCollections(suite *testing.T) {
 
 // TODO: Add test for filling up watcher buffer.
 func TestPostgresCollectionsProxy(suite *testing.T) {
-	// watchTests(suite, newCollectionFunc(func(_ context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
-	// 	env := testpachd.NewRealEnv(t, serviceenv.WithPostgresOptions
-	// 	listener := client.NewProxyPostgresListener(func() (proxy.APIClient, error) { return env.PachClient.ProxyClient, nil })
-	// 	t.Cleanup(func() {
-	// 		require.NoError(t, listener.Close())
-	// 	})
-	// 	return db, listener
-	// }))
+	watchTests(suite, newCollectionFunc(func(_ context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+		listener := client.NewProxyPostgresListener(func() (proxy.APIClient, error) { return env.PachClient.ProxyClient, nil })
+		t.Cleanup(func() {
+			require.NoError(t, listener.Close())
+		})
+		return env.ServiceEnv.GetDirectDBClient(), listener
+	}))
 }
 
 func newCollectionFunc(setup func(context.Context, *testing.T) (*sqlx.DB, col.PostgresListener)) func(context.Context, *testing.T) (ReadCallback, WriteCallback) {

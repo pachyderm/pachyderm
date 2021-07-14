@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -143,6 +144,12 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 		return tryTxFunc(tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
 		if isTransactionError(err) {
+			return nil
+		}
+		// we should maybe switch away from lib/pq.  The reason why this works is not totally clear
+		// it seems like the introduction of pg_bouncer causes the library to misinterpret already rolled back errors
+		// as user cancelling errors.
+		if strings.Contains(err.Error(), "pq: canceling statement due to user request") {
 			return nil
 		}
 		return err

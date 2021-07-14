@@ -25,6 +25,8 @@ type GlobalConfiguration struct {
 	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
 	PostgresHost                   string `env:"POSTGRES_HOST"`
 	PostgresPort                   int    `env:"POSTGRES_PORT"`
+	PGBouncerHost                  string `env:"PG_BOUNCER_HOST"`
+	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT"`
 	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
 	PostgresDBName                 string `env:"POSTGRES_DATABASE_NAME"`
 	PostgresUser                   string `env:"POSTGRES_USER,default=postgres"`

@@ -18,7 +18,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -443,7 +442,7 @@ func standardDeployCmds() []*cobra.Command {
 
 				// Set the postgres and etcd nodeports explicitly for developers
 				if !enterpriseServer {
-					opts.PostgresOpts.Port = dbutil.DefaultPort
+					opts.PostgresOpts.Port = 32882
 					opts.EtcdOpts.Port = etcdNodePort
 				}
 			}

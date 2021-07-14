@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	apps "k8s.io/api/apps/v1"
@@ -204,7 +203,7 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 								// TODO: Figure out how we want to handle auth in real deployments.
 								// The auth has been removed for now to allow PFS tests to run against
 								// a deployed Postgres instance.
-								{Name: "POSTGRES_DB", Value: dbutil.DefaultDBName},
+								{Name: "POSTGRES_DB", Value: "pachyderm"},
 								{Name: "POSTGRES_HOST_AUTH_METHOD", Value: "trust"},
 							},
 						},
@@ -342,7 +341,7 @@ func PostgresStatefulSet(opts *AssetOpts, backend Backend, diskSpace int) interf
 							// a deployed Postgres instance.
 							"env": []map[string]interface{}{{
 								"name":  "POSTGRES_DB",
-								"value": dbutil.DefaultDBName,
+								"value": "pachyderm",
 							}, {
 								"name":  "POSTGRES_HOST_AUTH_METHOD",
 								"value": "trust",
