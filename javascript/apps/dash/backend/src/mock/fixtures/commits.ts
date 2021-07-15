@@ -1,6 +1,5 @@
+import {commitInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pfs';
 import {CommitInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
-
-import {commitInfoFromObject} from '@dash-backend/grpc/builders/pfs';
 
 import repos from './repos';
 

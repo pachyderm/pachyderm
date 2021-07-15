@@ -1,6 +1,5 @@
+import {fileInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pfs';
 import {FileInfo, FileType} from '@pachyderm/proto/pb/pfs/pfs_pb';
-
-import {fileInfoFromObject} from '@dash-backend/grpc/builders/pfs';
 
 const tutorial = [
   fileInfoFromObject({

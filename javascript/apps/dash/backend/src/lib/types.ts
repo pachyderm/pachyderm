@@ -1,13 +1,13 @@
 import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
+import {pachydermClient} from '@pachyderm/node-pachyderm';
 import {CronInput, PFSInput} from '@pachyderm/proto/pb/pps/pps_pb';
 import {ApolloError} from 'apollo-server-errors';
 import Logger from 'bunyan';
 import {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 
-import client from '@dash-backend/grpc/client';
 import {Node, JobState, Account, Link, NodeType} from '@graphqlTypes';
 
-export type PachClient = ReturnType<typeof client>;
+export type PachClient = ReturnType<typeof pachydermClient>;
 
 export interface UnauthenticatedContext {
   authToken?: string;
@@ -74,5 +74,3 @@ export class NotFoundError extends ApolloError {
     Object.defineProperty(this, 'name', {value: 'NotFoundError'});
   }
 }
-
-export type GRPCClient = typeof client;

@@ -1,8 +1,10 @@
+import {pachydermClient} from '@pachyderm/node-pachyderm';
 import {Request, Response} from 'express';
 import {lookup} from 'mime-types';
 
-import client from '@dash-backend/grpc/client';
+import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
 import log from '@dash-backend/lib/log';
+const {GRPC_SSL} = process.env;
 
 const handleFileDownload = async (req: Request, res: Response) => {
   const authToken = req.cookies.dashAuthToken;
@@ -21,7 +23,12 @@ const handleFileDownload = async (req: Request, res: Response) => {
   let data;
 
   try {
-    data = await client({pachdAddress, authToken, log})
+    data = await pachydermClient({
+      pachdAddress,
+      authToken,
+      plugins: [loggingPlugin(log)],
+      ssl: GRPC_SSL === 'true',
+    })
       .pfs()
       .getFile({
         commitId,

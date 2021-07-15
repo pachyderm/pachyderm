@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@grpc/grpc-js": "1.2.2",
+    "@pachyderm/node-pachyderm": "0.0.2",
     "@pachyderm/proto": "2.0.0-beta.1.0",
     "@sentry/node": "6.8.0",
     "@sentry/tracing": "6.8.0",

@@ -1,6 +1,5 @@
+import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
 import {LogMessage} from '@pachyderm/proto/pb/pps/pps_pb';
-
-import {timestampFromObject} from '@dash-backend/grpc/builders/protobuf';
 
 const tutorial = [
   new LogMessage()

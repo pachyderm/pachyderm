@@ -1,4 +1,5 @@
 import {Status} from '@grpc/grpc-js/build/src/constants';
+import {pipelineInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pps';
 import {IAPIServer} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
 import {JobSetInfo, LogMessage} from '@pachyderm/proto/pb/pps/pps_pb';
 
@@ -6,7 +7,6 @@ import jobs from '@dash-backend/mock/fixtures/jobs';
 import pipelines from '@dash-backend/mock/fixtures/pipelines';
 import {createServiceError} from '@dash-backend/testHelpers';
 
-import {pipelineInfoFromObject} from '../../grpc/builders/pps';
 import jobSets from '../fixtures/jobSets';
 import {pipelineAndJobLogs, workspaceLogs} from '../fixtures/logs';
 import runJQFilter from '../utils/runJQFilter';

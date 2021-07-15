@@ -4,11 +4,10 @@ import {Project} from '@pachyderm/proto/pb/projects/projects_pb';
 import {ApolloError} from 'apollo-server-express';
 import Logger from 'bunyan';
 
-import client from '@dash-backend/grpc/client';
 import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';
 import {toGQLProjectStatus} from '@dash-backend/lib/gqlEnumMappers';
-import {GRPCClient} from '@dash-backend/lib/types';
+import {PachClient} from '@dash-backend/lib/types';
 import {ProjectStatus, QueryResolvers} from '@graphqlTypes';
 
 import {jobSetsToGQLJobSets} from './builders/pps';
@@ -33,10 +32,7 @@ const rpcToGraphqlProject = (project: Project.AsObject) => {
   };
 };
 
-const getDefaultProject = async (
-  client: ReturnType<GRPCClient>,
-  log: Logger,
-) => {
+const getDefaultProject = async (client: PachClient, log: Logger) => {
   log.info({
     eventSource: 'project resolver',
     event: 'returning default project',
@@ -71,9 +67,7 @@ const getDefaultProject = async (
 
 const projectsResolver: ProjectsResolver = {
   Query: {
-    project: async (_field, {id}, {pachdAddress = '', authToken = '', log}) => {
-      const pachClient = client({pachdAddress, authToken, log});
-
+    project: async (_field, {id}, {pachClient, log}) => {
       // TODO: Remove this once projects are implemented
       if (id === DEFAULT_PROJECT_ID) {
         return await getDefaultProject(pachClient, log);

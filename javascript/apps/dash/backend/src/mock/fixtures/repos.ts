@@ -1,6 +1,5 @@
+import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
 import {Branch, Repo, RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
-
-import {timestampFromObject} from '@dash-backend/grpc/builders/protobuf';
 
 const tutorial = [
   new RepoInfo()
