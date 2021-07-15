@@ -56,9 +56,7 @@ jobs:
          keys:
          - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
       - run: etc/testing/circle/build.sh 
-      - run: etc/testing/circle/launch.sh 
-      - run: etc/testing/circle/run_tests.sh 
-      - when:
+      - when: #Save cache in only one bucket, after build and before running tests, this ensures build cache is saved even when tests fail
           condition: 
             equal: [MISC, <<parameters.bucket>> ]
           steps:
@@ -67,9 +65,11 @@ jobs:
                 paths:
                   - /home/circleci/.go_workspace/pkg/mod
             - save_cache:
-                key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}-{{ .BuildNum }}
+                key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
                 paths:
                   - /home/circleci/.gocache
+      - run: etc/testing/circle/launch.sh 
+      - run: etc/testing/circle/run_tests.sh 
       - run: etc/testing/circle/upload_stats.sh 
       - run:
           name: Dump debugging info in case of failure
