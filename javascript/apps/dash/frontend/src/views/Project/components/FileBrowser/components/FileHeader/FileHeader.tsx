@@ -57,7 +57,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
               })}
             >
               <ArrowSVG className={styles.directionLeft} />
-              Previous
+              Older
             </Link>
           </Tooltip>
         )}
@@ -77,7 +77,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
                 filePath: filePath || undefined,
               })}
             >
-              Next
+              Newer
               <ArrowSVG className={styles.directionRight} />
             </Link>
           </Tooltip>
