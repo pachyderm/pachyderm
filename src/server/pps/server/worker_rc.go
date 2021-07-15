@@ -101,7 +101,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "POSTGRES_PASSWORD",
 		Value: a.env.Config().PostgresPassword,
 	}, {
-		Name:  "POSTGRES_DB_NAME",
+		Name:  "POSTGRES_DATABASE",
 		Value: a.env.Config().PostgresDBName,
 	}, {
 		Name:  "PG_BOUNCER_HOST",
@@ -118,6 +118,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
+	}, {
+		Name:  "POSTGRES_PORT",
+		Value: "",
+	}, {
+		Name:  "POSTGRES_HOST",
+		Value: "",
 	},
 	}
 
