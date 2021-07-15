@@ -14,7 +14,7 @@ metadata:
 spec:
   ports:
   - name: client-port
-    nodePort: 32229
+    nodePort: 30229
     port: 5432
   selector:
     app: pg-bouncer
