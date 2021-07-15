@@ -4,8 +4,8 @@
     Use transactions to run multiple Pachyderm commands
     simultaneously in one job run.
 
-A transaction is a Pachyderm operation that enables you to create
-a collection of Pachyderm commands and execute them concurrently.
+A transaction is a Pachyderm operation that enables you to **create
+a collection of Pachyderm commands and execute them concurrently**.
 Regular Pachyderm operations, that are not in a transaction, are
 executed one after another. However, when you need
 to run multiple commands at the same time, you can use transactions.
@@ -13,11 +13,138 @@ This functionality is useful in particular for pipelines with multiple
 inputs. If you need to update two or more input repos, you might not want
 pipeline jobs for each state change. You can issue a transaction
 to start commits in each of the input repos, which puts them both in
-the same [commit set](), creating a single downstream commit 
+the same [commit set](../../../concepts/advanced-concepts/globalID/), creating a single downstream commit 
 in the pipeline repo. After the transaction, you
 can put files and finish the commits at will, and the pipeline job
 will run once all the input commits have been finished.
 
+## Start and Finish Transaction Demarcations
+
+
+!!! Important "Preamble"
+    A transaction demarcation initializes some transactional behavior before the demarcated area begins, then ends that transactional behavior when the demarcated area ends. You should see those demarcations as a declaration of the group of commands that will be treated together as a single coherent operation.
+
+
+To start a transaction demarcation, run the following command:
+
+```shell
+pachctl start transaction
+```
+
+**System Response:**
+
+```shell
+Started new transaction: 7a81eab5e6c6430aa5c01deb06852ca5
+```
+
+This command generates a transaction object in the cluster and saves
+its ID in the local Pachyderm configuration file. By default, this file
+is stored at `~/.pachyderm/config.json`.
+
+!!! example
+    ```json hl_lines="9"
+    {
+       "user_id": "b4fe4317-be21-4836-824f-6661c68b8fba",
+       "v2": {
+         "active_context": "local-2",
+         "contexts": {
+           "default": {},
+           "local-2": {
+             "source": 3,
+             "active_transaction": "7a81eab5e6c6430aa5c01deb06852ca5",
+             "cluster_name": "minikube",
+             "auth_info": "minikube",
+             "namespace": "default"
+           },
+    ```
+
+After you start a transaction demarcation, you can add [supported commands](#supported-operations), such
+as `pachctl start commit`, `pachctl create branch` (see the complete list below - we recommend to use those transactionnal commands only), to the
+transaction. All commands that are performed in a transaction are
+queued up and not executed against the actual cluster until you finish
+the transaction. When you finish the transaction, all queued command
+are executed atomically.
+
+To finish a transaction, run:
+
+```shell
+pachctl finish transaction
+```
+
+**System Response:**
+
+```shell
+Completed transaction with 1 requests: 7a81eab5e6c6430aa5c01deb06852ca5
+```
+ 
+!!! tip "Noteworthy"
+     In the case where you have, for example, started a transaction, started various commits on various repos, then finished the transaction, the closing of the transaction will execute the start commits. The commits will then be waiting for incoming event(s) (like put file for example) and their finish commit instructions to trigger one single job in which all the data will be processed together. In other words, your changes will only be applied in one batch when you close the commits.
+
+      Note that the `put file` and following `finish commit` are happening after the `finish transaction` instruction. See the start and finish transaction as a declaration block in which you are opening a set of "brackets". The transaction will wait for those brackets to be closed before firing a job.
+
+## Supported Operations
+
+While there is a transaction object in the Pachyderm configuration
+file, all supported API requests append the request to the
+transaction instead of running directly. These supported commands include:
+
+```shell
+create repo
+delete repo
+update repo
+start commit
+finish commit
+squash commitset
+create branch
+delete branch
+create pipeline
+update pipeline
+edit pipeline
+```
+
+Each time you add a command to a transaction, Pachyderm validates the
+transaction against the current state of the cluster metadata and obtains
+any return values, which is important for such commands as
+`start commit`. If validation fails for any reason, Pachyderm does
+not add the operation to the transaction. If the transaction has been
+invalidated by changing the cluster state, you must delete the transaction
+and start over, taking into account the new state of the cluster.
+From a command-line perspective, these commands work identically within
+a transaction as without. The only difference is that you do not apply
+your changes until you run `finish transaction`, and a message that
+Pachyderm logs to `stderr` to indicate that the command was placed
+in a transaction rather than run directly.
+
+## Other Transaction Commands
+Other supporting commands for transactions include the following commands:
+
+| Command      | Description |
+| ------------ | ----------- |
+| pachctl list transaction| List all unfinished transactions available in the Pachyderm cluster. |
+| pachctl stop transaction | Remove the currently active transaction from the local Pachyderm config file. The transaction remains in the Pachyderm cluster and can be resumed later. |
+| pachctl resume transaction | Set an already-existing transaction as the active transaction in the local Pachyderm config file. |
+| pachctl delete transaction | Deletes a transaction from the Pachyderm cluster. |
+| pachctl inspect transaction | Provides detailed information about an existing transaction, including which operations it will perform. By default, displays information about the current transaction. If you specify a transaction ID, displays information about the corresponding transaction. |
+
+## Multiple Opened Transactions
+
+Some systems have a notion of *nested* transactions. That is when you
+open transactions within an already opened transaction. In such systems, the
+operations added to the subsequent transactions are not executed
+until all the nested transactions and the main transaction are closed.
+
+Pachyderm does not support such behavior. Instead, when you open a
+transaction, the transaction ID is written to the Pachyderm configuration
+file. If you begin another transaction while the first one is open, Pachyderm
+returns an error.
+
+Every time you add a command to a transaction,
+Pachyderm creates a blueprint of the commit and verifies that the
+command is valid. However, one transaction can invalidate another.
+In this case, a transaction that is closed first takes precedence
+over the other. For example, if two transactions create a repository
+with the same name, the one that is executed first results in the
+creation of the repository, and the other results in error.
 ## Use Cases
 
 Pachyderm users implement transactions to their own workflows finding
@@ -29,7 +156,7 @@ Below are examples of the most commonly employed ways of using transactions.
 ### Commit to Separate Repositories Simultaneously
 
 For example, you have a Pachyderm pipeline with two input
-repositories. One repository includes training data and the
+repositories. One repository includes training `data` and the
 other `parameters` for your machine learning pipeline. If you need
 to run specific data against specific parameters, you need to
 run your pipeline against specific commits in both repositories.
@@ -112,131 +239,6 @@ may need to change multiple pipelines. Performing these changes together
 in a transaction can avoid creating jobs with mismatched pipeline versions
 and potentially wasting work.
 
-## Start and Finish Transactions
-
-To start a transaction, run the following command:
-
-```shell
-pachctl start transaction
-```
-
-**System Response:**
-
-```shell
-Started new transaction: 7a81eab5e6c6430aa5c01deb06852ca5
-```
-
-This command generates a transaction object in the cluster and saves
-its ID in the local Pachyderm configuration file. By default, this file
-is stored at `~/.pachyderm/config.json`.
-
-!!! example
-    ```json hl_lines="9"
-    {
-       "user_id": "b4fe4317-be21-4836-824f-6661c68b8fba",
-       "v2": {
-         "active_context": "local-2",
-         "contexts": {
-           "default": {},
-           "local-2": {
-             "source": 3,
-             "active_transaction": "7a81eab5e6c6430aa5c01deb06852ca5",
-             "cluster_name": "minikube",
-             "auth_info": "minikube",
-             "namespace": "default"
-           },
-    ```
-
-After you start a transaction, you can add supported commands, such
-as `pachctl create repo`, `pachctl create branch`, and so on, to the
-transaction. All commands that are performed in a transaction are
-queued up and not executed against the actual cluster until you finish
-the transaction. When you finish the transaction, all queued command
-are executed atomically.
-
-To finish a transaction, run:
-
-```shell
-pachctl finish transaction
-```
-
-**System Response:**
-
-```shell
-Completed transaction with 1 requests: 7a81eab5e6c6430aa5c01deb06852ca5
-```
-
-## Other Transaction Commands
-Other supporting commands for transactions include the following commands:
-
-| Command      | Description |
-| ------------ | ----------- |
-| pachctl list transaction| List all unfinished transactions available in the Pachyderm cluster. |
-| pachctl stop transaction | Remove the currently active transaction from the local Pachyderm config file. The transaction remains in the Pachyderm cluster and can be resumed later. |
-| pachctl resume transaction | Set an already-existing transaction as the active transaction in the local Pachyderm config file. |
-| pachctl delete transaction | Deletes a transaction from the Pachyderm cluster. |
-| pachctl inspect transaction | Provides detailed information about an existing transaction, including which operations it will perform. By default, displays information about the current transaction. If you specify a transaction ID, displays information about the corresponding transaction. |
-
-## Supported Operations
-
-While there is a transaction object in the Pachyderm configuration
-file, all supported API requests append the request to the
-transaction instead of running directly. These supported commands include:
-
-```shell
-create repo
-delete repo
-update repo
-start commit
-finish commit
-delete commit
-squash commitset
-create branch
-delete branch
-create pipeline
-update pipeline
-edit pipeline
-```
-
-Each time you add a command to a transaction, Pachyderm validates the
-transaction against the current state of the cluster metadata and obtains
-any return values, which is important for such commands as
-`start commit`. If validation fails for any reason, Pachyderm does
-not add the operation to the transaction. If the transaction has been
-invalidated by changing the cluster state, you must delete the transaction
-and start over, taking into account the new state of the cluster.
-From a command-line perspective, these commands work identically within
-a transaction as without. The only difference is that you do not apply
-your changes until you run `finish transaction`, and a message that
-Pachyderm logs to `stderr` to indicate that the command was placed
-in a transaction rather than run directly.
-
-## Multiple Opened Transactions
-
-Some systems have a notion of *nested* transactions. That is when you
-open transactions within an already opened transaction. In such systems, the
-operations added to the subsequent transactions are not executed
-until all the nested transactions and the main transaction are closed.
-
-Pachyderm does not support such behavior. Instead, when you open a
-transaction, the transaction ID is written to the Pachyderm configuration
-file. If you begin another transaction while the first one is open, Pachyderm
-returns an error.
-
-Every time you add a command to a transaction,
-Pachyderm creates a blueprint of the commit and verifies that the
-command is valid. However, one transaction can invalidate another.
-In this case, a transaction that is closed first takes precedence
-over the other. For example, if two transactions create a repository
-with the same name, the one that is executed first results in the
-creation of the repository, and the other results in error.
-
-!!! tip
-     While you cannot use `pachctl put file` in a transaction, you can
-     start a commit within a transaction, finish the transation,
-     then put as many files as you need, and then finish your commit.
-     Your changes will only be applied in one batch when you close
-     the commit.
 
 To get a better understanding of how transactions work in practice, try
 [Use Transactions with Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/transactions/).
