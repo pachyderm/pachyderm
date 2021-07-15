@@ -157,7 +157,7 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	env.etcdEg.Go(env.initEtcdClient)
 	env.clusterIdEg.Go(env.initClusterID)
 	env.dbEg.Go(env.initDBClient)
-	if config.PPSPipelineName != "" {
+	if !env.isWorker() {
 		env.dbEg.Go(env.initDirectDBClient)
 	}
 	env.listener = env.newListener()
@@ -179,6 +179,10 @@ func InitWithKube(config *Configuration) *NonblockingServiceEnv {
 
 func (env *NonblockingServiceEnv) Config() *Configuration {
 	return env.config
+}
+
+func (env *NonblockingServiceEnv) isWorker() bool {
+	return env.config.PPSPipelineName != ""
 }
 
 func (env *NonblockingServiceEnv) initClusterID() error {
@@ -339,7 +343,7 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 func (env *NonblockingServiceEnv) newListener() col.PostgresListener {
 	// TODO: Change this to be based on whether a direct connection to postgres is available.
 	// A direct connection will not be available in the workers when the PG bouncer changes are in.
-	if env.Config().PPSPipelineName != "" {
+	if env.isWorker() {
 		return env.newProxyListener()
 	}
 	return env.newDirectListener()
@@ -437,7 +441,7 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 }
 
 func (env *NonblockingServiceEnv) GetDirectDBClient() *sqlx.DB {
-	if env.config.PPSPipelineName == "" {
+	if env.isWorker() {
 		panic("worker cannot get direct db client")
 	}
 	if err := env.dbEg.Wait(); err != nil {
