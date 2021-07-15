@@ -344,7 +344,7 @@ func TestTransactions(suite *testing.T) {
 	// performed within the transaction.
 	suite.Run("TestPropagateCommitRedux", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t)
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -393,7 +393,7 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestBatchTransaction", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t)
+		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 
 		var branchInfos []*pfs.BranchInfo
 		var info *transaction.TransactionInfo
