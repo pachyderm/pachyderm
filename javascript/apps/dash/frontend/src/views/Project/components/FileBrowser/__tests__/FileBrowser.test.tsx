@@ -21,8 +21,7 @@ describe('File Browser', () => {
     it('should display file browser name from url', async () => {
       const {findByText} = render(<FileBrowser />);
 
-      expect(await findByText('cron:master@')).toBeInTheDocument();
-      expect(await findByText('0918ac9d')).toBeInTheDocument();
+      expect(await findByText('cron@master=0918ac9d')).toBeInTheDocument();
     });
 
     it('should filter files', async () => {

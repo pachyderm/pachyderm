@@ -2,7 +2,7 @@ import {Group, ArrowSVG, Link, Search, Tooltip} from '@pachyderm/components';
 import findIndex from 'lodash/findIndex';
 import React, {useMemo} from 'react';
 
-import CommitId from '@dash-frontend/components/CommitId';
+import CommitPath from '@dash-frontend/components/CommitPath';
 import Header from '@dash-frontend/components/Header';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -38,7 +38,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
     <Header appearance="light">
       <Group spacing={32} align="center" className={styles.header}>
         <h4 className={styles.commit}>
-          {repoId}:{branchId}@<CommitId commit={commitId} />
+          <CommitPath repo={repoId} branch={branchId} commit={commitId} />
         </h4>
         {previousCommit && (
           <Tooltip

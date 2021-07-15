@@ -7,15 +7,17 @@ import {
 import classnames from 'classnames';
 import React, {useCallback} from 'react';
 
-import styles from './CommitId.module.css';
+import styles from './CommitPath.module.css';
 
-interface CommitIdProps {
+interface CommitPathProps {
+  repo: string;
+  branch: string;
   commit: string;
 }
 
-const CommitId: React.FC<CommitIdProps> = ({commit}) => {
+const CommitPath: React.FC<CommitPathProps> = ({repo, branch, commit}) => {
   const shortCommit = commit.slice(0, 8);
-  const {copy, copied, reset} = useClipboardCopy(commit);
+  const {copy, copied, reset} = useClipboardCopy(`${repo}@${branch}=${commit}`);
 
   const handleCopy = useCallback(() => {
     copy();
@@ -24,14 +26,12 @@ const CommitId: React.FC<CommitIdProps> = ({commit}) => {
 
   return (
     <span className={styles.base}>
-      {shortCommit}
-
-      <ButtonLink onClick={handleCopy} data-testid={`CommitId_copy`}>
+      {repo}@{branch}={shortCommit}
+      <ButtonLink onClick={handleCopy} data-testid={`CommitPath_copy`}>
         <CopySVG
           className={classnames(styles.info, {[styles.copied]: copied})}
         />
       </ButtonLink>
-
       <SuccessCheckmark
         show={copied}
         className={styles.copyCheckmark}
@@ -41,4 +41,4 @@ const CommitId: React.FC<CommitIdProps> = ({commit}) => {
   );
 };
 
-export default CommitId;
+export default CommitPath;

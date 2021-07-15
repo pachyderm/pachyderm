@@ -41,7 +41,7 @@ const useFileDisplay = (file: File) => {
       .pop() || 'unknown';
 
   const {copy, supported: copySupported} = useClipboardCopy(
-    `${repoId}@${file.commitId}:${file.path}`,
+    `${repoId}@${branchId}=${file.commitId}:${file.path}`,
   );
 
   const dateDisplay = useMemo(
