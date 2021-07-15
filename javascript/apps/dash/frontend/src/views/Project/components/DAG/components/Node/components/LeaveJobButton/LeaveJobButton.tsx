@@ -2,6 +2,8 @@ import {useOutsideClick} from '@pachyderm/components';
 import noop from 'lodash/noop';
 import React, {useRef} from 'react';
 
+import {NODE_WIDTH} from '@dash-frontend/views/Project/constants/nodeSizes';
+
 import styles from './LeaveJobButton.module.css';
 
 interface LeaveJobButtonProps {
@@ -12,10 +14,7 @@ interface LeaveJobButtonProps {
 
 const HEIGHT = 72;
 const Y_OFFSET = -95;
-const REPO_X_OFFSET = -50;
-const REPO_WIDTH = 230;
-const PIPELINE_X_OFFSET = -65;
-const PIPELINE_WIDTH = 250;
+const BUTTON_WIDTH = 230;
 
 const LeaveJobButton: React.FC<LeaveJobButtonProps> = ({
   onClick = noop,
@@ -27,10 +26,10 @@ const LeaveJobButton: React.FC<LeaveJobButtonProps> = ({
 
   return (
     <foreignObject
-      x={isRepo ? REPO_X_OFFSET : PIPELINE_X_OFFSET}
+      x={(NODE_WIDTH - BUTTON_WIDTH) / 2}
       y={Y_OFFSET}
       height={HEIGHT}
-      width={isRepo ? REPO_WIDTH : PIPELINE_WIDTH}
+      width={BUTTON_WIDTH}
       className={styles.base}
     >
       <button ref={buttonRef} className={styles.button} onClick={onClick}>

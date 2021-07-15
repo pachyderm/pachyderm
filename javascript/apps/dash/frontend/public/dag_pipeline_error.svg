@@ -1,3 +1,6 @@
-<svg width="17" height="16" xmlns="http://www.w3.org/2000/svg">
-  <path d="M8.5 0c-4.411 0-8 3.589-8 8 0 4.41 3.589 8 8 8 4.41 0 8-3.59 8-8 0-4.411-3.59-8-8-8zm3.24 8.81H5.26V7.19h6.48v1.62z" fill="#E02020" fill-rule="nonzero"/>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <path id="failed-icon-a" d="M8,0 C12.418278,0 16,3.581722 16,8 C16,12.418278 12.418278,16 8,16 C3.581722,16 0,12.418278 0,8 C0,3.581722 3.581722,0 8,0 Z M13,6.5 L3,6.5 L3,9.5 L13,9.5 L13,6.5 Z"/>
+  </defs>
+  <use fill="#E30022" xlink:href="#failed-icon-a"/>
 </svg>

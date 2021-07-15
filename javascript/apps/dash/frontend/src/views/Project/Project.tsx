@@ -30,8 +30,8 @@ import {MAX_SCALE_VALUE, useProjectView} from './hooks/useProjectView';
 import styles from './Project.module.css';
 
 const MARKERS = [
-  {id: 'end-arrow', color: '#000'},
-  {id: 'end-arrow-active', color: '#5ba3b1'},
+  {id: 'end-arrow', color: '#747475'},
+  {id: 'end-arrow-active', color: '#6FB3C3'},
   {id: 'end-arrow-error', color: '#E02020'},
 ];
 
@@ -132,7 +132,8 @@ const Project: React.FC = () => {
                     <marker
                       key={marker.id}
                       viewBox="0 -5 10 10"
-                      refX={9}
+                      refX={0}
+                      refY={0}
                       markerWidth={5}
                       markerHeight={5}
                       orient="auto"
@@ -141,6 +142,22 @@ const Project: React.FC = () => {
                       <path d="M0,-5L10,0L0,5" fill={marker.color} />
                     </marker>
                   ))}
+                  <filter id="node-dropshadow">
+                    <feDropShadow
+                      dx="0"
+                      dy="1"
+                      stdDeviation="2"
+                      floodColor="#C6C6C6"
+                    />
+                  </filter>
+                  <filter id="hover-dropshadow" filterUnits="userSpaceOnUse">
+                    <feDropShadow
+                      dx="1"
+                      dy="1"
+                      stdDeviation="6"
+                      floodColor="#C6C6C6"
+                    />
+                  </filter>
                 </defs>
                 <g id="Dags">
                   {dags?.map((dag) => {

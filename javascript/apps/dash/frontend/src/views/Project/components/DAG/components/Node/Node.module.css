@@ -1,20 +1,18 @@
 .node {
-  overflow: initial;
-}
-
-.node .label {
   border-radius: 2px;
-  font-size: 0.5rem;
-  padding-top: 0.5rem;
-  line-height: 0.9rem;
-  box-shadow: 0 1px 1px 0 var(--border-grey);
-  background-color: white;
   fill: var(--white);
-  border: solid 1px var(--line-grey);
+  stroke-width: 2px;
+  stroke: #a4a8ae;
+  paint-order: stroke;
+  filter: url('#node-dropshadow');
 }
 
-:global(.borderRect):hover ~ .nodeGroup.interactive .node .label {
-  box-shadow: 1px 1px 6px 0 var(--dropshadow-grey);
+.node.selected:not(.error) {
+  stroke: var(--banner-green);
+}
+
+.node.selected.error {
+  stroke: var(--error-red);
 }
 
 .node .label.egress {
@@ -28,38 +26,10 @@
   cursor: not-allowed;
 }
 
-.nodeGroup.interactive.access:hover .node .label:not(.egress),
-.nodeGroup.interactive.access.selected .node .label:not(.egress) {
-  background-color: var(--background-blue);
+.nodeGroup.interactive.access:hover .node:not(.egress) {
+  filter: url('#hover-dropshadow');
 }
 
-.nodeGroup.interactive.access.error:hover .node .label:not(.egress),
-.nodeGroup.interactive.access.selected.error .node .label:not(.egress) {
-  background-color: var(--background-pink);
-}
-
-.nodeGroup.interactive.access.busy:hover .label:not(.egress),
-.nodeGroup.interactive.access.selected.busy .label:not(.egress),
-.nodeGroup.interactive.access.busy:hover use,
-.nodeGroup.interactive.access.selected.busy use {
-  opacity: #f4f9fa;
-  color: #8e8f91;
-  box-shadow: 0 1px 2px 0 var(--line-grey);
-}
-
-.label {
-  font-size: 10.var(--font-size-body-small);;
-  font-weight: 600;
-  text-align: center;
-  user-select: none;
-  line-height: 1rem;
-  overflow: hidden;
-  pointer-events: none;
-  padding: 0.5rem;
-  padding-top: 1.5rem;
-  fill: var(--pachyderm-black);
-  overflow-wrap: break-word;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.nodeGroup.interactive.access:hover .node:not(.egress):not(.selected) {
+  stroke: #26282a;
 }

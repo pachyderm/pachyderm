@@ -1,7 +1,7 @@
 import classNames from 'classnames';
 import React from 'react';
 
-import {Link as LinkType} from '@graphqlTypes';
+import {DagDirection, Link as LinkType} from '@graphqlTypes';
 
 import useLink from './hooks/useLink';
 import styles from './Link.module.css';
@@ -9,19 +9,22 @@ import styles from './Link.module.css';
 type LinkProps = {
   link: LinkType;
   isInteractive: boolean;
+  dagDirection: DagDirection;
 };
 
-const Link: React.FC<LinkProps> = ({link, isInteractive}) => {
-  const {d, hoveredNode, selectedNode, transferring} = useLink(link);
+const Link: React.FC<LinkProps> = ({link, isInteractive, dagDirection}) => {
+  const {d, isSelected, transferring} = useLink(
+    link,
+    isInteractive,
+    dagDirection,
+  );
   const classes = classNames(
     styles.link,
     styles[`${link.sourceState?.toLowerCase()}Source`],
     styles[`${link.targetState?.toLowerCase()}Target`],
     {
       [styles.transferring]: transferring,
-      [styles.selected]:
-        (isInteractive && [selectedNode, hoveredNode].includes(link.source)) ||
-        [selectedNode, hoveredNode].includes(link.target),
+      [styles.selected]: isSelected,
     },
   );
 

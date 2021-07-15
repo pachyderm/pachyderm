@@ -20,7 +20,7 @@
 }
 
 .link {
-  stroke: var(--pachyderm-black);
+  stroke: var(--grey-7);
   stroke-width: 1px;
   marker-end: url(#end-arrow);
   stroke-linejoin: bevel;
@@ -30,10 +30,12 @@
   cursor: pointer;
 }
 
-.link.selected{
+.link.selected, .link.selected.link.busySource{
   stroke-width: 1.5px;
-  stroke-dasharray: 5;
+  stroke-dasharray: 2;
   animation: selected linear 10s infinite reverse;
+  stroke: var(--cyan-6);
+  marker-end: url(#end-arrow-active);
 }
 
 .link.errorTarget.selected,
@@ -47,6 +49,6 @@
 }
 
 .circle {
-  fill: var(--success-green);
+  fill: var(--cyan-6);
   animation: scaleDown linear 0.8s infinite;
 }

@@ -2,10 +2,9 @@ import {SuccessCheckmark} from '@pachyderm/components';
 import classNames from 'classnames';
 import React from 'react';
 
-import {Node as GraphQLNode, NodeType} from '@graphqlTypes';
+import {Node as GraphQLNode, NodeState, NodeType} from '@graphqlTypes';
 
 import LeaveJobButton from './components/LeaveJobButton';
-import NodeTooltip from './components/NodeTooltip';
 import useNode from './hooks/useNode';
 import styles from './Node.module.css';
 
@@ -16,15 +15,15 @@ type NodeProps = {
   nodeHeight: number;
 };
 
-const NODE_ICON_X_OFFSET = 12;
-const NODE_ICON_Y_OFFSET = -8;
-const NODE_IMAGE_Y_OFFSET = -40;
-const NODE_IMAGE_X_OFFSET = 76;
+const NODE_ICON_X_OFFSET = 28;
+const NODE_ICON_Y_OFFSET = 8;
+const SELECTION_X_OFFSET = 6;
 const EGRESS_NODE_IMAGE_X_OFFSET = 40;
 const EGRESS_NODE_IMAGE_Y_OFFSET = -20;
-const ORIGINAL_NODE_IMAGE_HEIGHT = 102;
 const SUCCESS_CHECKMARK_X_OFFSET = 65;
 const SUCCESS_CHECKMARK_Y_OFFSET = 10;
+const INPUT_REPO_ICON_X_OFFSET = 12;
+const INPUT_REPO_ICON_Y_OFFSET = 8;
 
 const Node: React.FC<NodeProps> = ({
   node,
@@ -40,7 +39,6 @@ const Node: React.FC<NodeProps> = ({
     selectedNode,
     groupName,
     isEgress,
-    normalizedNodeName,
     showSuccess,
     showLeaveJob,
     handleLeaveJobClick,
@@ -50,7 +48,8 @@ const Node: React.FC<NodeProps> = ({
 
   const classes = classNames(styles.nodeGroup, {
     [styles.interactive]: isInteractive,
-    [styles.selected]: selectedNode === node.name || isHovered,
+    [styles.selected]: selectedNode === node.name,
+    [styles.hover]: isHovered,
     [styles.access]: node.access,
     [styles.showLeaveJob]: showLeaveJob,
   });
@@ -76,24 +75,45 @@ const Node: React.FC<NodeProps> = ({
       onMouseOver={onMouseOver}
       onMouseOut={onMouseOut}
     >
-      <foreignObject
-        className={styles.node}
-        width={nodeWidth}
-        height={nodeHeight}
-      >
-        <span>
-          <p
-            className={classNames(styles.label, {
-              [styles.egress]: isEgress,
+      {!isEgress && (
+        <>
+          <rect
+            width={nodeWidth}
+            height={nodeHeight}
+            className={classNames(styles.node, {
+              [styles.selected]: selectedNode === node.name,
+              [styles.error]: node.state === NodeState.ERROR,
             })}
-            style={{height: `${nodeHeight}px`}}
-          >
-            {normalizedNodeName}
-          </p>
-        </span>
-      </foreignObject>
+            rx={3}
+            ry={3}
+          />
+          <text
+            fontSize="14px"
+            fontWeight="600"
+            textAnchor="start"
+            dominantBaseline="middle"
+            className="nodeLabel"
+            x={36}
+            y={nodeHeight / 2}
+          />
+          {selectedNode === node.name && (
+            <image
+              x={nodeWidth - SELECTION_X_OFFSET}
+              href={`/dag_node_selected${
+                node.state === NodeState.ERROR ? '_error' : ''
+              }.svg`}
+            />
+          )}
+          <image
+            x={nodeWidth - NODE_ICON_X_OFFSET}
+            y={NODE_ICON_Y_OFFSET}
+            pointerEvents="none"
+            href={nodeIconHref}
+          />
+        </>
+      )}
 
-      {showLeaveJob ? (
+      {showLeaveJob && (
         <LeaveJobButton
           onClick={handleLeaveJobClick}
           onClose={closeLeaveJob}
@@ -102,33 +122,21 @@ const Node: React.FC<NodeProps> = ({
             node.type === NodeType.INPUT_REPO
           }
         />
-      ) : (
-        <NodeTooltip node={node} show={isHovered && isInteractive} />
       )}
 
       <image
-        x={isEgress ? EGRESS_NODE_IMAGE_X_OFFSET : NODE_IMAGE_X_OFFSET}
-        y={isEgress ? EGRESS_NODE_IMAGE_Y_OFFSET : NODE_IMAGE_Y_OFFSET}
+        x={isEgress ? EGRESS_NODE_IMAGE_X_OFFSET : 0}
+        y={isEgress ? EGRESS_NODE_IMAGE_Y_OFFSET : 0}
         pointerEvents="none"
-        transform={`scale(${nodeHeight / ORIGINAL_NODE_IMAGE_HEIGHT})`}
         href={getNodeImageHref(node)}
       />
 
-      {node.type === NodeType.OUTPUT_REPO && (
+      {node.type === NodeType.INPUT_REPO && (
         <image
-          x={NODE_IMAGE_X_OFFSET - 7}
-          y={NODE_IMAGE_Y_OFFSET + 20}
+          x={INPUT_REPO_ICON_X_OFFSET}
+          y={INPUT_REPO_ICON_Y_OFFSET}
           pointerEvents="none"
-          href="/dag_output_plus.svg"
-        />
-      )}
-
-      {!isEgress && (
-        <image
-          x={nodeWidth - NODE_ICON_X_OFFSET}
-          y={NODE_ICON_Y_OFFSET}
-          pointerEvents="none"
-          href={nodeIconHref}
+          href="/dag_input_repo.svg"
         />
       )}
 

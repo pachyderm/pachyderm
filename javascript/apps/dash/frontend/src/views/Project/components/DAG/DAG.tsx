@@ -48,7 +48,12 @@ const DAG: React.FC<DagProps> = ({
       />
       {/* Ordering of links and nodes in DOM is important so nodes are on top layer */}
       {data.links.map((link) => (
-        <Link key={link.id} link={link} isInteractive={isInteractive} />
+        <Link
+          key={link.id}
+          link={link}
+          isInteractive={isInteractive}
+          dagDirection={dagDirection}
+        />
       ))}
       {data.nodes.map((node) => (
         <Node

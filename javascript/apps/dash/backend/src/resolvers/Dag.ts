@@ -142,13 +142,11 @@ const deriveVertices = (
 
 interface DeriveTransferringStateOpts {
   targetNodeType: NodeType;
-  state?: JobState;
   targetNodeState?: JobState;
 }
 
 const deriveTransferringState = ({
   targetNodeType,
-  state,
   targetNodeState,
 }: DeriveTransferringStateOpts) => {
   // Should display transferring _from_ a corresponding egressing pipeline's output repo.
@@ -156,7 +154,8 @@ const deriveTransferringState = ({
   return (
     (targetNodeType === NodeType.EGRESS &&
       targetNodeState === JobState.JOB_EGRESSING) ||
-    (targetNodeType !== NodeType.EGRESS && state === JobState.JOB_RUNNING)
+    (targetNodeType !== NodeType.EGRESS &&
+      targetNodeState === JobState.JOB_RUNNING)
   );
 };
 
@@ -201,7 +200,6 @@ const normalizeDAGData = async (
               sections: [],
               transferring: deriveTransferringState({
                 targetNodeType: node.type,
-                state,
                 targetNodeState: node.jobState,
               }),
             },
@@ -225,9 +223,8 @@ const normalizeDAGData = async (
             targetstate: node.state,
             sections: [],
             transferring: deriveTransferringState({
-              targetNodeType: node.type,
-              state,
-              targetNodeState: node.jobState,
+              targetNodeType: vertices[sourceIndex].type,
+              targetNodeState: state,
             }),
           },
         ];

@@ -18,6 +18,8 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {DagDirection, Node} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
 
+import {NODE_HEIGHT, NODE_WIDTH} from '../constants/nodeSizes';
+
 const SIDEBAR_WIDTH = 384;
 const MIN_DAG_HEIGHT = 300;
 const DAG_TOP_PADDING = 100;
@@ -116,31 +118,24 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     const xExtent = extent(nodes, (n) => n.x);
     const yExtent = extent(nodes, (n) => n.y);
     const xMin = xExtent[0] || 0;
-    const xMax = xExtent[1] || svgSize.width;
+    const xMax = (xExtent[1] || 0) + NODE_WIDTH;
     const yMin = yExtent[0] || 0;
-    const yMax = yExtent[1] || svgSize.height;
+    const yMax = (yExtent[1] || 0) + NODE_HEIGHT;
 
     return {xMin, xMax, yMin, yMax};
-  }, [dags, svgSize]);
+  }, [dags]);
 
-  const getScale = (
-    svgMeasurement: number,
-    max: number,
-    min: number,
-    padding: number,
-  ) => {
-    const dagSize = max + min + padding;
+  const getScale = (svgMeasurement: number, max: number, padding: number) => {
+    const dagSize = max + padding;
     return dagSize > 0 ? svgMeasurement / dagSize : 1;
   };
 
   const startScale = useMemo(() => {
-    const {xMax, xMin, yMax, yMin} = graphExtents;
+    const {xMax, yMax} = graphExtents;
 
-    // multiply node dimensions by 2 to account for alignment padding
-    const xScale = getScale(svgSize.width, xMax, xMin, nodeWidth);
-    const yScale = getScale(svgSize.height, yMax, yMin, nodeHeight);
-
-    return Math.min(xScale, yScale, 1.5);
+    const xScale = getScale(svgSize.width, xMax, nodeWidth);
+    const yScale = getScale(svgSize.height, yMax, nodeHeight);
+    return Math.min(xScale, yScale, MAX_SCALE_VALUE);
   }, [graphExtents, nodeHeight, nodeWidth, svgSize]);
 
   const applyZoom = useCallback(
@@ -170,8 +165,8 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
         : nodeHeight * startScale;
 
       const xTranslate = horizontal
-        ? nodeWidth * startScale
-        : svgSize.width / 2 - ((xMin + xMax) / 2) * startScale - nodeWidth;
+        ? nodeWidth / 2
+        : svgSize.width / 2 - ((xMin + xMax) / 2) * startScale;
       // translate to center of svg and align based on direction
       const transform = zoomIdentity
         .translate(

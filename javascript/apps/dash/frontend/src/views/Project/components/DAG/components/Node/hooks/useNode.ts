@@ -5,10 +5,13 @@ import {useRouteMatch} from 'react-router';
 
 import useIsViewingJob from '@dash-frontend/hooks/useIsViewingJob';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
+import {NODE_HEIGHT} from '@dash-frontend/views/Project/constants/nodeSizes';
 import {PIPELINE_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {Node, NodeState, NodeType} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
 import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
+
+const LABEL_WIDTH = 188;
 
 const useNode = (node: Node, isInteractive: boolean) => {
   const {navigateToNode, selectedNode} = useRouteController();
@@ -101,7 +104,64 @@ const useNode = (node: Node, isInteractive: boolean) => {
     select<SVGGElement, Node>(`#${groupName}`).data([node]);
   }, [groupName, node]);
 
-  const normalizedNodeName = deriveRepoNameFromNode(node);
+  useEffect(() => {
+    let tspanCount = 1;
+    const text = select<SVGGElement, Node>(
+      `#${groupName}`,
+    ).select<SVGTextElement>('.nodeLabel');
+
+    // remove old tspans on node name change
+    text.selectAll<SVGTSpanElement, unknown>('tspan').remove();
+
+    // create tspans
+    let tspan = text
+      .append('tspan')
+      .attr('x', 36)
+      .attr('y', NODE_HEIGHT / 2);
+    const normalizedNodeName = deriveRepoNameFromNode(node);
+    const nameChars = normalizedNodeName.split('').reverse();
+    let line: string[] = [];
+    let char: string | undefined = '';
+    while (nameChars.length > 0) {
+      char = nameChars.pop();
+      if (char) {
+        line.push(char);
+        tspan.text(line.join(''));
+        const tspanNode = tspan.node();
+        if (tspanNode && tspanNode.getComputedTextLength() > LABEL_WIDTH) {
+          line.pop();
+          if (tspanCount === 3) {
+            line.splice(line.length - 3, 3, '...');
+            tspan.text(line.join(''));
+            break;
+          } else {
+            tspan.text(line.join(''));
+            line = [char];
+            tspan = text
+              .append('tspan')
+              .text(char)
+              .attr('x', 36)
+              .attr('y', NODE_HEIGHT / 2);
+            tspanCount += 1;
+          }
+        }
+      }
+    }
+
+    // adjust tspan positioning
+    text
+      .selectAll<SVGTSpanElement, unknown>('tspan')
+      .attr('dy', (_d, i, nodes) => {
+        if (i === 0) return -10 * (nodes.length - 1);
+        if (i === 1) {
+          if (nodes.length === 2) return 10;
+          return 0;
+        } else {
+          return 20;
+        }
+      })
+      .attr('dx', 0);
+  }, [node, groupName]);
 
   const isHovered = useMemo(
     () => hoveredNode === node.name,
@@ -135,7 +195,6 @@ const useNode = (node: Node, isInteractive: boolean) => {
     selectedNode,
     groupName,
     isEgress,
-    normalizedNodeName,
     showSuccess,
     showLeaveJob,
     handleLeaveJobClick,
