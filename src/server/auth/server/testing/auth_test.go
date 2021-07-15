@@ -984,12 +984,8 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		getRepoRoleBinding(t, aliceClient, pipeline))
 
 	// bob still can't stop or delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeletePipeline(pipeline, false)
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
+	require.NoError(t,  bobClient.StopPipeline(pipeline))
+	require.NoError(t,  bobClient.DeletePipeline(pipeline, false))
 
 	// alice re-adds bob as a reader of the input repo
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
