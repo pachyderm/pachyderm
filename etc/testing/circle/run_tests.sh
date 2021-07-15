@@ -19,6 +19,12 @@ export POSTGRES_HOST
 POSTGRES_PORT=32228
 export POSTGRES_PORT
 
+PG_BOUNCER_HOST="$(minikube ip)"
+export PG_BOUNCER_HOST
+
+PG_BOUNCER_PORT="32229"
+export PG_BOUNCER_PORT
+
 TESTFLAGS="-v | stdbuf -i0 tee -a /tmp/results"
 export TESTFLAGS
 
