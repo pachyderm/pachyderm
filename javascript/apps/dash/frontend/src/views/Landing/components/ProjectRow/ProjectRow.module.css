@@ -11,7 +11,7 @@
   filter: drop-shadow(0 1px 1px var(--border-grey));
 }
 
-.row:hover {
+.rowHover:hover {
   cursor: pointer;
   filter: drop-shadow(0 2px 4px var(--border-grey));
 }

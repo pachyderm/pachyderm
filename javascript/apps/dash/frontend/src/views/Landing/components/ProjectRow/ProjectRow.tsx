@@ -12,12 +12,14 @@ import ProjectStatus from '../ProjectStatus';
 import styles from './ProjectRow.module.css';
 
 type ProjectRowProps = {
+  multiProject: boolean;
   project: Project;
   isSelected: boolean;
   setSelectedProject: () => void;
 };
 
 const ProjectRow: React.FC<ProjectRowProps> = ({
+  multiProject,
   project,
   isSelected = false,
   setSelectedProject = noop,
@@ -30,6 +32,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
     <tr
       className={classNames(styles.row, {
         [styles[`${project.status}Selected`]]: isSelected,
+        [styles.rowHover]: multiProject,
       })}
       onClick={(e: React.MouseEvent<HTMLTableRowElement, MouseEvent>) =>
         setSelectedProject()

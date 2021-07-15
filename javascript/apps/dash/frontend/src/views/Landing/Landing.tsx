@@ -103,6 +103,7 @@ const Landing: React.FC = () => {
                   <tbody>
                     {projects.map((project) => (
                       <ProjectRow
+                        multiProject={multiProject}
                         project={project}
                         key={project.id}
                         setSelectedProject={() => setSelectedProject(project)}
