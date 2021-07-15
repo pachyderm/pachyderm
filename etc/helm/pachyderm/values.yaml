@@ -358,7 +358,7 @@ cloudsqlAuthProxy:
   connectionName: ""
   serviceAccount: ""
   port: 5432
-  enabled: true
+  enabled: false
   image:
     # repository is the image repo to pull from; together with tag it
     # replicates the --dash-image & --registry arguments to pachctl
