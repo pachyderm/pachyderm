@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -218,26 +220,16 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		tx, err := w.env.GetDBClient().BeginTxx(r.Context(), &sql.TxOptions{})
-		defer tx.Commit()
-		if err != nil {
+		if err := dbutil.WithTx(r.Context(), w.env.GetDBClient(), func(tx *sqlx.Tx) error {
+			err := addUserInTx(r.Context(), tx, authReq.Claims.Email)
+			return errors.Wrapf(err, "unable to record user identity for login")
+		}); err != nil {
 			dexApprovalErrorCountMetric.Inc()
-			w.logger.WithError(err).Error("failed to start transaction")
 			rw.WriteHeader(http.StatusInternalServerError)
+			w.logger.Error("while adding user in tx: ", err)
 			return
 		}
-		if err := addUserInTx(r.Context(), tx, authReq.Claims.Email); err != nil {
-			dexApprovalErrorCountMetric.Inc()
-			w.logger.WithError(err).Error("unable to record user identity for login")
-			rw.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		if err := tx.Commit(); err != nil {
-			dexApprovalErrorCountMetric.Inc()
-			w.logger.WithError(err).Error("failed to commit transaction")
-			rw.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+
 		server.ServeHTTP(rw, r)
 	}
 }
