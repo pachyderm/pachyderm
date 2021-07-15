@@ -81,7 +81,7 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		dbutil.WithDBName(DefaultPostgresDatabase),
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
-		dbutil.WithHostPort(DefaultPostgresHost, DefaultPostgresPort),
+		dbutil.WithHostPort(postgresHost(), postgresPort()),
 	)
 	dbName := createEphemeralDB(t, db)
 	return func(c *serviceenv.Configuration) {
@@ -89,11 +89,11 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		c.PostgresDBName = dbName
 
 		// direct
-		c.PostgresHost = DefaultPostgresHost
-		c.PostgresPort = DefaultPostgresPort
+		c.PostgresHost = postgresHost()
+		c.PostgresPort = postgresPort()
 		// pg_bouncer
-		c.PGBouncerHost = DefaultPGBouncerHost
-		c.PGBouncerPort = DefaultPGBouncerPort
+		c.PGBouncerHost = pgBouncerHost()
+		c.PGBouncerPort = pgBouncerPort()
 
 		c.PostgresUser = DefaultPostgresUser
 	}
