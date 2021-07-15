@@ -83,6 +83,7 @@ const useFileDisplay = (file: File) => {
       case 'avif':
       case 'gif':
       case 'jpeg':
+      case 'jpg':
       case 'png':
       case 'svg':
       case 'webp':
