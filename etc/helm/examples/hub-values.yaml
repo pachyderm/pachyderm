@@ -32,7 +32,7 @@ ingress:
 
 pachd:
   postgresql:
-    host: "169.254.169.254"
+    host: "cloudsql-auth-proxy.default.svc.cluster.local."
     port: "5432"
     ssl: "disable"
     user: "postgres"
@@ -81,3 +81,11 @@ postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
   enabled: false
 
+cloudsqlAuthProxy:
+  enabled: true
+  connectionName: "PgConnectionName"
+  serviceAccount: "ServiceAccount"
+  resources:
+    requests:
+      memory: "500Mi"
+      cpu:    "250m"
