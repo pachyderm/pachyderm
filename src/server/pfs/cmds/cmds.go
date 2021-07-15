@@ -23,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
@@ -68,7 +67,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
-			err := txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
+			return txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
@@ -78,7 +77,6 @@ or type (e.g. csv, binary, images, etc).`,
 				)
 				return err
 			})
-			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
@@ -89,7 +87,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Update a repo.",
 		Long:  "Update a repo.",
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
-			err := txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
+			return txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
@@ -100,7 +98,6 @@ or type (e.g. csv, binary, images, etc).`,
 				)
 				return err
 			})
-			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
@@ -115,7 +112,7 @@ or type (e.g. csv, binary, images, etc).`,
 			c := env.Client("user")
 			repoInfo, err := c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if repoInfo == nil {
 				return errors.Errorf("repo %s not found", args[0])
@@ -201,7 +198,7 @@ or type (e.g. csv, binary, images, etc).`,
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
 
-			err := txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
+			return txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				var err error
 				if all {
 					_, err = c.PfsAPIClient.DeleteAll(c.Ctx(), &types.Empty{})
@@ -210,7 +207,6 @@ or type (e.g. csv, binary, images, etc).`,
 				}
 				return err
 			})
-			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
@@ -267,7 +263,7 @@ $ {{alias}} test -p XXX`,
 			}
 
 			var commit *pfs.Commit
-			err = txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
+			if err := txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				var err error
 				commit, err = c.PfsAPIClient.StartCommit(
 					c.Ctx(),
@@ -278,11 +274,11 @@ $ {{alias}} test -p XXX`,
 					},
 				)
 				return err
-			})
-			if err == nil {
-				fmt.Fprintln(env.Stdout(), commit.ID)
+			}); err != nil {
+				return err
 			}
-			return grpcutil.ScrubGRPC(err)
+			fmt.Fprintln(env.Stdout(), commit.ID)
+			return nil
 		}),
 	}
 	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
@@ -302,7 +298,7 @@ $ {{alias}} test -p XXX`,
 				return err
 			}
 
-			err = txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
+			return txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.FinishCommit(
 					c.Ctx(),
 					&pfs.FinishCommitRequest{
@@ -313,7 +309,6 @@ $ {{alias}} test -p XXX`,
 				)
 				return err
 			})
-			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
@@ -340,7 +335,7 @@ $ {{alias}} test -p XXX`,
 					Wait:   pfs.CommitState_STARTED,
 				})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if commitInfo == nil {
 				return errors.Errorf("commit %s not found", commit.ID)
@@ -416,7 +411,7 @@ $ {{alias}} foo@master --from XXX`,
 				OriginKind: origin,
 			})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			if raw {
@@ -532,7 +527,7 @@ $ {{alias}} test@master --new`,
 				OriginKind: origin,
 			})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			if raw {
@@ -656,7 +651,7 @@ $ {{alias}}`,
 			c := env.Client("user")
 			listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			if raw {
@@ -760,7 +755,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 						Provenance: provenance,
 						Trigger:    trigger,
 					})
-				return grpcutil.ScrubGRPC(err)
+				return err
 			})
 		}),
 	}
@@ -788,7 +783,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			c := env.Client("user")
 			branchInfo, err := c.PfsAPIClient.InspectBranch(c.Ctx(), &pfs.InspectBranchRequest{Branch: branch})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if branchInfo == nil {
 				return errors.Errorf("branch %s not found", args[0])
@@ -815,7 +810,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			c := env.Client("user")
 			branchClient, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			if raw {
@@ -856,7 +851,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 
 			return txncmds.WithActiveTransaction(env, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{Branch: branch, Force: force})
-				return grpcutil.ScrubGRPC(err)
+				return err
 			})
 		}),
 	}

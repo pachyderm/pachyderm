@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 
 	"github.com/spf13/cobra"
@@ -28,7 +27,7 @@ func GetConfigCmd() *cobra.Command {
 			c := newClient(env, enterprise)
 			resp, err := c.GetConfiguration(c.Ctx(), &auth.GetConfigurationRequest{})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if resp.Configuration == nil {
 				fmt.Fprintln(env.Stderr(), "no auth config set")
@@ -100,7 +99,7 @@ func SetConfigCmd() *cobra.Command {
 			_, err := c.SetConfiguration(c.Ctx(), &auth.SetConfigurationRequest{
 				Configuration: &config,
 			})
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 	setConfig.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Set auth config for the active enterprise context")

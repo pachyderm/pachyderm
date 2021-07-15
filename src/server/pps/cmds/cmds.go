@@ -18,7 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
@@ -182,7 +181,7 @@ $ {{alias}}`,
 			client := env.Client("user")
 			listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			if raw {
@@ -757,7 +756,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 					txClient.Ctx(),
 					request,
 				)
-				return grpcutil.ScrubGRPC(err)
+				return err
 			})
 		}),
 	}
@@ -800,11 +799,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			c := env.Client("user")
 			lpClient, err := c.PpsAPIClient.ListPipeline(c.Ctx(), request)
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			pipelineInfos, err := clientsdk.ListPipelineInfo(lpClient)
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if raw {
 				encoder := cmdutil.Encoder(output, env.Stdout())
@@ -868,10 +867,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				req.Pipeline = pachdclient.NewPipeline(args[0])
 			}
 			c := env.Client("user")
-			if _, err := c.PpsAPIClient.DeletePipeline(c.Ctx(), req); err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			return nil
+			_, err := c.PpsAPIClient.DeletePipeline(c.Ctx(), req)
+			return err
 		}),
 	}
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
@@ -921,7 +918,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				&ppsclient.CreateSecretRequest{
 					File: fileBytes,
 				})
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 	createSecret.Flags().StringVarP(&file, "file", "f", "", "File containing Kubernetes secret.")
@@ -939,7 +936,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 						Name: args[0],
 					},
 				})
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deleteSecret, "delete secret"))
@@ -957,7 +954,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 					},
 				})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			writer := tabwriter.NewWriter(env.Stdout(), pretty.SecretHeader)
@@ -974,7 +971,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			c := env.Client("user")
 			secretInfos, err := c.PpsAPIClient.ListSecret(c.Ctx(), &types.Empty{})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			writer := tabwriter.NewWriter(env.Stdout(), pretty.SecretHeader)
@@ -1049,7 +1046,7 @@ func pipelineHelper(env cmdutil.Env, reprocess bool, pushImages bool, registry, 
 				txClient.Ctx(),
 				request,
 			)
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}); err != nil {
 			return err
 		}

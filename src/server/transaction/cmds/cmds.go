@@ -5,7 +5,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/server/transaction/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -90,7 +89,7 @@ transaction' or cancelled with 'delete transaction'.`,
 
 			transaction, err := env.Client("user").StartTransaction()
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
@@ -146,7 +145,7 @@ transaction' or cancelled with 'delete transaction'.`,
 
 			info, err := env.Client("user").FinishTransaction(txn)
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			err = ClearActiveTransaction()
@@ -188,7 +187,7 @@ transaction' or cancelled with 'delete transaction'.`,
 			}
 
 			if err := env.Client("user").DeleteTransaction(txn); err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if isActive {
 				// The active transaction was successfully deleted, clean it up so the
@@ -218,7 +217,7 @@ transaction' or cancelled with 'delete transaction'.`,
 
 			info, err := env.Client("user").InspectTransaction(txn)
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if info == nil {
 				return errors.Errorf("transaction %s not found", txn.ID)
@@ -245,7 +244,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			info, err := env.Client("user").InspectTransaction(&transaction.Transaction{ID: args[0]})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if info == nil {
 				return errors.Errorf("transaction %s not found", args[0])

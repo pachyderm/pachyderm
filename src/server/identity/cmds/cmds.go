@@ -8,7 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 
 	"github.com/spf13/cobra"
@@ -85,7 +84,7 @@ func SetIdentityServerConfigCmd() *cobra.Command {
 
 			c := env.EnterpriseClient("user")
 			_, err := c.SetIdentityServerConfig(c.Ctx(), &identity.SetIdentityServerConfigRequest{Config: &config})
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 	setConfig.PersistentFlags().StringVar(&file, "config", "-", `The file to read the YAML-encoded configuration from, or '-' for stdin.`)
@@ -101,7 +100,7 @@ func GetIdentityServerConfigCmd() *cobra.Command {
 			c := env.EnterpriseClient("user")
 			resp, err := c.GetIdentityServerConfig(c.Ctx(), &identity.GetIdentityServerConfigRequest{})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			yamlStr, err := serde.EncodeYAML(resp.Config)
@@ -134,7 +133,7 @@ func CreateIDPConnectorCmd() *cobra.Command {
 
 			c := env.EnterpriseClient("user")
 			_, err = c.CreateIDPConnector(c.Ctx(), &identity.CreateIDPConnectorRequest{Connector: config})
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 	createConnector.PersistentFlags().StringVar(&file, "config", "-", `The file to read the YAML-encoded connector configuration from, or '-' for stdin.`)
@@ -163,7 +162,7 @@ func UpdateIDPConnectorCmd() *cobra.Command {
 
 			c := env.EnterpriseClient("user")
 			_, err = c.UpdateIDPConnector(c.Ctx(), req)
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 	updateConnector.PersistentFlags().StringVar(&file, "config", "-", `The file to read the YAML-encoded connector configuration from, or '-' for stdin.`)
@@ -180,7 +179,7 @@ func GetIDPConnectorCmd() *cobra.Command {
 			c := env.EnterpriseClient("user")
 			resp, err := c.GetIDPConnector(c.Ctx(), &identity.GetIDPConnectorRequest{Id: args[0]})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			config, err := newConnectorConfig(resp.Connector)
 			if err != nil {
@@ -205,7 +204,7 @@ func DeleteIDPConnectorCmd() *cobra.Command {
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			c := env.EnterpriseClient("user")
 			_, err := c.DeleteIDPConnector(c.Ctx(), &identity.DeleteIDPConnectorRequest{Id: args[0]})
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 	return cmdutil.CreateAlias(deleteConnector, "idp delete-connector")
@@ -220,7 +219,7 @@ func ListIDPConnectorsCmd() *cobra.Command {
 			c := env.EnterpriseClient("user")
 			resp, err := c.ListIDPConnectors(c.Ctx(), &identity.ListIDPConnectorsRequest{})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			for _, conn := range resp.Connectors {
@@ -247,7 +246,7 @@ func CreateOIDCClientCmd() *cobra.Command {
 			c := env.EnterpriseClient("user")
 			resp, err := c.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{Client: &client})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			fmt.Fprintf(env.Stdout(), "Client secret: %q\n", resp.Client.Secret)
@@ -267,7 +266,7 @@ func DeleteOIDCClientCmd() *cobra.Command {
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			c := env.EnterpriseClient("user")
 			_, err := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: args[0]})
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 	return cmdutil.CreateAlias(deleteClient, "idp delete-client")
@@ -283,7 +282,7 @@ func GetOIDCClientCmd() *cobra.Command {
 			c := env.EnterpriseClient("user")
 			resp, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: args[0]})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			yamlStr, err := serde.EncodeYAML(resp.Client)
@@ -312,7 +311,7 @@ func UpdateOIDCClientCmd() *cobra.Command {
 
 			c := env.EnterpriseClient("user")
 			_, err := c.UpdateOIDCClient(c.Ctx(), &identity.UpdateOIDCClientRequest{Client: &client})
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 
@@ -329,7 +328,7 @@ func ListOIDCClientsCmd() *cobra.Command {
 			c := env.EnterpriseClient("user")
 			resp, err := c.ListOIDCClients(c.Ctx(), &identity.ListOIDCClientsRequest{})
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			for _, client := range resp.Clients {

@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pkg/browser"
@@ -86,7 +85,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 				RootToken: strings.TrimSpace(rootToken),
 			})
 			if err != nil && !auth.IsErrAlreadyActivated(err) {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating Pachyderm auth")
+				return errors.Wrapf(err, "error activating Pachyderm auth")
 			}
 
 			// If auth is already activated we won't get back a root token,
@@ -106,10 +105,10 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 			// The enterprise server doesn't have PFS or PPS enabled
 			if !enterprise {
 				if _, err := c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{}); err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error configuring auth for existing PFS repos - run `pachctl auth activate` again")
+					return errors.Wrapf(err, "error configuring auth for existing PFS repos - run `pachctl auth activate` again")
 				}
 				if _, err := c.PpsAPIClient.ActivateAuth(c.Ctx(), &pps.ActivateAuthRequest{}); err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error configuring auth for existing PPS pipelines - run `pachctl auth activate` again")
+					return errors.Wrapf(err, "error configuring auth for existing PPS pipelines - run `pachctl auth activate` again")
 				}
 			}
 
@@ -121,17 +120,17 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 			// Check whether the enterprise context is a separate identity server
 			conf, err := config.Read(false, true)
 			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to read configuration file")
+				return errors.Wrapf(err, "failed to read configuration file")
 			}
 
 			activeContext, _, err := conf.ActiveContext(true)
 			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get active context")
+				return errors.Wrapf(err, "failed to get active context")
 			}
 
 			enterpriseContext, _, err := conf.ActiveEnterpriseContext(true)
 			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get active context")
+				return errors.Wrapf(err, "failed to get active context")
 			}
 
 			// In a single-node pachd deployment, configure the OIDC server.
@@ -141,7 +140,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 					Config: &identity.IdentityServerConfig{
 						Issuer: issuer,
 					}}); err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure identity server issuer")
+					return errors.Wrapf(err, "failed to configure identity server issuer")
 				}
 
 				oidcClient, err := c.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{
@@ -153,7 +152,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 					},
 				})
 				if err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC client ID")
+					return errors.Wrapf(err, "failed to configure OIDC client ID")
 				}
 
 				if _, err := c.SetConfiguration(c.Ctx(),
@@ -165,10 +164,10 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 						LocalhostIssuer: true,
 						Scopes:          scopes,
 					}}); err != nil {
-					err = errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
+					err = errors.Wrapf(err, "failed to configure OIDC in pachd")
 					_, deleteErr := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: oidcClient.Client.Id})
 					if deleteErr != nil {
-						deleteErr = errors.Wrapf(grpcutil.ScrubGRPC(deleteErr), "failed to rollback creation of client with ID: %v."+
+						deleteErr = errors.Wrapf(err, "failed to rollback creation of client with ID: %v."+
 							"to retry auth activation, first delete this client with 'pachctl idp delete-client %v'.",
 							oidcClient.Client.Id, oidcClient.Client.Id)
 						return errors.Wrapf(err, deleteErr.Error())
@@ -179,7 +178,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 				ec := env.EnterpriseClient("user")
 				idCfg, err := ec.GetIdentityServerConfig(ec.Ctx(), &identity.GetIdentityServerConfigRequest{})
 				if err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get identity server issuer")
+					return errors.Wrapf(err, "failed to get identity server issuer")
 				}
 
 				oidcClient, err := ec.CreateOIDCClient(ec.Ctx(), &identity.CreateOIDCClientRequest{
@@ -191,7 +190,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 					},
 				})
 				if err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC client ID")
+					return errors.Wrapf(err, "failed to configure OIDC client ID")
 				}
 
 				if _, err := c.SetConfiguration(c.Ctx(),
@@ -203,10 +202,10 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 						LocalhostIssuer: false,
 						Scopes:          scopes,
 					}}); err != nil {
-					err = errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd.")
+					err = errors.Wrapf(err, "failed to configure OIDC in pachd.")
 					_, deleteErr := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: oidcClient.Client.Id})
 					if deleteErr != nil {
-						deleteErr = errors.Wrapf(grpcutil.ScrubGRPC(deleteErr), "failed to rollback creation of client with ID: %v."+
+						deleteErr = errors.Wrapf(err, "failed to rollback creation of client with ID: %v."+
 							"to retry auth activation, first delete this client with 'pachctl idp delete-client %v'.",
 							oidcClient.Client.Id, oidcClient.Client.Id)
 						return errors.Wrapf(err, deleteErr.Error())
@@ -251,10 +250,10 @@ func DeactivateCmd() *cobra.Command {
 
 			// Delete any data from the identity server
 			if _, err := c.IdentityAPIClient.DeleteAll(c.Ctx(), &identity.DeleteAllRequest{}); err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			_, err := c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}),
 	}
 	deactivate.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Deactivate auth on the active enterprise context")
@@ -286,7 +285,7 @@ func LoginCmd() *cobra.Command {
 					c.Ctx(),
 					&auth.AuthenticateRequest{IdToken: strings.TrimSpace(token)})
 				if authErr != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(authErr),
+					return errors.Wrapf(authErr,
 						"authorization failed (Pachyderm logs may contain more information)")
 				}
 			} else {
@@ -297,7 +296,7 @@ func LoginCmd() *cobra.Command {
 						c.Ctx(),
 						&auth.AuthenticateRequest{OIDCState: state})
 					if authErr != nil {
-						return errors.Wrapf(grpcutil.ScrubGRPC(authErr),
+						return errors.Wrapf(authErr,
 							"authorization failed (OIDC state token: %q; Pachyderm logs may "+
 								"contain more information)",
 							// Print state token as it's logged, for easy searching
@@ -308,7 +307,7 @@ func LoginCmd() *cobra.Command {
 				}
 			}
 			if authErr != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(authErr), "error authenticating with Pachyderm cluster")
+				return errors.Wrapf(authErr, "error authenticating with Pachyderm cluster")
 			}
 			return config.WritePachTokenToConfig(resp.PachToken, enterprise)
 		}),
@@ -370,7 +369,7 @@ func WhoamiCmd() *cobra.Command {
 			c := newClient(env, enterprise)
 			resp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
+				return err
 			}
 			fmt.Printf("You are \"%s\"\n", resp.Username)
 			if resp.Expiration != nil {
@@ -408,7 +407,7 @@ func GetRobotTokenCmd() *cobra.Command {
 			}
 			resp, err := c.GetRobotToken(c.Ctx(), req)
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if quiet {
 				fmt.Println(resp.Token)
@@ -446,7 +445,7 @@ func GetGroupsCmd() *cobra.Command {
 			}
 
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			fmt.Println(strings.Join(resp.Groups, "\n"))
 			return nil
@@ -503,7 +502,7 @@ func CheckRepoCmd() *cobra.Command {
 				})
 			}
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			fmt.Printf("Roles: %v\nPermissions: %v\n", perms.Roles, perms.Permissions)
 			return nil
@@ -527,8 +526,7 @@ func SetRepoRoleBindingCmd() *cobra.Command {
 			}
 
 			subject, repo := args[2], args[0]
-			err := env.Client("user").ModifyRepoRoleBinding(repo, subject, roles)
-			return grpcutil.ScrubGRPC(err)
+			return env.Client("user").ModifyRepoRoleBinding(repo, subject, roles)
 		}),
 	}
 	return cmdutil.CreateAlias(setScope, "auth set repo")
@@ -544,7 +542,7 @@ func GetRepoRoleBindingCmd() *cobra.Command {
 			repo := args[0]
 			resp, err := env.Client("user").GetRepoRoleBinding(repo)
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			printRoleBinding(resp)
 			return nil
@@ -568,8 +566,7 @@ func SetClusterRoleBindingCmd() *cobra.Command {
 			}
 
 			subject := args[1]
-			err := env.Client("user").ModifyClusterRoleBinding(subject, roles)
-			return grpcutil.ScrubGRPC(err)
+			return env.Client("user").ModifyClusterRoleBinding(subject, roles)
 		}),
 	}
 	return cmdutil.CreateAlias(setScope, "auth set cluster")
@@ -584,7 +581,7 @@ func GetClusterRoleBindingCmd() *cobra.Command {
 		RunE: cmdutil.RunBoundedArgs(0, 0, func(args []string, env cmdutil.Env) error {
 			resp, err := env.Client("user").GetClusterRoleBinding()
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			printRoleBinding(resp)
@@ -609,8 +606,7 @@ func SetEnterpriseRoleBindingCmd() *cobra.Command {
 			}
 
 			subject := args[1]
-			err := env.EnterpriseClient("user").ModifyClusterRoleBinding(subject, roles)
-			return grpcutil.ScrubGRPC(err)
+			return env.EnterpriseClient("user").ModifyClusterRoleBinding(subject, roles)
 		}),
 	}
 	return cmdutil.CreateAlias(setScope, "auth set enterprise")
@@ -625,7 +621,7 @@ func GetEnterpriseRoleBindingCmd() *cobra.Command {
 		RunE: cmdutil.RunBoundedArgs(0, 0, func(args []string, env cmdutil.Env) error {
 			resp, err := env.EnterpriseClient("user").GetClusterRoleBinding()
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			printRoleBinding(resp)
