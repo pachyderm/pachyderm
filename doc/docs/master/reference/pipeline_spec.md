@@ -89,7 +89,12 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
         "external_port": int
       },
       "spout": {
-      \\ Optionally, you can combine a spout with a service:
+        \\ Optionally, you can combine a spout with a service:
+        "service": {
+          "internal_port": int,
+          "external_port": int
+        }
+      }
       "scheduling_spec": {
         "node_selector": {string: string},
         "priority_class_name": string
