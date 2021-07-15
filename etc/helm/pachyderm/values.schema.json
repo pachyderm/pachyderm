@@ -296,9 +296,6 @@
                         "apiGRPCPort": {
                             "type": "integer"
                         },
-                        "apiHTTPPort": {
-                            "type": "integer"
-                        },
                         "enabled": {
                             "type": "boolean"
                         },
@@ -617,9 +614,6 @@
                             "type": "string"
                         }
                     }
-                },
-                "usesRoot": {
-                    "type": "boolean"
                 }
             }
         }
