@@ -23,8 +23,6 @@ type GlobalConfiguration struct {
 	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
 	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
 	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
-	PostgresHost                   string `env:"POSTGRES_HOST"`
-	PostgresPort                   int    `env:"POSTGRES_PORT"`
 	PGBouncerHost                  string `env:"PG_BOUNCER_HOST"`
 	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT"`
 	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
@@ -93,6 +91,9 @@ type PachdSpecificConfiguration struct {
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName string `env:"PACHD_POD_NAME,required"`
+
+	PostgresHost string `env:"POSTGRES_HOST"`
+	PostgresPort int    `env:"POSTGRES_PORT"`
 }
 
 // StorageConfiguration contains the storage configuration.

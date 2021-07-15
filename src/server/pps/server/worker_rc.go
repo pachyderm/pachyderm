@@ -105,10 +105,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Value: a.env.Config().PostgresDBName,
 	}, {
 		Name:  "PG_BOUNCER_HOST",
-		Value: a.env.Config().PostgresHost,
+		Value: a.env.Config().PGBouncerHost,
 	}, {
 		Name:  "PG_BOUNCER_PORT",
-		Value: strconv.FormatInt(int64(a.env.Config().PostgresPort), 10),
+		Value: strconv.FormatInt(int64(a.env.Config().PGBouncerPort), 10),
 	}, {
 		Name:  client.PeerPortEnv,
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),

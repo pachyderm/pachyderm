@@ -89,8 +89,8 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		c.PostgresDBName = dbName
 
 		// direct
-		c.PostgresHost = postgresHost()
-		c.PostgresPort = postgresPort()
+		c.PachdSpecificConfiguration.PostgresHost = postgresHost()
+		c.PachdSpecificConfiguration.PostgresPort = postgresPort()
 		// pg_bouncer
 		c.PGBouncerHost = pgBouncerHost()
 		c.PGBouncerPort = pgBouncerPort()
