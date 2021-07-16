@@ -83,7 +83,7 @@ will run once all the input commits have been finished**.
     !!! tip "Noteworthy"
           As soon as a commit is started (whether through `start commit` or `put file` without an open commit, or finishing a transaction that contains a start commit), a new [**commitset** as well as a **jobset**](../../../concepts/advanced-concepts/globalID/#definition) is created. All open commits are in a `started` state, each of the pipeline jobs created is `running`, and the workers waiting for the commit(s) to be closed to process the data. In other words, your changes will only be applied when you close the commits.
         
-          In the case of a transaction, the workers will wait until all of the input commits are finished to process them in one batch. All of those commits and jobs will be part of the same commitset/jobset and share the same globalID (Transaction ID).
+          In the case of a transaction, the workers will wait until all of the input commits are finished to process them in one batch. All of those commits and jobs will be part of the same commitset/jobset and share the same globalID (Transaction ID). Without a transaction, each commit would trigger its own separate job.
 
 
       We have used the [inner join pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/joins) in our joins example to illustrate the difference between no transaction and the use a transaction, all other things being equal. Make sure to follow the example README if you want to run those pachctl commands yourself.
