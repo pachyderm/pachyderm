@@ -9,3 +9,5 @@ enterpriseServer:
     tag: local
 pachd:
   enabled: false
+pgbouncer:
+  enabled: false
