@@ -16,11 +16,15 @@ processed by your pipelines:
 - Success/failure information, including any error encountered for failed datums
 - The directory structure of input data that was seen by the job.
 
-Use the `pachctl list datum <pipeline>@<job ID>` to retrieve the list of datums processed by a given job, and pick the datum ID you want to inspect.
+Use the `pachctl list datum <pipeline>@<job ID>` to retrieve the list of datums processed by a given job, and pick the datum ID you want to inspect. That information can be useful when troubleshooting a failed job.
 ## Meta Repo
+
 Once a pipeline has finished a job, **you can access additional execution metadata about the datums
 processed** in the associated meta [system repo](../../../data-concepts/repo/#definition).
-That information can be useful when troubleshooting a failed job.
+Note that all the `inspect datum` information above is stored in this meta repo, along with a couple more.
+For example, you can find the `reason` in `meta/<datumID>/meta`: the error message when the datum failed.
+
+See the detail of the meta repo structure below.
 
 !!! Info
     A meta repo contains 2 directories:
