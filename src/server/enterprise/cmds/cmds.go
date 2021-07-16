@@ -222,17 +222,10 @@ func HeartbeatCmd() *cobra.Command {
 	heartbeat := &cobra.Command{
 		Short: "Sync the enterprise state with the license server immediately.",
 		Long:  "Sync the enterprise state with the license server immediately.",
-		Run: cmdutil.Run(func(args []string) error {
-			c, err := newClient(isEnterprise)
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-			_, err = c.Enterprise.Heartbeat(c.Ctx(), &enterprise.HeartbeatRequest{})
-			if err != nil {
-				return errors.Wrapf(err, "could not sync with license server")
-			}
-			return nil
+		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
+			c := newClient(env, isEnterprise)
+			_, err := c.Enterprise.Heartbeat(c.Ctx(), &enterprise.HeartbeatRequest{})
+			return errors.Wrapf(err, "could not sync with license server")
 		}),
 	}
 	heartbeat.PersistentFlags().BoolVar(&isEnterprise, "enterprise", false, "Make the enterprise server refresh it's state")
