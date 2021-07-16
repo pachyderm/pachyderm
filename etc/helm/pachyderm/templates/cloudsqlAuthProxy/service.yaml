@@ -1,0 +1,28 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.cloudsqlAuthProxy.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: cloudsql-auth-proxy
+    suite: pachyderm
+    {{- if .Values.cloudsqlAuthProxy.service.labels }}
+    {{- toYaml .Values.cloudsqlAuthProxy.service.labels | nindent 4 }}
+    {{- end }}
+  name: cloudsql-auth-proxy
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: postgres
+    {{- if eq .Values.cloudsqlAuthProxy.service.type "NodePort" }}
+    nodePort: 35432
+    {{- end }}
+    port: 5432
+  selector:
+    app: cloudsql-auth-proxy
+    suite: pachyderm
+  type: {{ .Values.cloudsqlAuthProxy.service.type }}
+{{ end -}}
