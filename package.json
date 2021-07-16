@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/node-pachyderm",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "node client for pachyderm",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -24,7 +24,7 @@
   "homepage": "https://github.com/pachyderm/node-pachyderm#readme",
   "dependencies": {
     "@grpc/grpc-js": "1.2.2",
-    "@pachyderm/proto": "2.0.0-beta.1.0",
+    "@pachyderm/proto": "2.0.0-beta.2.0",
     "tar-stream": "2.2.0"
   },
   "devDependencies": {
