@@ -15,8 +15,10 @@ pipeline jobs for each state change. You can issue a transaction
 to start commits in each of the input repos, which puts them both in
 the same [commit set](../../../concepts/advanced-concepts/globalID/), creating a single downstream commit 
 in the pipeline repo. After the transaction, you
-can put files and finish the commits at will, and the pipeline job
-will run once all the input commits have been finished.
+can put files and finish the commits at will, and **the pipeline job
+will run once all the input commits have been finished**.
+
+See transactions as a Flow Control feature.
 
 ## Start and Finish Transaction Demarcations
 
@@ -25,62 +27,77 @@ will run once all the input commits have been finished.
     A transaction demarcation initializes some transactional behavior before the demarcated area begins, then ends that transactional behavior when the demarcated area ends. You should see those demarcations as a declaration of the group of commands that will be treated together as a single coherent operation.
 
 
-To start a transaction demarcation, run the following command:
+* To start a transaction demarcation, run the following command:
 
-```shell
-pachctl start transaction
-```
-
-**System Response:**
-
-```shell
-Started new transaction: 7a81eab5e6c6430aa5c01deb06852ca5
-```
-
-This command generates a transaction object in the cluster and saves
-its ID in the local Pachyderm configuration file. By default, this file
-is stored at `~/.pachyderm/config.json`.
-
-!!! example
-    ```json hl_lines="9"
-    {
-       "user_id": "b4fe4317-be21-4836-824f-6661c68b8fba",
-       "v2": {
-         "active_context": "local-2",
-         "contexts": {
-           "default": {},
-           "local-2": {
-             "source": 3,
-             "active_transaction": "7a81eab5e6c6430aa5c01deb06852ca5",
-             "cluster_name": "minikube",
-             "auth_info": "minikube",
-             "namespace": "default"
-           },
+    ```shell
+    pachctl start transaction
     ```
 
-After you start a transaction demarcation, you can add [supported commands](#supported-operations), such
-as `pachctl start commit`, `pachctl create branch` (see the complete list below - we recommend to use those transactionnal commands only), to the
-transaction. All commands that are performed in a transaction are
-queued up and not executed against the actual cluster until you finish
-the transaction. When you finish the transaction, all queued command
-are executed atomically.
+    **System Response:**
 
-To finish a transaction, run:
+    ```shell
+    Started new transaction: 7a81eab5e6c6430aa5c01deb06852ca5
+    ```
 
-```shell
-pachctl finish transaction
-```
+    This command generates a transaction object in the cluster and saves
+    its ID in the local Pachyderm configuration file. By default, this file
+    is stored at `~/.pachyderm/config.json`.
 
-**System Response:**
+    !!! example
+          ```json hl_lines="9"
+          {
+            "user_id": "b4fe4317-be21-4836-824f-6661c68b8fba",
+            "v2": {
+              "active_context": "local-2",
+              "contexts": {
+                "default": {},
+                "local-2": {
+                  "source": 3,
+                  "active_transaction": "7a81eab5e6c6430aa5c01deb06852ca5",
+                  "cluster_name": "minikube",
+                  "auth_info": "minikube",
+                  "namespace": "default"
+                },
+          ```
 
-```shell
-Completed transaction with 1 requests: 7a81eab5e6c6430aa5c01deb06852ca5
-```
- 
-!!! tip "Noteworthy"
-     In the case where you have, for example, started a transaction, started various commits on various repos, then finished the transaction, the closing of the transaction will execute the start commits. The commits will then be waiting for incoming event(s) (like put file for example) and their finish commit instructions to trigger one single job in which all the data will be processed together. In other words, your changes will only be applied in one batch when you close the commits.
+  
+    After you start a transaction demarcation, you can add [supported commands (i.e., transactional commands)](#supported-operations), such
+    as `pachctl start commit`, `pachctl create branch` ..., to the
+    transaction.  
 
-      Note that the `put file` and following `finish commit` are happening after the `finish transaction` instruction. See the start and finish transaction as a declaration block in which you are opening a set of "brackets". The transaction will wait for those brackets to be closed before firing a job.
+    All commands that are performed in a transaction are
+    queued up and not executed against the actual cluster until you finish
+    the transaction. When you finish the transaction, all queued command
+    are executed atomically.
+
+* To finish a transaction, run:
+
+    ```shell
+    pachctl finish transaction
+    ```
+
+    **System Response:**
+
+    ```shell
+    Completed transaction with 1 requests: 7a81eab5e6c6430aa5c01deb06852ca5
+    ```
+
+    !!! tip "Noteworthy"
+          As soon as a commit is started (whether through `start commit` or `put file` without an open commit, or finishing a transaction that contains a start commit), a new [**commitset** as well as a **jobset**](../../../concepts/advanced-concepts/globalID/#definition) is created. All open commits are in a `started` state, each of the pipeline jobs created is `running`, and the worker responsible for dividing up the tasks is waiting for the commit(s) to be closed to process the data. In other words, your changes will only be applied when you close the commits.
+        
+          - If you have no transaction, finishing a commit will immediately run the pipeline's job against the data provided in the commit.
+          - In the case of a transaction,  the worker will wait until all of the input commits are finished to process them in one batch. All of those commits and jobs will be part of the same commitset/jobset and share the same globalID (Transaction ID).
+
+
+      We have used the [inner join pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/joins) in our joins example to illustrate the difference between no transaction and the use a transaction, all other things being equal. Make sure to follow the example README if you want to run those pachctl commands yourself.
+
+      ![Tx vs no Tx](../images/flow-control-with-and-without-tx.png)
+        
+    !!! Note "Important"
+          Note that in the case with the transaction, the `put file` and following `finish commit` are happening **after** the `finish transaction` instruction.
+          You must finish your transaction before putting files in the corresponding repo for the data to be 
+          part of the same batch. Running a 'put file' before closing the transaction would result in a commit being created 
+          independently from the transaction itself and a job to run on that commit.
 
 ## Supported Operations
 
