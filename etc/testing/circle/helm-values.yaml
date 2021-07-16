@@ -26,3 +26,6 @@ etcd:
       memory: 512M
 worker:
   usesRoot: true
+pgbouncer:
+  service:
+    type: NodePort
