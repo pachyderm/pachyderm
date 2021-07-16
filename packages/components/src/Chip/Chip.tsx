@@ -60,13 +60,16 @@ export const ChipInput: React.FC<ChipInputProps> = ({
   children,
   onChange,
   onBlur,
+  disabled,
   ...rest
 }) => {
   const {register, watch} = useFormContext();
   const value = watch(name);
-  const classes = classNames(styles.base, className, {
+  const classes = classNames(styles.inputBase, className, {
     [styles.selected]: value,
+    [styles.disabled]: disabled,
   });
+
   const {handleChange, handleBlur, ...inputProps} = useRHFInputProps({
     onChange,
     onBlur,
@@ -76,6 +79,7 @@ export const ChipInput: React.FC<ChipInputProps> = ({
   return (
     <label className={classes}>
       <input
+        disabled={disabled}
         type="checkbox"
         className={styles.input}
         onChange={handleChange}

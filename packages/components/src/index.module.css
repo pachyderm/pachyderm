@@ -46,6 +46,12 @@
   --chart-hover-dark-blue: #0d75be;
   --chart-hover-light-blue: #59d1f2;
 
+  /* NEW COLORS */
+  --grey-2: #FAFAFA;
+  --grey-3: #f1f1f1;
+  --grey-4: #e0e0e0;
+  --grey-9: #414142;
+  
   /* sizes */
   --border-radius-bottom-level: 5px;
   --border-radius-top-level: 10px;

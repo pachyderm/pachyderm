@@ -28,7 +28,9 @@ export const Group = () => {
     <Form formContext={formCtx}>
       <div style={{width: '25rem'}}>
         <ChipGroup>
-          <ChipInput name="failure">Failure</ChipInput>
+          <ChipInput disabled name="failure">
+            Failure
+          </ChipInput>
           <ChipInput name="starting">Starting</ChipInput>
           <ChipInput name="thinking">Thinking</ChipInput>
           <ChipInput name="running">Running</ChipInput>

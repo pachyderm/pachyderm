@@ -1,29 +1,33 @@
-.base {
+.base,
+.inputBase {
   user-select: none;
   font-size: var(--font-size-body-medium);
   font-weight: 600;
-  background-color: var(--line-grey);
+  background-color: var(--grey-2);
+  border: 2px solid var(--grey-3);
   border-radius: 3px;
-  border-style: none;
   padding: 0.5rem 0.625rem;
   cursor: pointer;
   position: relative;
 }
 
-.base:not(:disabled):hover {
-  background-color: var(--selected-grey);
+.selected {
+  background-color: var(--grey-9);
+  border-color: var(--grey-9);
   color: var(--white);
 }
 
-.base:disabled {
+.base:not(:disabled):not(.selected):hover,
+.inputBase:not(.disabled):not(.selected):hover {
+  background-color: var(--grey-3);
+  color: var(--pachyderm-black);
+}
+.base:disabled,
+.disabled {
+  border-style: none;
   cursor: not-allowed;
   color: var(--pachyderm-black);
   opacity: 0.3;
-}
-
-.selected {
-  background-color: var(--selected-grey);
-  color: var(--white);
 }
 
 .input {
@@ -35,6 +39,10 @@
   left: 0;
   height: 100%;
   width: 100%;
+}
+
+.input:disabled {
+  cursor: not-allowed;
 }
 
 .group {
