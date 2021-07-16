@@ -30,7 +30,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -9304,59 +9303,6 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	require.Equal(t, uint64(3), pipelineInfo.Version)
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
 	require.Equal(t, inputB, pipelineInfo.Details.Input.Pfs.Repo)
-}
-
-func TestSystemRepoDependence(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-	input := tu.UniqueString("in")
-	pipeline := tu.UniqueString("pipeline")
-
-	require.NoError(t, c.CreateRepo(input))
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(input, "/*"),
-		"",
-		false,
-	))
-
-	// meta repo has no subvenance
-	_, err := c.PfsAPIClient.DeleteRepo(
-		c.Ctx(),
-		&pfs.DeleteRepoRequest{
-			Repo: client.NewSystemRepo(pipeline, pfs.MetaRepoType),
-		})
-	require.NoError(t, err)
-
-	// but spec repo does
-	_, err = c.PfsAPIClient.DeleteRepo(
-		c.Ctx(),
-		&pfs.DeleteRepoRequest{
-			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
-		})
-	require.YesError(t, err)
-
-	require.NoError(t, c.DeletePipeline(pipeline, false))
-
-	_, err = c.PfsAPIClient.InspectRepo(
-		c.Ctx(),
-		&pfs.InspectRepoRequest{
-			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
-		},
-	)
-	// spec repo should have been deleted
-	require.YesError(t, err)
-	require.True(t, errutil.IsNotFoundError(grpcutil.ScrubGRPC(err)))
 }
 
 func TestPipelineAutoscaling(t *testing.T) {

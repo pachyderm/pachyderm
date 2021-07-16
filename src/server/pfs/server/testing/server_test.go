@@ -5740,7 +5740,38 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(branchCommit, "f3", strings.NewReader("foo\n")))
 			checks(t, branch)
 		})
+
 	})
+
+	suite.Run("SystemRepoDependence", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		sysRepo := client.NewSystemRepo("fail", pfs.MetaRepoType)
+
+		// can't create system repo by itself
+		_, err := env.PachClient.PfsAPIClient.CreateRepo(env.Context, &pfs.CreateRepoRequest{
+			Repo: sysRepo ,
+		})
+		require.YesError(t,err)
+
+		require.NoError(t, env.PachClient.CreateRepo("test"))
+		// but now we can
+		_, err = env.PachClient.PfsAPIClient.CreateRepo(env.Context, &pfs.CreateRepoRequest{
+			Repo: sysRepo,
+		})
+		require.NoError(t,err)
+
+		require.NoError(t, env.PachClient.DeleteRepo("test", false))
+
+		// meta repo should be gone, too
+		_, err = env.PachClient.PfsAPIClient.InspectRepo(env.Context, &pfs.InspectRepoRequest{
+			Repo: sysRepo,
+		})
+		require.YesError(t, err)
+		require.True(t, errutil.IsNotFoundError(err))
+	})
+})
 }
 
 var (
