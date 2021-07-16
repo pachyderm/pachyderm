@@ -28,6 +28,7 @@
   cursor: not-allowed;
   color: var(--pachyderm-black);
   opacity: 0.3;
+  background-color: var(--grey-3);
 }
 
 .input {
