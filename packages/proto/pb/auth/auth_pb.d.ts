@@ -357,6 +357,48 @@ export namespace WhoAmIResponse {
     }
 }
 
+export class GetRolesForPermissionRequest extends jspb.Message { 
+    getPermission(): Permission;
+    setPermission(value: Permission): GetRolesForPermissionRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetRolesForPermissionRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetRolesForPermissionRequest): GetRolesForPermissionRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetRolesForPermissionRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetRolesForPermissionRequest;
+    static deserializeBinaryFromReader(message: GetRolesForPermissionRequest, reader: jspb.BinaryReader): GetRolesForPermissionRequest;
+}
+
+export namespace GetRolesForPermissionRequest {
+    export type AsObject = {
+        permission: Permission,
+    }
+}
+
+export class GetRolesForPermissionResponse extends jspb.Message { 
+    clearRolesList(): void;
+    getRolesList(): Array<Role>;
+    setRolesList(value: Array<Role>): GetRolesForPermissionResponse;
+    addRoles(value?: Role, index?: number): Role;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetRolesForPermissionResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetRolesForPermissionResponse): GetRolesForPermissionResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetRolesForPermissionResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetRolesForPermissionResponse;
+    static deserializeBinaryFromReader(message: GetRolesForPermissionResponse, reader: jspb.BinaryReader): GetRolesForPermissionResponse;
+}
+
+export namespace GetRolesForPermissionResponse {
+    export type AsObject = {
+        rolesList: Array<Role.AsObject>,
+    }
+}
+
 export class Roles extends jspb.Message { 
 
     getRolesMap(): jspb.Map<string, boolean>;

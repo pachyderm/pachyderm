@@ -20,6 +20,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     getPermissions: IAPIService_IGetPermissions;
     getPermissionsForPrincipal: IAPIService_IGetPermissionsForPrincipal;
     whoAmI: IAPIService_IWhoAmI;
+    getRolesForPermission: IAPIService_IGetRolesForPermission;
     modifyRoleBinding: IAPIService_IModifyRoleBinding;
     getRoleBinding: IAPIService_IGetRoleBinding;
     getOIDCLogin: IAPIService_IGetOIDCLogin;
@@ -117,6 +118,15 @@ interface IAPIService_IWhoAmI extends grpc.MethodDefinition<auth_auth_pb.WhoAmIR
     requestDeserialize: grpc.deserialize<auth_auth_pb.WhoAmIRequest>;
     responseSerialize: grpc.serialize<auth_auth_pb.WhoAmIResponse>;
     responseDeserialize: grpc.deserialize<auth_auth_pb.WhoAmIResponse>;
+}
+interface IAPIService_IGetRolesForPermission extends grpc.MethodDefinition<auth_auth_pb.GetRolesForPermissionRequest, auth_auth_pb.GetRolesForPermissionResponse> {
+    path: "/auth_v2.API/GetRolesForPermission";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<auth_auth_pb.GetRolesForPermissionRequest>;
+    requestDeserialize: grpc.deserialize<auth_auth_pb.GetRolesForPermissionRequest>;
+    responseSerialize: grpc.serialize<auth_auth_pb.GetRolesForPermissionResponse>;
+    responseDeserialize: grpc.deserialize<auth_auth_pb.GetRolesForPermissionResponse>;
 }
 interface IAPIService_IModifyRoleBinding extends grpc.MethodDefinition<auth_auth_pb.ModifyRoleBindingRequest, auth_auth_pb.ModifyRoleBindingResponse> {
     path: "/auth_v2.API/ModifyRoleBinding";
@@ -266,6 +276,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     getPermissions: grpc.handleUnaryCall<auth_auth_pb.GetPermissionsRequest, auth_auth_pb.GetPermissionsResponse>;
     getPermissionsForPrincipal: grpc.handleUnaryCall<auth_auth_pb.GetPermissionsForPrincipalRequest, auth_auth_pb.GetPermissionsResponse>;
     whoAmI: grpc.handleUnaryCall<auth_auth_pb.WhoAmIRequest, auth_auth_pb.WhoAmIResponse>;
+    getRolesForPermission: grpc.handleUnaryCall<auth_auth_pb.GetRolesForPermissionRequest, auth_auth_pb.GetRolesForPermissionResponse>;
     modifyRoleBinding: grpc.handleUnaryCall<auth_auth_pb.ModifyRoleBindingRequest, auth_auth_pb.ModifyRoleBindingResponse>;
     getRoleBinding: grpc.handleUnaryCall<auth_auth_pb.GetRoleBindingRequest, auth_auth_pb.GetRoleBindingResponse>;
     getOIDCLogin: grpc.handleUnaryCall<auth_auth_pb.GetOIDCLoginRequest, auth_auth_pb.GetOIDCLoginResponse>;
@@ -311,6 +322,9 @@ export interface IAPIClient {
     whoAmI(request: auth_auth_pb.WhoAmIRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
     whoAmI(request: auth_auth_pb.WhoAmIRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
     whoAmI(request: auth_auth_pb.WhoAmIRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
+    getRolesForPermission(request: auth_auth_pb.GetRolesForPermissionRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRolesForPermissionResponse) => void): grpc.ClientUnaryCall;
+    getRolesForPermission(request: auth_auth_pb.GetRolesForPermissionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRolesForPermissionResponse) => void): grpc.ClientUnaryCall;
+    getRolesForPermission(request: auth_auth_pb.GetRolesForPermissionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRolesForPermissionResponse) => void): grpc.ClientUnaryCall;
     modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;
     modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;
     modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;
@@ -387,6 +401,9 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public whoAmI(request: auth_auth_pb.WhoAmIRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
     public whoAmI(request: auth_auth_pb.WhoAmIRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
     public whoAmI(request: auth_auth_pb.WhoAmIRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.WhoAmIResponse) => void): grpc.ClientUnaryCall;
+    public getRolesForPermission(request: auth_auth_pb.GetRolesForPermissionRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRolesForPermissionResponse) => void): grpc.ClientUnaryCall;
+    public getRolesForPermission(request: auth_auth_pb.GetRolesForPermissionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRolesForPermissionResponse) => void): grpc.ClientUnaryCall;
+    public getRolesForPermission(request: auth_auth_pb.GetRolesForPermissionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.GetRolesForPermissionResponse) => void): grpc.ClientUnaryCall;
     public modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;
     public modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;
     public modifyRoleBinding(request: auth_auth_pb.ModifyRoleBindingRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: auth_auth_pb.ModifyRoleBindingResponse) => void): grpc.ClientUnaryCall;

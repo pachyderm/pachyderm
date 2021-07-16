@@ -292,6 +292,28 @@ function deserialize_auth_v2_GetRoleBindingResponse(buffer_arg) {
   return auth_auth_pb.GetRoleBindingResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_auth_v2_GetRolesForPermissionRequest(arg) {
+  if (!(arg instanceof auth_auth_pb.GetRolesForPermissionRequest)) {
+    throw new Error('Expected argument of type auth_v2.GetRolesForPermissionRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_v2_GetRolesForPermissionRequest(buffer_arg) {
+  return auth_auth_pb.GetRolesForPermissionRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_auth_v2_GetRolesForPermissionResponse(arg) {
+  if (!(arg instanceof auth_auth_pb.GetRolesForPermissionResponse)) {
+    throw new Error('Expected argument of type auth_v2.GetRolesForPermissionResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_auth_v2_GetRolesForPermissionResponse(buffer_arg) {
+  return auth_auth_pb.GetRolesForPermissionResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_auth_v2_GetUsersRequest(arg) {
   if (!(arg instanceof auth_auth_pb.GetUsersRequest)) {
     throw new Error('Expected argument of type auth_v2.GetUsersRequest');
@@ -615,6 +637,17 @@ activate: {
     requestDeserialize: deserialize_auth_v2_WhoAmIRequest,
     responseSerialize: serialize_auth_v2_WhoAmIResponse,
     responseDeserialize: deserialize_auth_v2_WhoAmIResponse,
+  },
+  getRolesForPermission: {
+    path: '/auth_v2.API/GetRolesForPermission',
+    requestStream: false,
+    responseStream: false,
+    requestType: auth_auth_pb.GetRolesForPermissionRequest,
+    responseType: auth_auth_pb.GetRolesForPermissionResponse,
+    requestSerialize: serialize_auth_v2_GetRolesForPermissionRequest,
+    requestDeserialize: deserialize_auth_v2_GetRolesForPermissionRequest,
+    responseSerialize: serialize_auth_v2_GetRolesForPermissionResponse,
+    responseDeserialize: deserialize_auth_v2_GetRolesForPermissionResponse,
   },
   modifyRoleBinding: {
     path: '/auth_v2.API/ModifyRoleBinding',

@@ -11977,7 +11977,8 @@ proto.pfs_v2.RunLoadTestRequest.prototype.toObject = function(opt_includeInstanc
 proto.pfs_v2.RunLoadTestRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     spec: msg.getSpec_asB64(),
-    seed: jspb.Message.getFieldWithDefault(msg, 2, 0)
+    branch: (f = msg.getBranch()) && proto.pfs_v2.Branch.toObject(includeInstance, f),
+    seed: jspb.Message.getFieldWithDefault(msg, 3, 0)
   };
 
   if (includeInstance) {
@@ -12019,6 +12020,11 @@ proto.pfs_v2.RunLoadTestRequest.deserializeBinaryFromReader = function(msg, read
       msg.setSpec(value);
       break;
     case 2:
+      var value = new proto.pfs_v2.Branch;
+      reader.readMessage(value,proto.pfs_v2.Branch.deserializeBinaryFromReader);
+      msg.setBranch(value);
+      break;
+    case 3:
       var value = /** @type {number} */ (reader.readInt64());
       msg.setSeed(value);
       break;
@@ -12058,10 +12064,18 @@ proto.pfs_v2.RunLoadTestRequest.serializeBinaryToWriter = function(message, writ
       f
     );
   }
+  f = message.getBranch();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.pfs_v2.Branch.serializeBinaryToWriter
+    );
+  }
   f = message.getSeed();
   if (f !== 0) {
     writer.writeInt64(
-      2,
+      3,
       f
     );
   }
@@ -12111,11 +12125,48 @@ proto.pfs_v2.RunLoadTestRequest.prototype.setSpec = function(value) {
 
 
 /**
- * optional int64 seed = 2;
+ * optional Branch branch = 2;
+ * @return {?proto.pfs_v2.Branch}
+ */
+proto.pfs_v2.RunLoadTestRequest.prototype.getBranch = function() {
+  return /** @type{?proto.pfs_v2.Branch} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.Branch, 2));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.Branch|undefined} value
+ * @return {!proto.pfs_v2.RunLoadTestRequest} returns this
+*/
+proto.pfs_v2.RunLoadTestRequest.prototype.setBranch = function(value) {
+  return jspb.Message.setWrapperField(this, 2, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.RunLoadTestRequest} returns this
+ */
+proto.pfs_v2.RunLoadTestRequest.prototype.clearBranch = function() {
+  return this.setBranch(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.RunLoadTestRequest.prototype.hasBranch = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+/**
+ * optional int64 seed = 3;
  * @return {number}
  */
 proto.pfs_v2.RunLoadTestRequest.prototype.getSeed = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
 };
 
 
@@ -12124,7 +12175,7 @@ proto.pfs_v2.RunLoadTestRequest.prototype.getSeed = function() {
  * @return {!proto.pfs_v2.RunLoadTestRequest} returns this
  */
 proto.pfs_v2.RunLoadTestRequest.prototype.setSeed = function(value) {
-  return jspb.Message.setProto3IntField(this, 2, value);
+  return jspb.Message.setProto3IntField(this, 3, value);
 };
 
 

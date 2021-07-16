@@ -1518,6 +1518,11 @@ export class RunLoadTestRequest extends jspb.Message {
     getSpec_asU8(): Uint8Array;
     getSpec_asB64(): string;
     setSpec(value: Uint8Array | string): RunLoadTestRequest;
+
+    hasBranch(): boolean;
+    clearBranch(): void;
+    getBranch(): Branch | undefined;
+    setBranch(value?: Branch): RunLoadTestRequest;
     getSeed(): number;
     setSeed(value: number): RunLoadTestRequest;
 
@@ -1534,6 +1539,7 @@ export class RunLoadTestRequest extends jspb.Message {
 export namespace RunLoadTestRequest {
     export type AsObject = {
         spec: Uint8Array | string,
+        branch?: Branch.AsObject,
         seed: number,
     }
 }

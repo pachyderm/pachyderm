@@ -117,6 +117,14 @@ message WhoAmIResponse {
   google.protobuf.Timestamp expiration = 2 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true];
 }
 
+message GetRolesForPermissionRequest {
+  Permission permission = 1;
+}
+
+message GetRolesForPermissionResponse {
+  repeated Role roles = 1;
+}
+
 //// Authorization data structures
 
 // Roles represents the set of roles a principal has
@@ -445,6 +453,7 @@ service API {
   rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse) {}
   rpc GetPermissionsForPrincipal(GetPermissionsForPrincipalRequest) returns (GetPermissionsResponse) {}
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
+  rpc GetRolesForPermission(GetRolesForPermissionRequest) returns (GetRolesForPermissionResponse) {}
 
   rpc ModifyRoleBinding(ModifyRoleBindingRequest) returns (ModifyRoleBindingResponse) {}
   rpc GetRoleBinding(GetRoleBindingRequest) returns (GetRoleBindingResponse) {}
