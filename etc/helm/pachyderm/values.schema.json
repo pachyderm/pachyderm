@@ -4,6 +4,7 @@
     "properties": {
         "cloudsqlAuthProxy": {
             "type": "object",
+            "required": ["enabled"],
             "properties": {
                 "connectionName": {
                     "type": "string"
@@ -52,6 +53,7 @@
         },
         "dash": {
             "type": "object",
+            "required": ["enabled"],
             "properties": {
                 "config": {
                     "type": "object",
@@ -120,6 +122,7 @@
         },
         "enterpriseServer": {
             "type": "object",
+            "required": ["enabled"],
             "properties": {
                 "affinity": {
                     "type": "object"
@@ -160,6 +163,7 @@
                 },
                 "tls": {
                     "type": "object",
+                    "required": ["enabled"],
                     "properties": {
                         "enabled": {
                             "type": "boolean"
@@ -241,6 +245,7 @@
         },
         "ingress": {
             "type": "object",
+            "required": ["enabled"],
             "properties": {
                 "annotations": {
                     "type": "object"
@@ -253,6 +258,7 @@
                 },
                 "tls": {
                     "type": "object",
+                    "required": ["enabled"],
                     "properties": {
                         "enabled": {
                             "type": "boolean"
@@ -280,6 +286,7 @@
         },
         "pachd": {
             "type": "object",
+            "required": ["enabled"],
             "properties": {
                 "affinity": {
                     "type": "object"
@@ -292,6 +299,7 @@
                 },
                 "externalService": {
                     "type": "object",
+                    "required": ["enabled"],
                     "properties": {
                         "apiGRPCPort": {
                             "type": "integer"
@@ -332,6 +340,7 @@
                 },
                 "metrics": {
                     "type": "object",
+                    "required": ["enabled"],
                     "properties": {
                         "enabled": {
                             "type": "boolean"
@@ -529,6 +538,7 @@
                 },
                 "tls": {
                     "type": "object",
+                    "required": ["enabled"],
                     "properties": {
                         "enabled": {
                             "type": "boolean"
@@ -575,6 +585,7 @@
         },
         "postgresql": {
             "type": "object",
+            "required": ["enabled"],
             "properties": {
                 "enabled": {
                     "type": "boolean"
