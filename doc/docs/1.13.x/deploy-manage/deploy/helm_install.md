@@ -37,7 +37,7 @@ Create a personalized `my_pachyderm_values.yaml` out of this [example repository
 
 See the [conversion table](#conversion-table) at the end of this page. It should help you pass easily from the `pachctl deploy` arguments and flags to their attributes counterpart in values.yaml.
 
-See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters.
+See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/pachyderm-0.6.5/pachyderm/values.yaml) for an exhaustive list of all parameters.
 
 !!! Warning
     When deploying Pachyderm using the "pachctl deploy" command (which was the only option prior to 1.13), **k8s CPU and memory requests and limits** were created for pachd, even if they were not explicitly set by flags on the command line. With the Helm Chart deployment, that is not the case.  If you don't provide values in the values.yaml file, then those requests and limits are simply not set. 
