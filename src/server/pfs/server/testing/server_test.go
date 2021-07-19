@@ -5747,7 +5747,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 
-		sysRepo := client.NewSystemRepo("fail", pfs.MetaRepoType)
+		sysRepo := client.NewSystemRepo("test", pfs.MetaRepoType)
 
 		// can't create system repo by itself
 		_, err := env.PachClient.PfsAPIClient.CreateRepo(env.Context, &pfs.CreateRepoRequest{

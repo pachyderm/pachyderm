@@ -359,6 +359,8 @@ const (
 	pipelineOpUpdate
 	// pipelineOpUpdate is required for DeletePipeline
 	pipelineOpDelete
+	// pipelineOpStartStop is required for StartPipeline and StopPipeline
+	pipelineOpStartStop
 )
 
 // authorizePipelineOp checks if the user indicated by 'ctx' is authorized
@@ -378,7 +380,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		return err
 	}
 
-	if input != nil && operation != pipelineOpDelete {
+	if input != nil && operation != pipelineOpDelete && operation != pipelineOpStartStop {
 		// Check that the user is authorized to read all input repos, and write to the
 		// output repo (which the pipeline needs to be able to do on the user's
 		// behalf)
@@ -424,6 +426,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		case pipelineOpListDatum, pipelineOpGetLogs:
 			required = auth.Permission_REPO_READ
 		case pipelineOpUpdate:
+		case pipelineOpStartStop:
 			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
 			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
@@ -2693,7 +2696,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		}
 
 		// check if the caller is authorized to update this pipeline
-		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpUpdate, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
+		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
 
@@ -2753,7 +2756,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			// check if the caller is authorized to update this pipeline
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
 			// so we don't need to check any permissions
-			if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpUpdate, nil, pipelineInfo.Pipeline.Name); err != nil {
+			if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input., pipelineInfo.Pipeline.Name); err != nil {
 				return err
 			}
 
