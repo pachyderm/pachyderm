@@ -2,19 +2,21 @@ package cmds_test
 
 import (
 	"bytes"
-	"strings"
+	"fmt"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/cmdtest"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 
 	"github.com/stretchr/testify/mock"
 )
 
-/*
 func TestCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -102,7 +104,7 @@ func TestMountParsing(t *testing.T) {
 			Branch: "master",
 		},
 	}
-	opts, err := parseRepoOpts([]string{"repo1@branch+w", "repo2+w", "repo3"})
+	opts, err := cmds.ParseFuseRepoOpts([]string{"repo1@branch+w", "repo2+w", "repo3"})
 	require.NoError(t, err)
 	require.Equal(t, 3, len(opts))
 	fmt.Printf("%+v\n", opts)
@@ -128,10 +130,8 @@ func TestDiffFile(t *testing.T) {
 		"repo", tu.UniqueString("TestDiffFile-repo"),
 	).Run())
 }
-*/
 
 func TestInspectRepo(suite *testing.T) {
-
 	suite.Run("Success", func(t *testing.T) {
 		stdout := &bytes.Buffer{}
 		stderr := &bytes.Buffer{}
@@ -144,11 +144,11 @@ func TestInspectRepo(suite *testing.T) {
 		require.Equal(t, 1, len(env.MockClient.PFS.Calls))
 		require.Equal(t, &pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: "foo", Type: pfs.UserRepoType}}, env.MockClient.PFS.Calls[0].Arguments[0])
 
-		require.True(t, strings.Contains(stdout.String(), "foo"))
-		require.True(t, strings.Contains(stdout.String(), "bar"))
-		require.True(t, strings.Contains(stdout.String(), "100B"))
-		require.True(t, strings.Contains(stdout.String(), "REPO_READ"))
-		require.True(t, strings.Contains(stdout.String(), "REPO_WRITE"))
+		require.Matches(t, "foo", stdout.String())
+		require.Matches(t, "bar", stdout.String())
+		require.Matches(t, "100B", stdout.String())
+		require.Matches(t, "REPO_READ", stdout.String())
+		require.Matches(t, "REPO_WRITE", stdout.String())
 	})
 
 	suite.Run("SpecRepo", func(t *testing.T) {
@@ -249,3 +249,4 @@ func TestInspectRepo(suite *testing.T) {
 		require.Equal(t, "", stderr.String())
 		require.Matches(t, "cannot set --output", err.Error())
 	})
+}

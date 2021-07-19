@@ -12,7 +12,6 @@ func RepoInfo() *pfs.RepoInfo {
 	return &pfs.RepoInfo{
 		Repo:        client.NewRepo("foo"),
 		Created:     types.TimestampNow(),
-		SizeBytes:   100,
 		Description: "bar",
 		Branches:    []*pfs.Branch{},
 		AuthInfo: &pfs.RepoAuthInfo{
@@ -24,6 +23,9 @@ func RepoInfo() *pfs.RepoInfo {
 				"roleA",
 				"roleB",
 			},
+		},
+		Details: &pfs.RepoInfo_Details{
+			SizeBytes: 100,
 		},
 	}
 }

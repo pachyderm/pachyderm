@@ -22,7 +22,7 @@ const (
 	name = "pfs"
 )
 
-func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
+func ParseFuseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 	result := make(map[string]*fuse.RepoOptions)
 	for _, arg := range args {
 		var repo string
@@ -75,7 +75,7 @@ func mountCmds() []*cobra.Command {
 		Long:  "Mount pfs locally. This command blocks.",
 		RunE: cmdutil.RunFixedArgs(1, func(args []string, env cmdutil.Env) error {
 			mountPoint := args[0]
-			repoOpts, err := parseRepoOpts(repoOpts)
+			repoOpts, err := ParseFuseRepoOpts(repoOpts)
 			if err != nil {
 				return err
 			}

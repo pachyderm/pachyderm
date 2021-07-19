@@ -360,6 +360,10 @@ func (m *mockAuthClient) WhoAmI(ctx context.Context, in *auth.WhoAmIRequest, opt
 	args := m.Called(in)
 	return args.Get(0).(*auth.WhoAmIResponse), args.Error(1)
 }
+func (m *mockAuthClient) GetRolesForPermission(ctx context.Context, in *auth.GetRolesForPermissionRequest, opts ...grpc.CallOption) (*auth.GetRolesForPermissionResponse, error) {
+	args := m.Called(in)
+	return args.Get(0).(*auth.GetRolesForPermissionResponse), args.Error(1)
+}
 func (m *mockAuthClient) ModifyRoleBinding(ctx context.Context, in *auth.ModifyRoleBindingRequest, opts ...grpc.CallOption) (*auth.ModifyRoleBindingResponse, error) {
 	args := m.Called(in)
 	return args.Get(0).(*auth.ModifyRoleBindingResponse), args.Error(1)
