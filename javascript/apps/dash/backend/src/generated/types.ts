@@ -293,15 +293,13 @@ export type Pipeline = {
   lastJobState?: Maybe<JobState>;
   description?: Maybe<Scalars['String']>;
   type: PipelineType;
-  transform?: Maybe<Transform>;
-  inputString: Scalars['String'];
   datumTimeoutS?: Maybe<Scalars['Int']>;
   datumTries: Scalars['Int'];
   jobTimeoutS?: Maybe<Scalars['Int']>;
   outputBranch: Scalars['String'];
   s3OutputRepo?: Maybe<Scalars['String']>;
   egress: Scalars['Boolean'];
-  schedulingSpec?: Maybe<SchedulingSpec>;
+  jsonSpec: Scalars['String'];
 };
 
 export type PipelineQueryArgs = {
@@ -1073,12 +1071,6 @@ export type PipelineResolvers<
     ContextType
   >;
   type?: Resolver<ResolversTypes['PipelineType'], ParentType, ContextType>;
-  transform?: Resolver<
-    Maybe<ResolversTypes['Transform']>,
-    ParentType,
-    ContextType
-  >;
-  inputString?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   datumTimeoutS?: Resolver<
     Maybe<ResolversTypes['Int']>,
     ParentType,
@@ -1093,11 +1085,7 @@ export type PipelineResolvers<
     ContextType
   >;
   egress?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  schedulingSpec?: Resolver<
-    Maybe<ResolversTypes['SchedulingSpec']>,
-    ParentType,
-    ContextType
-  >;
+  jsonSpec?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1616,31 +1604,14 @@ export type PipelineQuery = {__typename?: 'Query'} & {
     | 'state'
     | 'type'
     | 'description'
-    | 'inputString'
     | 'datumTimeoutS'
     | 'datumTries'
     | 'jobTimeoutS'
     | 'outputBranch'
     | 's3OutputRepo'
     | 'egress'
-  > & {
-      transform?: Maybe<
-        {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
-      >;
-      schedulingSpec?: Maybe<
-        {__typename?: 'SchedulingSpec'} & Pick<
-          SchedulingSpec,
-          'priorityClassName'
-        > & {
-            nodeSelectorMap: Array<
-              {__typename?: 'NodeSelector'} & Pick<
-                NodeSelector,
-                'key' | 'value'
-              >
-            >;
-          }
-      >;
-    };
+    | 'jsonSpec'
+  >;
 };
 
 export type ProjectDetailsQueryVariables = Exact<{

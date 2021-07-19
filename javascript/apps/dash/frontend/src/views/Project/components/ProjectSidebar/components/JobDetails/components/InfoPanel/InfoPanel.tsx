@@ -10,7 +10,7 @@ import {useRouteMatch, Redirect} from 'react-router';
 import {NOT_FOUND_ERROR_CODE} from '@dash-backend/lib/types';
 import Description from '@dash-frontend/components/Description';
 import JSONBlock from '@dash-frontend/components/JSONBlock';
-import PipelineInput from '@dash-frontend/components/PipelineInput';
+import JsonSpec from '@dash-frontend/components/JsonSpec';
 import {useJob} from '@dash-frontend/hooks/useJob';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {ProjectRouteParams} from '@dash-frontend/lib/types';
@@ -144,8 +144,8 @@ const InfoPanel = () => {
         data-testid="InfoPanel__inputs"
       >
         {job?.inputString ? (
-          <PipelineInput
-            inputString={job.inputString}
+          <JsonSpec
+            jsonString={job.inputString}
             branchId={job.inputBranch || 'master'}
             projectId={projectId}
           />

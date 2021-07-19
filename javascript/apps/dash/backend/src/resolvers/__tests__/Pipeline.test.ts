@@ -24,13 +24,6 @@ describe('Pipeline resolver', () => {
       expect(data?.pipeline.outputBranch).toBe('master');
       expect(data?.pipeline.egress).toBe(true);
       expect(data?.pipeline.s3OutputRepo).toBe(`s3//${id}`);
-      expect(data?.pipeline.schedulingSpec).toStrictEqual({
-        __typename: 'SchedulingSpec',
-        nodeSelectorMap: [
-          {__typename: 'NodeSelector', key: 'disktype', value: 'ssd'},
-        ],
-        priorityClassName: 'high-priority',
-      });
     });
 
     it('should return a NOT_FOUND error if a pipeline could not be found', async () => {

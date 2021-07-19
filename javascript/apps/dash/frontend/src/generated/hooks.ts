@@ -917,24 +917,13 @@ export const PipelineDocument = gql`
       state
       type
       description
-      transform {
-        cmdList
-        image
-      }
-      inputString
       datumTimeoutS
       datumTries
       jobTimeoutS
       outputBranch
       s3OutputRepo
       egress
-      schedulingSpec {
-        nodeSelectorMap {
-          key
-          value
-        }
-        priorityClassName
-      }
+      jsonSpec
     }
   }
 `;

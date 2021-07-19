@@ -7,9 +7,9 @@ import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 import JSONBlock from '../JSONBlock';
 import {JSONBlockProps} from '../JSONBlock/JSONBlock';
 
-import styles from './PipelineInput.module.css';
+import styles from './JsonSpec.module.css';
 
-const generateInputObject = (
+const generateSpecObject = (
   jsonString: string,
   projectId: string,
   branchId: string,
@@ -34,15 +34,15 @@ const generateInputObject = (
   }
 };
 
-interface PipelineInputProps extends JSONBlockProps {
-  inputString: string;
+interface JsonSpecProps extends JSONBlockProps {
+  jsonString: string;
   projectId: string;
   branchId?: string;
 }
 
-const PipelineInput: React.FC<PipelineInputProps> = ({
+const JsonSpec: React.FC<JsonSpecProps> = ({
   branchId = 'master',
-  inputString,
+  jsonString,
   projectId,
   className,
   ...rest
@@ -51,11 +51,11 @@ const PipelineInput: React.FC<PipelineInputProps> = ({
 
   const html = useMemo(() => {
     return JSON.stringify(
-      generateInputObject(inputString, projectId, branchId),
+      generateSpecObject(jsonString, projectId, branchId),
       null,
       2,
     );
-  }, [inputString, projectId, branchId]);
+  }, [jsonString, projectId, branchId]);
 
   useEffect(() => {
     const links = Array.from(
@@ -80,8 +80,8 @@ const PipelineInput: React.FC<PipelineInputProps> = ({
       });
     };
     // NOTE: eventListeners need to be re-attached when
-    // inputString and projectId change
-  }, [browserHistory, inputString, projectId]);
+    // jsonString and projectId change
+  }, [browserHistory, jsonString, projectId]);
 
   return (
     <JSONBlock
@@ -95,4 +95,4 @@ const PipelineInput: React.FC<PipelineInputProps> = ({
   );
 };
 
-export default PipelineInput;
+export default JsonSpec;

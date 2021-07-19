@@ -109,15 +109,13 @@ type Pipeline {
   lastJobState: JobState
   description: String
   type: PipelineType!
-  transform: Transform
-  inputString: String!
   datumTimeoutS: Int
   datumTries: Int!
   jobTimeoutS: Int
   outputBranch: String!
   s3OutputRepo: String
   egress: Boolean!
-  schedulingSpec: SchedulingSpec
+  jsonSpec: String!
 }
 
 type InputPipeline {

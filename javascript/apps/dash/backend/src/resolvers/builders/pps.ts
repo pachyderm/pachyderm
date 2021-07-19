@@ -7,12 +7,14 @@ import {
   JobSetInfo,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 import fromPairs from 'lodash/fromPairs';
+import isEmpty from 'lodash/isEmpty';
 
 import formatBytes from '@dash-backend/lib/formatBytes';
 import {
   toGQLJobState,
   toGQLPipelineState,
 } from '@dash-backend/lib/gqlEnumMappers';
+import omitByDeep from '@dash-backend/lib/omitByDeep';
 import {
   Job,
   Pipeline,
@@ -33,6 +35,30 @@ const derivePipelineType = (pipelineInfo: PipelineInfo.AsObject) => {
   }
 
   return PipelineType.STANDARD;
+};
+
+const deriveJSONSpec = (pipelineInfo: PipelineInfo.AsObject) => {
+  const spec = {
+    metadata: pipelineInfo.details?.metadata,
+    transform: pipelineInfo.details?.transform,
+    parallelismSpec: pipelineInfo.details?.parallelismSpec,
+    resourceRequests: pipelineInfo.details?.resourceRequests,
+    resourceLimits: pipelineInfo.details?.resourceLimits,
+    sidecarResourceLimits: pipelineInfo.details?.sidecarResourceLimits,
+    input: pipelineInfo.details?.input,
+    autoscaling: pipelineInfo.details?.autoscaling,
+    reprocessSpec: pipelineInfo.details?.reprocessSpec,
+    schedulingSpec: pipelineInfo.details?.schedulingSpec,
+    podSpec: pipelineInfo.details?.podSpec,
+    podPatch: pipelineInfo.details?.podPatch,
+  };
+
+  const simplifiedSpec = omitByDeep(
+    spec,
+    (val, _) => !val || (typeof val === 'object' && isEmpty(val)),
+  );
+
+  return JSON.stringify(simplifiedSpec, null, 2);
 };
 
 export const pipelineInfoToGQLPipeline = (
@@ -60,10 +86,6 @@ export const pipelineInfoToGQLPipeline = (
     numOfJobsEgressing: jobStates[JobState.JOB_EGRESSING] || 0,
     lastJobState: toGQLJobState(pipelineInfo.lastJobState),
     type: derivePipelineType(pipelineInfo),
-    transform: pipelineInfo.details?.transform,
-    inputString: pipelineInfo.details?.input
-      ? JSON.stringify(pipelineInfo.details?.input, null, 2)
-      : '',
     datumTimeoutS: pipelineInfo.details?.datumTimeout?.seconds,
     datumTries: pipelineInfo.details?.datumTries || 0,
     jobTimeoutS: pipelineInfo.details?.jobTimeout?.seconds,
@@ -73,19 +95,7 @@ export const pipelineInfoToGQLPipeline = (
         ? `s3//${pipelineInfo.pipeline.name}`
         : undefined,
     egress: Boolean(pipelineInfo.details?.egress),
-    schedulingSpec: pipelineInfo.details?.schedulingSpec
-      ? {
-          nodeSelectorMap:
-            pipelineInfo.details?.schedulingSpec.nodeSelectorMap.map(
-              ([key, value]) => ({
-                key,
-                value,
-              }),
-            ),
-          priorityClassName:
-            pipelineInfo.details?.schedulingSpec.priorityClassName,
-        }
-      : undefined,
+    jsonSpec: deriveJSONSpec(pipelineInfo),
   };
 };
 
