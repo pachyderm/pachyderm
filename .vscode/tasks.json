@@ -16,7 +16,7 @@
     {
       "label": "launch-dev",
       "type": "shell",
-      "command": "eval $(minikube docker-env --shell bash); yes | pachctl undeploy; LAUNCH_DEV_ARGS='--cluster-deployment-id=dev' make launch-dev",
+      "command": "eval $(minikube docker-env --shell bash); make clean-launch; LAUNCH_DEV_ARGS='pachd.clusterDeploymentID=dev' make launch-dev",
       "problemMatcher": []
     },
     {
