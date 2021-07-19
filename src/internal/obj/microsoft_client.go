@@ -44,7 +44,8 @@ func newMicrosoftClient(container string, accountName string, accountKey string)
 }
 
 // TODO: remove the writer, and respect the context.
-func (c *microsoftClient) Put(ctx context.Context, name string, r io.Reader) error {
+func (c *microsoftClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	w := newMicrosoftWriter(ctx, c, name)
 	if _, err := io.Copy(w, r); err != nil {
 		w.Close()
@@ -55,6 +56,7 @@ func (c *microsoftClient) Put(ctx context.Context, name string, r io.Reader) err
 
 // TODO: should respect context
 func (c *microsoftClient) Get(_ context.Context, name string, w io.Writer) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	r, err := c.container.GetBlobReference(name).Get(nil)
 	if err != nil {
 		return err

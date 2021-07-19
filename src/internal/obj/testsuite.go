@@ -87,27 +87,27 @@ func TestInterruption(t *testing.T, client Client) {
 
 	err := client.Put(ctx, object, bytes.NewReader(nil))
 	require.YesError(t, err)
-	require.True(t, errors.Is(err, context.Canceled), "%v: %T", err, err)
+	require.ErrorIs(t, err, context.Canceled)
 
 	w := &bytes.Buffer{}
 	err = client.Get(ctx, object, w)
 	require.YesError(t, err)
-	require.True(t, errors.Is(err, context.Canceled), "%v %T", err, err)
+	require.ErrorIs(t, err, context.Canceled)
 
 	err = client.Delete(ctx, object)
 	require.YesError(t, err)
-	require.True(t, errors.Is(err, context.Canceled), "%v %T", err, err)
+	require.ErrorIs(t, err, context.Canceled)
 
 	err = client.Walk(ctx, object, func(name string) error {
 		require.False(t, true)
 		return nil
 	})
 	require.YesError(t, err)
-	require.True(t, errors.Is(err, context.Canceled), "%v %T", err, err)
+	require.ErrorIs(t, err, context.Canceled)
 
 	_, err = client.Exists(ctx, object)
 	require.YesError(t, err)
-	require.True(t, errors.Is(err, context.Canceled), "%v %T", err, err)
+	require.ErrorIs(t, err, context.Canceled)
 }
 
 // TestStorage is a defensive method for checking to make sure that storage is
