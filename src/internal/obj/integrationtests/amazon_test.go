@@ -13,8 +13,6 @@ func TestAmazonClient(t *testing.T) {
 	t.Parallel()
 
 	amazonTests := func(t *testing.T, backendType BackendType, id string, secret string, bucket string, region string, endpoint string) {
-		t.Parallel()
-
 		obj.TestSuite(t, func(t testing.TB) obj.Client {
 			creds := &obj.AmazonCreds{ID: id, Secret: secret}
 			client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint)
@@ -24,7 +22,7 @@ func TestAmazonClient(t *testing.T) {
 		creds := &obj.AmazonCreds{ID: id, Secret: secret}
 		client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint)
 		require.NoError(t, err)
-		testInterruption(t, client)
+		obj.TestInterruption(t, client)
 	}
 
 	// Test the Amazon client against S3

@@ -17,5 +17,5 @@ func TestMicrosoftClient(t *testing.T) {
 	})
 	client, err := obj.NewMicrosoftClient(container, id, secret)
 	require.NoError(t, err)
-	testInterruption(t, client)
+	obj.TestInterruption(t, client)
 }
