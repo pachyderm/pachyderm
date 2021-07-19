@@ -1,9 +1,13 @@
+import {InspectBranchRequest} from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {
   commitFromObject,
   createRepoRequestFromObject,
   deleteRepoRequestFromObject,
   fileFromObject,
   fileInfoFromObject,
+  inspectBranchRequestFromObject,
+  listBranchRequestFromObject,
+  deleteBranchRequestFromObject,
   repoFromObject,
   triggerFromObject,
 } from '../pfs';
@@ -118,6 +122,50 @@ describe('grpc/builders/pfs', () => {
     expect(commit.getId()).toBe('4af40d34a0384f23a5b98d3bd7eaece1');
   });
 
+  it('should create inspectBranchRequest from an object with defaults', () => {
+    const inspectBranchRequest = inspectBranchRequestFromObject({
+      branch: {name: 'master', repo: {name: 'test'}},
+    });
+    expect(inspectBranchRequest.getBranch()?.getName()).toBe('master');
+    expect(inspectBranchRequest.getBranch()?.getRepo()?.getName()).toBe('test');
+  });
+
+  it('should create listBranchRequest from an object with defaults reverse to false', () => {
+    const listBranchRequest = listBranchRequestFromObject({
+      repo: {name: 'test'},
+    });
+    expect(listBranchRequest.getRepo()?.getName()).toBe('test');
+    expect(listBranchRequest.getReverse()).toBe(false);
+  });
+
+  it('should create listBranchRequest from an object with reverse set to true', () => {
+    const listBranchRequest = listBranchRequestFromObject({
+      repo: {name: 'test'},
+      reverse: true,
+    });
+    expect(listBranchRequest.getRepo()?.getName()).toBe('test');
+    expect(listBranchRequest.getReverse()).toBe(true);
+  });
+
+  it('should create deleteBranchRequest from an object without force by default', () => {
+    const deleteBranchRequest = deleteBranchRequestFromObject({
+      branch: {name: 'master', repo: {name: 'test'}},
+    });
+    expect(deleteBranchRequest.getBranch()?.getName()).toBe('master');
+    expect(deleteBranchRequest.getBranch()?.getRepo()?.getName()).toBe('test');
+    expect(deleteBranchRequest.getForce()).toBe(false);
+  });
+
+  it('should create deleteBranchRequest from an object without force by default', () => {
+    const deleteBranchRequest = deleteBranchRequestFromObject({
+      branch: {name: 'master', repo: {name: 'test'}},
+      force: true,
+    });
+    expect(deleteBranchRequest.getBranch()?.getName()).toBe('master');
+    expect(deleteBranchRequest.getBranch()?.getRepo()?.getName()).toBe('test');
+    expect(deleteBranchRequest.getForce()).toBe(true);
+  });
+
   it('should create createRepoRequest from an object with defaults', () => {
     const createRepoRequest = createRepoRequestFromObject({
       repo: {name: 'test'},
@@ -152,7 +200,7 @@ describe('grpc/builders/pfs', () => {
   it('should create deleteRepoRequest from an object with force', () => {
     const deleteRepoRequest = deleteRepoRequestFromObject({
       repo: {name: 'test'},
-      force: true
+      force: true,
     });
 
     expect(deleteRepoRequest.getRepo()?.getName()).toBe('test');

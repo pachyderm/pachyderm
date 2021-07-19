@@ -1,9 +1,12 @@
 import {APIClient} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
 import {
+  BranchInfo,
   CommitInfo,
   FileInfo,
   GetFileRequest,
   InspectRepoRequest,
+  InspectBranchRequest,
+  ListBranchRequest,
   ListCommitRequest,
   ListFileRequest,
   ListRepoRequest,
@@ -14,6 +17,12 @@ import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 import {extract} from 'tar-stream';
 
 import {
+  inspectBranchRequestFromObject,
+  InspectBranchRequestObject,
+  listBranchRequestFromObject,
+  ListBranchRequestObject,
+  deleteBranchRequestFromObject,
+  DeleteBranchRequestObject,
   createRepoRequestFromObject,
   CreateRepoRequestObject,
   deleteRepoRequestFromObject,
@@ -22,6 +31,7 @@ import {
   FileObject,
   repoFromObject,
   RepoObject,
+  BranchObject,
 } from '../builders/pfs';
 import {ServiceArgs} from '../lib/types';
 import streamToObjectArray from '../utils/streamToObjectArray';
@@ -99,6 +109,44 @@ const pfs = ({
 
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
     },
+    inspectBranch: (request: InspectBranchRequestObject) => {
+      return new Promise<BranchInfo.AsObject>((resolve, reject) => {
+        const inspectBranchRequest = inspectBranchRequestFromObject(request);
+        client.inspectBranch(
+          inspectBranchRequest,
+          credentialMetadata,
+          (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+
+            return resolve(res.toObject());
+          },
+        );
+      });
+    },
+    listBranch: (request: ListBranchRequestObject) => {
+      const listBranchRequest = listBranchRequestFromObject(request);
+      const stream = client.listBranch(listBranchRequest, credentialMetadata);
+
+      return streamToObjectArray<BranchInfo, BranchInfo.AsObject>(stream);
+    },
+    deleteBranch: (request: DeleteBranchRequestObject) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const deleteBranchRequest = deleteBranchRequestFromObject(request);
+
+        client.deleteBranch(
+          deleteBranchRequest,
+          credentialMetadata,
+          (error) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve({});
+          },
+        );
+      });
+    },
     listRepo: (type = 'user') => {
       const listRepoRequest = new ListRepoRequest().setType(type);
       const stream = client.listRepo(listRepoRequest, credentialMetadata);
@@ -140,13 +188,13 @@ const pfs = ({
       return new Promise<Empty.AsObject>((resolve, reject) => {
         const deleteRepoRequest = deleteRepoRequestFromObject(request);
         client.deleteRepo(deleteRepoRequest, credentialMetadata, (error) => {
-          if(error) {
+          if (error) {
             return reject(error);
           }
           return resolve({});
-        })
-      })
-    }
+        });
+      });
+    },
   };
 };
 
