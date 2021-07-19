@@ -25,20 +25,6 @@ const PipelineJobs = () => {
 
   return (
     <div className={styles.base}>
-      <div className={styles.readLogsWrapper}>
-        <Link
-          small
-          to={logsViewerPipelneRoute({
-            projectId,
-            pipelineId: pipelineId,
-          })}
-        >
-          <span className={styles.readLogsText}>
-            Read Full Logs{' '}
-            <FileDocSVG className={styles.readLogsSvg} width={20} height={24} />
-          </span>
-        </Link>
-      </div>
       <JobList
         projectId={projectId}
         pipelineId={pipelineId}

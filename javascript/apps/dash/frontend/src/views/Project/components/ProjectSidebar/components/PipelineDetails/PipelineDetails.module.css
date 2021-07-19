@@ -2,18 +2,30 @@
   padding-top: 3.5rem;
 }
 
-.tabsHeader, .title {
-  padding: 0 1.5625rem;
+.tabsHeader,
+.title {
+  padding: 0 1.5625rem 0 1.375rem;
+}
+
+.tabsHeader {
+  display: flex;
 }
 
 .nameLoader {
   margin-bottom: 1.5625rem;
 }
 
-.name {
-  margin-bottom: 1.5625rem;
-  font-weight: 600;
-  max-width: 16.5rem;
-  text-overflow: ellipsis;
-  overflow-x: hidden;
+.logsWrapper {
+  margin-left: auto;
+}
+
+.readLogsSvg path {
+  transform: scale(0.6);
+  fill: var(--pachyderm-plum);
+}
+
+.readLogsText:active path,
+.readLogsText:hover path,
+.readLogsText:focus path {
+  fill: var(--hover-plum);
 }

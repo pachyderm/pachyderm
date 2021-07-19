@@ -29,6 +29,13 @@ describe('ProjectSidebar', () => {
       expect(queryByTestId('JobListStatic__loadingdots')).toBeInTheDocument();
       expect(await findByTestId('JobList__project1')).toBeInTheDocument();
     });
+
+    it('should not display logs button', async () => {
+      window.history.replaceState('', '', '/project/1/jobs');
+
+      const {queryByText} = render(<Project />);
+      expect(queryByText('Read Logs')).toBeNull();
+    });
   });
 
   describe('pipelines', () => {
@@ -44,6 +51,17 @@ describe('ProjectSidebar', () => {
       const pipelineName = await findByTestId('Title__name');
 
       expect(pipelineName).toHaveTextContent('montage');
+    });
+
+    it('should display pipeline logs button', async () => {
+      window.history.replaceState('', '', '/project/1/pipeline/montage');
+
+      const {getByText} = render(<Project />);
+      const logsLink = getByText('Read Logs').parentElement;
+      expect(logsLink as HTMLElement).toHaveAttribute(
+        'href',
+        `/project/1/pipeline/montage/logs`,
+      );
     });
   });
 
@@ -92,6 +110,13 @@ describe('ProjectSidebar', () => {
       );
 
       expect(emptyMessage).toBeInTheDocument();
+    });
+
+    it('should not display logs button', async () => {
+      window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
+
+      const {queryByText} = render(<Project />);
+      expect(queryByText('Read Logs')).toBeNull();
     });
   });
 });

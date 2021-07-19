@@ -1,4 +1,9 @@
-import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
+import {
+  FileDocSVG,
+  Link,
+  SkeletonDisplayText,
+  Tabs,
+} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
@@ -14,7 +19,8 @@ import usePipelineDetails from './hooks/usePipelineDetails';
 import styles from './PipelineDetails.module.css';
 
 const PipelineDetails = () => {
-  const {loading, pipelineName, filteredTabIds} = usePipelineDetails();
+  const {loading, pipelineName, filteredTabIds, pipelineLogsRoute} =
+    usePipelineDetails();
 
   return (
     <div className={styles.base}>
@@ -34,6 +40,18 @@ const PipelineDetails = () => {
               {capitalize(tabId)}
             </Tabs.Tab>
           ))}
+          <li className={styles.logsWrapper}>
+            <Link small to={pipelineLogsRoute}>
+              <span className={styles.readLogsText}>
+                Read Logs{' '}
+                <FileDocSVG
+                  className={styles.readLogsSvg}
+                  width={13}
+                  height={24}
+                />
+              </span>
+            </Link>
+          </li>
         </Tabs.TabsHeader>
 
         <Tabs.TabPanel id={TAB_ID.INFO}>
