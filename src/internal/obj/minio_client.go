@@ -1,6 +1,7 @@
 package obj
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -46,11 +47,19 @@ func newMinioClientV2(endpoint, bucket, id, secret string, secure bool) (*minioC
 
 func (c *minioClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
 	defer func() { retErr = c.transformError(retErr, name) }()
-	wc := newMinioWriter(ctx, c, name)
-	if _, err := io.Copy(wc, r); err != nil {
+	opts := minio.PutObjectOptions{
+		ContentType: "application/octet-stream",
+		PartSize:    uint64(8 * 1024 * 1024),
+	}
+	n, err := c.Client.PutObjectWithContext(ctx, c.bucket, name, r, -1, opts)
+	if err != nil {
 		return err
 	}
-	return wc.Close()
+	if n == 0 {
+		_, err := c.Client.PutObjectWithContext(ctx, c.bucket, name, bytes.NewReader(nil), 0, opts)
+		return err
+	}
+	return nil
 }
 
 // TODO: this should respect the context

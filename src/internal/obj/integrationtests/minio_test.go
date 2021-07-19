@@ -32,6 +32,12 @@ func TestMinioClient(t *testing.T) {
 				require.NoError(t, err)
 				return client
 			})
+			t.Run("EmptyWrite", func(t *testing.T) {
+				t.Skip("Minio client fails empty writes")
+				client, err := obj.NewMinioClient(endpoint, bucket, id, secret, true, true)
+				require.NoError(t, err)
+				obj.TestEmptyWrite(t, client)
+			})
 		})
 	}
 

@@ -39,12 +39,6 @@ func TestSuite(t *testing.T, newClient func(t testing.TB) Client) {
 		require.True(t, pacherr.IsNotExist(err))
 	})
 
-	t.Run("TestEmptyWrite", func(t *testing.T) {
-		t.Parallel()
-		client := newClient(t)
-		doWriteTest(t, client, randutil.UniqueString("test-empty-write-"), []byte{})
-	})
-
 	t.Run("TestSingleWrite", func(t *testing.T) {
 		t.Parallel()
 		client := newClient(t)
@@ -73,33 +67,8 @@ func TestSuite(t *testing.T, newClient func(t testing.TB) Client) {
 	})
 }
 
-// TestStorage is a defensive method for checking to make sure that storage is
-// properly configured.
-func TestStorage(ctx context.Context, c Client) error {
-	testObj := "test/" + uuid.NewWithoutDashes()
-	if err := func() (retErr error) {
-		data := []byte("test")
-		return c.Put(ctx, testObj, bytes.NewReader(data))
-	}(); err != nil {
-		return errors.Wrapf(err, "unable to write to object storage")
-	}
-	if err := func() (retErr error) {
-		buf := bytes.NewBuffer(nil)
-		return c.Get(ctx, testObj, buf)
-	}(); err != nil {
-		return errors.Wrapf(err, "unable to read from object storage")
-	}
-	if err := c.Delete(ctx, testObj); err != nil {
-		return errors.Wrapf(err, "unable to delete from object storage")
-	}
-	// Try reading a non-existent object to make sure our IsNotExist function
-	// works.
-	buf := bytes.NewBuffer(nil)
-	err := c.Get(ctx, uuid.NewWithoutDashes(), buf)
-	if !pacherr.IsNotExist(err) {
-		return errors.Wrapf(err, "storage is unable to discern NotExist errors, should count as NotExist")
-	}
-	return nil
+func TestEmptyWrite(t *testing.T, client Client) {
+	doWriteTest(t, client, randutil.UniqueString("test-empty-write-"), []byte{})
 }
 
 // TestInterruption
@@ -139,6 +108,35 @@ func TestInterruption(t *testing.T, client Client) {
 	_, err = client.Exists(ctx, object)
 	require.YesError(t, err)
 	require.True(t, errors.Is(err, context.Canceled), "%v %T", err, err)
+}
+
+// TestStorage is a defensive method for checking to make sure that storage is
+// properly configured.
+func TestStorage(ctx context.Context, c Client) error {
+	testObj := "test/" + uuid.NewWithoutDashes()
+	if err := func() (retErr error) {
+		data := []byte("test")
+		return c.Put(ctx, testObj, bytes.NewReader(data))
+	}(); err != nil {
+		return errors.Wrapf(err, "unable to write to object storage")
+	}
+	if err := func() (retErr error) {
+		buf := bytes.NewBuffer(nil)
+		return c.Get(ctx, testObj, buf)
+	}(); err != nil {
+		return errors.Wrapf(err, "unable to read from object storage")
+	}
+	if err := c.Delete(ctx, testObj); err != nil {
+		return errors.Wrapf(err, "unable to delete from object storage")
+	}
+	// Try reading a non-existent object to make sure our IsNotExist function
+	// works.
+	buf := bytes.NewBuffer(nil)
+	err := c.Get(ctx, uuid.NewWithoutDashes(), buf)
+	if !pacherr.IsNotExist(err) {
+		return errors.Wrapf(err, "storage is unable to discern NotExist errors, should count as NotExist")
+	}
+	return nil
 }
 
 func requireExists(t testing.TB, client Client, object string, expected bool) {

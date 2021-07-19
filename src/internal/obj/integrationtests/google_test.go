@@ -25,4 +25,9 @@ func TestGoogleClient(t *testing.T) {
 		require.NoError(t, err)
 		obj.TestInterruption(t, client)
 	})
+	t.Run("EmptyWrite", func(t *testing.T) {
+		client, err := obj.NewGoogleClient(bucket, opts)
+		require.NoError(t, err)
+		obj.TestEmptyWrite(t, client)
+	})
 }
