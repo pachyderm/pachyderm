@@ -15,7 +15,6 @@ import (
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -24,6 +23,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -140,11 +141,20 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
+		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
+		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
+		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
+		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
+			method, _ := grpc.MethodFromServerStream(stream)
+			return fmt.Errorf("unknown service %v", method)
+		}),
 		grpc.ChainUnaryInterceptor(
+			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
 		),
 		grpc.ChainStreamInterceptor(
+			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
 		),
@@ -553,11 +563,20 @@ func doFullMode(config interface{}) (retErr error) {
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
+		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
+		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
+		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
+		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
+			method, _ := grpc.MethodFromServerStream(stream)
+			return fmt.Errorf("unknown service %v", method)
+		}),
 		grpc.ChainUnaryInterceptor(
+			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
 		),
 		grpc.ChainStreamInterceptor(
+			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
 		),
