@@ -1,5 +1,6 @@
 import {
   commitFromObject,
+  createRepoRequestFromObject,
   fileFromObject,
   fileInfoFromObject,
   repoFromObject,
@@ -114,5 +115,27 @@ describe('grpc/builders/pfs', () => {
 
     expect(commit.getBranch()?.getRepo()?.getName()).toBe('__spec__');
     expect(commit.getId()).toBe('4af40d34a0384f23a5b98d3bd7eaece1');
+  });
+
+  it('should create reateRepoRequest from an object with defaults', () => {
+    const createRepoRequest = createRepoRequestFromObject({
+      repo: {name: 'test'},
+    });
+
+    expect(createRepoRequest.getRepo()?.getName()).toBe('test');
+    expect(createRepoRequest.getDescription()).toBe('');
+    expect(createRepoRequest.getUpdate()).toBe(false);
+  });
+
+  it('should create reateRepoRequest from an object', () => {
+    const createRepoRequest = createRepoRequestFromObject({
+      repo: {name: 'test'},
+      description: 'this is a discription.',
+      update: true,
+    });
+
+    expect(createRepoRequest.getRepo()?.getName()).toBe('test');
+    expect(createRepoRequest.getDescription()).toBe('this is a discription.');
+    expect(createRepoRequest.getUpdate()).toBe(true);
   });
 });
