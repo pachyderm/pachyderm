@@ -5751,16 +5751,16 @@ func TestPFS(suite *testing.T) {
 
 		// can't create system repo by itself
 		_, err := env.PachClient.PfsAPIClient.CreateRepo(env.Context, &pfs.CreateRepoRequest{
-			Repo: sysRepo ,
+			Repo: sysRepo,
 		})
-		require.YesError(t,err)
+		require.YesError(t, err)
 
 		require.NoError(t, env.PachClient.CreateRepo("test"))
 		// but now we can
 		_, err = env.PachClient.PfsAPIClient.CreateRepo(env.Context, &pfs.CreateRepoRequest{
 			Repo: sysRepo,
 		})
-		require.NoError(t,err)
+		require.NoError(t, err)
 
 		require.NoError(t, env.PachClient.DeleteRepo("test", false))
 
@@ -5771,7 +5771,6 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, err)
 		require.True(t, errutil.IsNotFoundError(err))
 	})
-})
 }
 
 var (
