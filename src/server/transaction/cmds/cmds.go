@@ -97,7 +97,7 @@ transaction' or cancelled with 'delete transaction'.`,
 			if err != nil {
 				return err
 			}
-			fmt.Printf("started new transaction: %q\n", transaction.ID)
+			fmt.Fprintf(env.Stdout(), "Started new transaction: %q\n", transaction.ID)
 			return nil
 		}),
 	}
@@ -119,7 +119,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 
-			fmt.Printf("Cleared active transaction: %s\n", txn.ID)
+			fmt.Fprintf(env.Stdout(), "Cleared active transaction: %s\n", txn.ID)
 			return nil
 		}),
 	}
@@ -153,7 +153,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 
-			fmt.Printf("Completed transaction with %d requests: %s\n", len(info.Responses), info.Transaction.ID)
+			fmt.Fprintf(env.Stdout(), "Completed transaction with %d requests: %s\n", len(info.Responses), info.Transaction.ID)
 			return nil
 		}),
 	}
@@ -255,7 +255,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 
-			fmt.Printf("Resuming existing transaction with %d requests: %s\n", len(info.Requests), info.Transaction.ID)
+			fmt.Fprintf(env.Stdout(), "Resuming existing transaction with %d requests: %s\n", len(info.Requests), info.Transaction.ID)
 			return nil
 		}),
 	}

@@ -153,7 +153,7 @@ func GetStateCmd() *cobra.Command {
 				return err
 			}
 			if resp.State == enterprise.State_NONE {
-				fmt.Println("No Pachyderm Enterprise token was found")
+				fmt.Fprintln(env.Stdout(), "No Pachyderm Enterprise token was found")
 				return nil
 			}
 			ts, err := types.TimestampFromProto(resp.Info.Expires)
@@ -161,7 +161,7 @@ func GetStateCmd() *cobra.Command {
 				return errors.Wrapf(err, "activation request succeeded, but could not "+
 					"convert token expiration time to a timestamp")
 			}
-			fmt.Printf("Pachyderm Enterprise token state: %s\nExpiration: %s\n",
+			fmt.Fprintf(env.Stdout(), "Pachyderm Enterprise token state: %s\nExpiration: %s\n",
 				resp.State.String(), ts.String())
 			return nil
 		}),

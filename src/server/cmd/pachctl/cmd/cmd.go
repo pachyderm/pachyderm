@@ -377,7 +377,7 @@ Environment variables:
 				if raw {
 					return cmdutil.Encoder(output, env.Stdout()).EncodeProto(version.Version)
 				}
-				fmt.Println(version.PrettyPrintVersion(version.Version))
+				fmt.Fprintln(env.Stdout(), version.PrettyPrintVersion(version.Version))
 				return nil
 			}
 
@@ -498,12 +498,12 @@ This resets the cluster to its initial state.`,
 			}); err != nil {
 				return err
 			}
-			fmt.Println("All ACLs, repos, commits, files, pipelines and jobs will be deleted.")
+			fmt.Fprintln(env.Stderr(), "All ACLs, repos, commits, files, pipelines and jobs will be deleted.")
 			if len(repos) > 0 {
-				fmt.Printf("Repos to delete: %s\n", strings.Join(repos, ", "))
+				fmt.Fprintf(env.Stderr(), "Repos to delete: %s\n", strings.Join(repos, ", "))
 			}
 			if len(pipelines) > 0 {
-				fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
+				fmt.Fprintf(env.Stderr(), "Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
 			}
 			if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 				return err
@@ -536,7 +536,7 @@ This resets the cluster to its initial state.`,
 		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
 			// TODO(ys): remove the `--namespace` flag here eventually
 			if namespace != "" {
-				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
+				fmt.Fprintf(env.Stderr(), "WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
 			}
 
 			cfg, err := config.Read(false, false)
@@ -560,42 +560,42 @@ This resets the cluster to its initial state.`,
 			context.PortForwarders = map[string]uint32{}
 			successCount := 0
 
-			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
+			fmt.Fprintln(env.Stdout(), "Forwarding the pachd (Pachyderm daemon) port...")
 			port, err := fw.RunForPachd(port, remotePort)
 			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
+				fmt.Fprintf(env.Stdout(), "port forwarding failed: %v\n", err)
 			} else {
-				fmt.Printf("listening on port %d\n", port)
+				fmt.Fprintf(env.Stdout(), "listening on port %d\n", port)
 				context.PortForwarders["pachd"] = uint32(port)
 				successCount++
 			}
 
-			fmt.Println("Forwarding the OIDC callback port...")
+			fmt.Fprintln(env.Stdout(), "Forwarding the OIDC callback port...")
 			port, err = fw.RunForPachd(oidcPort, remoteOidcPort)
 			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
+				fmt.Fprintf(env.Stdout(), "port forwarding failed: %v\n", err)
 			} else {
-				fmt.Printf("listening on port %d\n", port)
+				fmt.Fprintf(env.Stdout(), "listening on port %d\n", port)
 				context.PortForwarders["oidc-acs"] = uint32(port)
 				successCount++
 			}
 
-			fmt.Println("Forwarding the s3gateway port...")
+			fmt.Fprintln(env.Stdout(), "Forwarding the s3gateway port...")
 			port, err = fw.RunForPachd(s3gatewayPort, remoteS3gatewayPort)
 			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
+				fmt.Fprintf(env.Stdout(), "port forwarding failed: %v\n", err)
 			} else {
-				fmt.Printf("listening on port %d\n", port)
+				fmt.Fprintf(env.Stdout(), "listening on port %d\n", port)
 				context.PortForwarders["s3g"] = uint32(port)
 				successCount++
 			}
 
-			fmt.Println("Forwarding the identity service port...")
+			fmt.Fprintln(env.Stdout(), "Forwarding the identity service port...")
 			port, err = fw.RunForPachd(dexPort, remoteDexPort)
 			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
+				fmt.Fprintf(env.Stdout(), "port forwarding failed: %v\n", err)
 			} else {
-				fmt.Printf("listening on port %d\n", port)
+				fmt.Fprintf(env.Stdout(), "listening on port %d\n", port)
 				context.PortForwarders["dex"] = uint32(port)
 				successCount++
 			}
@@ -625,7 +625,7 @@ This resets the cluster to its initial state.`,
 				}
 			}()
 
-			fmt.Println("CTRL-C to exit")
+			fmt.Fprintln(env.Stdout(), "CTRL-C to exit")
 			ch := make(chan os.Signal, 1)
 			signal.Notify(ch, os.Interrupt)
 			<-ch
@@ -954,7 +954,7 @@ func createCompletions(env cmdutil.Env, rootCmd *cobra.Command, install bool, in
 			if err := f.Close(); err != nil && retErr == nil {
 				retErr = err
 			} else {
-				fmt.Printf("Completions installed in %q, you must restart your terminal to enable them.\n", installPath)
+				fmt.Fprintf(env.Stdout(), "Completions installed in %q, you must restart your terminal to enable them.\n", installPath)
 			}
 		}()
 

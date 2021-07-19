@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"time"
@@ -19,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func requestOIDCLogin(c *client.APIClient, openBrowser bool) (string, error) {
+func requestOIDCLogin(env cmdutil.Env, c *client.APIClient, openBrowser bool) (string, error) {
 	var authURL string
 	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
 	if err != nil {
@@ -29,27 +30,27 @@ func requestOIDCLogin(c *client.APIClient, openBrowser bool) (string, error) {
 	state := loginInfo.State
 
 	// print the prepared URL and promp the user to click on it
-	fmt.Println("You will momentarily be directed to your IdP and asked to authorize Pachyderm's " +
-		"login app on your IdP.\n\nPaste the following URL into a browser if not automatically redirected:\n\n" +
-		authURL + "\n\n" +
+	fmt.Fprintln(env.Stdout(), "You will momentarily be directed to your IdP and asked to authorize Pachyderm's "+
+		"login app on your IdP.\n\nPaste the following URL into a browser if not automatically redirected:\n\n"+
+		authURL+"\n\n"+
 		"")
 
 	if openBrowser {
 		if browser.OpenURL(authURL) != nil {
-			fmt.Println("Couldn't open a browser, visit the page manually.")
+			fmt.Fprintln(env.Stdout(), "Couldn't open a browser, visit the page manually.")
 		}
 	}
 
 	return state, nil
 }
 
-func printRoleBinding(b *auth.RoleBinding) {
+func printRoleBinding(writer io.Writer, b *auth.RoleBinding) {
 	for principal, roles := range b.Entries {
 		roleList := make([]string, 0)
 		for r := range roles.Roles {
 			roleList = append(roleList, r)
 		}
-		fmt.Printf("%v: %v\n", principal, roleList)
+		fmt.Fprintf(writer, "%v: %v\n", principal, roleList)
 	}
 }
 
@@ -95,9 +96,9 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 					return err
 				}
 
-				fmt.Println("WARNING: DO NOT LOSE THE AUTH TOKEN BELOW. STORE IT SECURELY FOR THE LIFE OF THE CLUSTER." +
+				fmt.Fprintln(env.Stdout(), "WARNING: DO NOT LOSE THE AUTH TOKEN BELOW. STORE IT SECURELY FOR THE LIFE OF THE CLUSTER."+
 					"THIS TOKEN WILL ALWAYS HAVE ADMIN ACCESS TO FIX THE CLUSTER CONFIGURATION.")
-				fmt.Printf("Pachyderm root token:\n%s\n", resp.PachToken)
+				fmt.Fprintf(env.Stdout(), "Pachyderm root token:\n%s\n", resp.PachToken)
 
 				c.SetAuthToken(resp.PachToken)
 			}
@@ -239,7 +240,7 @@ func DeactivateCmd() *cobra.Command {
 			"tokens, ACLs and admins, IDP integrations and OIDC clients, and expose all data " +
 			"in the cluster to any user with cluster access. Use with caution.",
 		RunE: cmdutil.Run(func(args []string, env cmdutil.Env) error {
-			fmt.Println("You are about to delete ALL auth information " +
+			fmt.Fprintln(env.Stdout(), "You are about to delete ALL auth information "+
 				"(ACLs, tokens, and admins) in this cluster, and expose ALL data")
 			if ok, err := cmdutil.InteractiveConfirm(env); err != nil {
 				return err
@@ -289,9 +290,9 @@ func LoginCmd() *cobra.Command {
 						"authorization failed (Pachyderm logs may contain more information)")
 				}
 			} else {
-				if state, err := requestOIDCLogin(c, !noBrowser); err == nil {
+				if state, err := requestOIDCLogin(env, c, !noBrowser); err == nil {
 					// Exchange OIDC token for Pachyderm token
-					fmt.Println("Retrieving Pachyderm token...")
+					fmt.Fprintln(env.Stdout(), "Retrieving Pachyderm token...")
 					resp, authErr = c.Authenticate(
 						c.Ctx(),
 						&auth.AuthenticateRequest{OIDCState: state})
@@ -371,9 +372,9 @@ func WhoamiCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("You are \"%s\"\n", resp.Username)
+			fmt.Fprintf(env.Stdout(), "You are \"%s\"\n", resp.Username)
 			if resp.Expiration != nil {
-				fmt.Printf("session expires: %v\n", resp.Expiration.Format(time.RFC822))
+				fmt.Fprintf(env.Stdout(), "session expires: %v\n", resp.Expiration.Format(time.RFC822))
 			}
 			return nil
 		}),
@@ -410,9 +411,9 @@ func GetRobotTokenCmd() *cobra.Command {
 				return err
 			}
 			if quiet {
-				fmt.Println(resp.Token)
+				fmt.Fprintln(env.Stdout(), resp.Token)
 			} else {
-				fmt.Printf("Token: %s\n", resp.Token)
+				fmt.Fprintf(env.Stdout(), "Token: %s\n", resp.Token)
 			}
 			return nil
 		}),
@@ -447,7 +448,7 @@ func GetGroupsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println(strings.Join(resp.Groups, "\n"))
+			fmt.Fprintln(env.Stdout(), strings.Join(resp.Groups, "\n"))
 			return nil
 		}),
 	}
@@ -465,7 +466,7 @@ func UseAuthTokenCmd() *cobra.Command {
 		Long: "Read a Pachyderm auth token from stdin, and write it to the " +
 			"current user's Pachyderm config file",
 		RunE: cmdutil.RunFixedArgs(0, func(args []string, env cmdutil.Env) error {
-			fmt.Println("Please paste your Pachyderm auth token:")
+			fmt.Fprintln(env.Stdout(), "Please paste your Pachyderm auth token:")
 			token, err := cmdutil.ReadPassword("")
 			if err != nil {
 				return errors.Wrapf(err, "error reading token")
@@ -504,7 +505,7 @@ func CheckRepoCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Roles: %v\nPermissions: %v\n", perms.Roles, perms.Permissions)
+			fmt.Fprintf(env.Stdout(), "Roles: %v\nPermissions: %v\n", perms.Roles, perms.Permissions)
 			return nil
 		}),
 	}
@@ -544,7 +545,7 @@ func GetRepoRoleBindingCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			printRoleBinding(resp)
+			printRoleBinding(env.Stdout(), resp)
 			return nil
 		}),
 	}
@@ -584,7 +585,7 @@ func GetClusterRoleBindingCmd() *cobra.Command {
 				return err
 			}
 
-			printRoleBinding(resp)
+			printRoleBinding(env.Stdout(), resp)
 			return nil
 		}),
 	}
@@ -624,7 +625,7 @@ func GetEnterpriseRoleBindingCmd() *cobra.Command {
 				return err
 			}
 
-			printRoleBinding(resp)
+			printRoleBinding(env.Stdout(), resp)
 			return nil
 		}),
 	}
@@ -648,9 +649,9 @@ func RotateRootToken() *cobra.Command {
 				return err
 			}
 
-			fmt.Println("WARNING: DO NOT LOSE THE AUTH TOKEN BELOW. STORE IT SECURELY FOR THE LIFE OF THE CLUSTER." +
+			fmt.Fprintln(env.Stdout(), "WARNING: DO NOT LOSE THE AUTH TOKEN BELOW. STORE IT SECURELY FOR THE LIFE OF THE CLUSTER."+
 				"THIS TOKEN WILL ALWAYS HAVE ADMIN ACCESS TO FIX THE CLUSTER CONFIGURATION.")
-			fmt.Printf("Pachyderm auth token:\n%s\n", resp.RootToken)
+			fmt.Fprintf(env.Stdout(), "Pachyderm auth token:\n%s\n", resp.RootToken)
 			return nil
 		}),
 	}

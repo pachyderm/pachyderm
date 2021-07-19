@@ -222,7 +222,7 @@ func Cmds() []*cobra.Command {
 			}
 
 			var context config.Context
-			fmt.Println("Reading from stdin.")
+			fmt.Fprintln(env.Stdout(), "Reading from stdin.")
 
 			var buf bytes.Buffer
 			var decoder *json.Decoder

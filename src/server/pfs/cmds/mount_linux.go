@@ -2,4 +2,8 @@
 
 package cmds
 
-func printWarning() {}
+import (
+	"io"
+)
+
+func printWarning(_ io.Writer) {}

@@ -455,7 +455,7 @@ each datum.`,
 	)
 
 	// prettyLogsPrinter helps to print the logs recieved in different colours
-	prettyLogsPrinter := func(message string) {
+	prettyLogsPrinter := func(writer io.Writer, message string) {
 		informationArray := strings.Split(message, " ")
 		if len(informationArray) > 1 {
 			debugString := informationArray[1]
@@ -472,9 +472,9 @@ each datum.`,
 			}
 			informationArray[1] = debugLevelColoredString
 			coloredMessage := strings.Join(informationArray, " ")
-			fmt.Println(coloredMessage)
+			fmt.Fprintln(writer, coloredMessage)
 		} else {
-			fmt.Println(message)
+			fmt.Fprintln(writer, message)
 		}
 
 	}
@@ -537,15 +537,15 @@ each datum.`,
 					if err := encoder.Encode(iter.Message()); err != nil {
 						fmt.Fprintf(env.Stderr(), "error marshalling \"%v\": %s\n", iter.Message(), err)
 					}
-					fmt.Println(buf.String())
+					fmt.Fprintln(env.Stdout(), buf.String())
 				} else if iter.Message().User && !master && !worker {
-					prettyLogsPrinter(iter.Message().Message)
+					prettyLogsPrinter(env.Stdout(), iter.Message().Message)
 				} else if iter.Message().Master && master {
-					prettyLogsPrinter(iter.Message().Message)
+					prettyLogsPrinter(env.Stdout(), iter.Message().Message)
 				} else if !iter.Message().User && !iter.Message().Master && worker {
-					prettyLogsPrinter(iter.Message().Message)
+					prettyLogsPrinter(env.Stdout(), iter.Message().Message)
 				} else if pipelineName == "" && jobID == "" {
-					prettyLogsPrinter(iter.Message().Message)
+					prettyLogsPrinter(env.Stdout(), iter.Message().Message)
 				}
 			}
 			return iter.Err()
@@ -746,7 +746,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			if proto.Equal(createPipelineRequest, request) {
-				fmt.Println("Pipeline unchanged, no update will be performed.")
+				fmt.Fprintln(env.Stdout(), "Pipeline unchanged, no update will be performed.")
 				return nil
 			}
 			request.Update = true
@@ -1081,7 +1081,7 @@ func dockerBuildHelper(env cmdutil.Env, request *ppsclient.CreatePipelineRequest
 	if !detectedAuthConfig {
 		if username == "" {
 			// request the username if it hasn't been specified yet
-			fmt.Printf("Username for %s: ", registry)
+			fmt.Fprintf(env.Stdout(), "Username for %s: ", registry)
 			reader := bufio.NewReader(env.Stdin())
 			username, err = reader.ReadString('\n')
 			if err != nil {
@@ -1111,7 +1111,7 @@ func dockerBuildHelper(env cmdutil.Env, request *ppsclient.CreatePipelineRequest
 	sourceImage := fmt.Sprintf("%s:%s", repo, sourceTag)
 	destImage := fmt.Sprintf("%s:%s", repo, destTag)
 
-	fmt.Printf("Tagging/pushing %q, this may take a while.\n", destImage)
+	fmt.Fprintf(env.Stdout(), "Tagging/pushing %q, this may take a while.\n", destImage)
 
 	if err := dockerClient.TagImage(sourceImage, docker.TagImageOptions{
 		Repo:    repo,
