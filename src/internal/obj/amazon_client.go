@@ -301,8 +301,8 @@ func (c *amazonClient) transformError(err error, objectPath string) error {
 	if strings.Contains(err.Error(), "Not Found") {
 		return pacherr.NewNotExist(c.bucket, objectPath)
 	}
-	awsErr, ok := err.(awserr.Error)
-	if !ok {
+	var awsErr awserr.Error
+	if !errors.As(err, &awsErr) {
 		return err
 	}
 	// errors.Is is unable to correctly identify context.Cancel with the amazon error types
