@@ -446,6 +446,14 @@ func YesError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	}
 }
 
+// ErrorIs checks that the errors.Is returns true
+func ErrorIs(tb testing.TB, err, target error, msgAndArgs ...interface{}) {
+	tb.Helper()
+	if !errors.Is(err, target) {
+		fatal(tb, msgAndArgs, "errors.Is(%v, %v) should be true", err, target)
+	}
+}
+
 // NotNil checks a value is non-nil.
 func NotNil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
 	tb.Helper()

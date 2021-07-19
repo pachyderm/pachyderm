@@ -90,14 +90,14 @@ func (c *googleClient) Walk(ctx context.Context, name string, fn func(name strin
 func (c *googleClient) Get(ctx context.Context, name string, w io.Writer) (retErr error) {
 	defer func() { retErr = c.transformError(retErr, name) }()
 	reader, err := c.bucket.Object(name).NewReader(ctx)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err := reader.Close(); retErr == nil {
 			retErr = err
 		}
 	}()
-	if err != nil {
-		return err
-	}
 	_, err = io.Copy(w, reader)
 	return err
 }

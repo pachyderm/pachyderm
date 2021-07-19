@@ -19,7 +19,15 @@ func TestGoogleClient(t *testing.T) {
 		require.NoError(t, err)
 		return client
 	})
-	client, err := obj.NewGoogleClient(bucket, opts)
-	require.NoError(t, err)
-	testInterruption(t, client)
+
+	t.Run("Interruption", func(t *testing.T) {
+		client, err := obj.NewGoogleClient(bucket, opts)
+		require.NoError(t, err)
+		obj.TestInterruption(t, client)
+	})
+	t.Run("EmptyWrite", func(t *testing.T) {
+		client, err := obj.NewGoogleClient(bucket, opts)
+		require.NoError(t, err)
+		obj.TestEmptyWrite(t, client)
+	})
 }
