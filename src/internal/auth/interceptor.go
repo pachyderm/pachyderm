@@ -207,7 +207,7 @@ var authHandlers = map[string]authHandler{
 	// Version API
 	//
 
-	"/versionpb_v2.API/GetVersion": unauthenticated,
+	"/versionpb.API/GetVersion": unauthenticated,
 
 	//
 	// Proxy API

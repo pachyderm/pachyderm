@@ -41,6 +41,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
@@ -587,6 +588,16 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	}
 	if context.SessionToken != "" {
 		client.authenticationToken = context.SessionToken
+	}
+
+	// Check cluster version
+	serverVersion, err := client.GetVersion(client.Ctx(), &types.Empty{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get pachd version")
+	}
+
+	if serverVersion.Major != version.MajorVersion {
+		return nil, fmt.Errorf("this client is for pachyderm %v.x, but the server version is %s - please install the correct version for your server", version.MajorVersion, serverVersion)
 	}
 
 	// Verify cluster deployment ID
