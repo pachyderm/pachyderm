@@ -1,7 +1,6 @@
 package obj
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -51,15 +50,8 @@ func (c *minioClient) Put(ctx context.Context, name string, r io.Reader) (retErr
 		ContentType: "application/octet-stream",
 		PartSize:    uint64(8 * 1024 * 1024),
 	}
-	n, err := c.Client.PutObjectWithContext(ctx, c.bucket, name, r, -1, opts)
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		_, err := c.Client.PutObjectWithContext(ctx, c.bucket, name, bytes.NewReader(nil), 0, opts)
-		return err
-	}
-	return nil
+	_, err := c.Client.PutObjectWithContext(ctx, c.bucket, name, r, -1, opts)
+	return err
 }
 
 // TODO: this should respect the context
