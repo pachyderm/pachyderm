@@ -19,10 +19,12 @@ func TestAmazonClient(t *testing.T) {
 			require.NoError(t, err)
 			return client
 		})
-		creds := &obj.AmazonCreds{ID: id, Secret: secret}
-		client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint)
-		require.NoError(t, err)
-		obj.TestInterruption(t, client)
+		t.Run("Interruption", func(t *testing.T) {
+			creds := &obj.AmazonCreds{ID: id, Secret: secret}
+			client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint)
+			require.NoError(t, err)
+			obj.TestInterruption(t, client)
+		})
 	}
 
 	// Test the Amazon client against S3

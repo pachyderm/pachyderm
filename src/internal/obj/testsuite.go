@@ -116,31 +116,29 @@ func TestInterruption(t *testing.T, client Client) {
 	object := randutil.UniqueString("test-interruption-")
 	defer requireExists(t, client, object, false)
 
-	// Some clients return an error immediately and some when the stream is closed
 	err := client.Put(ctx, object, bytes.NewReader(nil))
 	require.YesError(t, err)
-	require.True(t, errors.Is(err, context.Canceled))
+	require.True(t, errors.Is(err, context.Canceled), "%v: %T", err, err)
 
-	// Some clients return an error immediately and some when the stream is closed
 	w := &bytes.Buffer{}
 	err = client.Get(ctx, object, w)
 	require.YesError(t, err)
-	require.True(t, errors.Is(err, context.Canceled))
+	require.True(t, errors.Is(err, context.Canceled), "%v %T", err, err)
 
 	err = client.Delete(ctx, object)
 	require.YesError(t, err)
-	require.True(t, errors.Is(err, context.Canceled))
+	require.True(t, errors.Is(err, context.Canceled), "%v %T", err, err)
 
 	err = client.Walk(ctx, object, func(name string) error {
 		require.False(t, true)
 		return nil
 	})
 	require.YesError(t, err)
-	require.True(t, errors.Is(err, context.Canceled))
+	require.True(t, errors.Is(err, context.Canceled), "%v %T", err, err)
 
 	_, err = client.Exists(ctx, object)
 	require.YesError(t, err)
-	require.True(t, errors.Is(err, context.Canceled))
+	require.True(t, errors.Is(err, context.Canceled), "%v %T", err, err)
 }
 
 func requireExists(t testing.TB, client Client, object string, expected bool) {

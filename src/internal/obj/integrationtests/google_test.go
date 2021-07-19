@@ -20,7 +20,7 @@ func TestGoogleClient(t *testing.T) {
 		return client
 	})
 
-	t.Run("TestInterruption", func(t *testing.T) {
+	t.Run("Interruption", func(t *testing.T) {
 		client, err := obj.NewGoogleClient(bucket, opts)
 		require.NoError(t, err)
 		obj.TestInterruption(t, client)

@@ -212,7 +212,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 			}
 			url = strings.TrimSpace(signedURL)
 		}
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return err
 		}
@@ -244,7 +244,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 			Bucket: aws.String(c.bucket),
 			Key:    aws.String(name),
 		}
-		getObjectOutput, err := c.s3.GetObject(objIn)
+		getObjectOutput, err := c.s3.GetObjectWithContext(ctx, objIn)
 		if err != nil {
 			return err
 		}
@@ -301,9 +301,13 @@ func (c *amazonClient) transformError(err error, objectPath string) error {
 	if strings.Contains(err.Error(), "Not Found") {
 		return pacherr.NewNotExist(c.bucket, objectPath)
 	}
-	var awsErr awserr.Error
-	if !errors.As(err, &awsErr) {
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
 		return err
+	}
+	// errors.Is is unable to correctly identify context.Cancel with the amazon error types
+	if strings.Contains(awsErr.Error(), "RequestCanceled") {
+		return context.Canceled
 	}
 	if strings.Contains(awsErr.Message(), "SlowDown:") {
 		return pacherr.WrapTransient(err, minWait)
