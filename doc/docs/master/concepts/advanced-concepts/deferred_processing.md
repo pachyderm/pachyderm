@@ -128,11 +128,6 @@ a staging branch:
       The `master` and `staging` branches now have the same `HEAD` commit.
       This means that your pipeline has data to process.
 
-    !!! note
-         In some rare cases, such as if a pipeline is directly provenant on both `master` and
-         an input to `staging`, the commit IDs may differ. Deferred processing will still occur
-         correctly in this case, but the new commits won't be in the old [commit set](../globalID/).
-
 1. Verify that the pipeline has new jobs:
 
       ```shell
