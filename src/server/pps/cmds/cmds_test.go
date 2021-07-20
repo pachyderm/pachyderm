@@ -117,7 +117,7 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		pachctl wait commit data@master
 
 		# make sure the results have the full pipeline info, including version
-		pachctl list job --raw --history=all \
+		pachctl list job --raw \
 			| match "pipeline_version"
 		`).Run())
 }
