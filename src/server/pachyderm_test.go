@@ -8810,14 +8810,21 @@ func TestMalformedPipeline(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "services can only be run with a constant parallelism of 1", err.Error())
 
-	// TODO(2.0 required): This error isn't triggered in V2?
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:   client.NewPipeline(pipelineName),
-	//	Transform:  &pps.Transform{},
-	//	SpecCommit: &pfs.Commit{},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "cannot resolve commit with no repo", err.Error())
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:   client.NewPipeline(pipelineName),
+		Transform:  &pps.Transform{},
+		SpecCommit: &pfs.Commit{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "cannot resolve commit with no branch", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:   client.NewPipeline(pipelineName),
+		Transform:  &pps.Transform{},
+		SpecCommit: &pfs.Commit{Branch: &pfs.Branch{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "cannot resolve commit with no repo", err.Error())
 
 	dataRepo := tu.UniqueString("TestMalformedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8899,31 +8906,6 @@ func TestMalformedPipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "Empty spec string", err.Error())
-
-	// TODO: Implement git inputs.
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:  client.NewPipeline(pipelineName),
-	//	Transform: &pps.Transform{},
-	//	Input:     &pps.Input{Git: &pps.GitInput{}},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "clone URL is missing \\(", err.Error())
-
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:  client.NewPipeline(pipelineName),
-	//	Transform: &pps.Transform{},
-	//	Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar"}},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "clone URL is missing .git suffix", err.Error())
-
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:  client.NewPipeline(pipelineName),
-	//	Transform: &pps.Transform{},
-	//	Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar.git"}},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "clone URL must use https protocol", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:  client.NewPipeline(pipelineName),

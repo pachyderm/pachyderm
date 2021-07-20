@@ -6,7 +6,9 @@
     [Pipeline](../../concepts/pipeline-concepts/index.md).
 
 
-There are many stategies available to get data in and out of Pachyderm. 
+There are many strategies available to get data in and out of Pachyderm, 
+whether you want to use its data-driven versioned pipelines as a standalone product 
+or plan a third-party integration.
 The following diagram gives an high level view of them all.
 
 Click on the one that applies to your use-case to read its documentation.
