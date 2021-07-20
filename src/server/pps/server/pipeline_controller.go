@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -33,6 +34,8 @@ const (
 	noRCExpected
 	rcExpected
 )
+
+const controllerUsername = "pipeline-controller"
 
 func max(is ...int) int {
 	if len(is) == 0 {
@@ -120,7 +123,7 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipelineOp, error) {
 	op := &pipelineOp{
 		m:            m,
-		ctx:          ctx,
+		ctx:          internalauth.AsInternalUser(ctx, controllerUsername),
 		pipelineInfo: &pps.PipelineInfo{},
 	}
 	// get latest PipelineInfo (events can pile up, so that the current state

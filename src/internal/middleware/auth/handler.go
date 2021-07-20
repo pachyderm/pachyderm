@@ -2,6 +2,9 @@ package auth
 
 import (
 	"context"
+	"strings"
+
+	"google.golang.org/grpc/metadata"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	authiface "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -74,4 +77,13 @@ func GetWhoAmI(ctx context.Context) string {
 
 func setWhoAmI(ctx context.Context, username string) context.Context {
 	return context.WithValue(ctx, whoAmIResultKey, username)
+}
+
+// AsInternalUser gives a context's a cached whoami username of form internal:<name>. It also
+// strips away existing incoming metadata to add an empty auth token. As a result, this context will
+// not be able to make additional gRPCs
+func AsInternalUser(ctx context.Context, username string) context.Context {
+	emptyToken := metadata.New(map[string]string{auth.ContextTokenKey: ""})
+	ctx = metadata.NewIncomingContext(ctx, emptyToken)
+	return context.WithValue(ctx, whoAmIResultKey, auth.InternalPrefix+strings.TrimPrefix(username, auth.InternalPrefix))
 }
