@@ -573,10 +573,20 @@ it('should create JobInfo from an object', () => {
       seconds: 564645,
       nanos: 0,
     },
+    startedAt: {
+      seconds: 10000,
+      nanos: 0,
+    },
+    finishedAt: {
+      seconds: 20000,
+      nanos: 0,
+    },
   });
 
   expect(pipelineJob.getState()).toBe(1);
-  expect(pipelineJob.getStarted()?.getSeconds()).toBe(564645);
+  expect(pipelineJob.getCreated()?.getSeconds()).toBe(564645);
+  expect(pipelineJob.getStarted()?.getSeconds()).toBe(10000);
+  expect(pipelineJob.getFinished()?.getSeconds()).toBe(20000);
   expect(pipelineJob.getJob()?.getId()).toBe('1');
 });
 
