@@ -1,4 +1,3 @@
-import {InspectBranchRequest} from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {
   commitFromObject,
   createRepoRequestFromObject,
