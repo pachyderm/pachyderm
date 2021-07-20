@@ -28,10 +28,6 @@ export type FileInfoObject = {
   sizeBytes: FileInfo.AsObject['sizeBytes'];
 };
 
-export type InspectFileRequestObject = {
-  file: File;
-}
-
 export type TriggerObject = {
   branch: Trigger.AsObject['branch'];
   all: Trigger.AsObject['all'];
@@ -122,16 +118,6 @@ export const fileInfoFromObject = ({
 
   return fileInfo;
 };
-
-export const inspectFileRequestFromObject = ({
-  file
-}:InspectFileRequestObject) => {
-  const request = new InspectFileRequest();
-
-  request.setFile(file);
-
-  return request;
-}
 
 export const triggerFromObject = ({
   branch,
