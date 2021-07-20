@@ -45,7 +45,8 @@ complete audit trail so that all results are reproducible.
 
 The following diagram demonstrates how provenance works:
 
-![Provenance example](../../assets/images/provenance.svg)
+![Provenance example](../../assets/images/provenance.svg) (needs updated commit IDs)
+
 
 In the diagram above, you can see two input repositories called `params`
 and `data`. The `data` repository continuously collects
@@ -56,9 +57,9 @@ select the best one.
 Provenance helps you to understand how and why the best model was
 selected and enables you to track the origin of the best model.
 In the diagram above, the best model is represented with a purple
-circle. By using provenance, you can find that the best model was
-created from the commit **1a** in the `data` repository
-and the commit **2a** in the `params` repository.
+circle. The best model is in commit **1a**, meaning it was
+was created from the snapshots of `data` and `params` repositories contained
+in that commit.
 
 ## Tracking Direct Provenance in Pachyderm
 
@@ -122,7 +123,7 @@ originates in.
     }
     ```
 
-In the example above, you can see that the commit `71c791f3252c492a8f8ad9a51e5a5cd5` 
+In the example above, you can see that the commit `71c791f3252c492a8f8ad9a51e5a5cd5`
 on the master branch of the `edges` repo was **automatically** produced (`origin`) from a **user** input on
 the master branch of the `images` repo processed by the `edges` pipeline (`direct_provenance`).
 
@@ -131,10 +132,11 @@ Additionally, the parent of the commit `71c791f3252c492a8f8ad9a51e5a5cd5`  in th
 ## Traversing Provenance and Subvenance
 
 In Pachyderm, all the related steps in a DAG share the same identifier,
-making it easy to traverse the provenance and subvenance of any commit.
+making it easy to traverse the provenance and subvenance in any commit.
 
-All it takes is to run `pachctl inspect commitset <commitID>`
-to get the full list of all the commits created along with it due to provenance relationships.
+All it takes is to run `pachctl inspect commit <commitID>`
+to get the full list of all the branches with sub-commits
+created along with it due to provenance relationships.
 
 
 Visit the [Global ID Page](../../advanced-concepts/globalID/) for more details.

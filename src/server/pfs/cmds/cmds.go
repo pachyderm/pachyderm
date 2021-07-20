@@ -1271,7 +1271,6 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 	shell.RegisterCompletionFunc(inspectFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectFile, "inspect file"))
 
-	var history string
 	listFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
 		Short: "Return the files in a directory.",
@@ -1291,12 +1290,6 @@ $ {{alias}} foo@master^
 # in repo "foo"
 $ {{alias}} foo@master^2
 
-# list the last n versions of top-level files on branch "master" in repo "foo"
-$ {{alias}} foo@master --history n
-
-# list all versions of top-level files on branch "master" in repo "foo"
-$ {{alias}} foo@master --history all
-
 # list file under directory "dir[1]" on branch "master" in repo "foo"
 # the path is interpreted as a glob pattern: quote and protect regex characters
 $ {{alias}} 'foo@master:dir\[1\]'`,
@@ -1304,10 +1297,6 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
-			}
-			history, err := cmdutil.ParseHistory(history)
-			if err != nil {
-				return errors.Wrapf(err, "error parsing history flag")
 			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -1323,12 +1312,9 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 			header := pretty.FileHeader
-			if history != 0 {
-				header = pretty.FileHeaderWithCommit
-			}
 			writer := tabwriter.NewWriter(os.Stdout, header)
 			if err := c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
-				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
+				pretty.PrintFileInfo(writer, fi, fullTimestamps, false)
 				return nil
 			}); err != nil {
 				return err
@@ -1338,7 +1324,6 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 	}
 	listFile.Flags().AddFlagSet(outputFlags)
 	listFile.Flags().AddFlagSet(timestampFlags)
-	listFile.Flags().StringVar(&history, "history", "none", "Return revision history for files.")
 	shell.RegisterCompletionFunc(listFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
 
