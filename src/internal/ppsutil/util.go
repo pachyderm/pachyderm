@@ -119,8 +119,6 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 func GetPipelineDetails(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
 	// ensure we are authorized to read the pipeline's spec commit, but don't propagate that back out
 	pachClient = pachClient.WithCtx(pachClient.Ctx())
-	pachClient.SetAuthToken(pipelineInfo.AuthToken)
-
 	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(pipelineInfo.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
 		return errors.Wrapf(err, "could not retrieve pipeline spec file from PFS for pipeline '%s'", pipelineInfo.Pipeline.Name)

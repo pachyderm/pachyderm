@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
+	"github.com/pachyderm/pachyderm/v2/src/internal"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -251,11 +251,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 
 	// Pipeline info
 	if err := func() error {
-		lpClient, err := r.env.GetPachClient(ctx).PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{Details: false})
-		if err != nil {
-			return err
-		}
-		pipelineInfos, err := clientsdk.ListPipelineInfo(lpClient)
+		pipelineInfos, err := internal.ListPipeline(ctx, r.env.PpsServer(), &pps.ListPipelineRequest{Details: true})
 		if err != nil {
 			return err
 		}
@@ -354,11 +350,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	}
 
 	if err := func() error {
-		rClient, err := r.env.GetPachClient(ctx).PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
-		if err != nil {
-			return err
-		}
-		repoInfos, err := clientsdk.ListRepoInfo(rClient)
+		repoInfos, err := internal.ListRepo(ctx, r.env.PfsServer(), &pfs.ListRepoRequest{Type: pfs.UserRepoType})
 		if err != nil {
 			return err
 		}

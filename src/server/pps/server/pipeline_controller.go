@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -96,10 +97,7 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 		// Don't put the pipeline in a failing state if we're in the middle
 		// of activating auth, retry in a bit
 		if auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err) {
-			return stepError{
-				error:        errors.Wrap(err, "couldn't initialize pipeline op"),
-				failPipeline: false,
-			}
+			return newRetriableError(err, "couldn't initialize pipeline op")
 		}
 
 		// otherwise fail immediately without retry
@@ -138,8 +136,7 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 	// this reads the pipelineInfo associated with 'op's pipeline, as most other
 	// methods (e.g.  getRC, though not failPipeline) assume that
 	// op.pipelineInfo.Details is set.
-	pachClient := op.m.a.env.GetPachClient(op.ctx)
-	if err := ppsutil.GetPipelineDetails(pachClient, op.pipelineInfo); err != nil {
+	if err := internal.GetPipelineDetails(op.ctx, op.m.a.env.PfsServer(), op.pipelineInfo); err != nil {
 		return nil, newRetriableError(err, "error retrieving spec")
 	}
 	return op, nil
