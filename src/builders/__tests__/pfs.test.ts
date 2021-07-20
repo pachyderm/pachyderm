@@ -5,6 +5,7 @@ import {
   deleteRepoRequestFromObject,
   fileFromObject,
   fileInfoFromObject,
+  createBranchRequestFromObject,
   listBranchRequestFromObject,
   deleteBranchRequestFromObject,
   repoFromObject,
@@ -119,6 +120,48 @@ describe('grpc/builders/pfs', () => {
 
     expect(commit.getBranch()?.getRepo()?.getName()).toBe('__spec__');
     expect(commit.getId()).toBe('4af40d34a0384f23a5b98d3bd7eaece1');
+  });
+
+  it('should create createBranchRequest from an object with defaults', () => {
+    const createBranchRequest = createBranchRequestFromObject({
+      head: {
+        branch: {name: 'master', repo: {name: '__spec__'}},
+        id: '4af40d34a0384f23a5b98d3bd7eaece1',
+      },
+      branch: {
+        name: 'staging',
+        repo: {name: '__spec__'},
+      },
+      trigger: {
+        branch: 'master',
+        all: true,
+        cronSpec: '@every 10s',
+        size: '1MB',
+        commits: 12,
+      },
+      provenance: [],
+      newCommitSet: false,
+    });
+    expect(createBranchRequest.getHead()?.getBranch()?.getName()).toBe(
+      'master',
+    );
+    expect(
+      createBranchRequest.getHead()?.getBranch()?.getRepo()?.getName(),
+    ).toBe('__spec__');
+    expect(createBranchRequest.getHead()?.getId()).toBe(
+      '4af40d34a0384f23a5b98d3bd7eaece1',
+    );
+    expect(createBranchRequest.getBranch()?.getName()).toBe('staging');
+    expect(createBranchRequest.getBranch()?.getRepo()?.getName()).toBe(
+      '__spec__',
+    );
+    expect(createBranchRequest.getProvenanceList()).toStrictEqual([]);
+    expect(createBranchRequest.getTrigger()?.getBranch()).toBe('master');
+    expect(createBranchRequest.getTrigger()?.getAll()).toBe(true);
+    expect(createBranchRequest.getTrigger()?.getCronSpec()).toBe('@every 10s');
+    expect(createBranchRequest.getTrigger()?.getSize()).toBe('1MB');
+    expect(createBranchRequest.getTrigger()?.getCommits()).toBe(12);
+    expect(createBranchRequest.getNewCommitSet()).toBe(false);
   });
 
   it('should create listBranchRequest from an object with defaults reverse to false', () => {

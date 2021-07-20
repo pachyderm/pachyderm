@@ -16,6 +16,8 @@ import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 import {extract} from 'tar-stream';
 
 import {
+  createBranchRequestFromObject,
+  CreateBranchRequestObject,
   listBranchRequestFromObject,
   ListBranchRequestObject,
   deleteBranchRequestFromObject,
@@ -106,6 +108,22 @@ const pfs = ({
       const stream = client.listCommit(listCommitRequest, credentialMetadata);
 
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
+    },
+    createBranch: (request: CreateBranchRequestObject) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const createBranchRequest = createBranchRequestFromObject(request);
+
+        client.createBranch(
+          createBranchRequest,
+          credentialMetadata,
+          (error) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve({});
+          },
+        );
+      });
     },
     inspectBranch: (params: BranchObject) => {
       return new Promise<BranchInfo.AsObject>((resolve, reject) => {

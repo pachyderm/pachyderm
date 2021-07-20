@@ -7,6 +7,7 @@ import {
   File,
   FileInfo,
   FileType,
+  CreateBranchRequest,
   ListBranchRequest,
   DeleteBranchRequest,
   Repo,
@@ -44,6 +45,14 @@ export type RepoObject = {
 export type BranchObject = {
   name: Branch.AsObject['name'];
   repo?: RepoObject;
+};
+
+export type CreateBranchRequestObject = {
+  head: CommitObject;
+  branch: BranchObject;
+  provenance: BranchObject[];
+  trigger: TriggerObject;
+  newCommitSet: CreateBranchRequest.AsObject['newCommitSet'];
 };
 
 export type InspectBranchRequestObject = {
@@ -180,6 +189,36 @@ export const branchFromObject = ({name, repo}: BranchObject) => {
   branch.setRepo(new Repo().setName(repo?.name || '').setType('user'));
 
   return branch;
+};
+
+export const createBranchRequestFromObject = ({
+  head,
+  branch,
+  trigger,
+  provenance = [],
+  newCommitSet = false,
+}: CreateBranchRequestObject) => {
+  const request = new CreateBranchRequest();
+
+  request.setHead(commitFromObject(head));
+  request.setBranch(branchFromObject(branch));
+
+  // generate provenance object array if it exists
+  if (provenance.length !== 0) {
+    const provenanceArray: Branch[] = [];
+    provenance.forEach((eachProvenanceObject) => {
+      provenanceArray.push(branchFromObject(eachProvenanceObject));
+    });
+    request.setProvenanceList(provenanceArray);
+  } else {
+    // resort to an empty array if not
+    request.setProvenanceList([]);
+  }
+
+  request.setTrigger(triggerFromObject(trigger));
+  request.setNewCommitSet(newCommitSet);
+
+  return request;
 };
 
 export const listBranchRequestFromObject = ({
