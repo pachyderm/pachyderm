@@ -260,9 +260,12 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
         .translate(selectedNodeCenterX, selectedNodeCenterY)
         .scale(MAX_SCALE_VALUE);
 
+      const transition = svg.transition().on('interrupt', () => {
+        zoomRef.current?.transform(svg.transition(), transform);
+      });
       // zoom.transform does not obey the constraints set on panning and zooming,
       // if constraints are added this should be updated to use one of the methods that obeys them.
-      zoomRef.current.transform(svg.transition(), transform);
+      zoomRef.current.transform(transition, transform);
     }
   }, [
     loading,
