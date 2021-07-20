@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,11 +16,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// NewLocalClient returns a Client that stores data on the local file system
+func NewLocalClient(rootDir string) (Client, error) {
+	var c Client
+	var err error
+	c, err = newFSClient(rootDir)
+	if err != nil {
+		return nil, err
+	}
+	if monkeyTest {
+		c = &monkeyClient{c}
+	}
+	return newUniformClient(c), nil
+}
+
 type fsClient struct {
 	rootDir string
 }
 
-func NewLocalClient(rootDir string) (Client, error) {
+func newFSClient(rootDir string) (Client, error) {
 	c := &fsClient{rootDir: filepath.Clean(rootDir)}
 	if c.rootDir == "" || c.rootDir == "/" || c.rootDir == "." {
 		panic("you probably didn't want to set the local client's root path to " + c.rootDir)
@@ -94,6 +109,10 @@ func (c *fsClient) Walk(ctx context.Context, prefix string, cb func(string) erro
 		}
 	}
 	return nil
+}
+
+func (c *fsClient) BucketURL() string {
+	return fmt.Sprintf("local://%s/", strings.ReplaceAll(filepath.ToSlash(c.rootDir), "/", "."))
 }
 
 func (c *fsClient) stagingPathFor(name string) string {
