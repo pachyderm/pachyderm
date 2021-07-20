@@ -22,7 +22,7 @@ const (
 	// CommitHeader is the header for commits.
 	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tDESCRIPTION\n"
 	// CommitSetHeader is the header for commitsets.
-	CommitSetHeader = "ID\tCOMMITS\tPROGRESS\tCREATED\tMODIFIED\n"
+	CommitSetHeader = "ID\tSUBCOMMITS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// FileHeader is the header for files.

@@ -998,6 +998,13 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 			commitInfo.Details = &pfs.CommitInfo_Details{}
 		}
 		commitInfo.Details.SizeBytes = size
+		commitInfo.SizeBytesUpperBound = size
+	} else {
+		var err error
+		commitInfo.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, commitInfo.Commit)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return commitInfo, nil
 }

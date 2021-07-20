@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -406,8 +407,9 @@ $ {{alias}} test -p XXX`,
 	var from string
 	var number int64
 	var originStr string
+	var expand bool
 	listCommit := &cobra.Command{
-		Use:   "{{alias}} <repo>[@<branch>]",
+		Use:   "{{alias}} [<repo>[@<branch>]]",
 		Short: "Return all commits on a repo.",
 		Long:  "Return all commits on a repo.",
 		Example: `
@@ -422,78 +424,194 @@ $ {{alias}} foo@master -n 20
 
 # return commits in repo "foo" since commit XXX
 $ {{alias}} foo@master --from XXX`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
 
-			branch, err := cmdutil.ParseBranch(args[0])
-			if err != nil {
-				return err
-			}
-
-			var fromCommit *pfs.Commit
-			if from != "" {
-				fromCommit = branch.Repo.NewCommit("", from)
-			}
-
-			var toCommit *pfs.Commit
-			if branch.Name != "" {
-				toCommit = branch.NewCommit("")
-			}
-
-			if all && originStr != "" {
+			if !raw && output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			} else if all && originStr != "" {
 				return errors.New("cannot specify both --all and --origin")
 			}
 
-			origin, err := parseOriginKind(originStr)
-			if err != nil {
-				return err
-			}
+			if len(args) == 0 {
+				// Outputting all commitsets
+				if originStr != "" {
+					return errors.Errorf("cannot specify --origin when listing all commits")
+				} else if from != "" {
+					return errors.Errorf("cannot specify --from when listing all commits")
+				}
 
-			listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
-				Repo:       branch.Repo,
-				From:       fromCommit,
-				To:         toCommit,
-				Number:     number,
-				All:        all,
-				OriginKind: origin,
-			})
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
+				listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
 
-			if raw {
-				encoder := cmdutil.Encoder(output, os.Stdout)
-				return clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
-					return encoder.EncodeProto(ci)
+				count := 0
+				if !expand {
+					if raw {
+						e := cmdutil.Encoder(output, os.Stdout)
+						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+							if err := e.EncodeProto(commitSetInfo); err != nil {
+								return err
+							}
+							count++
+							if number != 0 && count >= int(number) {
+								return errutil.ErrBreak
+							}
+							return nil
+						})
+					}
+
+					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+						writer := tabwriter.NewWriter(w, pretty.CommitSetHeader)
+						if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+							pretty.PrintCommitSetInfo(writer, commitSetInfo, fullTimestamps)
+							count++
+							if number != 0 && count >= int(number) {
+								return errutil.ErrBreak
+							}
+							return nil
+						}); err != nil {
+							return err
+						}
+						return writer.Flush()
+					})
+				} else {
+					if raw {
+						e := cmdutil.Encoder(output, os.Stdout)
+						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+							for _, commitInfo := range commitSetInfo.Commits {
+								if err := e.EncodeProto(commitInfo); err != nil {
+									return err
+								}
+								count++
+								if number != 0 && count >= int(number) {
+									return errutil.ErrBreak
+								}
+							}
+							return nil
+						})
+					}
+
+					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+						writer := tabwriter.NewWriter(w, pretty.CommitHeader)
+						if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+							for _, commitInfo := range commitSetInfo.Commits {
+								pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
+								count++
+								if number != 0 && count >= int(number) {
+									return errutil.ErrBreak
+								}
+							}
+							return nil
+						}); err != nil {
+							return err
+						}
+						return writer.Flush()
+					})
+				}
+			} else if len(args) == 1 && uuid.IsUUIDWithoutDashes(args[0]) {
+				// Outputting commits from one commitset
+				if from != "" {
+					return errors.Errorf("cannot specify --from when listing subcommits")
+				} else if all {
+					return errors.Errorf("cannot specify --all when listing subcommits")
+				} else if originStr != "" {
+					return errors.Errorf("cannot specify --origin when listing subcommits")
+				}
+
+				commitInfos, err := c.InspectCommitSet(args[0])
+				if err != nil {
+					return errors.Wrap(err, "error from InspectCommitSet")
+				}
+
+				if number != 0 && len(commitInfos) > int(number) {
+					commitInfos = commitInfos[:number]
+				}
+
+				if raw {
+					encoder := cmdutil.Encoder(output, os.Stdout)
+					for _, commitInfo := range commitInfos {
+						if err := encoder.EncodeProto(commitInfo); err != nil {
+							return err
+						}
+					}
+					return nil
+				}
+
+				return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+					writer := tabwriter.NewWriter(w, pretty.CommitHeader)
+					for _, commitInfo := range commitInfos {
+						pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
+					}
+					return writer.Flush()
 				})
-			} else if output != "" {
-				return errors.New("cannot set --output (-o) without --raw")
+			} else {
+				// Outputting filtered commits
+				branch, err := cmdutil.ParseBranch(args[0])
+				if err != nil {
+					return err
+				}
+
+				var fromCommit *pfs.Commit
+				if from != "" {
+					fromCommit = branch.Repo.NewCommit("", from)
+				}
+
+				var toCommit *pfs.Commit
+				if branch.Name != "" {
+					toCommit = branch.NewCommit("")
+				}
+
+				origin, err := parseOriginKind(originStr)
+				if err != nil {
+					return err
+				}
+
+				listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
+					Repo:       branch.Repo,
+					From:       fromCommit,
+					To:         toCommit,
+					Number:     number,
+					All:        all,
+					OriginKind: origin,
+				})
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+
+				if raw {
+					encoder := cmdutil.Encoder(output, os.Stdout)
+					return clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
+						return encoder.EncodeProto(ci)
+					})
+				}
+				writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
+				if err := clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
+					pretty.PrintCommitInfo(writer, ci, fullTimestamps)
+					return nil
+				}); err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				return writer.Flush()
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
-				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
-				return nil
-			}); err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			return writer.Flush()
 		}),
 	}
 	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
 	listCommit.Flags().Int64VarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	listCommit.Flags().BoolVar(&all, "all", false, "return all types of commits, including aliases")
+	listCommit.Flags().BoolVar(&expand, "expand", false, "show one line for each sub-commmit and include more columns")
 	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
 	listCommit.Flags().AddFlagSet(outputFlags)
 	listCommit.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
-	var branches cmdutil.RepeatedStringArg
 	waitCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Wait for the specified commit to finish and return it.",
@@ -622,150 +740,10 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	writeCommitTable := func(commitInfos []*pfs.CommitInfo) error {
-		if raw {
-			encoder := cmdutil.Encoder(output, os.Stdout)
-			for _, commitInfo := range commitInfos {
-				if err := encoder.EncodeProto(commitInfo); err != nil {
-					return err
-				}
-			}
-			return nil
-		} else if output != "" {
-			return errors.New("cannot set --output (-o) without --raw")
-		}
-
-		return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
-			writer := tabwriter.NewWriter(w, pretty.CommitHeader)
-			for _, commitInfo := range commitInfos {
-				pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
-			}
-			return writer.Flush()
-		})
-	}
-
-	waitCommitSet := &cobra.Command{
-		Use:   "{{alias}} <commitset-id>",
-		Short: "Wait for commits in a commitset to finish and return them.",
-		Long:  "Wait for commits in a commitset to finish and return them.",
-		Example: `
-# return commits in the same commitset as foo@XXX
-$ {{alias}} XXX
-
-# return commits caused by foo@XXX leading to branch bar@baz
-$ {{alias}} XXX -b bar@baz`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			toBranches := []*pfs.Branch{}
-			for _, arg := range branches {
-				branch, err := cmdutil.ParseBranch(arg)
-				if err != nil {
-					return err
-				}
-				toBranches = append(toBranches, branch)
-			}
-
-			client, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-
-			var commitInfos []*pfs.CommitInfo
-			if len(toBranches) != 0 {
-				for _, branch := range toBranches {
-					ci, err := client.WaitCommit(branch.Repo.Name, branch.Name, args[0])
-					if err != nil {
-						return errors.Wrap(err, "error from InspectCommit")
-					}
-					commitInfos = append(commitInfos, ci)
-				}
-			} else {
-				commitInfos, err = client.WaitCommitSetAll(args[0])
-				if err != nil {
-					return errors.Wrap(err, "error from InspectCommitSet")
-				}
-			}
-			return writeCommitTable(commitInfos)
-		}),
-	}
-	waitCommitSet.Flags().VarP(&branches, "branch", "b", "Wait only for commits in the specified set of branches")
-	waitCommitSet.MarkFlagCustom("branch", "__pachctl_get_branch")
-	waitCommitSet.Flags().AddFlagSet(outputFlags)
-	waitCommitSet.Flags().AddFlagSet(timestampFlags)
-	shell.RegisterCompletionFunc(waitCommitSet, shell.JobCompletion)
-	commands = append(commands, cmdutil.CreateAlias(waitCommitSet, "wait commitset"))
-
-	inspectCommitSet := &cobra.Command{
-		Use:   "{{alias}} <job-id>",
-		Short: "Return info about all the commits in a commitset.",
-		Long:  "Return info about all the commits in a commitset.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-
-			commitInfos, err := client.InspectCommitSet(args[0])
-			if err != nil {
-				return errors.Wrap(err, "error from InspectCommitSet")
-			}
-			return writeCommitTable(commitInfos)
-		}),
-	}
-	inspectCommitSet.Flags().AddFlagSet(outputFlags)
-	inspectCommitSet.Flags().AddFlagSet(timestampFlags)
-	shell.RegisterCompletionFunc(inspectCommitSet, shell.JobCompletion)
-	commands = append(commands, cmdutil.CreateAlias(inspectCommitSet, "inspect commitset"))
-
-	listCommitSet := &cobra.Command{
-		Short: "Return info about commitsets.",
-		Long:  "Return info about commitsets.",
-		Example: `
-# Return all commitsets
-$ {{alias}}`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
-			listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-
-			if raw {
-				e := cmdutil.Encoder(output, os.Stdout)
-				return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
-					return e.EncodeProto(commitSetInfo)
-				})
-			} else if output != "" {
-				return errors.New("cannot set --output (-o) without --raw")
-			}
-
-			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
-				writer := tabwriter.NewWriter(w, pretty.CommitSetHeader)
-				if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
-					pretty.PrintCommitSetInfo(writer, commitSetInfo, fullTimestamps)
-					return nil
-				}); err != nil {
-					return err
-				}
-				return writer.Flush()
-			})
-		}),
-	}
-	listCommitSet.Flags().AddFlagSet(outputFlags)
-	listCommitSet.Flags().AddFlagSet(timestampFlags)
-	listCommitSet.Flags().AddFlagSet(pagerFlags)
-	commands = append(commands, cmdutil.CreateAlias(listCommitSet, "list commitset"))
-
-	squashCommitSet := &cobra.Command{
-		Use:   "{{alias}} <commitset>",
-		Short: "Squash the commits of a commitset.",
-		Long:  "Squash the commits of a commitset.  The data in the commits will remain in their child commits unless there are no children.",
+	squashCommit := &cobra.Command{
+		Use:   "{{alias}} <commit-id>",
+		Short: "Squash the sub-commits of a commit.",
+		Long:  "Squash the sub-commits of a commit.  The data in the sub-commits will remain in their child commits unless there are no children.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -778,8 +756,8 @@ $ {{alias}}`,
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(squashCommitSet, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(squashCommitSet, "squash commitset"))
+	shell.RegisterCompletionFunc(squashCommit, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(squashCommit, "squash commit"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
