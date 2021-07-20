@@ -3,7 +3,7 @@
 <div class="theme-panel">
   <h2 class="theme-heading">Enter User Code</h2>
   <form method="post" action="{{ .PostURL }}" method="get">
-    <div class="theme-form-row">
+    <div>
       {{ if( .UserCode  )}}
       <input tabindex="2" required id="user_code" name="user_code" type="text" class="theme-form-input" autocomplete="off" value="{{.UserCode}}" {{ if .Invalid }} autofocus {{ end }}/>
       {{ else }}
@@ -12,11 +12,13 @@
     </div>
 
     {{ if .Invalid }}
-    <div id="login-error" class="dex-error-box">
+    <div id="login-error" class="theme-field-error">
       Invalid or Expired User Code
     </div>
     {{ end }}
-    <button tabindex="3" id="submit-login" type="submit" class="dex-btn theme-btn--primary">Submit</button>
+    <div class="theme-submit-row">
+      <button tabindex="3" id="submit-login" type="submit" class="dex-btn theme-btn--primary theme-btn--auto-width">Submit</button>
+    </div>
   </form>
 </div>
 
