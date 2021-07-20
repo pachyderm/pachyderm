@@ -121,8 +121,7 @@ pre {
 }
 
 .theme-navbar__logo {
-  height: 100%;
-  max-height: 25px;
+  height: 2.5rem;
 }
 
 .theme-panel {
