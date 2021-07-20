@@ -200,7 +200,7 @@ describe('grpc/builders/pfs', () => {
     expect(deleteBranchRequest.getForce()).toBe(true);
   });
 
-  it('should create createRepoRequest from an object with defaults', () => {
+  it('should create CreateRepoRequest from an object with defaults', () => {
     const createRepoRequest = createRepoRequestFromObject({
       repo: {name: 'test'},
     });
@@ -210,7 +210,7 @@ describe('grpc/builders/pfs', () => {
     expect(createRepoRequest.getUpdate()).toBe(false);
   });
 
-  it('should create createRepoRequest from an object', () => {
+  it('should create CreateRepoRequest from an object', () => {
     const createRepoRequest = createRepoRequestFromObject({
       repo: {name: 'test'},
       description: 'this is a discription.',
