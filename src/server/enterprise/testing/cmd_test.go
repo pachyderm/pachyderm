@@ -53,11 +53,29 @@ func TestRegisterPachd(t *testing.T) {
 func TestRegisterAuthenticated(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
+	t.Log("Cluster Reset")
 
 	cluster := tu.UniqueString("cluster")
+
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl license activate
+	`,
+		"id", cluster,
+		"license", tu.GetTestEnterpriseCode(t),
+		"enterprise_token", enterpriseRootToken,
+	).Run())
+	t.Log("License Activated")
+
+	require.NoError(t, tu.BashCmd(`
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:1658 --supply-root-token
+	`,
+		"id", cluster,
+		"license", tu.GetTestEnterpriseCode(t),
+		"enterprise_token", enterpriseRootToken,
+	).Run())
+	t.Log("Auth Activated")
+
+	require.NoError(t, tu.BashCmd(`
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650
 
 		pachctl enterprise get-state | match ACTIVE
