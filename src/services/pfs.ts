@@ -6,7 +6,6 @@ import {
   GetFileRequest,
   InspectRepoRequest,
   InspectBranchRequest,
-  ListBranchRequest,
   ListCommitRequest,
   ListFileRequest,
   ListRepoRequest,
@@ -17,8 +16,6 @@ import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 import {extract} from 'tar-stream';
 
 import {
-  inspectBranchRequestFromObject,
-  InspectBranchRequestObject,
   listBranchRequestFromObject,
   ListBranchRequestObject,
   deleteBranchRequestFromObject,
@@ -28,6 +25,7 @@ import {
   deleteRepoRequestFromObject,
   DeleteRepoRequestObject,
   fileFromObject,
+  branchFromObject,
   FileObject,
   repoFromObject,
   RepoObject,
@@ -109,9 +107,13 @@ const pfs = ({
 
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
     },
-    inspectBranch: (request: InspectBranchRequestObject) => {
+    inspectBranch: (params: BranchObject) => {
       return new Promise<BranchInfo.AsObject>((resolve, reject) => {
-        const inspectBranchRequest = inspectBranchRequestFromObject(request);
+        const inspectBranchRequest = new InspectBranchRequest();
+        const branch = branchFromObject(params);
+
+        inspectBranchRequest.setBranch(branch);
+
         client.inspectBranch(
           inspectBranchRequest,
           credentialMetadata,

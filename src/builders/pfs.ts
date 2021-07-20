@@ -7,7 +7,6 @@ import {
   File,
   FileInfo,
   FileType,
-  InspectBranchRequest,
   ListBranchRequest,
   DeleteBranchRequest,
   Repo,
@@ -175,20 +174,12 @@ export const commitFromObject = ({branch, id}: CommitObject) => {
   return commit;
 };
 
-export const inspectBranchRequestFromObject = ({
-  branch,
-}: InspectBranchRequestObject) => {
-  const request = new InspectBranchRequest();
+export const branchFromObject = ({name, repo}: BranchObject) => {
+  const branch = new Branch();
+  branch.setName(name);
+  branch.setRepo(new Repo().setName(repo?.name || '').setType('user'));
 
-  if (branch) {
-    request.setBranch(
-      new Branch()
-        .setName(branch.name)
-        .setRepo(new Repo().setName(branch.repo?.name || '').setType('user')),
-    );
-  }
-
-  return request;
+  return branch;
 };
 
 export const listBranchRequestFromObject = ({
