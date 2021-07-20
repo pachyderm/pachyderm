@@ -12,16 +12,16 @@ import (
 
 // packages is a list of V1 pachyderm APIs - when a user requests these,
 // throw a special error prompting them to use a V2 client.
-var packages = map[string]interface{}{
-	"admin.API":       true,
-	"auth.API":        true,
-	"debug.API":       true,
-	"enterprise.API":  true,
-	"identity.API":    true,
-	"pfs.API":         true,
-	"pps.API":         true,
-	"transaction.API": true,
-	"versionpb.API":   true,
+var packages = map[string]struct{}{
+	"admin.API":       {},
+	"auth.API":        {},
+	"debug.API":       {},
+	"enterprise.API":  {},
+	"identity.API":    {},
+	"pfs.API":         {},
+	"pps.API":         {},
+	"transaction.API": {},
+	"versionpb.API":   {},
 }
 
 func errOnOldPackage(fullMethod string) error {
