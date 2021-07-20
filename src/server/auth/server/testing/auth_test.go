@@ -983,25 +983,21 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole, pl(pipeline), auth.RepoWriterRole),
 		getRepoRoleBinding(t, aliceClient, pipeline))
 
-	// bob still can't stop or delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
+	// bob can now start and stop the pipeline, but can't delete it
+	require.NoError(t, bobClient.StopPipeline(pipeline))
+	require.NoError(t, bobClient.StartPipeline(pipeline))
 	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-
 	// alice re-adds bob as a reader of the input repo
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, pl(pipeline), auth.RepoReaderRole),
 		getRepoRoleBinding(t, aliceClient, repo))
 
-	// bob can stop (and start) but not delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
-	require.NoError(t, err)
-	err = bobClient.StartPipeline(pipeline)
-	require.NoError(t, err)
+	// no change to bob's capabilities
+	require.NoError(t, bobClient.StopPipeline(pipeline))
+	require.NoError(t, bobClient.StartPipeline(pipeline))
 	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -1012,9 +1008,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole),
 		getRepoRoleBinding(t, aliceClient, pipeline))
 
-	// finally bob can stop and delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
-	require.NoError(t, err)
+	// finally bob can delete alice's pipeline
 	err = bobClient.DeletePipeline(pipeline, false)
 	require.NoError(t, err)
 }
@@ -2428,7 +2422,7 @@ func TestDeletePipelineMissingInput(t *testing.T) {
 		false,
 	))
 
-	// force-delete input and output repos
+	// force-delete input repo
 	require.NoError(t, aliceClient.DeleteRepo(repo, true))
 
 	// Attempt to delete the pipeline--must succeed
