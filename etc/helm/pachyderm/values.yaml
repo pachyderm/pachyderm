@@ -318,14 +318,7 @@ pachd:
       create: false
       crt: ""
       key: ""
-  postgresql:
-    host: "postgres"
-    port: "5432"
-    ssl: "disable"
-    user: ""
-    password: ""
-    dbName: ""
-
+ 
 rbac:
   # create indicates whether RBAC resources should be created.
   # Setting it to false is analogous to passing --no-rbac to pachctl
