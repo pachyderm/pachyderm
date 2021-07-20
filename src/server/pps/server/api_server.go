@@ -425,8 +425,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 			}
 		case pipelineOpListDatum, pipelineOpGetLogs:
 			required = auth.Permission_REPO_READ
-		case pipelineOpUpdate:
-		case pipelineOpStartStop:
+		case pipelineOpUpdate, pipelineOpStartStop:
 			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
 			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
