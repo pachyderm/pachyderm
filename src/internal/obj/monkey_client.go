@@ -86,3 +86,7 @@ func (c *monkeyClient) Exists(ctx context.Context, path string) (bool, error) {
 	}
 	return c.c.Exists(ctx, path)
 }
+
+func (c *monkeyClient) BucketURL() string {
+	return c.c.(interface{ BucketURL() string }).BucketURL()
+}
