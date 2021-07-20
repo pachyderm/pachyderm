@@ -2565,10 +2565,6 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		return err
 	}
 
-	if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
-		return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline.Name)
-	}
-
 	// Load pipeline details so we can do some cleanup tasks based on certain
 	// input types and the output branch.
 	pachClient := a.env.GetPachClient(ctx)
@@ -2585,6 +2581,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		if err := a.authorizePipelineOp(ctx, pipelineOpDelete, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
+	}
+
+	// stop the pipeline to avoid interference from new jobs
+	if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
+		return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline.Name)
 	}
 
 	// If necessary, revoke the pipeline's auth token and remove it from its
