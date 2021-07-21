@@ -1,20 +1,28 @@
 import {APIClient} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
 import {
   CommitInfo,
+  CommitSetInfo,
   FileInfo,
   GetFileRequest,
   InspectRepoRequest,
   ListCommitRequest,
+  ListCommitSetRequest,
   ListFileRequest,
   ListRepoRequest,
   RepoInfo,
+  SquashCommitSetRequest,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
+import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 import {extract} from 'tar-stream';
 
 import {
+  commitSetFromObject,
+  CommitSetObject,
   fileFromObject,
   FileObject,
+  inspectCommitSetRequestFromObject,
+  InspectCommitSetRequestObject,
   repoFromObject,
   RepoObject,
 } from '../builders/pfs';
@@ -93,6 +101,44 @@ const pfs = ({
       const stream = client.listCommit(listCommitRequest, credentialMetadata);
 
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
+    },
+    inspectCommitSet: (request: InspectCommitSetRequestObject) => {
+      const inspectCommitSetRequest =
+        inspectCommitSetRequestFromObject(request);
+      const stream = client.inspectCommitSet(
+        inspectCommitSetRequest,
+        credentialMetadata,
+      );
+
+      return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
+    },
+    listCommitSet: () => {
+      const listCommitSetRequest = new ListCommitSetRequest();
+      const stream = client.listCommitSet(
+        listCommitSetRequest,
+        credentialMetadata,
+      );
+
+      return streamToObjectArray<CommitSetInfo, CommitSetInfo.AsObject>(stream);
+    },
+    squashCommitSet: (commitSet: CommitSetObject) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const squashCommitSetRequest =
+          new SquashCommitSetRequest().setCommitSet(
+            commitSetFromObject(commitSet),
+          );
+
+        client.squashCommitSet(
+          squashCommitSetRequest,
+          credentialMetadata,
+          (error) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve({});
+          },
+        );
+      });
     },
     listRepo: (type = 'user') => {
       const listRepoRequest = new ListRepoRequest().setType(type);
