@@ -98,6 +98,14 @@ replace github.com/sercand/kuberesolver => github.com/sercand/kuberesolver v1.0.
 
 replace google.golang.org/grpc => google.golang.org/grpc v1.29.1
 
+replace github.com/golang/protobuf => github.com/golang/protobuf v1.3.5
+
+replace cloud.google.com/go => cloud.google.com/go v0.49.0
+
+replace cloud.google.com/go/storage => cloud.google.com/go/storage v1.10.0
+
+replace github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.5.0
+
 replace github.com/prometheus/common => github.com/prometheus/common v0.9.1
 
-replace github.com/golang/protobuf => github.com/golang/protobuf v1.3.5
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20191115194625-c23dd37a84c9
