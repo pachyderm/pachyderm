@@ -23,7 +23,12 @@ import {
   GetLogsRequest,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
-import {CommitObject, triggerFromObject, TriggerObject} from '../builders/pfs';
+import {
+  commitFromObject,
+  CommitObject,
+  triggerFromObject,
+  TriggerObject,
+} from '../builders/pfs';
 import {
   durationFromObject,
   DurationObject,
@@ -192,6 +197,7 @@ export type JobInfoObject = {
   finishedAt?: JobInfo.AsObject['finished'];
   state: JobState;
   input?: InputObject;
+  outputCommit?: CommitObject;
 };
 
 export type GetLogsRequestObject = {
@@ -591,6 +597,7 @@ export const jobInfoFromObject = ({
   finishedAt,
   state,
   input,
+  outputCommit,
 }: JobInfoObject) => {
   const jobInfo = new JobInfo()
     .setState(state)
@@ -616,6 +623,10 @@ export const jobInfoFromObject = ({
 
   if (input) {
     jobInfo.setDetails(new JobInfo.Details().setInput(inputFromObject(input)));
+  }
+
+  if (outputCommit) {
+    jobInfo.setOutputCommit(commitFromObject(outputCommit));
   }
 
   return jobInfo;

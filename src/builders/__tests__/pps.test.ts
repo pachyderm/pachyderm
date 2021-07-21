@@ -581,6 +581,15 @@ it('should create JobInfo from an object', () => {
       seconds: 20000,
       nanos: 0,
     },
+    outputCommit: {
+      branch: {
+        name: 'development',
+        repo: {
+          name: 'test',
+        },
+      },
+      id: '123',
+    },
   });
 
   expect(pipelineJob.getState()).toBe(1);
@@ -588,6 +597,13 @@ it('should create JobInfo from an object', () => {
   expect(pipelineJob.getStarted()?.getSeconds()).toBe(10000);
   expect(pipelineJob.getFinished()?.getSeconds()).toBe(20000);
   expect(pipelineJob.getJob()?.getId()).toBe('1');
+  expect(pipelineJob.getOutputCommit()?.getBranch()?.getName()).toBe(
+    'development',
+  );
+  expect(pipelineJob.getOutputCommit()?.getBranch()?.getRepo()?.getName()).toBe(
+    'test',
+  );
+  expect(pipelineJob.getOutputCommit()?.getId()).toBe('123');
 });
 
 it('should create GetLogsRequestObject from a pipeline request', () => {
