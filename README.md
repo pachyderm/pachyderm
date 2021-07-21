@@ -3,7 +3,7 @@
 [![Slack Status](https://badge.slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
 
 Official Node Pachyderm client maintained by Pachyderm Inc.
-## Installation
+## Installation 
 
 ```bash
 npm i @pachyderm/node-pachyderm
