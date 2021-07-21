@@ -236,12 +236,14 @@ func (c *postgresCollection) list(
 ) error {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
-	params := map[string]interface{}{}
+	var args []interface{}
 	if len(withFields) > 0 {
 		fields := []string{}
+		i := 1
 		for k, v := range withFields {
-			fields = append(fields, fmt.Sprintf("%s = :%s", k, k))
-			params[k] = v
+			fields = append(fields, fmt.Sprintf("%s = $%d", k, i))
+			args = append(args, v)
+			i++
 		}
 		query += " where " + strings.Join(fields, " and ")
 	}
@@ -255,8 +257,7 @@ func (c *postgresCollection) list(
 			query += fmt.Sprintf(" order by %s %s", target, order)
 		}
 	}
-
-	rows, err := q.QueryxContext(ctx, query, params)
+	rows, err := q.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return c.mapSQLError(err, "")
 	}
