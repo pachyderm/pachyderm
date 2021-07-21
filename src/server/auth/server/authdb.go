@@ -23,7 +23,6 @@ func authConfigCollection(db *sqlx.DB, listener col.PostgresListener) col.Postgr
 		listener,
 		&auth.OIDCConfig{},
 		nil,
-		nil,
 	)
 }
 
@@ -36,7 +35,6 @@ func roleBindingsCollection(db *sqlx.DB, listener col.PostgresListener) col.Post
 		listener,
 		&auth.RoleBinding{},
 		roleBindingsIndexes,
-		nil,
 	)
 }
 
@@ -49,7 +47,6 @@ func membersCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresC
 		listener,
 		&auth.Groups{},
 		membersIndexes,
-		nil,
 	)
 }
 
@@ -62,7 +59,6 @@ func groupsCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCo
 		listener,
 		&auth.Users{},
 		groupsIndexes,
-		nil,
 	)
 }
 
@@ -71,9 +67,9 @@ func groupsCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCo
 // querying.
 func AllCollections() []col.PostgresCollection {
 	return []col.PostgresCollection{
-		col.NewPostgresCollection(authConfigCollectionName, nil, nil, nil, authConfigIndexes, nil),
-		col.NewPostgresCollection(roleBindingsCollectionName, nil, nil, nil, roleBindingsIndexes, nil),
-		col.NewPostgresCollection(membersCollectionName, nil, nil, nil, membersIndexes, nil),
-		col.NewPostgresCollection(groupsCollectionName, nil, nil, nil, groupsIndexes, nil),
+		col.NewPostgresCollection(authConfigCollectionName, nil, nil, nil, authConfigIndexes),
+		col.NewPostgresCollection(roleBindingsCollectionName, nil, nil, nil, roleBindingsIndexes),
+		col.NewPostgresCollection(membersCollectionName, nil, nil, nil, membersIndexes),
+		col.NewPostgresCollection(groupsCollectionName, nil, nil, nil, groupsIndexes),
 	}
 }

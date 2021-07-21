@@ -65,7 +65,7 @@ func newCollectionFunc(setup func(context.Context, *testing.T) (*sqlx.DB, col.Po
 	return func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
 		db, listener := setup(ctx, t)
 
-		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, nil)
+		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex})
 		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 			return col.SetupPostgresCollections(ctx, sqlTx, testCol)
 		}))

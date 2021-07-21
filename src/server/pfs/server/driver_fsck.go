@@ -290,7 +290,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 				// We've observed users getting ErrExists from this create,
 				// which doesn't make a lot of sense, but we insulate against
 				// it anyways so it doesn't prevent the command from working.
-				if err := d.commits.ReadWrite(sqlTx).Create(pfsdb.CommitKey(ci.Commit), ci); err != nil && !col.IsErrExists(err) {
+				if err := d.commits.ReadWrite(sqlTx).Create(ci.Commit, ci); err != nil && !col.IsErrExists(err) {
 					return err
 				}
 			}

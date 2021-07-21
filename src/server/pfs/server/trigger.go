@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -22,11 +21,11 @@ func (d *driver) triggerCommit(
 	commit *pfs.Commit,
 ) error {
 	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(commit.Branch.Repo), repoInfo); err != nil {
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(commit.Branch.Repo, repoInfo); err != nil {
 		return err
 	}
 	commitInfo := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(commit, commitInfo); err != nil {
 		return err
 	}
 
@@ -41,7 +40,7 @@ func (d *driver) triggerCommit(
 		}
 
 		bi := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(branch), bi); err != nil {
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, bi); err != nil {
 			return nil, err
 		}
 
@@ -54,7 +53,7 @@ func (d *driver) triggerCommit(
 
 			if newHead != nil {
 				oldHead := &pfs.CommitInfo{}
-				if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(bi.Head), oldHead); err != nil {
+				if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(bi.Head, oldHead); err != nil {
 					return nil, err
 				}
 
