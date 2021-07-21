@@ -168,13 +168,13 @@ const pfs = ({
       return new Promise<Empty.AsObject>((resolve, reject) => {
         const deleteRepoRequest = deleteRepoRequestFromObject(request);
         client.deleteRepo(deleteRepoRequest, credentialMetadata, (error) => {
-          if(error) {
+          if (error) {
             return reject(error);
           }
           return resolve({});
-        })
-      })
-    }
+        });
+      });
+    },
   };
 };
 
