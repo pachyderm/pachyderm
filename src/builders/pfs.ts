@@ -198,7 +198,7 @@ export const createBranchRequestFromObject = ({
 
   request.setHead(commitFromObject(head));
   request.setBranch(branchFromObject(branch));
-  
+
   if (provenance) {
     const provenanceArray: Branch[] = provenance.map((eachProvenanceObject) => {
       return branchFromObject(eachProvenanceObject);
