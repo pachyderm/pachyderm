@@ -7,6 +7,7 @@ import {
   File,
   FileInfo,
   FileType,
+  InspectFileRequest,
   Repo,
   Trigger,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';

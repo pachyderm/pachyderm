@@ -152,7 +152,7 @@ describe('grpc/builders/pfs', () => {
   it('should create deleteRepoRequest from an object with force', () => {
     const deleteRepoRequest = deleteRepoRequestFromObject({
       repo: {name: 'test'},
-      force: true
+      force: true,
     });
 
     expect(deleteRepoRequest.getRepo()?.getName()).toBe('test');
