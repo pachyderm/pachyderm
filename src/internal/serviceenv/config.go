@@ -66,6 +66,9 @@ type GlobalConfiguration struct {
 	// the target project.  If set on a pachd pod, propagates to workers and sidecars (which
 	// also need permission).
 	GoogleCloudProfilerProject string `env:"GOOGLE_CLOUD_PROFILER_PROJECT"`
+
+	PostgresHost string `env:"POSTGRES_HOST"`
+	PostgresPort int    `env:"POSTGRES_PORT"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.
@@ -91,9 +94,6 @@ type PachdSpecificConfiguration struct {
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName string `env:"PACHD_POD_NAME,required"`
-
-	PostgresHost string `env:"POSTGRES_HOST"`
-	PostgresPort int    `env:"POSTGRES_PORT"`
 }
 
 // StorageConfiguration contains the storage configuration.
