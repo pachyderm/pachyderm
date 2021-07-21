@@ -7,6 +7,11 @@ import {
   FileInfo,
   FileType,
   InspectCommitSetRequest,
+  CreateRepoRequest,
+  DeleteRepoRequest,
+  CreateBranchRequest,
+  ListBranchRequest,
+  DeleteBranchRequest,
   Repo,
   Trigger,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
@@ -44,6 +49,24 @@ export type BranchObject = {
   repo?: RepoObject;
 };
 
+export type CreateBranchRequestObject = {
+  head: CommitObject;
+  branch: BranchObject;
+  provenance: BranchObject[];
+  trigger: TriggerObject;
+  newCommitSet: CreateBranchRequest.AsObject['newCommitSet'];
+};
+
+export type ListBranchRequestObject = {
+  repo: RepoObject;
+  reverse?: ListBranchRequest.AsObject['reverse'];
+};
+
+export type DeleteBranchRequestObject = {
+  branch: BranchObject;
+  force?: DeleteBranchRequest.AsObject['force'];
+};
+
 export type CommitObject = {
   id: Commit.AsObject['id'];
   branch?: BranchObject;
@@ -64,6 +87,17 @@ export type CommitSetObject = {
 export type InspectCommitSetRequestObject = {
   commitSet: CommitSetObject;
   wait?: InspectCommitSetRequest.AsObject['wait'];
+};
+
+export type CreateRepoRequestObject = {
+  repo: RepoObject;
+  description?: CreateRepoRequest.AsObject['description'];
+  update?: CreateRepoRequest.AsObject['update'];
+};
+
+export type DeleteRepoRequestObject = {
+  repo: RepoObject;
+  force?: DeleteRepoRequest.AsObject['force'];
 };
 
 export const fileFromObject = ({
@@ -156,6 +190,70 @@ export const commitFromObject = ({branch, id}: CommitObject) => {
   return commit;
 };
 
+export const branchFromObject = ({name, repo}: BranchObject) => {
+  const branch = new Branch();
+  branch.setName(name);
+  branch.setRepo(new Repo().setName(repo?.name || '').setType('user'));
+
+  return branch;
+};
+
+export const createBranchRequestFromObject = ({
+  head,
+  branch,
+  trigger,
+  provenance = [],
+  newCommitSet = false,
+}: CreateBranchRequestObject) => {
+  const request = new CreateBranchRequest();
+
+  request.setHead(commitFromObject(head));
+  request.setBranch(branchFromObject(branch));
+
+  if (provenance) {
+    const provenanceArray: Branch[] = provenance.map((eachProvenanceObject) => {
+      return branchFromObject(eachProvenanceObject);
+    });
+    request.setProvenanceList(provenanceArray);
+  }
+
+  request.setTrigger(triggerFromObject(trigger));
+  request.setNewCommitSet(newCommitSet);
+
+  return request;
+};
+
+export const listBranchRequestFromObject = ({
+  repo,
+  reverse = false,
+}: ListBranchRequestObject) => {
+  const request = new ListBranchRequest();
+
+  request.setRepo(new Repo().setName(repo.name || '').setType('user'));
+  request.setReverse(reverse);
+
+  return request;
+};
+
+export const deleteBranchRequestFromObject = ({
+  branch,
+  force = false,
+}: DeleteBranchRequestObject) => {
+  const request = new DeleteBranchRequest();
+
+  if (branch) {
+    request.setBranch(
+      new Branch()
+        .setName(branch.name)
+        .setRepo(new Repo().setName(branch.repo?.name || '').setType('user')),
+    );
+  }
+
+  request.setForce(force);
+
+  return request;
+};
+
 export const commitInfoFromObject = ({
   commit,
   description = '',
@@ -186,6 +284,32 @@ export const inspectCommitSetRequestFromObject = ({
 
   request.setCommitSet(commitSetFromObject(commitSet));
   request.setWait(wait);
+
+  return request;
+};
+
+export const createRepoRequestFromObject = ({
+  repo,
+  description = '',
+  update = false,
+}: CreateRepoRequestObject) => {
+  const request = new CreateRepoRequest();
+
+  request.setRepo(repoFromObject(repo));
+  request.setDescription(description);
+  request.setUpdate(update);
+
+  return request;
+};
+
+export const deleteRepoRequestFromObject = ({
+  repo,
+  force = false,
+}: DeleteRepoRequestObject) => {
+  const request = new DeleteRepoRequest();
+
+  request.setRepo(repoFromObject(repo));
+  request.setForce(force);
 
   return request;
 };

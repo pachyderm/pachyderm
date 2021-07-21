@@ -4,6 +4,11 @@ import {
   fileFromObject,
   fileInfoFromObject,
   inspectCommitSetRequestFromObject,
+  createRepoRequestFromObject,
+  deleteRepoRequestFromObject,
+  createBranchRequestFromObject,
+  listBranchRequestFromObject,
+  deleteBranchRequestFromObject,
   repoFromObject,
   triggerFromObject,
 } from '../pfs';
@@ -147,5 +152,124 @@ describe('grpc/builders/pfs', () => {
       '4af40d34a0384f23a5b98d3bd7eaece1',
     );
     expect(commitSet.getWait()).toBe(false);
+  });
+
+  it('should create createBranchRequest from an object with defaults', () => {
+    const createBranchRequest = createBranchRequestFromObject({
+      head: {
+        branch: {name: 'master', repo: {name: '__spec__'}},
+        id: '4af40d34a0384f23a5b98d3bd7eaece1',
+      },
+      branch: {
+        name: 'staging',
+        repo: {name: '__spec__'},
+      },
+      trigger: {
+        branch: 'master',
+        all: true,
+        cronSpec: '@every 10s',
+        size: '1MB',
+        commits: 12,
+      },
+      provenance: [],
+      newCommitSet: false,
+    });
+    expect(createBranchRequest.getHead()?.getBranch()?.getName()).toBe(
+      'master',
+    );
+    expect(
+      createBranchRequest.getHead()?.getBranch()?.getRepo()?.getName(),
+    ).toBe('__spec__');
+    expect(createBranchRequest.getHead()?.getId()).toBe(
+      '4af40d34a0384f23a5b98d3bd7eaece1',
+    );
+    expect(createBranchRequest.getBranch()?.getName()).toBe('staging');
+    expect(createBranchRequest.getBranch()?.getRepo()?.getName()).toBe(
+      '__spec__',
+    );
+    expect(createBranchRequest.getProvenanceList()).toStrictEqual([]);
+    expect(createBranchRequest.getTrigger()?.getBranch()).toBe('master');
+    expect(createBranchRequest.getTrigger()?.getAll()).toBe(true);
+    expect(createBranchRequest.getTrigger()?.getCronSpec()).toBe('@every 10s');
+    expect(createBranchRequest.getTrigger()?.getSize()).toBe('1MB');
+    expect(createBranchRequest.getTrigger()?.getCommits()).toBe(12);
+    expect(createBranchRequest.getNewCommitSet()).toBe(false);
+  });
+
+  it('should create listBranchRequest from an object with defaults reverse to false', () => {
+    const listBranchRequest = listBranchRequestFromObject({
+      repo: {name: 'test'},
+    });
+    expect(listBranchRequest.getRepo()?.getName()).toBe('test');
+    expect(listBranchRequest.getReverse()).toBe(false);
+  });
+
+  it('should create listBranchRequest from an object with reverse set to true', () => {
+    const listBranchRequest = listBranchRequestFromObject({
+      repo: {name: 'test'},
+      reverse: true,
+    });
+    expect(listBranchRequest.getRepo()?.getName()).toBe('test');
+    expect(listBranchRequest.getReverse()).toBe(true);
+  });
+
+  it('should create deleteBranchRequest from an object without force by default', () => {
+    const deleteBranchRequest = deleteBranchRequestFromObject({
+      branch: {name: 'master', repo: {name: 'test'}},
+    });
+    expect(deleteBranchRequest.getBranch()?.getName()).toBe('master');
+    expect(deleteBranchRequest.getBranch()?.getRepo()?.getName()).toBe('test');
+    expect(deleteBranchRequest.getForce()).toBe(false);
+  });
+
+  it('should create deleteBranchRequest from an object without force by default', () => {
+    const deleteBranchRequest = deleteBranchRequestFromObject({
+      branch: {name: 'master', repo: {name: 'test'}},
+      force: true,
+    });
+    expect(deleteBranchRequest.getBranch()?.getName()).toBe('master');
+    expect(deleteBranchRequest.getBranch()?.getRepo()?.getName()).toBe('test');
+    expect(deleteBranchRequest.getForce()).toBe(true);
+  });
+
+  it('should create CreateRepoRequest from an object with defaults', () => {
+    const createRepoRequest = createRepoRequestFromObject({
+      repo: {name: 'test'},
+    });
+
+    expect(createRepoRequest.getRepo()?.getName()).toBe('test');
+    expect(createRepoRequest.getDescription()).toBe('');
+    expect(createRepoRequest.getUpdate()).toBe(false);
+  });
+
+  it('should create CreateRepoRequest from an object', () => {
+    const createRepoRequest = createRepoRequestFromObject({
+      repo: {name: 'test'},
+      description: 'this is a discription.',
+      update: true,
+    });
+
+    expect(createRepoRequest.getRepo()?.getName()).toBe('test');
+    expect(createRepoRequest.getDescription()).toBe('this is a discription.');
+    expect(createRepoRequest.getUpdate()).toBe(true);
+  });
+
+  it('should create deleteRepoRequest from an object without force by default', () => {
+    const deleteRepoRequest = deleteRepoRequestFromObject({
+      repo: {name: 'test'},
+    });
+
+    expect(deleteRepoRequest.getRepo()?.getName()).toBe('test');
+    expect(deleteRepoRequest.getForce()).toBe(false);
+  });
+
+  it('should create deleteRepoRequest from an object with force', () => {
+    const deleteRepoRequest = deleteRepoRequestFromObject({
+      repo: {name: 'test'},
+      force: true,
+    });
+
+    expect(deleteRepoRequest.getRepo()?.getName()).toBe('test');
+    expect(deleteRepoRequest.getForce()).toBe(true);
   });
 });
