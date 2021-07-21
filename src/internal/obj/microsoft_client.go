@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 )
 
@@ -37,12 +38,14 @@ func newMicrosoftClient(container string, accountName string, accountKey string)
 	if err != nil {
 		return nil, err
 	}
+	client.HTTPClient.Transport = promutil.InstrumentRoundTripper("azure_storage", client.HTTPClient.Transport)
 	blobSvc := client.GetBlobService()
 	return &microsoftClient{container: (&blobSvc).GetContainerReference(container)}, nil
 }
 
 // TODO: remove the writer, and respect the context.
-func (c *microsoftClient) Put(ctx context.Context, name string, r io.Reader) error {
+func (c *microsoftClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	w := newMicrosoftWriter(ctx, c, name)
 	if _, err := io.Copy(w, r); err != nil {
 		w.Close()
@@ -53,6 +56,7 @@ func (c *microsoftClient) Put(ctx context.Context, name string, r io.Reader) err
 
 // TODO: should respect context
 func (c *microsoftClient) Get(_ context.Context, name string, w io.Writer) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	r, err := c.container.GetBlobReference(name).Get(nil)
 	if err != nil {
 		return err

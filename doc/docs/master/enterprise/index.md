@@ -43,18 +43,16 @@ sections.
         <h4 class="mdl-card__title-text">Configuration &nbsp;&nbsp;&nbsp;<i class="fa fa-cogs"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Learn how to configure and use enterprise
-        features, such as access controls and
-        the S3 gateway.
+        Learn how to set up your authentication and grant permissions on Pachyderm resources or set up and manage an enterprise server in front of your clusters.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
           <li><a href="auth/" class="md-typeset md-link">
-            Configure Access Controls
+            Authentication and Authorization
           </a>
           </li>
-          <li><a href="stats/" class="md-typeset md-link">
-            Advanced Statistics
+          <li><a href="auth/enterprise-server/setup" class="md-typeset md-link">
+            Enterprise Server
           </a>
           </li>
         </ul>

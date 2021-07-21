@@ -592,6 +592,10 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	// Verify cluster deployment ID
 	clusterInfo, err := client.InspectCluster()
 	if err != nil {
+		if strings.Contains("unknown service admin_v2.API", err.Error()) {
+			return nil, fmt.Errorf("this client is for pachyderm 2.x, but the server has a different version - please install the correct client for your server")
+
+		}
 		return nil, errors.Wrap(err, "could not get cluster ID")
 	}
 	if context.ClusterDeploymentID != clusterInfo.DeploymentID {

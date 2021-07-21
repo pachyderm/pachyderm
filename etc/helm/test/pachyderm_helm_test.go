@@ -27,6 +27,7 @@ func TestDashImageAndConfigTag(t *testing.T) {
 	expectedOauthRedirectURI := "http://foo.bar/oauth"
 	options := &helm.Options{
 		SetValues: map[string]string{
+			"dash.enabled":                 "true",
 			"dash.image.tag":               "abc123",
 			"dash.config.issuerURI":        expectedIssuerURI,
 			"dash.config.oauthRedirectURI": expectedOauthRedirectURI,

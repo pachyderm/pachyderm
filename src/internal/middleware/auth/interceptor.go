@@ -38,12 +38,13 @@ var authHandlers = map[string]authHandler{
 	"/auth_v2.API/GetOIDCLogin": unauthenticated,
 
 	// TODO: restrict GetClusterRoleBinding to cluster admins?
-	"/auth_v2.API/CreateRoleBinding": authenticated,
-	"/auth_v2.API/GetRoleBinding":    authenticated,
-	"/auth_v2.API/ModifyRoleBinding": authenticated,
-	"/auth_v2.API/RevokeAuthToken":   authenticated,
-	"/auth_v2.API/GetGroups":         authenticated,
-	"/auth_v2.API/GetPermissions":    authenticated,
+	"/auth_v2.API/CreateRoleBinding":     authenticated,
+	"/auth_v2.API/GetRoleBinding":        authenticated,
+	"/auth_v2.API/ModifyRoleBinding":     authenticated,
+	"/auth_v2.API/RevokeAuthToken":       authenticated,
+	"/auth_v2.API/GetGroups":             authenticated,
+	"/auth_v2.API/GetPermissions":        authenticated,
+	"/auth_v2.API/GetRolesForPermission": authenticated,
 
 	"/auth_v2.API/GetGroupsForPrincipal":      clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_GROUPS),
 	"/auth_v2.API/GetPermissionsForPrincipal": clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL),

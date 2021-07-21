@@ -1,5 +1,7 @@
 run:
   timeout: 5m
+  skip-dirs:
+    - cached-deps
 linters:
   disable:
     - errcheck

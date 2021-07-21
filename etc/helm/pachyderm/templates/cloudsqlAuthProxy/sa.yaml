@@ -1,0 +1,13 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.cloudsqlAuthProxy.enabled -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8s-cloudsql-auth-proxy
+  namespace: {{ .Release.Namespace }}
+  annotations:
+      iam.gke.io/gcp-service-account: {{ .Values.cloudsqlAuthProxy.serviceAccount }}
+{{ end -}}

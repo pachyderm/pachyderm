@@ -2,6 +2,54 @@
     "$schema": "http://json-schema.org/schema#",
     "type": "object",
     "properties": {
+        "cloudsqlAuthProxy": {
+            "type": "object",
+            "properties": {
+                "connectionName": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "podLabels": {
+                    "type": "object"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {
+                            "type": "object"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "serviceAccount": {
+                    "type": "string"
+                }
+            }
+        },
         "dash": {
             "type": "object",
             "properties": {
@@ -302,6 +350,9 @@
                 "postgresql": {
                     "type": "object",
                     "properties": {
+                        "dbName": {
+                            "type": "string"
+                        },
                         "host": {
                             "type": "string"
                         },
@@ -419,9 +470,6 @@
                                     "type": "string"
                                 },
                                 "cred": {
-                                    "type": "string"
-                                },
-                                "serviceAccountName": {
                                     "type": "string"
                                 }
                             }
@@ -569,6 +617,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "usesRoot": {
+                    "type": "boolean"
                 }
             }
         }

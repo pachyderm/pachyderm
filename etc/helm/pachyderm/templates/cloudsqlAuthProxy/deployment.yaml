@@ -1,0 +1,46 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.cloudsqlAuthProxy.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cloudsql-auth-proxy
+    suite: pachyderm
+  name: cloudsql-auth-proxy
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: cloudsql-auth-proxy
+      suite: pachyderm
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: cloudsql-auth-proxy
+        suite: pachyderm
+        {{- if .Values.cloudsqlAuthProxy.podLabels }}
+        {{- toYaml .Values.cloudsqlAuthProxy.podLabels | nindent 8 }}
+        {{- end }}
+      name: cloudsql-auth-proxy
+      namespace: {{ .Release.Namespace }}
+    spec:
+      serviceAccountName: k8s-cloudsql-auth-proxy
+      containers:
+      - name: cloud-sql-proxy
+        image: {{ .Values.cloudsqlAuthProxy.image.repository }}:{{ .Values.cloudsqlAuthProxy.image.tag }}
+        command:
+          - "/cloud_sql_proxy"
+        #  - "-enable-iam-login"
+          - "-instances={{ .Values.cloudsqlAuthProxy.connectionName }}=tcp:0.0.0.0:{{ .Values.cloudsqlAuthProxy.port }}"
+        ports:
+        - containerPort: {{ .Values.cloudsqlAuthProxy.port }}
+        securityContext:
+          # The default Cloud SQL proxy image runs as the
+          # "nonroot" user and group (uid: 65532) by default.
+          runAsNonRoot: true
+        resources: {{ toYaml .Values.cloudsqlAuthProxy.resources | nindent 10 }}
+{{ end -}}

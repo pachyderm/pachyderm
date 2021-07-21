@@ -359,6 +359,8 @@ const (
 	pipelineOpUpdate
 	// pipelineOpUpdate is required for DeletePipeline
 	pipelineOpDelete
+	// pipelineOpStartStop is required for StartPipeline and StopPipeline
+	pipelineOpStartStop
 )
 
 // authorizePipelineOp checks if the user indicated by 'ctx' is authorized
@@ -378,7 +380,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		return err
 	}
 
-	if input != nil && operation != pipelineOpDelete {
+	if input != nil && operation != pipelineOpDelete && operation != pipelineOpStartStop {
 		// Check that the user is authorized to read all input repos, and write to the
 		// output repo (which the pipeline needs to be able to do on the user's
 		// behalf)
@@ -423,7 +425,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 			}
 		case pipelineOpListDatum, pipelineOpGetLogs:
 			required = auth.Permission_REPO_READ
-		case pipelineOpUpdate:
+		case pipelineOpUpdate, pipelineOpStartStop:
 			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
 			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
@@ -2327,7 +2329,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 	var response *pps.PipelineInfo
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		response, err = a.inspectPipelineInTransaction(txnCtx, name, details)
+		response, err = a.InspectPipelineInTransaction(txnCtx, name, details)
 		return err
 	}); err != nil {
 		return nil, err
@@ -2335,7 +2337,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 	return response, nil
 }
 
-func (a *apiServer) inspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, name string, details bool) (*pps.PipelineInfo, error) {
+func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, name string, details bool) (*pps.PipelineInfo, error) {
 	kubeClient := a.env.GetKubeClient()
 	name, ancestors, err := ancestry.Parse(name)
 	if err != nil {
@@ -2578,23 +2580,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		if err := a.authorizePipelineOp(ctx, pipelineOpDelete, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
-		if request.KeepRepo {
-			// Remove branch provenance
-			if err := pachClient.CreateBranch(
-				request.Pipeline.Name,
-				pipelineInfo.Details.OutputBranch,
-				"",
-				"",
-				nil,
-			); err != nil {
-				return err
-			}
-		} else {
-			// delete the pipeline's output repo
-			if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
-				return err
-			}
-		}
+	}
+
+	// stop the pipeline to avoid interference from new jobs
+	if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
+		return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline.Name)
 	}
 
 	// If necessary, revoke the pipeline's auth token and remove it from its
@@ -2618,7 +2608,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 
 	// Delete all of the pipeline's jobs - we shouldn't need to worry about any
-	// new jobs since the output repo has already been deleted or disconnected.
+	// new jobs since the pipeline has already been stopped.
 	var eg errgroup.Group
 	jobInfo := &pps.JobInfo{}
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline.Name, jobInfo, col.DefaultOptions(), func(string) error {
@@ -2650,16 +2640,42 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 			return nil
 		})
 	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
 	// Delete PipelineInfo
-	eg.Go(func() error {
-		if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-			return a.pipelines.ReadWrite(sqlTx).Delete(request.Pipeline.Name)
-		}); err != nil {
-			return errors.Wrapf(err, "collection.Delete")
+	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		return a.pipelines.ReadWrite(sqlTx).Delete(request.Pipeline.Name)
+	}); err != nil {
+		return errors.Wrapf(err, "collection.Delete")
+	}
+
+	if request.KeepRepo {
+		// Remove branch provenance from output and meta
+		if err := pachClient.CreateBranch(
+			request.Pipeline.Name,
+			pipelineInfo.Details.OutputBranch,
+			"",
+			"",
+			nil,
+		); err != nil {
+			return err
 		}
-		return nil
-	})
-	return eg.Wait()
+		if _, err := pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{
+			Branch: client.
+				NewSystemRepo(request.Pipeline.Name, pfs.MetaRepoType).
+				NewBranch(pipelineInfo.Details.OutputBranch),
+		}); err != nil && !errutil.IsNotFoundError(err) {
+			return grpcutil.ScrubGRPC(err)
+		}
+	} else {
+		// delete the pipeline's output repo
+		if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // StartPipeline implements the protobuf pps.StartPipeline RPC
@@ -2680,7 +2696,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		}
 
 		// check if the caller is authorized to update this pipeline
-		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpUpdate, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
+		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
 
@@ -2733,38 +2749,50 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			return err
 		}
 
-		// check if the caller is authorized to update this pipeline
-		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpUpdate, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
-			return err
-		}
-
-		// Remove branch provenance to prevent new output and meta commits from being created
-		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
-			Provenance: nil,
-		}); err != nil {
-			return err
-		}
-		if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
-			Provenance: nil,
-		}); err != nil {
-			return err
-		}
-
-		newPipelineInfo := &pps.PipelineInfo{}
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
-			if newPipelineInfo.Version != pipelineInfo.Version {
-				// If the pipeline has changed, restart the transaction and try again
-				return col.ErrTransactionConflict{}
+		// make sure the repo exists
+		if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
+			Repo: client.NewRepo(request.Pipeline.Name),
+		}); err == nil {
+			// check if the caller is authorized to update this pipeline
+			// don't pass in the input - stopping the pipeline means they won't be read anymore,
+			// so we don't need to check any permissions
+			if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
+				return err
 			}
-			newPipelineInfo.Stopped = true
-			return nil
-		}); err != nil {
+
+			// Remove branch provenance to prevent new output and meta commits from being created
+			if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				Branch:     client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
+				Provenance: nil,
+			}); err != nil {
+				return err
+			}
+			if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+				Provenance: nil,
+			}); err != nil && !errutil.IsNotFoundError(err) {
+				// don't error if we're stopping a spout or service pipeline
+				return err
+			}
+
+			newPipelineInfo := &pps.PipelineInfo{}
+			if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
+				if newPipelineInfo.Version != pipelineInfo.Version {
+					// If the pipeline has changed, restart the transaction and try again
+					return col.ErrTransactionConflict{}
+				}
+				newPipelineInfo.Stopped = true
+				return nil
+			}); err != nil {
+				return err
+			}
+		} else if !col.IsErrNotFound(err) {
 			return err
 		}
 
 		// Kill any remaining jobs
+		// if the pipeline output repo doesn't exist, we technically run this without authorization,
+		// but it's not clear what authorization means in that case, and those jobs are doomed, anyway
 		return a.stopAllJobsInPipeline(txnCtx, request.Pipeline)
 	}); err != nil {
 		return nil, err

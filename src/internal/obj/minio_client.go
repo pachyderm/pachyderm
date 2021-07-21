@@ -3,9 +3,11 @@ package obj
 import (
 	"context"
 	"io"
+	"net/http"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 
 	minio "github.com/minio/minio-go/v6"
@@ -23,6 +25,7 @@ func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioCli
 	if err != nil {
 		return nil, err
 	}
+	mclient.SetCustomTransport(promutil.InstrumentRoundTripper("minio", http.DefaultTransport))
 	return &minioClient{
 		bucket: bucket,
 		Client: mclient,
@@ -43,11 +46,12 @@ func newMinioClientV2(endpoint, bucket, id, secret string, secure bool) (*minioC
 
 func (c *minioClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
 	defer func() { retErr = c.transformError(retErr, name) }()
-	wc := newMinioWriter(ctx, c, name)
-	if _, err := io.Copy(wc, r); err != nil {
-		return err
+	opts := minio.PutObjectOptions{
+		ContentType: "application/octet-stream",
+		PartSize:    uint64(8 * 1024 * 1024),
 	}
-	return wc.Close()
+	_, err := c.Client.PutObjectWithContext(ctx, c.bucket, name, r, -1, opts)
+	return err
 }
 
 // TODO: this should respect the context
@@ -123,52 +127,3 @@ func (c *minioClient) transformError(err error, objectPath string) error {
 // Sentinel error response returned if err is not
 // of type *minio.ErrorResponse.
 var sentinelErrResp = minio.ErrorResponse{}
-
-// Represents minio writer structure with pipe and the error channel
-type minioWriter struct {
-	ctx     context.Context
-	errChan chan error
-	pipe    *io.PipeWriter
-}
-
-// Creates a new minio writer and a go routine to upload objects to minio server
-func newMinioWriter(ctx context.Context, client *minioClient, name string) *minioWriter {
-	reader, writer := io.Pipe()
-	w := &minioWriter{
-		ctx:     ctx,
-		errChan: make(chan error),
-		pipe:    writer,
-	}
-	go func() {
-		opts := minio.PutObjectOptions{
-			ContentType: "application/octet-stream",
-			PartSize:    uint64(8 * 1024 * 1024),
-		}
-		_, err := client.PutObject(client.bucket, name, reader, -1, opts)
-		if err != nil {
-			reader.CloseWithError(err)
-		}
-		w.errChan <- err
-	}()
-	return w
-}
-
-func (w *minioWriter) Write(p []byte) (retN int, retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Minio.Writer/Write")
-	defer func() {
-		tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
-	}()
-	return w.pipe.Write(p)
-}
-
-// This will block till upload is done
-func (w *minioWriter) Close() (retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Minio.Writer/Close")
-	defer func() {
-		tracing.FinishAnySpan(span, "err", retErr)
-	}()
-	if err := w.pipe.Close(); err != nil {
-		return err
-	}
-	return <-w.errChan
-}

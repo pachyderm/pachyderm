@@ -55,6 +55,10 @@ spec:
         - name: POSTGRES_USER
           value: {{ .Values.pachd.postgresql.user | quote}}
         {{- end }}
+        {{- if .Values.pachd.postgresql.dbName }}
+        - name: POSTGRES_DATABASE_NAME
+          value: {{ .Values.pachd.postgresql.dbName | quote}}
+        {{- end}}
         {{- if .Values.pachd.postgresql.ssl }}
         - name: POSTGRES_SSL
           value: {{ .Values.pachd.postgresql.ssl | quote }}
@@ -73,6 +77,10 @@ spec:
           {{- end }}
         - name: WORKER_IMAGE
           value: "{{ .Values.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        {{- if and (eq .Values.deployTarget "LOCAL") .Values.pachd.storage.local.requireRoot }}
+        - name: WORKER_USES_ROOT
+          value: "True"
+        {{- end }}
         - name: IMAGE_PULL_SECRET
           value: {{ .Values.imagePullSecret | quote }}
         - name: WORKER_SIDECAR_IMAGE
@@ -143,7 +151,7 @@ spec:
         - containerPort: 1658
           name: identity-port
           protocol: TCP
-        - containerPort: 1656 #Confirm for 2.0
+        - containerPort: 1656
           name: prom-metrics
           protocol: TCP
         readinessProbe:

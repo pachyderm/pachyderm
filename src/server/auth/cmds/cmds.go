@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -734,6 +735,42 @@ func RotateRootToken() *cobra.Command {
 	return cmdutil.CreateAlias(rotateRootToken, "auth rotate-root-token")
 }
 
+// RolesForPermissionCmd lists the roles that would give a user a specific permission
+func RolesForPermissionCmd() *cobra.Command {
+	rotateRootToken := &cobra.Command{
+		Use:   "{{alias}} <permission>",
+		Short: "List roles that grant the given permission",
+		Long:  "List roles that grant the given permission",
+		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+			c, err := newClient(false)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			permission, ok := auth.Permission_value[strings.ToUpper(args[0])]
+			if !ok {
+				return fmt.Errorf("unknown permission %q", args[0])
+			}
+
+			resp, err := c.GetRolesForPermission(c.Ctx(), &auth.GetRolesForPermissionRequest{Permission: auth.Permission(permission)})
+			if err != nil {
+				return err
+			}
+
+			names := make([]string, len(resp.Roles))
+			for i, r := range resp.Roles {
+				names[i] = r.Name
+			}
+			sort.Strings(names)
+			fmt.Print(strings.Join(names, "\n"))
+			return nil
+		}),
+	}
+
+	return cmdutil.CreateAlias(rotateRootToken, "auth roles-for-permission")
+}
+
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
 func Cmds() []*cobra.Command {
@@ -781,5 +818,6 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, GetEnterpriseRoleBindingCmd())
 	commands = append(commands, SetEnterpriseRoleBindingCmd())
 	commands = append(commands, RotateRootToken())
+	commands = append(commands, RolesForPermissionCmd())
 	return commands
 }

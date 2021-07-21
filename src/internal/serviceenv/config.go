@@ -58,6 +58,14 @@ type GlobalConfiguration struct {
 	PPSSpecCommitID string `env:"PPS_SPEC_COMMIT"`
 	// The name of the pipeline that this worker belongs to
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
+
+	// If set to the name of a GCP project, enable GCP-specific continuous profiling and send
+	// profiles to that project: https://cloud.google.com/profiler/docs.  Requires that pachd
+	// has google application credentials (through environment variables or workload identity),
+	// and that the service account associated with the credentials has 'cloudprofiler.agent' on
+	// the target project.  If set on a pachd pod, propagates to workers and sidecars (which
+	// also need permission).
+	GoogleCloudProfilerProject string `env:"GOOGLE_CLOUD_PROFILER_PROJECT"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.
@@ -79,7 +87,7 @@ type PachdSpecificConfiguration struct {
 	WorkerImagePullPolicy      string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	ImagePullSecret            string `env:"IMAGE_PULL_SECRET,default="`
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
-	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
+	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=false"`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName string `env:"PACHD_POD_NAME,required"`

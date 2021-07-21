@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	log "github.com/sirupsen/logrus"
 )
@@ -96,6 +97,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		httpClient.Transport = transport
 	}
+	httpClient.Transport = promutil.InstrumentRoundTripper("s3", httpClient.Transport)
 	awsConfig := &aws.Config{
 		Region:     aws.String(region),
 		MaxRetries: aws.Int(advancedConfig.Retries),
@@ -210,7 +212,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 			}
 			url = strings.TrimSpace(signedURL)
 		}
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return err
 		}
@@ -242,7 +244,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 			Bucket: aws.String(c.bucket),
 			Key:    aws.String(name),
 		}
-		getObjectOutput, err := c.s3.GetObject(objIn)
+		getObjectOutput, err := c.s3.GetObjectWithContext(ctx, objIn)
 		if err != nil {
 			return err
 		}
@@ -302,6 +304,10 @@ func (c *amazonClient) transformError(err error, objectPath string) error {
 	var awsErr awserr.Error
 	if !errors.As(err, &awsErr) {
 		return err
+	}
+	// errors.Is is unable to correctly identify context.Cancel with the amazon error types
+	if strings.Contains(awsErr.Error(), "RequestCanceled") {
+		return context.Canceled
 	}
 	if strings.Contains(awsErr.Message(), "SlowDown:") {
 		return pacherr.WrapTransient(err, minWait)

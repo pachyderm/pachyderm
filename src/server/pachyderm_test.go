@@ -27,10 +27,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -4675,9 +4673,9 @@ func TestPipelineCrashing(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineCrashing_data")
 	pipelineName := tu.UniqueString("TestPipelineCrashing_pipeline")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
+
+	create := func(gpu bool) error {
+		req := pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -4685,12 +4683,7 @@ func TestPipelineCrashing(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			ResourceLimits: &pps.ResourceSpec{
-				Gpu: &pps.GPUSpec{
-					Type:   "nvidia.com/gpu",
-					Number: 1,
-				},
-			},
+
 			Input: &pps.Input{
 				Pfs: &pps.PFSInput{
 					Repo:   dataRepo,
@@ -4698,8 +4691,20 @@ func TestPipelineCrashing(t *testing.T) {
 					Glob:   "/*",
 				},
 			},
-		})
-	require.NoError(t, err)
+			Update: true,
+		}
+		if gpu {
+			req.ResourceLimits = &pps.ResourceSpec{
+				Gpu: &pps.GPUSpec{
+					Type:   "nvidia.com/gpu",
+					Number: 1,
+				},
+			}
+		}
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), &req)
+		return err
+	}
+	require.NoError(t, create(true))
 
 	require.NoError(t, backoff.Retry(func() error {
 		pi, err := c.InspectPipeline(pipelineName, false)
@@ -4708,6 +4713,18 @@ func TestPipelineCrashing(t *testing.T) {
 			return errors.Errorf("pipeline in wrong state: %s", pi.State.String())
 		}
 		require.True(t, pi.Reason != "")
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	// recreate with no gpu
+	require.NoError(t, create(false))
+	// wait for pipeline to restart and enter running
+	require.NoError(t, backoff.Retry(func() error {
+		pi, err := c.InspectPipeline(pipelineName, false)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_RUNNING {
+			return errors.Errorf("pipeline in wrong state: %s", pi.State.String())
+		}
 		return nil
 	}, backoff.NewTestingBackOff()))
 }
@@ -6045,7 +6062,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
-			client.NewCronInputOpts("time", "", "1-59/1 * * * *", true), // every minute
+			client.NewCronInputOpts("time", "", "*/1 * * * *", true), // every minute
 			"",
 			false,
 		))
@@ -6086,24 +6103,14 @@ func TestCronPipeline(t *testing.T) {
 				countBreakFunc := newCountBreakFunc(4)
 				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
-						_, err := c.WaitCommitSetAll(ci.Commit.ID)
+						_, err := c.WaitCommit(repo, "", ci.Commit.ID)
 						require.NoError(t, err)
-						if ci.Origin.Kind != pfs.OriginKind_ALIAS {
-							files, err := c.ListFileAll(ci.Commit, "/")
-							require.NoError(t, err)
-							require.Equal(t, 1, len(files))
-						}
+						files, err := c.ListFileAll(ci.Commit, "/")
+						require.NoError(t, err)
+						require.Equal(t, 1, len(files))
 						return nil
 					})
 				}))
-				listCommitClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
-					Repo:       client.NewRepo(repo),
-					OriginKind: pfs.OriginKind_USER,
-				})
-				require.NoError(t, err)
-				commits, err := clientsdk.ListCommit(listCommitClient)
-				require.NoError(t, err)
-				require.Equal(t, 4, len(commits))
 				return nil
 			})
 		}))
@@ -8802,14 +8809,21 @@ func TestMalformedPipeline(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "services can only be run with a constant parallelism of 1", err.Error())
 
-	// TODO(2.0 required): This error isn't triggered in V2?
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:   client.NewPipeline(pipelineName),
-	//	Transform:  &pps.Transform{},
-	//	SpecCommit: &pfs.Commit{},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "cannot resolve commit with no repo", err.Error())
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:   client.NewPipeline(pipelineName),
+		Transform:  &pps.Transform{},
+		SpecCommit: &pfs.Commit{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "cannot resolve commit with no branch", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:   client.NewPipeline(pipelineName),
+		Transform:  &pps.Transform{},
+		SpecCommit: &pfs.Commit{Branch: &pfs.Branch{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "cannot resolve commit with no repo", err.Error())
 
 	dataRepo := tu.UniqueString("TestMalformedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8891,31 +8905,6 @@ func TestMalformedPipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "Empty spec string", err.Error())
-
-	// TODO: Implement git inputs.
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:  client.NewPipeline(pipelineName),
-	//	Transform: &pps.Transform{},
-	//	Input:     &pps.Input{Git: &pps.GitInput{}},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "clone URL is missing \\(", err.Error())
-
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:  client.NewPipeline(pipelineName),
-	//	Transform: &pps.Transform{},
-	//	Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar"}},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "clone URL is missing .git suffix", err.Error())
-
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:  client.NewPipeline(pipelineName),
-	//	Transform: &pps.Transform{},
-	//	Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar.git"}},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "clone URL must use https protocol", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:  client.NewPipeline(pipelineName),
@@ -9306,59 +9295,6 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	require.Equal(t, inputB, pipelineInfo.Details.Input.Pfs.Repo)
 }
 
-func TestSystemRepoDependence(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-	input := tu.UniqueString("in")
-	pipeline := tu.UniqueString("pipeline")
-
-	require.NoError(t, c.CreateRepo(input))
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(input, "/*"),
-		"",
-		false,
-	))
-
-	// meta repo has no subvenance
-	_, err := c.PfsAPIClient.DeleteRepo(
-		c.Ctx(),
-		&pfs.DeleteRepoRequest{
-			Repo: client.NewSystemRepo(pipeline, pfs.MetaRepoType),
-		})
-	require.NoError(t, err)
-
-	// but spec repo does
-	_, err = c.PfsAPIClient.DeleteRepo(
-		c.Ctx(),
-		&pfs.DeleteRepoRequest{
-			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
-		})
-	require.YesError(t, err)
-
-	require.NoError(t, c.DeletePipeline(pipeline, false))
-
-	_, err = c.PfsAPIClient.InspectRepo(
-		c.Ctx(),
-		&pfs.InspectRepoRequest{
-			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
-		},
-	)
-	// spec repo should have been deleted
-	require.YesError(t, err)
-	require.True(t, errutil.IsNotFoundError(grpcutil.ScrubGRPC(err)))
-}
-
 func TestPipelineAutoscaling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -9539,7 +9475,11 @@ func TestNonrootPipeline(t *testing.T) {
 			Input:        client.NewPFSInput(dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
-			PodPatch:     `[{"op": "add",  "path": "/securityContext/runAsUser",  "value": 1000}]`,
+			PodPatch: `[
+				{"op": "add",  "path": "/securityContext",  "value": {}},
+				{"op": "add",  "path": "/securityContext/runAsUser",  "value": 1000}
+			]`,
+			Autoscaling: false,
 		},
 	)
 	require.NoError(t, err)
@@ -9628,7 +9568,6 @@ func TestRewindCrossPipeline(t *testing.T) {
 	_, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	fmt.Println("moving to ", oldCommit)
 	// now, move dataRepo back to the saved commit
 	require.NoError(t, c.CreateBranch(dataRepo, "master", "master", oldCommit.Commit.ID, nil))
 	_, err = c.WaitCommit(pipeline, "master", "")

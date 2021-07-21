@@ -60,3 +60,26 @@ This section describes the following Pachyderm concepts:
      </div>
   </div>
 </div>
+<div class="row">
+  <div class="column-2">
+    <div class="card-square mdl-card mdl-shadow--2dp">
+      <div class="mdl-card__title mdl-card--expand">
+        <h4 class="mdl-card__title-text">Advanced Concepts &nbsp;&nbsp; &nbsp;<i class="fa fa-rocket"></i></h4>
+      </div>
+      <div class="mdl-card__supporting-text">
+        More about Pachyderm abstractions: Global IDs, 
+        deferred processing, and distributed computing.
+      </div>
+      <div class="mdl-card__actions mdl-card--border">
+          <ul>
+            <li><a href="../concepts/advanced-concepts/globalID/" class="md-typeset md-link">
+            Advanced Concepts
+            </a>
+            </li>
+          </ul>
+      </div>
+    </div>
+  </div>
+  <div class="column-2">
+  </div>
+</div>

@@ -100,6 +100,11 @@ func (a *InactiveAPIServer) WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.
 	return nil, auth.ErrNotActivated
 }
 
+// GetRolesForPermission implements the GetRolesForPermission RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetRolesForPermission(context.Context, *auth.GetRolesForPermissionRequest) (*auth.GetRolesForPermissionResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // GetRobotToken implements the GetRobotToken RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetRobotToken(context.Context, *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error) {
 	return nil, auth.ErrNotActivated
