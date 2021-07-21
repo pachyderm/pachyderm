@@ -27,7 +27,7 @@ type GlobalConfiguration struct {
 	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT"`
 	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
 	PostgresDBName                 string `env:"POSTGRES_DATABASE"`
-	PostgresUser                   string `env:"POSTGRES_USER,default=postgres"`
+	PostgresUser                   string `env:"POSTGRES_USER,default=pachyderm"`
 	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
 	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=10"`
 	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=2"`
