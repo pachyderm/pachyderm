@@ -1215,16 +1215,17 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		return nil, err
 	}
 
-	token, err := auth.GetAuthToken(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	// try to lookup pre-computed subject
 	if subject := internalauth.GetWhoAmI(ctx); subject != "" {
 		return &auth.TokenInfo{
 			Subject: subject,
 		}, nil
+	}
+
+	// otherwise, we need a token
+	token, err := auth.GetAuthToken(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	tokenInfo, lookupErr := a.lookupAuthTokenInfo(ctx, auth.HashToken(token))

@@ -79,11 +79,11 @@ func setWhoAmI(ctx context.Context, username string) context.Context {
 	return context.WithValue(ctx, whoAmIResultKey, username)
 }
 
-// AsInternalUser gives a context's a cached whoami username of form internal:<name>. It also
-// strips away existing incoming metadata to add an empty auth token. As a result, this context will
-// not be able to make additional gRPCs
+// AsInternalUser should never be used during user requests, only internal background jobs.
+// It gives a context a cached whoami username of form internal:<name>. It also overwrites
+// any existing metadata. As a result, this context may not be able to make additional gRPCs.
 func AsInternalUser(ctx context.Context, username string) context.Context {
-	emptyToken := metadata.New(map[string]string{auth.ContextTokenKey: ""})
-	ctx = metadata.NewIncomingContext(ctx, emptyToken)
+	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
+	ctx = metadata.NewOutgoingContext(ctx, metadata.MD{})
 	return context.WithValue(ctx, whoAmIResultKey, auth.InternalPrefix+strings.TrimPrefix(username, auth.InternalPrefix))
 }
