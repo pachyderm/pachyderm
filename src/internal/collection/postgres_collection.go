@@ -256,7 +256,7 @@ func (c *postgresCollection) list(
 		}
 	}
 
-	rows, err := sqlx.NamedQueryContext(ctx, q, query, params)
+	rows, err := q.QueryxContext(ctx, query, params)
 	if err != nil {
 		return c.mapSQLError(err, "")
 	}
