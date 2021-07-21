@@ -350,7 +350,7 @@
                 "postgresql": {
                     "type": "object",
                     "properties": {
-                        "dbName": {
+                        "database": {
                             "type": "string"
                         },
                         "host": {
@@ -557,6 +557,25 @@
                 }
             }
         },
+        "pgbouncer": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "postgresql": {
             "type": "object",
             "properties": {
@@ -617,9 +636,6 @@
                             "type": "string"
                         }
                     }
-                },
-                "usesRoot": {
-                    "type": "boolean"
                 }
             }
         }
