@@ -55,10 +55,6 @@ export type CreateBranchRequestObject = {
   newCommitSet: CreateBranchRequest.AsObject['newCommitSet'];
 };
 
-export type InspectBranchRequestObject = {
-  branch: BranchObject;
-};
-
 export type ListBranchRequestObject = {
   repo: RepoObject;
   reverse?: ListBranchRequest.AsObject['reverse'];
@@ -202,17 +198,12 @@ export const createBranchRequestFromObject = ({
 
   request.setHead(commitFromObject(head));
   request.setBranch(branchFromObject(branch));
-
-  // generate provenance object array if it exists
-  if (provenance.length !== 0) {
-    const provenanceArray: Branch[] = [];
-    provenance.forEach((eachProvenanceObject) => {
-      provenanceArray.push(branchFromObject(eachProvenanceObject));
+  
+  if (provenance) {
+    const provenanceArray: Branch[] = provenance.map((eachProvenanceObject) => {
+      return branchFromObject(eachProvenanceObject);
     });
     request.setProvenanceList(provenanceArray);
-  } else {
-    // resort to an empty array if not
-    request.setProvenanceList([]);
   }
 
   request.setTrigger(triggerFromObject(trigger));
