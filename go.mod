@@ -99,3 +99,5 @@ replace github.com/sercand/kuberesolver => github.com/sercand/kuberesolver v1.0.
 replace google.golang.org/grpc => google.golang.org/grpc v1.29.1
 
 replace github.com/prometheus/common => github.com/prometheus/common v0.9.1
+
+replace github.com/golang/protobuf => github.com/golang/protobuf v1.3.5
