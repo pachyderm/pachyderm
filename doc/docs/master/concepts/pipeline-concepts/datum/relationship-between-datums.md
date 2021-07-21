@@ -11,24 +11,34 @@ concepts:
 A datum is a Pachyderm abstraction that helps in optimizing
 pipeline processing. Datums exist only as a pipeline
 processing property and are not filesystem objects. You can never
-copy a datum. Instead, a datum, as a representation of a unit
-of work, helps you to run your pipelines much faster by avoiding
-repeated processing of unchanged datums. For example, if you have
-multiple datums, and only one datum was modified, Pachyderm processes
-only that datum and skips processing other datums. This incremental
-behavior ensures efficient resource utilization.
+copy a datum. They simply are a representation of a unit
+of work.
+
+## Incrementality 
+In Pachyderm, glob patterns are applied to the entire input, 
+however, unchanged datums are never re-processed. 
+For example, if you have multiple datums, 
+and only one datum was modified, Pachyderm processes only that datum 
+and `skips` processing other datums. 
+This incremental behavior ensures efficient resource utilization.
+
 
 Each Pachyderm job can process multiple datums, which can consist
-of one or multiple files. While each input datum results in one output
-datum, the number of files in the output datum might differ from
-the number of files in the input datum.
+of one or multiple files. Each input datum results in one output
+datum. In other word, make sure that each datum write to one unique path file each. An easy way to do this is to use the env variable holding your unique Datum ID.
+
+!!! Attention
+    If two datums write to the same output file, it will raise an error. 
+
+ 
+If you need the files merged into a single file, you will need to add a pipeline that groups the files into single datums using that metadata and merges them using your code.
 
 When you create a pipeline specification, one of the most important
 fields that you need to configure is `pfs/`, or PFS input.
 The PFS input field is where you define a data source from which
 the pipeline pulls data for further processing. The `glob`
 parameter defines the number of datums in the `pfs/` source
-repository. Thus, you can define everything in the source repository
+repository. You can define everything in the source repository
 to be processed as a single datum or break it down to multiple
 datums. The way you break your source repository into datums
 directly affects incremental processing and your pipeline
@@ -61,6 +71,7 @@ well by using the `--overwrite` flag. The order of processing
 is not guaranteed, and all datums are processed randomly.
 For more information, see [File](../../data-concepts/file.md).
 
+## Job Processing and Datums
 When new data comes in, a Pachyderm pipeline automatically
 starts a new job. Each Pachyderm job consists of the
 following stages:
