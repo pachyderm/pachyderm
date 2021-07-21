@@ -1,6 +1,7 @@
 import {
   commitFromObject,
   createRepoRequestFromObject,
+  deleteRepoRequestFromObject,
   fileFromObject,
   fileInfoFromObject,
   repoFromObject,
@@ -137,5 +138,24 @@ describe('grpc/builders/pfs', () => {
     expect(createRepoRequest.getRepo()?.getName()).toBe('test');
     expect(createRepoRequest.getDescription()).toBe('this is a discription.');
     expect(createRepoRequest.getUpdate()).toBe(true);
+  });
+
+  it('should create deleteRepoRequest from an object without force by default', () => {
+    const deleteRepoRequest = deleteRepoRequestFromObject({
+      repo: {name: 'test'},
+    });
+
+    expect(deleteRepoRequest.getRepo()?.getName()).toBe('test');
+    expect(deleteRepoRequest.getForce()).toBe(false);
+  });
+
+  it('should create deleteRepoRequest from an object with force', () => {
+    const deleteRepoRequest = deleteRepoRequestFromObject({
+      repo: {name: 'test'},
+      force: true
+    });
+
+    expect(deleteRepoRequest.getRepo()?.getName()).toBe('test');
+    expect(deleteRepoRequest.getForce()).toBe(true);
   });
 });
