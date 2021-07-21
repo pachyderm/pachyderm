@@ -1,11 +1,11 @@
 import {
   commitFromObject,
+  createRepoRequestFromObject,
+  deleteRepoRequestFromObject,
   commitSetFromObject,
   fileFromObject,
   fileInfoFromObject,
   inspectCommitSetRequestFromObject,
-  createRepoRequestFromObject,
-  deleteRepoRequestFromObject,
   createBranchRequestFromObject,
   listBranchRequestFromObject,
   deleteBranchRequestFromObject,
