@@ -26,7 +26,7 @@ const (
 	// JobHeader is the header for jobs
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// JobSetHeader is the header for jobsets
-	JobSetHeader = "ID\tJOBS\tPROGRESS\tCREATED\tMODIFIED\n"
+	JobSetHeader = "ID\tSUBJOBS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// DatumHeader is the header for datums
 	DatumHeader = "ID\tFILES\tSTATUS\tTIME\t\n"
 	// SecretHeader is the header for secrets
