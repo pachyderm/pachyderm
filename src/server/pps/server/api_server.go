@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -792,10 +793,9 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	specCommit := client.NewSystemRepo(jobInfo.Job.Pipeline.Name, pfs.SpecRepoType).NewCommit("master", jobInfo.OutputCommit.ID)
 	pipelineInfo.SpecCommit = specCommit
 
-	pachClient := a.env.GetPachClient(ctx)
 	// If the commits for the job have been squashed, the pipeline spec can no
 	// longer be read for this job
-	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
+	if err := internal.GetPipelineDetails(ctx, a.env.PfsServer(), pipelineInfo); err != nil {
 		return err
 	}
 
@@ -1874,7 +1874,7 @@ func (a *apiServer) latestPipelineInfo(txnCtx *txncontext.TransactionContext, pi
 		return nil, err
 	}
 	// the spec commit must already exist outside of the transaction, so we can retrieve it normally
-	if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(txnCtx.ClientContext), pipelineInfo); err != nil {
+	if err := internal.GetPipelineDetails(txnCtx.ClientContext, a.env.PfsServer(), pipelineInfo); err != nil {
 		return nil, err
 	}
 	return pipelineInfo, nil
@@ -2357,8 +2357,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	pipelineInfo.SpecCommit.ID = ancestry.Add(pipelineInfo.SpecCommit.ID, ancestors)
 	if details {
 		// the spec commit must already exist outside of the transaction, so we can retrieve it normally
-		pachClient := a.env.GetPachClient(txnCtx.ClientContext)
-		if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
+		if err := internal.GetPipelineDetails(txnCtx.ClientContext, a.env.PfsServer(), pipelineInfo); err != nil {
 			return nil, err
 		}
 		if pipelineInfo.Details.Service != nil {
@@ -2459,9 +2458,8 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	for i := 0; i < 20; i++ {
 		eg.Go(func() error {
 			for info := range infos {
-				pachClient := a.env.GetPachClient(ctx)
 				if request.Details {
-					if err := ppsutil.GetPipelineDetails(pachClient, info); err != nil {
+					if err := internal.GetPipelineDetails(ctx, a.env.PfsServer(), info); err != nil {
 						return err
 					}
 				}
@@ -2566,11 +2564,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 
 	// Load pipeline details so we can do some cleanup tasks based on certain
 	// input types and the output branch.
-	pachClient := a.env.GetPachClient(ctx)
-	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
+	if err := internal.GetPipelineDetails(ctx, a.env.PfsServer(), pipelineInfo); err != nil {
 		return err
 	}
 
+	pachClient := a.env.GetPachClient(ctx)
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
 	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
