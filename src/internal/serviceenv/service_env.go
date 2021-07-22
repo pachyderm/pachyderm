@@ -311,7 +311,7 @@ func (env *NonblockingServiceEnv) initDirectDBClient() error {
 			// If you see this message in production, it's a bug.  In tests, it's OK.
 			log.WithError(err).Warn("problem registering database statistics collector")
 		}
-		return nil
+		return db.Ping()
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
@@ -336,7 +336,7 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 			// If you see this message in production, it's a bug.  In tests, it's OK.
 			log.WithError(err).Warn("problem registering database statistics collector")
 		}
-		return nil
+		return db.Ping()
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
