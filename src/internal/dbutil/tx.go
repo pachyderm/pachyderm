@@ -111,8 +111,9 @@ func WithBackOff(bo backoff.BackOff) WithTxOption {
 // If cb returns an error the transaction is rolled back.
 func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts ...WithTxOption) error {
 	backoffStrategy := backoff.NewExponentialBackOff()
-	backoffStrategy.InitialInterval = 10 * time.Millisecond
+	backoffStrategy.InitialInterval = 1 * time.Millisecond
 	backoffStrategy.MaxElapsedTime = 0
+	backoffStrategy.Multiplier = 1.05
 	c := &withTxConfig{
 		TxOptions: sql.TxOptions{
 			Isolation: sql.LevelSerializable,
