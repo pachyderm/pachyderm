@@ -176,14 +176,14 @@ launch: install check-kubectl
 	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-launch-dev: check-kubectl check-kubectl-connection install
+launch-dev: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
-	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values.yaml
+	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values.yaml --set $(LAUNCH_DEV_ARGS)
 	# wait for the pachyderm to come up
 	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-launch-enterprise: check-kubectl check-kubectl-connection install
+launch-enterprise: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
 	helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml
