@@ -64,7 +64,6 @@ environment variables.
 | `LOG_LEVEL`                | `info`   | Verbosity of the log output. If you want to disable <br> logging, set this variable to `0`. Viable Options <br>`debug` <br>`info` <br> `error`<br>For more information, see [Go logrus log levels](https://godoc.org/github.com/sirupsen/logrus#Level). ||
 | `IAM_ROLE`                 |  `""`    | The role that defines permissions for Pachyderm in AWS.|
 | `IMAGE_PULL_SECRET`        |  `""`    | The Kubernetes secret for image pull credentials.|
-| `NO_EXPOSE_DOCKER_SOCKET`  |  `false` | Controls whether you can build images using <br> the `--build` command.|
 | `EXPOSE_OBJECT_API`        |  `false` | Controls access to internal Pachyderm API.|
 | `WORKER_USES_ROOT`         |  `true`  | Controls root access in the worker container.|
 | `S3GATEWAY_PORT`           |  `600`   | The S3 gateway port number|

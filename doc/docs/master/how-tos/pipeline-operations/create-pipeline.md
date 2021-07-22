@@ -117,7 +117,7 @@ To access the old files, complete the following steps:
    pachctl list commit <repo>@<master>
    ```
 
-1. Then, use the commit ID to access the old files:
+2. Then, use the commit ID to access the old files:
 
    ```shell
    pachctl list file <repo>@<commit_ID>
