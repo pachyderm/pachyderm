@@ -294,6 +294,17 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 	})
 
+	suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
+		t.Parallel()
+		_, bucket := testutil.NewObjectClient(t)
+		pi := defaultPipelineInfo()
+		pi.Details.Input.Pfs.Glob = "/"
+		pi.Details.Egress = &pps.Egress{URL: fmt.Sprintf("local://%s/", bucket)}
+		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
+
+		testJobSuccess(t, env, pi, nil)
+	})
+
 	suite.Run("TestJobFailedDatum", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()

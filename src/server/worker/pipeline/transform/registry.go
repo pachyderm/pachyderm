@@ -483,7 +483,9 @@ func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
 
 func (reg *registry) processJobEgressing(pj *pendingJob) error {
 	url := pj.ji.Details.Egress.URL
-	if err := pj.driver.PachClient().GetFileURL(pj.commitInfo.Commit, "/", url); err != nil {
+	err := pj.driver.PachClient().GetFileURL(pj.commitInfo.Commit, "/", url)
+	// file not found means the commit is empty, nothing to egress
+	if err != nil && !pfsserver.IsFileNotFoundErr(err) {
 		return err
 	}
 	return reg.succeedJob(pj)
