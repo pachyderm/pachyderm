@@ -101,8 +101,7 @@ specification like this:
         "cmd": ["sh" ],
         "stdin": ["env"],
         "image": "ubuntu:14.04"
-    },
-    "enable_stats": true
+    }
 }
 ```
 
