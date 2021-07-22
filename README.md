@@ -2,6 +2,8 @@
 
 **This repo is currently in the process of being moved into the [Pachyderm Repo](https://github.com/pachyderm/pachyderm) Please submit pull requests and issues there.**
 
+Currently this repo is still used for GH releases and artifacthub.
+
 Migration Status:
 - [x] Pachyderm 2.x chart (in master branch, under etc/helm)
 - [ ] Pachyderm 1.x chart (will be moved to 1.13.x branch line)
