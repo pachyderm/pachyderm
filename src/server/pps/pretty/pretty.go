@@ -14,6 +14,7 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
@@ -80,10 +81,9 @@ func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestam
 	var created *types.Timestamp
 	var modified *types.Timestamp
 	for _, job := range jobSetInfo.Jobs {
-		switch job.State {
-		case ppsclient.JobState_JOB_SUCCESS:
+		if job.State == ppsclient.JobState_JOB_SUCCESS {
 			success++
-		case ppsclient.JobState_JOB_FAILURE:
+		} else if ppsutil.IsTerminal(job.State) {
 			failure++
 		}
 
