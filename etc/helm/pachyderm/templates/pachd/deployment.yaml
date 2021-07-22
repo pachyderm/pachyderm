@@ -71,13 +71,13 @@ spec:
           #value:
         - name: STORAGE_BACKEND
           value: {{ include "pachyderm.storageBackend" . | quote }}
-          {{- if eq .Values.deployTarget "LOCAL" }}
+          {{- if eq (include "pachyderm.storageBackend" . ) "LOCAL" }}
         - name: STORAGE_HOST_PATH
           value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
           {{- end }}
         - name: WORKER_IMAGE
           value: "{{ .Values.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
-        {{- if and (eq .Values.deployTarget "LOCAL") .Values.pachd.storage.local.requireRoot }}
+        {{- if and (eq ( include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
         - name: WORKER_USES_ROOT
           value: "True"
         {{- end }}
@@ -171,7 +171,7 @@ spec:
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
         {{- end }}
-      {{- if and (eq .Values.deployTarget "LOCAL") .Values.pachd.storage.local.requireRoot }}
+      {{- if and (eq (include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
       securityContext:
         runAsUser: 0 # Need to run as root local for hostpath support
       {{- end }}
@@ -180,7 +180,7 @@ spec:
       {{- end }}
       volumes:
       - name: pach-disk
-        {{- if eq .Values.deployTarget "LOCAL" }}
+        {{- if eq (include "pachyderm.storageBackend" . ) "LOCAL" }}
         hostPath:
           path: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
           type: DirectoryOrCreate
