@@ -86,10 +86,6 @@ data operations in Pachyderm.
            Update a Pipeline
            </a>
            </li>
-           <li><a href="pipeline-operations/run_pipeline/" class="md-typeset md-link">
-           Run a Pipeline on a Specific Commit
-           </a>
-           </li>
            <li><a href="pipeline-operations/delete-pipeline/" class="md-typeset md-link">
            Delete a Pipeline
            </a>
