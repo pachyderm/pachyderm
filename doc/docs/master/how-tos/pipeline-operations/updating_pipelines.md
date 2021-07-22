@@ -102,7 +102,8 @@ To update the code in your pipeline, complete the following steps:
 
       * If you prefer to use Pachyderm commands:
 
-         1. [Build your new image](../../developer-workflow/working-with-pipelines/#step-2-build-your-docker-image) using `docker build`. No tag needed, the folllowing [`--push-images` flag](../../developer-workflow/push-images-flag/) flag will take care of it.
+         1. [Build your new image](../../developer-workflow/working-with-pipelines/#step-2-build-your-docker-image) using `docker build` (for example, in a makefile: `@docker build --platform linux/amd64 -t $(DOCKER_ACCOUNT)/$(CONTAINER_NAME) .`). No tag needed, the folllowing [`--push-images` flag](../../developer-workflow/push-images-flag/) flag will take care of it.
+
       
          1. Run the following command:
 
