@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
@@ -81,7 +82,7 @@ func (im *indexMap) Index() *index.Index {
 	return im.idx
 }
 
-func (im *indexMap) Content(ctx context.Context, w io.Writer) error {
+func (im *indexMap) Content(ctx context.Context, w io.Writer, opts ...chunk.ReaderOption) error {
 	return im.inner.Content(ctx, w)
 }
 

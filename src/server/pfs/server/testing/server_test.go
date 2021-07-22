@@ -2392,6 +2392,29 @@ func TestPFS(suite *testing.T) {
 			err = env.PachClient.GetFile(commit, "dir", &buffer)
 			require.YesError(t, err)
 		})
+		t.Run("WithOffset", func(t *testing.T) {
+			repo := "repo"
+			require.NoError(t, env.PachClient.CreateRepo(repo))
+
+			commit, err := env.PachClient.StartCommit(repo, "master")
+			require.NoError(t, err)
+
+			file := "file"
+			data := "data"
+			require.NoError(t, env.PachClient.PutFile(commit, file, strings.NewReader(data)))
+
+			require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+
+			for i := 0; i <= len(data); i++ {
+				var b bytes.Buffer
+				require.NoError(t, env.PachClient.GetFile(commit, "file", &b, client.WithOffsetBytes(int64(i))))
+				if i < len(data) {
+					require.Equal(t, data[i:], b.String())
+				} else {
+					require.Equal(t, "", b.String())
+				}
+			}
+		})
 	})
 
 	suite.Run("ManyPutsSingleFileSingleCommit", func(t *testing.T) {

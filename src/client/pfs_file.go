@@ -415,18 +415,23 @@ func (c APIClient) RenewFileSet(ID string, ttl time.Duration) (retErr error) {
 // size limits the total amount of data returned, note you will get fewer bytes
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
-func (c APIClient) GetFile(commit *pfs.Commit, path string, w io.Writer) (retErr error) {
+func (c APIClient) GetFile(commit *pfs.Commit, path string, w io.Writer, opts ...GetFileOption) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
-	gfc, err := c.PfsAPIClient.GetFile(ctx, &pfs.GetFileRequest{
+	gf := &pfs.GetFileRequest{
 		File: &pfs.File{
 			Commit: commit,
 			Path:   path,
 		},
-	})
+	}
+	for _, opt := range opts {
+		opt(gf)
+	}
+
+	gfc, err := c.PfsAPIClient.GetFile(ctx, gf)
 	if err != nil {
 		return err
 	}

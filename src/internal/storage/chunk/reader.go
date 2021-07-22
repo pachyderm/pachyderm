@@ -7,29 +7,49 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
+	"github.com/sirupsen/logrus"
 )
 
 // Reader reads data from chunk storage.
 type Reader struct {
-	ctx      context.Context
-	client   Client
-	memCache kv.GetPut
-	dataRefs []*DataRef
+	ctx         context.Context
+	client      Client
+	memCache    kv.GetPut
+	dataRefs    []*DataRef
+	offsetBytes int64
 }
 
-func newReader(ctx context.Context, client Client, memCache kv.GetPut, dataRefs []*DataRef) *Reader {
-	return &Reader{
+type ReaderOption func(*Reader)
+
+func WithOffsetBytes(offsetBytes int64) ReaderOption {
+	return func(r *Reader) {
+		r.offsetBytes = offsetBytes
+	}
+}
+
+func newReader(ctx context.Context, client Client, memCache kv.GetPut, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
+	r := &Reader{
 		ctx:      ctx,
 		client:   client,
 		memCache: memCache,
 		dataRefs: dataRefs,
 	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
 }
 
 // Iterate iterates over the data readers for the data references.
 func (r *Reader) Iterate(cb func(*DataReader) error) error {
+	offset := r.offsetBytes
 	for _, dataRef := range r.dataRefs {
-		dr := newDataReader(r.ctx, r.client, r.memCache, dataRef)
+		if dataRef.SizeBytes <= offset {
+			offset -= dataRef.SizeBytes
+			continue
+		}
+		dr := newDataReader(r.ctx, r.client, r.memCache, dataRef, offset)
+		offset = 0
 		if err := cb(dr); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
@@ -53,14 +73,16 @@ type DataReader struct {
 	client   Client
 	memCache kv.GetPut
 	dataRef  *DataRef
+	offset   int64
 }
 
-func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, dataRef *DataRef) *DataReader {
+func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, dataRef *DataRef, offset int64) *DataReader {
 	return &DataReader{
 		ctx:      ctx,
 		client:   client,
 		memCache: memCache,
 		dataRef:  dataRef,
+		offset:   offset,
 	}
 }
 
@@ -71,8 +93,9 @@ func (dr *DataReader) DataRef() *DataRef {
 
 // Get writes the data referenced by the data reference.
 func (dr *DataReader) Get(w io.Writer) error {
+	logrus.Errorf("Offset:::: %v", dr.offset)
 	return Get(dr.ctx, dr.client, dr.memCache, dr.dataRef.Ref, func(chunk []byte) error {
-		data := chunk[dr.dataRef.OffsetBytes : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
+		data := chunk[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
 		_, err := w.Write(data)
 		return err
 	})
