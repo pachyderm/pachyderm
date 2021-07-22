@@ -1,6 +1,6 @@
 .base {
     width: 100%;
-    font-size: var(--font-size-body-medium);
+    font-size: var(--font-size-body-large);
     background-color: var(--background-grey);
     flex: 1;
 }

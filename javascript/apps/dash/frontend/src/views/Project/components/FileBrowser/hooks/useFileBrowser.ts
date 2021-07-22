@@ -1,14 +1,17 @@
 import {useModal} from '@pachyderm/components';
-import {useState, useMemo} from 'react';
+import {useState, useMemo, useCallback} from 'react';
 
 import {useFiles} from '@dash-frontend/hooks/useFiles';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 
 const useFileBrowser = () => {
-  const {repoId, commitId, branchId, filePath} = useUrlState();
+  const {repoId, commitId, branchId, filePath, projectId} = useUrlState();
   const [fileFilter, setFileFilter] = useState('');
   const [fileView, setFileView] = useState<'list' | 'icon'>('list');
   const {closeModal, isOpen} = useModal(true);
+  const {viewState, setUrlFromViewState} = useUrlQueryState();
   const path = `/${filePath}`;
 
   const {files, loading} = useFiles({
@@ -38,6 +41,19 @@ const useFileBrowser = () => {
     return hasFileType && files.find((file) => file.path === path);
   }, [path, files]);
 
+  const handleHide = useCallback(() => {
+    closeModal();
+
+    const nextPath =
+      viewState.prevFileBrowserPath ||
+      repoRoute({projectId, repoId, branchId}, false);
+
+    setTimeout(
+      () => setUrlFromViewState({prevFileBrowserPath: undefined}, nextPath),
+      500,
+    );
+  }, [projectId, repoId, branchId, setUrlFromViewState, closeModal, viewState]);
+
   return {
     fileFilter,
     setFileFilter,
@@ -49,6 +65,7 @@ const useFileBrowser = () => {
     loading,
     fileToPreview,
     isDirectory,
+    handleHide,
   };
 };
 

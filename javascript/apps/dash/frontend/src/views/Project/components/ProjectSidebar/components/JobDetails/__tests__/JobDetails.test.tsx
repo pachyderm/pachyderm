@@ -3,9 +3,16 @@ import {formatDistanceToNow, fromUnixTime} from 'date-fns';
 import React from 'react';
 import {Route} from 'react-router';
 
-import {withContextProviders, click} from '@dash-frontend/testHelpers';
+import {
+  withContextProviders,
+  click,
+  getUrlState,
+} from '@dash-frontend/testHelpers';
 import {JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
-import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
+import {
+  fileBrowserRoute,
+  jobRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 
 import JobDetails from '../';
 
@@ -162,5 +169,47 @@ describe('Job Details', () => {
     expect(window.location.pathname).toBe(
       jobRoute({projectId, jobId, pipelineId: 'likelihoods'}, false),
     );
+  });
+
+  it('should allow the user to navigate to the output commit', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      jobRoute({projectId, jobId, pipelineId: 'models'}),
+    );
+
+    const {queryByTestId, getByTestId} = render(<TestBed />);
+
+    await waitFor(() =>
+      expect(queryByTestId('JobDetails__loading')).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(
+        queryByTestId('Description__InputsSkeleton'),
+      ).not.toBeInTheDocument(),
+    );
+
+    const outputCommitLink = getByTestId('InfoPanel__commitLink');
+
+    click(outputCommitLink);
+
+    expect(window.location.pathname).toBe(
+      fileBrowserRoute(
+        {
+          repoId: 'models',
+          branchId: 'master',
+          commitId: jobId,
+          projectId,
+        },
+        false,
+      ),
+    );
+
+    expect(getUrlState()).toMatchObject({
+      prevFileBrowserPath: jobRoute(
+        {projectId, jobId, pipelineId: 'models'},
+        false,
+      ),
+    });
   });
 });

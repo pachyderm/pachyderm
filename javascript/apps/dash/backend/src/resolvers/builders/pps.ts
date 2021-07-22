@@ -112,6 +112,7 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
       ? JSON.stringify(jobInfo.details?.input, null, 2)
       : undefined,
     inputBranch: jobInfo.details?.input?.pfs?.branch,
+    outputBranch: jobInfo.outputCommit?.branch?.name,
   };
 };
 

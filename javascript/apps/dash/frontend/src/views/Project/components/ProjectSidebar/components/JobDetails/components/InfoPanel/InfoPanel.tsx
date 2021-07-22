@@ -1,20 +1,22 @@
-import {FileDocSVG, Link} from '@pachyderm/components';
+import {ButtonLink, FileDocSVG, Link} from '@pachyderm/components';
 import {
   fromUnixTime,
   formatDistanceToNow,
   formatDistanceStrict,
 } from 'date-fns';
-import React, {useMemo} from 'react';
-import {useRouteMatch, Redirect} from 'react-router';
+import React, {useCallback, useMemo} from 'react';
+import {useRouteMatch, Redirect, useLocation} from 'react-router';
 
 import {NOT_FOUND_ERROR_CODE} from '@dash-backend/lib/types';
 import Description from '@dash-frontend/components/Description';
 import JSONBlock from '@dash-frontend/components/JSONBlock';
 import JsonSpec from '@dash-frontend/components/JsonSpec';
 import {useJob} from '@dash-frontend/hooks/useJob';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {ProjectRouteParams} from '@dash-frontend/lib/types';
 import {
+  fileBrowserRoute,
   jobRoute,
   logsViewerJobRoute,
 } from '@dash-frontend/views/Project/utils/routes';
@@ -30,12 +32,31 @@ const InfoPanel = () => {
   const {
     params: {jobId, projectId, pipelineId},
   } = useRouteMatch<InfoPanelParams>();
+  const {pathname} = useLocation();
+  const {setUrlFromViewState} = useUrlQueryState();
 
   const {job, loading, error} = useJob({
     id: jobId,
     pipelineName: pipelineId,
     projectId,
   });
+
+  const handleCommitClick = useCallback(() => {
+    if (job?.outputBranch) {
+      setUrlFromViewState(
+        {prevFileBrowserPath: pathname},
+        fileBrowserRoute(
+          {
+            projectId,
+            commitId: job.id,
+            branchId: job.outputBranch,
+            repoId: job.pipelineName,
+          },
+          false,
+        ),
+      );
+    }
+  }, [setUrlFromViewState, job, pathname, projectId]);
 
   const transformString = useMemo(() => {
     if (job?.transform) {
@@ -103,8 +124,21 @@ const InfoPanel = () => {
         </Link>
       </div>
 
-      <Description term="ID" loading={loading} data-testid="InfoPanel__id">
-        {job?.id}
+      <Description
+        term="Output Commit"
+        loading={loading}
+        data-testid="InfoPanel__id"
+      >
+        {job?.outputBranch ? (
+          <ButtonLink
+            onClick={handleCommitClick}
+            data-testid="InfoPanel__commitLink"
+          >
+            {job?.id}
+          </ButtonLink>
+        ) : (
+          <>{job?.id}</>
+        )}
       </Description>
       <Description
         term="Pipeline"

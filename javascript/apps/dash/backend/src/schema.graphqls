@@ -166,6 +166,7 @@ type Job {
   transform: Transform
   inputString: String
   inputBranch: String
+  outputBranch: String
 }
 
 enum NodeType {

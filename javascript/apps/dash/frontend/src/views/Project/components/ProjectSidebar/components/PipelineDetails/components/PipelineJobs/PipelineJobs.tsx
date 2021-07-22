@@ -1,4 +1,3 @@
-import {FileDocSVG, Link} from '@pachyderm/components';
 import React from 'react';
 import {Redirect} from 'react-router';
 
@@ -6,10 +5,7 @@ import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/E
 import JobList from '@dash-frontend/components/JobList';
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {
-  logsViewerPipelneRoute,
-  pipelineRoute,
-} from '@dash-frontend/views/Project/utils/routes';
+import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import styles from './PipelineJobs.module.css';
 

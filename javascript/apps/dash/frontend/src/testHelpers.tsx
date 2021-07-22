@@ -9,6 +9,7 @@ import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 import {Account, Dag} from '@graphqlTypes';
 
 import useRouteController from './hooks/useRouteController';
+import {UrlState} from './hooks/useUrlQueryState';
 import {PROJECT_PATHS} from './views/Project/constants/projectPaths';
 
 export {default as server} from '@dash-backend/index';
@@ -77,4 +78,9 @@ export const type = async (
   await act(async () => {
     await userEvent.type(element, text, userOpts);
   });
+};
+
+export const getUrlState = (): UrlState => {
+  const searchParams = new URLSearchParams(window.location.search);
+  return JSON.parse(atob(searchParams.get('view') || '{}'));
 };

@@ -4,10 +4,11 @@ import {useHistory, useLocation} from 'react-router';
 
 import {DagDirection, JobState} from '@graphqlTypes';
 
-interface UrlState {
+export interface UrlState {
   dagDirection?: DagDirection;
   sidebarWidth?: number;
   jobFilters?: JobState[];
+  prevFileBrowserPath?: string;
 }
 
 const getViewStateFromSearchParams = (searchParams: URLSearchParams) => {

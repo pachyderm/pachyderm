@@ -12,10 +12,7 @@ import {Route, Switch, useHistory} from 'react-router';
 
 import Breadcrumb from '@dash-frontend/components/Breadcrumb';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {
-  repoRoute,
-  fileBrowserRoute,
-} from '@dash-frontend/views/Project/utils/routes';
+import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import {
   FILE_BROWSER_DIR_PATH,
@@ -37,7 +34,7 @@ const FileBrowser: React.FC = () => {
     setFileFilter,
     fileView,
     setFileView,
-    closeModal,
+    handleHide,
     isOpen,
     filteredFiles,
     loading,
@@ -57,17 +54,7 @@ const FileBrowser: React.FC = () => {
   }
 
   return (
-    <FullPageModal
-      show={isOpen}
-      onHide={() => {
-        closeModal();
-        setTimeout(
-          () => browserHistory.push(repoRoute({projectId, repoId, branchId})),
-          500,
-        );
-      }}
-      hideType="exit"
-    >
+    <FullPageModal show={isOpen} onHide={handleHide} hideType="exit">
       <div className={styles.base}>
         <FileHeader fileFilter={fileFilter} setFileFilter={setFileFilter} />
         <div className={styles.subHeader}>

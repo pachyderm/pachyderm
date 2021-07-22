@@ -151,6 +151,7 @@ export type Job = {
   transform?: Maybe<Transform>;
   inputString?: Maybe<Scalars['String']>;
   inputBranch?: Maybe<Scalars['String']>;
+  outputBranch?: Maybe<Scalars['String']>;
 };
 
 export type JobQueryArgs = {
@@ -917,6 +918,11 @@ export type JobResolvers<
     ParentType,
     ContextType
   >;
+  outputBranch?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1519,7 +1525,10 @@ export type JobQueryVariables = Exact<{
 }>;
 
 export type JobQuery = {__typename?: 'Query'} & {
-  job: {__typename?: 'Job'} & Pick<Job, 'inputString' | 'inputBranch'> & {
+  job: {__typename?: 'Job'} & Pick<
+    Job,
+    'inputString' | 'inputBranch' | 'outputBranch'
+  > & {
       transform?: Maybe<
         {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
       >;

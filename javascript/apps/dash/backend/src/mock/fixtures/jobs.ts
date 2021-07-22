@@ -14,6 +14,15 @@ const tutorial = [
         {pfs: {repo: 'images', name: 'images', branch: 'master'}},
       ],
     },
+    outputCommit: {
+      id: '23b9af7d5d4343219bc8e02ff44cd55a',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'montage',
+        },
+      },
+    },
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
@@ -23,6 +32,15 @@ const tutorial = [
     job: {id: '23b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'edges'}},
     input: {
       pfs: {repo: 'images', name: 'images', branch: 'master'},
+    },
+    outputCommit: {
+      id: '23b9af7d5d4343219bc8e02ff44cd55a',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'edges',
+        },
+      },
     },
   }),
   jobInfoFromObject({
@@ -56,6 +74,15 @@ const customerTeam = [
     createdAt: {seconds: 1614136189, nanos: 0},
     startedAt: {seconds: 1614136191, nanos: 0},
     job: {id: '23b9af7d5d4343219bc8e02ff4acd33a', pipeline: {name: 'models'}},
+    outputCommit: {
+      id: '23b9af7d5d4343219bc8e02ff4acd33a',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'models',
+        },
+      },
+    },
   }),
   jobInfoFromObject({
     state: JobState.JOB_KILLED,

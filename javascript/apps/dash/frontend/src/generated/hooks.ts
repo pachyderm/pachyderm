@@ -435,6 +435,7 @@ export const JobDocument = gql`
       ...JobOverview
       inputString
       inputBranch
+      outputBranch
       transform {
         cmdList
         image
