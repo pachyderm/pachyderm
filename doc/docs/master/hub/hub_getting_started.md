@@ -11,7 +11,9 @@ you do not need to worry about the underlying infrastructure
 and can get started right away.
 
 !!! Note
-    Let us know how to improve Hub. Join our [Slack channel](http://slack.pachyderm.io).
+    Hub is the quickest and easiest way to get started with Pachyderm.
+    In a few minutes, you are ready to experiment.
+    Note that your first 4 hours are free. 
 ## Get started in 4 simple steps
 ![Hub Steps](../images/hub_steps.png)
 ## Before you start
