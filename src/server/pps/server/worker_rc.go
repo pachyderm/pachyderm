@@ -118,13 +118,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
-	}, {
-		Name:  "POSTGRES_PORT",
-		Value: "",
-	}, {
-		Name:  "POSTGRES_HOST",
-		Value: "",
 	},
+		// These are set explicitly below to prevent kubernetes from setting them to the service host and port.
+		{
+			Name:  "POSTGRES_PORT",
+			Value: "",
+		}, {
+			Name:  "POSTGRES_HOST",
+			Value: "",
+		},
 	}
 
 	// Set up sidecar env vars
