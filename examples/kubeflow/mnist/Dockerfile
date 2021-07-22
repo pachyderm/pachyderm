@@ -1,4 +1,4 @@
-FROM python:3
+FROM python:3.9
 RUN pip3 install kfp
 WORKDIR /app
 ADD pipeline.py .
