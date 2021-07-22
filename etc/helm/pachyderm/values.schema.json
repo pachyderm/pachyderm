@@ -347,7 +347,7 @@
                 "postgresql": {
                     "type": "object",
                     "properties": {
-                        "dbName": {
+                        "database": {
                             "type": "string"
                         },
                         "host": {
@@ -548,6 +548,25 @@
                             }
                         },
                         "secretName": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "pgbouncer": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
                             "type": "string"
                         }
                     }
