@@ -77,13 +77,13 @@ vary.
 To update the code in your pipeline, complete the following steps:
 
 1. Make the code changes.
-2. Verify that the Docker daemon is running:
+1. Verify that the Docker daemon is running:
 
-   ```shell
-   docker ps
-   ```
+      ```shell
+      docker ps
+      ```
 
-   * If you get an error message similar to the following:
+    * If you get an error message similar to the following:
 
      ```shell
      Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
@@ -100,40 +100,45 @@ To update the code in your pipeline, complete the following steps:
 
 1. Build, tag, and push the new image to your image registry:
 
-   * If you prefer to use Pachyderm commands:
+      * If you prefer to use Pachyderm commands:
 
-     1. Build your new image using `docker build`
-     
-     2. Run the following command:
+         1. [Build your new image](../../developer-workflow/working-with-pipelines/#step-2-build-your-docker-image) using `docker build`. No tag needed, the folllowing [`--push-images` flag](../../developer-workflow/push-images-flag/) flag will take care of it.
+      
+         1. Run the following command:
 
-        ```shell
-        pachctl update pipeline -f <pipeline name> --push-images --registry <registry> --username <registry user>
-        ```
+            ```shell
+            pachctl update pipeline -f <pipeline name> --push-images --registry <registry> --username <registry user>
+            ```
 
-        If you use DockerHub, omit the `--registry` flag.
+            If you use DockerHub, omit the `--registry` flag.
 
-        **Example:**
+            **Example:**
 
-        ```shell
-        pachctl update pipeline -f edges.json --push-images --username testuser
-        ```
+            ```shell
+            pachctl update pipeline -f edges.json --push-images --username testuser
+            ```
 
-     1. When prompted, type your image registry password:
+         1. When prompted, type your image registry password:
 
-        **Example:**
+            **Example:**
 
-        ```
-        Password for docker.io/testuser: Building pachyderm/opencv:f1e0239fce5441c483b09de425f06b40, this may take a while.
-        ```
+            ```
+            Password for docker.io/testuser: Building pachyderm/opencv:f1e0239fce5441c483b09de425f06b40, this may take a while.
+            ```
 
-   * If you prefer to use instructions for your image registry:
+      * If you prefer to use instructions for your image registry:
 
-     1. Build, tag, and push a new image as described in the
-     image registry documentation. For example, if you use
-     DockerHub, see [Docker Documentation](https://docs.docker.com/docker-hub/).
+         1. Build, tag, and push a new image as described in the
+          image registry documentation. For example, if you use
+          DockerHub, see [Docker Documentation](https://docs.docker.com/docker-hub/).
 
-     1. Update the pipeline:
+            !!! Important
+                Make sure to update your tag every time you re-build. Our pull policy is `IfNotPresent` (Only pull the image if it does not already exist on the node.) . Failing to update your tag will result in your pipeline running on a previous version of your code.
 
-        ```shell
-        pachctl update pipeline -f <pipeline.json>
-        ```
+         1. Update the `transform.image` field of your pipeline spec with your new tag.
+
+         1. Update the pipeline:
+
+            ```shell
+            pachctl update pipeline -f <pipeline.json>
+            ```
