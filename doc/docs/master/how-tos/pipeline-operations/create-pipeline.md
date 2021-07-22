@@ -52,41 +52,41 @@ To create a pipeline, complete the following steps:
 
 1. Create a pipeline by passing the pipeline configuration to Pachyderm:
 
-   ```shell
-   pachctl create pipeline -f <pipeline_spec>
-   ```
+    ```shell
+    pachctl create pipeline -f <pipeline_spec>
+    ```
 
 1. Verify that the Kubernetes pod has been created for the pipeline:
 
-   ```shell
-   pachctl list pipeline
-   ```
+    ```shell
+    pachctl list pipeline
+    ```
 
-   **System Response:**
+    **System Response:**
 
-   ```shell
-   NAME  VERSION INPUT     CREATED       STATE / LAST JOB   DESCRIPTION
-   edges 1       images:/* 5 seconds ago running / starting A pipeline that performs image edge detection by using the OpenCV library.
-   ```
+    ```shell
+    NAME  VERSION INPUT     CREATED       STATE / LAST JOB   DESCRIPTION
+    edges 1       images:/* 5 seconds ago running / starting A pipeline that performs image edge detection by using the OpenCV library.
+    ```
 
-   You can also run `kubectl` commands to view the pod that has been created:
+    You can also run `kubectl` commands to view the pod that has been created:
 
-   ```shell
-   kubectl get pod
-   ```
+    ```shell
+    kubectl get pod
+    ```
 
-   **System Response:**
+    **System Response:**
 
-   ```shell
-   NAME                      READY   STATUS    RESTARTS   AGE
-   dash-676d6cdf6f-lmfc5     2/2     Running   2          17d
-   etcd-79ffc76f58-ppf28     1/1     Running   1          17d
-   pachd-5485f6ddd-wx8vw     1/1     Running   1          17d
-   pipeline-edges-v1-qhd4f   2/2     Running   0          95s
-   ```
+    ```shell
+    NAME                      READY   STATUS    RESTARTS   AGE
+    dash-676d6cdf6f-lmfc5     2/2     Running   2          17d
+    etcd-79ffc76f58-ppf28     1/1     Running   1          17d
+    pachd-5485f6ddd-wx8vw     1/1     Running   1          17d
+    pipeline-edges-v1-qhd4f   2/2     Running   0          95s
+    ```
 
-   You should see a pod named after your pipeline in the list of pods.
-   In this case, it is `pipeline-edges-v1-qhd4f`.
+    You should see a pod named after your pipeline in the list of pods.
+    In this case, it is `pipeline-edges-v1-qhd4f`.
 
 ## Creating a Pipeline When an Output Repository Already Exists
 
@@ -113,15 +113,15 @@ To access the old files, complete the following steps:
 
 1. View the list of all commits:
 
-   ```shell
-   pachctl list commit <repo>@<master>
-   ```
+    ```shell
+    pachctl list commit <repo>@<master>
+    ```
 
-2. Then, use the commit ID to access the old files:
+1. Then, use the commit ID to access the old files:
 
-   ```shell
-   pachctl list file <repo>@<commit_ID>
-   ```
+    ```shell
+    pachctl list file <repo>@<commit_ID>
+    ```
 
 !!! note "See Also:"
     - [Pipelines](../../../concepts/pipeline-concepts/pipeline/)
