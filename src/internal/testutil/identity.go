@@ -109,6 +109,10 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	resp, err := c.Get(RewriteURL(t, loginURL, DexHost(enterpriseClient)))
 	require.NoError(t, err)
 
+	// Dex login redirects to the provider page, which will generate it's own state
+	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(enterpriseClient)))
+	require.NoError(t, err)
+
 	// Because we've only configured username/password login, there's a redirect
 	// to the login page. The params have the session state. POST our hard-coded
 	// credentials to the login page.
@@ -157,6 +161,10 @@ func GetOIDCTokenForTrustedApp(t testing.TB) string {
 
 	// Hit the dex login page for the test client with a fixed nonce
 	resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
+	require.NoError(t, err)
+
+	// Dex login redirects to the provider page, which will generate it's own state
+	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
 	require.NoError(t, err)
 
 	// Because we've only configured username/password login, there's a redirect
