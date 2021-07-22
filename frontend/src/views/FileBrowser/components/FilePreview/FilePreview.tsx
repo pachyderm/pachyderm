@@ -3,7 +3,8 @@ import React, {useCallback} from 'react';
 
 import {File} from '@graphqlTypes';
 
-import useFileDisplay from './../../hooks/useFileDisplay';
+import useFileDisplay from '../../hooks/useFileDisplay';
+
 import CSVPreview from './components/CSVPreview';
 import IFramePreview from './components/IFramePreview';
 import JSONPreview from './components/JSONPreview';

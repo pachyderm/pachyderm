@@ -11,10 +11,11 @@ import {
 import View from '@dash-frontend/components/View';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 
+import FileBrowser from '../FileBrowser';
+import JobLogsViewer from '../LogsViewers/JobLogsViewer/JobLogsViewer';
+import PipelineLogsViewer from '../LogsViewers/PipelineLogsViewer';
+
 import DAG from './components/DAG';
-import FileBrowser from './components/FileBrowser';
-import JobLogsViewer from './components/LogsViewers/JobLogsViewer/JobLogsViewer';
-import PipelineLogsViewer from './components/LogsViewers/PipelineLogsViewer';
 import ProjectHeader from './components/ProjectHeader';
 import ProjectSidebar from './components/ProjectSidebar';
 import RangeSlider from './components/RangeSlider';

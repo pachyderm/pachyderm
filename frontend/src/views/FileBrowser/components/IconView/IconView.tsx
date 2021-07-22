@@ -10,7 +10,8 @@ import React from 'react';
 
 import {File, FileType} from '@graphqlTypes';
 
-import useFileDisplay from './../../hooks/useFileDisplay';
+import useFileDisplay from '../../hooks/useFileDisplay';
+
 import FileIcon from './components/FileIcon';
 import styles from './IconView.module.css';
 

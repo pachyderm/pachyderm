@@ -3,7 +3,7 @@ import React from 'react';
 
 import {File, FileType} from '@graphqlTypes';
 
-import useFileDisplay from './../../../hooks/useFileDisplay';
+import useFileDisplay from '../../../hooks/useFileDisplay';
 
 type FileTableRowProps = {
   file: File;

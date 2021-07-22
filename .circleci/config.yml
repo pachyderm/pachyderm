@@ -9,37 +9,37 @@ jobs:
             - image: circleci/node:14.16.0
         steps:
             - checkout
-            - run: cd javascript/apps/dash/frontend && npm ci
-            - run: cd javascript/apps/dash/backend && npm ci
-            - run: cd javascript/apps/dash/backend && npm run lint
-            - run: cd javascript/apps/dash/backend && npm run test
+            - run: cd frontend && npm ci
+            - run: cd backend && npm ci
+            - run: cd backend && npm run lint
+            - run: cd backend && npm run test
     frontend-test:
         resource_class: xlarge
         docker:
             - image: circleci/node:14.16.0
         steps:
             - checkout
-            - run: cd javascript/apps/dash/backend && npm ci
-            - run: cd javascript/apps/dash/frontend && npm ci
-            - run: cd javascript/apps/dash/frontend && npm run lint
-            - run: cd javascript/apps/dash/frontend && npm run test
+            - run: cd backend && npm ci
+            - run: cd frontend && npm ci
+            - run: cd frontend && npm run lint
+            - run: cd frontend && npm run test
     build:
         resource_class: xlarge
         docker:
             - image: circleci/node:14.16.0
         steps:
             - checkout
-            - run: cd javascript/apps/dash && make ci
-            - run: cd javascript/apps/dash && make build
+            - run: make ci
+            - run: make build
     live-automation:
         resource_class: xlarge
         docker:
             - image: circleci/node:14.14.0-browsers
         steps:
             - checkout
-            - run: cd javascript/apps/dash/live-automation && npm install
+            - run: cd live-automation && npm install
             - run:
-                  cd javascript/apps/dash/live-automation &&
+                  cd live-automation &&
                   CYPRESS_RECORD_KEY=$LIVE_AUTOMATION_RECORD_KEY npm run
                   test-and-report-production
             - store_artifacts:

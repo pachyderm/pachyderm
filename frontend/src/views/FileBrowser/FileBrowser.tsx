@@ -17,7 +17,8 @@ import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   FILE_BROWSER_DIR_PATH,
   FILE_BROWSER_FILE_PATH,
-} from './../../constants/projectPaths';
+} from '../Project/constants/projectPaths';
+
 import FileHeader from './components/FileHeader';
 import FilePreview from './components/FilePreview';
 import IconView from './components/IconView';

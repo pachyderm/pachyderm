@@ -16,6 +16,6 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
           # Update once we've flattened repo structure
-          path: ./javascript/apps/dash
+          path: ./
           repository: pachyderm/haberdashery
           tags: ${{ github.sha }}
