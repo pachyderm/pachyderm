@@ -11,24 +11,43 @@ import (
 
 // Reader reads data from chunk storage.
 type Reader struct {
-	ctx      context.Context
-	client   Client
-	memCache kv.GetPut
-	dataRefs []*DataRef
+	ctx         context.Context
+	client      Client
+	memCache    kv.GetPut
+	dataRefs    []*DataRef
+	offsetBytes int64
 }
 
-func newReader(ctx context.Context, client Client, memCache kv.GetPut, dataRefs []*DataRef) *Reader {
-	return &Reader{
+type ReaderOption func(*Reader)
+
+func WithOffsetBytes(offsetBytes int64) ReaderOption {
+	return func(r *Reader) {
+		r.offsetBytes = offsetBytes
+	}
+}
+
+func newReader(ctx context.Context, client Client, memCache kv.GetPut, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
+	r := &Reader{
 		ctx:      ctx,
 		client:   client,
 		memCache: memCache,
 		dataRefs: dataRefs,
 	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
 }
 
 // Iterate iterates over the data readers for the data references.
 func (r *Reader) Iterate(cb func(*DataReader) error) error {
 	for _, dataRef := range r.dataRefs {
+		if dataRef.SizeBytes < r.offsetBytes {
+			r.offsetBytes -= dataRef.SizeBytes
+			continue
+		}
+		dataRef.OffsetBytes = r.offsetBytes
+		r.offsetBytes = 0
 		dr := newDataReader(r.ctx, r.client, r.memCache, dataRef)
 		if err := cb(dr); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {

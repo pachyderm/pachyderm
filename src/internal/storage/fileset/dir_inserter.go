@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
@@ -68,7 +69,7 @@ func (d dirFile) Index() *index.Index {
 	}
 }
 
-func (d dirFile) Content(w io.Writer) error {
+func (d dirFile) Content(w io.Writer, opts ...chunk.ReaderOption) error {
 	return nil
 }
 

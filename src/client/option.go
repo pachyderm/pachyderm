@@ -60,3 +60,9 @@ func WithTagGetFile(tag string) GetFileOption {
 		gf.File.Tag = tag
 	}
 }
+
+func WithOffsetBytes(offset int64) GetFileOption {
+	return func(gf *pfs.GetFileRequest) {
+		gf.OffsetBytes = offset
+	}
+}

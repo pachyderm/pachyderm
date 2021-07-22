@@ -310,8 +310,8 @@ message ModifyFileRequest {
 message GetFileRequest {
   File file = 1;
   string URL = 2;
+  int64 offset_bytes = 3;
 // TODO:
-//  int64 offset_bytes = 2;
 //  int64 size_bytes = 3;
 }
 

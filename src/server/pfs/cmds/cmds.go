@@ -1128,6 +1128,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	commands = append(commands, cmdutil.CreateAlias(copyFile, "copy file"))
 
 	var outputPath string
+	var offsetBytes int64
 	getFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Return the contents of a file.",
@@ -1173,18 +1174,20 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				if err != nil {
 					return err
 				}
-				f, err := progress.Create(outputPath, int64(fi.Details.SizeBytes))
+				f, err := progress.Create(outputPath, int64(fi.Details.SizeBytes)-offsetBytes)
+				// if f already exists && offsetBytes == 0, set offsetBytes = f.size
 				if err != nil {
 					return err
 				}
 				defer f.Close()
 				w = f
 			}
-			return c.GetFile(file.Commit, file.Path, w)
+			return c.GetFile(file.Commit, file.Path, w, client.WithOffsetBytes(offsetBytes))
 		}),
 	}
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
 	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
+	getFile.Flags().Int64Var(&offsetBytes, "offset-bytes", 0, "The number of bytes in the file to skip ahead when reading.")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
 

@@ -116,8 +116,8 @@ func (mfr *MergeFileReader) Index() *index.Index {
 }
 
 // Content returns the content of the merged file.
-func (mfr *MergeFileReader) Content(w io.Writer) error {
-	r := mfr.chunks.NewReader(mfr.ctx, mfr.idx.File.DataRefs)
+func (mfr *MergeFileReader) Content(w io.Writer, opts ...chunk.ReaderOption) error {
+	r := mfr.chunks.NewReader(mfr.ctx, mfr.idx.File.DataRefs, opts...)
 	return r.Get(w)
 }
 
