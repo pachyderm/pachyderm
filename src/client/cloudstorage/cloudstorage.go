@@ -15,6 +15,8 @@ import (
 	"github.com/lytics/cloudstorage"
 	"github.com/lytics/cloudstorage/csbufio"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
 )
@@ -46,10 +48,12 @@ type PFSStore struct {
 
 // NewPFSStore create local store from storage path on local filesystem, and cachepath.
 func NewPFSStore() (*PFSStore, error) {
-	pachClient, err := env.GetPachClient(context.Background())
-	if err != nil {
+	config := &serviceenv.GlobalConfiguration{}
+	if err := cmdutil.Populate(config); err != nil {
 		return nil, err
 	}
+	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
+	pachClient := env.GetPachClient(context.Background())
 	return &PFSStore{
 		pachClient: pachClient,
 	}, nil
@@ -71,34 +75,25 @@ func (l *PFSStore) NewObject(objectname string) (cloudstorage.Object, error) {
 	} else if obj != nil {
 		return nil, cloudstorage.ErrObjectExists
 	}
-
-	of := path.Join(l.storepath, objectname)
-	err = cloudstorage.EnsureDir(of)
-	if err != nil {
-		return nil, err
-	}
-
-	cf := cloudstorage.CachePathObj(l.cachepath, objectname, l.Id)
-
 	return &object{
-		name:      objectname,
-		storepath: of,
-		cachepath: cf,
+		name: objectname,
 	}, nil
 }
 
 // List objects at Query location.
 func (l *PFSStore) List(ctx context.Context, query cloudstorage.Query) (*cloudstorage.ObjectsResponse, error) {
-
 	resp := cloudstorage.NewObjectsResponse()
 	objects := make(map[string]*object)
 	metadatas := make(map[string]map[string]string)
 
-	spath := path.Join(l.storepath, query.Prefix)
-	if !cloudstorage.Exists(spath) {
-		return resp, nil
+	repoAndCommit, path := path.Split(query.Prefix)
+	repoParts := strings.Split(repoAndCommit, ".")
+	repo := repoParts[0]
+	commit := "master"
+	if len(repoParts) > 1 {
+		commit = repoParts[1]
 	}
-
+	l.pachClient.WalkFile
 	err := filepath.Walk(spath, func(fo string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
