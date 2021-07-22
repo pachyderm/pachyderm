@@ -96,6 +96,9 @@ replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190718183610-8e956561bbf5
 
 replace github.com/sercand/kuberesolver => github.com/sercand/kuberesolver v1.0.1-0.20200204133151-f60278fd3dac
 
+// Dex pulls in a newer grpc and protobuf, but our etcd client can't work with the newer version.
+// The following pin grpc, protobuf and everything else that would otherwise rely on the newer version.
+// See https://github.com/etcd-io/etcd/pull/12000
 replace google.golang.org/grpc => google.golang.org/grpc v1.29.1
 
 replace github.com/golang/protobuf => github.com/golang/protobuf v1.3.5
