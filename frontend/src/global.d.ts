@@ -13,15 +13,6 @@ declare module '*.svg' {
   export default src;
 }
 
-declare namespace NodeJS {
-  interface ProcessEnv {
-    pachDashConfig: {
-      REACT_APP_RUNTIME_ISSUER_URI: string;
-    };
-    REACT_APP_RUNTIME_ISSUER_URI?: string;
-  }
-}
-
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
@@ -33,7 +24,6 @@ declare global {
       OAUTH_PACHD_CLIENT_ID: string;
       PACHD_ADDRESS: string;
       GRPC_SSL: string;
-      REACT_APP_RUNTIME_ISSUER_URI: string;
     }
   }
 }

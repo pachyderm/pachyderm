@@ -24,15 +24,13 @@ const authResolver: AuthResolver = {
       try {
         const issuer = await getTokenIssuer();
 
-        const authUrl = new URL(issuer.metadata.authorization_endpoint || '');
-
         const config: AuthConfig = {
-          authEndpoint: authUrl.pathname,
+          authUrl: issuer.metadata.authorization_endpoint || '',
           clientId: process.env.OAUTH_CLIENT_ID || '',
           pachdClientId: process.env.OAUTH_PACHD_CLIENT_ID || '',
         };
 
-        if (!authUrl.pathname || !config.clientId || !config.pachdClientId) {
+        if (!config.authUrl || !config.clientId || !config.pachdClientId) {
           log.error(
             {eventSource: 'authUrl resolver', meta: {config}},
             'Issuer is missing authorization_endpoint configuration',

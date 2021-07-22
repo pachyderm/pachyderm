@@ -59,7 +59,6 @@ beforeAll(async () => {
   process.env.GRPC_PORT = String(grpcPort);
   process.env.AUTH_PORT = String(authPort);
   process.env.ISSUER_URI = `http://localhost:${authPort}`;
-  process.env.REACT_APP_RUNTIME_ISSUER_URI = `http://localhost:${authPort}`;
   process.env.REACT_APP_BACKEND_PREFIX = `http://localhost:${graphqlPort}/`;
   process.env.REACT_APP_BACKEND_GRAPHQL_PREFIX = `http://localhost:${graphqlPort}/graphql`;
   process.env.REACT_APP_BACKEND_SUBSCRIPTIONS_PREFIX = `:${graphqlPort}/graphql`;

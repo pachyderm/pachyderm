@@ -34,7 +34,7 @@ export type Account = {
 
 export type AuthConfig = {
   __typename?: 'AuthConfig';
-  authEndpoint: Scalars['String'];
+  authUrl: Scalars['String'];
   clientId: Scalars['String'];
   pachdClientId: Scalars['String'];
 };
@@ -754,7 +754,7 @@ export type AuthConfigResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['AuthConfig'] = ResolversParentTypes['AuthConfig'],
 > = ResolversObject<{
-  authEndpoint?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  authUrl?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   clientId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   pachdClientId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -1411,7 +1411,7 @@ export type AuthConfigQueryVariables = Exact<{[key: string]: never}>;
 export type AuthConfigQuery = {__typename?: 'Query'} & {
   authConfig: {__typename?: 'AuthConfig'} & Pick<
     AuthConfig,
-    'authEndpoint' | 'clientId' | 'pachdClientId'
+    'authUrl' | 'clientId' | 'pachdClientId'
   >;
 };
 

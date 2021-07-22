@@ -75,7 +75,9 @@ describe('Auth resolver', () => {
         authConfig: AuthConfig;
       }>(GET_AUTH_CONFIG_QUERY, {}, {'id-token': ''});
 
-      expect(data?.authConfig.authEndpoint).toBe(`/auth`);
+      expect(data?.authConfig.authUrl).toBe(
+        `http://localhost:${mockServer.state.authPort}/auth`,
+      );
       expect(data?.authConfig.clientId).toBe(process.env.OAUTH_CLIENT_ID);
       expect(data?.authConfig.pachdClientId).toBe(
         process.env.OAUTH_PACHD_CLIENT_ID,
