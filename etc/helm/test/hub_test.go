@@ -170,10 +170,6 @@ func TestHub(t *testing.T) {
 						port:  31400,
 						found: false,
 					},
-					"api-http-port": {
-						port:  30652,
-						found: false,
-					},
 					"s3gateway-port": {
 						port:  30600,
 						found: false,

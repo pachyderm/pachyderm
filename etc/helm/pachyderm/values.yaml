@@ -173,7 +173,6 @@ pachd:
     # (Optional) specify the existing IP Address of the load balancer
     loadBalancerIP: ""
     apiGRPCPort: 30650
-    apiHTTPPort: 30652
     s3GatewayPort: 30600
   service:
     # labels specifies labels to add to the pachd service.
