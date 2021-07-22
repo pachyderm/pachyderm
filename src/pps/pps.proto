@@ -110,7 +110,6 @@ message PFSInput {
 message CronInput {
   string name = 1;
   string repo = 2;
-  string repo_type = 13;
   string commit = 3;
   string spec = 4;
   // Overwrite, if true, will expose a single datum that gets overwritten each
