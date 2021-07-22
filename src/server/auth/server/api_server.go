@@ -14,6 +14,7 @@ import (
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
@@ -1531,31 +1532,14 @@ func (a *apiServer) deleteAuthToken(ctx context.Context, sqlTx *sqlx.Tx, tokenHa
 }
 
 func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject string) error {
-	return a.processInTransaction(ctx, func(sqlTx *sqlx.Tx) error {
+	return dbutil.WithTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		return a.deleteAuthTokensForSubjectInTransaction(sqlTx, subject)
-	})
+	}, dbutil.WithIsolationLevel(sql.LevelRepeatableRead))
 }
 
 func (a *apiServer) deleteAuthTokensForSubjectInTransaction(tx *sqlx.Tx, subject string) error {
 	if _, err := tx.Exec(`DELETE FROM auth.auth_tokens WHERE subject = $1`, subject); err != nil {
 		return errors.Wrapf(err, "error deleting all auth tokens")
-	}
-	return nil
-}
-
-func (a *apiServer) processInTransaction(ctx context.Context, f func(sqlTx *sqlx.Tx) error) error {
-	sqlTx, err := a.env.GetDBClient().BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
-	if err != nil {
-		return err
-	}
-	err = f(sqlTx)
-	if err != nil {
-		sqlTx.Rollback()
-		return err
-	}
-	err = sqlTx.Commit()
-	if err != nil {
-		return errors.Wrapf(err, "Error while commiting SQL Transaction")
 	}
 	return nil
 }
