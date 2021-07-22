@@ -28,8 +28,13 @@ const useFileBrowser = () => {
     [fileFilter, files],
   );
 
+  const isDirectory = useMemo(() => {
+    return path.endsWith('/');
+  }, [path]);
+
   const fileToPreview = useMemo(() => {
     const hasFileType = path.slice(path.lastIndexOf('.') + 1) !== '';
+
     return hasFileType && files.find((file) => file.path === path);
   }, [path, files]);
 
@@ -43,6 +48,7 @@ const useFileBrowser = () => {
     filteredFiles,
     loading,
     fileToPreview,
+    isDirectory,
   };
 };
 

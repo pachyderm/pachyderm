@@ -42,9 +42,10 @@ const FileBrowser: React.FC = () => {
     filteredFiles,
     loading,
     fileToPreview,
+    isDirectory,
   } = useFileBrowser();
 
-  if (filePath && !loading && !fileToPreview) {
+  if (filePath && !loading && !fileToPreview && !isDirectory) {
     browserHistory.push(
       fileBrowserRoute({
         repoId,

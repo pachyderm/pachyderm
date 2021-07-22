@@ -17,6 +17,7 @@ describe('File Browser', () => {
   const FileBrowser = withContextProviders(() => {
     return <FileBrowserComponent />;
   });
+
   describe('File Browser modal', () => {
     it('should display file browser name from url', async () => {
       const {findByText} = render(<FileBrowser />);
@@ -31,15 +32,17 @@ describe('File Browser', () => {
 
       const searchBar = await findByRole('searchbox');
       expect(await findByText('liberty.png')).toBeInTheDocument();
-      expect(await findByText('kitten.png')).toBeInTheDocument();
-      expect(await findAllByRole('row')).toHaveLength(5);
+      expect(await findByText('AT-AT.png')).toBeInTheDocument();
+      expect(await findByText('cats')).toBeInTheDocument();
+      expect(await findAllByRole('row')).toHaveLength(4);
 
-      userEvent.type(searchBar, 'kit');
+      userEvent.type(searchBar, 'lib');
 
-      await waitFor(() =>
-        expect(queryByText('liberty.png')).not.toBeInTheDocument(),
-      );
-      expect(queryByText('kitten.png')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(queryByText('AT-AT.png')).not.toBeInTheDocument();
+        expect(queryByText('cats')).not.toBeInTheDocument();
+      });
+      expect(queryByText('liberty.png')).toBeInTheDocument();
       expect(await findAllByRole('row')).toHaveLength(2);
     });
 
@@ -102,9 +105,8 @@ describe('File Browser', () => {
 
       let rows = await findAllByRole('row');
       expect(rows[1].textContent).toContain('liberty.png');
-      expect(rows[2].textContent).toContain('kitten.png');
-      expect(rows[3].textContent).toContain('cats');
-      expect(rows[4].textContent).toContain('AT-AT.png');
+      expect(rows[2].textContent).toContain('cats');
+      expect(rows[3].textContent).toContain('AT-AT.png');
 
       const sizeHeader = await findByLabelText(
         'sort by size in descending order',
@@ -117,7 +119,6 @@ describe('File Browser', () => {
       expect(rows[1].textContent).toContain('liberty.png');
       expect(rows[2].textContent).toContain('AT-AT.png');
       expect(rows[3].textContent).toContain('cats');
-      expect(rows[4].textContent).toContain('kitten.png');
 
       const typeHeader = await findByLabelText(
         'sort by type in descending order',
@@ -130,7 +131,6 @@ describe('File Browser', () => {
       expect(rows[1].textContent).toContain('cats');
       expect(rows[2].textContent).toContain('AT-AT.png');
       expect(rows[3].textContent).toContain('liberty.png');
-      expect(rows[4].textContent).toContain('kitten.png');
 
       const dateHeader = await findByLabelText(
         'sort by date in descending order',
@@ -141,13 +141,12 @@ describe('File Browser', () => {
 
       rows = await findAllByRole('row');
       expect(rows[1].textContent).toContain('liberty.png');
-      expect(rows[2].textContent).toContain('kitten.png');
-      expect(rows[3].textContent).toContain('AT-AT.png');
-      expect(rows[4].textContent).toContain('cats');
+      expect(rows[2].textContent).toContain('AT-AT.png');
+      expect(rows[3].textContent).toContain('cats');
     });
 
     it('should navigate to dir path on action click', async () => {
-      const {findAllByText} = render(<FileBrowser />);
+      const {findAllByText, findByText} = render(<FileBrowser />);
 
       const seeFilesAction = await findAllByText('See Files');
       click(seeFilesAction[0]);
@@ -157,6 +156,8 @@ describe('File Browser', () => {
           '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F',
         ),
       );
+
+      expect(await findByText('kitten.png')).toBeInTheDocument();
     });
 
     it('should navigate to file preview on action click', async () => {

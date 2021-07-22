@@ -36,7 +36,8 @@ const BreadCrumb: React.FC = () => {
             branchId,
             projectId,
             commitId,
-            filePath: directories.slice(0, index + 1).join('/'),
+            // filePath must end with a slash for folders
+            filePath: directories.slice(0, index + 1).join('/') + '/',
           })}
         >
           / {dir}

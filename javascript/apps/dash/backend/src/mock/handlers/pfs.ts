@@ -97,7 +97,9 @@ const pfs: Pick<
   },
   listFile: (call) => {
     const [projectId] = call.metadata.get('project-id');
-    const replyFiles = projectId ? files[projectId.toString()] : files['1'];
+    const path = call.request.getFile()?.getPath() || '/';
+    const directories = projectId ? files[projectId.toString()] : files['1'];
+    const replyFiles = directories[path] || directories['/'];
 
     replyFiles.forEach((file) => call.write(file));
     call.end();
