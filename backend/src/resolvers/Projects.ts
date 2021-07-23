@@ -1,7 +1,5 @@
-import {Status} from '@grpc/grpc-js/build/src/constants';
 import {PipelineState} from '@pachyderm/proto/pb/pps/pps_pb';
 import {Project} from '@pachyderm/proto/pb/projects/projects_pb';
-import {ApolloError} from 'apollo-server-express';
 import Logger from 'bunyan';
 
 import formatBytes from '@dash-backend/lib/formatBytes';
@@ -87,12 +85,22 @@ const projectsResolver: ProjectsResolver = {
         });
 
         return projects.projectInfoList.map(rpcToGraphqlProject);
-      } catch (err) {
-        if ((err as ApolloError).extensions.grpcCode === Status.UNIMPLEMENTED) {
-          return [await getDefaultProject(pachClient, log)];
-        } else {
-          return err;
-        }
+      } catch (error) {
+        // If _anything_ goes wrong fetching projects, fallback to the
+        // console-generated default project. Originally, this was checking
+        // for a specific UNIMPLEMENTED grpc error. However, pachd will throw
+        // an UNKNOWN error for a service with an unimplemented auth function.
+        // Since projects do not exist, projects do not implement auth.
+
+        // TODO - we should not need this logic in the future, as projects
+        // will always come from core pach
+        log.info({
+          eventSource: 'project resolver',
+          event: 'problem fetching projects, falling back to default project',
+          error,
+        });
+
+        return [await getDefaultProject(pachClient, log)];
       }
     },
     projectDetails: async (
