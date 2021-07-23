@@ -42,8 +42,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 
 	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer:          "http://pachd:1658/",
-			LocalhostIssuer: true,
+			Issuer: "http://pachd:1658/",
 		},
 	})
 	require.NoError(t, err)

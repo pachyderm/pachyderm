@@ -69,7 +69,7 @@ func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.S
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `INSERT INTO identity.config (id, issuer, id_token_expiry, localhost_issuer) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET issuer=$2, id_token_expiry=$3, localhost_issuer=$4`, configKey, req.Config.Issuer, req.Config.IdTokenExpiry, req.Config.LocalhostIssuer); err != nil {
+	if _, err := a.env.GetDBClient().ExecContext(ctx, `INSERT INTO identity.config (id, issuer, id_token_expiry) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET issuer=$2, id_token_expiry=$3`, configKey, req.Config.Issuer, req.Config.IdTokenExpiry); err != nil {
 		return nil, err
 	}
 

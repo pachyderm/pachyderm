@@ -149,8 +149,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 			if activeContext == enterpriseContext || enterprise {
 				if _, err := c.SetIdentityServerConfig(c.Ctx(), &identity.SetIdentityServerConfigRequest{
 					Config: &identity.IdentityServerConfig{
-						Issuer:          issuer,
-						LocalhostIssuer: true,
+						Issuer: issuer,
 					}}); err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure identity server issuer")
 				}
