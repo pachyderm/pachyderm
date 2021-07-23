@@ -2,21 +2,26 @@ import {APIClient} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
 import {
   BranchInfo,
   CommitInfo,
+  CommitSetInfo,
   FileInfo,
   GetFileRequest,
   InspectFileRequest,
   InspectRepoRequest,
   InspectBranchRequest,
   ListCommitRequest,
+  ListCommitSetRequest,
   ListFileRequest,
   ListRepoRequest,
   RepoInfo,
+  SquashCommitSetRequest,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 import {extract} from 'tar-stream';
 
 import {
+  commitSetFromObject,
+  CommitSetObject,
   createBranchRequestFromObject,
   CreateBranchRequestObject,
   listBranchRequestFromObject,
@@ -30,6 +35,8 @@ import {
   fileFromObject,
   branchFromObject,
   FileObject,
+  inspectCommitSetRequestFromObject,
+  InspectCommitSetRequestObject,
   repoFromObject,
   RepoObject,
   BranchObject,
@@ -136,6 +143,44 @@ const pfs = ({
       const stream = client.listCommit(listCommitRequest, credentialMetadata);
 
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
+    },
+    inspectCommitSet: (request: InspectCommitSetRequestObject) => {
+      const inspectCommitSetRequest =
+        inspectCommitSetRequestFromObject(request);
+      const stream = client.inspectCommitSet(
+        inspectCommitSetRequest,
+        credentialMetadata,
+      );
+
+      return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
+    },
+    listCommitSet: () => {
+      const listCommitSetRequest = new ListCommitSetRequest();
+      const stream = client.listCommitSet(
+        listCommitSetRequest,
+        credentialMetadata,
+      );
+
+      return streamToObjectArray<CommitSetInfo, CommitSetInfo.AsObject>(stream);
+    },
+    squashCommitSet: (commitSet: CommitSetObject) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const squashCommitSetRequest =
+          new SquashCommitSetRequest().setCommitSet(
+            commitSetFromObject(commitSet),
+          );
+
+        client.squashCommitSet(
+          squashCommitSetRequest,
+          credentialMetadata,
+          (error) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve({});
+          },
+        );
+      });
     },
     createBranch: (request: CreateBranchRequestObject) => {
       return new Promise<Empty.AsObject>((resolve, reject) => {

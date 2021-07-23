@@ -2,8 +2,10 @@ import {
   commitFromObject,
   createRepoRequestFromObject,
   deleteRepoRequestFromObject,
+  commitSetFromObject,
   fileFromObject,
   fileInfoFromObject,
+  inspectCommitSetRequestFromObject,
   createBranchRequestFromObject,
   listBranchRequestFromObject,
   deleteBranchRequestFromObject,
@@ -119,6 +121,37 @@ describe('grpc/builders/pfs', () => {
 
     expect(commit.getBranch()?.getRepo()?.getName()).toBe('__spec__');
     expect(commit.getId()).toBe('4af40d34a0384f23a5b98d3bd7eaece1');
+  });
+
+  it('should create CommitSet from an object', () => {
+    const commitSet = commitSetFromObject({
+      id: '4af40d34a0384f23a5b98d3bd7eaece1',
+    });
+
+    expect(commitSet.getId()).toBe('4af40d34a0384f23a5b98d3bd7eaece1');
+  });
+
+  it('should create inspectCommitSetRequest from an object with defaults to wait for commits to finish', () => {
+    const commitSet = inspectCommitSetRequestFromObject({
+      commitSet: {id: '4af40d34a0384f23a5b98d3bd7eaece1'},
+    });
+
+    expect(commitSet.getCommitSet()?.getId()).toBe(
+      '4af40d34a0384f23a5b98d3bd7eaece1',
+    );
+    expect(commitSet.getWait()).toBe(true);
+  });
+
+  it('should create inspectCommitSetRequest from an object wait set to false', () => {
+    const commitSet = inspectCommitSetRequestFromObject({
+      commitSet: {id: '4af40d34a0384f23a5b98d3bd7eaece1'},
+      wait: false,
+    });
+
+    expect(commitSet.getCommitSet()?.getId()).toBe(
+      '4af40d34a0384f23a5b98d3bd7eaece1',
+    );
+    expect(commitSet.getWait()).toBe(false);
   });
 
   it('should create createBranchRequest from an object with defaults', () => {

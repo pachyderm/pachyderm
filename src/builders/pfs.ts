@@ -4,6 +4,8 @@ import {
   CommitInfo,
   CreateRepoRequest,
   DeleteRepoRequest,
+  CommitSet,
+  InspectCommitSetRequest,
   File,
   FileInfo,
   FileType,
@@ -76,6 +78,15 @@ export type CommitInfoObject = {
   sizeBytes?: CommitInfo.Details.AsObject['sizeBytes'];
   started?: TimestampObject;
   finished?: TimestampObject;
+};
+
+export type CommitSetObject = {
+  id: CommitSet.AsObject['id'];
+};
+
+export type InspectCommitSetRequestObject = {
+  commitSet: CommitSetObject;
+  wait?: InspectCommitSetRequest.AsObject['wait'];
 };
 
 export type CreateRepoRequestObject = {
@@ -256,6 +267,26 @@ export const commitInfoFromObject = ({
     .setDetails(new CommitInfo.Details().setSizeBytes(sizeBytes))
     .setStarted(started ? timestampFromObject(started) : undefined)
     .setFinished(finished ? timestampFromObject(finished) : undefined);
+
+export const commitSetFromObject = ({id}: CommitSetObject) => {
+  const commitSet = new CommitSet();
+
+  commitSet.setId(id);
+
+  return commitSet;
+};
+
+export const inspectCommitSetRequestFromObject = ({
+  commitSet,
+  wait = true,
+}: InspectCommitSetRequestObject) => {
+  const request = new InspectCommitSetRequest();
+
+  request.setCommitSet(commitSetFromObject(commitSet));
+  request.setWait(wait);
+
+  return request;
+};
 
 export const createRepoRequestFromObject = ({
   repo,
