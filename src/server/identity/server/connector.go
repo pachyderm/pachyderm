@@ -15,17 +15,15 @@ var (
 
 // placeholder is a fake Dex connector which redirects the user to a static page with instructions.
 // This is necessary because Dex won't start the web server unless a connector is configured.
-type placeholderConfig struct {
-}
+type placeholderConfig struct{}
 
-func (p placeholderConfig) Open(id string, logger log.Logger) (connector.Connector, error) {
+func (placeholderConfig) Open(id string, logger log.Logger) (connector.Connector, error) {
 	return &placeholder{}, nil
 }
 
-type placeholder struct {
-}
+type placeholder struct{}
 
-func (p *placeholder) LoginURL(s connector.Scopes, callbackURL, state string) (string, error) {
+func (*placeholder) LoginURL(s connector.Scopes, callbackURL, state string) (string, error) {
 	return "/static/not-configured.html", nil
 }
 

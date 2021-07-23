@@ -131,7 +131,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 	// to configure a connector
 	if len(connectors.Connectors) == 0 {
 		w.logger.Info("no idp connectors configured, using placeholder")
-		dex_server.ConnectorsConfig["placeholder"] = func() dex_server.ConnectorConfig { return placeholderConfig{} }
+		dex_server.ConnectorsConfig["placeholder"] = func() dex_server.ConnectorConfig { return new(placeholderConfig) }
 		storage = dex_storage.WithStaticConnectors(storage, []dex_storage.Connector{
 			dex_storage.Connector{
 				ID:     "placeholder",
