@@ -30,7 +30,7 @@ type GlobalConfiguration struct {
 	PostgresDBName                 string `env:"POSTGRES_DATABASE,required"`
 	PostgresUser                   string `env:"POSTGRES_USER,required"`
 	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
-	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=10"`
+	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=50"`
 	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=2"`
 	PostgresConnMaxLifetimeSeconds int    `env:"POSTGRES_CONN_MAX_LIFETIME_SECONDS,default=0"`
 	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS,default=0"`
