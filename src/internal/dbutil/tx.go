@@ -134,7 +134,9 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 	}()
 
 	txStartedMetric.Inc()
-	if err := backoff.RetryUntilCancel(ctx, func() error {
+	err := backoff.RetryUntilCancel(ctx, func() error {
+		ctx, cf := context.WithCancel(context.Background())
+		defer cf()
 		underlyingTxStartedMetric.Inc()
 		attempts++
 		tx, err := db.BeginTxx(ctx, &c.TxOptions)
@@ -154,7 +156,8 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 			return nil
 		}
 		return err
-	}); err != nil {
+	})
+	if err != nil {
 		// Inspecting err could yield a better outcome type than "error", but some care is
 		// needed.  For example, `cb` could return "context deadline exceeded" because it
 		// created a sub-context that expires, and that's a different error than 'commit'

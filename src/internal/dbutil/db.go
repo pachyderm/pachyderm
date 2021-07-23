@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -101,7 +102,7 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 		panic("must specify user")
 	}
 	dsn := getDSN(dbc)
-	db, err := sqlx.Open("postgres", dsn)
+	db, err := sqlx.Open("pgx", dsn)
 	if err != nil {
 		return nil, err
 	}
