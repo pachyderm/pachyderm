@@ -4,37 +4,38 @@
 Pachyderm provides users with a simple way to follow a change throughout their DAG (i.e., Traverse Provenance and Subvenance).
 
 When you commit data to Pachyderm, your new commit has an ID associated with it that you can easily check by running `pachctl list commit repo@branch`. 
-All resulting downstream commits and jobs will then share that ID (Global Identifier).
+**All resulting downstream commits and jobs will then share that ID (Global Identifier).**
 
 !!! Info "In other terms"
     Commit and job IDs **represent a logically-related set of objects**. 
     The ID of a commit is also the ID of any commits created along with it due to provenance relationships, 
-    as well as the ID of any jobs that were started because of the creation of those commits. 
+    as well as the ID of any jobs that were triggered because of the creation of those commits. 
 
-This ability to track down related commits and jobs with one global identifier brought the need for new terms:
+This ability to track down related commits and jobs with one global identifier brought the need to introduce a new scope to our original concepts of [job](./job.md) and [commit](./commit.md):
 
-- **Commitset**: A commitset is the set of all provenance-dependent commits sharing the same ID.
-- **Jobset**: A jobset is the set of jobs created due to commits in a CommitSet.
+- A commit with a `global` scope (**global commit**), referred to in our CLI as `commit <commitID>` represents "the set of all provenance-dependent commits sharing the same ID". The same term of `commit`, applied to the more focused scope of a repo (`commit <repo>@<commitID>` or `commit <repo>@, branch>=<commitID>`), represents "a "Git-like" record of the state of a single repository's file system".
+Similarly, the same nuances in the scope of a job give the term two possible meanings:
+- A job with a `global` scope (**global job**),  referred to in our CLI as `job <commitID>`, is "the set of jobs created due to commits in a global commit". Narrowing down the scope to a single pipeline (`job <pipeline>@<commitID>`) shifts the meaning to "an execution of a given pipeline of your DAG".
 
-Using this identifier you can:
+Using this global identifier you can:
 
-## List All Commitset And Jobset
-You can list all commitset by running the following command:
+## List All Global Commits And Global Jobs
+You can list all global commits by running the following command:
 ```shell
-pachctl list commitset
+pachctl list commit
 ```
-Each commitset displays how many commits their set is made of.
+Each global commit displays how many commits their are made of.
 ```
 ID                               COMMITS PROGRESS CREATED        MODIFIED
 1035715e796f45caae7a1d3ffd1f93ca 7       ▇▇▇▇▇▇▇▇ 7 seconds ago  7 seconds ago
 28363be08a8f4786b6dd0d3b142edd56 6       ▇▇▇▇▇▇▇▇ 24 seconds ago 24 seconds ago
 e050771b5c6f4082aed48a059e1ac203 4       ▇▇▇▇▇▇▇▇ 24 seconds ago 24 seconds ago
 ```
-Similarly, if you run the equivalent command for jobset:
+Similarly, if you run the equivalent command for global job:
 ```shell
-pachctl list jobset
+pachctl list job
 ```
-you will notice that the job IDs are shared with the commitsets.
+you will notice that the job IDs are shared with the global commit IDs.
 
 ```
 ID                               JOBS PROGRESS CREATED            MODIFIED
@@ -43,13 +44,13 @@ ID                               JOBS PROGRESS CREATED            MODIFIED
 e050771b5c6f4082aed48a059e1ac203 1    ▇▇▇▇▇▇▇▇ About a minute ago About a minute ago
 ```
 Note, for example, that 7 commits and 2 jobs are involved in the changes occured
-in the commitset ID 1035715e796f45caae7a1d3ffd1f93ca.
+in the global commit ID 1035715e796f45caae7a1d3ffd1f93ca.
 
-## Inspect A Commitset And Jobset
+## List All Commits And Jobs With A Global ID
 
-To list all commits involved in a given commitset:
+To list all commits involved in a global commit:
 ```shell
-pachctl inspect commitset 1035715e796f45caae7a1d3ffd1f93ca
+pachctl list commit 1035715e796f45caae7a1d3ffd1f93ca
 ```
 ```
 REPO         BRANCH COMMIT                           FINISHED      SIZE ORIGIN DESCRIPTION
@@ -62,9 +63,9 @@ edges.meta   master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago -    AUTO
 montage      master 1035715e796f45caae7a1d3ffd1f93ca 4 minutes ago -    AUTO
 ```
 
-Similarly, change `commitset` in `jobset` to list all jobs linked to your jobset.
+Similarly, change `commit` in `job` to list all jobs linked to your global job ID.
 ```shell
-pachctl inspect jobset 1035715e796f45caae7a1d3ffd1f93ca
+pachctl list job 1035715e796f45caae7a1d3ffd1f93ca
 ```
 ```
 ID                               PIPELINE STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
@@ -72,12 +73,12 @@ ID                               PIPELINE STARTED       DURATION  RESTART PROGRE
 1035715e796f45caae7a1d3ffd1f93ca edges    5 minutes ago 2 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
 ```
 
-The commitset and jobset above have been created after
+The global commit and global job above have been created after
 a `pachctl put file images@master -i images.txt` in the images repo of the open cv example.
 
 
-The following diagram illustrates the commitset and its various components:
-    ![commitset_after_putfile](../images/commitset_after_putfile.png)
+The following diagram illustrates the global commit and its various components:
+    ![global_commit_after_putfile](../images/global_commit_after_putfile.png)
 
 
 Let's explain the origin of each commit.
@@ -168,28 +169,27 @@ Let's explain the origin of each commit.
 ```
 The version of each pipeline within their respective `.spec` repos are neither the result of a user change, nor of an automatic change.
 They have, however, contributed to the creation of the previous `AUTO` commits. 
-To make sure that we have a complete view of all the data and pipeline versions involved in all commits resulting from the initial 
+To make sure that we have a complete view of all the data and pipeline versions involved in all the commits resulting from the initial 
 `put file`, their version is kept as `ALIAS` commits under the same global ID.
 
 For a fuller view of GlobalID in action, take a look at our [GlobalID illustration](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID).
 
 ## Track Provenance Downstream
 
-Pachyderm provides the `wait commitset` command that enables you
+Pachyderm provides the `wait commit <commitID>` command that enables you
 to track your commits downstream as they are produced. 
 
-Unlike the `inspect commitset`, each line is printed as soon as a new commit of your set finishes.
+Unlike the `list commit <commitID>`, each line is printed as soon as a new commit of your global commit finishes.
 
-Change `commitset` in `jobset` to list the jobs related to your jobset as they finish processing a commit.
+Change `commit` in `job` to list the jobs related to your global job as they finish processing a commit.
 
-## Squash Commitset
+## Squash Commit
 
-`pachctl squash commitset 1035715e796f45caae7a1d3ffd1f93ca`
-combines all the file changes in the commits of a commitset 
-into their children and then removes the commitset.
+`pachctl squash commit 1035715e796f45caae7a1d3ffd1f93ca`
+combines all the file changes in the commits of a global commit
+into their children and then removes the global commit.
 This behavior is inspired by the squash option in git rebase.
 No data stored in PFS is removed.
 
 !!! Warning
-    Squashing a commitset with no children results in the head of the branch disagreement with the state of the world. 
-    So a new identical commitset will be created.
+    Squashing a global commit with no children results in the head of the branch disagreement with the state of the world: A new identical global commit is therefore created.

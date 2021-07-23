@@ -2,7 +2,7 @@
 
 A Pachyderm job is an execution of a pipeline that triggers
 when new data is detected in an input repository. Each
-job runs your code against the current commit and
+job runs your code against the current commit in a `repository@branch` and
 then submits the results to the output repository and creates a single output commit. A pipeline
 triggers a new job every time you submit new changes, a commit, into your
 input source.
