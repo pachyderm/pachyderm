@@ -38,8 +38,8 @@ func (p *placeholder) LoginURL(s connector.Scopes, callbackURL, state string) (s
 	if p.LocalhostIssuer {
 		u.Host = localhostIdentityServer
 	}
-	u.Path = "/static/not-configured.html"
-	return u.String(), nil
+	// u.Path = "/static/not-configured.html"
+	return "/static/not-configured.html", nil
 }
 
 // HandleCallback parses the request and returns the user's identity

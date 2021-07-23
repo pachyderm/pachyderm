@@ -41,7 +41,7 @@ ALTER TABLE identity.config ADD COLUMN
 	return err
 }
 
-// AddTokenExpiryConfig adds expiry fields for token lifespan to the server config
+// AddLocalhostIssuerConfig adds a flag to determine whether Dex is accessed in-cluster at http://pachd:1658
 func AddLocalhostIssuerConfig(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 ALTER TABLE identity.config ADD COLUMN
