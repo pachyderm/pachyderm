@@ -3,16 +3,13 @@
 ## Definition
 
 In Pachyderm, commits are atomic operations that **snapshot and preserve the state of
-the files and directories across repositories** at a point in time. A commit contains
-**sub-commits** in each repository it includes. These sub-commits are more like Git commits,
-recording the state of a single repository's file system.
-Unlike Git commits, however, Pachyderm sub-commits are centralized and transactional.
+the files and directories in a repository** at a point in time. 
+Unlike Git commits, Pachyderm commits are centralized and transactional.
 You can start a commit by running the `pachctl start commit` command with reference
-to a specific repository. At this point, sub-commits in all downstream repositories
-are also added to the commit, waiting on input data.
+to a specific repository. 
 After you're done making changes to the repository (`put file`, `delete file`, ...),
 you can finish your modifications by running the `pachctl finish commit` command.
-This command saves your changes and closes that repository's sub-commit,
+This command saves your changes and closes that repository's commit,
 indicating the data is ready for processing by downstream pipelines.
 
 !!! Warning
