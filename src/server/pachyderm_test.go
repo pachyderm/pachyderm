@@ -5880,7 +5880,6 @@ func TestCronPipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Skip("TODO: This tests passes when run in isolation, but is flaky and often hangs.")
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	t.Run("SimpleCron", func(t *testing.T) {

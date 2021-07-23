@@ -1921,13 +1921,6 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 	pipelineName := request.Pipeline.Name
 
-	if *specFileSetID != "" {
-		// If we already have a fileset, try to renew it - if that fails, invalidate it
-		if err := a.env.GetPachClient(txnCtx.ClientContext).RenewFileSet(*specFileSetID, 600*time.Second); err != nil {
-			*specFileSetID = ""
-		}
-	}
-
 	// If the expected pipeline version doesn't match up with oldPipelineInfo, we
 	// need to recreate the fileset
 	staleFileSet := false
