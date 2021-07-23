@@ -14,6 +14,13 @@ import {
   DeleteBranchRequest,
   Repo,
   Trigger,
+  StartCommitRequest,
+  FinishCommitRequest,
+  ListCommitRequest,
+  SubscribeCommitRequest,
+  InspectCommitRequest,
+  CommitState,
+  OriginKind,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
 
 import {timestampFromObject, TimestampObject} from '../builders/protobuf';
@@ -49,6 +56,43 @@ export type BranchObject = {
   repo?: RepoObject;
 };
 
+export type StartCommitRequestObject = {
+  branch: BranchObject;
+  description?: StartCommitRequest.AsObject['description'];
+  parent?: CommitObject;
+};
+
+export type FinishCommitRequestObject = {
+  commit: CommitObject;
+  error?: FinishCommitRequest.AsObject['error'];
+  force?: FinishCommitRequest.AsObject['force'];
+  description?: FinishCommitRequest.AsObject['description'];
+};
+
+export type InspectCommitRequestObject = {
+  wait: CommitStateEnumObject;
+  commit?: CommitObject;
+};
+
+export type ListCommitRequestObject = {
+  repo: RepoObject;
+  number?: ListCommitRequest.AsObject['number'];
+  reverse?: ListCommitRequest.AsObject['reverse'];
+  all?: ListCommitRequest.AsObject['all'];
+  originKind?: OriginKindEnumObject;
+  from?: CommitObject;
+  to?: CommitObject;
+};
+
+export type SubscribeCommitRequestObject = {
+  repo: RepoObject;
+  branch?: SubscribeCommitRequest.AsObject['branch'];
+  state?: CommitStateEnumObject;
+  all?: SubscribeCommitRequest.AsObject['all'];
+  originKind?: OriginKindEnumObject;
+  from?: CommitObject;
+};
+
 export type CreateBranchRequestObject = {
   head: CommitObject;
   branch: BranchObject;
@@ -71,6 +115,21 @@ export type CommitObject = {
   id: Commit.AsObject['id'];
   branch?: BranchObject;
 };
+
+export enum CommitStateEnumObject {
+  commitStateUnknown = 'COMMIT_STATE_UNKNOWN',
+  started = 'STARTED',
+  ready = 'READY',
+  finished = 'FINISHED',
+}
+
+export enum OriginKindEnumObject {
+  originKindUnknown = 'ORIGIN_KIND_UNKNOWN',
+  user = 'USER',
+  auto = 'AUTO',
+  fsck = 'FSCK',
+  alias = 'ALIAS',
+}
 
 export type CommitInfoObject = {
   commit: CommitObject;
@@ -196,6 +255,178 @@ export const branchFromObject = ({name, repo}: BranchObject) => {
   branch.setRepo(new Repo().setName(repo?.name || '').setType('user'));
 
   return branch;
+};
+
+export const commitStateObjectFromEnumString = (type: string) => {
+  let commitStateObject;
+
+  switch (type) {
+    case CommitStateEnumObject.ready:
+      commitStateObject = CommitState.READY;
+      break;
+    case CommitStateEnumObject.started:
+      commitStateObject = CommitState.STARTED;
+      break;
+    case CommitStateEnumObject.finished:
+      commitStateObject = CommitState.FINISHED;
+      break;
+    default:
+      commitStateObject = CommitState.COMMIT_STATE_UNKNOWN;
+      break;
+  }
+
+  return commitStateObject;
+};
+
+export const originKindObjectFromEnumString = (type: string) => {
+  let originKindObject;
+
+  switch (type) {
+    case OriginKindEnumObject.user:
+      originKindObject = OriginKind.USER;
+      break;
+    case OriginKindEnumObject.auto:
+      originKindObject = OriginKind.AUTO;
+      break;
+    case OriginKindEnumObject.fsck:
+      originKindObject = OriginKind.FSCK;
+      break;
+    case OriginKindEnumObject.alias:
+      originKindObject = OriginKind.ALIAS;
+      break;
+    default:
+      originKindObject = OriginKind.ORIGIN_KIND_UNKNOWN;
+      break;
+  }
+
+  return originKindObject;
+};
+
+export const startCommitRequestFromObject = ({
+  branch,
+  parent,
+  description = '',
+}: StartCommitRequestObject) => {
+  const request = new StartCommitRequest();
+
+  request.setBranch(branchFromObject(branch));
+  if (parent) {
+    request.setParent(commitFromObject(parent));
+  }
+  request.setDescription(description);
+
+  return request;
+};
+
+export const finishCommitRequestFromObject = ({
+  error,
+  force = false,
+  commit,
+  description = '',
+}: FinishCommitRequestObject) => {
+  const request = new FinishCommitRequest();
+
+  request.setForce(force);
+  if (error) {
+    request.setError(error);
+  }
+  if (commit) {
+    request.setCommit(commitFromObject(commit));
+  }
+  request.setDescription(description);
+
+  return request;
+};
+
+export const inspectCommitRequestFromObject = ({
+  wait,
+  commit,
+}: InspectCommitRequestObject) => {
+  const request = new InspectCommitRequest();
+
+  if (wait) {
+    const commitStateObject = commitStateObjectFromEnumString(wait);
+    request.setWait(commitStateObject);
+  }
+
+  if (commit) {
+    request.setCommit(commitFromObject(commit));
+  }
+
+  return request;
+};
+
+export const listCommitRequestFromObject = ({
+  number,
+  all = true,
+  originKind,
+  from,
+  to,
+  repo,
+  reverse = false,
+}: ListCommitRequestObject) => {
+  const request = new ListCommitRequest();
+
+  if (repo) {
+    request.setRepo(repoFromObject(repo).setType('user'));
+  }
+
+  if (from) {
+    request.setFrom(commitFromObject(from));
+  }
+
+  if (to) {
+    request.setTo(commitFromObject(to));
+  }
+
+  if (number) {
+    request.setNumber(number);
+  }
+
+  if (originKind) {
+    const originKindObject = originKindObjectFromEnumString(originKind);
+    request.setOriginKind(originKindObject);
+  }
+
+  request.setAll(all);
+  request.setReverse(reverse);
+
+  return request;
+};
+
+export const subscribeCommitRequestFromObject = ({
+  repo,
+  branch,
+  state,
+  all = true,
+  originKind,
+  from,
+}: SubscribeCommitRequestObject) => {
+  const request = new SubscribeCommitRequest();
+
+  request.setRepo(repoFromObject(repo).setType('user'));
+
+  if (from) {
+    request.setFrom(commitFromObject(from));
+  }
+
+  if (branch) {
+    request.setBranch(branch);
+  }
+
+  if (state) {
+    const commitStateObject = commitStateObjectFromEnumString(state);
+    request.setState(commitStateObject);
+  }
+
+  if (originKind) {
+    const originKindObject = originKindObjectFromEnumString(originKind);
+    request.setOriginKind(originKindObject);
+  }
+
+  request.setAll(all);
+
+  return request;
 };
 
 export const createBranchRequestFromObject = ({
