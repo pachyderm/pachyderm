@@ -291,7 +291,7 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 }
 
 func (env *NonblockingServiceEnv) initDirectDBClient() error {
-	return backoff.Retry(func() error {
+	if err := backoff.Retry(func() error {
 		db, err := dbutil.NewDB(
 			dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
 			dbutil.WithDBName(env.config.PostgresDBName),
@@ -305,18 +305,18 @@ func (env *NonblockingServiceEnv) initDirectDBClient() error {
 			return err
 		}
 		env.directDBClient = db
-		if err := prometheus.Register(sqlstats.NewStatsCollector("pg_bouncer", db.DB)); err != nil {
-			// This is not a retryable error.  Rather it will always happen for the
-			// second (and subsequent) service environment because of a naming conflict.
-			// If you see this message in production, it's a bug.  In tests, it's OK.
-			log.WithError(err).Warn("problem registering database statistics collector")
-		}
 		return db.Ping()
-	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute)); err != nil {
+		return err
+	}
+	if err := prometheus.Register(sqlstats.NewStatsCollector("pg_bouncer", db.DB)); err != nil {
+		return fmt.Errorf("init stats collector for pg_bouncer: %w", err)
+	}
+	return nil
 }
 
 func (env *NonblockingServiceEnv) initDBClient() error {
-	return backoff.Retry(func() error {
+	if err := backoff.Retry(func() error {
 		db, err := dbutil.NewDB(
 			dbutil.WithHostPort(env.config.PGBouncerHost, env.config.PGBouncerPort),
 			dbutil.WithDBName(env.config.PostgresDBName),
@@ -330,14 +330,14 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 			return err
 		}
 		env.dbClient = db
-		if err := prometheus.Register(sqlstats.NewStatsCollector("postgres", db.DB)); err != nil {
-			// This is not a retryable error.  Rather it will always happen for the
-			// second (and subsequent) service environment because of a naming conflict.
-			// If you see this message in production, it's a bug.  In tests, it's OK.
-			log.WithError(err).Warn("problem registering database statistics collector")
-		}
 		return db.Ping()
-	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute)); err != nil {
+		return err
+	}
+	if err := prometheus.Register(sqlstats.NewStatsCollector("postgres", db.DB)); err != nil {
+		return fmt.Errorf("init stats collector for postgres: %w", err)
+	}
+	return nil
 }
 
 func (env *NonblockingServiceEnv) newListener() col.PostgresListener {
