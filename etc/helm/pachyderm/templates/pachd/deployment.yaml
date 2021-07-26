@@ -43,30 +43,22 @@ spec:
       - command:
         - /pachd
         env:
-        {{- if .Values.pachd.postgresql.host }}
         - name: POSTGRES_HOST
-          value: {{ .Values.pachd.postgresql.host | quote}}
-        {{- end }}
-        {{- if .Values.pachd.postgresql.port }}
+          value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
         - name: POSTGRES_PORT
-          value:  {{ .Values.pachd.postgresql.port | quote}}
-        {{- end }}
-        {{- if .Values.pachd.postgresql.user }}
+          value:  {{ required "postgresql port required" .Values.global.postgresql.postgresqlPort | quote }}
         - name: POSTGRES_USER
-          value: {{ .Values.pachd.postgresql.user | quote}}
-        {{- end }}
-        {{- if .Values.pachd.postgresql.database }}
+          value: {{ required "postgresql username required" .Values.global.postgresql.postgresqlUsername | quote }}
         - name: POSTGRES_DATABASE
-          value: {{ .Values.pachd.postgresql.database | quote }}
-        {{- end }}
-        {{- if .Values.pachd.postgresql.ssl }}
+          value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
+        {{- if .Values.global.postgresql.ssl }}
         - name: POSTGRES_SSL
-          value: {{ .Values.pachd.postgresql.ssl | quote }}
+          value: {{ .Values.global.postgresql.ssl | quote }}
         {{- end }}
         - name: PG_BOUNCER_HOST
-          value: pg-bouncer
+          value: pg-bouncer # Must match pgbouncer service name
         - name: PG_BOUNCER_PORT
-          value: "5432"
+          value: "5432" # Must match pbouncer service port
         - name: LOKI_LOGGING
           value: {{ .Values.pachd.lokiLogging | quote}}
         - name: PACH_ROOT

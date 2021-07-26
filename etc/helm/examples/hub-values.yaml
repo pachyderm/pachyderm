@@ -3,6 +3,14 @@
 
 deployTarget: GOOGLE
 
+global:
+  postgresql:
+    postgresqlHost: "cloudsql-auth-proxy.default.svc.cluster.local."
+    postgresqlPort: "5432"
+    postgresqlSSL: "disable"
+    postgresqlUsername: "postgres"
+    postgresqlPassword: "Example-Password"
+
 dash:
   enabled: true
   image:
@@ -31,12 +39,6 @@ ingress:
   host: "dash.test"
 
 pachd:
-  postgresql:
-    host: "cloudsql-auth-proxy.default.svc.cluster.local."
-    port: "5432"
-    ssl: "disable"
-    user: "postgres"
-    password: "Example-Password"
   goMaxProcs: 3
   # image.tag is configured per workspace.
   lokiLogging: true
