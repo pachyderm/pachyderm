@@ -43,7 +43,7 @@ spec:
         - name: ISSUER_URI
           value: {{ .Values.console.config.issuerURI | quote}}
         - name: REACT_APP_RUNTIME_ISSUER_URI
-          value: {{ .Values.dash.config.reactAppRuntimeIssuerURI | quote }}
+          value: {{ .Values.console.config.reactAppRuntimeIssuerURI | quote }}
         - name: OAUTH_REDIRECT_URI
           value: {{ .Values.console.config.oauthRedirectURI | quote }}
         - name: OAUTH_CLIENT_ID
