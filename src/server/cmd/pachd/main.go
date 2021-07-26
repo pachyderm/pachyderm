@@ -52,6 +52,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"go.uber.org/automaxprocs/maxprocs"
 
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
