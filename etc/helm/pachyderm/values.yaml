@@ -47,6 +47,7 @@ dash:
     #  memory: "2G"
   config:
     issuerURI: ""
+    reactAppRuntimeIssuerURI: ""
     oauthRedirectURI: ""
     oauthClientID: ""
     oauthClientSecret: ""

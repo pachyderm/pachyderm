@@ -76,6 +76,9 @@
                         },
                         "pachdAddress": {
                             "type": "string"
+                        },
+                        "reactAppRuntimeIssuerURI": {
+                            "type": "string"
                         }
                     }
                 },
