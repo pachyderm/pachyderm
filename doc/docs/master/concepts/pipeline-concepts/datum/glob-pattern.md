@@ -192,4 +192,4 @@ You can use the `pachctl list datum <pipeline>@<job_number>` command to check th
 
 
 !!! tip "More"
-    You might want to follow up with [inspect datum <pipeline>@<ID>](../metadata.md) to detail the files that a specific datum includes. This is especially useful when troubleshooting a failed datum.
+    You might want to follow up with [inspect datum pipeline@globalID](../metadata.md) to detail the files that a specific datum includes. This is especially useful when troubleshooting a failed datum.
