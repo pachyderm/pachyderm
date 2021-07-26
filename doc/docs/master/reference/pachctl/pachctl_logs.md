@@ -7,21 +7,21 @@ Return logs from a job.
 Return logs from a job.
 
 ```
-pachctl logs [--pipeline=<pipeline>|--job=<job>] [--datum=<datum>] [flags]
+pachctl logs [--pipeline=<pipeline>|--job=<pipeline>@<job>] [--datum=<datum>] [flags]
 ```
 
 ### Examples
 
 ```
 
-# Return logs emitted by recent jobs in the "filter" pipeline
-$ pachctl logs --pipeline=filter
-
-# Return logs emitted by the job aedfa12aedf
-$ pachctl logs --job=aedfa12aedf
-
-# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
-$ pachctl logs --pipeline=filter --inputs=/apple.txt,123aef
+	# Return logs emitted by recent jobs in the "filter" pipeline
+	$ pachctl logs --pipeline=filter
+	
+	# Return logs emitted by the job aedfa12aedf
+	$ pachctl logs --job=aedfa12aedf
+	
+	# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
+	$ pachctl logs --pipeline=filter --inputs=/apple.txt,123aef
 ```
 
 ### Options
@@ -35,6 +35,7 @@ $ pachctl logs --pipeline=filter --inputs=/apple.txt,123aef
       --master            Return log messages from the master process (pipeline must be set).
   -p, --pipeline string   Filter the log for lines from this pipeline (accepts pipeline name)
       --raw               Return log messages verbatim from server.
+      --since string      Return log messages more recent than "since". (default "24h")
   -t, --tail int          Lines of recent logs to display.
       --worker            Return log messages from the worker process.
 ```

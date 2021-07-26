@@ -13,7 +13,8 @@ pachctl delete file <repo>@<branch-or-commit>:<path/in/pfs> [flags]
 ### Options
 
 ```
-  -h, --help   help for file
+  -h, --help        help for file
+  -r, --recursive   Recursively delete the files in a directory.
 ```
 
 ### Options inherited from parent commands

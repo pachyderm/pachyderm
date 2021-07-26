@@ -13,6 +13,7 @@ pachctl auth set-config [flags]
 ### Options
 
 ```
+      --enterprise    Set auth config for the active enterprise context
   -f, --file string   input file (to use as the new config (default "-")
   -h, --help          help for set-config
 ```

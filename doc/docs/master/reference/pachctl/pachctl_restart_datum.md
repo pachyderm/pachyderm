@@ -7,7 +7,7 @@ Restart a datum.
 Restart a datum.
 
 ```
-pachctl restart datum <job> <datum-path1>,<datum-path2>,... [flags]
+pachctl restart datum <pipeline>@<job> <datum-path1>,<datum-path2>,... [flags]
 ```
 
 ### Options

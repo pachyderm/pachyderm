@@ -13,7 +13,8 @@ pachctl auth use-auth-token [flags]
 ### Options
 
 ```
-  -h, --help   help for use-auth-token
+      --enterprise   Use the token for the enterprise context
+  -h, --help         help for use-auth-token
 ```
 
 ### Options inherited from parent commands

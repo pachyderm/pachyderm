@@ -7,7 +7,7 @@ Display detailed info about a single datum.
 Display detailed info about a single datum. Requires the pipeline to have stats enabled.
 
 ```
-pachctl inspect datum <job> <datum> [flags]
+pachctl inspect datum <pipeline>@<job> <datum> [flags]
 ```
 
 ### Options

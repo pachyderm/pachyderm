@@ -13,7 +13,7 @@ pachctl create branch <repo>@<branch-or-commit> [flags]
 ### Options
 
 ```
-      --head string           The head of the newly created branch.
+      --head string           The head of the newly created branch. Either pass the commit with format: <branch-or-commit>, or fully-qualified as <repo>@<branch>=<id>
   -h, --help                  help for branch
   -p, --provenance []string   The provenance for the branch. format: <repo>@<branch-or-commit> (default [])
   -t, --trigger string        The branch to trigger this branch on.

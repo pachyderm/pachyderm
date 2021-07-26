@@ -13,18 +13,18 @@ pachctl port-forward [flags]
 ### Options
 
 ```
-  -h, --help                      help for port-forward
-      --namespace string          Kubernetes namespace Pachyderm is deployed in.
-      --oidc-port uint16          The local port to bind pachd's OIDC ACS to. (default 30657)
-  -f, --pfs-port uint16           The local port to bind PFS over HTTP to. (default 30652)
-  -p, --port uint16               The local port to bind pachd to. (default 30650)
-  -x, --proxy-port uint16         The local port to bind Pachyderm's dash proxy service to. (default 30081)
-      --remote-oidc-port uint16   The remote port that OIDC ACS is bound to in the cluster. (default 657)
-      --remote-port uint16        The remote port that pachd is bound to in the cluster. (default 650)
-      --remote-saml-port uint16   The remote port that SAML ACS is bound to in the cluster. (default 654)
-  -s, --s3gateway-port uint16     The local port to bind the s3gateway to. (default 30600)
-      --saml-port uint16          The local port to bind pachd's SAML ACS to. (default 30654)
-  -u, --ui-port uint16            The local port to bind Pachyderm's dash service to. (default 30080)
+      --dex-port uint16                The local port to bind the identity service to. (default 30658)
+  -h, --help                           help for port-forward
+      --namespace string               Kubernetes namespace Pachyderm is deployed in.
+      --oidc-port uint16               The local port to bind pachd's OIDC callback to. (default 30657)
+  -p, --port uint16                    The local port to bind pachd to. (default 30650)
+  -x, --proxy-port uint16              The local port to bind Pachyderm's dash proxy service to. (default 30081)
+      --remote-dex-port uint16         The local port to bind the identity service to. (default 1658)
+      --remote-oidc-port uint16        The remote port that OIDC callback is bound to in the cluster. (default 1657)
+      --remote-port uint16             The remote port that pachd is bound to in the cluster. (default 1650)
+      --remote-s3gateway-port uint16   The remote port that the s3 gateway is bound to. (default 1600)
+  -s, --s3gateway-port uint16          The local port to bind the s3gateway to. (default 30600)
+  -u, --ui-port uint16                 The local port to bind Pachyderm's dash service to. (default 30080)
 ```
 
 ### Options inherited from parent commands
