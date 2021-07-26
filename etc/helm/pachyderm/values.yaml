@@ -12,6 +12,17 @@ imagePullSecret: ""
 # MINIO, MICROSOFT, CUSTOM or LOCAL.
 deployTarget: ""
 
+global:
+  postgresql:
+    postgresqlUsername: "pachyderm"
+    postgresqlPassword: "elephantastic"
+    postgresqlDatabase: "pachyderm"
+    # The postgresql database host to connect to. Defaults to built in postgres service
+    postgresqlHost: "postgres"
+    # The postgresql database port to connect to. Defaults to built in postgres service
+    postgresqlPort: "5432"
+    postgresqlSSL: "disable"
+
 dash:
   # enabled controls whether the dash manifests are created or not.
   enabled: false
@@ -36,6 +47,7 @@ dash:
     #  memory: "2G"
   config:
     issuerURI: ""
+    reactAppRuntimeIssuerURI: ""
     oauthRedirectURI: ""
     oauthClientID: ""
     oauthClientSecret: ""
@@ -162,6 +174,7 @@ pachd:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
+
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
@@ -173,7 +186,6 @@ pachd:
     # (Optional) specify the existing IP Address of the load balancer
     loadBalancerIP: ""
     apiGRPCPort: 30650
-    apiHTTPPort: 30652
     s3GatewayPort: 30600
   service:
     # labels specifies labels to add to the pachd service.
@@ -310,14 +322,7 @@ pachd:
       create: false
       crt: ""
       key: ""
-  postgresql:
-    host: "postgres"
-    port: "5432"
-    ssl: "disable"
-    user: ""
-    password: ""
-    dbName: ""
-
+ 
 rbac:
   # create indicates whether RBAC resources should be created.
   # Setting it to false is analogous to passing --no-rbac to pachctl
@@ -338,6 +343,17 @@ worker:
     # name sets the name of the worker service account.  Analogous to
     # the --worker-service-account argument to pachctl deploy.
     name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
+
+pgbouncer:
+  service:
+    type: ClusterIP
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+    #  memory: "2G"
 
 postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.

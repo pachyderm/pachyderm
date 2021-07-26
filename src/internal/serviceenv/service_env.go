@@ -57,6 +57,7 @@ type ServiceEnv interface {
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *sqlx.DB
+	GetDirectDBClient() *sqlx.DB
 	GetPostgresListener() col.PostgresListener
 	GetDexDB() dex_storage.Storage
 	ClusterID() string
@@ -110,8 +111,8 @@ type NonblockingServiceEnv struct {
 	dexDB   dex_storage.Storage
 	dexDBEg errgroup.Group
 
-	// dbClient is a database client.
-	dbClient *sqlx.DB
+	// dbClient and directDBClient are database clients.
+	dbClient, directDBClient *sqlx.DB
 	// dbEg coordinates the initialization of dbClient (see pachdEg)
 	dbEg errgroup.Group
 
@@ -156,6 +157,9 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	env.etcdEg.Go(env.initEtcdClient)
 	env.clusterIdEg.Go(env.initClusterID)
 	env.dbEg.Go(env.initDBClient)
+	if !env.isWorker() {
+		env.dbEg.Go(env.initDirectDBClient)
+	}
 	env.listener = env.newListener()
 	if env.config.LokiHost != "" && env.config.LokiPort != "" {
 		env.lokiClient = &loki.Client{
@@ -175,6 +179,10 @@ func InitWithKube(config *Configuration) *NonblockingServiceEnv {
 
 func (env *NonblockingServiceEnv) Config() *Configuration {
 	return env.config
+}
+
+func (env *NonblockingServiceEnv) isWorker() bool {
+	return env.config.PPSPipelineName != ""
 }
 
 func (env *NonblockingServiceEnv) initClusterID() error {
@@ -282,10 +290,35 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func (env *NonblockingServiceEnv) initDBClient() error {
+func (env *NonblockingServiceEnv) initDirectDBClient() error {
 	return backoff.Retry(func() error {
 		db, err := dbutil.NewDB(
 			dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
+			dbutil.WithDBName(env.config.PostgresDBName),
+			dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
+			dbutil.WithMaxOpenConns(env.config.PostgresMaxOpenConns),
+			dbutil.WithMaxIdleConns(env.config.PostgresMaxIdleConns),
+			dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
+			dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
+		)
+		if err != nil {
+			return err
+		}
+		env.directDBClient = db
+		if err := prometheus.Register(sqlstats.NewStatsCollector("pg_bouncer", db.DB)); err != nil {
+			// This is not a retryable error.  Rather it will always happen for the
+			// second (and subsequent) service environment because of a naming conflict.
+			// If you see this message in production, it's a bug.  In tests, it's OK.
+			log.WithError(err).Warn("problem registering database statistics collector")
+		}
+		return db.Ping()
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+}
+
+func (env *NonblockingServiceEnv) initDBClient() error {
+	return backoff.Retry(func() error {
+		db, err := dbutil.NewDB(
+			dbutil.WithHostPort(env.config.PGBouncerHost, env.config.PGBouncerPort),
 			dbutil.WithDBName(env.config.PostgresDBName),
 			dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
 			dbutil.WithMaxOpenConns(env.config.PostgresMaxOpenConns),
@@ -303,14 +336,14 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 			// If you see this message in production, it's a bug.  In tests, it's OK.
 			log.WithError(err).Warn("problem registering database statistics collector")
 		}
-		return nil
+		return db.Ping()
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
 func (env *NonblockingServiceEnv) newListener() col.PostgresListener {
 	// TODO: Change this to be based on whether a direct connection to postgres is available.
 	// A direct connection will not be available in the workers when the PG bouncer changes are in.
-	if env.Config().PPSPipelineName != "" {
+	if env.isWorker() {
 		return env.newProxyListener()
 	}
 	return env.newDirectListener()
@@ -405,6 +438,19 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 		panic("service env never connected to the database")
 	}
 	return env.dbClient
+}
+
+func (env *NonblockingServiceEnv) GetDirectDBClient() *sqlx.DB {
+	if env.isWorker() {
+		panic("worker cannot get direct db client")
+	}
+	if err := env.dbEg.Wait(); err != nil {
+		panic(err)
+	}
+	if env.directDBClient == nil {
+		panic("service env never connected to the database")
+	}
+	return env.directDBClient
 }
 
 // GetPostgresListener returns the already constructed database client dedicated

@@ -27,7 +27,7 @@ type dexAPI struct {
 func newDexAPI(sp dex_storage.Storage) *dexAPI {
 	logger := logrus.WithField("source", "dex-api")
 	return &dexAPI{
-		api:     dex_server.NewAPI(sp, logger),
+		api:     dex_server.NewAPI(sp, logger, ""),
 		storage: sp,
 		logger:  logger,
 	}

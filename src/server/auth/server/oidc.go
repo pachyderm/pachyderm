@@ -22,6 +22,8 @@ import (
 
 const threeMinutes = 3 * 60 // Passed to col.PutTTL (so value is in seconds)
 
+const localhostIdentityServer = "localhost:30658"
+
 // various oidc invalid argument errors. Use 'goerror' instead of internal
 // 'errors' library b/c stack trace isn't useful
 var (
@@ -99,7 +101,6 @@ func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, e
 		}
 		ctx = oidc.ClientContext(ctx, rewriteClient)
 	}
-
 	oidcProvider, err := oidc.NewProvider(ctx, config.Issuer)
 	if err != nil {
 		return nil, err
@@ -155,10 +156,19 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 		return "", "", errors.Wrap(err, "could not create OIDC login session")
 	}
 
-	url := config.oauthConfig.AuthCodeURL(state,
+	authURL := config.oauthConfig.AuthCodeURL(state,
 		oauth2.SetAuthURLParam("response_type", "code"),
 		oauth2.SetAuthURLParam("nonce", nonce))
-	return url, state, nil
+
+	if config.LocalhostIssuer {
+		rewriteURL, err := url.Parse(authURL)
+		if err != nil {
+			return "", "", errors.Wrap(err, "could not parse Auth URL for Localhost Issuer rewrite")
+		}
+		rewriteURL.Host = localhostIdentityServer
+		authURL = rewriteURL.String()
+	}
+	return authURL, state, nil
 }
 
 // OIDCStateToEmail takes the state token created for the OIDC session and

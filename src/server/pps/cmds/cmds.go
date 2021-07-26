@@ -102,34 +102,58 @@ If the job fails, the output commit will not be populated with data.`,
 	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectJob, "inspect job"))
 
+	writeJobInfos := func(out io.Writer, jobInfos []*pps.JobInfo) error {
+		if raw {
+			e := cmdutil.Encoder(output, out)
+			for _, jobInfo := range jobInfos {
+				if err := e.EncodeProto(jobInfo); err != nil {
+					return err
+				}
+			}
+			return nil
+		} else if output != "" {
+			return errors.New("cannot set --output (-o) without --raw")
+		}
+
+		return pager.Page(noPager, out, func(w io.Writer) error {
+			writer := tabwriter.NewWriter(w, pretty.JobHeader)
+			for _, jobInfo := range jobInfos {
+				pretty.PrintJobInfo(writer, jobInfo, fullTimestamps)
+			}
+			return writer.Flush()
+		})
+	}
+
 	waitJob := &cobra.Command{
-		Use:   "{{alias}} <pipeline>@<job>",
+		Use:   "{{alias}} <job>|<pipeline>@<job>",
 		Short: "Wait for a job to finish then return info about the job.",
 		Long:  "Wait for a job to finish then return info about the job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			job, err := cmdutil.ParseJob(args[0])
-			if err != nil {
-				return err
-			}
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			jobInfo, err := client.WaitJob(job.Pipeline.Name, job.ID, true)
-			if err != nil {
-				errors.Wrap(err, "error from InspectJob")
+
+			var jobInfos []*pps.JobInfo
+			if uuid.IsUUIDWithoutDashes(args[0]) {
+				jobInfos, err = client.WaitJobSetAll(args[0], true)
+				if err != nil {
+					return err
+				}
+			} else {
+				job, err := cmdutil.ParseJob(args[0])
+				if err != nil {
+					return err
+				}
+				jobInfo, err := client.WaitJob(job.Pipeline.Name, job.ID, true)
+				if err != nil {
+					errors.Wrap(err, "error from InspectJob")
+				}
+				jobInfos = []*pps.JobInfo{jobInfo}
 			}
-			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(jobInfo)
-			} else if output != "" {
-				return errors.New("cannot set --output (-o) without --raw")
-			}
-			pji := &pretty.PrintableJobInfo{
-				JobInfo:        jobInfo,
-				FullTimestamps: fullTimestamps,
-			}
-			return pretty.PrintDetailedJobInfo(os.Stdout, pji)
+
+			return writeJobInfos(os.Stdout, jobInfos)
 		}),
 	}
 	waitJob.Flags().AddFlagSet(outputFlags)
@@ -190,7 +214,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			}
 			defer client.Close()
 
-			if raw && output != "" {
+			if !raw && output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
@@ -246,23 +270,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 					return errors.Wrap(err, "error from InspectJobSet")
 				}
 
-				if raw {
-					e := cmdutil.Encoder(output, os.Stdout)
-					for _, jobInfo := range jobInfos {
-						if err := e.EncodeProto(jobInfo); err != nil {
-							return err
-						}
-					}
-					return nil
-				}
-
-				return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
-					writer := tabwriter.NewWriter(w, pretty.JobHeader)
-					for _, jobInfo := range jobInfos {
-						pretty.PrintJobInfo(writer, jobInfo, fullTimestamps)
-					}
-					return writer.Flush()
-				})
+				return writeJobInfos(os.Stdout, jobInfos)
 			} else {
 				// We are listing sub-jobs
 				if raw {
@@ -333,17 +341,36 @@ $ {{alias}} -p foo -i bar@YYY`,
 		Short: "Stop a job.",
 		Long:  "Stop a job.  The job will be stopped immediately.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			job, err := cmdutil.ParseJob(args[0])
-			if err != nil {
-				return err
-			}
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			if err := client.StopJob(job.Pipeline.Name, job.ID); err != nil {
-				return errors.Wrap(err, "error from StopJob")
+
+			if uuid.IsUUIDWithoutDashes(args[0]) {
+				// Stop each subjob in a transaction
+				jobInfos, err := client.InspectJobSet(args[0], false)
+				if err != nil {
+					return err
+				}
+				if _, err := client.RunBatchInTransaction(func(tb *pachdclient.TransactionBuilder) error {
+					for _, jobInfo := range jobInfos {
+						if err := tb.StopJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID); err != nil {
+							return err
+						}
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
+			} else {
+				job, err := cmdutil.ParseJob(args[0])
+				if err != nil {
+					return err
+				}
+				if err := client.StopJob(job.Pipeline.Name, job.ID); err != nil {
+					return errors.Wrap(err, "error from StopJob")
+				}
 			}
 			return nil
 		}),

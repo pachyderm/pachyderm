@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/dexidp/dex/connector"
 	"github.com/dexidp/dex/pkg/log"
@@ -25,12 +24,7 @@ func (placeholderConfig) Open(id string, logger log.Logger) (connector.Connector
 type placeholder struct{}
 
 func (*placeholder) LoginURL(s connector.Scopes, callbackURL, state string) (string, error) {
-	u, err := url.Parse(callbackURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse callbackURL %q: %v", callbackURL, err)
-	}
-	u.Path = "/static/not-configured.html"
-	return u.String(), nil
+	return "/static/not-configured.html", nil
 }
 
 // HandleCallback parses the request and returns the user's identity

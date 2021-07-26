@@ -22,16 +22,16 @@ import (
 // TestServiceEnv is a simple implementation of ServiceEnv that can be constructed with
 // existing clients.
 type TestServiceEnv struct {
-	Configuration    *Configuration
-	PachClient       *client.APIClient
-	EtcdClient       *etcd.Client
-	KubeClient       *kube.Clientset
-	LokiClient       *loki.Client
-	DBClient         *sqlx.DB
-	PostgresListener col.PostgresListener
-	DexDB            dex_storage.Storage
-	Log              *log.Logger
-	Ctx              context.Context
+	Configuration            *Configuration
+	PachClient               *client.APIClient
+	EtcdClient               *etcd.Client
+	KubeClient               *kube.Clientset
+	LokiClient               *loki.Client
+	DBClient, DirectDBClient *sqlx.DB
+	PostgresListener         col.PostgresListener
+	DexDB                    dex_storage.Storage
+	Log                      *log.Logger
+	Ctx                      context.Context
 
 	// Auth is the registered auth APIServer
 	Auth auth_server.APIServer
@@ -70,6 +70,9 @@ func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
 }
 func (s *TestServiceEnv) GetDBClient() *sqlx.DB {
 	return s.DBClient
+}
+func (s *TestServiceEnv) GetDirectDBClient() *sqlx.DB {
+	return s.DirectDBClient
 }
 func (s *TestServiceEnv) GetPostgresListener() col.PostgresListener {
 	return s.PostgresListener

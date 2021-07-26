@@ -2,6 +2,9 @@ package auth
 
 import (
 	"context"
+	"strings"
+
+	"google.golang.org/grpc/metadata"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	authiface "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -74,4 +77,13 @@ func GetWhoAmI(ctx context.Context) string {
 
 func setWhoAmI(ctx context.Context, username string) context.Context {
 	return context.WithValue(ctx, whoAmIResultKey, username)
+}
+
+// AsInternalUser should never be used during user requests, only internal background jobs.
+// It gives a context a cached whoami username of form internal:<name>. It also overwrites
+// any existing metadata. As a result, this context may not be able to make additional gRPCs.
+func AsInternalUser(ctx context.Context, username string) context.Context {
+	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
+	ctx = metadata.NewOutgoingContext(ctx, metadata.MD{})
+	return context.WithValue(ctx, whoAmIResultKey, auth.InternalPrefix+strings.TrimPrefix(username, auth.InternalPrefix))
 }

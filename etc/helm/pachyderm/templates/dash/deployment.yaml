@@ -42,6 +42,8 @@ spec:
         env:
         - name: ISSUER_URI
           value: {{ .Values.dash.config.issuerURI | quote}}
+        - name: REACT_APP_RUNTIME_ISSUER_URI
+          value: {{ .Values.dash.config.reactAppRuntimeIssuerURI | quote }}
         - name: OAUTH_REDIRECT_URI
           value: {{ .Values.dash.config.oauthRedirectURI | quote }}
         - name: OAUTH_CLIENT_ID

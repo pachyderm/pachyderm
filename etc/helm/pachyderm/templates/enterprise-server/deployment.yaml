@@ -38,9 +38,17 @@ spec:
         - --mode=enterprise
         env:
         - name: POSTGRES_HOST
-          value: postgres
+          value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
         - name: POSTGRES_PORT
-          value: "5432"
+          value: {{ required "postgresql port required" .Values.global.postgresql.postgresqlPort | quote }}
+        - name: PG_BOUNCER_HOST
+          value: pg-bouncer # Must match pgbouncer service name
+        - name: PG_BOUNCER_PORT
+          value: "5432" # Must match pgbouncer service port
+        - name: POSTGRES_DATABASE
+          value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
+        - name: POSTGRES_USER
+          value: {{ required "postgresql username required" .Values.global.postgresql.postgresqlUsername | quote }}
         - name: CLUSTER_DEPLOYMENT_ID
           value: {{ default (randAlphaNum 32) .Values.enterpriseServer.clusterDeploymentID | quote }}
         image: "{{ .Values.enterpriseServer.image.repository }}:{{ default .Chart.AppVersion .Values.enterpriseServer.image.tag }}"

@@ -4,7 +4,6 @@
 package helmtest
 
 import (
-	"log"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
@@ -45,7 +44,6 @@ func TestHub(t *testing.T) {
 	for _, object := range objects {
 		switch object := object.(type) {
 		case *v1beta1.Ingress:
-			log.Println("ingress", object.String())
 			for _, rule := range object.Spec.Rules {
 				if rule.Host == "dash.test" {
 					checks["ingress"] = true
@@ -168,10 +166,6 @@ func TestHub(t *testing.T) {
 				}{
 					"api-grpc-port": {
 						port:  31400,
-						found: false,
-					},
-					"api-http-port": {
-						port:  30652,
 						found: false,
 					},
 					"s3gateway-port": {

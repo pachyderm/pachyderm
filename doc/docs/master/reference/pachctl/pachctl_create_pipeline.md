@@ -13,7 +13,6 @@ pachctl create pipeline [flags]
 ### Options
 
 ```
-  -b, --build             If true, build and push local docker images into the docker registry.
   -f, --file string       The JSON file containing the pipeline, it can be a url or local file. - reads from stdin. (default "-")
   -h, --help              help for pipeline
   -p, --push-images       If true, push local docker images into the docker registry.

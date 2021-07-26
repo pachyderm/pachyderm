@@ -10,14 +10,6 @@ import (
 )
 
 const (
-	// DefaultHost is the default host.
-	DefaultHost = "127.0.0.1"
-	// DefaultPort is the default port.
-	DefaultPort = 32228
-	// DefaultUser is the default user
-	DefaultUser = "postgres"
-	// DefaultDBName is the default DB name.
-	DefaultDBName = "pgc"
 	// DefaultMaxOpenConns is the default maximum number of open connections; if you change
 	// this, also consider changing the default from the environment in
 	// serviceenv.GlobalConfiguration.
@@ -46,10 +38,6 @@ type dbConfig struct {
 
 func newConfig(opts ...Option) *dbConfig {
 	dbc := &dbConfig{
-		host:            DefaultHost,
-		port:            DefaultPort,
-		user:            DefaultUser,
-		name:            DefaultDBName,
 		maxOpenConns:    DefaultMaxOpenConns,
 		maxIdleConns:    DefaultMaxIdleConns,
 		connMaxLifetime: DefaultConnMaxLifetime,
@@ -65,6 +53,9 @@ func getDSN(dbc *dbConfig) string {
 	fields := map[string]string{
 		"sslmode":         "disable",
 		"connect_timeout": "30",
+
+		// https://github.com/lib/pq/issues/889
+		"binary_parameters": "yes",
 	}
 	if dbc.host != "" {
 		fields["host"] = dbc.host
@@ -100,7 +91,17 @@ func GetDSN(opts ...Option) string {
 // NewDB creates a new DB.
 func NewDB(opts ...Option) (*sqlx.DB, error) {
 	dbc := newConfig(opts...)
-	db, err := sqlx.Open("postgres", getDSN(dbc))
+	if dbc.name == "" {
+		panic("must specify database name")
+	}
+	if dbc.host == "" {
+		panic("must specify database host")
+	}
+	if dbc.user == "" {
+		panic("must specify user")
+	}
+	dsn := getDSN(dbc)
+	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
 	}

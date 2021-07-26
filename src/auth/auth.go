@@ -31,6 +31,10 @@ const (
 	// string (with this prefix) is a logical Pachyderm robot user.
 	RobotPrefix = "robot:"
 
+	// InternalPrefix indicates that this Subject is internal to Pachyderm itself,
+	// created to run a background task
+	InternalPrefix = "internal:"
+
 	// PipelinePrefix indicates that this Subject is a PPS pipeline. Any string
 	// (with this prefix) is a logical PPS pipeline (even though the pipeline may
 	// not exist).
