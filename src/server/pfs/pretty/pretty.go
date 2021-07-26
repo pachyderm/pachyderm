@@ -73,8 +73,8 @@ func PrintDetailedRepoInfo(repoInfo *PrintableRepoInfo) error {
 		`Name: {{.Repo.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .FullTimestamps}}
 Created: {{.Created}}{{else}}
-Created: {{prettyAgo .Created}}{{end}}
-Size of HEAD on master: {{prettySize .Details.SizeBytes}}{{if .AuthInfo}}
+Created: {{prettyAgo .Created}}{{end}}{{if .Details}}
+Size of HEAD on master: {{prettySize .Details.SizeBytes}}{{end}}{{if .AuthInfo}}
 Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 `)
 	if err != nil {
@@ -242,8 +242,8 @@ Parent: {{.ParentCommit.ID}}{{end}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}
-Finished: {{prettyAgo .Finished}}{{end}}{{end}}
-Size: {{prettySize .Details.SizeBytes}}
+Finished: {{prettyAgo .Finished}}{{end}}{{end}}{{if .Details}}
+Size: {{prettySize .Details.SizeBytes}}{{end}}
 `)
 	if err != nil {
 		return err

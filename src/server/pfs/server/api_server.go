@@ -184,19 +184,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.FinishCommit(request)
-	}, func(txnCtx *txncontext.TransactionContext) (string, error) {
-		// FinishCommit in a transaction by itself has special handling with regards
-		// to its CommitSet ID.  It is possible that this transaction will create
-		// new commits via triggers, but we want those commits to be associated with
-		// the same CommitSet that the finished commit is associated with.
-		// Therefore, we override the txnCtx's CommitSetID field to point to the
-		// same commit.
-		commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
-		if err != nil {
-			return "", err
-		}
-		return commitInfo.Commit.ID, nil
-	}); err != nil {
+	}, nil); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

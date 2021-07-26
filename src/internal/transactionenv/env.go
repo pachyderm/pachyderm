@@ -310,6 +310,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 		if env.serviceEnv.PpsServer() != nil {
 			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
 			txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
+			txnCtx.PpsJobFinisher = env.serviceEnv.PpsServer().NewJobFinisher(txnCtx)
 		}
 
 		err := cb(txnCtx)
@@ -337,6 +338,7 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 		if env.serviceEnv.PpsServer() != nil {
 			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
 			txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
+			txnCtx.PpsJobFinisher = env.serviceEnv.PpsServer().NewJobFinisher(txnCtx)
 		}
 
 		err := cb(txnCtx)

@@ -181,14 +181,19 @@ func (c APIClient) StartCommitParent(repoName string, branchName string, parentB
 // FinishCommit ends the process of committing data to a Repo and persists the
 // Commit. Once a Commit is finished the data becomes immutable and future
 // attempts to write to it with PutFile will error.
-func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) error {
+func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) (retErr error) {
+	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	_, err := c.PfsAPIClient.FinishCommit(
 		c.Ctx(),
 		&pfs.FinishCommitRequest{
 			Commit: NewCommit(repoName, branchName, commitID),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	if err != nil {
+		return err
+	}
+	_, err = c.WaitCommit(repoName, branchName, commitID)
+	return err
 }
 
 // InspectCommit returns info about a specific Commit.

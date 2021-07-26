@@ -28,6 +28,16 @@ func (mock *mockNewJobStopper) Use(cb newJobStopperFunc) {
 	mock.handler = cb
 }
 
+type newJobFinisherFunc func(*txncontext.TransactionContext) txncontext.PpsJobFinisher
+
+type mockNewJobFinisher struct {
+	handler newJobFinisherFunc
+}
+
+func (mock *mockNewJobFinisher) Use(cb newJobFinisherFunc) {
+	mock.handler = cb
+}
+
 type stopJobInTransactionFunc func(*txncontext.TransactionContext, *pps.StopJobRequest) error
 
 type mockStopJobInTransaction struct {
@@ -79,6 +89,7 @@ type MockPPSTransactionServer struct {
 	api                          ppsTransactionAPI
 	NewPropagater                mockNewPropagater
 	NewJobStopper                mockNewJobStopper
+	NewJobFinisher               mockNewJobFinisher
 	StopJobInTransaction         mockStopJobInTransaction
 	UpdateJobStateInTransaction  mockUpdateJobStateInTransaction
 	CreatePipelineInTransaction  mockCreatePipelineInTransaction
@@ -107,6 +118,18 @@ func (api *ppsTransactionAPI) NewJobStopper(txnCtx *txncontext.TransactionContex
 		return api.mock.NewJobStopper.handler(txnCtx)
 	}
 	return &MockPPSJobStopper{}
+}
+
+type MockPPSJobFinisher struct{}
+
+func (mpp *MockPPSJobFinisher) FinishJob(*pfs.CommitInfo) {}
+func (mpp *MockPPSJobFinisher) Run() error                { return nil }
+
+func (api *ppsTransactionAPI) NewJobFinisher(txnCtx *txncontext.TransactionContext) txncontext.PpsJobFinisher {
+	if api.mock.NewJobFinisher.handler != nil {
+		return api.mock.NewJobFinisher.handler(txnCtx)
+	}
+	return &MockPPSJobFinisher{}
 }
 
 func (api *ppsTransactionAPI) StopJobInTransaction(txnCtx *txncontext.TransactionContext, req *pps.StopJobRequest) error {

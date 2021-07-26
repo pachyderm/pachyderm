@@ -27,7 +27,8 @@ type TransactionContext struct {
 	// PpsPropagater starts Jobs in any pipelines that have new output commits at the end of the transaction.
 	PpsPropagater PpsPropagater
 	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
-	PpsJobStopper PpsJobStopper
+	PpsJobStopper  PpsJobStopper
+	PpsJobFinisher PpsJobFinisher
 }
 
 // PropagateJobs notifies PPS that there are new commits in the transaction's
@@ -41,6 +42,10 @@ func (t *TransactionContext) PropagateJobs() {
 // associated with them should be stopped.
 func (t *TransactionContext) StopJobs(commitset *pfs.CommitSet) {
 	t.PpsJobStopper.StopJobs(commitset)
+}
+
+func (t *TransactionContext) FinishJob(commitInfo *pfs.CommitInfo) {
+	t.PpsJobFinisher.FinishJob(commitInfo)
 }
 
 // PropagateBranch saves a branch to be propagated at the end of the transaction
@@ -60,6 +65,16 @@ func (t *TransactionContext) Finish() error {
 	}
 	if t.PpsPropagater != nil {
 		if err := t.PpsPropagater.Run(); err != nil {
+			return err
+		}
+	}
+	if t.PpsJobStopper != nil {
+		if err := t.PpsJobStopper.Run(); err != nil {
+			return err
+		}
+	}
+	if t.PpsJobFinisher != nil {
+		if err := t.PpsJobFinisher.Run(); err != nil {
 			return err
 		}
 	}
@@ -85,5 +100,10 @@ type PpsPropagater interface {
 // circular dependency.
 type PpsJobStopper interface {
 	StopJobs(commitset *pfs.CommitSet)
+	Run() error
+}
+
+type PpsJobFinisher interface {
+	FinishJob(commitInfo *pfs.CommitInfo)
 	Run() error
 }

@@ -276,7 +276,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	repoInfo := &pfs.RepoInfo{}
 
 	processFunc := func(string) error {
-		size, err := d.repoSizeUpperBound(ctx, repoInfo.Repo)
+		size, err := d.repoSize(ctx, repoInfo.Repo)
 		if err != nil {
 			return err
 		}
@@ -523,7 +523,7 @@ func (d *driver) startCommit(
 			return nil, errors.Wrapf(err, "parent commit not found")
 		}
 		// fail if the parent commit has not been finished
-		if parentCommitInfo.Finished == nil {
+		if parentCommitInfo.Finishing == nil {
 			return nil, errors.Errorf("parent commit %s has not been finished", parent)
 		}
 
@@ -552,14 +552,12 @@ func (d *driver) startCommit(
 	return newCommit, nil
 }
 
-// TODO: Need to block operations on the commit before kicking off the compaction / finishing the commit.
-// We are going to want to move the compaction to the read side, and just mark the commit as finished here.
 func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description string, commitError, force bool) error {
 	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
 	}
-	if commitInfo.Finished != nil {
+	if commitInfo.Finishing != nil {
 		return pfsserver.ErrCommitFinished{
 			Commit: commitInfo.Commit,
 		}
@@ -580,46 +578,9 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if description != "" {
 		commitInfo.Description = description
 	}
-	commitInfo.Finished = txnCtx.Timestamp
+	commitInfo.Finishing = txnCtx.Timestamp
 	commitInfo.Error = commitError
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commitInfo.Commit), commitInfo); err != nil {
-		return err
-	}
-	if err := d.finishAliasDescendents(txnCtx, commitInfo); err != nil {
-		return err
-	}
-	if err := d.triggerCommit(txnCtx, commitInfo.Commit); err != nil {
-		return err
-	}
-	return nil
-}
-
-// finishAliasChildren will traverse the given commit's children, finding all
-// continguous aliases and finishing them.
-func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo) error {
-	// Build the starting set of commits to consider
-	descendents := append([]*pfs.Commit{}, parentCommitInfo.ChildCommits...)
-
-	// A commit cannot have more than one parent, so no need to track visited nodes
-	for len(descendents) > 0 {
-		commit := descendents[0]
-		descendents = descendents[1:]
-		commitInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
-			return err
-		}
-
-		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
-			commitInfo.Finished = txnCtx.Timestamp
-			commitInfo.Error = parentCommitInfo.Error
-			if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
-				return err
-			}
-
-			descendents = append(descendents, commitInfo.ChildCommits...)
-		}
-	}
-	return nil
+	return d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commitInfo.Commit), commitInfo)
 }
 
 // resolveAlias finds the first ancestor of the source commit which is not an alias (possibly source itself)
@@ -687,8 +648,12 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			Started:          txnCtx.Timestamp,
 			DirectProvenance: branchInfo.DirectProvenance,
 		}
-		if parentCommitInfo.Finished != nil {
-			commitInfo.Finished = txnCtx.Timestamp
+		if parentCommitInfo.Finishing != nil {
+			commitInfo.Finishing = txnCtx.Timestamp
+			if parentCommitInfo.Finished != nil {
+				commitInfo.Finished = txnCtx.Timestamp
+				commitInfo.Details = parentCommitInfo.Details
+			}
 			commitInfo.Error = parentCommitInfo.Error
 		}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(commitInfo.Commit), commitInfo); err != nil {
@@ -718,23 +683,6 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 	return commitInfo, nil
 }
 
-func (d *driver) repoSizeUpperBound(ctx context.Context, repo *pfs.Repo) (int64, error) {
-	repoInfo := new(pfs.RepoInfo)
-	if err := d.repos.ReadOnly(ctx).Get(pfsdb.RepoKey(repo), repoInfo); err != nil {
-		return 0, err
-	}
-	for _, branch := range repoInfo.Branches {
-		if branch.Name == "master" {
-			branchInfo := &pfs.BranchInfo{}
-			if err := d.branches.ReadOnly(ctx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
-				return 0, err
-			}
-			return d.commitSizeUpperBound(ctx, branchInfo.Head)
-		}
-	}
-	return 0, nil
-}
-
 func (d *driver) repoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
 	repoInfo := new(pfs.RepoInfo)
 	if err := d.repos.ReadOnly(ctx).Get(pfsdb.RepoKey(repo), repoInfo); err != nil {
@@ -746,7 +694,14 @@ func (d *driver) repoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
 			if err := d.branches.ReadOnly(ctx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
 				return 0, err
 			}
-			return d.commitSize(ctx, branchInfo.Head)
+			ci, err := d.inspectCommit(ctx, branchInfo.Head, pfs.CommitState_STARTED)
+			if err != nil {
+				return 0, err
+			}
+			if ci.Details != nil {
+				return ci.Details.SizeBytes, nil
+			}
+			return d.commitSizeUpperBound(ctx, branchInfo.Head)
 		}
 	}
 	return 0, nil
@@ -976,23 +931,6 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 		}
 	}
 
-	if commitInfo.Finished != nil {
-		size, err := d.commitSize(ctx, commitInfo.Commit)
-		if err != nil {
-			return nil, err
-		}
-		if commitInfo.Details == nil {
-			commitInfo.Details = &pfs.CommitInfo_Details{}
-		}
-		commitInfo.Details.SizeBytes = size
-		commitInfo.SizeBytesUpperBound = size
-	} else {
-		var err error
-		commitInfo.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, commitInfo.Commit)
-		if err != nil {
-			return nil, err
-		}
-	}
 	return commitInfo, nil
 }
 
@@ -2001,7 +1939,9 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchIn
 		DirectProvenance: branchInfo.DirectProvenance,
 	}
 	if closed {
+		commitInfo.Finishing = txnCtx.Timestamp
 		commitInfo.Finished = txnCtx.Timestamp
+		commitInfo.Details = &pfs.CommitInfo_Details{}
 	}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(pfsdb.CommitKey(commit), commitInfo); err != nil {
 		return nil, err

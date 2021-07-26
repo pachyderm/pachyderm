@@ -48,7 +48,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		}
 		defer func() {
 			if common.IsDone(ctx) {
-				retErr = ppsutil.FinishJob(pachClient, jobInfo, pps.JobState_JOB_SUCCESS, "")
+				retErr = ppsutil.FinishJob(pachClient, jobInfo, pps.JobState_JOB_FINISHING, "")
 			}
 		}()
 		storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -79,7 +78,7 @@ func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, err
 func (reg *registry) succeedJob(pj *pendingJob) error {
 	pj.logger.Logf("job successful, closing commits")
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_SUCCESS, "")
+	return ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FINISHING, "")
 }
 
 func (reg *registry) failJob(pj *pendingJob, reason string) error {
@@ -101,29 +100,20 @@ func (reg *registry) killJob(pj *pendingJob, reason string) error {
 	return err
 }
 
-func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
-	var asyncEg *errgroup.Group
+func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 	reg.limiter.Acquire()
 	defer func() {
-		if asyncEg == nil {
-			// The async errgroup never got started, so give up the limiter lock
+		// TODO(2.0 optional): The error handling during job setup needs more work.
+		// For a commit that is squashed, we would want to exit.
+		// For transient errors, we would want to retry, not just give up on the job.
+		if retErr != nil {
 			reg.limiter.Release()
 		}
 	}()
-	asyncStarted := false
-	jobCtx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
-	// Don't leak the cancellation if we error before starting the async code
-	defer func() {
-		if !asyncStarted {
-			cancel()
-		}
-	}()
-	driver := reg.driver.WithContext(jobCtx)
-	pi := driver.PipelineInfo()
+	pi := reg.driver.PipelineInfo()
 	pj := &pendingJob{
-		driver: driver,
+		driver: reg.driver,
 		logger: reg.logger.WithJob(jobInfo.Job.ID),
-		cancel: cancel,
 		ji:     jobInfo,
 		hasher: &hasher{
 			name: pi.Pipeline.Name,
@@ -131,14 +121,14 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 		},
 		noSkip: pi.Details.ReprocessSpec == client.ReprocessSpecEveryJob || pi.Details.S3Out,
 	}
-	if err := pj.load(); err != nil {
-		return err
-	}
 	if pj.ji.State == pps.JobState_JOB_CREATED {
 		pj.ji.State = pps.JobState_JOB_STARTING
 		if err := pj.writeJobInfo(); err != nil {
 			return err
 		}
+	}
+	if err := pj.load(); err != nil {
+		return err
 	}
 	// Inputs must be ready before we can construct a datum iterator.
 	if err := pj.logger.LogStep("waiting for job inputs", func() error {
@@ -159,13 +149,8 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 		}
 		afterTime = time.Until(startTime.Add(timeout))
 	}
-
-	asyncEg, jobCtx = errgroup.WithContext(pj.driver.PachClient().Ctx())
-	pj.driver = reg.driver.WithContext(jobCtx)
-	asyncStarted = true
-
-	asyncEg.Go(func() error {
-		defer pj.cancel()
+	go func() {
+		defer reg.limiter.Release()
 		if pj.ji.Details.JobTimeout != nil {
 			pj.logger.Logf("cancelling job at: %+v", afterTime)
 			timer := time.AfterFunc(afterTime, func() {
@@ -173,78 +158,54 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) error {
 			})
 			defer timer.Stop()
 		}
-		return backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
-			return reg.superviseJob(pj)
-		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-			pj.logger.Logf("error in superviseJob: %v, retrying in %+v", err, d)
-			return nil
-		})
-	})
-
-	asyncEg.Go(func() error {
-		defer pj.cancel()
-		mutex := &sync.Mutex{}
-		mutex.Lock()
-		defer mutex.Unlock()
-		// This runs the callback asynchronously, but we want to block the errgroup until it completes
-		if err := reg.taskQueue.RunTask(pj.driver.PachClient().Ctx(), func(master *work.Master) {
-			defer mutex.Unlock()
-			pj.taskMaster = master
-			backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
+		if err := backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
+			ctx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
+			defer cancel()
+			eg, jobCtx := errgroup.WithContext(ctx)
+			pj.driver = reg.driver.WithContext(jobCtx)
+			pj.cancel = cancel
+			eg.Go(func() error {
+				return reg.superviseJob(pj)
+			})
+			eg.Go(func() error {
 				var err error
 				for err == nil {
 					err = reg.processJob(pj)
 				}
-				if errors.Is(err, errutil.ErrBreak) {
+				if errors.Is(err, errutil.ErrBreak) || errors.Is(ctx.Err(), context.Canceled) {
 					return nil
 				}
 				return err
-			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				pj.logger.Logf("processJob error: %v, retrying in %v", err, d)
-				for err != nil {
-					if st, ok := err.(errors.StackTracer); ok {
-						pj.logger.Logf("error stack: %+v", st.StackTrace())
-					}
-					err = errors.Unwrap(err)
-				}
-				// Get job state, increment restarts, write job state
-				pj.ji, err = pj.driver.PachClient().InspectJob(pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
-				if err != nil {
-					return err
-				}
-				// Reload the job's commitInfo(s) as they may have changed and clear the state of the commit(s).
-				if err := pj.load(); err != nil {
-					return err
-				}
-				pj.ji.Restart++
-				if err := pj.writeJobInfo(); err != nil {
-					pj.logger.Logf("error incrementing restart count for job (%s): %v", pj.ji.Job.ID, err)
-				}
-				return nil
 			})
-			pj.logger.Logf("master done running processJobs")
+			return eg.Wait()
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			pj.logger.Logf("error processing job: %v, retrying in %v", err, d)
+			for err != nil {
+				if st, ok := err.(errors.StackTracer); ok {
+					pj.logger.Logf("error stack: %+v", st.StackTrace())
+				}
+				err = errors.Unwrap(err)
+			}
+			// Reload the job's commits and info as they may have changed.
+			if err := pj.load(); err != nil {
+				return err
+			}
+			pj.ji.Restart++
+			if err := pj.writeJobInfo(); err != nil {
+				pj.logger.Logf("error incrementing restart count for job (%s): %v", pj.ji.Job.ID, err)
+			}
+			return nil
 		}); err != nil {
-			return err
-		}
-		// This should block until the callback has completed
-		mutex.Lock()
-		return nil
-	})
-
-	go func() {
-		defer reg.limiter.Release()
-		if err := asyncEg.Wait(); err != nil {
+			// TODO: We can hit this due to a transient failure of the pachd sidecar.
 			pj.logger.Logf("fatal job error: %v", err)
 		}
 	}()
 	return nil
 }
 
-// superviseJob watches for the output commit closing and cancels the job, or
-// deletes it if the output commit is removed.
 func (reg *registry) superviseJob(pj *pendingJob) error {
 	defer pj.cancel()
-	ci, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
+	_, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
 			Commit: pj.ji.OutputCommit,
 			Wait:   pfs.CommitState_FINISHED,
@@ -256,6 +217,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 				return err
 			}
 			// Output commit was deleted. Delete job as well
+			// TODO: This should be handled through a transaction defer when the commit is squashed.
 			if err := pj.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 				// Delete the job if no other worker has deleted it yet
 				jobInfo := &pps.JobInfo{}
@@ -270,16 +232,13 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 		}
 		return err
 	}
-	if ci.Error {
-		return reg.killJob(pj, "output commit closed")
-	}
 	return nil
 
 }
 
 func (reg *registry) processJob(pj *pendingJob) error {
 	state := pj.ji.State
-	if ppsutil.IsTerminal(state) {
+	if ppsutil.IsTerminal(state) || state == pps.JobState_JOB_FINISHING {
 		return errutil.ErrBreak
 	}
 	switch state {
@@ -311,8 +270,6 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 	return pj.writeJobInfo()
 }
 
-// TODO:
-// Need to put some more thought into the context use.
 func (reg *registry) processJobRunning(pj *pendingJob) error {
 	pachClient := pj.driver.PachClient()
 	// TODO: We need to delete the output for S3Out since we don't have a clear way to track the output in the stats commit (which means datums cannot be skipped with S3Out).
@@ -323,13 +280,15 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return err
 		}
 	}
-	if err := pj.withParallelDatums(pachClient, func(ctx context.Context, dit datum.Iterator) error {
-		return reg.processDatums(ctx, pj, dit)
-	}); err != nil {
-		return err
-	}
-	if err := pj.withSerialDatums(pachClient, func(ctx context.Context, dit datum.Iterator) error {
-		return reg.processDatums(ctx, pj, dit)
+	if err := reg.taskQueue.RunTaskBlock(pachClient.Ctx(), func(master *work.Master) error {
+		if err := pj.withParallelDatums(master.Ctx(), func(ctx context.Context, dit datum.Iterator) error {
+			return reg.processDatums(ctx, pj, master, dit)
+		}); err != nil {
+			return err
+		}
+		return pj.withSerialDatums(master.Ctx(), func(ctx context.Context, dit datum.Iterator) error {
+			return reg.processDatums(ctx, pj, master, dit)
+		})
 	}); err != nil {
 		return err
 	}
@@ -340,7 +299,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	return reg.succeedJob(pj)
 }
 
-func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, dit datum.Iterator) error {
+func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, master *work.Master, dit datum.Iterator) error {
 	var numDatums int64
 	if err := dit.Iterate(func(_ *datum.Meta) error {
 		numDatums++
@@ -392,7 +351,7 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, dit datu
 		// Setup goroutine for running and collecting datum set subtasks.
 		eg.Go(func() error {
 			return pj.logger.LogStep("running and collecting datum set subtasks", func() error {
-				return pj.taskMaster.RunSubtasksChan(
+				return master.RunSubtasksChan(
 					subtasks,
 					func(ctx context.Context, taskInfo *work.TaskInfo) error {
 						if taskInfo.State == work.State_FAILURE {

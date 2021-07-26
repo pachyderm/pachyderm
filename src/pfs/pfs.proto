@@ -122,16 +122,17 @@ message CommitInfo {
   Commit parent_commit = 4;
   repeated Commit child_commits = 5;
   google.protobuf.Timestamp started = 6;
-  google.protobuf.Timestamp finished = 7;
-  repeated Branch direct_provenance = 8;
-  bool error = 9; 
+  google.protobuf.Timestamp finishing = 7;
+  google.protobuf.Timestamp finished = 8;
+  repeated Branch direct_provenance = 9;
+  bool error = 10; 
   int64 size_bytes_upper_bound = 11;
 
   // Details are only provided when explicitly requested
   message Details {
     int64 size_bytes = 1;
   }
-  Details details = 10;
+  Details details = 12;
 }
 
 message CommitSet {
@@ -186,7 +187,8 @@ enum CommitState {
   COMMIT_STATE_UNKNOWN = 0;
   STARTED = 1; // The commit has been started, all commits satisfy this state.
   READY = 2; // The commit has been started, and all of its provenant commits have been finished.
-  FINISHED = 3; // The commit has been finished.
+  FINISHING = 3; // The commit is in the process of being finished.
+  FINISHED = 4; // The commit has been finished.
 }
 
 message StartCommitRequest {

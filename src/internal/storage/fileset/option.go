@@ -58,9 +58,9 @@ func WithRenewal(ttl time.Duration, r *renew.StringSet) UnorderedWriterOption {
 // WithParentID sets the parent fileset ID for the unordered writer.
 // This is used for converting directory deletions into a set of point
 // deletes for the files contained within the directory.
-func WithParentID(parentID *ID) UnorderedWriterOption {
+func WithParentID(getParentID func() (*ID, error)) UnorderedWriterOption {
 	return func(uw *UnorderedWriter) {
-		uw.parentID = parentID
+		uw.getParentID = getParentID
 	}
 }
 

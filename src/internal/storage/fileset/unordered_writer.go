@@ -21,7 +21,7 @@ type UnorderedWriter struct {
 	ttl                        time.Duration
 	renewer                    *renew.StringSet
 	ids                        []ID
-	parentID                   *ID
+	getParentID                func() (*ID, error)
 	validator                  func(string) error
 }
 
@@ -136,8 +136,12 @@ func (uw *UnorderedWriter) Delete(p, tag string) error {
 	if IsDir(p) {
 		uw.buffer.Delete(p, tag)
 		var ids []ID
-		if uw.parentID != nil {
-			ids = []ID{*uw.parentID}
+		if uw.getParentID != nil {
+			parentID, err := uw.getParentID()
+			if err != nil {
+				return err
+			}
+			ids = []ID{*parentID}
 		}
 		fs, err := uw.storage.Open(uw.ctx, append(ids, uw.ids...), index.WithPrefix(p))
 		if err != nil {

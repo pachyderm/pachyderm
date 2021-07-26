@@ -97,18 +97,16 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		}
 	}
 	if t.Size_ != "" {
-		_, err := units.FromHumanSize(t.Size_)
+		size, err := units.FromHumanSize(t.Size_)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
 			return false, errors.EnsureStack(err)
 		}
-		// TODO(2.0 required): the size of a commit isn't known when finishing the
-		// commit due to async compaction, so commitInfo.Details is nil here.
-		// var oldSize uint64
-		// if oldHead != nil {
-		// 	oldSize = oldHead.Details.SizeBytes
-		// }
-		// merge(int64(newHead.Details.SizeBytes-oldSize) >= size)
+		var oldSize int64
+		if oldHead != nil {
+			oldSize = oldHead.Details.SizeBytes
+		}
+		merge(newHead.Details.SizeBytes-oldSize >= size)
 	}
 	if t.CronSpec != "" {
 		// Shouldn't be possible to error here since we validate on ingress
