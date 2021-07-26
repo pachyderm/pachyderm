@@ -297,7 +297,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
-	listJob.Flags().BoolVar(&expand, "expand", false, "Show one line for each sub-job and include more columns")
+	listJob.Flags().BoolVarP(&expand, "expand", "x", false, "Show one line for each sub-job and include more columns")
 	listJob.Flags().AddFlagSet(outputFlags)
 	listJob.Flags().AddFlagSet(timestampFlags)
 	listJob.Flags().AddFlagSet(pagerFlags)

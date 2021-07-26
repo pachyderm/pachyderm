@@ -605,7 +605,7 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.Flags().Int64VarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	listCommit.Flags().BoolVar(&all, "all", false, "return all types of commits, including aliases")
-	listCommit.Flags().BoolVar(&expand, "expand", false, "show one line for each sub-commmit and include more columns")
+	listCommit.Flags().BoolVarP(&expand, "expand", "x", false, "show one line for each sub-commmit and include more columns")
 	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
 	listCommit.Flags().AddFlagSet(outputFlags)
 	listCommit.Flags().AddFlagSet(timestampFlags)
