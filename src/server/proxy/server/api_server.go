@@ -3,7 +3,7 @@ package server
 import (
 	"errors"
 
-	"github.com/lib/pq"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -39,7 +39,7 @@ type notifier struct {
 	server  proxy.API_ListenServer
 	id      string
 	channel string
-	bufChan chan *pq.Notification
+	bufChan chan *collection.Notification
 	errChan chan error
 }
 
@@ -48,7 +48,7 @@ func newNotifier(server proxy.API_ListenServer, channel string) *notifier {
 		server:  server,
 		id:      uuid.NewWithoutDashes(),
 		channel: channel,
-		bufChan: make(chan *pq.Notification, col.ChannelBufferSize),
+		bufChan: make(chan *collection.Notification, col.ChannelBufferSize),
 		errChan: make(chan error, 1),
 	}
 	go n.send()
@@ -63,7 +63,7 @@ func (n *notifier) Channel() string {
 	return n.channel
 }
 
-func (n *notifier) Notify(notification *pq.Notification) {
+func (n *notifier) Notify(notification *collection.Notification) {
 	select {
 	case n.bufChan <- notification:
 	case <-n.server.Context().Done():

@@ -31,13 +31,15 @@ type PostgresListener interface {
 	Close() error
 }
 
+type Notification = pq.Notification
+
 type Notifier interface {
 	// ID is a unique identifier for the notifier.
 	ID() string
 	// Channel is the channel that this notifier should receive notifications for.
 	Channel() string
 	// Notify sends a notification to the notifier.
-	Notify(*pq.Notification)
+	Notify(*Notification)
 	// Error sends an error to the notifier.
 	Error(error)
 }

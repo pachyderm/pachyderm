@@ -57,3 +57,10 @@ func WithConnMaxIdleTime(d time.Duration) Option {
 		dbc.connMaxIdleTime = d
 	}
 }
+
+// WithPQDriver uses the lib/pq driver instead of pgx
+func WithPQDriver() Option {
+	return func(dbc *dbConfig) {
+		dbc.driver = "postgres"
+	}
+}

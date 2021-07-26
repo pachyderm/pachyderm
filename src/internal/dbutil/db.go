@@ -1,12 +1,10 @@
 package dbutil
 
 import (
-	"context"
 	"strconv"
 	"strings"
 	"time"
 
-	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -35,6 +33,7 @@ type dbConfig struct {
 	maxIdleConns    int
 	connMaxLifetime time.Duration
 	connMaxIdleTime time.Duration
+	driver          string
 }
 
 func newConfig(opts ...Option) *dbConfig {
@@ -43,6 +42,7 @@ func newConfig(opts ...Option) *dbConfig {
 		maxIdleConns:    DefaultMaxIdleConns,
 		connMaxLifetime: DefaultConnMaxLifetime,
 		connMaxIdleTime: DefaultConnMaxIdleTime,
+		driver:          "pgx",
 	}
 	for _, opt := range opts {
 		opt(dbc)
@@ -54,9 +54,6 @@ func getDSN(dbc *dbConfig) string {
 	fields := map[string]string{
 		"sslmode":         "disable",
 		"connect_timeout": "30",
-
-		// https://github.com/lib/pq/issues/889
-		"binary_parameters": "yes",
 	}
 	if dbc.host != "" {
 		fields["host"] = dbc.host
@@ -114,11 +111,4 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 	db.SetConnMaxLifetime(dbc.connMaxLifetime)
 	db.SetConnMaxIdleTime(dbc.connMaxIdleTime)
 	return db, nil
-}
-
-// Interface is the common interface exposed by *sqlx.Tx and *sqlx.DB
-type Interface interface {
-	sqlx.ExtContext
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 }

@@ -6,9 +6,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/jackc/pgerrcode"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -198,10 +196,8 @@ func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (
 		`INSERT INTO license.clusters (id, address, secret, cluster_deployment_id, user_address, is_enterprise_server, version, auth_enabled) 
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, req.Id, req.Address, secret, req.ClusterDeploymentId, req.UserAddress, req.EnterpriseServer, "unknown", false); err != nil {
 		// throw a unique error if the error is a primary key uniqueness violation
-		if pgErr, ok := err.(*pq.Error); ok {
-			if pgErr.Code == pgerrcode.UniqueViolation {
-				return nil, lc.ErrDuplicateClusterID
-			}
+		if dbutil.IsUniqueViolation(err) {
+			return nil, lc.ErrDuplicateClusterID
 		}
 		return nil, errors.Wrapf(err, "unable to register pachd in database")
 	}

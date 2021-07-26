@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -189,6 +189,7 @@ func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) error {
 }
 
 func isTransactionError(err error) bool {
-	pqerr := &pq.Error{}
-	return errors.As(err, &pqerr) && pqerr.Code.Class() == "40"
+	// TODO: remove the pq error once collections no longer needs that driver.
+	pgxErr := &pgconn.PgError{}
+	return errors.As(err, &pgxErr) && strings.HasPrefix(pgxErr.Code, "40")
 }

@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -1559,10 +1557,8 @@ func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subje
 	if _, err := a.env.GetDBClient().ExecContext(ctx,
 		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration) 
 		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
-		if pgErr, ok := err.(*pq.Error); ok {
-			if pgErr.Code == pq.ErrorCode(pgerrcode.UniqueViolation) {
-				return errors.New("cannot overwrite existing token with same hash")
-			}
+		if dbutil.IsUniqueViolation(err) {
+			return errors.New("cannot overwrite existing token with same hash")
 		}
 		return errors.Wrapf(err, "error storing token")
 	}
@@ -1581,10 +1577,8 @@ func (a *apiServer) insertAuthTokenNoTTLInTransaction(txnCtx *txncontext.Transac
 	if _, err := txnCtx.SqlTx.Exec(
 		`INSERT INTO auth.auth_tokens (token_hash, subject) 
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {
-		if pgErr, ok := err.(*pq.Error); ok {
-			if pgErr.Code == pq.ErrorCode(pgerrcode.UniqueViolation) {
-				return errors.New("cannot overwrite existing token with same hash")
-			}
+		if dbutil.IsUniqueViolation(err) {
+			return errors.New("cannot overwrite existing token with same hash")
 		}
 		return errors.Wrapf(err, "error storing token")
 	}
