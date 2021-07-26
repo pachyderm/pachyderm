@@ -13,8 +13,10 @@ pachctl auth login [flags]
 ### Options
 
 ```
-  -h, --help                help for login
-  -o, --one-time-password   If set, authenticate with a Dash-provided One-Time Password, rather than via GitHub
+      --enterprise   Login for the active enterprise context
+  -h, --help         help for login
+  -t, --id-token     If set, read an ID token on stdin to authenticate the user
+  -b, --no-browser   If set, don't try to open a web browser
 ```
 
 ### Options inherited from parent commands

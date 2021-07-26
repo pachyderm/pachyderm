@@ -13,7 +13,8 @@ pachctl enterprise get-state [flags]
 ### Options
 
 ```
-  -h, --help   help for get-state
+      --enterprise   Activate auth on the active enterprise context
+  -h, --help         help for get-state
 ```
 
 ### Options inherited from parent commands

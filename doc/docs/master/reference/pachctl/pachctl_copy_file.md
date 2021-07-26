@@ -13,8 +13,8 @@ pachctl copy file <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-b
 ### Options
 
 ```
-  -h, --help        help for file
-  -o, --overwrite   Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.
+  -a, --append   Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.
+  -h, --help     help for file
 ```
 
 ### Options inherited from parent commands

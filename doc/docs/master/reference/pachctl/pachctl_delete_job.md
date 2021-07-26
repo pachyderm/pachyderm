@@ -7,7 +7,7 @@ Delete a job.
 Delete a job.
 
 ```
-pachctl delete job <job> [flags]
+pachctl delete job <pipeline>@<job> [flags]
 ```
 
 ### Options

@@ -14,6 +14,7 @@ pachctl finish commit <repo>@<branch-or-commit> [flags]
 
 ```
       --description string   A description of this commit's contents (synonym for --message)
+  -f, --force                finish the commit even if it has provenance, which could break jobs; prefer 'stop job'
   -h, --help                 help for commit
   -m, --message string       A description of this commit's contents (overwrites any existing commit description)
 ```
