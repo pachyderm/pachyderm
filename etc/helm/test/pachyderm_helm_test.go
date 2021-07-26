@@ -19,7 +19,7 @@ import (
 // NB: This file is our oldest tests and probably shouldn't be used
 // as an example for new tests
 
-func TestconsoleImageAndConfigTag(t *testing.T) {
+func TestConsoleImageAndConfigTag(t *testing.T) {
 
 	helmChartPath := "../pachyderm"
 
@@ -41,7 +41,7 @@ func TestconsoleImageAndConfigTag(t *testing.T) {
 	var deployment appsv1.Deployment
 	helm.UnmarshalK8SYaml(t, output, &deployment)
 
-	expectedContainerImage := "pachyderm/haberconsoleery:abc123"
+	expectedContainerImage := "pachyderm/haberdashery:abc123"
 	deploymentContainers := deployment.Spec.Template.Spec.Containers
 	if deploymentContainers[0].Image != expectedContainerImage {
 		t.Fatalf("Rendered container image (%s) is not expected (%s)", deploymentContainers[0].Image, expectedContainerImage)
