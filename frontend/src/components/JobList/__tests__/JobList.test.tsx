@@ -3,13 +3,45 @@ import React from 'react';
 
 import jobs from '@dash-backend/mock/fixtures/jobs';
 import jobSets from '@dash-backend/mock/fixtures/jobSets';
+import {useJobs} from '@dash-frontend/hooks/useJobs';
+import {useJobSets} from '@dash-frontend/hooks/useJobSets';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
-import JobListComponent, {JobSetList as JobSetListComponent} from '../JobList';
+import JobListComponent, {JobListProps} from '../JobList';
 
 describe('JobList', () => {
-  const JobList = withContextProviders(JobListComponent);
-  const JobSetList = withContextProviders(JobSetListComponent);
+  const JobList = withContextProviders(
+    ({
+      projectId,
+      pipelineId,
+      ...rest
+    }: Omit<JobListProps, 'jobs' | 'loading'> & {pipelineId?: string}) => {
+      const {jobs, loading} = useJobs({projectId, pipelineId});
+
+      return (
+        <JobListComponent
+          jobs={jobs}
+          loading={loading}
+          projectId={projectId}
+          {...rest}
+        />
+      );
+    },
+  );
+
+  const JobSetList = withContextProviders(
+    ({projectId, ...rest}: Omit<JobListProps, 'jobs' | 'loading'>) => {
+      const {jobSets, loading} = useJobSets({projectId});
+      return (
+        <JobListComponent
+          jobs={jobSets}
+          loading={loading}
+          projectId={projectId}
+          {...rest}
+        />
+      );
+    },
+  );
 
   afterEach(() => {
     window.history.pushState({}, document.title, '/');

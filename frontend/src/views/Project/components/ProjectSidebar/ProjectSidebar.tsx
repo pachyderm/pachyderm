@@ -5,7 +5,7 @@ import {
   CREATE_FIRST_JOB_MESSAGE,
   LETS_START_TITLE,
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
-import {JobSetList} from '@dash-frontend/components/JobList/JobList';
+import JobList from '@dash-frontend/components/JobList';
 import Sidebar from '@dash-frontend/components/Sidebar';
 
 import {
@@ -21,7 +21,14 @@ import RepoDetails from './components/RepoDetails';
 import useProjectSidebar from './hooks/useProjectSidebar';
 
 const ProjectSidebar = () => {
-  const {projectId, handleClose, sidebarSize, overlay} = useProjectSidebar();
+  const {
+    projectId,
+    handleClose,
+    sidebarSize,
+    overlay,
+    jobSets,
+    jobSetsLoading,
+  } = useProjectSidebar();
 
   return (
     <Route path={[JOBS_PATH, JOB_PATH, REPO_PATH, PIPELINE_PATH]}>
@@ -35,8 +42,10 @@ const ProjectSidebar = () => {
       >
         <Switch>
           <Route path={JOBS_PATH} exact>
-            <JobSetList
+            <JobList
               projectId={projectId}
+              jobs={jobSets}
+              loading={jobSetsLoading}
               expandActions
               showStatusFilter
               emptyStateTitle={LETS_START_TITLE}
