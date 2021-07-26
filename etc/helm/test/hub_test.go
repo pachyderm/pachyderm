@@ -18,7 +18,7 @@ func TestHub(t *testing.T) {
 		checks  = map[string]bool{
 			"ingress":                             false,
 			"metricsEndpoint":                     false,
-			"dash limits":                         false,
+			"console limits":                      false,
 			"etcd limits":                         false,
 			"loki logging":                        false,
 			"postgres host":                       false,
