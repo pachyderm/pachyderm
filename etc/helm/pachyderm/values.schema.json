@@ -74,10 +74,10 @@
                         "oauthRedirectURI": {
                             "type": "string"
                         },
-                        "reactAppRuntimeIssuerURI": {
+                        "pachdAddress": {
                             "type": "string"
                         },
-                        "pachdAddress": {
+                        "reactAppRuntimeIssuerURI": {
                             "type": "string"
                         }
                     }
