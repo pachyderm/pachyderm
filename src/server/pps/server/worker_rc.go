@@ -11,7 +11,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -34,6 +33,16 @@ const (
 	pipelineVersionAnnotation    = "pipelineVersion"
 	pipelineSpecCommitAnnotation = "specCommit"
 	hashedAuthTokenAnnotation    = "authTokenHash"
+	// WorkerServiceAccountEnvVar is the name of the environment variable used to tell pachd
+	// what service account to assign to new worker RCs, for the purpose of
+	// creating S3 gateway services.
+	WorkerServiceAccountEnvVar = "WORKER_SERVICE_ACCOUNT"
+	// DefaultWorkerServiceAccountName is the default value to use if WorkerServiceAccountEnvVar is
+	// undefined (for compatibility purposes)
+	DefaultWorkerServiceAccountName = "pachyderm-worker"
+	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
+	// EnvVar defined in src/internal/serviceenv/config.go
+	UploadConcurrencyLimitEnvVar = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -280,9 +289,9 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	memSidecarQuantity := resource.MustParse("64M")
 
 	// Get service account name for worker from env or use default
-	workerServiceAccountName, ok := os.LookupEnv(assets.WorkerServiceAccountEnvVar)
+	workerServiceAccountName, ok := os.LookupEnv(WorkerServiceAccountEnvVar)
 	if !ok {
-		workerServiceAccountName = assets.DefaultWorkerServiceAccountName
+		workerServiceAccountName = DefaultWorkerServiceAccountName
 	}
 
 	// possibly expose s3 gateway port in the sidecar container
@@ -313,13 +322,6 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 				RunAsGroup: int64Ptr(i),
 			}
 		}
-	}
-	resp, err := pc.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
-	if err != nil {
-		return v1.PodSpec{}, err
-	}
-	if resp.State != enterprise.State_ACTIVE {
-		workerImage = assets.AddRegistry("", workerImage)
 	}
 	envFrom := []v1.EnvFromSource{
 		{
@@ -459,7 +461,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 
 func (pc *pipelineController) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
-		{Name: assets.UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(pc.env.Config.StorageUploadConcurrencyLimit)},
+		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(pc.env.Config.StorageUploadConcurrencyLimit)},
 		{Name: client.PPSPipelineNameEnv, Value: pipelineInfo.Pipeline.Name},
 	}
 	return vars
