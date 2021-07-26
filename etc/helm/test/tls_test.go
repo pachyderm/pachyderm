@@ -83,7 +83,7 @@ func TestEnableConsoleTLSNoName(t *testing.T) {
 		},
 	}
 
-	_, err := helm.RenderTemplateE(t, options, helmChartPath, "secret", []string{"templates/console/ingress.yaml"})
+	_, err := helm.RenderTemplateE(t, options, helmChartPath, "secret", []string{"templates/ingress/ingress.yaml"})
 	if err == nil {
 		t.Error("Template should error")
 	}
