@@ -512,6 +512,8 @@ func TestS3SkippedDatums(t *testing.T) {
 	c, userToken := initPachClient(t)
 
 	t.Run("S3Inputs", func(t *testing.T) {
+		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
+		t.Skip("Duplicate file paths from different datums no longer allowed.")
 		s3in := tu.UniqueString(name + "_s3_data")
 		require.NoError(t, c.CreateRepo(s3in))
 		pfsin := tu.UniqueString(name + "_pfs_data")
