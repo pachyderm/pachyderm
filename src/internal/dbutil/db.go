@@ -54,6 +54,9 @@ func getDSN(dbc *dbConfig) string {
 	fields := map[string]string{
 		"sslmode":         "disable",
 		"connect_timeout": "30",
+
+		// https://github.com/jackc/pgx/issues/650#issuecomment-568212888
+		"statement_cache_mode": "describe",
 	}
 	if dbc.host != "" {
 		fields["host"] = dbc.host
