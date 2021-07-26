@@ -13,6 +13,8 @@ pachd:
     type: NodePort
   metrics:
     enabled: false
+  clusterDeploymentID: dev
+  enterpriseLicenseKey: ""
 
 console:
   enabled: false
