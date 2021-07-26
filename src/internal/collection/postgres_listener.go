@@ -304,7 +304,6 @@ func (pe *postgresEvent) WatchEvent(ctx context.Context, db *sqlx.DB, template p
 			// If the row is gone, this watcher is lagging too much, error it out
 			return &watch.Event{Err: errors.Wrap(err, "failed to read notification data from large_notifications table, watcher latency may be too high"), Type: watch.EventError}
 		}
-
 	}
 	return &watch.Event{
 		Key:      []byte(pe.key),

@@ -56,7 +56,10 @@ func getDSN(dbc *dbConfig) string {
 		"connect_timeout": "30",
 
 		// https://github.com/jackc/pgx/issues/650#issuecomment-568212888
+		// both of the options below are mentioned as solutions for working with pg_bouncer
+		// prefer_simple_protocol causes some of our types to fail to serialize.
 		"statement_cache_mode": "describe",
+		//"prefer_simple_protocol": "true",
 	}
 	if dbc.host != "" {
 		fields["host"] = dbc.host
