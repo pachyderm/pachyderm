@@ -3,7 +3,7 @@ site_description: A Pachyderm documentation website that provides information on
 site_author: Pachyderm
 site_url: https://docs.pachyderm.com/master/
 docs_dir: docs/master/
-site_dir: site/master/
+site_dir: site/2.0.x-Beta/
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
@@ -13,8 +13,8 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '2.0.0'
-pach_latest_version: '2.0.0'
+pach_featured_version: '1.13.3'
+pach_latest_version: '2.0.0-beta.3'
 pach_major_minor_version: '2.0'
 
 # Configuration

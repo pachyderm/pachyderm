@@ -38,6 +38,10 @@ done
     cat <<EOF >>overrides/partials/versions.html
         <option style="color:white;background-color:#4b2a5c;" value="archive">Archive</option>"
 EOF
+    cat <<EOF >>overrides/partials/versions.html
+        <option style="color:white;background-color:#4b2a5c;" value="2.0.x-Beta">2.0.x-Beta</option>"
+EOF
+
 cat <<EOF >>overrides/partials/versions.html
     </select>
     <!-- set initial value of 'select' to the version of the docs being browsed -->
@@ -62,6 +66,8 @@ for d in $all_versions; do
     # rebuild site
     mkdocs build --config-file "${mkdocs_file}" --site-dir "${out_dir}"
 done
+## Temp preview of 2.0.x-Beta out of master
+mkdocs build --config-file "mkdocs-master.yml" --site-dir "site/2.0.x-Beta"
 
 # Finally, copy latest version of the docs into 'latest'
 if [[ -z "${latest_version}" ]]; then
