@@ -19,7 +19,7 @@ import (
 // NB: This file is our oldest tests and probably shouldn't be used
 // as an example for new tests
 
-func TestDashImageAndConfigTag(t *testing.T) {
+func TestConsoleImageAndConfigTag(t *testing.T) {
 
 	helmChartPath := "../pachyderm"
 
@@ -27,16 +27,16 @@ func TestDashImageAndConfigTag(t *testing.T) {
 	expectedOauthRedirectURI := "http://foo.bar/oauth"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"dash.enabled":                 "true",
-			"dash.image.tag":               "abc123",
-			"dash.config.issuerURI":        expectedIssuerURI,
-			"dash.config.oauthRedirectURI": expectedOauthRedirectURI,
-			"deployTarget":                 "GOOGLE",
-			"pachd.storage.google.bucket":  "bucket",
+			"console.enabled":                 "true",
+			"console.image.tag":               "abc123",
+			"console.config.issuerURI":        expectedIssuerURI,
+			"console.config.oauthRedirectURI": expectedOauthRedirectURI,
+			"deployTarget":                    "GOOGLE",
+			"pachd.storage.google.bucket":     "bucket",
 		},
 	}
 
-	output := helm.RenderTemplate(t, options, helmChartPath, "deployment", []string{"templates/dash/deployment.yaml"})
+	output := helm.RenderTemplate(t, options, helmChartPath, "deployment", []string{"templates/console/deployment.yaml"})
 
 	var deployment appsv1.Deployment
 	helm.UnmarshalK8SYaml(t, output, &deployment)
