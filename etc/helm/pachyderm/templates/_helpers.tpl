@@ -30,3 +30,7 @@ LOCAL
 {{- define "pachyderm.clusterDeploymentId" -}}
 {{ default (randAlphaNum 32) .Values.pachd.clusterDeploymentID }}
 {{- end -}}
+
+{{- define "pachyderm.enterpriseSecret" -}}
+{{ default (randAlphaNum 32) .Values.pachd.enterpriseSecret }}
+{{- end -}}

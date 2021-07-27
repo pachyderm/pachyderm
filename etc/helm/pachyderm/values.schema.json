@@ -321,6 +321,12 @@
                 "enabled": {
                     "type": "boolean"
                 },
+                "enterpriseLicenseKey": {
+                    "type": "string"
+                },
+                "enterpriseSecret": {
+                    "type": "string"
+                },
                 "externalService": {
                     "type": "object",
                     "properties": {
@@ -383,6 +389,9 @@
                 },
                 "resources": {
                     "type": "object"
+                },
+                "rootToken": {
+                    "type": "string"
                 },
                 "service": {
                     "type": "object",
