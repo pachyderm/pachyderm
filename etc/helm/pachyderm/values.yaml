@@ -34,12 +34,11 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "b6769ac1ad4561d76e9382bc24ac271bc7686956"
+    tag: "41f09332d40f1e897314f0529fd5bbda37fc069e"
   # podLabels specifies labels to add to the console pod.
   podLabels: {}
   # resources specifies the resource request and limits.
-  resources:
-    {}
+  resources: {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
@@ -75,8 +74,7 @@ etcd:
   # podLabels specifies labels to add to the etcd pod.
   podLabels: {}
   # resources specifies the resource request and limits
-  resources:
-    {}
+  resources: {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
@@ -114,8 +112,7 @@ enterpriseServer:
       create: false
       crt: ""
       key: ""
-  resources:
-    {}
+  resources: {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
@@ -170,8 +167,7 @@ pachd:
   # podLabels specifies labels to add to the pachd pod.
   podLabels: {}
   # resources specifies the resource requests and limits
-  resources:
-    {}
+  resources: {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
@@ -354,8 +350,7 @@ worker:
 pgbouncer:
   service:
     type: ClusterIP
-  resources:
-    {}
+  resources: {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
@@ -369,8 +364,7 @@ postgresql:
   storageClass: ""
   service:
     type: "ClusterIP"
-  resources:
-    {}
+  resources: {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
@@ -398,14 +392,14 @@ cloudsqlAuthProxy:
   # resources specifies the resource request and limits.
   resources: {}
   # requests:
-  #   The proxy's memory use scales linearly with the number of active
-  #   connections. Fewer open connections will use less memory. Adjust
-  #   this value based on your application's requirements.
-  # memory: ""
-  #   The proxy's CPU use scales linearly with the amount of IO between
-  #   the database and the application. Adjust this value based on your
-  #   application's requirements.
-  # cpu: ""
+    #   The proxy's memory use scales linearly with the number of active
+    #   connections. Fewer open connections will use less memory. Adjust
+    #   this value based on your application's requirements.
+    # memory: ""
+    #   The proxy's CPU use scales linearly with the amount of IO between
+    #   the database and the application. Adjust this value based on your
+    #   application's requirements.
+    # cpu: ""
   service:
     # labels specifies labels to add to the cloudsql auth proxy service.
     labels: {}
