@@ -10,8 +10,9 @@ module.exports = {
     'plugin:import/errors',
     'plugin:import/warnings',
     'plugin:import/typescript',
+    "plugin:jest/recommended",
   ],
-  plugins: ['lodash', 'prefer-arrow', 'testing-library'],
+  plugins: ['lodash', 'prefer-arrow', 'testing-library', 'jest'],
   env: {
     browser: true,
     jasmine: true,
