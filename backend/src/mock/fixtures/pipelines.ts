@@ -8,6 +8,7 @@ import {
   PipelineInfo,
   PipelineState,
   SchedulingSpec,
+  Transform,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 // Need to define this up here, as the node selector
@@ -33,7 +34,15 @@ const tutorial = [
         .setOutputBranch('master')
         .setEgress(new Egress().setUrl('https://egress.com'))
         .setS3Out(true)
-        .setSchedulingSpec(schedulingSpec),
+        .setSchedulingSpec(schedulingSpec)
+        .setTransform(
+          new Transform()
+            .setCmdList(['sh'])
+            .setImage('v4tech/imagemagick')
+            .setStdinList([
+              'montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png',
+            ]),
+        ),
     )
     .setState(PipelineState.PIPELINE_FAILURE),
 
@@ -44,7 +53,12 @@ const tutorial = [
       new PipelineInfo.Details()
         .setInput(new Input().setPfs(new PFSInput().setRepo('images')))
         .setDescription('Very cool edges description')
-        .setOutputBranch('master'),
+        .setOutputBranch('master')
+        .setTransform(
+          new Transform()
+            .setCmdList(['python3', './edges.py'])
+            .setImage('pachyderm/opencv'),
+        ),
     )
     .setState(PipelineState.PIPELINE_RUNNING),
 ];

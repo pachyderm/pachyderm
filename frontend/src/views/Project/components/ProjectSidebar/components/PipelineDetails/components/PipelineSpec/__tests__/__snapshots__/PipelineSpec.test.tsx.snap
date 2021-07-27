@@ -1,0 +1,62 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`PipelineSpec should correctly render JSON spec 1`] = `
+<div
+  class="base"
+>
+  <pre
+    class="base base"
+  >
+    {
+  "transform": {
+    "image": "v4tech/imagemagick",
+    "cmdList": [
+      "sh"
+    ],
+    "stdinList": [
+      "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png"
+    ]
+  },
+  "input": {
+    "crossList": [
+      {
+        "pfs": {
+          "repo": "
+    <a
+      class="repoLink"
+      href="/project/1/repo/edges/branch/master"
+      id="__repoedges"
+    >
+      edges
+    </a>
+    "
+        }
+      },
+      {
+        "pfs": {
+          "repo": "
+    <a
+      class="repoLink"
+      href="/project/1/repo/images/branch/master"
+      id="__repoimages"
+    >
+      images
+    </a>
+    "
+        }
+      }
+    ]
+  },
+  "schedulingSpec": {
+    "nodeSelectorMap": [
+      [
+        "disktype",
+        "ssd"
+      ]
+    ],
+    "priorityClassName": "high-priority"
+  }
+}
+  </pre>
+</div>
+`;
