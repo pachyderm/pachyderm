@@ -165,7 +165,7 @@ For a set of standard roles, read the [GCP IAM permissions documentation](https:
 ### Create your values.yaml
 Update your values.yaml with your bucket name.
 
-Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` ([see example of values.yaml here](https://github.com/pachyderm/helmchart/blob/v2.0.x/examples/gcp-values.yaml)) or use `--set-file storage.google.cred=<my-key>.json` when running the following helm install. 
+Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml)) or use `--set-file storage.google.cred=<my-key>.json` when running the following helm install. 
 
 ### Deploy Pachyderm on the Kubernetes cluster
 
