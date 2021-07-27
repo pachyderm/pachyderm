@@ -189,10 +189,6 @@ func (c APIClient) FinishCommit(repoName string, branchName string, commitID str
 			Commit: NewCommit(repoName, branchName, commitID),
 		},
 	)
-	if err != nil {
-		return err
-	}
-	_, err = c.WaitCommit(repoName, branchName, commitID)
 	return err
 }
 

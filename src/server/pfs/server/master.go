@@ -65,8 +65,9 @@ func (d *driver) finishCommits(ctx context.Context) error {
 		if commitInfo.Finishing == nil || commitInfo.Finished != nil {
 			return nil
 		}
+		commit := commitInfo.Commit
 		return backoff.RetryUntilCancel(ctx, func() error {
-			id, err := d.getFileSet(ctx, commitInfo.Commit)
+			id, err := d.getFileSet(ctx, commit)
 			if err != nil {
 				if pfsserver.IsCommitNotFoundErr(err) {
 					return nil
@@ -78,7 +79,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			if err := d.commitStore.SetTotalFileSet(ctx, commitInfo.Commit, *compactedId); err != nil {
+			if err := d.commitStore.SetTotalFileSet(ctx, commit, *compactedId); err != nil {
 				return err
 			}
 			// Validate the commit.
@@ -90,10 +91,11 @@ func (d *driver) finishCommits(ctx context.Context) error {
 			}
 			var prev string
 			var size int64
+			var validationError bool
 			if err := fs.Iterate(ctx, func(f fileset.File) error {
 				idx := f.Index()
 				if prev != "" && (idx.Path == prev || strings.HasPrefix(idx.Path, prev+"/")) {
-					commitInfo.Error = true
+					validationError = true
 				}
 				prev = idx.Path
 				size += index.SizeBytes(idx)
@@ -103,13 +105,19 @@ func (d *driver) finishCommits(ctx context.Context) error {
 			}
 			// Finish the commit.
 			return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-				commitInfo.Finished = txnCtx.Timestamp
-				commitInfo.SizeBytesUpperBound = size
-				if commitInfo.Details == nil {
-					commitInfo.Details = &pfs.CommitInfo_Details{}
-				}
-				commitInfo.Details.SizeBytes = size
-				if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commitInfo.Commit), commitInfo); err != nil {
+				commitInfo := &pfs.CommitInfo{}
+				if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(commit), commitInfo, func() error {
+					commitInfo.Finished = txnCtx.Timestamp
+					commitInfo.SizeBytesUpperBound = size
+					if commitInfo.Details == nil {
+						commitInfo.Details = &pfs.CommitInfo_Details{}
+					}
+					commitInfo.Details.SizeBytes = size
+					if !commitInfo.Error {
+						commitInfo.Error = validationError
+					}
+					return nil
+				}); err != nil {
 					return err
 				}
 				if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
@@ -131,8 +139,8 @@ func (d *driver) finishCommits(ctx context.Context) error {
 	}, watch.IgnoreDelete)
 }
 
-// finishAliasChildren will traverse the given commit's children, finding all
-// continguous aliases and finishing them.
+// finishAliasDescendents will traverse the given commit's descendents, finding all
+// contiguous aliases and finishing them.
 func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo) error {
 	// Build the starting set of commits to consider
 	descendents := append([]*pfs.Commit{}, parentCommitInfo.ChildCommits...)

@@ -715,10 +715,10 @@ func TestPFS(suite *testing.T) {
 		require.True(t, started.Before(tStarted))
 		require.Nil(t, commitInfo.Finished)
 
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 		finished := time.Now()
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
-		commitInfo, err = env.PachClient.InspectCommit(repo, commit.Branch.Name, commit.ID)
+		commitInfo, err = env.PachClient.WaitCommit(repo, commit.Branch.Name, commit.ID)
 		require.NoError(t, err)
 
 		tStarted, err = types.TimestampFromProto(commitInfo.Started)
@@ -731,7 +731,7 @@ func TestPFS(suite *testing.T) {
 		require.NotNil(t, commitInfo.Finished)
 		require.Equal(t, len(fileContent), int(commitInfo.Details.SizeBytes))
 		require.True(t, started.Before(tStarted))
-		require.True(t, finished.After(tFinished))
+		require.True(t, finished.Before(tFinished))
 	})
 
 	suite.Run("InspectCommitWait", func(t *testing.T) {
@@ -847,7 +847,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit, commitInfos[0].Commit)
 		// TODO(2.0 required)?: ListCommit doesn't get the actual size of the
 		// commits (even if they're finished) - do an inspect commit instead.
-		commitInfo, err := env.PachClient.InspectCommit(repo, commit.Branch.Name, commit.ID)
+		commitInfo, err := env.PachClient.WaitCommit(repo, commit.Branch.Name, commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, int64(4), commitInfo.Details.SizeBytes)
 
@@ -2622,10 +2622,10 @@ func TestPFS(suite *testing.T) {
 		// do the other commits in a goro so we can block for them
 		done := make(chan struct{})
 		go func() {
+			defer close(done)
 			require.NoError(t, env.PachClient.FinishCommit("B", "master", ""))
 			require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 			require.NoError(t, env.PachClient.FinishCommit("D", "master", ""))
-			close(done)
 		}()
 
 		// Wait for the commits to finish
