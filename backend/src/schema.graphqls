@@ -299,7 +299,7 @@ type SearchResults {
 }
 
 type AuthConfig {
-  authUrl: String!
+  authEndpoint: String!
   clientId: String!
   pachdClientId: String!
 }

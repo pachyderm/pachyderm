@@ -153,7 +153,7 @@ export type GetAccountQueryResult = Apollo.QueryResult<
 export const AuthConfigDocument = gql`
   query authConfig {
     authConfig {
-      authUrl
+      authEndpoint
       clientId
       pachdClientId
     }
