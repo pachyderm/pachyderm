@@ -218,41 +218,60 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			if len(args) == 0 && !expand {
-				// We are listing jobs
-				if len(stateStrs) != 0 {
-					return errors.Errorf("cannot specify '--state' when listing all jobs")
-				} else if len(inputCommitStrs) != 0 {
-					return errors.Errorf("cannot specify '--input' when listing all jobs")
-				} else if history != "none" {
-					return errors.Errorf("cannot specify '--history' when listing all jobs")
-				} else if pipelineName != "" {
-					return errors.Errorf("cannot specify '--pipeline' when listing all jobs")
-				}
+			if len(args) == 0 {
+				if pipelineName == "" && !expand {
+					// We are listing jobs
+					if len(stateStrs) != 0 {
+						return errors.Errorf("cannot specify '--state' when listing all jobs")
+					} else if len(inputCommitStrs) != 0 {
+						return errors.Errorf("cannot specify '--input' when listing all jobs")
+					} else if history != "none" {
+						return errors.Errorf("cannot specify '--history' when listing all jobs")
+					}
 
-				listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{})
-				if err != nil {
-					return grpcutil.ScrubGRPC(err)
-				}
+					listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{})
+					if err != nil {
+						return grpcutil.ScrubGRPC(err)
+					}
 
-				if raw {
-					e := cmdutil.Encoder(output, os.Stdout)
-					return clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
-						return e.EncodeProto(jobSetInfo)
+					if raw {
+						e := cmdutil.Encoder(output, os.Stdout)
+						return clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
+							return e.EncodeProto(jobSetInfo)
+						})
+					}
+
+					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+						writer := tabwriter.NewWriter(w, pretty.JobSetHeader)
+						if err := clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
+							pretty.PrintJobSetInfo(writer, jobSetInfo, fullTimestamps)
+							return nil
+						}); err != nil {
+							return err
+						}
+						return writer.Flush()
+					})
+				} else {
+					// We are listing all sub-jobs, possibly restricted to a single pipeline
+					if raw {
+						e := cmdutil.Encoder(output, os.Stdout)
+						return client.ListJobFilterF(pipelineName, commits, historyCount, true, filter, func(ji *ppsclient.JobInfo) error {
+							return e.EncodeProto(ji)
+						})
+					}
+
+					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+						writer := tabwriter.NewWriter(w, pretty.JobHeader)
+						if err := client.ListJobFilterF(pipelineName, commits, historyCount, false, filter, func(ji *ppsclient.JobInfo) error {
+							pretty.PrintJobInfo(writer, ji, fullTimestamps)
+							return nil
+						}); err != nil {
+							return err
+						}
+						return writer.Flush()
 					})
 				}
-
-				return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
-					writer := tabwriter.NewWriter(w, pretty.JobSetHeader)
-					if err := clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
-						pretty.PrintJobSetInfo(writer, jobSetInfo, fullTimestamps)
-						return nil
-					}); err != nil {
-						return err
-					}
-					return writer.Flush()
-				})
-			} else if len(args) == 1 {
+			} else {
 				// We are listing sub-jobs of a specific job
 				if len(stateStrs) != 0 {
 					return errors.Errorf("cannot specify '--state' when listing sub-jobs")
@@ -271,25 +290,6 @@ $ {{alias}} -p foo -i bar@YYY`,
 				}
 
 				return writeJobInfos(os.Stdout, jobInfos)
-			} else {
-				// We are listing sub-jobs
-				if raw {
-					e := cmdutil.Encoder(output, os.Stdout)
-					return client.ListJobFilterF(pipelineName, commits, historyCount, true, filter, func(ji *ppsclient.JobInfo) error {
-						return e.EncodeProto(ji)
-					})
-				}
-
-				return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
-					writer := tabwriter.NewWriter(w, pretty.JobHeader)
-					if err := client.ListJobFilterF(pipelineName, commits, historyCount, false, filter, func(ji *ppsclient.JobInfo) error {
-						pretty.PrintJobInfo(writer, ji, fullTimestamps)
-						return nil
-					}); err != nil {
-						return err
-					}
-					return writer.Flush()
-				})
 			}
 		}),
 	}
