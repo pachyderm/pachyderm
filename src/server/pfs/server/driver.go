@@ -1053,7 +1053,7 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 		}
 	}
 
-	// Traverse commits' parents until you've reached the right/ancestor
+	// Traverse commits' parents until you've reached the right ancestor
 	commitInfo := &pfs.CommitInfo{}
 	if ancestryLength >= 0 {
 		for i := 0; i <= ancestryLength; i++ {
