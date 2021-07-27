@@ -13,6 +13,7 @@ pachctl auth get-config [flags]
 ### Options
 
 ```
+      --enterprise             Get auth config for the active enterprise context
   -h, --help                   help for get-config
   -o, --output-format string   output format ("json" or "yaml") (default "json")
 ```

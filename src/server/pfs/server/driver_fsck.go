@@ -11,7 +11,6 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 )
 
 func equalBranches(a, b []*pfs.Branch) bool {
@@ -54,7 +53,7 @@ type ErrBranchProvenanceTransitivity struct {
 func (e ErrBranchProvenanceTransitivity) Error() string {
 	var msg strings.Builder
 	msg.WriteString("consistency error: branch provenance was not transitive\n")
-	msg.WriteString("on branch " + e.BranchInfo.Branch.Name + " in repo " + pretty.CompactPrintRepo(e.BranchInfo.Branch.Repo) + "\n")
+	msg.WriteString("on branch " + e.BranchInfo.Branch.String() + "\n")
 	fullMap := make(map[string]*pfs.Branch)
 	provMap := make(map[string]*pfs.Branch)
 	for _, branch := range e.FullProvenance {
@@ -67,7 +66,7 @@ func (e ErrBranchProvenanceTransitivity) Error() string {
 	msg.WriteString("the following branches are missing from the provenance:\n")
 	for k, v := range fullMap {
 		if _, ok := provMap[k]; !ok {
-			msg.WriteString(v.Name + " in repo " + pretty.CompactPrintRepo(v.Repo) + "\n")
+			msg.WriteString(v.Name + " in repo " + v.Repo.String() + "\n")
 		}
 	}
 	return msg.String()
@@ -79,7 +78,7 @@ type ErrBranchSubvenanceTransitivity struct {
 }
 
 func (e ErrBranchSubvenanceTransitivity) Error() string {
-	return fmt.Sprintf("consistency error: branch %s is missing branch %s in its subvenance\n", pfsdb.BranchKey(e.BranchInfo.Branch), pfsdb.BranchKey(e.MissingSubvenance))
+	return fmt.Sprintf("consistency error: branch %s is missing branch %s in its subvenance\n", e.BranchInfo.Branch, e.MissingSubvenance)
 }
 
 // ErrBranchInfoNotFound Branch info could not be found. Typically because of an incomplete deletion of a branch.
@@ -89,7 +88,7 @@ type ErrBranchInfoNotFound struct {
 }
 
 func (e ErrBranchInfoNotFound) Error() string {
-	return fmt.Sprintf("consistency error: the branch %v on repo %v could not be found\n", e.Branch.Name, pretty.CompactPrintRepo(e.Branch.Repo))
+	return fmt.Sprintf("consistency error: the branch %v on repo %v could not be found\n", e.Branch.Name, e.Branch.Repo)
 }
 
 // ErrCommitInfoNotFound Commit info could not be found. Typically because of an incomplete deletion of a commit.
@@ -101,7 +100,7 @@ type ErrCommitInfoNotFound struct {
 
 func (e ErrCommitInfoNotFound) Error() string {
 	return fmt.Sprintf("consistency error: the commit %s could not be found while checking %v",
-		pfsdb.CommitKey(e.Commit), e.Location)
+		e.Commit, e.Location)
 }
 
 // ErrCommitAncestryBroken indicates that a parent and child commit disagree on their relationship.
@@ -113,7 +112,7 @@ type ErrCommitAncestryBroken struct {
 
 func (e ErrCommitAncestryBroken) Error() string {
 	return fmt.Sprintf("consistency error: parent commit %s and child commit %s disagree about their parent/child relationship",
-		pfsdb.CommitKey(e.Parent), pfsdb.CommitKey(e.Child))
+		e.Parent, e.Child)
 }
 
 // ErrMissingBranchHead indicates that a branch has a 'nil' head, which should never happen.
@@ -122,7 +121,7 @@ type ErrMissingBranchHead struct {
 }
 
 func (e ErrMissingBranchHead) Error() string {
-	return fmt.Sprintf("consistency error: branch %s does not have a head commit", pfsdb.BranchKey(e.Branch))
+	return fmt.Sprintf("consistency error: branch %s does not have a head commit", e.Branch)
 }
 
 // fsck verifies that pfs satisfies the following invariants:
@@ -234,7 +233,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 			parentCommitInfo, ok := commitInfos[pfsdb.CommitKey(commitInfo.ParentCommit)]
 			if !ok {
 				if err := onError(ErrCommitInfoNotFound{
-					Location: fmt.Sprintf("parent commit of %s", pfsdb.CommitKey(commitInfo.Commit)),
+					Location: fmt.Sprintf("parent commit of %s", commitInfo.Commit),
 					Commit:   commitInfo.ParentCommit,
 				}); err != nil {
 					return err
@@ -265,7 +264,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 
 			if !ok {
 				if err := onError(ErrCommitInfoNotFound{
-					Location: fmt.Sprintf("child commit of %s", pfsdb.CommitKey(commitInfo.Commit)),
+					Location: fmt.Sprintf("child commit of %s", commitInfo.Commit),
 					Commit:   child,
 				}); err != nil {
 					return err

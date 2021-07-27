@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -40,6 +41,8 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -308,7 +311,12 @@ func TestPFS(suite *testing.T) {
 				ids = append(ids, c.ID)
 			}
 			for _, repo := range []string{"a", "b", "c"} {
-				cis, err := env.PachClient.ListCommit(client.NewRepo(repo), nil, nil, 0)
+				listCommitClient, err := env.PachClient.PfsAPIClient.ListCommit(env.PachClient.Ctx(), &pfs.ListCommitRequest{
+					Repo: client.NewRepo(repo),
+					All:  true,
+				})
+				require.NoError(t, err)
+				cis, err := clientsdk.ListCommit(listCommitClient)
 				require.NoError(t, err)
 				// There will be some empty commits on each branch from creation, ignore
 				// those and just check that the latest commits match.
@@ -321,19 +329,12 @@ func TestPFS(suite *testing.T) {
 
 		checkRepoCommits([]*pfs.Commit{commit3, commit2, commit1})
 
-		// Rewind branch b.master to commit2 - fails because this commitset already has an entry on 'master'
-		require.YesError(t, env.PachClient.CreateBranch("b", "master", "master", commit2.ID, provB))
-		// But we can create a new commit by aliasing the old commit and setting it as the head
-		_, err = env.PachClient.PfsAPIClient.CreateBranch(env.PachClient.Ctx(), &pfs.CreateBranchRequest{
-			Head:         client.NewCommit("b", "master", commit2.ID),
-			Branch:       client.NewBranch("b", "master"),
-			NewCommitSet: true,
-			Provenance:   provB,
-		})
-		require.NoError(t, err)
+		// Rewind branch b.master to commit2 must create a new commit set because the old one already has an entry on 'master'
+		require.NoError(t, env.PachClient.CreateBranch("b", "master", "master", commit2.ID, provB))
 		ci, err := env.PachClient.InspectCommit("b", "master", "")
 		require.NoError(t, err)
 		commit4 := ci.Commit
+		require.NotEqual(t, commit4.ID, commit2.ID)
 
 		checkRepoCommits([]*pfs.Commit{commit4, commit3, commit2, commit1})
 
@@ -355,7 +356,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, repo, repoInfo.Repo.Name)
 		require.NotNil(t, repoInfo.Created)
-		require.Equal(t, 0, int(repoInfo.SizeBytes))
+		require.Equal(t, 0, int(repoInfo.Details.SizeBytes))
 
 		require.YesError(t, env.PachClient.CreateRepo(repo))
 		_, err = env.PachClient.InspectRepo("nonexistent")
@@ -574,6 +575,45 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, err)
 	})
 
+	suite.Run("CreateBranchHeadOnOtherRepo", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		// create two repos, and create a branch on one that tries to point on another's existing branch
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		_, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		masterCommit := client.NewCommit(repo, "master", "")
+
+		otherRepo := "other"
+		require.NoError(t, env.PachClient.CreateRepo(otherRepo))
+		_, err = env.PachClient.StartCommit(otherRepo, "master")
+		require.NoError(t, err)
+		otherMasterCommit := client.NewCommit(otherRepo, "master", "")
+
+		mfc, err := env.PachClient.NewModifyFileClient(masterCommit)
+		require.NoError(t, err)
+		require.NoError(t, mfc.PutFile("/foo", strings.NewReader("foo\n")))
+		require.NoError(t, mfc.Close())
+
+		mfc, err = env.PachClient.NewModifyFileClient(otherMasterCommit)
+		require.NoError(t, err)
+		require.NoError(t, mfc.PutFile("/bar", strings.NewReader("bar\n")))
+		require.NoError(t, mfc.Close())
+
+		// Create a branch on one repo that points to a branch on another repo
+		_, err = env.PachClient.PfsAPIClient.CreateBranch(
+			env.PachClient.Ctx(),
+			&pfs.CreateBranchRequest{
+				Branch: client.NewBranch(repo, "test"),
+				Head:   client.NewCommit(otherRepo, "master", ""),
+			},
+		)
+		require.YesError(t, err)
+		require.True(t, strings.Contains(err.Error(), "branch and head commit must belong to the same repo"))
+	})
+
 	suite.Run("DeleteRepo", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -672,8 +712,7 @@ func TestPFS(suite *testing.T) {
 
 		require.Equal(t, commit, commitInfo.Commit)
 		require.Nil(t, commitInfo.Finished)
-		// PutFile does not update commit size; only FinishCommit does
-		require.Equal(t, 0, int(commitInfo.SizeBytes))
+		require.Nil(t, commitInfo.Details) // no details for an unfinished commit
 		require.True(t, started.Before(tStarted))
 		require.Nil(t, commitInfo.Finished)
 
@@ -691,7 +730,7 @@ func TestPFS(suite *testing.T) {
 
 		require.Equal(t, commit, commitInfo.Commit)
 		require.NotNil(t, commitInfo.Finished)
-		require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
+		require.Equal(t, len(fileContent), int(commitInfo.Details.SizeBytes))
 		require.True(t, started.Before(tStarted))
 		require.True(t, finished.After(tFinished))
 	})
@@ -779,12 +818,15 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, branchInfos[0].Head, commitInfos[0].Commit)
-		require.Equal(t, uint64(0), commitInfos[0].SizeBytes)
+
+		commitInfo, err := env.PachClient.InspectCommit(repo, "master", "")
+		require.NoError(t, err)
+		require.Equal(t, int64(0), commitInfo.Details.SizeBytes)
 
 		// Check that repo size is back to 0
 		repoInfo, err := env.PachClient.InspectRepo(repo)
 		require.NoError(t, err)
-		require.Equal(t, uint64(0), repoInfo.SizeBytes)
+		require.Equal(t, int64(0), repoInfo.Details.SizeBytes)
 	})
 
 	suite.Run("SquashCommitSetFinished", func(t *testing.T) {
@@ -808,7 +850,7 @@ func TestPFS(suite *testing.T) {
 		// commits (even if they're finished) - do an inspect commit instead.
 		commitInfo, err := env.PachClient.InspectCommit(repo, commit.Branch.Name, commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, uint64(4), commitInfo.SizeBytes)
+		require.Equal(t, int64(4), commitInfo.Details.SizeBytes)
 
 		require.NoError(t, env.PachClient.SquashCommitSet(commit.ID))
 
@@ -825,7 +867,7 @@ func TestPFS(suite *testing.T) {
 		// Check that repo size is back to 0
 		repoInfo, err := env.PachClient.InspectRepo(repo)
 		require.NoError(t, err)
-		require.Equal(t, 0, int(repoInfo.SizeBytes))
+		require.Equal(t, 0, int(repoInfo.Details.SizeBytes))
 	})
 
 	suite.Run("BasicFile", func(t *testing.T) {
@@ -1648,7 +1690,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 2, len(fileInfos))
 			require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
-			require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
+			require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == int64(len(fileContent1)))
 
 		}
 		checks()
@@ -2104,7 +2146,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("OffsetRead", func(t *testing.T) {
-		// TODO(2.0 required): Decide on how to expose offset read.
+		// TODO(2.0 optional): Decide on how to expose offset read.
 		t.Skip("Offset read exists (inefficient), just need to decide on how to expose it in V2")
 		//t.Parallel()
 		//env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2266,7 +2308,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 
 		// Size should be 0 because the files were not added to master
-		require.Equal(t, int(info.SizeBytes), 0)
+		require.Equal(t, int(info.Details.SizeBytes), 0)
 	})
 
 	suite.Run("InspectRepoComplex", func(t *testing.T) {
@@ -2299,14 +2341,11 @@ func TestPFS(suite *testing.T) {
 		info, err := env.PachClient.InspectRepo(repo)
 		require.NoError(t, err)
 
-		require.Equal(t, totalSize, int(info.SizeBytes))
+		require.Equal(t, totalSize, int(info.Details.SizeBytes))
 
 		infos, err := env.PachClient.ListRepo()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(infos))
-		info = infos[0]
-
-		require.Equal(t, totalSize, int(info.SizeBytes))
 	})
 
 	suite.Run("Create", func(t *testing.T) {
@@ -3068,11 +3107,16 @@ func TestPFS(suite *testing.T) {
 		numFiles := 100
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		for i := 0; i < numFiles; i++ {
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("1")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
-		}
+
+		require.NoError(t, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+			for i := 0; i < numFiles; i++ {
+				require.NoError(t, mf.PutFile(fmt.Sprintf("file%d", i), strings.NewReader("1")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
+				require.NoError(t, mf.PutFile(fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
+			}
+			return nil
+		}))
+
 		checks := func() {
 			fileInfos, err := env.PachClient.GlobFileAll(commit, "*")
 			require.NoError(t, err)
@@ -3537,7 +3581,7 @@ func TestPFS(suite *testing.T) {
 						for _, b := range bi.Provenance {
 							i := sort.SearchStrings(expectedProv, b.Name)
 							if i >= len(expectedProv) || expectedProv[i] != b.Name {
-								t.Fatalf("provenance for %s contains: %s, but should only contain: %v", repo, pfsdb.BranchKey(b), expectedProv)
+								t.Fatalf("provenance for %s contains: %s, but should only contain: %v", repo, b, expectedProv)
 							}
 						}
 					}
@@ -3549,7 +3593,7 @@ func TestPFS(suite *testing.T) {
 						for _, b := range bi.Subvenance {
 							i := sort.SearchStrings(expectedSubv, b.Name)
 							if i >= len(expectedSubv) || expectedSubv[i] != b.Name {
-								t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", repo, pfsdb.BranchKey(b), expectedSubv)
+								t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", repo, b, expectedSubv)
 							}
 						}
 					}
@@ -4262,7 +4306,8 @@ func TestPFS(suite *testing.T) {
 			checkNotFound := func(path string) {
 				err := env.PachClient.WalkFile(latestCommit, path, cb)
 				require.YesError(t, err)
-				require.Matches(t, "file .* not found in repo", err.Error())
+				s := status.Convert(err)
+				require.Equal(t, s.Code(), codes.NotFound)
 			}
 			require.NoError(t, env.PachClient.WalkFile(latestCommit, "", cb))
 			require.NoError(t, env.PachClient.WalkFile(latestCommit, "/", cb))
@@ -4273,9 +4318,8 @@ func TestPFS(suite *testing.T) {
 		}
 
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		// TODO(global ids): uncomment this code once global ids land and branches have default heads
-		//require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
-		//checks() // Test the default empty head commit
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
+		checks() // Test the default empty head commit
 
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -4286,7 +4330,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("ReadSizeLimited", func(t *testing.T) {
-		// TODO(2.0 required): Decide on how to expose offset read.
+		// TODO(2.0 optional): Decide on how to expose offset read.
 		t.Skip("Offset read exists (inefficient), just need to decide on how to expose it in V2")
 		//	t.Parallel()
 		//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -4753,15 +4797,12 @@ func TestPFS(suite *testing.T) {
 		b.Reset()
 		require.YesError(t, c.GetFile(commit, "file1", &b))
 
-		// TODO(2.0 required): Should this behavior be kept in 2.0? If so, we need
-		// to lazily make the one-off commit.
-		// Empty ModifyFileClients shouldn't error or create commits
-		//mfc, err = c.NewModifyFileClient(test, "master")
-		//require.NoError(t, err)
-		//require.NoError(t, mfc.Close())
-		//cis, err = c.ListCommit(test, "master", "", 0)
-		//require.NoError(t, err)
-		//require.Equal(t, 2, len(cis))
+		mfc, err = c.NewModifyFileClient(commit)
+		require.NoError(t, err)
+		require.NoError(t, mfc.Close())
+		cis, err = c.ListCommit(testRepo, commit, nil, 0)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(cis))
 	})
 
 	const (
@@ -5431,7 +5472,7 @@ func TestPFS(suite *testing.T) {
 			"file1.txt": tarutil.NewMemFile("file1.txt", data),
 			"file2.txt": tarutil.NewMemFile("file2.txt", data),
 		}
-		require.NoError(t, fsclient.PutFileTar(spec.makeTarStream()))
+		require.NoError(t, fsclient.PutFileTAR(spec.makeTarStream()))
 		resp, err := fsclient.Close()
 		require.NoError(t, err)
 		t.Logf("tmp fileset id: %s", resp.FileSetId)
@@ -5468,7 +5509,7 @@ func TestPFS(suite *testing.T) {
 				require.NoError(t, err)
 				fsSpec[hdr.Name] = file
 			}
-			require.NoError(t, env.PachClient.PutFileTar(commit1, fsSpec.makeTarStream()))
+			require.NoError(t, env.PachClient.PutFileTAR(commit1, fsSpec.makeTarStream()))
 			runtime.GC()
 		}
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
@@ -5485,16 +5526,16 @@ func TestPFS(suite *testing.T) {
 			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
 			require.NoError(t, err)
 			files := []string{"/empty-1", "/empty-2"}
+			require.NoError(t, c.Send(&pfs.ModifyFileRequest{
+				Body: &pfs.ModifyFileRequest_SetCommit{SetCommit: client.NewCommit(repo, "master", "")},
+			}))
 			for _, file := range files {
 				require.NoError(t, c.Send(&pfs.ModifyFileRequest{
-					Commit: client.NewCommit(repo, "master", ""),
-					Modification: &pfs.ModifyFileRequest_PutFile{
-						PutFile: &pfs.PutFile{
-							Source: &pfs.PutFile_RawFileSource{
-								RawFileSource: &pfs.RawFileSource{
-									Path: file,
-									EOF:  true,
-								},
+					Body: &pfs.ModifyFileRequest_AddFile{
+						AddFile: &pfs.AddFile{
+							Path: file,
+							Source: &pfs.AddFile_Raw{
+								Raw: &types.BytesValue{},
 							},
 						},
 					},
@@ -5520,15 +5561,14 @@ func TestPFS(suite *testing.T) {
 			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
 			require.NoError(t, err)
 			require.NoError(t, c.Send(&pfs.ModifyFileRequest{
-				Commit: client.NewCommit(repo, "master", ""),
-				Modification: &pfs.ModifyFileRequest_PutFile{
-					PutFile: &pfs.PutFile{
-						Source: &pfs.PutFile_RawFileSource{
-							RawFileSource: &pfs.RawFileSource{
-								Path: filePath,
-								Data: []byte(fileContent),
-								EOF:  true,
-							},
+				Body: &pfs.ModifyFileRequest_SetCommit{SetCommit: client.NewCommit(repo, "master", "")},
+			}))
+			require.NoError(t, c.Send(&pfs.ModifyFileRequest{
+				Body: &pfs.ModifyFileRequest_AddFile{
+					AddFile: &pfs.AddFile{
+						Path: filePath,
+						Source: &pfs.AddFile_Raw{
+							Raw: &types.BytesValue{Value: []byte(fileContent)},
 						},
 					},
 				},
@@ -5553,49 +5593,51 @@ func TestPFS(suite *testing.T) {
 				require.False(t, strings.Contains(err.Error(), "transport is closing"), err.Error())
 			}
 		}
-		_, err := c.PfsAPIClient.CreateRepo(c.Ctx(), &pfs.CreateRepoRequest{})
+		ctx, cf := context.WithCancel(c.Ctx())
+		defer cf()
+		_, err := c.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{})
+		_, err = c.PfsAPIClient.InspectRepo(ctx, &pfs.InspectRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListRepo(c.Ctx(), &pfs.ListRepoRequest{})
+		_, err = c.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), &pfs.DeleteRepoRequest{})
+		_, err = c.PfsAPIClient.DeleteRepo(ctx, &pfs.DeleteRepoRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{})
+		_, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.FinishCommit(c.Ctx(), &pfs.FinishCommitRequest{})
+		_, err = c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectCommit(c.Ctx(), &pfs.InspectCommitRequest{})
+		_, err = c.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{})
+		_, err = c.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{})
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.SquashCommitSet(c.Ctx(), &pfs.SquashCommitSetRequest{})
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.InspectCommitSet(c.Ctx(), &pfs.InspectCommitSetRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.SubscribeCommit(c.Ctx(), &pfs.SubscribeCommitRequest{})
+		_, err = c.PfsAPIClient.SubscribeCommit(ctx, &pfs.SubscribeCommitRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.CreateBranch(c.Ctx(), &pfs.CreateBranchRequest{})
+		_, err = c.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectBranch(c.Ctx(), &pfs.InspectBranchRequest{})
+		_, err = c.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{})
+		_, err = c.PfsAPIClient.ListBranch(ctx, &pfs.ListBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{})
+		_, err = c.PfsAPIClient.DeleteBranch(ctx, &pfs.DeleteBranchRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.GetFileTAR(c.Ctx(), &pfs.GetFileRequest{})
+		_, err = c.PfsAPIClient.GetFileTAR(ctx, &pfs.GetFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.InspectFile(c.Ctx(), &pfs.InspectFileRequest{})
+		_, err = c.PfsAPIClient.InspectFile(ctx, &pfs.InspectFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.ListFile(c.Ctx(), &pfs.ListFileRequest{})
+		_, err = c.PfsAPIClient.ListFile(ctx, &pfs.ListFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.WalkFile(c.Ctx(), &pfs.WalkFileRequest{})
+		_, err = c.PfsAPIClient.WalkFile(ctx, &pfs.WalkFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.GlobFile(c.Ctx(), &pfs.GlobFileRequest{})
+		_, err = c.PfsAPIClient.GlobFile(ctx, &pfs.GlobFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.DiffFile(c.Ctx(), &pfs.DiffFileRequest{})
+		_, err = c.PfsAPIClient.DiffFile(ctx, &pfs.DiffFileRequest{})
 		requireNoPanic(err)
-		_, err = c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{})
+		_, err = c.PfsAPIClient.Fsck(ctx, &pfs.FsckRequest{})
 		requireNoPanic(err)
 	})
 
@@ -5616,7 +5658,11 @@ func TestPFS(suite *testing.T) {
 			file.Tag = tag
 			return file
 		}
-		expected := []*pfs.File{newFile(repo, "master", "", "/bar", fileset.DefaultFileTag), newFile(repo, "master", "", "/foo", "tag1"), newFile(repo, "master", "", "/foo", "tag2")}
+		expected := []*pfs.File{
+			newFile(repo, "master", "", "/bar", fileset.DefaultFileTag),
+			newFile(repo, "master", "", "/foo", "tag1"),
+			newFile(repo, "master", "", "/foo", "tag2"),
+		}
 		require.NoError(t, env.PachClient.ListFile(masterCommit, "", func(fi *pfs.FileInfo) error {
 			require.Equal(t, expected[0].Path, fi.File.Path)
 			require.Equal(t, expected[0].Tag, fi.File.Tag)
@@ -5624,6 +5670,106 @@ func TestPFS(suite *testing.T) {
 			return nil
 		}))
 		require.Equal(t, 0, len(expected))
+	})
+
+	suite.Run("ErroredCommits", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		checks := func(t *testing.T, branch string) {
+			// First commit should contain the first file.
+			branchCommit := client.NewCommit(repo, branch, "^2")
+			expected := []string{"/f1"}
+			require.NoError(t, env.PachClient.ListFile(branchCommit, "", func(fi *pfs.FileInfo) error {
+				require.Equal(t, expected[0], fi.File.Path)
+				expected = expected[1:]
+				return nil
+			}))
+			require.Equal(t, 0, len(expected))
+			// Second commit (errored commit) should still be readable with its content included.
+			branchCommit = client.NewCommit(repo, branch, "^1")
+			expected = []string{"/f1", "/f2"}
+			require.NoError(t, env.PachClient.ListFile(branchCommit, "", func(fi *pfs.FileInfo) error {
+				require.Equal(t, expected[0], fi.File.Path)
+				expected = expected[1:]
+				return nil
+			}))
+			require.Equal(t, 0, len(expected))
+			// Third commit should exclude the errored parent commit.
+			branchCommit = client.NewCommit(repo, branch, "")
+			expected = []string{"/f1", "/f3"}
+			require.NoError(t, env.PachClient.ListFile(branchCommit, "", func(fi *pfs.FileInfo) error {
+				require.Equal(t, expected[0], fi.File.Path)
+				expected = expected[1:]
+				return nil
+			}))
+			require.Equal(t, 0, len(expected))
+		}
+		t.Run("FinishedErroredFinished", func(t *testing.T) {
+			branch := uuid.New()
+			require.NoError(t, env.PachClient.CreateBranch(repo, branch, "", "", nil))
+			branchCommit := client.NewCommit(repo, branch, "")
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f1", strings.NewReader("foo\n")))
+			commit, err := env.PachClient.StartCommit(repo, branch)
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f2", strings.NewReader("foo\n")))
+			_, err = env.PachClient.PfsAPIClient.FinishCommit(context.Background(), &pfs.FinishCommitRequest{
+				Commit: commit,
+				Error:  true,
+			})
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f3", strings.NewReader("foo\n")))
+			checks(t, branch)
+		})
+		t.Run("FinishedErroredOpen", func(t *testing.T) {
+			branch := uuid.New()
+			require.NoError(t, env.PachClient.CreateBranch(repo, branch, "", "", nil))
+			branchCommit := client.NewCommit(repo, branch, "")
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f1", strings.NewReader("foo\n")))
+			commit, err := env.PachClient.StartCommit(repo, branch)
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f2", strings.NewReader("foo\n")))
+			_, err = env.PachClient.PfsAPIClient.FinishCommit(context.Background(), &pfs.FinishCommitRequest{
+				Commit: commit,
+				Error:  true,
+			})
+			require.NoError(t, err)
+			_, err = env.PachClient.StartCommit(repo, branch)
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.PutFile(branchCommit, "f3", strings.NewReader("foo\n")))
+			checks(t, branch)
+		})
+
+	})
+
+	suite.Run("SystemRepoDependence", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		sysRepo := client.NewSystemRepo("test", pfs.MetaRepoType)
+
+		// can't create system repo by itself
+		_, err := env.PachClient.PfsAPIClient.CreateRepo(env.Context, &pfs.CreateRepoRequest{
+			Repo: sysRepo,
+		})
+		require.YesError(t, err)
+
+		require.NoError(t, env.PachClient.CreateRepo("test"))
+		// but now we can
+		_, err = env.PachClient.PfsAPIClient.CreateRepo(env.Context, &pfs.CreateRepoRequest{
+			Repo: sysRepo,
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, env.PachClient.DeleteRepo("test", false))
+
+		// meta repo should be gone, too
+		_, err = env.PachClient.PfsAPIClient.InspectRepo(env.Context, &pfs.InspectRepoRequest{
+			Repo: sysRepo,
+		})
+		require.YesError(t, err)
+		require.True(t, errutil.IsNotFoundError(err))
 	})
 }
 

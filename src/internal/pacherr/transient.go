@@ -1,8 +1,6 @@
 package pacherr
 
 import (
-	"errors"
-	"net"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -32,16 +30,4 @@ func (e *TransientError) Unwrap() error {
 func (e *TransientError) GRPCStatus() *status.Status {
 	// TODO: not sure if codes.Unavailable is appropriate here
 	return status.New(codes.Unavailable, e.Error())
-}
-
-func IsRetryable(err error) bool {
-	var target TransientError
-	// nolint:govet
-	return errors.As(err, &target) || isNetRetryable(err)
-}
-
-func isNetRetryable(err error) bool {
-	var netErr net.Error
-	// nolint:govet
-	return errors.As(err, &netErr) && netErr.Temporary()
 }

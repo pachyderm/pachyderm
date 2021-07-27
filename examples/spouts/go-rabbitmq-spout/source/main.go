@@ -13,7 +13,7 @@ import (
 
 	"github.com/streadway/amqp"
 
-	client "github.com/pachyderm/pachyderm/src/client"
+	client "github.com/pachyderm/pachyderm/v2/src/client"
 )
 
 const defaultPrefetch = 500
@@ -61,7 +61,7 @@ func writeFiles(pc *client.APIClient, opts *options, buffer []amqp.Delivery) err
 	// Start of writing
 	log.Print("Writing messages...")
 
-	mfc, err := pc.NewModifyFileClient()
+	mfc, err := pc.NewModifyFileClient(client.NewCommit(opts.repoName, opts.commitBranch, ""))
 	if err != nil {
 		return fmt.Errorf("unable to create new PutFileClient: %v", err)
 	}
@@ -89,12 +89,12 @@ func writeFiles(pc *client.APIClient, opts *options, buffer []amqp.Delivery) err
 
 	// Write to PFS.
 	if opts.overwrite {
-		_, err := mfc.PutFile(opts.repoName, opts.commitBranch, name, reader)
+		err := mfc.PutFile(name, reader)
 		if err != nil {
 			return err
 		}
 	} else {
-		_, err := mfc.PutFile(opts.repoName, opts.commitBranch, name, reader, client.WithAppendPutFile())
+		err := mfc.PutFile(name, reader, client.WithAppendPutFile())
 		if err != nil {
 			return err
 		}
@@ -166,7 +166,7 @@ func switchBranch(pc *client.APIClient, opts *options, errors chan<- error) {
 	// Switches master to staging at regular intervals
 	for range switchC.C {
 		log.Print(fmt.Sprintf("switching branch %s HEAD to %s", opts.switchBranch, opts.commitBranch))
-		err := pc.CreateBranch(opts.repoName, opts.switchBranch, opts.commitBranch, nil)
+		err := pc.CreateBranch(opts.repoName, opts.switchBranch, opts.commitBranch, "", nil)
 		if err != nil {
 			errors <- err
 			return

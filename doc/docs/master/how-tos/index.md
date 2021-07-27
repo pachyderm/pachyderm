@@ -20,8 +20,8 @@ data operations in Pachyderm.
           <li><a href="developer-workflow/working-with-pipelines" class="md-typeset md-link">
           Working with Data and Pipelines</a>
           </li>
-          <li><a href="developer-workflow/build-flag" class="md-typeset md-link">
-          Build Flag</a>
+          <li><a href="developer-workflow/push-images-flag" class="md-typeset md-link">
+          Tag and Push your Image Flag</a>
           </li>
           <li><a href="developer-workflow/ci-cd-integration" class="md-typeset md-link">
           CI/CD Integration
@@ -86,10 +86,6 @@ data operations in Pachyderm.
            Update a Pipeline
            </a>
            </li>
-           <li><a href="pipeline-operations/run_pipeline/" class="md-typeset md-link">
-           Run a Pipeline on a Specific Commit
-           </a>
-           </li>
            <li><a href="pipeline-operations/delete-pipeline/" class="md-typeset md-link">
            Delete a Pipeline
            </a>
@@ -109,16 +105,12 @@ data operations in Pachyderm.
         <h4 class="mdl-card__title-text">Advanced Data Operations &nbsp;&nbsp;&nbsp;<i class="fa fa-flask"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Manage Secrets, split your data, use transactions, skip failed datum...
+        Manage Secrets, use transactions, skip failed datum...
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
           <li><a href="advanced-data-operations/secrets" class="md-typeset md-link">
            Create and Manage Secrets 
-           </a>
-           </li>
-           <li><a href="advanced-data-operations/splitting-data" class="md-typeset md-link">
-           Split Data
            </a>
            </li>
            <li><a href="advanced-data-operations/time_windows" class="md-typeset md-link">

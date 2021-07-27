@@ -47,13 +47,11 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
         "debug": bool,
         "user": string,
         "working_dir": string,
+        "dockerfile": string,
       },
       "parallelism_spec": {
         // Set at most one of the following:
         "constant": int
-      },
-      "hashtree_spec": {
-      "constant": int,
       },
       "resource_requests": {
         "memory": string,
@@ -85,27 +83,18 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
       "egress": {
         "URL": "s3://bucket/dir"
       },
-      "standby": bool,
       "autoscaling": bool,
-      "cache_size": string,
-      "enable_stats": bool,
       "service": {
         "internal_port": int,
         "external_port": int
       },
       "spout": {
-      \\ Optionally, you can combine a spout with a service:
-      "service": {
-            "internal_port": int,
-            "external_port": int
+        \\ Optionally, you can combine a spout with a service:
+        "service": {
+          "internal_port": int,
+          "external_port": int
         }
-      },
-      "max_queue_size": int,
-      "chunk_spec": {
-        "number": int,
-        "size_bytes": int,
-        "chunks_per_worker": int
-      },
+      }
       "scheduling_spec": {
         "node_selector": {string: string},
         "priority_class_name": string
@@ -376,9 +365,6 @@ accomplished with a `USER` directive in your `Dockerfile`.
 `transform.working_dir` sets the directory that your command runs from. You
 can also specify the `WORKDIR` directive in your `Dockerfile`.
 
-`transform.dockerfile` is the path to the `Dockerfile` used with the `--build`
-flag. This defaults to `./Dockerfile`.
-
 ### Parallelism Spec (optional)
 
 `parallelism_spec` describes how Pachyderm parallelizes your pipeline.
@@ -513,8 +499,7 @@ parameter is not set, the job will run indefinitely until it succeeds or fails.
 endpoint instead of the typical `pfs/out` directory. When this parameter
 is set to `true`, Pachyderm includes a sidecar S3 gateway instance
 container in the same pod as the pipeline container. The address of the
-output repository will be `s3://<output_repo>`. If you enable `s3_out`,
-verify that the `enable_stats` parameter is disabled.
+output repository will be `s3://<output_repo>`. 
 
 If you want to expose an input repository through an S3 gateway, see
 `input.pfs.s3` in [PFS Input](#pfs-input). 
@@ -899,30 +884,6 @@ If not explicitly specified, cache_size defaults to 64M.
     For example, if `cache_size` is set to 1G, 
     then only files which are 250M or smaller will be cached; 
     files larger than 250M will not be cached.
-
-### Enable Stats (optional)
-
-The `enable_stats` parameter turns on statistics tracking for the pipeline.
-When you enable the statistics tracking, the pipeline automatically creates
-and commits datum processing information to a special branch in its output
-repo called `"stats"`. This branch stores information about each datum that
-the pipeline processes, including timing information, size information, logs,
-and `/pfs` snapshots. You can view this statistics by running the `pachctl
-inspect datum` and `pachctl list datum` commands, as well as through the web UI.
-Do not enable statistics tracking for S3-enabled pipelines.
-
-Once turned on, statistics tracking cannot be disabled for the pipeline. You can
-turn it off by deleting the pipeline, setting `enable_stats` to `false` or
-completely removing it from your pipeline spec, and recreating the pipeline from
-that updated spec file. While the pipeline that collects the stats
-exists, the storage space used by the stats cannot be released.
-
-!!! note
-    Enabling stats results in slight storage use increase for logs and timing
-    information.
-    However, stats do not use as much extra storage as it might appear because
-    snapshots of the `/pfs` directory that are the largest stored assets
-    do not require extra space.
 
 ### Reprocess Datums (optional)
 

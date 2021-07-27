@@ -77,7 +77,7 @@ func (s *debugServer) handleRedirect(
 				case *debug.Filter_Pachd:
 					return collectPachd(tw, pachdContainerPrefix)
 				case *debug.Filter_Pipeline:
-					pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Name)
+					pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Name, true)
 					if err != nil {
 						return err
 					}
@@ -111,7 +111,7 @@ func (s *debugServer) handleRedirect(
 			if err := collectPachd(tw, pachdContainerPrefix); err != nil {
 				return err
 			}
-			pipelineInfos, err := pachClient.ListPipeline()
+			pipelineInfos, err := pachClient.ListPipeline(true)
 			if err != nil {
 				return err
 			}
@@ -367,11 +367,11 @@ func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APICl
 		return err
 	}
 	for _, repoInfo := range repoInfos {
-		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Name); err != nil {
+		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
 				repoPrefix := join("input-repos", repoInfo.Repo.Name)
 				return collectDebugFile(tw, "commits", func(w io.Writer) error {
-					return pachClient.ListCommitF(repoInfo.Repo, nil, nil, uint64(limit), false, func(ci *pfs.CommitInfo) error {
+					return pachClient.ListCommitF(repoInfo.Repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
 						return s.marshaller.Marshal(w, ci)
 					})
 				}, repoPrefix)
@@ -434,7 +434,7 @@ func collectDump(tw *tar.Writer, prefix ...string) error {
 func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limit int64) collectPipelineFunc {
 	return func(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
 		if err := collectDebugFile(tw, "spec", func(w io.Writer) error {
-			fullPipelineInfo, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name)
+			fullPipelineInfo, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name, true)
 			if err != nil {
 				return err
 			}
@@ -443,7 +443,7 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 			return err
 		}
 		if err := collectDebugFile(tw, "commits", func(w io.Writer) error {
-			return pachClient.ListCommitF(client.NewRepo(pipelineInfo.Pipeline.Name), nil, nil, uint64(limit), false, func(ci *pfs.CommitInfo) error {
+			return pachClient.ListCommitF(client.NewRepo(pipelineInfo.Pipeline.Name), nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
 				return s.marshaller.Marshal(w, ci)
 			})
 		}, prefix...); err != nil {

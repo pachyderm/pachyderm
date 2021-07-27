@@ -28,6 +28,7 @@ import (
 	"bytes"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -116,7 +117,7 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		pachctl wait commit data@master
 
 		# make sure the results have the full pipeline info, including version
-		pachctl list job --raw --history=all \
+		pachctl list job --raw \
 			| match "pipeline_version"
 		`).Run())
 }
@@ -580,8 +581,6 @@ func TestYAMLTimestamp(t *testing.T) {
 }
 
 func TestEditPipeline(t *testing.T) {
-	// TODO: Edit pipeline needs to be implemented in V2.
-	t.Skip("Edit pipeline not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -740,4 +739,54 @@ func TestNoWarningTagSpecified(t *testing.T) {
 	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:20.04")
 	require.NoError(t, err)
 	require.Equal(t, "", stderr)
+}
+
+func TestPipelineCrashingRecovers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+	`).Run())
+
+	// prevent new pods from being scheduled
+	require.NoError(t, tu.BashCmd(`
+		kubectl cordon minikube
+	`).Run())
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo data
+		pachctl create pipeline <<EOF
+		  pipeline:
+		    name: my-pipeline
+		  input:
+		    pfs:
+		      glob: /*
+		      repo: data
+		  transform:
+		    cmd: [ /bin/bash ]
+		    stdin:
+		      - "cp /pfs/data/* /pfs/out"
+		EOF
+		`).Run())
+
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		return tu.BashCmd(`
+		pachctl list pipeline \
+		| match my-pipeline \
+		| match crashing
+		`).Run()
+	})
+
+	// allow new pods to be scheduled
+	require.NoError(t, tu.BashCmd(`
+		kubectl uncordon minikube
+	`).Run())
+
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		return tu.BashCmd(`
+		pachctl list pipeline \
+		| match my-pipeline \
+		| match running
+		`).Run()
+	})
 }

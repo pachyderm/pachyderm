@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -49,7 +51,7 @@ func CommitCnt(t *testing.T, c *client.APIClient, repo string) int {
 // ListPipeline
 func PipelineNames(t *testing.T, c *client.APIClient) []string {
 	t.Helper()
-	ps, err := c.ListPipeline()
+	ps, err := c.ListPipeline(false)
 	require.NoError(t, err)
 	result := make([]string, len(ps))
 	for i, p := range ps {
@@ -476,7 +478,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 
 	// bob can't update alice's pipeline
-	infoBefore, err := aliceClient.InspectPipeline(pipeline)
+	infoBefore, err := aliceClient.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -486,7 +488,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err := aliceClient.InspectPipeline(pipeline)
+	infoAfter, err := aliceClient.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
@@ -503,7 +505,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		getRepoRoleBinding(t, aliceClient, dataRepo))
 
 	// bob still can't update alice's pipeline
-	infoBefore, err = aliceClient.InspectPipeline(pipeline)
+	infoBefore, err = aliceClient.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -513,7 +515,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err = aliceClient.InspectPipeline(pipeline)
+	infoAfter, err = aliceClient.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
@@ -524,7 +526,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		getRepoRoleBinding(t, aliceClient, dataRepo))
 
 	// now bob can update alice's pipeline
-	infoBefore, err = aliceClient.InspectPipeline(pipeline)
+	infoBefore, err = aliceClient.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -533,9 +535,42 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		update: true,
 	})
 	require.NoError(t, err)
-	infoAfter, err = aliceClient.InspectPipeline(pipeline)
+	infoAfter, err = aliceClient.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
+
+	// Make sure that we don't get an auth token returned by the inspect
+	require.Equal(t, "", infoAfter.AuthToken)
+	infoAfter, err = aliceClient.InspectPipeline(pipeline, false)
+	require.NoError(t, err)
+	require.Equal(t, "", infoAfter.AuthToken)
+
+	// ListPipeline without details should list all repos
+	pipelineInfos, err := aliceClient.ListPipeline(false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
+	for _, pipelineInfo := range pipelineInfos {
+		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.Nil(t, pipelineInfo.Details)
+	}
+
+	// Users can access a spec commit even if they can't list the repo itself,
+	// so the details should be populated for every repo
+	pipelineInfos, err = aliceClient.ListPipeline(true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
+	for _, pipelineInfo := range pipelineInfos {
+		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.NotNil(t, pipelineInfo.Details)
+	}
+
+	pipelineInfos, err = bobClient.ListPipeline(true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
+	for _, pipelineInfo := range pipelineInfos {
+		require.Equal(t, "", pipelineInfo.AuthToken)
+		require.NotNil(t, pipelineInfo.Details)
+	}
 
 	// Make sure the updated pipeline runs successfully
 	err = aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
@@ -649,7 +684,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceCrossPipeline, bob, []string{auth.RepoWriterRole}))
 
 	// bob can update alice's pipeline if he removes one of the inputs
-	infoBefore, err := aliceClient.InspectPipeline(aliceCrossPipeline)
+	infoBefore, err := aliceClient.InspectPipeline(aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
@@ -661,12 +696,12 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		),
 		update: true,
 	}))
-	infoAfter, err := aliceClient.InspectPipeline(aliceCrossPipeline)
+	infoAfter, err := aliceClient.InspectPipeline(aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
 	// bob cannot update alice's to put the second input back
-	infoBefore, err = aliceClient.InspectPipeline(aliceCrossPipeline)
+	infoBefore, err = aliceClient.InspectPipeline(aliceCrossPipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -679,7 +714,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err = aliceClient.InspectPipeline(aliceCrossPipeline)
+	infoAfter, err = aliceClient.InspectPipeline(aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
@@ -687,7 +722,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo2, bob, []string{auth.RepoReaderRole}))
 
 	// bob can now update alice's to put the second input back
-	infoBefore, err = aliceClient.InspectPipeline(aliceCrossPipeline)
+	infoBefore, err = aliceClient.InspectPipeline(aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
@@ -698,7 +733,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		),
 		update: true,
 	}))
-	infoAfter, err = aliceClient.InspectPipeline(aliceCrossPipeline)
+	infoAfter, err = aliceClient.InspectPipeline(aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
@@ -948,25 +983,21 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole, pl(pipeline), auth.RepoWriterRole),
 		getRepoRoleBinding(t, aliceClient, pipeline))
 
-	// bob still can't stop or delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
+	// bob can now start and stop the pipeline, but can't delete it
+	require.NoError(t, bobClient.StopPipeline(pipeline))
+	require.NoError(t, bobClient.StartPipeline(pipeline))
 	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-
 	// alice re-adds bob as a reader of the input repo
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, pl(pipeline), auth.RepoReaderRole),
 		getRepoRoleBinding(t, aliceClient, repo))
 
-	// bob can stop (and start) but not delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
-	require.NoError(t, err)
-	err = bobClient.StartPipeline(pipeline)
-	require.NoError(t, err)
+	// no change to bob's capabilities
+	require.NoError(t, bobClient.StopPipeline(pipeline))
+	require.NoError(t, bobClient.StartPipeline(pipeline))
 	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -977,9 +1008,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole),
 		getRepoRoleBinding(t, aliceClient, pipeline))
 
-	// finally bob can stop and delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
-	require.NoError(t, err)
+	// finally bob can delete alice's pipeline
 	err = bobClient.DeletePipeline(pipeline, false)
 	require.NoError(t, err)
 }
@@ -1091,8 +1120,10 @@ func TestListAndInspectRepo(t *testing.T) {
 	// Bob calls ListRepo, and the response must indicate the correct access scope
 	// for each repo (because other tests have run, we may see repos besides the
 	// above. Bob's access to those should be NONE
-	listResp, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(),
+	lrClient, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(),
 		&pfs.ListRepoRequest{})
+	require.NoError(t, err)
+	repoInfos, err := clientsdk.ListRepoInfo(lrClient)
 	require.NoError(t, err)
 	expectedPermissions := map[string][]auth.Permission{
 		repoOwner: []auth.Permission{
@@ -1141,7 +1172,7 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_PIPELINE_LIST_JOB,
 		},
 	}
-	for _, info := range listResp.RepoInfo {
+	for _, info := range repoInfos {
 		require.ElementsEqual(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
 	}
 
@@ -1238,8 +1269,10 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
 
 	// Anon (non-logged-in user) calls ListRepo, and must receive an error
-	_, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
+	c, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
 		&pfs.ListRepoRequest{})
+	require.NoError(t, err)
+	_, err = clientsdk.ListRepoInfo(c)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 }
@@ -2358,10 +2391,10 @@ func TestDeleteFailedPipeline(t *testing.T) {
 	})
 }
 
-// TestDeletePipelineMissingRepos creates a pipeline, force-deletes its input
-// and output repos, and then confirms that DeletePipeline still works (i.e.
-// the missing repos/ACLs don't cause an auth error).
-func TestDeletePipelineMissingRepos(t *testing.T) {
+// TestDeletePipelineMissingInput creates a pipeline, force-deletes its input
+// repo, and then confirms that DeletePipeline still works (i.e. the missing
+// repos/ACLs don't cause an auth error).
+func TestDeletePipelineMissingInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2389,14 +2422,13 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 		false,
 	))
 
-	// force-delete input and output repos
+	// force-delete input repo
 	require.NoError(t, aliceClient.DeleteRepo(repo, true))
-	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
 
 	// Attempt to delete the pipeline--must succeed
 	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pis, err := aliceClient.ListPipeline()
+		pis, err := aliceClient.ListPipeline(false)
 		if err != nil {
 			return err
 		}
@@ -2619,7 +2651,7 @@ func TestDebug(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
-	jobInfos, err := aliceClient.WaitJobsetAll(commit1.ID)
+	jobInfos, err := aliceClient.WaitJobSetAll(commit1.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jobInfos))
 
@@ -2780,3 +2812,140 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(repoInfo))
 }
+
+// asserts that retrieval of Pachd logs requires additional permissions granted to the PachdLogReader role
+func TestGetPachdLogsRequiresPerm(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+
+	aliceRepo := tu.UniqueString("alice_repo")
+	err := aliceClient.CreateRepo(aliceRepo)
+	require.NoError(t, err)
+
+	// create pipeline
+	alicePipeline := tu.UniqueString("pipeline_for_logs")
+	err = aliceClient.CreatePipeline(
+		alicePipeline,
+		"", // default image: DefaultUserImage
+		[]string{"bash"},
+		[]string{"cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(aliceRepo, "/*"),
+		"", // default output branch: master
+		false,
+	)
+	require.NoError(t, err)
+
+	// wait for the pipeline pod to come up
+	time.Sleep(time.Second * 10)
+
+	// must be authorized to access pachd logs
+	pachdLogsIter := aliceClient.GetLogs("", "", nil, "", false, false, 0)
+	pachdLogsIter.Next()
+	require.YesError(t, pachdLogsIter.Err())
+	require.True(t, strings.Contains(pachdLogsIter.Err().Error(), "is not authorized to perform this operation"))
+
+	// alice can view the pipeline logs
+	pipelineLogsIter := aliceClient.GetLogs(alicePipeline, "", nil, "", false, false, 0)
+	pipelineLogsIter.Next()
+	require.NoError(t, pipelineLogsIter.Err())
+
+	// PachdLogReaderRole grants authorized retrieval of pachd logs
+	_, err = adminClient.AuthAPIClient.ModifyRoleBinding(adminClient.Ctx(),
+		&auth.ModifyRoleBindingRequest{
+			Principal: alice,
+			Roles:     []string{auth.PachdLogReaderRole},
+			Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
+		})
+	require.NoError(t, err)
+	pachdLogsIter = aliceClient.GetLogs("", "", nil, "", false, false, 0)
+	pachdLogsIter.Next()
+	require.NoError(t, pachdLogsIter.Err())
+}
+
+// TestRolesForPermission tests all users can look up the roles that correspond to
+// a given permission.
+func TestRolesForPermission(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	resp, err := aliceClient.GetRolesForPermission(aliceClient.Ctx(), &auth.GetRolesForPermissionRequest{Permission: auth.Permission_REPO_READ})
+	require.NoError(t, err)
+
+	names := make([]string, len(resp.Roles))
+	for i, r := range resp.Roles {
+		names[i] = r.Name
+	}
+	sort.Strings(names)
+	require.Equal(t, []string{"clusterAdmin", "repoOwner", "repoReader", "repoWriter"}, names)
+}
+
+// TODO: This test mirrors TestLoad in src/server/pfs/server/testing/load_test.go.
+// Need to restructure testing such that we have the implementation of this
+// test in one place while still being able to test auth enabled and disabled clusters.
+func TestLoad(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	for i, load := range loads {
+		load := load
+		t.Run(fmt.Sprint("Load-", i), func(t *testing.T) {
+			resp, err := aliceClient.RunPFSLoadTest([]byte(load), nil, 0)
+			require.NoError(t, err)
+			require.Equal(t, "", resp.Error, fmt.Sprint("seed: ", resp.Seed))
+		})
+	}
+}
+
+var loads = []string{`
+count: 5
+operations:
+  - count: 5
+    operation:
+      - putFile:
+          files:
+            count: 5
+            file:
+              - source: "random"
+                prob: 100
+        prob: 70 
+      - deleteFile:
+          count: 5
+          directoryProb: 20 
+        prob: 30 
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      directory:
+        depth: 3
+        run: 3
+      size:
+        - min: 1000
+          max: 10000
+          prob: 30 
+        - min: 10000
+          max: 100000
+          prob: 30 
+        - min: 1000000
+          max: 10000000
+          prob: 30 
+        - min: 10000000
+          max: 100000000
+          prob: 10 
+`}

@@ -1,0 +1,22 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{ if and .Values.rbac.create .Values.pachd.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm-worker
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: ""
+  kind: Role
+  name: pachyderm-worker
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.worker.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+{{ end }}

@@ -47,7 +47,7 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.Transa
 	if userCommit.Branch.Repo == nil {
 		return errors.New("commit repo cannot be nil")
 	}
-	if err := a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo.Name, auth.Permission_REPO_WRITE); err != nil {
+	if err := a.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return err
 	}
 	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
@@ -58,7 +58,7 @@ func (a *validatedAPIServer) InspectFile(ctx context.Context, request *pfs.Inspe
 	if err := validateFile(request.File); err != nil {
 		return nil, err
 	}
-	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, request.File.Commit.Branch.Repo.Name, auth.Permission_REPO_INSPECT_FILE); err != nil {
+	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, request.File.Commit.Branch.Repo, auth.Permission_REPO_INSPECT_FILE); err != nil {
 		return nil, err
 	}
 	return a.apiServer.InspectFile(ctx, request)
@@ -69,7 +69,7 @@ func (a *validatedAPIServer) ListFile(request *pfs.ListFileRequest, server pfs.A
 	if err := validateFile(request.File); err != nil {
 		return err
 	}
-	if err := a.env.AuthServer().CheckRepoIsAuthorized(server.Context(), request.File.Commit.Branch.Repo.Name, auth.Permission_REPO_LIST_FILE); err != nil {
+	if err := a.env.AuthServer().CheckRepoIsAuthorized(server.Context(), request.File.Commit.Branch.Repo, auth.Permission_REPO_LIST_FILE); err != nil {
 		return err
 	}
 	return a.apiServer.ListFile(request, server)
@@ -91,7 +91,7 @@ func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.A
 	if file.Commit.Branch.Repo == nil {
 		return errors.New("file commit repo cannot be nil")
 	}
-	if err := a.env.AuthServer().CheckRepoIsAuthorized(server.Context(), file.Commit.Branch.Repo.Name, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
+	if err := a.env.AuthServer().CheckRepoIsAuthorized(server.Context(), file.Commit.Branch.Repo, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
 		return err
 	}
 	return a.apiServer.WalkFile(request, server)
@@ -110,7 +110,7 @@ func (a *validatedAPIServer) GlobFile(request *pfs.GlobFileRequest, server pfs.A
 	if commit.Branch.Repo == nil {
 		return errors.New("commit repo cannot be nil")
 	}
-	if err := a.env.AuthServer().CheckRepoIsAuthorized(server.Context(), commit.Branch.Repo.Name, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
+	if err := a.env.AuthServer().CheckRepoIsAuthorized(server.Context(), commit.Branch.Repo, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
 		return err
 	}
 	return a.apiServer.GlobFile(request, server)
@@ -120,7 +120,7 @@ func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearComm
 	if req.Commit == nil {
 		return nil, errors.Errorf("commit cannot be nil")
 	}
-	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, req.Commit.Branch.Repo.Name, auth.Permission_REPO_WRITE); err != nil {
+	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, req.Commit.Branch.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return nil, err
 	}
 	return a.apiServer.ClearCommit(ctx, req)
@@ -152,6 +152,13 @@ func (a *validatedAPIServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.
 		return errors.New("file cannot be nil")
 	}
 	return a.apiServer.GetFileTAR(request, server)
+}
+
+func (a *validatedAPIServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
+	if request.Head != nil && request.Branch.Repo.Name != request.Head.Branch.Repo.Name {
+		return errors.New("branch and head commit must belong to the same repo")
+	}
+	return a.apiServer.CreateBranchInTransaction(txnCtx, request)
 }
 
 func validateFile(file *pfs.File) error {

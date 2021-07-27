@@ -100,6 +100,11 @@ possible, replace a phrasal word with a single-word verb equivalent and
 if you have to use a phrasal word, avoid finishing the sentence with
 a preposition.
 
+!!! Info
+    The following example is for illustration purposes only. 
+    The sentence might not be relevant anymore
+    depending on the version of Pachyderm considered.
+
 | Do not use | Use |
 | ---------- | --- |
 | The `put file` API includes an option for splitting **up** the file into separate datums automatically. | The `put file` API includes an option for splitting the file into separate datums automatically. |

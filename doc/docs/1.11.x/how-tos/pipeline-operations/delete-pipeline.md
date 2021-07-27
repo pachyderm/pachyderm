@@ -14,7 +14,7 @@ and the job history is deleted as well.
 You can use the `--keep repo` flag that preserves the output repo with
 all its branches and provenance. Only the information about the pipeline
 history itself is erased. Later, you can recreate the pipeline by using
-the `pachctl create pipeline` command. If the input repository by the same
+the `pachctl create pipeline` command. If the output repository by the same
 name as the pipeline exists, the pipeline will use it
 keeping all the commit history and provenance.
 
@@ -28,7 +28,7 @@ To delete all pipelines, use the `--all` flag.
 To delete a pipeline, run the following command:
 
 ```shell
-pachctl delete pipeline <pipeine_name>
+pachctl delete pipeline <pipeline_name>
 ```
 
 !!! note "See Also"

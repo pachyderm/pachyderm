@@ -22,10 +22,6 @@ while getopts ":v" opt; do
   esac
 done
 
-if [[ -n "${TRAVIS}" ]]; then
-  minikube_args+=("--bootstrapper=kubeadm")
-fi
-
 minikube start "${minikube_args[@]}"
 
 # Try to connect for three minutes

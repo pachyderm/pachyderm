@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
+
+deployTarget: MICROSOFT
+
+pachd:
+  storage:
+    microsoft:
+      container: "foo"
+      id: "bar"
+      secret: "baz"

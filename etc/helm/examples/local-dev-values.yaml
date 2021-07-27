@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
+deployTarget: LOCAL
+
+pachd:
+  image:
+    tag: local
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512M
+  service:
+    type: NodePort
+  metrics:
+    enabled: false
+
+console:
+  enabled: false
+  config:
+    issuerURI: "http://pachd:1658"
+    oauthRedirectURI: "http://localhost:4000/oauth/callback/?inline=true"
+    oauthClientID: "dash"
+    oauthClientSecret: "notsecret"
+    graphqlPort: 4000
+    oauthPachdClientID: "pachd"
+    pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
+
+worker:
+  image:
+    tag: local
+
+etcd:
+  service:
+    type: NodePort
+
+postgresql:
+  service:
+    type: NodePort

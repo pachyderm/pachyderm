@@ -22,7 +22,6 @@ type Source interface {
 type source struct {
 	commitInfo *pfs.CommitInfo
 	fileSet    fileset.FileSet
-	full       bool
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
@@ -38,7 +37,6 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 	return &source{
 		commitInfo: commitInfo,
 		fileSet:    fs,
-		full:       sc.full,
 	}
 }
 
@@ -61,22 +59,20 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 		if fileset.IsDir(idx.Path) {
 			fi.FileType = pfs.FileType_DIR
 		}
-		if s.full {
-			cachedFi, ok, err := s.checkFileInfoCache(ctx, cache, f)
+		cachedFi, ok, err := s.checkFileInfoCache(ctx, cache, f)
+		if err != nil {
+			return err
+		}
+		if ok {
+			fi.SizeBytes = cachedFi.SizeBytes
+			fi.Hash = cachedFi.Hash
+		} else {
+			computedFi, err := s.computeFileInfo(ctx, cache, iter, idx.Path)
 			if err != nil {
 				return err
 			}
-			if ok {
-				fi.SizeBytes = cachedFi.SizeBytes
-				fi.Hash = cachedFi.Hash
-			} else {
-				computedFi, err := s.computeFileInfo(ctx, cache, iter, idx.Path)
-				if err != nil {
-					return err
-				}
-				fi.SizeBytes = computedFi.SizeBytes
-				fi.Hash = computedFi.Hash
-			}
+			fi.SizeBytes = computedFi.SizeBytes
+			fi.Hash = computedFi.Hash
 		}
 		// TODO: Figure out how to remove directory infos from cache when they are no longer needed.
 		return cb(fi, f)
@@ -119,7 +115,7 @@ func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.File
 	if !fileset.IsDir(idx.Path) {
 		return s.computeRegularFileInfo(ctx, f)
 	}
-	var size uint64
+	var size int64
 	h := pfs.NewHash()
 	for {
 		f2, err := iter.Peek()
@@ -150,8 +146,7 @@ func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.File
 
 func (s *source) computeRegularFileInfo(ctx context.Context, f fileset.File) (*pfs.FileInfo, error) {
 	fi := &pfs.FileInfo{
-		FileType:  pfs.FileType_FILE,
-		SizeBytes: uint64(index.SizeBytes(f.Index())),
+		SizeBytes: index.SizeBytes(f.Index()),
 	}
 	var err error
 	fi.Hash, err = f.Hash()

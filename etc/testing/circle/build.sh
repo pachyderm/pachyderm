@@ -5,6 +5,9 @@ set -ex
 source "$(dirname "$0")/env.sh"
 
 eval $(minikube docker-env)
+
+go version
+
 make install
 VERSION=$(pachctl version --client-only)
 git config user.email "donotreply@pachyderm.com"

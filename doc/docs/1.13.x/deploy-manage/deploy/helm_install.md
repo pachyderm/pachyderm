@@ -33,11 +33,11 @@ This page gives you a high level view of the steps to follow to install Pachyder
         In the case of an installation using Helm, those same parameters values will now **be specified in a YAML configuration file** as follows.
 
 ### Edit a values.yaml file
-Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/helmchart/tree/1.13.x/examples). Pick the example that fits your target deployment and update the relevant fields according to the parameters gathered in the previous step.   
+Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/helmchart/tree/pachyderm-0.6.5/examples). Pick the example that fits your target deployment and update the relevant fields according to the parameters gathered in the previous step.   
 
 See the [conversion table](#conversion-table) at the end of this page. It should help you pass easily from the `pachctl deploy` arguments and flags to their attributes counterpart in values.yaml.
 
-See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/master/pachyderm/values.yaml) for an exhaustive list of all parameters.
+See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob/pachyderm-0.6.5/pachyderm/values.yaml) for an exhaustive list of all parameters.
 
 !!! Warning
     When deploying Pachyderm using the "pachctl deploy" command (which was the only option prior to 1.13), **k8s CPU and memory requests and limits** were created for pachd, even if they were not explicitly set by flags on the command line. With the Helm Chart deployment, that is not the case.  If you don't provide values in the values.yaml file, then those requests and limits are simply not set. 
@@ -54,10 +54,12 @@ See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob
 
     You are ready to deploy Pachyderm on the environment of your choice.
     ```shell
-    $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm
+    $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm --version 0.6.5
     ```
 You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`). 
-Each version of a chart is associated with a given version of Pachyderm. No mention of the version will install the latest available version of Pachyderm by default. 
+Each version of a chart is associated with a given version of Pachyderm. 
+Here, the `--version 0.6.5` will install Pachyderm 1.13.3.
+No mention of the version will install the latest available version of Pachyderm by default. 
 [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) lists all available chart versions and their associated version of Pachyderm. 
 
 ### Check your installation

@@ -243,6 +243,29 @@ func SyncContextsCmd() *cobra.Command {
 	return cmdutil.CreateAlias(syncContexts, "enterprise sync-contexts")
 }
 
+// HeartbeatCmd triggers an explicit heartbeat to the license server
+func HeartbeatCmd() *cobra.Command {
+	var isEnterprise bool
+	heartbeat := &cobra.Command{
+		Short: "Sync the enterprise state with the license server immediately.",
+		Long:  "Sync the enterprise state with the license server immediately.",
+		Run: cmdutil.Run(func(args []string) error {
+			c, err := newClient(isEnterprise)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			_, err = c.Enterprise.Heartbeat(c.Ctx(), &enterprise.HeartbeatRequest{})
+			if err != nil {
+				return errors.Wrapf(err, "could not sync with license server")
+			}
+			return nil
+		}),
+	}
+	heartbeat.PersistentFlags().BoolVar(&isEnterprise, "enterprise", false, "Make the enterprise server refresh it's state")
+	return cmdutil.CreateAlias(heartbeat, "enterprise heartbeat")
+}
+
 // Cmds returns pachctl commands related to Pachyderm Enterprise
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
@@ -257,6 +280,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, DeactivateCmd())
 	commands = append(commands, GetStateCmd())
 	commands = append(commands, SyncContextsCmd())
+	commands = append(commands, HeartbeatCmd())
 
 	return commands
 }

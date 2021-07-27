@@ -3,7 +3,7 @@ site_description: A Pachyderm documentation website that provides information on
 site_author: Pachyderm
 site_url: https://docs.pachyderm.com/master/
 docs_dir: docs/master/
-site_dir: site/master/
+site_dir: site/2.0.x-Beta/
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
@@ -13,8 +13,8 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '2.0.0'
-pach_latest_version: '2.0.0'
+pach_featured_version: '1.13.3'
+pach_latest_version: '2.0.0-beta.3'
 pach_major_minor_version: '2.0'
 
 # Configuration
@@ -107,11 +107,11 @@ nav:
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting_started/index.md
+        - Quick Start - Get started on Hub: hub/hub_getting_started.md
         - Local Installation: getting_started/local_installation.md
-        - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
-        - Use Pachctl Shell: deploy-manage/manage/pachctl_shell.md
-        - Deploy Pachyderm on Windows: getting_started/wsl-deploy.md
         - Beginner Tutorial: getting_started/beginner_tutorial.md
+        - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
+        - Use pachctl Shell: deploy-manage/manage/pachctl_shell.md
     - Concepts:
         - Overview: concepts/index.md
         - Versioned Data Concepts:
@@ -134,11 +134,13 @@ nav:
                 - Overview: concepts/pipeline-concepts/datum/index.md
                 - Glob Patterns: concepts/pipeline-concepts/datum/glob-pattern.md
                 - Datum Processing: concepts/pipeline-concepts/datum/relationship-between-datums.md
+                - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
+                - Datum Metadata: concepts/pipeline-concepts/datum/metadata.md
                 - Cross and Union: concepts/pipeline-concepts/datum/cross-union.md
                 - Join: concepts/pipeline-concepts/datum/join.md
                 - Group: concepts/pipeline-concepts/datum/group.md
-                - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
+            - Global ID: concepts/advanced-concepts/globalID.md
             - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
             - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
     - How-Tos:
@@ -146,7 +148,7 @@ nav:
         - Workflow: 
             - Overview: how-tos/developer-workflow/index.md
             - Working with Pipelines: how-tos/developer-workflow/working-with-pipelines.md
-            - Build Flag: how-tos/developer-workflow/build-flag.md  
+            - Tag and Push your Image Flag: how-tos/developer-workflow/push-images-flag.md  
             - CI/CD Integration: how-tos/developer-workflow/ci-cd-integration.md
             - Create a Machine Learning Workflow: how-tos/developer-workflow/create-ml-workflow.md
         - Basic Data Operations: 
@@ -162,15 +164,10 @@ nav:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
             - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
-            - Run a Pipeline on a Specific Commit: how-tos/pipeline-operations/run_pipeline.md
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
             - Monitor Job Progress: how-tos/pipeline-operations/monitor-job-progress.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
-            - Split Data:
-                - Overview: how-tos/advanced-data-operations/splitting-data/index.md
-                - Splitting Data for Distributed Processing: how-tos/advanced-data-operations/splitting-data/splitting.md
-                - Adjusting Data Processing by Splitting Data: how-tos/advanced-data-operations/splitting-data/adjusting_data_processing_w_split.md
             - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md
             - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
             - Skip Failed Datums: how-tos/advanced-data-operations/err_cmd.md        
@@ -197,14 +194,6 @@ nav:
                 - Deploy on OpenShift: deploy-manage/deploy/openshift.md
                 - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
-            - Create a Custom Deployment:
-                - Overview: deploy-manage/deploy/deploy_custom/index.md
-                - Before You Begin: deploy-manage/deploy/deploy_custom/deploy_custom_before_you_begin.md
-                - Pachyderm Deployment Manifest: deploy-manage/deploy/deploy_custom/deploy_custom_pachyderm_deployment_manifest.md
-                - Configuring Persistent Disk Parameters: deploy-manage/deploy/deploy_custom/deploy_custom_configuring_persistent_disk_parameters.md
-                - Configuring Object Store: deploy-manage/deploy/deploy_custom/deploy_custom_configuring_object_store.md
-                - Create a Complete Configuration: deploy-manage/deploy/deploy_custom/deploy_custom_complete_example_invocation.md
-                - Additional flags: deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags.md
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
                 - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
@@ -254,17 +243,24 @@ nav:
             - reference/pachctl/pachctl_auth.md
             - reference/pachctl/pachctl_auth_activate.md
             - reference/pachctl/pachctl_auth_check.md
+            - reference/pachctl/pachctl_auth_check_repo.md
             - reference/pachctl/pachctl_auth_deactivate.md
-            - reference/pachctl/pachctl_auth_get-auth-token.md
             - reference/pachctl/pachctl_auth_get-config.md
-            - reference/pachctl/pachctl_auth_get-otp.md
+            - reference/pachctl/pachctl_auth_get-groups.md
+            - reference/pachctl/pachctl_auth_get-robot-token.md
             - reference/pachctl/pachctl_auth_get.md
-            - reference/pachctl/pachctl_auth_list-admins.md
+            - reference/pachctl/pachctl_auth_get_cluster.md
+            - reference/pachctl/pachctl_auth_get_enterprise.md
+            - reference/pachctl/pachctl_auth_get_repo.md
             - reference/pachctl/pachctl_auth_login.md
             - reference/pachctl/pachctl_auth_logout.md
-            - reference/pachctl/pachctl_auth_modify-admins.md
+            - reference/pachctl/pachctl_auth_roles-for-permission.md
+            - reference/pachctl/pachctl_auth_rotate-root-token.md
             - reference/pachctl/pachctl_auth_set-config.md
             - reference/pachctl/pachctl_auth_set.md
+            - reference/pachctl/pachctl_auth_set_cluster.md
+            - reference/pachctl/pachctl_auth_set_enterprise.md
+            - reference/pachctl/pachctl_auth_set_repo.md
             - reference/pachctl/pachctl_auth_use-auth-token.md
             - reference/pachctl/pachctl_auth_whoami.md
             - reference/pachctl/pachctl_completion.md
@@ -275,12 +271,15 @@ nav:
             - reference/pachctl/pachctl_config_delete_context.md
             - reference/pachctl/pachctl_config_get.md
             - reference/pachctl/pachctl_config_get_active-context.md
+            - reference/pachctl/pachctl_config_get_active-enterprise-context.md
             - reference/pachctl/pachctl_config_get_context.md
             - reference/pachctl/pachctl_config_get_metrics.md
+            - reference/pachctl/pachctl_config_import-kube.md
             - reference/pachctl/pachctl_config_list.md
             - reference/pachctl/pachctl_config_list_context.md
             - reference/pachctl/pachctl_config_set.md
             - reference/pachctl/pachctl_config_set_active-context.md
+            - reference/pachctl/pachctl_config_set_active-enterprise-context.md
             - reference/pachctl/pachctl_config_set_context.md
             - reference/pachctl/pachctl_config_set_metrics.md
             - reference/pachctl/pachctl_config_update.md
@@ -299,51 +298,44 @@ nav:
             - reference/pachctl/pachctl_delete.md
             - reference/pachctl/pachctl_delete_all.md
             - reference/pachctl/pachctl_delete_branch.md
-            - reference/pachctl/pachctl_delete_commit.md
             - reference/pachctl/pachctl_delete_file.md
             - reference/pachctl/pachctl_delete_job.md
             - reference/pachctl/pachctl_delete_pipeline.md
             - reference/pachctl/pachctl_delete_repo.md
             - reference/pachctl/pachctl_delete_secret.md
             - reference/pachctl/pachctl_delete_transaction.md
-            - reference/pachctl/pachctl_deploy.md
-            - reference/pachctl/pachctl_deploy_amazon.md
-            - reference/pachctl/pachctl_deploy_custom.md
-            - reference/pachctl/pachctl_deploy_export-images.md
-            - reference/pachctl/pachctl_deploy_google.md
-            - reference/pachctl/pachctl_deploy_ide.md
-            - reference/pachctl/pachctl_deploy_import-images.md
-            - reference/pachctl/pachctl_deploy_list-images.md
-            - reference/pachctl/pachctl_deploy_local.md
-            - reference/pachctl/pachctl_deploy_microsoft.md
-            - reference/pachctl/pachctl_deploy_storage.md
-            - reference/pachctl/pachctl_deploy_storage_amazon.md
-            - reference/pachctl/pachctl_deploy_storage_google.md
-            - reference/pachctl/pachctl_deploy_storage_microsoft.md
             - reference/pachctl/pachctl_diff.md
             - reference/pachctl/pachctl_diff_file.md
             - reference/pachctl/pachctl_edit.md
             - reference/pachctl/pachctl_edit_pipeline.md
             - reference/pachctl/pachctl_enterprise.md
-            - reference/pachctl/pachctl_enterprise_activate.md
+            - reference/pachctl/pachctl_enterprise_deactivate.md
             - reference/pachctl/pachctl_enterprise_get-state.md
+            - reference/pachctl/pachctl_enterprise_heartbeat.md
+            - reference/pachctl/pachctl_enterprise_register.md
+            - reference/pachctl/pachctl_enterprise_sync-contexts.md
             - reference/pachctl/pachctl_exit.md
-            - reference/pachctl/pachctl_extract.md
-            - reference/pachctl/pachctl_extract_pipeline.md
             - reference/pachctl/pachctl_finish.md
             - reference/pachctl/pachctl_finish_commit.md
             - reference/pachctl/pachctl_finish_transaction.md
-            - reference/pachctl/pachctl_flush.md
-            - reference/pachctl/pachctl_flush_commit.md
-            - reference/pachctl/pachctl_flush_job.md
             - reference/pachctl/pachctl_fsck.md
-            - reference/pachctl/pachctl_garbage-collect.md
             - reference/pachctl/pachctl_get.md
             - reference/pachctl/pachctl_get_file.md
-            - reference/pachctl/pachctl_get_object.md
-            - reference/pachctl/pachctl_get_tag.md
             - reference/pachctl/pachctl_glob.md
             - reference/pachctl/pachctl_glob_file.md
+            - reference/pachctl/pachctl_idp.md
+            - reference/pachctl/pachctl_idp_create-client.md
+            - reference/pachctl/pachctl_idp_create-connector.md
+            - reference/pachctl/pachctl_idp_delete-client.md
+            - reference/pachctl/pachctl_idp_delete-connector.md
+            - reference/pachctl/pachctl_idp_get-client.md
+            - reference/pachctl/pachctl_idp_get-config.md
+            - reference/pachctl/pachctl_idp_get-connector.md
+            - reference/pachctl/pachctl_idp_list-client.md
+            - reference/pachctl/pachctl_idp_list-connector.md
+            - reference/pachctl/pachctl_idp_set-config.md
+            - reference/pachctl/pachctl_idp_update-client.md
+            - reference/pachctl/pachctl_idp_update-connector.md
             - reference/pachctl/pachctl_inspect.md
             - reference/pachctl/pachctl_inspect_branch.md
             - reference/pachctl/pachctl_inspect_cluster.md
@@ -355,6 +347,14 @@ nav:
             - reference/pachctl/pachctl_inspect_repo.md
             - reference/pachctl/pachctl_inspect_secret.md
             - reference/pachctl/pachctl_inspect_transaction.md
+            - reference/pachctl/pachctl_license.md
+            - reference/pachctl/pachctl_license_activate.md
+            - reference/pachctl/pachctl_license_add-cluster.md
+            - reference/pachctl/pachctl_license_delete-all.md
+            - reference/pachctl/pachctl_license_delete-cluster.md
+            - reference/pachctl/pachctl_license_get-state.md
+            - reference/pachctl/pachctl_license_list-clusters.md
+            - reference/pachctl/pachctl_license_update-cluster.md
             - reference/pachctl/pachctl_list.md
             - reference/pachctl/pachctl_list_branch.md
             - reference/pachctl/pachctl_list_commit.md
@@ -372,13 +372,15 @@ nav:
             - reference/pachctl/pachctl_put_file.md
             - reference/pachctl/pachctl_restart.md
             - reference/pachctl/pachctl_restart_datum.md
-            - reference/pachctl/pachctl_restore.md
             - reference/pachctl/pachctl_resume.md
             - reference/pachctl/pachctl_resume_transaction.md
             - reference/pachctl/pachctl_run.md
             - reference/pachctl/pachctl_run_cron.md
+            - reference/pachctl/pachctl_run_pfs-load-test.md
             - reference/pachctl/pachctl_run_pipeline.md
             - reference/pachctl/pachctl_shell.md
+            - reference/pachctl/pachctl_squash.md
+            - reference/pachctl/pachctl_squash_commit.md
             - reference/pachctl/pachctl_start.md
             - reference/pachctl/pachctl_start_commit.md
             - reference/pachctl/pachctl_start_pipeline.md
@@ -389,13 +391,14 @@ nav:
             - reference/pachctl/pachctl_stop_transaction.md
             - reference/pachctl/pachctl_subscribe.md
             - reference/pachctl/pachctl_subscribe_commit.md
-            - reference/pachctl/pachctl_undeploy.md
             - reference/pachctl/pachctl_unmount.md
-            - reference/pachctl/pachctl_update-dash.md
             - reference/pachctl/pachctl_update.md
             - reference/pachctl/pachctl_update_pipeline.md
             - reference/pachctl/pachctl_update_repo.md
             - reference/pachctl/pachctl_version.md
+            - reference/pachctl/pachctl_wait.md
+            - reference/pachctl/pachctl_wait_commit.md
+            - reference/pachctl/pachctl_wait_job.md
         - Examples: examples/examples.md
     - Enterprise:
         - Overview: enterprise/index.md
@@ -412,7 +415,6 @@ nav:
         - Enterprise Server:
             - Setup an Enterprise Server: enterprise/auth/enterprise-server/setup.md 
             - Manage your Enterprise Server: enterprise/auth/enterprise-server/manage.md 
-        - Advanced Statistics: enterprise/stats.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md
         - General Troubleshooting: troubleshooting/general_troubleshooting.md

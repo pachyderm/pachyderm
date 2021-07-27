@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -233,7 +234,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 Prompt the user to input a root token on stdin, rather than generating a random one.`[1:])
 	activate.PersistentFlags().BoolVar(&onlyActivate, "only-activate", false, "Activate auth without configuring the OIDC service")
 	activate.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Activate auth on the active enterprise context")
-	activate.PersistentFlags().StringVar(&issuer, "issuer", "http://localhost:30658/", "The issuer for the OIDC service")
+	activate.PersistentFlags().StringVar(&issuer, "issuer", "http://pachd:1658/", "The issuer for the OIDC service")
 	activate.PersistentFlags().StringVar(&redirect, "redirect", "http://localhost:30657/authorization-code/callback", "The redirect URL for the OIDC service")
 	activate.PersistentFlags().StringVar(&clientId, "client-id", "pachd", "The client ID for this pachd")
 	activate.PersistentFlags().StringSliceVar(&trustedPeers, "trusted-peers", []string{}, "Comma-separated list of OIDC client IDs to trust")
@@ -734,6 +735,42 @@ func RotateRootToken() *cobra.Command {
 	return cmdutil.CreateAlias(rotateRootToken, "auth rotate-root-token")
 }
 
+// RolesForPermissionCmd lists the roles that would give a user a specific permission
+func RolesForPermissionCmd() *cobra.Command {
+	rotateRootToken := &cobra.Command{
+		Use:   "{{alias}} <permission>",
+		Short: "List roles that grant the given permission",
+		Long:  "List roles that grant the given permission",
+		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+			c, err := newClient(false)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			permission, ok := auth.Permission_value[strings.ToUpper(args[0])]
+			if !ok {
+				return fmt.Errorf("unknown permission %q", args[0])
+			}
+
+			resp, err := c.GetRolesForPermission(c.Ctx(), &auth.GetRolesForPermissionRequest{Permission: auth.Permission(permission)})
+			if err != nil {
+				return err
+			}
+
+			names := make([]string, len(resp.Roles))
+			for i, r := range resp.Roles {
+				names[i] = r.Name
+			}
+			sort.Strings(names)
+			fmt.Print(strings.Join(names, "\n"))
+			return nil
+		}),
+	}
+
+	return cmdutil.CreateAlias(rotateRootToken, "auth roles-for-permission")
+}
+
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
 func Cmds() []*cobra.Command {
@@ -781,5 +818,6 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, GetEnterpriseRoleBindingCmd())
 	commands = append(commands, SetEnterpriseRoleBindingCmd())
 	commands = append(commands, RotateRootToken())
+	commands = append(commands, RolesForPermissionCmd())
 	return commands
 }

@@ -27,26 +27,28 @@ const debug = false
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"
 	return &pps.PipelineInfo{
-		Pipeline:     client.NewPipeline(name),
-		OutputBranch: "master",
-		Transform: &pps.Transform{
-			Cmd:        []string{"bash"},
-			Stdin:      []string{"cp inputRepo/* out"},
-			WorkingDir: client.PPSInputPrefix,
-		},
-		ParallelismSpec: &pps.ParallelismSpec{
-			Constant: 1,
-		},
-		ResourceRequests: &pps.ResourceSpec{
-			Memory: "100M",
-			Cpu:    0.5,
-		},
-		Input: &pps.Input{
-			Pfs: &pps.PFSInput{
-				Name:   "inputRepo",
-				Repo:   "inputRepo",
-				Branch: "master",
-				Glob:   "/*",
+		Pipeline: client.NewPipeline(name),
+		Details: &pps.PipelineInfo_Details{
+			OutputBranch: "master",
+			Transform: &pps.Transform{
+				Cmd:        []string{"bash"},
+				Stdin:      []string{"cp inputRepo/* out"},
+				WorkingDir: client.PPSInputPrefix,
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			ResourceRequests: &pps.ResourceSpec{
+				Memory: "100M",
+				Cpu:    0.5,
+			},
+			Input: &pps.Input{
+				Pfs: &pps.PFSInput{
+					Name:   "inputRepo",
+					Repo:   "inputRepo",
+					Branch: "master",
+					Glob:   "/*",
+				},
 			},
 		},
 	}
@@ -106,7 +108,7 @@ func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger,
 func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return td.inner.RunUserErrorHandlingCode(ctx, logger, env)
 }
-func (td *testDriver) DeleteJob(sqlTx *sqlx.Tx, ji *pps.StoredJobInfo) error {
+func (td *testDriver) DeleteJob(sqlTx *sqlx.Tx, ji *pps.JobInfo) error {
 	return td.inner.DeleteJob(sqlTx, ji)
 }
 func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {

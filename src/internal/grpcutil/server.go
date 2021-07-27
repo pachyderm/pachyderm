@@ -11,10 +11,12 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
 	// Import registers the grpc GZIP decoder
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	log "github.com/sirupsen/logrus"
@@ -44,6 +46,8 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.S
 			MinTime:             5 * time.Second,
 			PermitWithoutStream: true,
 		}),
+		grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+		grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 	}, options...)
 
 	var cLoader *tls.CertLoader

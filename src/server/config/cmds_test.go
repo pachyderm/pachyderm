@@ -194,3 +194,21 @@ func TestConfigListContext(t *testing.T) {
 		pachctl config list context | match "E\*	foo"
 	`))
 }
+
+func TestImportKube(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	require.NoError(t, run(t, `
+		pachctl config import-kube imported
+		pachctl config get active-context | match 'imported'
+		pachctl config get context imported | match '"cluster_name": "minikube"'
+		pachctl config get context imported | match '"namespace": "default"'
+		pachctl config import-kube enterprise-kube --overwrite --namespace enterprise --enterprise
+		pachctl config get active-enterprise-context | match 'enterprise-kube'
+		pachctl config get context enterprise-kube | match '"cluster_name": "minikube"'
+		pachctl config get context enterprise-kube | match '"namespace": "enterprise"'
+
+	`))
+}

@@ -35,7 +35,6 @@ var (
 )
 
 func TestEtcdCollections(suite *testing.T) {
-	suite.Parallel()
 	etcdEnv := testetcd.NewEnv(suite)
 	newCollection := func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
 		prefix := testutil.UniqueString("test-etcd-collections-")

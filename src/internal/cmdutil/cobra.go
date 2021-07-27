@@ -98,11 +98,12 @@ func ErrorAndExit(format string, args ...interface{}) {
 	if errString := strings.TrimSpace(fmt.Sprintf(format, args...)); errString != "" {
 		fmt.Fprintf(os.Stderr, "%s\n", errString)
 	}
-	err, ok := args[0].(error)
-	if PrintErrorStacks && ok {
-		errors.ForEachStackFrame(err, func(frame errors.Frame) {
-			fmt.Fprintf(os.Stderr, "%+v\n", frame)
-		})
+	if len(args) > 0 && PrintErrorStacks {
+		if err, ok := args[0].(error); ok {
+			errors.ForEachStackFrame(err, func(frame errors.Frame) {
+				fmt.Fprintf(os.Stderr, "%+v\n", frame)
+			})
+		}
 	}
 	os.Exit(1)
 }

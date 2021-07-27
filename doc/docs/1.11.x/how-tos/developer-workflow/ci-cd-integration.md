@@ -38,6 +38,7 @@ The CI workflow includes the following steps:
 
       Typically, Pachyderm users store the following artifacts in a
       Git repository:
+      
       * A Dockerfile that you use to build local images.
       * A `pipeline.json` specification file that you can use in a `Makefile` to create local builds, as well as in the CI/CD workflows.
       * The code that performs data transformations.

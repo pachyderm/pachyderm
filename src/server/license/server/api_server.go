@@ -7,15 +7,14 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/jackc/pgerrcode"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
@@ -27,17 +26,12 @@ const (
 	licenseRecordKey = "license"
 )
 
-var defaultRecord = &ec.LicenseRecord{}
-
 type apiServer struct {
 	pachLogger log.Logger
 	env        serviceenv.ServiceEnv
 
-	enterpriseTokenCache *keycache.Cache
-
-	// enterpriseToken is a collection containing at most one Pachyderm enterprise
-	// token
-	enterpriseToken col.EtcdCollection
+	// license is the database record where we store the active enterprise license
+	license col.PostgresCollection
 }
 
 func (a *apiServer) LogReq(request interface{}) {
@@ -45,23 +39,12 @@ func (a *apiServer) LogReq(request interface{}) {
 }
 
 // New returns an implementation of license.APIServer.
-func New(env serviceenv.ServiceEnv, etcdPrefix string) (lc.APIServer, error) {
-	enterpriseToken := col.NewEtcdCollection(
-		env.GetEtcdClient(),
-		etcdPrefix,
-		nil,
-		&ec.LicenseRecord{},
-		nil,
-		nil,
-	)
-
+func New(env serviceenv.ServiceEnv) (lc.APIServer, error) {
 	s := &apiServer{
-		pachLogger:           log.NewLogger("license.API", env.Logger()),
-		env:                  env,
-		enterpriseTokenCache: keycache.NewCache(env.Context(), enterpriseToken.ReadOnly(env.Context()), licenseRecordKey, defaultRecord),
-		enterpriseToken:      enterpriseToken,
+		pachLogger: log.NewLogger("license.API", env.Logger()),
+		env:        env,
+		license:    licenseCollection(env.GetDBClient(), env.GetPostgresListener()),
 	}
-	go s.enterpriseTokenCache.Watch()
 	return s, nil
 }
 
@@ -92,25 +75,9 @@ func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp
 		Expires:        expirationProto,
 	}
 
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		e := a.enterpriseToken.ReadWrite(stm)
-		// blind write
-		return e.Put(licenseRecordKey, newRecord)
+	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		return a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord)
 	}); err != nil {
-		return nil, err
-	}
-
-	// Wait until watcher observes the write
-	if err := backoff.Retry(func() error {
-		record, ok := a.enterpriseTokenCache.Load().(*ec.LicenseRecord)
-		if !ok {
-			return errors.Errorf("could not retrieve enterprise token")
-		}
-		if !proto.Equal(record, newRecord) {
-			return errors.Errorf("did not see updated token")
-		}
-		return nil
-	}, backoff.RetryEvery(100*time.Millisecond)); err != nil {
 		return nil, err
 	}
 
@@ -133,17 +100,16 @@ func (a *apiServer) GetActivationCode(ctx context.Context, req *lc.GetActivation
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
-	return a.getLicenseRecord()
+	return a.getLicenseRecord(ctx)
 }
 
-func (a *apiServer) getLicenseRecord() (*lc.GetActivationCodeResponse, error) {
-	record, ok := a.enterpriseTokenCache.Load().(*ec.LicenseRecord)
-	if !ok {
-		return nil, errors.Errorf("could not retrieve enterprise expiration time")
-	}
-
-	if record.Expires == nil {
-		return &lc.GetActivationCodeResponse{State: ec.State_NONE}, nil
+func (a *apiServer) getLicenseRecord(ctx context.Context) (*lc.GetActivationCodeResponse, error) {
+	var record ec.LicenseRecord
+	if err := a.license.ReadOnly(ctx).Get(licenseRecordKey, &record); err != nil {
+		if col.IsErrNotFound(err) {
+			return &lc.GetActivationCodeResponse{State: ec.State_NONE}, nil
+		}
+		return nil, err
 	}
 
 	expiration, err := types.TimestampFromProto(record.Expires)
@@ -164,8 +130,8 @@ func (a *apiServer) getLicenseRecord() (*lc.GetActivationCodeResponse, error) {
 	return resp, nil
 }
 
-func (a *apiServer) checkLicenseState() error {
-	record, err := a.getLicenseRecord()
+func (a *apiServer) checkLicenseState(ctx context.Context) error {
+	record, err := a.getLicenseRecord(ctx)
 	if err != nil {
 		return err
 	}
@@ -207,7 +173,7 @@ func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (
 	defer func(start time.Time) { a.pachLogger.Log(removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
 
 	// Make sure we have an active license
-	if err := a.checkLicenseState(); err != nil {
+	if err := a.checkLicenseState(ctx); err != nil {
 		return nil, err
 	}
 
@@ -268,13 +234,13 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 		return nil, errors.Wrapf(err, "unable to update cluster in database")
 	}
 
-	record, ok := a.enterpriseTokenCache.Load().(*ec.LicenseRecord)
-	if !ok {
-		return nil, errors.New("unable to load current enterprise key")
+	var record ec.LicenseRecord
+	if err := a.license.ReadOnly(ctx).Get(licenseRecordKey, &record); err != nil {
+		return nil, err
 	}
 
 	return &lc.HeartbeatResponse{
-		License: record,
+		License: &record,
 	}, nil
 }
 
@@ -288,27 +254,13 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 		return nil, errors.Wrapf(err, "unable to delete clusters in database")
 	}
 
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		err := a.enterpriseToken.ReadWrite(stm).Delete(licenseRecordKey)
+	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		err := a.license.ReadWrite(sqlTx).Delete(licenseRecordKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return err
 		}
 		return nil
 	}); err != nil {
-		return nil, err
-	}
-
-	// Wait until watcher observes the write
-	if err := backoff.Retry(func() error {
-		record, ok := a.enterpriseTokenCache.Load().(*ec.LicenseRecord)
-		if !ok {
-			return errors.Errorf("could not retrieve enterprise expiration time")
-		}
-		if !proto.Equal(defaultRecord, record) {
-			return errors.Errorf("enterprise still activated")
-		}
-		return nil
-	}, backoff.RetryEvery(100*time.Millisecond)); err != nil {
 		return nil, err
 	}
 

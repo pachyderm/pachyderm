@@ -31,6 +31,10 @@ func init() {
 	errInvalidPipelineStateName = fmt.Sprintf("state %%s must be one of %s, or %s, etc", strings.Join(states, ", "), PipelineState_name[0])
 }
 
+func (j *Job) String() string {
+	return fmt.Sprintf("%s@%s", j.Pipeline.Name, j.ID)
+}
+
 // VisitInput visits each input recursively in ascending order (root last)
 func VisitInput(input *Input, f func(*Input) error) error {
 	err := visitInput(input, f)

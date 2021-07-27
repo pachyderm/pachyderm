@@ -79,13 +79,9 @@ set -x
 
 # Push pachyderm images to minikube VM
 # (extract correct dash image from pachctl deploy)
-dash_image="$(pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == "dash" and has("image")).image')"
-grpc_proxy_image="$(pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == "grpc-proxy").image')"
 etcd_image="pachyderm/etcd:v3.3.5"
 postgres_image="postgres:11.3"
 docker pull "${etcd_image}"
-docker pull "${grpc_proxy_image}"
-docker pull "${dash_image}"
 docker pull "${postgres_image}"
 etc/kube/push-to-minikube.sh "pachyderm/pachd:${PACH_VERSION}"
 etc/kube/push-to-minikube.sh "pachyderm/worker:${PACH_VERSION}"
@@ -104,7 +100,7 @@ else
 fi
 
 active_kube_context=$(kubectl config current-context)
-pachctl config set context "$active_kube_context" -k "$active_kube_context" --overwrite
+pachctl config set context "$active_kube_context" "$active_kube_context" --overwrite
 pachctl config update context "$active_kube_context" --pachd-address="$(minikube ip):30650"
 pachctl config set active-context "$active_kube_context"
 

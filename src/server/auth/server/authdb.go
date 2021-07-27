@@ -16,7 +16,7 @@ const (
 
 var authConfigIndexes = []*col.Index{}
 
-func authConfigCollection(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func authConfigCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		authConfigCollectionName,
 		db,
@@ -29,7 +29,7 @@ func authConfigCollection(db *sqlx.DB, listener *col.PostgresListener) col.Postg
 
 var roleBindingsIndexes = []*col.Index{}
 
-func roleBindingsCollection(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func roleBindingsCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		roleBindingsCollectionName,
 		db,
@@ -42,7 +42,7 @@ func roleBindingsCollection(db *sqlx.DB, listener *col.PostgresListener) col.Pos
 
 var membersIndexes = []*col.Index{}
 
-func membersCollection(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func membersCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		membersCollectionName,
 		db,
@@ -55,7 +55,7 @@ func membersCollection(db *sqlx.DB, listener *col.PostgresListener) col.Postgres
 
 var groupsIndexes = []*col.Index{}
 
-func groupsCollection(db *sqlx.DB, listener *col.PostgresListener) col.PostgresCollection {
+func groupsCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		groupsCollectionName,
 		db,

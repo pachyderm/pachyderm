@@ -18,7 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -266,7 +266,7 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 			pfssync.WithHeaderCallback(func(hdr *tar.Header) error {
 				mu.Lock()
 				defer mu.Unlock()
-				d.meta.Stats.DownloadBytes += uint64(hdr.Size)
+				d.meta.Stats.DownloadBytes += hdr.Size
 				return nil
 			}),
 		}
@@ -346,7 +346,7 @@ func (d *Datum) uploadOutput() error {
 		start := time.Now()
 		d.meta.Stats.UploadBytes = 0
 		if err := d.upload(d.set.pfsOutputClient, path.Join(d.PFSStorageRoot(), OutputPrefix), func(hdr *tar.Header) error {
-			d.meta.Stats.UploadBytes += uint64(hdr.Size)
+			d.meta.Stats.UploadBytes += hdr.Size
 			return nil
 		}); err != nil {
 			return err
@@ -357,7 +357,7 @@ func (d *Datum) uploadOutput() error {
 }
 
 func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar.Header) error) (retErr error) {
-	if err := obj.WithPipe(func(w io.Writer) (retErr error) {
+	if err := miscutil.WithPipe(func(w io.Writer) (retErr error) {
 		bufW := bufio.NewWriterSize(w, grpcutil.MaxMsgPayloadSize)
 		defer func() {
 			if err := bufW.Flush(); retErr == nil {
@@ -370,7 +370,7 @@ func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar
 		}
 		return tarutil.Export(storageRoot, bufW, opts...)
 	}, func(r io.Reader) error {
-		return mf.PutFileTar(r, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
+		return mf.PutFileTAR(r, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
 	}); err != nil {
 		return err
 	}

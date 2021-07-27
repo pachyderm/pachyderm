@@ -7,6 +7,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/robfig/cron"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -96,16 +97,18 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		}
 	}
 	if t.Size_ != "" {
-		size, err := units.FromHumanSize(t.Size_)
+		_, err := units.FromHumanSize(t.Size_)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
 			return false, errors.EnsureStack(err)
 		}
-		var oldSize uint64
-		if oldHead != nil {
-			oldSize = oldHead.SizeBytes
-		}
-		merge(int64(newHead.SizeBytes-oldSize) >= size)
+		// TODO(2.0 required): the size of a commit isn't known when finishing the
+		// commit due to async compaction, so commitInfo.Details is nil here.
+		// var oldSize uint64
+		// if oldHead != nil {
+		// 	oldSize = oldHead.Details.SizeBytes
+		// }
+		// merge(int64(newHead.Details.SizeBytes-oldSize) >= size)
 	}
 	if t.CronSpec != "" {
 		// Shouldn't be possible to error here since we validate on ingress
@@ -157,6 +160,9 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	if trigger.Branch == "" {
 		return errors.Errorf("triggers must specify a branch to trigger on")
 	}
+	if err := ancestry.ValidateName(trigger.Branch); err != nil {
+		return err
+	}
 	if _, err := cron.ParseStandard(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
 		return errors.Wrapf(err, "invalid trigger cron spec")
 	}
@@ -166,13 +172,13 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	if trigger.Commits < 0 {
 		return errors.Errorf("can't trigger on a negative number of commits")
 	}
-	bis, err := d.listBranch(txnCtx.ClientContext, branch.Repo, false)
-	if err != nil {
-		return err
-	}
+
 	biMaps := make(map[string]*pfs.BranchInfo)
-	for _, bi := range bis {
+	if err := d.listBranch(txnCtx.ClientContext, branch.Repo, false, func(bi *pfs.BranchInfo) error {
 		biMaps[bi.Branch.Name] = bi
+		return nil
+	}); err != nil {
+		return err
 	}
 	b := trigger.Branch
 	for {

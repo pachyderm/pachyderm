@@ -59,3 +59,10 @@ func IsExists(err error) bool {
 	target := &ErrExists{}
 	return errors.As(err, target)
 }
+
+var (
+	// ErrBreak is an error used to break out of call back based iteration,
+	// should be swallowed by iteration functions and treated as successful
+	// iteration.
+	ErrBreak = errors.Errorf("BREAK")
+)

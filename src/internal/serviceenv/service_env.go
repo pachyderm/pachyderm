@@ -4,29 +4,36 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/http"
 	"os"
 	"time"
+
+	etcd "github.com/coreos/etcd/clientv3"
+	dex_storage "github.com/dexidp/dex/storage"
+	"github.com/dlmiddlecote/sqlstats"
+	loki "github.com/grafana/loki/pkg/logcli/client"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/jmoiron/sqlx"
+	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	kube "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
-
-	etcd "github.com/coreos/etcd/clientv3"
-	dex_storage "github.com/dexidp/dex/storage"
-	loki "github.com/grafana/loki/pkg/logcli/client"
-	"github.com/jmoiron/sqlx"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
-	kube "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 const clusterIDKey = "cluster-id"
@@ -50,7 +57,8 @@ type ServiceEnv interface {
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *sqlx.DB
-	GetPostgresListener() *col.PostgresListener
+	GetDirectDBClient() *sqlx.DB
+	GetPostgresListener() col.PostgresListener
 	GetDexDB() dex_storage.Storage
 	ClusterID() string
 	Context() context.Context
@@ -103,15 +111,13 @@ type NonblockingServiceEnv struct {
 	dexDB   dex_storage.Storage
 	dexDBEg errgroup.Group
 
-	// dbClient is a database client.
-	dbClient *sqlx.DB
+	// dbClient and directDBClient are database clients.
+	dbClient, directDBClient *sqlx.DB
 	// dbEg coordinates the initialization of dbClient (see pachdEg)
 	dbEg errgroup.Group
 
 	// listener is a special database client for listening for changes
-	listener *col.PostgresListener
-	// listenerEg coordinates the initialization of listener (see pachdEg)
-	listenerEg errgroup.Group
+	listener col.PostgresListener
 
 	authServer       auth_server.APIServer
 	ppsServer        pps_server.APIServer
@@ -151,7 +157,10 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	env.etcdEg.Go(env.initEtcdClient)
 	env.clusterIdEg.Go(env.initClusterID)
 	env.dbEg.Go(env.initDBClient)
-	env.listenerEg.Go(env.initListener)
+	if !env.isWorker() {
+		env.dbEg.Go(env.initDirectDBClient)
+	}
+	env.listener = env.newListener()
 	if env.config.LokiHost != "" && env.config.LokiPort != "" {
 		env.lokiClient = &loki.Client{
 			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.config.LokiHost, env.config.LokiPort)),
@@ -170,6 +179,10 @@ func InitWithKube(config *Configuration) *NonblockingServiceEnv {
 
 func (env *NonblockingServiceEnv) Config() *Configuration {
 	return env.config
+}
+
+func (env *NonblockingServiceEnv) isWorker() bool {
+	return env.config.PPSPipelineName != ""
 }
 
 func (env *NonblockingServiceEnv) initClusterID() error {
@@ -199,7 +212,11 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 	}
 	// Initialize pach client
 	return backoff.Retry(func() error {
-		pachClient, err := client.NewFromURI(env.pachAddress)
+		pachClient, err := client.NewFromURI(
+			env.pachAddress,
+			client.WithAdditionalUnaryClientInterceptors(grpc_prometheus.UnaryClientInterceptor),
+			client.WithAdditionalStreamClientInterceptors(grpc_prometheus.StreamClientInterceptor),
+		)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize pach client")
 		}
@@ -211,9 +228,13 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 func (env *NonblockingServiceEnv) initEtcdClient() error {
 	// validate argument
 	if env.etcdAddress == "" {
-		return errors.New("cannot initialize pach client with empty pach address")
+		return errors.New("cannot initialize etcd client with empty etcd address")
 	}
 	// Initialize etcd
+	opts := client.DefaultDialOptions() // SA1019 can't call grpc.Dial directly
+	opts = append(opts,
+		grpc.WithChainUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
+		grpc.WithChainStreamInterceptor(grpc_prometheus.StreamClientInterceptor))
 	return backoff.Retry(func() error {
 		var err error
 		env.etcdClient, err = etcd.New(etcd.Config{
@@ -221,7 +242,7 @@ func (env *NonblockingServiceEnv) initEtcdClient() error {
 			// Use a long timeout with Etcd so that Pachyderm doesn't crash loop
 			// while waiting for etcd to come up (makes startup net faster)
 			DialTimeout:        3 * time.Minute,
-			DialOptions:        client.DefaultDialOptions(), // SA1019 can't call grpc.Dial directly
+			DialOptions:        opts,
 			MaxCallSendMsgSize: math.MaxInt32,
 			MaxCallRecvMsgSize: math.MaxInt32,
 		})
@@ -258,6 +279,9 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 				},
 			}
 		}
+		cfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+			return promutil.InstrumentRoundTripper("kubernetes", rt)
+		}
 		env.kubeClient, err = kube.NewForConfig(cfg)
 		if err != nil {
 			return errors.Wrapf(err, "could not initialize kube client")
@@ -266,32 +290,94 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
+func (env *NonblockingServiceEnv) initDirectDBClient() error {
+	return backoff.Retry(func() error {
+		db, err := dbutil.NewDB(
+			dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
+			dbutil.WithDBName(env.config.PostgresDBName),
+			dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
+			dbutil.WithMaxOpenConns(env.config.PostgresMaxOpenConns),
+			dbutil.WithMaxIdleConns(env.config.PostgresMaxIdleConns),
+			dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
+			dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
+		)
+		if err != nil {
+			return err
+		}
+		env.directDBClient = db
+		if err := prometheus.Register(sqlstats.NewStatsCollector("pg_bouncer", db.DB)); err != nil {
+			// This is not a retryable error.  Rather it will always happen for the
+			// second (and subsequent) service environment because of a naming conflict.
+			// If you see this message in production, it's a bug.  In tests, it's OK.
+			log.WithError(err).Warn("problem registering database statistics collector")
+		}
+		return db.Ping()
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+}
+
 func (env *NonblockingServiceEnv) initDBClient() error {
 	return backoff.Retry(func() error {
 		db, err := dbutil.NewDB(
-			dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
+			dbutil.WithHostPort(env.config.PGBouncerHost, env.config.PGBouncerPort),
 			dbutil.WithDBName(env.config.PostgresDBName),
+			dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
+			dbutil.WithMaxOpenConns(env.config.PostgresMaxOpenConns),
+			dbutil.WithMaxIdleConns(env.config.PostgresMaxIdleConns),
+			dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
+			dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
 		)
 		if err != nil {
 			return err
 		}
 		env.dbClient = db
-		return nil
+		if err := prometheus.Register(sqlstats.NewStatsCollector("postgres", db.DB)); err != nil {
+			// This is not a retryable error.  Rather it will always happen for the
+			// second (and subsequent) service environment because of a naming conflict.
+			// If you see this message in production, it's a bug.  In tests, it's OK.
+			log.WithError(err).Warn("problem registering database statistics collector")
+		}
+		return db.Ping()
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func (env *NonblockingServiceEnv) initListener() error {
+func (env *NonblockingServiceEnv) newListener() col.PostgresListener {
+	// TODO: Change this to be based on whether a direct connection to postgres is available.
+	// A direct connection will not be available in the workers when the PG bouncer changes are in.
+	if env.isWorker() {
+		return env.newProxyListener()
+	}
+	return env.newDirectListener()
+}
+
+func (env *NonblockingServiceEnv) newProxyListener() col.PostgresListener {
+	// The proxy postgres listener is lazily initialized to avoid consuming too many
+	// gRPC resources by having idle client connections, so construction
+	// can't fail.
+	return client.NewProxyPostgresListener(env.newProxyClient)
+}
+
+func (env *NonblockingServiceEnv) newProxyClient() (proxy.APIClient, error) {
+	var servicePachClient *client.APIClient
+	if err := backoff.Retry(func() error {
+		var err error
+		servicePachClient, err = client.NewInCluster()
+		return err
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute)); err != nil {
+		return nil, errors.Wrapf(err, "failed to initialize service pach client")
+	}
+	return servicePachClient.ProxyClient, nil
+}
+
+func (env *NonblockingServiceEnv) newDirectListener() col.PostgresListener {
 	dsn := dbutil.GetDSN(
-		dbutil.WithHostPort(env.config.PostgresServiceHost, env.config.PostgresServicePort),
+		dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
 		dbutil.WithDBName(env.config.PostgresDBName),
+		dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
 	)
-	return backoff.Retry(func() error {
-		// The PostgresListener is lazily initialized to avoid consuming too many
-		// postgres resources by having idle client connections, so construction
-		// can't fail
-		env.listener = col.NewPostgresListener(dsn)
-		return nil
-	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+	// The postgres listener is lazily initialized to avoid consuming too many
+	// postgres resources by having idle client connections, so construction
+	// can't fail.
+	return col.NewPostgresListener(dsn)
 }
 
 // GetPachClient returns a pachd client with the same authentication
@@ -354,15 +440,25 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 	return env.dbClient
 }
 
+func (env *NonblockingServiceEnv) GetDirectDBClient() *sqlx.DB {
+	if env.isWorker() {
+		panic("worker cannot get direct db client")
+	}
+	if err := env.dbEg.Wait(); err != nil {
+		panic(err)
+	}
+	if env.directDBClient == nil {
+		panic("service env never connected to the database")
+	}
+	return env.directDBClient
+}
+
 // GetPostgresListener returns the already constructed database client dedicated
 // for listen operations without modification. Note that this listener lazily
 // connects to the database on the first listen operation.
-func (env *NonblockingServiceEnv) GetPostgresListener() *col.PostgresListener {
-	if err := env.listenerEg.Wait(); err != nil {
-		panic(err)
-	}
+func (env *NonblockingServiceEnv) GetPostgresListener() col.PostgresListener {
 	if env.listener == nil {
-		panic("service env never constructed a postgres listener")
+		panic("service env never created the listener")
 	}
 	return env.listener
 }

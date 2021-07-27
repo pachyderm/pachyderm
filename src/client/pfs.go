@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -95,16 +96,18 @@ func (c APIClient) ListRepo() ([]*pfs.RepoInfo, error) {
 
 // ListRepoByType returns info about Repos of the given type
 // The if repoType is empty, all Repos will be included
-func (c APIClient) ListRepoByType(repoType string) ([]*pfs.RepoInfo, error) {
+func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr error) {
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
 	request := &pfs.ListRepoRequest{Type: repoType}
-	repoInfos, err := c.PfsAPIClient.ListRepo(
-		c.Ctx(),
+	client, err := c.PfsAPIClient.ListRepo(
+		ctx,
 		request,
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return repoInfos.RepoInfo, nil
+	return clientsdk.ListRepoInfo(client)
 }
 
 // DeleteRepo deletes a repo and reclaims the storage space it was using. Note
@@ -224,7 +227,7 @@ func (c APIClient) inspectCommit(repoName string, branchName string, commitID st
 // If `to` and `from` are the same commit, no commits will be returned.
 // `number` determines how many commits are returned.  If `number` is 0,
 // all commits that match the aforementioned criteria are returned.
-func (c APIClient) ListCommit(repo *pfs.Repo, to, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
+func (c APIClient) ListCommit(repo *pfs.Repo, to, from *pfs.Commit, number int64) ([]*pfs.CommitInfo, error) {
 	var result []*pfs.CommitInfo
 	if err := c.ListCommitF(repo, to, from, number, false, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
@@ -245,7 +248,7 @@ func (c APIClient) ListCommit(repo *pfs.Repo, to, from *pfs.Commit, number uint6
 // `number` determines how many commits are returned.  If `number` is 0,
 // `reverse` lists the commits from oldest to newest, rather than newest to oldest
 // all commits that match the aforementioned criteria are passed to f.
-func (c APIClient) ListCommitF(repo *pfs.Repo, to, from *pfs.Commit, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
+func (c APIClient) ListCommitF(repo *pfs.Repo, to, from *pfs.Commit, number int64, reverse bool, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.ListCommitRequest{
 		Repo:    repo,
 		Number:  number,
@@ -253,7 +256,9 @@ func (c APIClient) ListCommitF(repo *pfs.Repo, to, from *pfs.Commit, number uint
 		To:      to,
 		From:    from,
 	}
-	stream, err := c.PfsAPIClient.ListCommit(c.Ctx(), req)
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	stream, err := c.PfsAPIClient.ListCommit(ctx, req)
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -328,8 +333,10 @@ func (c APIClient) InspectBranch(repoName string, branchName string) (*pfs.Branc
 
 // ListBranch lists the active branches on a Repo.
 func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
-	branchInfos, err := c.PfsAPIClient.ListBranch(
-		c.Ctx(),
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	client, err := c.PfsAPIClient.ListBranch(
+		ctx,
 		&pfs.ListBranchRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -337,7 +344,7 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return branchInfos.BranchInfo, nil
+	return clientsdk.ListBranchInfo(client)
 }
 
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
@@ -529,15 +536,14 @@ func (c APIClient) FsckFastExit() error {
 }
 
 // RunPFSLoadTest runs a PFS load test.
-func (c APIClient) RunPFSLoadTest(spec []byte, seed ...int64) (_ *pfs.RunLoadTestResponse, retErr error) {
+func (c APIClient) RunPFSLoadTest(spec []byte, branch *pfs.Branch, seed int64) (_ *pfs.RunLoadTestResponse, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pfs.RunLoadTestRequest{
-		Spec: spec,
-	}
-	if len(seed) > 0 {
-		req.Seed = seed[0]
+		Spec:   spec,
+		Branch: branch,
+		Seed:   seed,
 	}
 	return c.PfsAPIClient.RunLoadTest(c.Ctx(), req)
 }

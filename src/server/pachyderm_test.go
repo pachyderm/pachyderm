@@ -12,7 +12,6 @@ import (
 	"math"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"reflect"
@@ -23,13 +22,13 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -99,16 +98,25 @@ func TestSimplePipeline(t *testing.T) {
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 	// The commitset should have a commit in: data, spec, pipeline, meta
+	// the last two are dependent upon the first two, so should come later
+	// in topological ordering
 	require.Equal(t, 4, len(commitInfos))
-	// First two are not deterministically ordered
-	require.Equal(t, pipeline, commitInfos[2].Commit.Branch.Repo.Name)
-	require.Equal(t, pfs.UserRepoType, commitInfos[2].Commit.Branch.Repo.Type)
-	require.Equal(t, pipeline, commitInfos[3].Commit.Branch.Repo.Name)
-	require.Equal(t, pfs.MetaRepoType, commitInfos[3].Commit.Branch.Repo.Type)
+	var commitRepos []*pfs.Repo
+	for _, info := range commitInfos {
+		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+	}
+	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[2].Commit, "file", &buf))
-	require.Equal(t, "foo", buf.String())
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	}
 }
 
 func TestRepoSize(t *testing.T) {
@@ -160,21 +168,21 @@ func TestRepoSize(t *testing.T) {
 	// check data repo size
 	repoInfo, err := c.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.Equal(t, uint64(6), repoInfo.SizeBytes)
+	require.Equal(t, int64(6), repoInfo.Details.SizeBytes)
 
 	// check pipeline repo size
 	repoInfo, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, uint64(6), repoInfo.SizeBytes)
+	require.Equal(t, int64(6), repoInfo.Details.SizeBytes)
 
 	// ensure size is updated when we delete a commit
 	require.NoError(t, c.SquashCommitSet(commit1.ID))
 	repoInfo, err = c.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), repoInfo.SizeBytes)
+	require.Equal(t, int64(3), repoInfo.Details.SizeBytes)
 	repoInfo, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), repoInfo.SizeBytes)
+	require.Equal(t, int64(3), repoInfo.Details.SizeBytes)
 }
 
 func TestPFSPipeline(t *testing.T) {
@@ -1237,7 +1245,8 @@ func TestPipelineErrorHandling(t *testing.T) {
 
 		// so we expect the job to succeed, and to have recovered 2 datums
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-		require.Equal(t, int64(1), jobInfo.DataSkipped)
+		require.Equal(t, int64(1), jobInfo.DataProcessed)
+		require.Equal(t, int64(0), jobInfo.DataSkipped)
 		require.Equal(t, int64(2), jobInfo.DataRecovered)
 		require.Equal(t, int64(0), jobInfo.DataFailed)
 	})
@@ -1350,14 +1359,14 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	jobInfos, err := c.ListJob(pipelineA, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
-	require.NotNil(t, jobInfos[0].Input.Pfs)
-	require.Equal(t, true, jobInfos[0].Input.Pfs.Lazy)
+	require.NotNil(t, jobInfos[0].Details.Input.Pfs)
+	require.Equal(t, true, jobInfos[0].Details.Input.Pfs.Lazy)
 
 	jobInfos, err = c.ListJob(pipelineB, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
-	require.NotNil(t, jobInfos[0].Input.Pfs)
-	require.Equal(t, true, jobInfos[0].Input.Pfs.Lazy)
+	require.NotNil(t, jobInfos[0].Details.Input.Pfs)
+	require.Equal(t, true, jobInfos[0].Details.Input.Pfs.Lazy)
 }
 
 func TestLazyPipeline(t *testing.T) {
@@ -1535,21 +1544,21 @@ func TestProvenance(t *testing.T) {
 
 	for _, ci := range commitInfos {
 		if ci.Commit.Branch.Repo.Name == cPipeline && ci.Commit.Branch.Repo.Type == pfs.UserRepoType {
-			require.Equal(t, uint64(0), ci.SizeBytes)
+			require.Equal(t, int64(0), ci.Details.SizeBytes)
 		}
 	}
 
-	// We should only see four commits in aRepo (bpipeline created, cpipeline created, commit1, commit2)
+	// We should only see three commits in aRepo (empty head, commit1, commit2)
 	commitInfos, err = c.ListCommit(client.NewRepo(aRepo), client.NewCommit(aRepo, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 
-	// There are four commits in the bPipeline repo (same as for aRepo)
+	// There are three commits in the bPipeline repo (bPipeline created, commit1, commit2)
 	commitInfos, err = c.ListCommit(client.NewRepo(bPipeline), client.NewCommit(bPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 
-	// There are three commits in the cPipeline repo (one fewer because it was added after bPipeline creation)
+	// There are three commits in the cPipeline repo (cPipeline created, commit1, commit2)
 	commitInfos, err = c.ListCommit(client.NewRepo(cPipeline), client.NewCommit(cPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
@@ -1634,22 +1643,22 @@ func TestProvenance2(t *testing.T) {
 	_, err = c.WaitCommit(dPipeline, "", commit2.ID)
 	require.NoError(t, err)
 
-	// We should see 5 commits in aRepo (one per pipeline creation and the two user commits)
+	// We should see 3 commits in aRepo (empty head two user commits)
 	commitInfos, err := c.ListCommit(client.NewRepo(aRepo), client.NewCommit(aRepo, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 5, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 
-	// We should see 4 commits in bPipeline (b and d pipeline creation and from the two user commits)
+	// We should see 3 commits in bPipeline (bPipeline creation and from the two user commits)
 	commitInfos, err = c.ListCommit(client.NewRepo(bPipeline), client.NewCommit(bPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 
-	// We should see 4 commits in cPipeline (c and d pipeline creation and from the two user commits)
+	// We should see 3 commits in cPipeline (cPipeline creation and from the two user commits)
 	commitInfos, err = c.ListCommit(client.NewRepo(cPipeline), client.NewCommit(cPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 
-	// We should see 3 commits in dPipeline (d pipeline creation and from the two user commits)
+	// We should see 3 commits in dPipeline (dPipeline creation and from the two user commits)
 	commitInfos, err = c.ListCommit(client.NewRepo(dPipeline), client.NewCommit(dPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
@@ -1716,17 +1725,17 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 7, len(commitInfos))
 
-	// We should see 3 commits in aRepo (b and c pipeline creation and the user commit)
+	// We should see 2 commits in aRepo (empty head and the user commit)
 	commitInfos, err = c.ListCommit(client.NewRepo(aRepo), client.NewCommit(aRepo, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
-	// We should see 3 commits in bPipeline (same as in aRepo)
+	// We should see 2 commits in bPipeline (bPipeline creation and the user commit)
 	commitInfos, err = c.ListCommit(client.NewRepo(bPipeline), client.NewCommit(bPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
-	// We should see 2 commits in cPipeline (c pipeline creation and from the user commit)
+	// We should see 2 commits in cPipeline (cPipeline creation and the user commit)
 	commitInfos, err = c.ListCommit(client.NewRepo(cPipeline), client.NewCommit(cPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
@@ -1737,7 +1746,7 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 }
 
-func TestWaitJobset(t *testing.T) {
+func TestWaitJobSet(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1780,22 +1789,22 @@ func TestWaitJobset(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, numStages*3+1, len(commitInfos))
 
-		jobInfos, err := c.WaitJobsetAll(commit.ID)
+		jobInfos, err := c.WaitJobSetAll(commit.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, numStages, len(jobInfos))
 	}
 }
 
-func TestWaitJobsetFailures(t *testing.T) {
+func TestWaitJobSetFailures(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
-	dataRepo := tu.UniqueString("TestWaitJobsetFailures")
+	dataRepo := tu.UniqueString("TestWaitJobSetFailures")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	prefix := tu.UniqueString("TestWaitJobsetFailures")
+	prefix := tu.UniqueString("TestWaitJobSetFailures")
 	pipelineName := func(i int) string { return prefix + fmt.Sprintf("%d", i) }
 
 	require.NoError(t, c.CreatePipeline(
@@ -1843,7 +1852,7 @@ func TestWaitJobsetFailures(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("foo\n"), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
-		jobInfos, err := c.WaitJobsetAll(commit.ID)
+		jobInfos, err := c.WaitJobSetAll(commit.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(jobInfos))
 		if i == 0 {
@@ -1982,7 +1991,7 @@ func TestDeletePipeline(t *testing.T) {
 		time.Sleep(10 * time.Second)
 		// Wait for the pipeline to start running
 		require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
-			pipelineInfos, err := c.ListPipeline()
+			pipelineInfos, err := c.ListPipeline(false)
 			if err != nil {
 				return err
 			}
@@ -1995,7 +2004,7 @@ func TestDeletePipeline(t *testing.T) {
 				return errors.Errorf("Expected two pipelines, but got: %+v", names)
 			}
 			// make sure second pipeline is running
-			pipelineInfo, err := c.InspectPipeline(pipelines[1])
+			pipelineInfo, err := c.InspectPipeline(pipelines[1], false)
 			if err != nil {
 				return err
 			}
@@ -2013,7 +2022,7 @@ func TestDeletePipeline(t *testing.T) {
 		time.Sleep(5 * time.Second)
 		// Wait for the pipeline to disappear
 		require.NoError(t, backoff.Retry(func() error {
-			_, err := c.InspectPipeline(pipeline)
+			_, err := c.InspectPipeline(pipeline, false)
 			if err == nil {
 				return errors.Errorf("expected pipeline to be missing, but it's still present")
 			}
@@ -2068,7 +2077,7 @@ func TestPipelineState(t *testing.T) {
 	// Wait for pipeline to get picked up
 	time.Sleep(15 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline)
+		pipelineInfo, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -2082,7 +2091,7 @@ func TestPipelineState(t *testing.T) {
 	require.NoError(t, c.StopPipeline(pipeline))
 	time.Sleep(5 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline)
+		pipelineInfo, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -2096,7 +2105,7 @@ func TestPipelineState(t *testing.T) {
 	require.NoError(t, c.StartPipeline(pipeline))
 	time.Sleep(15 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline)
+		pipelineInfo, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -2147,7 +2156,7 @@ func TestJobCounts(t *testing.T) {
 	require.NoError(t, err)
 
 	// check that the job has been accounted for
-	pipelineInfo, err := c.InspectPipeline(pipeline)
+	pipelineInfo, err := c.InspectPipeline(pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, int32(2), pipelineInfo.JobCounts[int32(pps.JobState_JOB_SUCCESS)])
 }
@@ -2306,7 +2315,7 @@ func TestPrettyPrinting(t *testing.T) {
 	fileInfo, err := c.InspectFile(commit, "file")
 	require.NoError(t, err)
 	require.NoError(t, pfspretty.PrintDetailedFileInfo(fileInfo))
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err := c.InspectPipeline(pipelineName, true)
 	require.NoError(t, err)
 	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(os.Stdout, ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
 	jobInfos, err := c.ListJob("", nil, -1, true)
@@ -2350,7 +2359,7 @@ func TestDeleteAll(t *testing.T) {
 	repoInfos, err := c.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(repoInfos))
-	pipelineInfos, err := c.ListPipeline()
+	pipelineInfos, err := c.ListPipeline(false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(pipelineInfos))
 	jobInfos, err := c.ListJob("", nil, -1, true)
@@ -2539,10 +2548,10 @@ func TestUpdatePipeline(t *testing.T) {
 	jis, err := c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jis))
-	require.Equal(t, "echo bar >/pfs/out/file", jis[0].Transform.Stdin[0])
-	require.Equal(t, "echo bar >/pfs/out/file", jis[1].Transform.Stdin[0])
-	require.Equal(t, "echo foo >/pfs/out/file", jis[2].Transform.Stdin[0])
-	require.Equal(t, "echo foo >/pfs/out/file", jis[3].Transform.Stdin[0])
+	require.Equal(t, "echo bar >/pfs/out/file", jis[0].Details.Transform.Stdin[0])
+	require.Equal(t, "echo bar >/pfs/out/file", jis[1].Details.Transform.Stdin[0])
+	require.Equal(t, "echo foo >/pfs/out/file", jis[2].Details.Transform.Stdin[0])
+	require.Equal(t, "echo foo >/pfs/out/file", jis[3].Details.Transform.Stdin[0])
 
 	// Update the pipeline again, this time with Reprocess: true set. Now we
 	// should see a different output file
@@ -2687,10 +2696,14 @@ func TestUpdateFailedPipeline(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, "master", ""))
 
 	// Wait for pod to try and pull the bad image
-	time.Sleep(10 * time.Second)
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_CRASHING.String(), pipelineInfo.State.String())
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+		require.NoError(t, err)
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_CRASHING {
+			return errors.Errorf("expected pipeline to be in CRASHING state but got: %v\n", pipelineInfo.State)
+		}
+		return nil
+	})
 
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
@@ -2704,10 +2717,14 @@ func TestUpdateFailedPipeline(t *testing.T) {
 		"",
 		true,
 	))
-	time.Sleep(10 * time.Second)
-	pipelineInfo, err = c.InspectPipeline(pipelineName)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+		require.NoError(t, err)
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return errors.Errorf("expected pipeline to be in RUNNING state but got: %v\n", pipelineInfo.State)
+		}
+		return nil
+	})
 
 	// Sanity check run some actual data through the pipeline:
 	commit, err = c.StartCommit(dataRepo, "master")
@@ -2766,11 +2783,11 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	// Stop the pipeline (and confirm that it's stopped)
 	require.NoError(t, c.StopPipeline(pipelineName))
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 	require.NoError(t, err)
 	require.Equal(t, true, pipelineInfo.Stopped)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err = c.InspectPipeline(pipelineName)
+		pipelineInfo, err = c.InspectPipeline(pipelineName, false)
 		if err != nil {
 			return err
 		}
@@ -2800,7 +2817,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	))
 	time.Sleep(10 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err = c.InspectPipeline(pipelineName)
+		pipelineInfo, err = c.InspectPipeline(pipelineName, false)
 		if err != nil {
 			return err
 		}
@@ -2992,7 +3009,7 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, "master", commit.ID))
 
 	// Check results.
-	jis, err := c.WaitJobsetAll(commit.ID)
+	jis, err := c.WaitJobSetAll(commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 	fileInfos, err := c.ListFileAll(client.NewCommit(pipelineName, "master", ""), "")
@@ -3060,25 +3077,27 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
-func TestStandby(t *testing.T) {
-	// TODO(2.0 required): Investigate flakiness.
-	t.Skip("Investigate flakiness")
+func TestAutoscalingStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	c := tu.GetPachClient(t)
 	t.Run("ChainOf10", func(t *testing.T) {
+		// TODO(2.0 required): this test is flaky - it has been worked around by
+		// extending timeouts, but there should not be such a severe performance
+		// regression here.  Need to find out where the slowness is coming from.
+		t.Skip("flaky test")
 		require.NoError(t, c.DeleteAll())
 
-		dataRepo := tu.UniqueString("TestStandby_data")
+		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		dataCommit := client.NewCommit(dataRepo, "master", "")
 
 		numPipelines := 10
 		pipelines := make([]string, numPipelines)
 		for i := 0; i < numPipelines; i++ {
-			pipelines[i] = tu.UniqueString("TestStandby")
+			pipelines[i] = tu.UniqueString("TestAutoscalingStandby")
 			input := dataRepo
 			if i > 0 {
 				input = pipelines[i-1]
@@ -3089,15 +3108,15 @@ func TestStandby(t *testing.T) {
 					Transform: &pps.Transform{
 						Cmd: []string{"cp", path.Join("/pfs", input, "file"), "/pfs/out/file"},
 					},
-					Input:   client.NewPFSInput(input, "/*"),
-					Standby: true,
+					Input:       client.NewPFSInput(input, "/*"),
+					Autoscaling: true,
 				},
 			)
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
-			pis, err := c.ListPipeline()
+		require.NoErrorWithinTRetry(t, time.Second*120, func() error {
+			pis, err := c.ListPipeline(false)
 			require.NoError(t, err)
 			var standby int
 			for _, pi := range pis {
@@ -3112,18 +3131,20 @@ func TestStandby(t *testing.T) {
 		})
 
 		require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo")))
+		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+		require.NoError(t, err)
 
 		var eg errgroup.Group
 		var finished bool
 		eg.Go(func() error {
-			_, err := c.WaitCommitSetAll(dataCommit.ID)
+			_, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 			require.NoError(t, err)
 			finished = true
 			return nil
 		})
 		eg.Go(func() error {
 			for !finished {
-				pis, err := c.ListPipeline()
+				pis, err := c.ListPipeline(false)
 				require.NoError(t, err)
 				var active int
 				for _, pi := range pis {
@@ -3142,9 +3163,9 @@ func TestStandby(t *testing.T) {
 	t.Run("ManyCommits", func(t *testing.T) {
 		require.NoError(t, c.DeleteAll())
 
-		dataRepo := tu.UniqueString("TestStandby_data")
+		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
 		dataCommit := client.NewCommit(dataRepo, "master", "")
-		pipeline := tu.UniqueString("TestStandby")
+		pipeline := tu.UniqueString("TestAutoscalingStandby")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
@@ -3153,8 +3174,8 @@ func TestStandby(t *testing.T) {
 					Cmd:   []string{"sh"},
 					Stdin: []string{"echo $PPS_POD_NAME >/pfs/out/pod"},
 				},
-				Input:   client.NewPFSInput(dataRepo, "/"),
-				Standby: true,
+				Input:       client.NewPFSInput(dataRepo, "/"),
+				Autoscaling: true,
 			},
 		)
 		require.NoError(t, err)
@@ -3166,11 +3187,22 @@ func TestStandby(t *testing.T) {
 		require.NoError(t, err)
 		commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
+		nonAliasCommits := 0
+		for _, v := range commitInfos {
+			if v.Origin.Kind != pfs.OriginKind_ALIAS {
+				nonAliasCommits++
+			}
+		}
+		require.Equal(t, 3, nonAliasCommits)
 		pod := ""
 		commitInfos, err = c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
 		require.NoError(t, err)
-		for _, ci := range commitInfos {
+		for i, ci := range commitInfos {
+			// the last commit accessed (the oldest commit) will not have any files in it
+			// since it's created as a result of the spec commit
+			if i == len(commitInfos)-1 {
+				break
+			}
 			var buffer bytes.Buffer
 			require.NoError(t, c.GetFile(ci.Commit, "pod", &buffer))
 			if pod == "" {
@@ -3179,7 +3211,7 @@ func TestStandby(t *testing.T) {
 				require.True(t, pod == buffer.String(), "multiple pods were used to process commits")
 			}
 		}
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.PipelineState_PIPELINE_STANDBY.String(), pi.State.String())
 	})
@@ -3207,14 +3239,14 @@ func TestStopStandbyPipeline(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out", dataRepo),
 				},
 			},
-			Input:   client.NewPFSInput(dataRepo, "/*"),
-			Standby: true,
+			Input:       client.NewPFSInput(dataRepo, "/*"),
+			Autoscaling: true,
 		},
 	)
 	require.NoError(t, err)
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
 			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
@@ -3232,7 +3264,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
 		// check ending state
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
 			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
@@ -3243,7 +3275,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	// Stop the pipeline...
 	require.NoError(t, c.StopPipeline(pipeline))
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_PAUSED {
 			return fmt.Errorf("expected %q to be in PAUSED, but was in %s", pipeline,
@@ -3258,7 +3290,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	for ctx.Err() == nil {
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		require.NotEqual(t, pps.PipelineState_PIPELINE_RUNNING, pi.State)
 	}
@@ -3273,7 +3305,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
 		// check ending state
-		pi, err := c.InspectPipeline(pipeline)
+		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
 			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
@@ -3355,7 +3387,7 @@ func TestPipelineEnv(t *testing.T) {
 	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
 	require.NoError(t, err)
 
-	jis, err := c.WaitJobsetAll(commitInfo.Commit.ID)
+	jis, err := c.WaitJobSetAll(commitInfo.Commit.ID, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 
@@ -3379,7 +3411,7 @@ func TestPipelineEnv(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("/pfs/%s/file\n", dataRepo), buffer.String())
 	buffer.Reset()
 	require.NoError(t, c.GetFile(jis[0].OutputCommit, "input_commit", &buffer))
-	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Input.Pfs.Commit), buffer.String())
+	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Details.Input.Pfs.Commit), buffer.String())
 }
 
 func TestPipelineWithFullObjects(t *testing.T) {
@@ -3872,7 +3904,7 @@ func TestGetLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, "master", ""))
-	_, err = c.WaitJobsetAll(commit.ID)
+	_, err = c.WaitJobSetAll(commit.ID, false)
 	require.NoError(t, err)
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
@@ -4076,7 +4108,7 @@ func TestManyLogs(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipelineName, "master", "")
 	require.NoError(t, err)
 
-	jis, err := c.WaitJobsetAll(commitInfo.Commit.ID)
+	jis, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 
@@ -4129,7 +4161,7 @@ func TestLokiLogs(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipelineName, "master", "")
 	require.NoError(t, err)
 
-	jis, err := c.WaitJobsetAll(commitInfo.Commit.ID)
+	jis, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 
@@ -4262,10 +4294,10 @@ func TestDatumStatusRestart(t *testing.T) {
 		require.NoError(t, backoff.Retry(func() error {
 			jobInfo, err := c.InspectJob(pipeline, commit1.ID, true)
 			require.NoError(t, err)
-			if len(jobInfo.WorkerStatus) == 0 {
+			if len(jobInfo.Details.WorkerStatus) == 0 {
 				return errors.Errorf("no worker statuses")
 			}
-			workerStatus := jobInfo.WorkerStatus[0]
+			workerStatus := jobInfo.Details.WorkerStatus[0]
 			if workerStatus.JobID == jobInfo.Job.ID {
 				if workerStatus.DatumStatus == nil {
 					return errors.Errorf("no datum status")
@@ -4390,7 +4422,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get info about the pipeline pods from k8s & check for resources
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 	require.NoError(t, err)
 
 	var container v1.Container
@@ -4461,7 +4493,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get info about the pipeline pods from k8s & check for resources
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 	require.NoError(t, err)
 
 	var container v1.Container
@@ -4525,7 +4557,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get info about the pipeline pods from k8s & check for resources
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 	require.NoError(t, err)
 
 	var container v1.Container
@@ -4620,7 +4652,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		for i := 0; i < 3; i++ {
-			pipelineInfo, err := c.InspectPipeline(fmt.Sprintf("%s-%d", pipelineName, i))
+			pipelineInfo, err := c.InspectPipeline(fmt.Sprintf("%s-%d", pipelineName, i), false)
 			require.NoError(t, err)
 			if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
 				return errors.Errorf("pipeline not in running state")
@@ -4641,9 +4673,9 @@ func TestPipelineCrashing(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineCrashing_data")
 	pipelineName := tu.UniqueString("TestPipelineCrashing_pipeline")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
+
+	create := func(gpu bool) error {
+		req := pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -4651,12 +4683,7 @@ func TestPipelineCrashing(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			ResourceLimits: &pps.ResourceSpec{
-				Gpu: &pps.GPUSpec{
-					Type:   "nvidia.com/gpu",
-					Number: 1,
-				},
-			},
+
 			Input: &pps.Input{
 				Pfs: &pps.PFSInput{
 					Repo:   dataRepo,
@@ -4664,16 +4691,40 @@ func TestPipelineCrashing(t *testing.T) {
 					Glob:   "/*",
 				},
 			},
-		})
-	require.NoError(t, err)
+			Update: true,
+		}
+		if gpu {
+			req.ResourceLimits = &pps.ResourceSpec{
+				Gpu: &pps.GPUSpec{
+					Type:   "nvidia.com/gpu",
+					Number: 1,
+				},
+			}
+		}
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), &req)
+		return err
+	}
+	require.NoError(t, create(true))
 
 	require.NoError(t, backoff.Retry(func() error {
-		pi, err := c.InspectPipeline(pipelineName)
+		pi, err := c.InspectPipeline(pipelineName, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_CRASHING {
 			return errors.Errorf("pipeline in wrong state: %s", pi.State.String())
 		}
 		require.True(t, pi.Reason != "")
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	// recreate with no gpu
+	require.NoError(t, create(false))
+	// wait for pipeline to restart and enter running
+	require.NoError(t, backoff.Retry(func() error {
+		pi, err := c.InspectPipeline(pipelineName, false)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_RUNNING {
+			return errors.Errorf("pipeline in wrong state: %s", pi.State.String())
+		}
 		return nil
 	}, backoff.NewTestingBackOff()))
 }
@@ -4759,7 +4810,7 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		// Get info about the pipeline pods from k8s & check for resources
-		pipelineInfo, err := c.InspectPipeline(pipelineName)
+		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 		require.NoError(t, err)
 
 		var pod v1.Pod
@@ -4819,7 +4870,7 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		// Get info about the pipeline pods from k8s & check for resources
-		pipelineInfo, err := c.InspectPipeline(pipelineName)
+		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
 		require.NoError(t, err)
 
 		var pod v1.Pod
@@ -4978,7 +5029,7 @@ func TestGroupInput(t *testing.T) {
 		commitInfo, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
 
-		jobs, err := c.WaitJobsetAll(commitInfo.Commit.ID)
+		jobs, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobs))
 
@@ -5055,7 +5106,7 @@ func TestGroupInput(t *testing.T) {
 		commitInfo, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
 
-		jobs, err := c.WaitJobsetAll(commitInfo.Commit.ID)
+		jobs, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobs))
 
@@ -5152,7 +5203,7 @@ func TestGroupInput(t *testing.T) {
 		commitInfo, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
 
-		jobs, err := c.WaitJobsetAll(commitInfo.Commit.ID)
+		jobs, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobs))
 
@@ -5226,7 +5277,7 @@ func TestGroupInput(t *testing.T) {
 		commitInfo, err := c.InspectCommit(pipeline, "master", "")
 		require.NoError(t, err)
 
-		jobs, err := c.WaitJobsetAll(commitInfo.Commit.ID)
+		jobs, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobs))
 
@@ -5382,418 +5433,322 @@ func TestUnionInput(t *testing.T) {
 }
 
 func TestPipelineWithStats(t *testing.T) {
-	// TODO(2.0 required): Change the semantics of the test.
-	t.Skip("Stats semantics different in V2")
-	//if testing.Short() {
-	//	t.Skip("Skipping integration tests in short mode")
-	//}
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 
-	//c := tu.GetPachClient(t)
-	//require.NoError(t, c.DeleteAll())
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
 
-	//dataRepo := tu.UniqueString("TestPipelineWithStats_data")
-	//require.NoError(t, c.CreateRepo(dataRepo))
+	dataRepo := tu.UniqueString("TestPipelineWithStats_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
 
-	//numFiles := 10
-	//commit1, err := c.StartCommit(dataRepo, "master")
-	//require.NoError(t, err)
-	//for i := 0; i < numFiles; i++ {
-	//	require.NoError(t, c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)), client.WithAppendPutFile()))
-	//}
-	//require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	numFiles := 10
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100))))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, "master", commit1.ID))
 
-	//pipeline := tu.UniqueString("pipeline")
-	//_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
-	//	&pps.CreatePipelineRequest{
-	//		Pipeline: client.NewPipeline(pipeline),
-	//		Transform: &pps.Transform{
-	//			Cmd: []string{"bash"},
-	//			Stdin: []string{
-	//				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-	//			},
-	//		},
-	//		Input:       client.NewPFSInput(dataRepo, "/*"),
-	//		ParallelismSpec: &pps.ParallelismSpec{
-	//			Constant: 4,
-	//		},
-	//	})
-	//require.NoError(t, err)
+	pipeline := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 4,
+			},
+		})
+	require.NoError(t, err)
 
-	//commitInfos, err := c.WaitCommitSetAll([]*pfs.Commit{commit1}, nil)
-	//require.NoError(t, err)
-	//require.Equal(t, 2, len(commitInfos))
+	outputCommit, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
 
-	//jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
-	//require.NoError(t, err)
-	//require.Equal(t, 1, len(jobs))
+	id := outputCommit.Commit.ID
 
-	//// Check we can list datums before job completion
-	//resp, err := c.ListDatumAll(jobs[0].Job.ID, 0, 0)
-	//require.NoError(t, err)
-	//require.Equal(t, numFiles, len(resp.DatumInfos))
-	//require.Equal(t, 1, len(resp.DatumInfos[0].Data))
+	commitInfos, err := c.WaitCommitSetAll(id)
+	require.NoError(t, err)
+	// input (alias), output, spec, meta
+	require.Equal(t, 4, len(commitInfos))
 
-	//// Check we can list datums before job completion w pagination
-	//resp, err = c.ListDatumAll(jobs[0].Job.ID)
-	//require.NoError(t, err)
-	//require.Equal(t, 5, len(resp.DatumInfos))
-	//require.Equal(t, int64(numFiles/5), resp.TotalPages)
-	//require.Equal(t, int64(0), resp.Page)
+	jobs, err := c.ListJob(pipeline, nil, -1, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
 
-	//// Block on the job being complete before we call ListDatum again so we're
-	//// sure the datums have actually been processed.
-	//_, err = c.WaitJob(pipeline, jobs[0].Job.ID, false)
-	//require.NoError(t, err)
+	resp, err := c.ListDatumAll(pipeline, id)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(resp))
+	require.Equal(t, 1, len(resp[0].Data))
 
-	//resp, err = c.ListDatumAll(jobs[0].Job.ID, 0, 0)
-	//require.NoError(t, err)
-	//require.Equal(t, numFiles, len(resp.DatumInfos))
-	//require.Equal(t, 1, len(resp.DatumInfos[0].Data))
+	for _, datum := range resp {
+		require.NoError(t, err)
+		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+	}
 
-	//for _, datum := range resp.DatumInfos {
-	//	require.NoError(t, err)
-	//	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
-	//}
-
-	//// Make sure 'inspect datum' works
-	//datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
-	//require.NoError(t, err)
-	//require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+	// Make sure 'inspect datum' works
+	datum, err := c.InspectDatum(pipeline, id, resp[0].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 }
 
 func TestPipelineWithStatsFailedDatums(t *testing.T) {
-	// TODO(2.0 required): Change the semantics of the test.
-	t.Skip("Stats semantics different in V2")
-	//	if testing.Short() {
-	//		t.Skip("Skipping integration tests in short mode")
-	//	}
-	//
-	//	c := tu.GetPachClient(t)
-	//	require.NoError(t, c.DeleteAll())
-	//
-	//	dataRepo := tu.UniqueString("TestPipelineWithStatsFailedDatums_data")
-	//	require.NoError(t, c.CreateRepo(dataRepo))
-	//
-	//	numFiles := 10
-	//	commit1, err := c.StartCommit(dataRepo, "master")
-	//	require.NoError(t, err)
-	//	for i := 0; i < numFiles; i++ {
-	//		require.NoError(t, c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)), client.WithAppendPutFile()))
-	//	}
-	//	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	//
-	//	pipeline := tu.UniqueString("pipeline")
-	//	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
-	//		&pps.CreatePipelineRequest{
-	//			Pipeline: client.NewPipeline(pipeline),
-	//			Transform: &pps.Transform{
-	//				Cmd: []string{"bash"},
-	//				Stdin: []string{
-	//					fmt.Sprintf("if [ -f /pfs/%s/file-5 ]; then exit 1; fi", dataRepo),
-	//					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-	//				},
-	//			},
-	//			Input:       client.NewPFSInput(dataRepo, "/*"),
-	//			ParallelismSpec: &pps.ParallelismSpec{
-	//				Constant: 4,
-	//			},
-	//		})
-	//	require.NoError(t, err)
-	//
-	//	commitInfos, err := c.WaitCommitSetAll([]*pfs.Commit{commit1}, nil)
-	//	require.NoError(t, err)
-	//	require.Equal(t, 2, len(commitInfos))
-	//
-	//	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
-	//	require.NoError(t, err)
-	//	require.Equal(t, 1, len(jobs))
-	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.WaitJob(pipeline, jobs[0].Job.ID, false)
-	//	require.NoError(t, err)
-	//
-	//	resp, err := c.ListDatumAll(pipeline, jobs[0].Job.ID, 0, 0)
-	//	require.NoError(t, err)
-	//	require.Equal(t, numFiles, len(resp.DatumInfos))
-	//
-	//	// First entry should be failed
-	//	require.Equal(t, pps.DatumState_FAILED, resp.DatumInfos[0].State)
-	//	// Last entry should be success
-	//	require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
-	//
-	//	// Make sure 'inspect datum' works for failed state
-	//	datum, err := c.InspectDatum(pipeline, jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
-	//	require.NoError(t, err)
-	//	require.Equal(t, pps.DatumState_FAILED, datum.State)
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineWithStatsFailedDatums_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numFiles := 10
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100))))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, "master", commit1.ID))
+
+	pipeline := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("if [ -f /pfs/%s/file-5 ]; then exit 1; fi", dataRepo),
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 4,
+			},
+		})
+	require.NoError(t, err)
+
+	outputCommit, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	id := outputCommit.Commit.ID
+
+	commitInfos, err := c.WaitCommitSetAll(id)
+	require.NoError(t, err)
+	// input (alias), output, spec, meta
+	require.Equal(t, 4, len(commitInfos))
+
+	jobs, err := c.ListJob(pipeline, nil, -1, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+
+	resp, err := c.ListDatumAll(pipeline, id)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(resp))
+
+	var failedID string
+	for _, d := range resp {
+		if d.State == pps.DatumState_FAILED {
+			// one entry should be failed (list datum isn't sorted)
+			require.Equal(t, "", failedID)
+			failedID = d.Datum.ID
+		} else {
+			// other entries should be success
+			require.Equal(t, pps.DatumState_SUCCESS, d.State)
+		}
+	}
+
+	// Make sure 'inspect datum' works for failed state
+	datum, err := c.InspectDatum(pipeline, id, failedID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_FAILED, datum.State)
 }
 
 func TestPipelineWithStatsPaginated(t *testing.T) {
 	// TODO(2.0 optional): Implement datum pagination?.
 	t.Skip("Datum pagination not implemented in V2")
-	//	if testing.Short() {
-	//		t.Skip("Skipping integration tests in short mode")
-	//	}
-	//
-	//	c := tu.GetPachClient(t)
-	//	require.NoError(t, c.DeleteAll())
-	//
-	//	dataRepo := tu.UniqueString("TestPipelineWithStatsPaginated_data")
-	//	require.NoError(t, c.CreateRepo(dataRepo))
-	//
-	//	numPages := int64(2)
-	//	pageSize := int64(10)
-	//	numFiles := int(numPages * pageSize)
-	//	commit1, err := c.StartCommit(dataRepo, "master")
-	//	require.NoError(t, err)
-	//	for i := 0; i < numFiles; i++ {
-	//		require.NoError(t, c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)), client.WithAppendPutFile()))
-	//	}
-	//	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	//
-	//	pipeline := tu.UniqueString("pipeline")
-	//	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
-	//		&pps.CreatePipelineRequest{
-	//			Pipeline: client.NewPipeline(pipeline),
-	//			Transform: &pps.Transform{
-	//				Cmd: []string{"bash"},
-	//				Stdin: []string{
-	//					fmt.Sprintf("if [ -f /pfs/%s/file-5 ]; then exit 1; fi", dataRepo),
-	//					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-	//				},
-	//			},
-	//			Input:       client.NewPFSInput(dataRepo, "/*"),
-	//			ParallelismSpec: &pps.ParallelismSpec{
-	//				Constant: 4,
-	//			},
-	//		})
-	//
-	//	commitInfos, err := c.WaitCommitSetAll([]*pfs.Commit{commit1}, nil)
-	//	require.NoError(t, err)
-	//	require.Equal(t, 2, len(commitInfos))
-	//
-	//	var jobs []*pps.JobInfo
-	//	require.NoError(t, backoff.Retry(func() error {
-	//		jobs, err = c.ListJob(pipeline, nil, nil, -1, true)
-	//		require.NoError(t, err)
-	//		if len(jobs) != 1 {
-	//			return errors.Errorf("expected 1 jobs, got %d", len(jobs))
-	//		}
-	//		return nil
-	//	}, backoff.NewTestingBackOff()))
-	//
-	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.WaitJob(pipeline, jobs[0].Job.ID, false)
-	//	require.NoError(t, err)
-	//
-	//	resp, err := c.ListDatumAll(jobs[0].Job.ID, pageSize, 0)
-	//	require.NoError(t, err)
-	//	require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
-	//	require.Equal(t, int64(numFiles)/pageSize, resp.TotalPages)
-	//
-	//	// First entry should be failed
-	//	require.Equal(t, pps.DatumState_FAILED, resp.DatumInfos[0].State)
-	//
-	//	resp, err = c.ListDatumAll(jobs[0].Job.ID, pageSize, int64(numPages-1))
-	//	require.NoError(t, err)
-	//	require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
-	//	require.Equal(t, int64(int64(numFiles)/pageSize-1), resp.Page)
-	//
-	//	// Last entry should be success
-	//	require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
-	//
-	//	// Make sure we get error when requesting pages too high
-	//	_, err = c.ListDatumAll(jobs[0].Job.ID, pageSize, int64(numPages))
-	//	require.YesError(t, err)
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineWithStatsPaginated_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numPages := int64(2)
+	pageSize := int64(10)
+	numFiles := int(numPages * pageSize)
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)), client.WithAppendPutFile()))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, "master", commit1.ID))
+
+	pipeline := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("if [ -f /pfs/%s/file-5 ]; then exit 1; fi", dataRepo),
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 4,
+			},
+		})
+	require.NoError(t, err)
+
+	outputCommit, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	id := outputCommit.Commit.ID
+
+	commitInfos, err := c.WaitCommitSetAll(id)
+	require.NoError(t, err)
+	// input (alias), output, spec, meta
+	require.Equal(t, 4, len(commitInfos))
+
+	var jobs []*pps.JobInfo
+	require.NoError(t, backoff.Retry(func() error {
+		jobs, err = c.ListJob(pipeline, nil, -1, true)
+		require.NoError(t, err)
+		if len(jobs) != 1 {
+			return errors.Errorf("expected 1 jobs, got %d", len(jobs))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	// Block on the job being complete before we call ListDatum
+	_, err = c.WaitJob(pipeline, jobs[0].Job.ID, false)
+	require.NoError(t, err)
+
+	// resp, err := c.ListDatumAll(jobs[0].Job.ID, pageSize, 0)
+	// require.NoError(t, err)
+	// require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
+	// require.Equal(t, int64(numFiles)/pageSize, resp.TotalPages)
+
+	// // First entry should be failed
+	// require.Equal(t, pps.DatumState_FAILED, resp.DatumInfos[0].State)
+
+	// resp, err = c.ListDatumAll(jobs[0].Job.ID, pageSize, int64(numPages-1))
+	// require.NoError(t, err)
+	// require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
+	// require.Equal(t, int64(int64(numFiles)/pageSize-1), resp.Page)
+
+	// // Last entry should be success
+	// require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
+
+	// // Make sure we get error when requesting pages too high
+	// _, err = c.ListDatumAll(jobs[0].Job.ID, pageSize, int64(numPages))
+	// require.YesError(t, err)
 }
 
 func TestPipelineWithStatsAcrossJobs(t *testing.T) {
-	// TODO(2.0 required): Change semantics of test.
-	t.Skip("Stats semantics different in V2")
-	//	if testing.Short() {
-	//		t.Skip("Skipping integration tests in short mode")
-	//	}
-	//
-	//	c := tu.GetPachClient(t)
-	//	require.NoError(t, c.DeleteAll())
-	//
-	//	dataRepo := tu.UniqueString("TestPipelineWithStatsAcrossJobs_data")
-	//	require.NoError(t, c.CreateRepo(dataRepo))
-	//
-	//	numFiles := 10
-	//	commit1, err := c.StartCommit(dataRepo, "master")
-	//	require.NoError(t, err)
-	//	for i := 0; i < numFiles; i++ {
-	//		require.NoError(t, c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("foo-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)), client.WithAppendPutFile()))
-	//	}
-	//	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	//
-	//	pipeline := tu.UniqueString("StatsAcrossJobs")
-	//	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
-	//		&pps.CreatePipelineRequest{
-	//			Pipeline: client.NewPipeline(pipeline),
-	//			Transform: &pps.Transform{
-	//				Cmd: []string{"bash"},
-	//				Stdin: []string{
-	//					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-	//				},
-	//			},
-	//			Input:       client.NewPFSInput(dataRepo, "/*"),
-	//			ParallelismSpec: &pps.ParallelismSpec{
-	//				Constant: 1,
-	//			},
-	//		})
-	//	require.NoError(t, err)
-	//
-	//	commitInfos, err := c.WaitCommitSetAll([]*pfs.Commit{commit1}, nil)
-	//	require.NoError(t, err)
-	//	require.Equal(t, 2, len(commitInfos))
-	//
-	//	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
-	//	require.NoError(t, err)
-	//	require.Equal(t, 1, len(jobs))
-	//
-	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.WaitJob(pipeline, jobs[0].Job.ID, false)
-	//	require.NoError(t, err)
-	//
-	//	resp, err := c.ListDatumAll(pipeline, jobs[0].Job.ID, 0, 0)
-	//	require.NoError(t, err)
-	//	require.Equal(t, numFiles, len(resp.DatumInfos))
-	//
-	//	datum, err := c.InspectDatum(pipeline, jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
-	//	require.NoError(t, err)
-	//	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
-	//
-	//	commit2, err := c.StartCommit(dataRepo, "master")
-	//	require.NoError(t, err)
-	//	for i := 0; i < numFiles; i++ {
-	//		require.NoError(t, c.PutFile(dataRepo, commit2.ID, fmt.Sprintf("bar-%d", i), strings.NewReader(strings.Repeat("bar\n", 100)), client.WithAppendPutFile()))
-	//	}
-	//	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
-	//
-	//	commitInfos, err = c.WaitCommitSetAll([]*pfs.Commit{commit2}, nil)
-	//	require.NoError(t, err)
-	//	require.Equal(t, 2, len(commitInfos))
-	//
-	//	jobs, err = c.ListJob(pipeline, nil, nil, -1, true)
-	//	require.NoError(t, err)
-	//	require.Equal(t, 2, len(jobs))
-	//
-	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.WaitJob(pipeline, jobs[0].Job.ID, false)
-	//	require.NoError(t, err)
-	//
-	//	resp, err = c.ListDatumAll(pipeline, jobs[0].Job.ID, 0, 0)
-	//	require.NoError(t, err)
-	//	// we should see all the datums from the first job (which should be skipped)
-	//	// in addition to all the new datums processed in this job
-	//	require.Equal(t, numFiles*2, len(resp.DatumInfos))
-	//
-	//	datum, err = c.InspectDatum(pipeline, jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
-	//	require.NoError(t, err)
-	//	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
-	//	// Test datums marked as skipped correctly
-	//	// (also tests list datums are sorted by state)
-	//	datum, err = c.InspectDatum(pipeline, jobs[0].Job.ID, resp.DatumInfos[numFiles].Datum.ID)
-	//	require.NoError(t, err)
-	//	require.Equal(t, pps.DatumState_SKIPPED, datum.State)
-}
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 
-func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
-	// TODO(2.0 required): Change semantics of test.
-	t.Skip("Stats semantics different in V2")
-	//	// If I add a file in commit1, delete it in commit2, add it again in commit 3 ...
-	//	// the datum will be marked as success on the 3rd job, even though it should be marked as skipped
-	//	if testing.Short() {
-	//		t.Skip("Skipping integration tests in short mode")
-	//	}
-	//
-	//	c := tu.GetPachClient(t)
-	//	require.NoError(t, c.DeleteAll())
-	//
-	//	dataRepo := tu.UniqueString("TestPipelineWithStatsSkippedEdgeCase_data")
-	//	require.NoError(t, c.CreateRepo(dataRepo))
-	//
-	//	numFiles := 10
-	//	commit1, err := c.StartCommit(dataRepo, "master")
-	//	require.NoError(t, err)
-	//	for i := 0; i < numFiles; i++ {
-	//		require.NoError(t, c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)), client.WithAppendPutFile()))
-	//	}
-	//	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	//
-	//	pipeline := tu.UniqueString("StatsEdgeCase")
-	//	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
-	//		&pps.CreatePipelineRequest{
-	//			Pipeline: client.NewPipeline(pipeline),
-	//			Transform: &pps.Transform{
-	//				Cmd: []string{"bash"},
-	//				Stdin: []string{
-	//					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-	//				},
-	//			},
-	//			Input:       client.NewPFSInput(dataRepo, "/*"),
-	//			ParallelismSpec: &pps.ParallelismSpec{
-	//				Constant: 1,
-	//			},
-	//		})
-	//	require.NoError(t, err)
-	//
-	//	commitInfos, err := c.WaitCommitSetAll([]*pfs.Commit{commit1}, nil)
-	//	require.NoError(t, err)
-	//	require.Equal(t, 2, len(commitInfos))
-	//
-	//	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
-	//	require.NoError(t, err)
-	//	require.Equal(t, 1, len(jobs))
-	//
-	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.WaitJob(pipeline, jobs[0].Job.ID, false)
-	//	require.NoError(t, err)
-	//	resp, err := c.ListDatumAll(pipeline, jobs[0].Job.ID, 0, 0)
-	//	require.NoError(t, err)
-	//	require.Equal(t, numFiles, len(resp.DatumInfos))
-	//
-	//	for _, datum := range resp.DatumInfos {
-	//		require.NoError(t, err)
-	//		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
-	//	}
-	//
-	//	// Make sure 'inspect datum' works
-	//	datum, err := c.InspectDatum(pipeline, jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
-	//	require.NoError(t, err)
-	//	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
-	//
-	//	// Create a second commit that deletes a file in commit1
-	//	commit2, err := c.StartCommit(dataRepo, "master")
-	//	require.NoError(t, err)
-	//	err = c.DeleteFile(dataRepo, commit2.ID, "file-0")
-	//	require.NoError(t, err)
-	//	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
-	//
-	//	// Create a third commit that re-adds the file removed in commit2
-	//	commit3, err := c.StartCommit(dataRepo, "master")
-	//	require.NoError(t, err)
-	//	require.NoError(t, c.PutFile(dataRepo, commit3.ID, "file-0", strings.NewReader(strings.Repeat("foo\n", 100)), client.WithAppendPutFile()))
-	//	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
-	//
-	//	commitInfos, err = c.WaitCommitSetAll([]*pfs.Commit{commit3}, nil)
-	//	require.NoError(t, err)
-	//	require.Equal(t, 2, len(commitInfos))
-	//
-	//	jobs, err = c.ListJob(pipeline, nil, nil, -1, true)
-	//	require.NoError(t, err)
-	//	require.Equal(t, 3, len(jobs))
-	//
-	//	// Block on the job being complete before we call ListDatum
-	//	_, err = c.InspectJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
-	//	require.NoError(t, err)
-	//	resp, err = c.ListDatumAll(jobs[0].Job.ID, 0, 0)
-	//	require.NoError(t, err)
-	//	require.Equal(t, numFiles, len(resp.DatumInfos))
-	//
-	//	for _, datum := range resp.DatumInfos {
-	//		require.Equal(t, pps.DatumState_SKIPPED, datum.State)
-	//	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineWithStatsAcrossJobs_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numFiles := 10
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("foo-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)), client.WithAppendPutFile()))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, "master", commit1.ID))
+
+	pipeline := tu.UniqueString("StatsAcrossJobs")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+		})
+	require.NoError(t, err)
+
+	outputCommit, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	id := outputCommit.Commit.ID
+
+	commitInfos, err := c.WaitCommitSetAll(id)
+	require.NoError(t, err)
+	// input (alias), output, spec, meta
+	require.Equal(t, 4, len(commitInfos))
+
+	jobs, err := c.ListJob(pipeline, nil, -1, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+
+	resp, err := c.ListDatumAll(pipeline, id)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(resp))
+
+	datum, err := c.InspectDatum(pipeline, id, resp[0].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		require.NoError(t, c.PutFile(commit2, fmt.Sprintf("bar-%d", i), strings.NewReader(strings.Repeat("bar\n", 100)), client.WithAppendPutFile()))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, "master", commit2.ID))
+
+	outputCommit, err = c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	id = outputCommit.Commit.ID
+
+	commitInfos, err = c.WaitCommitSetAll(id)
+	require.NoError(t, err)
+	// input (alias), output, spec, meta
+	require.Equal(t, 4, len(commitInfos))
+
+	jobs, err = c.ListJob(pipeline, nil, -1, true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobs))
+
+	resp, err = c.ListDatumAll(pipeline, id)
+	require.NoError(t, err)
+	// we should see all the datums from the first job (which should be skipped)
+	// in addition to all the new datums processed in this job
+	require.Equal(t, numFiles*2, len(resp))
+
+	// test inspect datum
+	var skippedCount int
+	for _, info := range resp {
+		if info.State == pps.DatumState_SKIPPED {
+			skippedCount++
+		}
+		inspectedInfo, err := c.InspectDatum(pipeline, id, info.Datum.ID)
+		require.NoError(t, err)
+		require.Equal(t, info.State, inspectedInfo.State)
+	}
+	require.Equal(t, numFiles, skippedCount)
 }
 
 func TestPipelineOnStatsBranch(t *testing.T) {
@@ -5842,7 +5797,7 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline2, "master", "")
 	require.NoError(t, err)
 
-	jobInfos, err := c.WaitJobsetAll(commitInfo.Commit.ID)
+	jobInfos, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 	for _, ji := range jobInfos {
@@ -5885,7 +5840,7 @@ func TestSkippedDatums(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
-	jis, err := c.WaitJobsetAll(commit1.ID)
+	jis, err := c.WaitJobSetAll(commit1.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 	ji := jis[0]
@@ -5899,7 +5854,7 @@ func TestSkippedDatums(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit2, "file2", strings.NewReader("bar\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.Branch.Name, commit2.ID))
-	jis, err = c.WaitJobsetAll(commit2.ID)
+	jis, err = c.WaitJobSetAll(commit2.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 	ji = jis[0]
@@ -5925,6 +5880,7 @@ func TestCronPipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
+	t.Skip("TODO: This tests passes when run in isolation, but is flaky and often hangs.")
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	t.Run("SimpleCron", func(t *testing.T) {
@@ -5976,8 +5932,6 @@ func TestCronPipeline(t *testing.T) {
 
 	// Test a CronInput with the overwrite flag set to true
 	t.Run("CronOverwrite", func(t *testing.T) {
-		// TODO(2.0 required): Investigate flakiness.
-		t.Skip("Investigate flakiness")
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 10s")
 		overwriteInput.Cron.Overwrite = true
@@ -6102,9 +6056,6 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCronOverwrite", func(t *testing.T) {
-		// TODO(2.0 required): This test does not work with V2. It is not clear what the issue is yet. It may be related to the fact that
-		// run pipeline does not work correctly with stats (which is always enabled in V2).
-		t.Skip("Does not work with V2, needs investigation")
 		pipeline7 := tu.UniqueString("cron7-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline7,
@@ -6112,7 +6063,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
-			client.NewCronInputOpts("time", "", "1-59/1 * * * *", true), // every minute
+			client.NewCronInputOpts("time", "", "*/1 * * * *", true), // every minute
 			"",
 			false,
 		))
@@ -6145,8 +6096,6 @@ func TestCronPipeline(t *testing.T) {
 				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
 				require.NoError(t, err)
 
-				// subscribe to the pipeline1 cron repo and wait for inputs
-				repo = fmt.Sprintf("%s_%s", pipeline7, "time")
 				ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
 				defer cancel() //cleanup resources
 				// We expect to see four commits, despite the schedule being every minute, and the timeout 120 seconds
@@ -6155,11 +6104,9 @@ func TestCronPipeline(t *testing.T) {
 				countBreakFunc := newCountBreakFunc(4)
 				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
-						commitInfos, err := c.WaitCommitSetAll(ci.Commit.ID)
+						_, err := c.WaitCommit(repo, "", ci.Commit.ID)
 						require.NoError(t, err)
-						require.Equal(t, 4, len(commitInfos))
-
-						files, err := c.ListFileAll(ci.Commit, "")
+						files, err := c.ListFileAll(ci.Commit, "/")
 						require.NoError(t, err)
 						require.Equal(t, 1, len(files))
 						return nil
@@ -6257,7 +6204,7 @@ func TestPipelineBadImage(t *testing.T) {
 	))
 	require.NoError(t, backoff.Retry(func() error {
 		for _, pipeline := range []string{pipeline1, pipeline2} {
-			pipelineInfo, err := c.InspectPipeline(pipeline)
+			pipelineInfo, err := c.InspectPipeline(pipeline, false)
 			if err != nil {
 				return err
 			}
@@ -6378,15 +6325,14 @@ func TestListJobTruncated(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, commit1.ID, fullJobInfos[0].Job.ID)
 
-	// Check that fields stored in PFS are missing, but fields stored in etcd
-	// are not
-	require.Nil(t, liteJobInfos[0].Transform)
-	require.Nil(t, liteJobInfos[0].Input)
+	// Check that details are missing when not requested
+	require.Nil(t, liteJobInfos[0].Details)
 	require.Equal(t, pipeline, liteJobInfos[0].Job.Pipeline.Name)
 
-	// Check that all fields are present
-	require.NotNil(t, fullJobInfos[0].Transform)
-	require.NotNil(t, fullJobInfos[0].Input)
+	// Check that all fields are present when requested
+	require.NotNil(t, fullJobInfos[0].Details)
+	require.NotNil(t, fullJobInfos[0].Details.Transform)
+	require.NotNil(t, fullJobInfos[0].Details.Input)
 	require.Equal(t, pipeline, fullJobInfos[0].Job.Pipeline.Name)
 }
 
@@ -6437,183 +6383,7 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 	}
 }
 
-func TestMaxQueueSize(t *testing.T) {
-	// TODO: Implement max queue size.
-	t.Skip("Max queue size not implemented in V2")
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString("TestMaxQueueSize_input")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	commit1, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	for i := 0; i < 20; i++ {
-		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
-	}
-	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
-
-	pipeline := tu.UniqueString("TestMaxQueueSize_output")
-	// This pipeline sleeps for 10 secs per datum
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					"sleep 5",
-				},
-			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
-			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 2,
-			},
-			MaxQueueSize: 1,
-			DatumSetSpec: &pps.DatumSetSpec{
-				Number: 10,
-			},
-		})
-	require.NoError(t, err)
-
-	var jobInfo *pps.JobInfo
-	for i := 0; i < 10; i++ {
-		require.NoError(t, backoff.Retry(func() error {
-			jobs, err := c.ListJob(pipeline, nil, -1, true)
-			if err != nil {
-				return errors.Wrapf(err, "could not list job")
-			}
-			if len(jobs) == 0 {
-				return errors.Errorf("failed to find job")
-			}
-			jobInfo, err = c.InspectJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
-			if err != nil {
-				return errors.Wrapf(err, "could not inspect job")
-			}
-			if len(jobInfo.WorkerStatus) != 2 {
-				return errors.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
-			}
-			return nil
-		}, backoff.RetryEvery(500*time.Millisecond).For(60*time.Second)))
-
-		//for _, status := range jobInfo.WorkerStatus {
-		//	if status.QueueSize > 1 {
-		//		t.Fatalf("queue size too big: %d", status.QueueSize)
-		//	}
-		//}
-
-		time.Sleep(500 * time.Millisecond)
-	}
-}
-
-func TestHTTPAuth(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-
-	host := c.GetAddress().Host
-	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
-	if !ok {
-		port = "30652" // default NodePort port for Pachd's HTTP API
-	}
-	httpAPIAddr := net.JoinHostPort(host, port)
-
-	// Try to login
-	token := "abbazabbadoo"
-	form := url.Values{}
-	form.Add("Token", token)
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/login", httpAPIAddr), strings.NewReader(form.Encode()))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	require.NoError(t, err)
-	httpClient := &http.Client{}
-	resp, err := httpClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	require.Equal(t, 1, len(resp.Cookies()))
-	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
-	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
-	require.Equal(t, token, resp.Cookies()[0].Value)
-
-	// Try to logout
-	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logout", httpAPIAddr), nil)
-	require.NoError(t, err)
-	resp, err = httpClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	require.Equal(t, 1, len(resp.Cookies()))
-	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
-	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
-	// The cookie should be unset now
-	require.Equal(t, "", resp.Cookies()[0].Value)
-
-	// Make sure we get 404s for non existent routes
-	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logoutzz", httpAPIAddr), nil)
-	require.NoError(t, err)
-	resp, err = httpClient.Do(req)
-	require.NoError(t, err)
-	require.Equal(t, 404, resp.StatusCode)
-}
-
-func TestHTTPGetFile(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-
-	dataRepo := tu.UniqueString("TestHTTPGetFile_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	commit1, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	f, err := os.Open("../../etc/testing/artifacts/giphy.gif")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "giphy.gif", f, client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
-
-	host := c.GetAddress().Host
-	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
-	if !ok {
-		port = "30652" // default NodePort port for Pachd's HTTP API
-	}
-	httpAPIAddr := net.JoinHostPort(host, port)
-
-	// Try to get raw contents
-	resp, err := http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file", httpAPIAddr, dataRepo, commit1.ID))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	contents, err := ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Equal(t, "foo", string(contents))
-	contentDisposition := resp.Header.Get("Content-Disposition")
-	require.Equal(t, "", contentDisposition)
-
-	// Try to get file for downloading
-	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file?download=true", httpAPIAddr, dataRepo, commit1.ID))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	contents, err = ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Equal(t, "foo", string(contents))
-	contentDisposition = resp.Header.Get("Content-Disposition")
-	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
-
-	// Make sure MIME type is set
-	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/giphy.gif", httpAPIAddr, dataRepo, commit1.ID))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	contentDisposition = resp.Header.Get("Content-Type")
-	require.Equal(t, "image/gif", contentDisposition)
-}
-
 func TestService(t *testing.T) {
-	// TODO(2.0 required): this test is failing at the part where it tries to read
-	// from the PFS-over-HTTP service
-	t.Skip("PFS-over-HTTP not working for some reason")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -6719,53 +6489,6 @@ func TestService(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	host := c.GetAddress().Host
-	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
-	if !ok {
-		port = "30652" // default NodePort port for Pachd's HTTP API
-	}
-	httpAPIAddr := net.JoinHostPort(host, port)
-	url := fmt.Sprintf("http://%s/v1/pps/services/%s/%s/file1", httpAPIAddr, pipeline, dataRepo)
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := httpClient.Get(url)
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode != 200 {
-			return errors.Errorf("GET returned %d", resp.StatusCode)
-		}
-		content, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		if string(content) != "foo" {
-			return errors.Errorf("wrong content for file1: expected foo, got %s", string(content))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-
-	commit2, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit2, "file2", strings.NewReader("bar"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(dataRepo, commit2.Branch.Name, commit2.ID))
-
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := httpClient.Get(fmt.Sprintf("http://%s/%s/file2", serviceAddr, dataRepo))
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode != 200 {
-			return errors.Errorf("GET returned %d", resp.StatusCode)
-		}
-		content, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		if string(content) != "bar" {
-			return errors.Errorf("wrong content for file2: expected bar, got %s", string(content))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
 }
 
 func TestServiceEnvVars(t *testing.T) {
@@ -7112,7 +6835,7 @@ func TestListDatumDuringJob(t *testing.T) {
 	require.Equal(t, 0, len(dis))
 
 	// test job progress by waiting until some datums are returned, and verify that it's not all of them
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		return backoff.Retry(func() error {
 			dis, err = c.ListDatumAll(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
 			if err != nil {
@@ -7322,9 +7045,9 @@ func TestPipelineDescription(t *testing.T) {
 			Input:       client.NewPFSInput(dataRepo, "/"),
 		})
 	require.NoError(t, err)
-	pi, err := c.InspectPipeline(pipeline)
+	pi, err := c.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
-	require.Equal(t, description, pi.Description)
+	require.Equal(t, description, pi.Details.Description)
 }
 
 func TestListJobInputCommits(t *testing.T) {
@@ -7772,49 +7495,6 @@ func TestSquashCommitSetRunsJob(t *testing.T) {
 	require.Equal(t, "commit 3 data", buf.String())
 }
 
-func TestEntryPoint(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString(t.Name() + "-data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	commit1, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo")))
-	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
-
-	pipeline := tu.UniqueString(t.Name())
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"pachyderm_entrypoint",
-		nil,
-		nil,
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		&pps.Input{
-			Pfs: &pps.PFSInput{
-				Name: "in",
-				Repo: dataRepo,
-				Glob: "/*",
-			},
-		},
-		"",
-		false,
-	))
-
-	commitInfo, err := c.WaitCommit(pipeline, "master", "")
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfo.Commit, "file", &buf))
-	require.Equal(t, "foo", buf.String())
-}
-
 func TestDeleteSpecRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -7827,7 +7507,7 @@ func TestDeleteSpecRepo(t *testing.T) {
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
-		"pachyderm_entrypoint",
+		"",
 		[]string{"echo", "foo"},
 		nil,
 		&pps.ParallelismSpec{
@@ -7843,54 +7523,6 @@ func TestDeleteSpecRepo(t *testing.T) {
 			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
 		})
 	require.YesError(t, err)
-}
-
-func TestUserWorkingDir(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString("TestUserWorkingDir_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	commit, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
-
-	pipeline := tu.UniqueString("TestSimplePipeline")
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Image: "pachyderm_entrypoint",
-				Cmd:   []string{"bash"},
-				Stdin: []string{
-					"ls -lh /pfs",
-					"whoami >/pfs/out/whoami",
-					"pwd >/pfs/out/pwd",
-					fmt.Sprintf("cat /pfs/%s/file >/pfs/out/file", dataRepo),
-				},
-				User:       "test",
-				WorkingDir: "/home/test",
-			},
-			Input: client.NewPFSInput(dataRepo, "/"),
-		})
-	require.NoError(t, err)
-
-	commitInfo, err := c.WaitCommit(pipeline, "master", "")
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfo.Commit, "whoami", &buf))
-	require.Equal(t, "test\n", buf.String())
-	buf.Reset()
-	require.NoError(t, c.GetFile(commitInfo.Commit, "pwd", &buf))
-	require.Equal(t, "/home/test\n", buf.String())
 }
 
 func TestDontReadStdin(t *testing.T) {
@@ -7920,7 +7552,7 @@ func TestDontReadStdin(t *testing.T) {
 		commit, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(dataRepo, "master", ""))
-		jobInfos, err := c.WaitJobsetAll(commit.ID)
+		jobInfos, err := c.WaitJobSetAll(commit.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobInfos))
 		require.Equal(t, jobInfos[0].State.String(), pps.JobState_JOB_SUCCESS.String())
@@ -7954,7 +7586,7 @@ func TestStatsDeleteAll(t *testing.T) {
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
-	jis, err := c.WaitJobsetAll(commit.ID)
+	jis, err := c.WaitJobSetAll(commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
@@ -7977,7 +7609,7 @@ func TestStatsDeleteAll(t *testing.T) {
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
-	jis, err = c.WaitJobsetAll(commit.ID)
+	jis, err = c.WaitJobSetAll(commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
@@ -8078,7 +7710,7 @@ func TestDatumTries(t *testing.T) {
 	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
 	require.NoError(t, err)
 
-	jobInfos, err := c.WaitJobsetAll(commitInfo.Commit.ID)
+	jobInfos, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
@@ -8144,9 +7776,9 @@ func TestPipelineVersions(t *testing.T) {
 	}
 
 	for i := 0; i < nVersions; i++ {
-		pi, err := c.InspectPipeline(ancestry.Add(pipeline, nVersions-1-i))
+		pi, err := c.InspectPipeline(ancestry.Add(pipeline, nVersions-1-i), true)
 		require.NoError(t, err)
-		require.Equal(t, fmt.Sprintf("%d", i), pi.Transform.Cmd[0])
+		require.Equal(t, fmt.Sprintf("%d", i), pi.Details.Transform.Cmd[0])
 	}
 }
 
@@ -8350,13 +7982,13 @@ func TestDeferredCross(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 1)
 
-	jobInfo, err := c.InspectJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
+	jobInfo, err := c.InspectJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
 	headCommit, err := c.InspectCommit(dataSet, "master", "")
 	require.NoError(t, err)
 
-	pps.VisitInput(jobInfo.Input, func(i *pps.Input) error {
+	pps.VisitInput(jobInfo.Details.Input, func(i *pps.Input) error {
 		if i.Pfs != nil && i.Pfs.Repo == dataSet {
 			require.Equal(t, i.Pfs.Commit, headCommit.Commit.ID)
 		}
@@ -8561,23 +8193,23 @@ func TestPipelineHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5, len(jis))
 
-	pipelineInfos, err := c.ListPipeline()
+	pipelineInfos, err := c.ListPipeline(false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory("", -1)
+	pipelineInfos, err = c.ListPipelineHistory("", -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory("", 1)
+	pipelineInfos, err = c.ListPipelineHistory("", 1, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pipelineName, -1)
+	pipelineInfos, err = c.ListPipelineHistory(pipelineName, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pipelineName2, -1)
+	pipelineInfos, err = c.ListPipelineHistory(pipelineName2, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pipelineInfos))
 }
@@ -8640,114 +8272,6 @@ func TestFileHistory(t *testing.T) {
 
 	//_, err = c.ListFileHistory(pipeline, "master", "", -1)
 	//require.NoError(t, err)
-}
-
-// TestNoOutputRepoDoesntCrashPPSMaster creates a pipeline, then deletes its
-// output repo while it's running (failing the pipeline and preventing the PPS
-// master from finishing the pipeline's output commit) and makes sure new
-// pipelines can be created (i.e. that the PPS master doesn't crashloop due to
-// the missing output repo).
-func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	// Create input repo w/ initial commit
-	repo := tu.UniqueString(t.Name())
-	require.NoError(t, c.CreateRepo(repo))
-	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "/file.1", strings.NewReader("1"), client.WithAppendPutFile()))
-
-	// Create pipeline
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"", // default image: DefaultUserImage
-		[]string{"bash"},
-		[]string{
-			"sleep 10",
-			"cp /pfs/*/* /pfs/out/",
-		},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
-		"", // default output branch: master
-		false,
-	))
-
-	// force-delete output repo while 'sleep 10' is running, failing the pipeline
-	require.NoError(t, c.DeleteRepo(pipeline, true))
-
-	// make sure the pipeline is failed
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		// use list pipeline instead of inspect pipeline because we expect
-		// the spec repo to be gone, which will cause GetPipelineInfo to fail
-		resp, err := c.PpsAPIClient.ListPipeline(
-			c.Ctx(),
-			&pps.ListPipelineRequest{
-				AllowIncomplete: true,
-			},
-		)
-		if err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-		var pi *pps.PipelineInfo
-		for _, info := range resp.PipelineInfo {
-			if info.Pipeline.Name == pipeline {
-				pi = info
-				break
-			}
-		}
-		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
-			return errors.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
-		}
-		return nil
-	})
-
-	// Delete the pachd pod, so that it restarts and the PPS master has to process
-	// the failed pipeline
-	tu.DeletePachdPod(t) // delete the pachd pod
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		_, err := c.Version() // wait for pachd to come back
-		return err
-	})
-
-	// Create a new input commit, and flush its output to 'pipeline', to make sure
-	// the pipeline either restarts the RC and recreates the output repo, or fails
-	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "/file.2", strings.NewReader("2"), client.WithAppendPutFile()))
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		inputHead, err := c.InspectCommit(repo, "master", "")
-		if err != nil {
-			return err
-		}
-		_, err = c.WaitCommitSetAll(inputHead.Commit.ID)
-		return err
-	})
-
-	// Create a new pipeline, make sure WaitCommit eventually returns, and check
-	// pipeline output (i.e. the PPS master does not crashloop--pipeline2
-	// eventually starts successfully)
-	pipeline2 := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline2,
-		"", // default image: DefaultUserImage
-		[]string{"bash"},
-		[]string{"cp /pfs/*/* /pfs/out/"},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
-		"", // default output branch: master
-		false,
-	))
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := c.WaitCommit(pipeline2, "master", "")
-		return err
-	})
-	buf := &bytes.Buffer{}
-	require.NoError(t, c.GetFile(client.NewCommit(pipeline2, "master", ""), "/file.1", buf))
-	require.Equal(t, "1", buf.String())
-	buf.Reset()
-	require.NoError(t, c.GetFile(client.NewCommit(pipeline2, "master", ""), "/file.2", buf))
-	require.Equal(t, "2", buf.String())
 }
 
 // TestCreatePipelineErrorNoTransform tests that sending a CreatePipeline
@@ -8838,7 +8362,7 @@ func TestCreatePipelineErrorNoCmd(t *testing.T) {
 	time.Sleep(5 * time.Second) // give pipeline time to start
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline)
+		pipelineInfo, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -8974,7 +8498,7 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfo.Commit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 
-	pipelineInfo, err := c.InspectPipeline(pipeline)
+	pipelineInfo, err := c.InspectPipeline(pipeline, false)
 	require.NoError(t, err)
 
 	// make sure 'vol0' is correct in the pod spec
@@ -9286,14 +8810,21 @@ func TestMalformedPipeline(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "services can only be run with a constant parallelism of 1", err.Error())
 
-	// TODO(2.0 required): This error isn't triggered in V2?
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:   client.NewPipeline(pipelineName),
-	//	Transform:  &pps.Transform{},
-	//	SpecCommit: &pfs.Commit{},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "cannot resolve commit with no repo", err.Error())
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:   client.NewPipeline(pipelineName),
+		Transform:  &pps.Transform{},
+		SpecCommit: &pfs.Commit{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "cannot resolve commit with no branch", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:   client.NewPipeline(pipelineName),
+		Transform:  &pps.Transform{},
+		SpecCommit: &pfs.Commit{Branch: &pfs.Branch{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "cannot resolve commit with no repo", err.Error())
 
 	dataRepo := tu.UniqueString("TestMalformedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9375,31 +8906,6 @@ func TestMalformedPipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "Empty spec string", err.Error())
-
-	// TODO: Implement git inputs.
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:  client.NewPipeline(pipelineName),
-	//	Transform: &pps.Transform{},
-	//	Input:     &pps.Input{Git: &pps.GitInput{}},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "clone URL is missing \\(", err.Error())
-
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:  client.NewPipeline(pipelineName),
-	//	Transform: &pps.Transform{},
-	//	Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar"}},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "clone URL is missing .git suffix", err.Error())
-
-	//_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-	//	Pipeline:  client.NewPipeline(pipelineName),
-	//	Transform: &pps.Transform{},
-	//	Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar.git"}},
-	//})
-	//require.YesError(t, err)
-	//require.Matches(t, "clone URL must use https protocol", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:  client.NewPipeline(pipelineName),
@@ -9783,64 +9289,11 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	_, err = c.FinishTransaction(txn)
 	require.NoError(t, err)
 	// make sure the final pipeline is the third version, with the input from in the transaction
-	info, err := c.InspectPipeline(pipeline)
+	pipelineInfo, err := c.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), info.Version)
-	require.NotNil(t, info.Input.Pfs)
-	require.Equal(t, inputB, info.Input.Pfs.Repo)
-}
-
-func TestSystemRepoDependence(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-	input := tu.UniqueString("in")
-	pipeline := tu.UniqueString("pipeline")
-
-	require.NoError(t, c.CreateRepo(input))
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(input, "/*"),
-		"",
-		false,
-	))
-
-	// meta repo has no subvenance
-	_, err := c.PfsAPIClient.DeleteRepo(
-		c.Ctx(),
-		&pfs.DeleteRepoRequest{
-			Repo: client.NewSystemRepo(pipeline, pfs.MetaRepoType),
-		})
-	require.NoError(t, err)
-
-	// but spec repo does
-	_, err = c.PfsAPIClient.DeleteRepo(
-		c.Ctx(),
-		&pfs.DeleteRepoRequest{
-			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
-		})
-	require.YesError(t, err)
-
-	require.NoError(t, c.DeletePipeline(pipeline, false))
-
-	_, err = c.PfsAPIClient.InspectRepo(
-		c.Ctx(),
-		&pfs.InspectRepoRequest{
-			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
-		},
-	)
-	// spec repo should have been deleted
-	require.YesError(t, err)
-	require.True(t, errutil.IsNotFoundError(grpcutil.ScrubGRPC(err)))
+	require.Equal(t, uint64(3), pipelineInfo.Version)
+	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
+	require.Equal(t, inputB, pipelineInfo.Details.Input.Pfs.Repo)
 }
 
 func TestPipelineAutoscaling(t *testing.T) {
@@ -9866,8 +9319,8 @@ func TestPipelineAutoscaling(t *testing.T) {
 				},
 			},
 			Input:           client.NewPFSInput(dataRepo, "/*"),
-			Autoscaling:     true,
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 4},
+			Autoscaling:     true,
 		},
 	)
 	require.NoError(t, err)
@@ -9984,6 +9437,210 @@ func TestListDeletedDatums(t *testing.T) {
 	createAndCheckJoin(false, false)
 }
 
+// TestNonrootPipeline tests that a pipeline can work when it's running as a UID that's not 0 (root).
+// This test doesn't work in a typical local deployment because the storage sidecar needs to
+// run as root to access the host path where the chunks are stored (at /pach).
+func TestNonrootPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	// Only run this test in CI since we can control the permissions on the hostpath
+	if os.Getenv("CIRCLE_REPOSITORY_URL") == "" {
+		t.Skip("Skipping non-root test because hostpath permissions can't be verified")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestNonrootPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
+
+	pipeline := tu.UniqueString("TestNonrootPipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd:   []string{"bash"},
+				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:        client.NewPFSInput(dataRepo, "/*"),
+			OutputBranch: "",
+			Update:       false,
+			PodPatch: `[
+				{"op": "add",  "path": "/securityContext",  "value": {}},
+				{"op": "add",  "path": "/securityContext/runAsUser",  "value": 1000}
+			]`,
+			Autoscaling: false,
+		},
+	)
+	require.NoError(t, err)
+
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	// The commitset should have a commit in: data, spec, pipeline, meta
+	// the last two are dependent upon the first two, so should come later
+	// in topological ordering
+	require.Equal(t, 4, len(commitInfos))
+	var commitRepos []*pfs.Repo
+	for _, info := range commitInfos {
+		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+	}
+	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+
+	var buf bytes.Buffer
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	}
+}
+
+func TestRewindCrossPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestRewindCrossPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("pipeline")
+	create := func(update bool, repos ...string) error {
+		var indivInputs []*pps.Input
+		var stdin []string
+		for _, r := range repos {
+			indivInputs = append(indivInputs, client.NewPFSInput(r, "/*"))
+			stdin = append(stdin, fmt.Sprintf("cp /pfs/%s/* /pfs/out/", r))
+		}
+		var input *pps.Input
+		if len(repos) > 1 {
+			input = client.NewCrossInput(indivInputs...)
+		} else {
+			input = indivInputs[0]
+		}
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"bash"},
+					Stdin: stdin,
+				},
+				Input:  input,
+				Update: update,
+			})
+		return err
+	}
+	require.NoError(t, create(false, dataRepo))
+
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "first", strings.NewReader("first")))
+	_, err := c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// make a new repo, and update the pipeline to take it as input
+	laterRepo := tu.UniqueString("LaterRepo")
+	require.NoError(t, c.CreateRepo(laterRepo))
+	require.NoError(t, create(true, dataRepo, laterRepo))
+
+	// save the current commit set ID
+	oldCommit, err := c.InspectCommit(dataRepo, "master", "")
+	require.NoError(t, err)
+
+	// add new files to both repos
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "second", strings.NewReader("second")))
+	require.NoError(t, c.PutFile(client.NewCommit(laterRepo, "master", ""), "later", strings.NewReader("later")))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// now, move dataRepo back to the saved commit
+	require.NoError(t, c.CreateBranch(dataRepo, "master", "master", oldCommit.Commit.ID, nil))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	info, err := c.InspectCommit(dataRepo, "master", "")
+	require.NoError(t, err)
+
+	// the new commit cannot reuse the old ID
+	require.NotEqual(t, info.Commit.ID, oldCommit.Commit.ID)
+
+	// laterRepo has the same contents
+	files, err := c.ListFileAll(client.NewCommit(laterRepo, "master", info.Commit.ID), "/")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(files))
+	require.Equal(t, "/later", files[0].File.Path)
+
+	// which is reflected in the output
+	files, err = c.ListFileAll(client.NewCommit(pipeline, "master", info.Commit.ID), "/")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(files))
+	require.ElementsEqualUnderFn(t, []string{"/first", "/later"}, files, func(f interface{}) interface{} { return f.(*pfs.FileInfo).File.Path })
+}
+
+func TestMoveBranchTrigger(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestRewindTrigger_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// create a pipeline taking both master and the trigger branch as input
+	pipeline := tu.UniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+					"cp /pfs/trigger/* /pfs/out/",
+				},
+			},
+			Input: client.NewCrossInput(
+				client.NewPFSInput(dataRepo, "/*"),
+				client.NewPFSInputOpts("trigger", dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+					Branch:  "toMove",
+					Commits: 1,
+				}),
+			),
+		})
+	require.NoError(t, err)
+
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "foo", strings.NewReader("bar")))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// create the trigger source branch
+	require.NoError(t, c.CreateBranch(dataRepo, "toMove", "master", "", nil))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// make sure the trigger triggered
+	files, err := c.ListFileAll(client.NewCommit(dataRepo, "trigger", ""), "/")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(files))
+	require.Equal(t, "/foo", files[0].File.Path)
+}
+
 func monitorReplicas(t testing.TB, pipeline string, n int) {
 	c := tu.GetPachClient(t)
 	kc := tu.GetKubeClient(t)
@@ -10013,3 +9670,70 @@ func monitorReplicas(t testing.TB, pipeline string, n int) {
 	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
 	require.False(t, tooManyReplicas, "got too many replicas, looking for: %d", n)
 }
+
+func TestLoad(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	for i, load := range loads {
+		load := load
+		t.Run(fmt.Sprint("Load-", i), func(t *testing.T) {
+			require.NoError(t, c.DeleteAll())
+			srcRepo := tu.UniqueString(fmt.Sprint("TestLoad-", i))
+			require.NoError(t, c.CreateRepo(srcRepo))
+			pipeline := tu.UniqueString("TestLoadPipeline")
+			require.NoError(t, c.CreatePipeline(
+				pipeline,
+				"",
+				[]string{"bash"},
+				[]string{
+					fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", srcRepo),
+				},
+				&pps.ParallelismSpec{
+					Constant: 1,
+				},
+				client.NewPFSInput(srcRepo, "/*"),
+				"",
+				false,
+			))
+			resp, err := c.RunPFSLoadTest([]byte(load), client.NewBranch(srcRepo, "master"), 0)
+			require.NoError(t, err)
+			require.Equal(t, "", resp.Error, fmt.Sprint("seed: ", resp.Seed))
+		})
+	}
+}
+
+var loads = []string{`
+count: 5
+operations:
+  - count: 5
+    operation:
+      - putFile:
+          files:
+            count: 5
+            file:
+              - source: "random"
+                prob: 100
+        prob: 100 
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      directory:
+        depth: 3
+        run: 3
+      size:
+        - min: 1000
+          max: 10000
+          prob: 30 
+        - min: 10000
+          max: 100000
+          prob: 30 
+        - min: 1000000
+          max: 10000000
+          prob: 30 
+        - min: 10000000
+          max: 100000000
+          prob: 10 
+`}

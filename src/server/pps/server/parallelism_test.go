@@ -13,7 +13,9 @@ func wrap(t testing.TB, ps *pps.ParallelismSpec) *pps.PipelineInfo {
 		Pipeline: &pps.Pipeline{
 			Name: t.Name() + "-pipeline",
 		},
-		ParallelismSpec: ps,
+		Details: &pps.PipelineInfo_Details{
+			ParallelismSpec: ps,
+		},
 	}
 }
 

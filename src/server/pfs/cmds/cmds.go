@@ -14,14 +14,13 @@ import (
 	"strings"
 
 	prompt "github.com/c-bata/go-prompt"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -46,19 +45,15 @@ const (
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
-	raw := false
-	rawFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	rawFlags.BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+	var raw bool
+	var output string
+	outputFlags := cmdutil.OutputFlags(&raw, &output)
 
-	fullTimestamps := false
-	fullTimestampsFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	fullTimestampsFlags.BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
+	var fullTimestamps bool
+	timestampFlags := cmdutil.TimestampFlags(&fullTimestamps)
 
-	noPager := false
-	noPagerFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	noPagerFlags.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager (i.e. less).")
-
-	marshaller := &jsonpb.Marshaler{Indent: "  "}
+	var noPager bool
+	pagerFlags := cmdutil.PagerFlags(&noPager)
 
 	repoDocs := &cobra.Command{
 		Short: "Docs for repos.",
@@ -144,7 +139,9 @@ or type (e.g. csv, binary, images, etc).`,
 				return errors.Errorf("repo %s not found", args[0])
 			}
 			if raw {
-				return marshaller.Marshal(os.Stdout, repoInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(repoInfo)
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			ri := &pretty.PrintableRepoInfo{
 				RepoInfo:       repoInfo,
@@ -153,8 +150,8 @@ or type (e.g. csv, binary, images, etc).`,
 			return pretty.PrintDetailedRepoInfo(ri)
 		}),
 	}
-	inspectRepo.Flags().AddFlagSet(rawFlags)
-	inspectRepo.Flags().AddFlagSet(fullTimestampsFlags)
+	inspectRepo.Flags().AddFlagSet(outputFlags)
+	inspectRepo.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectRepo, "inspect repo"))
 
@@ -181,12 +178,15 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			}
 			if raw {
+				encoder := cmdutil.Encoder(output, os.Stdout)
 				for _, repoInfo := range repoInfos {
-					if err := marshaller.Marshal(os.Stdout, repoInfo); err != nil {
+					if err := encoder.EncodeProto(repoInfo); err != nil {
 						return err
 					}
 				}
 				return nil
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 
 			header := pretty.RepoHeader
@@ -200,8 +200,8 @@ or type (e.g. csv, binary, images, etc).`,
 			return writer.Flush()
 		}),
 	}
-	listRepo.Flags().AddFlagSet(rawFlags)
-	listRepo.Flags().AddFlagSet(fullTimestampsFlags)
+	listRepo.Flags().AddFlagSet(outputFlags)
+	listRepo.Flags().AddFlagSet(timestampFlags)
 	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
 	listRepo.Flags().StringVar(&repoType, "type", "", "only include repos of the given type")
 	commands = append(commands, cmdutil.CreateAlias(listRepo, "list repo"))
@@ -293,7 +293,7 @@ $ {{alias}} test -p XXX`,
 			if parent != "" {
 				// We don't know if the parent is a commit ID, branch, or ancestry, so
 				// construct a string to parse.
-				parentCommit, err = cmdutil.ParseCommit(pretty.CompactPrintRepo(branch.Repo) + "@" + parent)
+				parentCommit, err = cmdutil.ParseCommit(fmt.Sprintf("%s@%s", branch.Repo, parent))
 				if err != nil {
 					return err
 				}
@@ -346,6 +346,7 @@ $ {{alias}} test -p XXX`,
 					&pfs.FinishCommitRequest{
 						Commit:      commit,
 						Description: description,
+						Force:       force,
 					},
 				)
 				return err
@@ -355,6 +356,7 @@ $ {{alias}} test -p XXX`,
 	}
 	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
 	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
+	finishCommit.Flags().BoolVarP(&force, "force", "f", false, "finish the commit even if it has provenance, which could break jobs; prefer 'stop job'")
 	shell.RegisterCompletionFunc(finishCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(finishCommit, "finish commit"))
 
@@ -386,7 +388,9 @@ $ {{alias}} test -p XXX`,
 				return errors.Errorf("commit %s not found", commit.ID)
 			}
 			if raw {
-				return marshaller.Marshal(os.Stdout, commitInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo)
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			ci := &pretty.PrintableCommitInfo{
 				CommitInfo:     commitInfo,
@@ -395,15 +399,17 @@ $ {{alias}} test -p XXX`,
 			return pretty.PrintDetailedCommitInfo(os.Stdout, ci)
 		}),
 	}
-	inspectCommit.Flags().AddFlagSet(rawFlags)
-	inspectCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	inspectCommit.Flags().AddFlagSet(outputFlags)
+	inspectCommit.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectCommit, "inspect commit"))
 
 	var from string
-	var number int
+	var number int64
+	var originStr string
+	var expand bool
 	listCommit := &cobra.Command{
-		Use:   "{{alias}} <repo>[@<branch>]",
+		Use:   "{{alias}} [<repo>[@<branch>]]",
 		Short: "Return all commits on a repo.",
 		Long:  "Return all commits on a repo.",
 		Example: `
@@ -418,83 +424,205 @@ $ {{alias}} foo@master -n 20
 
 # return commits in repo "foo" since commit XXX
 $ {{alias}} foo@master --from XXX`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
 
-			branch, err := cmdutil.ParseBranch(args[0])
-			if err != nil {
-				return err
+			if !raw && output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			} else if all && originStr != "" {
+				return errors.New("cannot specify both --all and --origin")
 			}
 
-			var fromCommit *pfs.Commit
-			if from != "" {
-				fromCommit = branch.Repo.NewCommit("", from)
-			}
+			if len(args) == 0 {
+				// Outputting all commitsets
+				if originStr != "" {
+					return errors.Errorf("cannot specify --origin when listing all commits")
+				} else if from != "" {
+					return errors.Errorf("cannot specify --from when listing all commits")
+				}
 
-			var toCommit *pfs.Commit
-			if branch.Name != "" {
-				toCommit = branch.NewCommit("")
-			}
+				listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
 
-			if raw {
-				return c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
-					return marshaller.Marshal(os.Stdout, ci)
+				count := 0
+				if !expand {
+					if raw {
+						e := cmdutil.Encoder(output, os.Stdout)
+						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+							if err := e.EncodeProto(commitSetInfo); err != nil {
+								return err
+							}
+							count++
+							if number != 0 && count >= int(number) {
+								return errutil.ErrBreak
+							}
+							return nil
+						})
+					}
+
+					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+						writer := tabwriter.NewWriter(w, pretty.CommitSetHeader)
+						if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+							pretty.PrintCommitSetInfo(writer, commitSetInfo, fullTimestamps)
+							count++
+							if number != 0 && count >= int(number) {
+								return errutil.ErrBreak
+							}
+							return nil
+						}); err != nil {
+							return err
+						}
+						return writer.Flush()
+					})
+				} else {
+					if raw {
+						e := cmdutil.Encoder(output, os.Stdout)
+						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+							for _, commitInfo := range commitSetInfo.Commits {
+								if err := e.EncodeProto(commitInfo); err != nil {
+									return err
+								}
+								count++
+								if number != 0 && count >= int(number) {
+									return errutil.ErrBreak
+								}
+							}
+							return nil
+						})
+					}
+
+					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+						writer := tabwriter.NewWriter(w, pretty.CommitHeader)
+						if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+							for _, commitInfo := range commitSetInfo.Commits {
+								pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
+								count++
+								if number != 0 && count >= int(number) {
+									return errutil.ErrBreak
+								}
+							}
+							return nil
+						}); err != nil {
+							return err
+						}
+						return writer.Flush()
+					})
+				}
+			} else if len(args) == 1 && uuid.IsUUIDWithoutDashes(args[0]) {
+				// Outputting commits from one commitset
+				if from != "" {
+					return errors.Errorf("cannot specify --from when listing subcommits")
+				} else if all {
+					return errors.Errorf("cannot specify --all when listing subcommits")
+				} else if originStr != "" {
+					return errors.Errorf("cannot specify --origin when listing subcommits")
+				}
+
+				commitInfos, err := c.InspectCommitSet(args[0])
+				if err != nil {
+					return errors.Wrap(err, "error from InspectCommitSet")
+				}
+
+				if number != 0 && len(commitInfos) > int(number) {
+					commitInfos = commitInfos[:number]
+				}
+
+				if raw {
+					encoder := cmdutil.Encoder(output, os.Stdout)
+					for _, commitInfo := range commitInfos {
+						if err := encoder.EncodeProto(commitInfo); err != nil {
+							return err
+						}
+					}
+					return nil
+				}
+
+				return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+					writer := tabwriter.NewWriter(w, pretty.CommitHeader)
+					for _, commitInfo := range commitInfos {
+						pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
+					}
+					return writer.Flush()
 				})
+			} else {
+				// Outputting filtered commits
+				branch, err := cmdutil.ParseBranch(args[0])
+				if err != nil {
+					return err
+				}
+
+				var fromCommit *pfs.Commit
+				if from != "" {
+					fromCommit = branch.Repo.NewCommit("", from)
+				}
+
+				var toCommit *pfs.Commit
+				if branch.Name != "" {
+					toCommit = branch.NewCommit("")
+				}
+
+				origin, err := parseOriginKind(originStr)
+				if err != nil {
+					return err
+				}
+
+				listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
+					Repo:       branch.Repo,
+					From:       fromCommit,
+					To:         toCommit,
+					Number:     number,
+					All:        all,
+					OriginKind: origin,
+				})
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+
+				if raw {
+					encoder := cmdutil.Encoder(output, os.Stdout)
+					return clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
+						return encoder.EncodeProto(ci)
+					})
+				}
+				writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
+				if err := clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
+					pretty.PrintCommitInfo(writer, ci, fullTimestamps)
+					return nil
+				}); err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				return writer.Flush()
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(branch.Repo, toCommit, fromCommit, uint64(number), false, func(ci *pfs.CommitInfo) error {
-				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
-				return nil
-			}); err != nil {
-				return err
-			}
-			return writer.Flush()
 		}),
 	}
 	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
-	listCommit.Flags().IntVarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
+	listCommit.Flags().Int64VarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
-	listCommit.Flags().AddFlagSet(rawFlags)
-	listCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	listCommit.Flags().BoolVar(&all, "all", false, "return all types of commits, including aliases")
+	listCommit.Flags().BoolVarP(&expand, "expand", "x", false, "show one line for each sub-commmit and include more columns")
+	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
+	listCommit.Flags().AddFlagSet(outputFlags)
+	listCommit.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
-	var branches cmdutil.RepeatedStringArg
 	waitCommit := &cobra.Command{
-		Use:   "{{alias}} ( <commitset-id> | <repo>@<branch-or-commit> )",
-		Short: "Wait for the specified commit(s) to finish and return them.",
-		Long:  "Wait for the specified commit(s) to finish and return them.",
+		Use:   "{{alias}} <repo>@<branch-or-commit>",
+		Short: "Wait for the specified commit to finish and return it.",
+		Long:  "Wait for the specified commit to finish and return it.",
 		Example: `
-# return commits in the same commit set as foo@XXX
-$ {{alias}} XXX
-
-# return commits caused by foo@XXX leading to branch bar@baz
-$ {{alias}} XXX -b bar@baz`,
+# wait for the commit foo@XXX to finish and return it
+$ {{alias}} foo@XXX -b bar@baz`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			// Parse args before connecting
-			var commitsetID string
-			var commit *pfs.Commit
-			if uuid.IsUUIDWithoutDashes(args[0]) {
-				commitsetID = args[0]
-			} else {
-				var err error
-				commit, err = cmdutil.ParseCommit(args[0])
-				if err != nil {
-					return err
-				}
-			}
-
-			toBranches := []*pfs.Branch{}
-			for _, arg := range branches {
-				branch, err := cmdutil.ParseBranch(arg)
-				if err != nil {
-					return err
-				}
-				toBranches = append(toBranches, branch)
+			commit, err := cmdutil.ParseCommit(args[0])
+			if err != nil {
+				return err
 			}
 
 			c, err := client.NewOnUserMachine("user")
@@ -503,79 +631,31 @@ $ {{alias}} XXX -b bar@baz`,
 			}
 			defer c.Close()
 
-			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			writeCommitInfo := func(ci *pfs.CommitInfo) error {
-				if raw {
-					return marshaller.Marshal(os.Stdout, ci)
-				}
-				pretty.PrintCommitInfo(w, ci, fullTimestamps)
-				return nil
-			}
-			defer func() {
-				if err := w.Flush(); retErr == nil {
-					retErr = err
-				}
-			}()
-
-			waitCommit := func(commit *pfs.Commit) error {
-				ci, err := c.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
-				if err != nil {
-					return err
-				}
-				return writeCommitInfo(ci)
+			commitInfo, err := c.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			if err != nil {
+				return err
 			}
 
-			waitBranches := func(commitsetID string) error {
-				for _, branch := range toBranches {
-					if err := waitCommit(client.NewCommit(branch.Repo.Name, branch.Name, commitsetID)); err != nil {
-						return err
-					}
-				}
-				return nil
+			if raw {
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo)
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			// There are separate codepaths for whether or not we are waiting on a
-			// commit or commitset and whether we are interested in all the commits in
-			// the set or only specific branches.
-			if commit != nil {
-				if len(toBranches) != 0 {
-					// We just want to resolve the commit to get the ID and wait on the downstream branches
-					ci, err := c.InspectCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
-					if err != nil {
-						return err
-					}
-					return waitBranches(ci.Commit.ID)
-				}
-				// We are just waiting on a single commit, block on it and exit
-				return waitCommit(commit)
-			} else {
-				if len(toBranches) == 0 {
-					return waitBranches(commitsetID)
-				}
-				// We are waiting for the entire commitset to finish
-				commitInfos, err := c.WaitCommitSetAll(commitsetID)
-				if err != nil {
-					return err
-				}
-				for _, commitInfo := range commitInfos {
-					if err := writeCommitInfo(commitInfo); err != nil {
-						return err
-					}
-				}
+			ci := &pretty.PrintableCommitInfo{
+				CommitInfo:     commitInfo,
+				FullTimestamps: fullTimestamps,
 			}
-
-			return nil
+			return pretty.PrintDetailedCommitInfo(os.Stdout, ci)
 		}),
 	}
-	waitCommit.Flags().VarP(&branches, "branch", "b", "Wait only for commits in the specified set of branches")
-	waitCommit.MarkFlagCustom("branch", "__pachctl_get_branch")
-	waitCommit.Flags().AddFlagSet(rawFlags)
-	waitCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	waitCommit.Flags().AddFlagSet(outputFlags)
+	waitCommit.Flags().AddFlagSet(timestampFlags)
 	commands = append(commands, cmdutil.CreateAlias(waitCommit, "wait commit"))
 
 	var newCommits bool
 	subscribeCommit := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch>",
+		Use:   "{{alias}} <repo>[@<branch>]",
 		Short: "Print commits as they are created (finished).",
 		Long:  "Print commits as they are created in the specified repo and branch.  By default, all existing commits on the specified branch are returned first.  A commit is only considered 'created' when it's been finished.",
 		Example: `
@@ -598,12 +678,41 @@ $ {{alias}} test@master --new`,
 			}
 			defer c.Close()
 
+			var fromCommit *pfs.Commit
 			if newCommits && from != "" {
 				return errors.Errorf("--new and --from cannot be used together")
+			} else if newCommits || from != "" {
+				fromCommit = branch.NewCommit(from)
 			}
 
-			if newCommits {
-				from = branch.Name
+			if all && originStr != "" {
+				return errors.New("cannot specify both --all and --origin")
+			}
+
+			origin, err := parseOriginKind(originStr)
+			if err != nil {
+				return err
+			}
+
+			subscribeClient, err := c.PfsAPIClient.SubscribeCommit(c.Ctx(), &pfs.SubscribeCommitRequest{
+				Repo:       branch.Repo,
+				Branch:     branch.Name,
+				From:       fromCommit,
+				State:      pfs.CommitState_STARTED,
+				All:        all,
+				OriginKind: origin,
+			})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+
+			if raw {
+				encoder := cmdutil.Encoder(output, os.Stdout)
+				return clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
+					return encoder.EncodeProto(ci)
+				})
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
@@ -612,27 +721,29 @@ $ {{alias}} test@master --new`,
 					retErr = err
 				}
 			}()
-			return c.SubscribeCommit(branch.Repo, branch.Name, from, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
-				if raw {
-					return marshaller.Marshal(os.Stdout, ci)
-				}
+			if err := clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(w, ci, fullTimestamps)
 				return nil
-			})
+			}); err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			return err
 		}),
 	}
 	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
 	subscribeCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
-	subscribeCommit.Flags().AddFlagSet(rawFlags)
-	subscribeCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	subscribeCommit.Flags().BoolVar(&all, "all", false, "return all types of commits, including aliases")
+	subscribeCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
+	subscribeCommit.Flags().AddFlagSet(outputFlags)
+	subscribeCommit.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	squashCommitSet := &cobra.Command{
-		Use:   "{{alias}} <commitset>",
-		Short: "Squash the commits of a commitset.",
-		Long:  "Squash the commits of a commitset.  The data in the commits will remain in their child commits unless there are no children.",
+	squashCommit := &cobra.Command{
+		Use:   "{{alias}} <commit-id>",
+		Short: "Squash the sub-commits of a commit.",
+		Long:  "Squash the sub-commits of a commit.  The data in the sub-commits will remain in their child commits unless there are no children.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -645,8 +756,8 @@ $ {{alias}} test@master --new`,
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(squashCommitSet, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(squashCommitSet, "squash commitset"))
+	shell.RegisterCompletionFunc(squashCommit, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(squashCommit, "squash commit"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
@@ -687,13 +798,14 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 			var headCommit *pfs.Commit
 			if head != "" {
-				if uuid.IsUUIDWithoutDashes(head) {
-					headCommit = branch.Repo.NewCommit("", head)
-				} else {
+				if strings.Contains(head, "@") {
 					headCommit, err = cmdutil.ParseCommit(head)
 					if err != nil {
 						return err
 					}
+				} else {
+					// treat head as the commitID or branch name
+					headCommit = branch.Repo.NewCommit("", head)
 				}
 			}
 
@@ -718,7 +830,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	}
 	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch. format: <repo>@<branch-or-commit>")
 	createBranch.MarkFlagCustom("provenance", "__pachctl_get_repo_commit")
-	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
+	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch. Either pass the commit with format: <branch-or-commit>, or fully-qualified as <repo>@<branch>=<id>")
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	createBranch.Flags().StringVarP(&trigger.Branch, "trigger", "t", "", "The branch to trigger this branch on.")
 	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "The cron spec to use in triggering.")
@@ -750,14 +862,16 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return errors.Errorf("branch %s not found", args[0])
 			}
 			if raw {
-				return marshaller.Marshal(os.Stdout, branchInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(branchInfo)
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 
 			return pretty.PrintDetailedBranchInfo(branchInfo)
 		}),
 	}
-	inspectBranch.Flags().AddFlagSet(rawFlags)
-	inspectBranch.Flags().AddFlagSet(fullTimestampsFlags)
+	inspectBranch.Flags().AddFlagSet(outputFlags)
+	inspectBranch.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectBranch, "inspect branch"))
 
@@ -771,27 +885,32 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return err
 			}
 			defer c.Close()
-			branchInfos, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
+			branchClient, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
-			branches := branchInfos.BranchInfo
+
 			if raw {
-				for _, branch := range branches {
-					if err := marshaller.Marshal(os.Stdout, branch); err != nil {
-						return err
-					}
-				}
-				return nil
+				encoder := cmdutil.Encoder(output, os.Stdout)
+				err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+					return encoder.EncodeProto(branch)
+				})
+				return grpcutil.ScrubGRPC(err)
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
+
 			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
-			for _, branch := range branches {
+			if err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
 				pretty.PrintBranch(writer, branch)
+				return nil
+			}); err != nil {
+				return grpcutil.ScrubGRPC(err)
 			}
 			return writer.Flush()
 		}),
 	}
-	listBranch.Flags().AddFlagSet(rawFlags)
+	listBranch.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listBranch, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listBranch, "list branch"))
 
@@ -837,6 +956,7 @@ from commits with 'get file'.`,
 	var appendFile bool
 	var compress bool
 	var enableProgress bool
+	var fullPath bool
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
@@ -951,7 +1071,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if source == "-" {
 							return errors.Errorf("must specify filename when reading data from stdin")
 						}
-						if err := putFileHelper(mf, joinPaths("", source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					} else if len(sources) == 1 {
@@ -963,7 +1087,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 					} else {
 						// We have multiple sources and the user has specified a path,
 						// we use that path as a prefix for the filepaths.
-						if err := putFileHelper(mf, joinPaths(file.Path, source), source, recursive, appendFile); err != nil {
+						target := source
+						if !fullPath {
+							target = filepath.Base(source)
+						}
+						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile); err != nil {
 							return err
 						}
 					}
@@ -979,6 +1107,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
+	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
@@ -1109,12 +1238,14 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				return errors.Errorf("file %s not found", file.Path)
 			}
 			if raw {
-				return marshaller.Marshal(os.Stdout, fileInfo)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(fileInfo)
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			return pretty.PrintDetailedFileInfo(fileInfo)
 		}),
 	}
-	inspectFile.Flags().AddFlagSet(rawFlags)
+	inspectFile.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(inspectFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectFile, "inspect file"))
 
@@ -1162,9 +1293,12 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			}
 			defer c.Close()
 			if raw {
+				encoder := cmdutil.Encoder(output, os.Stdout)
 				return c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
-					return marshaller.Marshal(os.Stdout, fi)
+					return encoder.EncodeProto(fi)
 				})
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			header := pretty.FileHeader
 			if history != 0 {
@@ -1180,8 +1314,8 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			return writer.Flush()
 		}),
 	}
-	listFile.Flags().AddFlagSet(rawFlags)
-	listFile.Flags().AddFlagSet(fullTimestampsFlags)
+	listFile.Flags().AddFlagSet(outputFlags)
+	listFile.Flags().AddFlagSet(timestampFlags)
 	listFile.Flags().StringVar(&history, "history", "none", "Return revision history for files.")
 	shell.RegisterCompletionFunc(listFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
@@ -1213,12 +1347,15 @@ $ {{alias}} "foo@master:data/*"`,
 				return err
 			}
 			if raw {
+				encoder := cmdutil.Encoder(output, os.Stdout)
 				for _, fileInfo := range fileInfos {
-					if err := marshaller.Marshal(os.Stdout, fileInfo); err != nil {
+					if err := encoder.EncodeProto(fileInfo); err != nil {
 						return err
 					}
 				}
 				return nil
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
@@ -1227,8 +1364,8 @@ $ {{alias}} "foo@master:data/*"`,
 			return writer.Flush()
 		}),
 	}
-	globFile.Flags().AddFlagSet(rawFlags)
-	globFile.Flags().AddFlagSet(fullTimestampsFlags)
+	globFile.Flags().AddFlagSet(outputFlags)
+	globFile.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(globFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(globFile, "glob file"))
 
@@ -1331,8 +1468,8 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Don't descend into sub directories.")
 	diffFile.Flags().BoolVar(&nameOnly, "name-only", false, "Show only the names of changed files.")
 	diffFile.Flags().StringVar(&diffCmdArg, "diff-command", "", "Use a program other than git to diff files.")
-	diffFile.Flags().AddFlagSet(fullTimestampsFlags)
-	diffFile.Flags().AddFlagSet(noPagerFlags)
+	diffFile.Flags().AddFlagSet(timestampFlags)
+	diffFile.Flags().AddFlagSet(pagerFlags)
 	shell.RegisterCompletionFunc(diffFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(diffFile, "diff file"))
 
@@ -1351,9 +1488,14 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 			defer c.Close()
 
-			return c.DeleteFile(file.Commit, file.Path)
+			var opts []client.DeleteFileOption
+			if recursive {
+				opts = append(opts, client.WithRecursiveDeleteFile())
+			}
+			return c.DeleteFile(file.Commit, file.Path, opts...)
 		}),
 	}
+	deleteFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively delete the files in a directory.")
 	shell.RegisterCompletionFunc(deleteFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteFile, "delete file"))
 
@@ -1397,6 +1539,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
+	var branchStr string
 	var seed int64
 	runLoadTest := &cobra.Command{
 		Use:     "{{alias}} <spec>",
@@ -1417,13 +1560,21 @@ Objects are a low-level resource and should not be accessed directly by most use
 			if err != nil {
 				return err
 			}
-			resp, err := c.RunPFSLoadTest(spec, seed)
+			var branch *pfs.Branch
+			if branchStr != "" {
+				branch, err = cmdutil.ParseBranch(branchStr)
+				if err != nil {
+					return err
+				}
+			}
+			resp, err := c.RunPFSLoadTest(spec, branch, seed)
 			if err != nil {
 				return err
 			}
-			return marshaller.Marshal(os.Stdout, resp)
+			return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
 		}),
 	}
+	runLoadTest.Flags().StringVarP(&branchStr, "branch", "b", "", "The branch to use for generating the load.")
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pfs-load-test"))
 
@@ -1500,10 +1651,11 @@ func joinPaths(prefix, filePath string) string {
 }
 
 func dlFile(pachClient *client.APIClient, f *pfs.File) (_ string, retErr error) {
-	if err := os.MkdirAll(filepath.Join(os.TempDir(), filepath.Dir(f.Path)), 0777); err != nil {
+	tempDir := filepath.Join(os.TempDir(), filepath.Dir(f.Path))
+	if err := os.MkdirAll(tempDir, 0777); err != nil {
 		return "", err
 	}
-	file, err := ioutil.TempFile("", f.Path+"_")
+	file, err := ioutil.TempFile(tempDir, filepath.Base(f.Path+"_"))
 	if err != nil {
 		return "", err
 	}
@@ -1570,4 +1722,23 @@ func newClient(name string, options ...client.Option) (*client.APIClient, error)
 		}
 	}
 	return client.NewOnUserMachine(name, options...)
+}
+
+func parseOriginKind(input string) (pfs.OriginKind, error) {
+	if input == "" {
+		return pfs.OriginKind_ORIGIN_KIND_UNKNOWN, nil
+	}
+
+	result := pfs.OriginKind(pfs.OriginKind_value[strings.ToUpper(input)])
+	if result == pfs.OriginKind_ORIGIN_KIND_UNKNOWN {
+		names := []string{}
+		for name, value := range pfs.OriginKind_value {
+			if pfs.OriginKind(value) != pfs.OriginKind_ORIGIN_KIND_UNKNOWN {
+				names = append(names, name)
+			}
+		}
+		return pfs.OriginKind_ORIGIN_KIND_UNKNOWN, errors.Errorf("unknown commit origin type '%s', must be one of: %s", input, strings.Join(names, ", "))
+	}
+
+	return result, nil
 }

@@ -8,7 +8,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -23,7 +22,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/storagegateway"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	log "github.com/sirupsen/logrus"
 )
@@ -96,6 +97,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		httpClient.Transport = transport
 	}
+	httpClient.Transport = promutil.InstrumentRoundTripper("s3", httpClient.Transport)
 	awsConfig := &aws.Config{
 		Region:     aws.String(region),
 		MaxRetries: aws.Int(advancedConfig.Retries),
@@ -210,7 +212,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 			}
 			url = strings.TrimSpace(signedURL)
 		}
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return err
 		}
@@ -221,7 +223,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 				tracing.FinishAnySpan(span, "err", retErr)
 			}()
 			resp, connErr = http.DefaultClient.Do(req)
-			if connErr != nil && isNetRetryable(connErr) {
+			if connErr != nil && errutil.IsNetRetryable(connErr) {
 				return connErr
 			}
 			return nil
@@ -242,7 +244,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 			Bucket: aws.String(c.bucket),
 			Key:    aws.String(name),
 		}
-		getObjectOutput, err := c.s3.GetObject(objIn)
+		getObjectOutput, err := c.s3.GetObjectWithContext(ctx, objIn)
 		if err != nil {
 			return err
 		}
@@ -303,6 +305,10 @@ func (c *amazonClient) transformError(err error, objectPath string) error {
 	if !errors.As(err, &awsErr) {
 		return err
 	}
+	// errors.Is is unable to correctly identify context.Cancel with the amazon error types
+	if strings.Contains(awsErr.Error(), "RequestCanceled") {
+		return context.Canceled
+	}
 	if strings.Contains(awsErr.Message(), "SlowDown:") {
 		return pacherr.WrapTransient(err, minWait)
 	}
@@ -315,9 +321,4 @@ func (c *amazonClient) transformError(err error, objectPath string) error {
 		return pacherr.WrapTransient(err, minWait)
 	}
 	return err
-}
-
-func isNetRetryable(err error) bool {
-	var netErr net.Error
-	return errors.As(err, &netErr) && netErr.Temporary()
 }

@@ -23,7 +23,7 @@ const DexMockConnectorEmail = `kilgore@kilgore.trout`
 // OIDCOIDCConfig is an auth config which can be used to connect to the identity service in tests
 func OIDCOIDCConfig() *auth.OIDCConfig {
 	return &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
+		Issuer:          "http://pachd:1658/",
 		ClientID:        "pachyderm",
 		ClientSecret:    "notsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/callback",
@@ -42,7 +42,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 
 	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer: "http://localhost:30658/",
+			Issuer: "http://pachd:1658/",
 		},
 	})
 	require.NoError(t, err)
@@ -52,7 +52,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 		resp, err := adminClient.GetIdentityServerConfig(adminClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			"http://localhost:30658/", resp.Config.Issuer,
+			"http://pachd:1658/", resp.Config.Issuer,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -109,6 +109,10 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	resp, err := c.Get(RewriteURL(t, loginURL, DexHost(enterpriseClient)))
 	require.NoError(t, err)
 
+	// Dex login redirects to the provider page, which will generate it's own state
+	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(enterpriseClient)))
+	require.NoError(t, err)
+
 	// Because we've only configured username/password login, there's a redirect
 	// to the login page. The params have the session state. POST our hard-coded
 	// credentials to the login page.
@@ -157,6 +161,10 @@ func GetOIDCTokenForTrustedApp(t testing.TB) string {
 
 	// Hit the dex login page for the test client with a fixed nonce
 	resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
+	require.NoError(t, err)
+
+	// Dex login redirects to the provider page, which will generate it's own state
+	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
 	require.NoError(t, err)
 
 	// Because we've only configured username/password login, there's a redirect

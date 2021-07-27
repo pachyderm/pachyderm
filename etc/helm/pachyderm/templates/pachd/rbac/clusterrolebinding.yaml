@@ -1,0 +1,22 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if and .Values.rbac.create .Values.rbac.clusterRBAC .Values.pachd.enabled -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: ""
+  kind: ClusterRole
+  name: pachyderm
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.pachd.serviceAccount.name | quote }}
+  namespace: {{ .Release.Namespace }}
+{{ end -}}

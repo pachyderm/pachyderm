@@ -18,6 +18,8 @@ import (
 type Client interface {
 	WithModifyFileClient(ctx context.Context, commit *pfs.Commit, cb func(client.ModifyFile) error) error
 	GetFileTar(ctx context.Context, commit *pfs.Commit, path string) (io.Reader, error)
+	WaitCommitSet(id string, cb func(*pfs.CommitInfo) error) error
+	Ctx() context.Context
 }
 
 type pachClient struct {
@@ -34,6 +36,14 @@ func (pc *pachClient) WithModifyFileClient(ctx context.Context, commit *pfs.Comm
 
 func (pc *pachClient) GetFileTar(ctx context.Context, commit *pfs.Commit, path string) (io.Reader, error) {
 	return pc.client.WithCtx(ctx).GetFileTar(commit, path)
+}
+
+func (pc *pachClient) WaitCommitSet(id string, cb func(*pfs.CommitInfo) error) error {
+	return pc.client.WaitCommitSet(id, cb)
+}
+
+func (pc *pachClient) Ctx() context.Context {
+	return pc.client.Ctx()
 }
 
 type ThroughputSpec struct {

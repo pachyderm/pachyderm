@@ -15,7 +15,6 @@ import (
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -23,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
@@ -56,7 +56,7 @@ func RunLocal() (retErr error) {
 	config := &serviceenv.PachdFullConfiguration{}
 	cmdutil.Populate(config)
 
-	config.PostgresServiceSSL = "disable"
+	config.PostgresSSL = "disable"
 
 	f, err := os.OpenFile("/tmp/pach/pachd-log", os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
@@ -210,8 +210,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))
+			licenseAPIServer, err := licenseserver.New(env)
 			if err != nil {
 				return err
 			}
@@ -386,37 +385,12 @@ func RunLocal() (retErr error) {
 	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	// TODO: Make http server work with V2.
-	//go waitForError("HTTP Server", errChan, requireNoncriticalServers, func() error {
-	//	httpServer, err := pach_http.NewHTTPServer(address)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	server := http.Server{
-	//		Addr:    fmt.Sprintf(":%v", env.HTTPPort),
-	//		Handler: httpServer,
-	//	}
-
-	//	certPath, keyPath, err := tls.GetCertPaths()
-	//	if err != nil {
-	//		log.Warnf("pfs-over-HTTP - TLS disabled: %v", err)
-	//		return server.ListenAndServe()
-	//	}
-
-	//	cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-	//	err = cLoader.LoadAndStart()
-	//	if err != nil {
-	//		return errors.Wrapf(err, "couldn't load TLS cert for pfs-over-http: %v", err)
-	//	}
-
-	//	server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-
-	//	return server.ListenAndServeTLS(certPath, keyPath)
-	//})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		server, err := s3.Server(env.Config().S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
+		router := s3.Router(s3.NewMasterDriver(), func() (*client.APIClient, error) {
 			return client.NewFromURI(fmt.Sprintf("localhost:%d", env.Config().PeerPort))
 		})
+		server := s3.Server(env.Config().S3GatewayPort, router)
+
 		if err != nil {
 			return err
 		}

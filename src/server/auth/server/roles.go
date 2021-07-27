@@ -6,14 +6,28 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 )
 
-var roles = make(map[string]*auth.Role)
+type internalRole struct {
+	role             *auth.Role
+	permissionsIndex map[auth.Permission]bool
+}
+
+var roles = make(map[string]*internalRole)
 
 func registerRole(r *auth.Role) *auth.Role {
-	roles[r.Name] = r
+	permissionsIndex := make(map[auth.Permission]bool)
+
+	for _, permission := range r.Permissions {
+		permissionsIndex[permission] = true
+	}
+
+	roles[r.Name] = &internalRole{
+		role:             r,
+		permissionsIndex: permissionsIndex,
+	}
 	return r
 }
 
-func getRole(name string) (*auth.Role, error) {
+func getRole(name string) (*internalRole, error) {
 	r, ok := roles[name]
 	if !ok {
 		return nil, fmt.Errorf("unknown role %q", name)
@@ -111,6 +125,7 @@ func init() {
 		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_DEBUG_DUMP,
+			auth.Permission_CLUSTER_GET_PACHD_LOGS,
 		},
 	})
 
@@ -149,6 +164,14 @@ func init() {
 		},
 	})
 
+	pachdLogReaderRole := registerRole(&auth.Role{
+		Name:          auth.PachdLogReaderRole,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Permissions: []auth.Permission{
+			auth.Permission_CLUSTER_GET_PACHD_LOGS,
+		},
+	})
+
 	// clusterAdmin is a catch-all role that has every permission
 	registerRole(&auth.Role{
 		Name:          auth.ClusterAdminRole,
@@ -162,6 +185,7 @@ func init() {
 			robotUserRole.Permissions,
 			licenseAdminRole.Permissions,
 			secretAdminRole.Permissions,
+			pachdLogReaderRole.Permissions,
 			[]auth.Permission{
 				auth.Permission_CLUSTER_MODIFY_BINDINGS,
 				auth.Permission_CLUSTER_GET_BINDINGS,
@@ -202,4 +226,14 @@ func roleAppliesToResource(r *auth.Role, rt auth.ResourceType) bool {
 		}
 	}
 	return false
+}
+
+func rolesForPermission(permission auth.Permission) []*auth.Role {
+	resp := make([]*auth.Role, 0)
+	for _, r := range roles {
+		if _, ok := r.permissionsIndex[permission]; ok {
+			resp = append(resp, r.role)
+		}
+	}
+	return resp
 }

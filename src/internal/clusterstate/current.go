@@ -16,6 +16,7 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/identity"
 	"github.com/pachyderm/pachyderm/v2/src/server/license"
+	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
@@ -88,4 +89,9 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 	}).
 	Apply("identity config token lifetime", func(ctx context.Context, env migrations.Env) error {
 		return identity.AddTokenExpiryConfig(ctx, env.Tx)
+	}).
+	Apply("create license collection", func(ctx context.Context, env migrations.Env) error {
+		collections := []col.PostgresCollection{}
+		collections = append(collections, licenseserver.AllCollections()...)
+		return col.SetupPostgresCollections(ctx, env.Tx, collections...)
 	})

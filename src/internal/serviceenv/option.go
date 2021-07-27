@@ -33,13 +33,6 @@ func ConfigFromOptions(opts ...ConfigOption) *Configuration {
 	return result
 }
 
-func WithPostgresHostPort(host string, port int) ConfigOption {
-	return func(config *Configuration) {
-		config.PostgresServiceHost = host
-		config.PostgresServicePort = port
-	}
-}
-
 func WithEtcdHostPort(host string, port string) ConfigOption {
 	return func(config *Configuration) {
 		config.EtcdHost = host

@@ -31,6 +31,10 @@ const (
 	// string (with this prefix) is a logical Pachyderm robot user.
 	RobotPrefix = "robot:"
 
+	// InternalPrefix indicates that this Subject is internal to Pachyderm itself,
+	// created to run a background task
+	InternalPrefix = "internal:"
+
 	// PipelinePrefix indicates that this Subject is a PPS pipeline. Any string
 	// (with this prefix) is a logical PPS pipeline (even though the pipeline may
 	// not exist).
@@ -84,6 +88,9 @@ const (
 
 	// SecretAdminRole is a role which grants the ability to manage secrets
 	SecretAdminRole = "secretAdmin"
+
+	// PachdLogReaderRole is a role which grants the ability to pull pachd logs
+	PachdLogReaderRole = "pachdLogReader"
 )
 
 var (
@@ -205,7 +212,7 @@ type ErrNotAuthorized struct {
 const errNotAuthorizedMsg = "not authorized to perform this operation"
 
 func (e *ErrNotAuthorized) Error() string {
-	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
+	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v. Run `pachctl auth roles-for-permission` to find roles that grant a given permission.", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
 }
 
 // IsErrNotAuthorized checks if an error is a ErrNotAuthorized

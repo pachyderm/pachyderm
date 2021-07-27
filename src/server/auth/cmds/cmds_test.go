@@ -286,14 +286,14 @@ func TestConfig(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
         pachctl auth set-config <<EOF
         {
-            "issuer": "http://localhost:30658/",
+            "issuer": "http://pachd:1658/",
             "localhost_issuer": true,
             "client_id": "localhost",
             "redirect_uri": "http://localhost:1650"
         }
 EOF
 		pachctl auth get-config \
-		  | match '"issuer": "http://localhost:30658/"' \
+		  | match '"issuer": "http://pachd:1658/"' \
 		  | match '"localhost_issuer": true' \
 		  | match '"client_id": "localhost"' \
 		  | match '"redirect_uri": "http://localhost:1650"' \
@@ -302,7 +302,7 @@ EOF
 
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth get-config -o yaml \
-		  | match 'issuer: http://localhost:30658/' \
+		  | match 'issuer: http://pachd:1658/' \
 		  | match 'localhost_issuer: true' \
 		  | match 'client_id: localhost' \
 		  | match 'redirect_uri: http://localhost:1650' \
