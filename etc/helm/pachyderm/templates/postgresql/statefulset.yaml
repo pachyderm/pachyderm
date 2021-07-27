@@ -36,9 +36,8 @@ spec:
           value: {{ .Values.global.postgresql.postgresqlDatabase | quote }}
         - name: POSTGRES_USER
           value: {{ .Values.global.postgresql.postgresqlUsername | quote }}
-        - name: POSTGRES_HOST_AUTH_METHOD
-          # TODO: Remove trust as auth method
-          value: trust
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.global.postgresql.postgresqlPassword | quote }}
         image: postgres:13.0-alpine
         imagePullPolicy: IfNotPresent
         name: postgres
