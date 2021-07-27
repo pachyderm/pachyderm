@@ -34,7 +34,7 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "b6769ac1ad4561d76e9382bc24ac271bc7686956"
+    tag: "41f09332d40f1e897314f0529fd5bbda37fc069e"
   # podLabels specifies labels to add to the console pod.
   podLabels: {}
   # resources specifies the resource request and limits.
@@ -195,6 +195,9 @@ pachd:
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
+  enterpriseLicenseKey: ""
+  rootToken: ""
+  enterpriseSecret: ""
   serviceAccount:
     create: true
     additionalAnnotations: {}
@@ -322,7 +325,7 @@ pachd:
       create: false
       crt: ""
       key: ""
- 
+
 rbac:
   # create indicates whether RBAC resources should be created.
   # Setting it to false is analogous to passing --no-rbac to pachctl
