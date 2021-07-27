@@ -326,9 +326,8 @@ type postgresListener struct {
 }
 
 func NewPostgresListener(dsn string) PostgresListener {
-	// Apparently this was very important for lib/pq to work
+	// Apparently this is very important for lib/pq to work
 	dsn = strings.Replace(dsn, "statement_cache_mode=describe", "", -1)
-	dsn += " binary_parameters=yes"
 	eg, _ := errgroup.WithContext(context.Background())
 
 	l := &postgresListener{
