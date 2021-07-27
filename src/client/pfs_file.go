@@ -416,6 +416,9 @@ func (c APIClient) RenewFileSet(ID string, ttl time.Duration) (retErr error) {
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
 func (c APIClient) GetFile(commit *pfs.Commit, path string, w io.Writer) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	gfc, err := c.PfsAPIClient.GetFile(ctx, &pfs.GetFileRequest{
