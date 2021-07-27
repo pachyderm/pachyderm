@@ -147,9 +147,34 @@ func (a *validatedAPIServer) SquashCommitSet(ctx context.Context, request *pfs.S
 	return a.apiServer.SquashCommitSet(ctx, request)
 }
 
+func (a *validatedAPIServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) error {
+	if request.File == nil {
+		return errors.New("file cannot be nil")
+	}
+	if request.File.Commit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if request.File.Commit.Branch == nil {
+		return errors.New("branch cannot be nil")
+	}
+	if request.File.Commit.Branch.Repo == nil {
+		return errors.New("repo cannot be nil")
+	}
+	return a.apiServer.GetFile(request, server)
+}
+
 func (a *validatedAPIServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) error {
 	if request.File == nil {
 		return errors.New("file cannot be nil")
+	}
+	if request.File.Commit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if request.File.Commit.Branch == nil {
+		return errors.New("branch cannot be nil")
+	}
+	if request.File.Commit.Branch.Repo == nil {
+		return errors.New("repo cannot be nil")
 	}
 	return a.apiServer.GetFileTAR(request, server)
 }

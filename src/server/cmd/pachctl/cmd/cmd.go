@@ -541,6 +541,8 @@ This resets the cluster to its initial state.`,
 	var remoteS3gatewayPort uint16
 	var dexPort uint16
 	var remoteDexPort uint16
+	var dashPort uint16
+	var remoteDashPort uint16
 	var namespace string
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
@@ -612,6 +614,16 @@ This resets the cluster to its initial state.`,
 				successCount++
 			}
 
+			fmt.Println("Forwarding the dash service port...")
+			port, err = fw.RunForDash(dashPort, remoteDashPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["dash"] = uint32(port)
+				successCount++
+			}
+
 			if successCount == 0 {
 				return errors.New("failed to start port forwarders")
 			}
@@ -655,6 +667,8 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16Var(&remoteS3gatewayPort, "remote-s3gateway-port", 1600, "The remote port that the s3 gateway is bound to.")
 	portForward.Flags().Uint16Var(&dexPort, "dex-port", 30658, "The local port to bind the identity service to.")
 	portForward.Flags().Uint16Var(&remoteDexPort, "remote-dex-port", 1658, "The local port to bind the identity service to.")
+	portForward.Flags().Uint16Var(&dashPort, "dash-port", 34000, "The local port to bind the dash service to.")
+	portForward.Flags().Uint16Var(&remoteDashPort, "remote-dash-port", 4000, "The remote port to bind the dash service to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace Pachyderm is deployed in.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
@@ -931,7 +945,7 @@ Commands by Action:{{range actions}}{{if .IsAvailableCommand}}
 Other Commands:{{range other}}{{if .IsAvailableCommand}}
   {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
 
-Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
+Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
   {{rpad .Name .NamePadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
 
 Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}

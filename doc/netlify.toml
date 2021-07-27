@@ -125,6 +125,18 @@
   force = true
 
 [[redirects]]
+  from = "/2.0.x/how-tos/basic-data-operations/ingressing_from_diff_cloud/"
+  to = "/latest/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/2.0.x/deploy-manage/deploy/deploy_custom/*"
+  to = "/latest/deploy-manage/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/latest/how-tos/use-jupyterhub/"
   to = "/latest/how-tos/use-pachyderm-ide/"
   status = 301

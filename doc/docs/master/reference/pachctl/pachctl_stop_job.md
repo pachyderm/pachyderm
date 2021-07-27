@@ -7,7 +7,7 @@ Stop a job.
 Stop a job.  The job will be stopped immediately.
 
 ```
-pachctl stop job <job> [flags]
+pachctl stop job <pipeline>@<job> [flags]
 ```
 
 ### Options

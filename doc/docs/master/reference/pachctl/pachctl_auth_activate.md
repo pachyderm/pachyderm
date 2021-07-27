@@ -4,9 +4,7 @@ Activate Pachyderm's auth system
 
 ### Synopsis
 
-Activate Pachyderm's auth system, and restrict access to existing data to the
-user running the command (or the argument to --initial-admin), who will be the
-first cluster admin
+Activate Pachyderm's auth system, and restrict access to existing data to the root user
 
 ```
 pachctl auth activate [flags]
@@ -15,13 +13,15 @@ pachctl auth activate [flags]
 ### Options
 
 ```
-  -h, --help                   help for activate
-      --initial-admin string   The subject (robot user or github user) who
-                               will be the first cluster admin; the user running 'activate' will identify as
-                               this user once auth is active.  If you set 'initial-admin' to a robot
-                               user, pachctl will print that robot user's Pachyderm token; this token is
-                               effectively a root token, and if it's lost you will be locked out of your
-                               cluster
+      --client-id string        The client ID for this pachd (default "pachd")
+      --enterprise              Activate auth on the active enterprise context
+  -h, --help                    help for activate
+      --issuer string           The issuer for the OIDC service (default "http://pachd:1658/")
+      --only-activate           Activate auth without configuring the OIDC service
+      --redirect string         The redirect URL for the OIDC service (default "http://localhost:30657/authorization-code/callback")
+      --scopes strings          Comma-separated list of scopes to request (default [email,profile,groups,openid])
+      --supply-root-token       Prompt the user to input a root token on stdin, rather than generating a random one.
+      --trusted-peers strings   Comma-separated list of OIDC client IDs to trust
 ```
 
 ### Options inherited from parent commands

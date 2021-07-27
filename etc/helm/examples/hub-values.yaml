@@ -11,7 +11,7 @@ global:
     postgresqlUsername: "postgres"
     postgresqlPassword: "Example-Password"
 
-dash:
+console:
   enabled: true
   image:
     tag: "newVersion"
@@ -33,10 +33,10 @@ ingress:
   enabled: true
   tls:
     enabled: true
-    secretName: "dash-tls"
+    secretName: "console-tls"
   annotations:
     kubernetes.io/ingress.class: "traefik"
-  host: "dash.test"
+  host: "console.test"
 
 pachd:
   goMaxProcs: 3

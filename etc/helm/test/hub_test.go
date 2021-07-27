@@ -18,7 +18,7 @@ func TestHub(t *testing.T) {
 		checks  = map[string]bool{
 			"ingress":                             false,
 			"metricsEndpoint":                     false,
-			"dash limits":                         false,
+			"console limits":                      false,
 			"etcd limits":                         false,
 			"loki logging":                        false,
 			"postgres host":                       false,
@@ -45,7 +45,7 @@ func TestHub(t *testing.T) {
 		switch object := object.(type) {
 		case *v1beta1.Ingress:
 			for _, rule := range object.Spec.Rules {
-				if rule.Host == "dash.test" {
+				if rule.Host == "console.test" {
 					checks["ingress"] = true
 				}
 			}
@@ -92,15 +92,15 @@ func TestHub(t *testing.T) {
 						}
 					}
 				}
-			case "dash":
+			case "console":
 				for _, cc := range object.Spec.Template.Spec.Containers {
-					if cc.Name != "dash" {
+					if cc.Name != "console" {
 						continue
 					}
 					if len(cc.Resources.Limits) > 0 {
-						t.Errorf("dash should have no resource limits")
+						t.Errorf("console should have no resource limits")
 					}
-					checks["dash limits"] = true
+					checks["console limits"] = true
 				}
 			}
 		case *v1.Secret:

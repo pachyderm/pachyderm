@@ -13,12 +13,15 @@ pachd:
     type: NodePort
   metrics:
     enabled: false
+  clusterDeploymentID: dev
+  enterpriseLicenseKey: ""
 
-dash:
+console:
   enabled: false
   config:
     issuerURI: "http://pachd:1658"
     oauthRedirectURI: "http://localhost:4000/oauth/callback/?inline=true"
+    reactAppRuntimeIssuerURI: "http://localhost:30658/"
     oauthClientID: "dash"
     oauthClientSecret: "notsecret"
     graphqlPort: 4000

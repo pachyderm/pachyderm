@@ -23,19 +23,19 @@ global:
     postgresqlPort: "5432"
     postgresqlSSL: "disable"
 
-dash:
-  # enabled controls whether the dash manifests are created or not.
+console:
+  # enabled controls whether the console manifests are created or not.
   enabled: false
   image:
     # repository is the image repo to pull from; together with tag it
-    # replicates the --dash-image & --registry arguments to pachctl
+    # replicates the --console-image & --registry arguments to pachctl
     # deploy.
     repository: "pachyderm/haberdashery"
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
-    # replicates the --dash-image argument to pachctl deploy.
-    tag: "b6769ac1ad4561d76e9382bc24ac271bc7686956"
-  # podLabels specifies labels to add to the dash pod.
+    # replicates the --console-image argument to pachctl deploy.
+    tag: "41f09332d40f1e897314f0529fd5bbda37fc069e"
+  # podLabels specifies labels to add to the console pod.
   podLabels: {}
   # resources specifies the resource request and limits.
   resources: {}
@@ -56,9 +56,9 @@ dash:
     pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
 
   service:
-    # labels specifies labels to add to the dash service.
+    # labels specifies labels to add to the console service.
     labels: {}
-    # type specifies the Kubernetes type of the dash service.
+    # type specifies the Kubernetes type of the console service.
     type: ClusterIP
 
 etcd:
@@ -195,6 +195,9 @@ pachd:
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
+  enterpriseLicenseKey: ""
+  rootToken: ""
+  enterpriseSecret: ""
   serviceAccount:
     create: true
     additionalAnnotations: {}
@@ -322,7 +325,7 @@ pachd:
       create: false
       crt: ""
       key: ""
- 
+
 rbac:
   # create indicates whether RBAC resources should be created.
   # Setting it to false is analogous to passing --no-rbac to pachctl
