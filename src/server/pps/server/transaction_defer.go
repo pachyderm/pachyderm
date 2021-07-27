@@ -1,8 +1,10 @@
 package server
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -71,6 +73,52 @@ func (t *JobStopper) Run() error {
 			if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ppsdb.JobsJobSetIndex, commitset.ID, jobInfo, col.DefaultOptions(), func(string) error {
 				return t.a.stopJob(t.txnCtx, jobInfo.Job, "output commit removed")
 			}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+type JobFinisher struct {
+	a           *apiServer
+	txnCtx      *txncontext.TransactionContext
+	commitInfos []*pfs.CommitInfo
+}
+
+func (a *apiServer) NewJobFinisher(txnCtx *txncontext.TransactionContext) txncontext.PpsJobFinisher {
+	return &JobFinisher{
+		a:      a,
+		txnCtx: txnCtx,
+	}
+}
+
+func (jf *JobFinisher) FinishJob(commitInfo *pfs.CommitInfo) {
+	jf.commitInfos = append(jf.commitInfos, commitInfo)
+}
+
+func (jf *JobFinisher) Run() error {
+	if len(jf.commitInfos) > 0 {
+		pipelines := jf.a.pipelines.ReadWrite(jf.txnCtx.SqlTx)
+		jobs := jf.a.jobs.ReadWrite(jf.txnCtx.SqlTx)
+		for _, commitInfo := range jf.commitInfos {
+			jobKey := ppsdb.JobKey(client.NewJob(commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.ID))
+			jobInfo := &pps.JobInfo{}
+			if err := jobs.Get(jobKey, jobInfo); err != nil {
+				// Commits in source repos will not have a job associated with them.
+				if col.IsErrNotFound(err) {
+					continue
+				}
+				return err
+			}
+			if jobInfo.State != pps.JobState_JOB_FINISHING {
+				return nil
+			}
+			state := pps.JobState_JOB_SUCCESS
+			if commitInfo.Error {
+				state = pps.JobState_JOB_FAILURE
+			}
+			if err := ppsutil.UpdateJobState(pipelines, jobs, jobInfo, state, ""); err != nil {
 				return err
 			}
 		}

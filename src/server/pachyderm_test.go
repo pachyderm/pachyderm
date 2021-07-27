@@ -8937,11 +8937,6 @@ func TestMalformedPipeline(t *testing.T) {
 }
 
 func TestTrigger(t *testing.T) {
-	// TODO(2.0 required): This test does not work with V2. It is not clear what the issue is yet. Something noteworthy is that the output
-	// size does not increase for the second to last commit, which may have something to do with compaction (the trigger won't kick
-	// off since it is based on the output size). The output size calculation is a bit questionable due to the compaction delay (a
-	// file may be accounted for in the size even if it is deleted).
-	t.Skip("Does not work with V2, needs investigation")
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
@@ -8992,10 +8987,12 @@ func TestTrigger(t *testing.T) {
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)), client.WithAppendPutFile()))
 	}
-	// This should have given us a job, flush to let it complete.
-	commitInfos, err := c.WaitCommitSetAll(dataCommit.ID)
+	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	// This should have given us a job, flush to let it complete.
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(commitInfos))
 	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(pipelineCommit1, fmt.Sprintf("file%d", i), &buf))
@@ -9008,11 +9005,11 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)), client.WithAppendPutFile()))
 		require.NoError(t, err)
 	}
-	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
+	require.Equal(t, 9, len(commitInfos))
 	for i := 0; i < numFiles*2; i++ {
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(pipelineCommit1, fmt.Sprintf("file%d", i), &buf))
@@ -9023,10 +9020,10 @@ func TestTrigger(t *testing.T) {
 	}
 	commitInfos, err = c.ListCommit(client.NewRepo(pipeline1), client.NewCommit(pipeline1, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 	commitInfos, err = c.ListCommit(client.NewRepo(pipeline2), client.NewCommit(pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	require.NoError(t, c.CreatePipeline(
 		pipeline2,
@@ -9049,24 +9046,26 @@ func TestTrigger(t *testing.T) {
 	// rather than creating a new one.
 	bis, err := c.ListBranch(pipeline1)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(bis))
+	require.Equal(t, 2, len(bis))
 
 	commitInfos, err = c.ListCommit(client.NewRepo(pipeline2), client.NewCommit(pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 
 	// Another 30 100 byte files = 3K, so the last file should trigger both pipelines.
 	for i := 2 * numFiles; i < 5*numFiles; i++ {
 		require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)), client.WithAppendPutFile()))
 	}
 
-	commitInfos, err = c.WaitCommitSetAll(dataCommit.ID)
+	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
+	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, 9, len(commitInfos))
 
 	commitInfos, err = c.ListCommit(client.NewRepo(pipeline2), client.NewCommit(pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, 4, len(commitInfos))
 }
 
 func TestListDatum(t *testing.T) {
@@ -9351,6 +9350,8 @@ func TestPipelineAutoscaling(t *testing.T) {
 }
 
 func TestListDeletedDatums(t *testing.T) {
+	// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
+	t.Skip("Duplicate file paths from different datums no longer allowed.")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -9516,6 +9517,8 @@ func TestNonrootPipeline(t *testing.T) {
 }
 
 func TestRewindCrossPipeline(t *testing.T) {
+	// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
+	t.Skip("Duplicate file paths from different datums no longer allowed.")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

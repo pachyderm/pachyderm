@@ -31,7 +31,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -716,10 +715,10 @@ func TestPFS(suite *testing.T) {
 		require.True(t, started.Before(tStarted))
 		require.Nil(t, commitInfo.Finished)
 
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 		finished := time.Now()
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
-		commitInfo, err = env.PachClient.InspectCommit(repo, commit.Branch.Name, commit.ID)
+		commitInfo, err = env.PachClient.WaitCommit(repo, commit.Branch.Name, commit.ID)
 		require.NoError(t, err)
 
 		tStarted, err = types.TimestampFromProto(commitInfo.Started)
@@ -732,7 +731,7 @@ func TestPFS(suite *testing.T) {
 		require.NotNil(t, commitInfo.Finished)
 		require.Equal(t, len(fileContent), int(commitInfo.Details.SizeBytes))
 		require.True(t, started.Before(tStarted))
-		require.True(t, finished.After(tFinished))
+		require.True(t, finished.Before(tFinished))
 	})
 
 	suite.Run("InspectCommitWait", func(t *testing.T) {
@@ -848,7 +847,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit, commitInfos[0].Commit)
 		// TODO(2.0 required)?: ListCommit doesn't get the actual size of the
 		// commits (even if they're finished) - do an inspect commit instead.
-		commitInfo, err := env.PachClient.InspectCommit(repo, commit.Branch.Name, commit.ID)
+		commitInfo, err := env.PachClient.WaitCommit(repo, commit.Branch.Name, commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, int64(4), commitInfo.Details.SizeBytes)
 
@@ -2469,6 +2468,33 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, env.PachClient.PutFile(commit, "foobar*", strings.NewReader("foobar\n")))
 	})
 
+	suite.Run("PutFileValidPaths", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		// Duplicate paths, different tags.
+		branch := "branch-1"
+		require.NoError(t, env.PachClient.WithModifyFileClient(client.NewCommit(repo, branch, ""), func(mf client.ModifyFile) error {
+			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), client.WithTagPutFile("tag1")))
+			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), client.WithTagPutFile("tag2")))
+			return nil
+		}))
+		commitInfo, err := env.PachClient.WaitCommit(repo, branch, "")
+		require.NoError(t, err)
+		require.True(t, commitInfo.Error)
+		// Directory and file path collision.
+		branch = "branch-2"
+		require.NoError(t, env.PachClient.WithModifyFileClient(client.NewCommit(repo, branch, ""), func(mf client.ModifyFile) error {
+			require.NoError(t, mf.PutFile("foo/bar", strings.NewReader("foo\n")))
+			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n")))
+			return nil
+		}))
+		commitInfo, err = env.PachClient.WaitCommit(repo, branch, "")
+		require.NoError(t, err)
+		require.True(t, commitInfo.Error)
+	})
+
 	suite.Run("BigListFile", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -2594,7 +2620,9 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("A", "master", ""))
 
 		// do the other commits in a goro so we can block for them
+		done := make(chan struct{})
 		go func() {
+			defer close(done)
 			require.NoError(t, env.PachClient.FinishCommit("B", "master", ""))
 			require.NoError(t, env.PachClient.FinishCommit("C", "master", ""))
 			require.NoError(t, env.PachClient.FinishCommit("D", "master", ""))
@@ -2611,6 +2639,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, BCommit, commitInfos[1].Commit)
 		require.Equal(t, CCommit, commitInfos[2].Commit)
 		require.Equal(t, DCommit, commitInfos[3].Commit)
+		<-done
 	})
 
 	// A
@@ -4136,16 +4165,16 @@ func TestPFS(suite *testing.T) {
 		defer cancel()
 		pachClient := env.PachClient.WithCtx(ctx)
 
-		var readyCommits int64
+		var readyCommitsB, readyCommitsC int64
 		go func() {
 			pachClient.SubscribeCommit(client.NewRepo("B"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
-				atomic.AddInt64(&readyCommits, 1)
+				atomic.AddInt64(&readyCommitsB, 1)
 				return nil
 			})
 		}()
 		go func() {
 			pachClient.SubscribeCommit(client.NewRepo("C"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
-				atomic.AddInt64(&readyCommits, 1)
+				atomic.AddInt64(&readyCommitsC, 1)
 				return nil
 			})
 		}()
@@ -4154,7 +4183,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, pachClient.FinishCommit("A", "master", ""))
 
 		require.NoErrorWithinTRetry(t, time.Second*10, func() error {
-			if atomic.LoadInt64(&readyCommits) != 1 {
+			if atomic.LoadInt64(&readyCommitsB) != 2 {
 				return errors.Errorf("wrong number of ready commits")
 			}
 			return nil
@@ -4163,7 +4192,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, pachClient.FinishCommit("B", "master", ""))
 
 		require.NoErrorWithinTRetry(t, time.Second*10, func() error {
-			if atomic.LoadInt64(&readyCommits) != 2 {
+			if atomic.LoadInt64(&readyCommitsC) != 2 {
 				return errors.Errorf("wrong number of ready commits")
 			}
 			return nil
@@ -5054,10 +5083,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	// TestTrigger tests branch triggers
-	// TODO(2.0 required): This test does not work with V2. It is not clear what the issue is yet. Something noteworthy is that the output
-	// size does not increase for the second to last commit, which may have something to do with compaction (the trigger won't kick
-	// off since it is based on the output size). The output size calculation is a bit questionable due to the compaction delay (a
-	// file may be accounted for in the size even if it is deleted).
+	// TODO: This test can be refactored to remove a lot of the boilerplate.
 	suite.Run("Trigger", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
@@ -5073,8 +5099,6 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("SizeWithProvenance", func(t *testing.T) {
-			// TODO(2.0 required): fix size-based triggering (likely broken due to async compaction)
-			t.Skip("Triggering based on size does not work with V2, needs investigation")
 			require.NoError(t, c.CreateRepo("in"))
 			require.NoError(t, c.CreateBranchTrigger("in", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
@@ -5084,7 +5108,6 @@ func TestPFS(suite *testing.T) {
 			bis, err := c.ListBranch("in")
 			require.NoError(t, err)
 			require.Equal(t, 1, len(bis))
-			require.Nil(t, bis[0].Head)
 
 			// Create a downstream branch
 			require.NoError(t, c.CreateRepo("out"))
@@ -5096,35 +5119,50 @@ func TestPFS(suite *testing.T) {
 
 			// Write a small file, too small to trigger
 			require.NoError(t, c.PutFile(inCommit, "file", strings.NewReader("small")))
-			bi, err := c.InspectBranch("in", "trigger")
+			_, err = c.WaitCommit("in", "master", "")
 			require.NoError(t, err)
-			require.Nil(t, bi.Head)
+			bi, err := c.InspectBranch("in", "master")
+			require.NoError(t, err)
+			head := bi.Head.ID
+			bi, err = c.InspectBranch("in", "trigger")
+			require.NoError(t, err)
+			require.NotEqual(t, head, bi.Head.ID)
 			bi, err = c.InspectBranch("out", "master")
 			require.NoError(t, err)
-			require.Nil(t, bi.Head)
+			require.NotEqual(t, head, bi.Head.ID)
 			bi, err = c.InspectBranch("out", "trigger")
 			require.NoError(t, err)
-			require.Nil(t, bi.Head)
+			require.NotEqual(t, head, bi.Head.ID)
 
 			require.NoError(t, c.PutFile(inCommit, "file", strings.NewReader(strings.Repeat("a", units.KB))))
+			_, err = c.WaitCommit("in", "master", "")
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("in", "master")
+			require.NoError(t, err)
+			head = bi.Head.ID
 
 			bi, err = c.InspectBranch("in", "trigger")
 			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
+			require.Equal(t, head, bi.Head.ID)
 
 			// Output branch should have a commit now
 			bi, err = c.InspectBranch("out", "master")
 			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
+			require.Equal(t, head, bi.Head.ID)
 
 			// Put a file that will cause the trigger to go off
 			require.NoError(t, c.PutFile(client.NewCommit("out", "master", ""), "file", strings.NewReader(strings.Repeat("a", units.KB))))
-			require.NoError(t, env.PachClient.FinishCommit("out", "master", ""))
+			require.NoError(t, c.FinishCommit("out", "master", ""))
+			_, err = c.WaitCommit("out", "master", "")
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("out", "master")
+			require.NoError(t, err)
+			head = bi.Head.ID
 
 			// Output trigger should have triggered
 			bi, err = c.InspectBranch("out", "trigger")
 			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
+			require.Equal(t, head, bi.Head.ID)
 		})
 
 		t.Run("Cron", func(t *testing.T) {
@@ -5136,6 +5174,8 @@ func TestPFS(suite *testing.T) {
 			cronCommit := client.NewCommit("cron", "master", "")
 			// The first commit should always trigger a cron
 			require.NoError(t, c.PutFile(cronCommit, "file1", strings.NewReader("foo")))
+			_, err := c.WaitCommit("cron", "master", "")
+			require.NoError(t, err)
 			bi, err := c.InspectBranch("cron", "trigger")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
@@ -5144,6 +5184,8 @@ func TestPFS(suite *testing.T) {
 			// Second commit should not trigger the cron because less than a
 			// minute has passed
 			require.NoError(t, c.PutFile(cronCommit, "file2", strings.NewReader("bar")))
+			_, err = c.WaitCommit("cron", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("cron", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
@@ -5151,6 +5193,8 @@ func TestPFS(suite *testing.T) {
 			time.Sleep(time.Minute)
 			// Third commit should trigger the cron because a minute has passed
 			require.NoError(t, c.PutFile(cronCommit, "file3", strings.NewReader("fizz")))
+			_, err = c.WaitCommit("cron", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("cron", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
@@ -5170,12 +5214,16 @@ func TestPFS(suite *testing.T) {
 			masterHead := client.NewCommit("count", "master", "")
 			// The first commit shouldn't trigger
 			require.NoError(t, c.PutFile(masterHead, "file1", strings.NewReader("foo")))
+			_, err = c.WaitCommit("count", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("count", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head)
 
 			// Second commit should trigger
 			require.NoError(t, c.PutFile(masterHead, "file2", strings.NewReader("bar")))
+			_, err = c.WaitCommit("count", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("count", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head)
@@ -5188,12 +5236,16 @@ func TestPFS(suite *testing.T) {
 
 			// Third commit shouldn't trigger
 			require.NoError(t, c.PutFile(masterHead, "file3", strings.NewReader("fizz")))
+			_, err = c.WaitCommit("count", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("count", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head)
 
 			// Fourth commit should trigger
 			require.NoError(t, c.PutFile(masterHead, "file4", strings.NewReader("buzz")))
+			_, err = c.WaitCommit("count", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("count", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head)
@@ -5206,8 +5258,6 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("Or", func(t *testing.T) {
-			// TODO(2.0 required): fix size-based triggering (likely broken due to async compaction)
-			t.Skip("Triggering based on size does not work with V2, needs investigation")
 			require.NoError(t, c.CreateRepo("or"))
 			require.NoError(t, c.CreateBranchTrigger("or", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
@@ -5218,17 +5268,23 @@ func TestPFS(suite *testing.T) {
 			orCommit := client.NewCommit("or", "master", "")
 			// This triggers, because the cron is satisfied
 			require.NoError(t, c.PutFile(orCommit, "file1", strings.NewReader(strings.Repeat("a", 1))))
+			_, err := c.WaitCommit("or", "master", "")
+			require.NoError(t, err)
 			bi, err := c.InspectBranch("or", "trigger")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
 			head := bi.Head.ID
 			// This one doesn't because none of them are satisfied
 			require.NoError(t, c.PutFile(orCommit, "file2", strings.NewReader(strings.Repeat("a", 50))))
+			_, err = c.WaitCommit("or", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("or", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 			// This one triggers because we hit 100 bytes
 			require.NoError(t, c.PutFile(orCommit, "file3", strings.NewReader(strings.Repeat("a", 50))))
+			_, err = c.WaitCommit("or", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("or", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
@@ -5236,16 +5292,22 @@ func TestPFS(suite *testing.T) {
 
 			// This one doesn't trigger
 			require.NoError(t, c.PutFile(orCommit, "file4", strings.NewReader(strings.Repeat("a", 1))))
+			_, err = c.WaitCommit("or", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("or", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 			// This one neither
 			require.NoError(t, c.PutFile(orCommit, "file5", strings.NewReader(strings.Repeat("a", 1))))
+			_, err = c.WaitCommit("or", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("or", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 			// This one does, because it's 3 commits
 			require.NoError(t, c.PutFile(orCommit, "file6", strings.NewReader(strings.Repeat("a", 1))))
+			_, err = c.WaitCommit("or", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("or", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
@@ -5253,6 +5315,8 @@ func TestPFS(suite *testing.T) {
 
 			// This one doesn't trigger
 			require.NoError(t, c.PutFile(orCommit, "file7", strings.NewReader(strings.Repeat("a", 1))))
+			_, err = c.WaitCommit("or", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("or", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
@@ -5260,14 +5324,14 @@ func TestPFS(suite *testing.T) {
 			time.Sleep(time.Minute)
 
 			require.NoError(t, c.PutFile(orCommit, "file8", strings.NewReader(strings.Repeat("a", 1))))
+			_, err = c.WaitCommit("or", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("or", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
 
 		t.Run("And", func(t *testing.T) {
-			// TODO(2.0 required): fix size-based triggering (likely broken due to async compaction)
-			t.Skip("Triggering based on size does not work with V2, needs investigation")
 			require.NoError(t, c.CreateRepo("and"))
 			require.NoError(t, c.CreateBranchTrigger("and", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
@@ -5279,38 +5343,53 @@ func TestPFS(suite *testing.T) {
 			andCommit := client.NewCommit("and", "master", "")
 			// Doesn't trigger because all 3 conditions must be met
 			require.NoError(t, c.PutFile(andCommit, "file1", strings.NewReader(strings.Repeat("a", 100))))
-			bi, err := c.InspectBranch("and", "trigger")
+			_, err := c.WaitCommit("and", "master", "")
 			require.NoError(t, err)
-			require.Nil(t, bi.Head)
+			bi, err := c.InspectBranch("and", "master")
+			require.NoError(t, err)
+			head := bi.Head.ID
+			bi, err = c.InspectBranch("and", "trigger")
+			require.NoError(t, err)
+			require.NotEqual(t, head, bi.Head)
 
 			// Still doesn't trigger
 			require.NoError(t, c.PutFile(andCommit, "file2", strings.NewReader(strings.Repeat("a", 100))))
+			_, err = c.WaitCommit("and", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("and", "trigger")
 			require.NoError(t, err)
-			require.Nil(t, bi.Head)
+			require.NotEqual(t, head, bi.Head)
 
 			// Finally triggers because we have 3 commits, 100 bytes and Cron
 			// Spec (since epoch) is satisfied.
 			require.NoError(t, c.PutFile(andCommit, "file3", strings.NewReader(strings.Repeat("a", 100))))
+			_, err = c.WaitCommit("and", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("and", "trigger")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
-			head := bi.Head.ID
+			head = bi.Head.ID
 
 			// Doesn't trigger because all 3 conditions must be met
 			require.NoError(t, c.PutFile(andCommit, "file4", strings.NewReader(strings.Repeat("a", 100))))
+			_, err = c.WaitCommit("and", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("and", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 
 			// Still no trigger, not enough time or commits
 			require.NoError(t, c.PutFile(andCommit, "file5", strings.NewReader(strings.Repeat("a", 100))))
+			_, err = c.WaitCommit("and", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("and", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 
 			// Still no trigger, not enough time
 			require.NoError(t, c.PutFile(andCommit, "file6", strings.NewReader(strings.Repeat("a", 100))))
+			_, err = c.WaitCommit("and", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("and", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
@@ -5319,14 +5398,14 @@ func TestPFS(suite *testing.T) {
 
 			// Finally triggers, all triggers have been met
 			require.NoError(t, c.PutFile(andCommit, "file7", strings.NewReader(strings.Repeat("a", 100))))
+			_, err = c.WaitCommit("and", "master", "")
+			require.NoError(t, err)
 			bi, err = c.InspectBranch("and", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
 
 		t.Run("Chain", func(t *testing.T) {
-			// TODO(2.0 required): fix size-based triggering (likely broken due to async compaction)
-			t.Skip("Triggering based on size does not work with V2, needs investigation")
 			// a triggers b which triggers c
 			require.NoError(t, c.CreateRepo("chain"))
 			require.NoError(t, c.CreateBranchTrigger("chain", "b", "", "", &pfs.Trigger{
@@ -5340,60 +5419,76 @@ func TestPFS(suite *testing.T) {
 			aCommit := client.NewCommit("chain", "a", "")
 			// Triggers nothing
 			require.NoError(t, c.PutFile(aCommit, "file1", strings.NewReader(strings.Repeat("a", 50))))
-			bi, err := c.InspectBranch("chain", "b")
+			_, err := c.WaitCommit("chain", "a", "")
 			require.NoError(t, err)
-			require.Nil(t, bi.Head)
+			bi, err := c.InspectBranch("chain", "a")
+			require.NoError(t, err)
+			head := bi.Head.ID
+			bi, err = c.InspectBranch("chain", "b")
+			require.NoError(t, err)
+			require.NotEqual(t, head, bi.Head)
 			bi, err = c.InspectBranch("chain", "c")
 			require.NoError(t, err)
-			require.Nil(t, bi.Head)
+			require.NotEqual(t, head, bi.Head)
 
 			// Triggers b, but not c
 			require.NoError(t, c.PutFile(aCommit, "file2", strings.NewReader(strings.Repeat("a", 50))))
+			_, err = c.WaitCommit("chain", "a", "")
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("chain", "a")
+			require.NoError(t, err)
+			head = bi.Head.ID
 			bi, err = c.InspectBranch("chain", "b")
 			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
-			bHead := bi.Head.ID
+			require.Equal(t, head, bi.Head.ID)
 			bi, err = c.InspectBranch("chain", "c")
 			require.NoError(t, err)
-			require.Nil(t, bi.Head)
+			require.NotEqual(t, head, bi.Head.ID)
 
 			// Triggers nothing
 			require.NoError(t, c.PutFile(aCommit, "file3", strings.NewReader(strings.Repeat("a", 50))))
+			_, err = c.WaitCommit("chain", "a", "")
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("chain", "a")
+			require.NoError(t, err)
+			head = bi.Head.ID
 			bi, err = c.InspectBranch("chain", "b")
 			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
-			require.Equal(t, bHead, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.ID)
 			bi, err = c.InspectBranch("chain", "c")
 			require.NoError(t, err)
-			require.Nil(t, bi.Head)
+			require.NotEqual(t, head, bi.Head.ID)
 
 			// Triggers a and c
 			require.NoError(t, c.PutFile(aCommit, "file4", strings.NewReader(strings.Repeat("a", 50))))
+			_, err = c.WaitCommit("chain", "a", "")
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("chain", "a")
+			require.NoError(t, err)
+			head = bi.Head.ID
 			bi, err = c.InspectBranch("chain", "b")
 			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
-			require.NotEqual(t, bHead, bi.Head.ID)
-			bHead = bi.Head.ID
+			require.Equal(t, head, bi.Head.ID)
 			bi, err = c.InspectBranch("chain", "c")
 			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
-			cHead := bi.Head.ID
+			require.Equal(t, head, bi.Head.ID)
 
 			// Triggers nothing
 			require.NoError(t, c.PutFile(aCommit, "file5", strings.NewReader(strings.Repeat("a", 50))))
+			_, err = c.WaitCommit("chain", "a", "")
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("chain", "a")
+			require.NoError(t, err)
+			head = bi.Head.ID
 			bi, err = c.InspectBranch("chain", "b")
 			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
-			require.Equal(t, bHead, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.ID)
 			bi, err = c.InspectBranch("chain", "c")
 			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
-			require.Equal(t, cHead, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.ID)
 		})
 
 		t.Run("BranchMovement", func(t *testing.T) {
-			// TODO(2.0 required): fix size-based triggering (likely broken due to async compaction)
-			t.Skip("Triggering based on size does not work with V2, needs investigation")
 			require.NoError(t, c.CreateRepo("branch-movement"))
 			require.NoError(t, c.CreateBranchTrigger("branch-movement", "c", "", "", &pfs.Trigger{
 				Branch: "b",
@@ -5402,12 +5497,19 @@ func TestPFS(suite *testing.T) {
 			moveCommit := client.NewCommit("branch-movement", "a", "")
 
 			require.NoError(t, c.PutFile(moveCommit, "file1", strings.NewReader(strings.Repeat("a", 50))))
-			require.NoError(t, c.CreateBranch("branch-movement", "b", "a", "", nil))
-			bi, err := c.InspectBranch("branch-movement", "c")
+			_, err := c.WaitCommit("branch-movement", "a", "")
 			require.NoError(t, err)
-			require.Nil(t, bi.Head)
+			bi, err := c.InspectBranch("branch-movement", "a")
+			require.NoError(t, err)
+			head := bi.Head.ID
+			require.NoError(t, c.CreateBranch("branch-movement", "b", "a", "", nil))
+			bi, err = c.InspectBranch("branch-movement", "c")
+			require.NoError(t, err)
+			require.NotEqual(t, head, bi.Head.ID)
 
 			require.NoError(t, c.PutFile(moveCommit, "file2", strings.NewReader(strings.Repeat("a", 50))))
+			_, err = c.WaitCommit("branch-movement", "a", "")
+			require.NoError(t, err)
 			require.NoError(t, c.CreateBranch("branch-movement", "b", "a", "", nil))
 			bi, err = c.InspectBranch("branch-movement", "c")
 			require.NoError(t, err)
@@ -5415,6 +5517,8 @@ func TestPFS(suite *testing.T) {
 			cHead := bi.Head.ID
 
 			require.NoError(t, c.PutFile(moveCommit, "file3", strings.NewReader(strings.Repeat("a", 50))))
+			_, err = c.WaitCommit("branch-movement", "a", "")
+			require.NoError(t, err)
 			require.NoError(t, c.CreateBranch("branch-movement", "b", "a", "", nil))
 			bi, err = c.InspectBranch("branch-movement", "c")
 			require.NoError(t, err)
@@ -5658,37 +5762,6 @@ func TestPFS(suite *testing.T) {
 		requireNoPanic(err)
 		_, err = c.PfsAPIClient.Fsck(ctx, &pfs.FsckRequest{})
 		requireNoPanic(err)
-	})
-
-	suite.Run("DuplicateFileDifferentTag", func(t *testing.T) {
-		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
-		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
-		masterCommit := client.NewCommit(repo, "master", "")
-		require.NoError(t, env.PachClient.WithModifyFileClient(masterCommit, func(mf client.ModifyFile) error {
-			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), client.WithTagPutFile("tag1")))
-			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), client.WithTagPutFile("tag2")))
-			require.NoError(t, mf.PutFile("bar", strings.NewReader("bar\n")))
-			return nil
-		}))
-		newFile := func(repo, branch, commit, path, tag string) *pfs.File {
-			file := client.NewFile(repo, branch, commit, path)
-			file.Tag = tag
-			return file
-		}
-		expected := []*pfs.File{
-			newFile(repo, "master", "", "/bar", fileset.DefaultFileTag),
-			newFile(repo, "master", "", "/foo", "tag1"),
-			newFile(repo, "master", "", "/foo", "tag2"),
-		}
-		require.NoError(t, env.PachClient.ListFile(masterCommit, "", func(fi *pfs.FileInfo) error {
-			require.Equal(t, expected[0].Path, fi.File.Path)
-			require.Equal(t, expected[0].Tag, fi.File.Tag)
-			expected = expected[1:]
-			return nil
-		}))
-		require.Equal(t, 0, len(expected))
 	})
 
 	suite.Run("ErroredCommits", func(t *testing.T) {
