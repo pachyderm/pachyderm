@@ -540,11 +540,8 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(server.Context())
 
-	cb := func(ci *pfs.CommitInfo) error {
-		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
-			return nil
-		}
-		jobInfo, err := pachClient.InspectJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID, request.Details)
+	cb := func(pipeline string) error {
+		jobInfo, err := pachClient.InspectJob(pipeline, request.JobSet.ID, request.Details)
 		if err != nil {
 			// Not all commits are guaranteed to have an associated job - skip over it
 			if errutil.IsNotFoundError(err) {
@@ -555,16 +552,50 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 		return server.Send(jobInfo)
 	}
 
-	// Note that while this will return jobs in the same topological sort as the
-	// commitset, it will block on commits that don't have a job associated with
-	// them (aliases and input commits, for example).
-	if request.Wait {
-		return pachClient.WaitCommitSet(request.JobSet.ID, cb)
+	if err := forEachCommitInJob(pachClient, request.JobSet.ID, request.Wait, func(ci *pfs.CommitInfo) error {
+		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
+			return nil
+		}
+		return cb(ci.Commit.Branch.Repo.Name)
+	}); err != nil {
+		if pfsServer.IsCommitSetNotFoundErr(err) {
+			// There are no commits for this ID, but there may still be jobs, query
+			// the jobs table directly and don't worry about the topological sort
+			// Load all the jobs eagerly to avoid a nested query
+			pipelines := []string{}
+			jobInfo := &pps.JobInfo{}
+			if err := a.jobs.ReadOnly(pachClient.Ctx()).GetByIndex(ppsdb.JobsJobSetIndex, request.JobSet.ID, jobInfo, col.DefaultOptions(), func(string) error {
+				pipelines = append(pipelines, jobInfo.Job.Pipeline.Name)
+				return nil
+			}); err != nil {
+				return err
+			}
+			for _, pipeline := range pipelines {
+				if err := cb(pipeline); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
+		return err
 	}
-	commitInfos, err := pachClient.InspectCommitSet(request.JobSet.ID)
+	return nil
+}
+
+func forEachCommitInJob(pachClient *client.APIClient, jobID string, wait bool, cb func(*pfs.CommitInfo) error) error {
+	if wait {
+		// Note that while this will return jobs in the same topological sort as the
+		// commitset, it will block on commits that don't have a job associated with
+		// them (aliases and input commits, for example).
+		return pachClient.WaitCommitSet(jobID, cb)
+	}
+
+	commitInfos, err := pachClient.InspectCommitSet(jobID)
 	if err != nil {
 		return err
 	}
+
 	for _, ci := range commitInfos {
 		if err := cb(ci); err != nil {
 			return err
