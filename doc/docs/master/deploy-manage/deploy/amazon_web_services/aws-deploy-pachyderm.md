@@ -149,73 +149,70 @@ Update your values.yaml with your bucket name ([see example of values.yaml here]
 
 === "values.yaml with an added policy to your cluster IAM Role"
 
-```yaml
-deployTarget: AMAZON
+      ```yaml
+      deployTarget: AMAZON
 
-pachd:
-  storage:
-    amazon:
-      bucket: blah
-      region: us-east-2
-  serviceAccount:
-    additionalAnnotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+      pachd:
+      storage:
+      amazon:
+            bucket: blah
+            region: us-east-2
+      serviceAccount:
+      additionalAnnotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
 
-worker:
-  serviceAccount:
-    additionalAnnotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
-```
+      worker:
+      serviceAccount:
+      additionalAnnotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+      ```
+=== "values.yaml passing AWS credentials (account ID and KEY)"
+      ```yaml
+      deployTarget: AMAZON
+
+      pachd:
+      storage:
+      amazon:
+            bucket: blah
+            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+            id: AKIAIOSFODNN7EXAMPLE
+            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+            secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+            region: us-east-2
+      ```
 
 !!! Note
-- The **worker nodes on which Pachyderm is deployed must be associated with the IAM role that is assigned to the Kubernetes cluster**. 
-If you created your cluster by using `eksctl` or `kops` the nodes must have a dedicated IAM role already assigned.
--  The IAM role of your cluster must have correct trust relationships:
+    - The **worker nodes on which Pachyderm is deployed must be associated with the IAM role that is assigned to the Kubernetes cluster**. 
+    If you created your cluster by using `eksctl` or `kops` the nodes must have a dedicated IAM role already assigned.
+    -  The IAM role of your cluster must have correct trust relationships:
 
-      1. Click the **Trust relationships > Edit trust relationship**.
-      1. Append the following statement to your JSON relationship:
-
-```json
-{
-      "Version": "2012-10-17",
-      "Statement": [
+        1. Click the **Trust relationships > Edit trust relationship**.
+        1. Append the following statement to your JSON relationship:
+       ```json
             {
-            "Effect": "Allow",
-            "Principal": {
-            "Service": "ec2.amazonaws.com"
-            },
-            "Action": "sts:AssumeRole"
+            "Version": "2012-10-17",
+            "Statement": [
+                  {
+                  "Effect": "Allow",
+                  "Principal": {
+                  "Service": "ec2.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                  }
+            ]
             }
-      ]
-}
-```
+       ``` 
 
-=== "values.yaml passing AWS credentials (account ID and KEY)"
+!!! Important "Load Balancer Setup" 
+      If you would like to expose your pachd instance to the internet via load balancer, add the following config under `pachd` to your `values.yaml`
+      ```yaml
+      #pachd:
+      service:
+      type: LoadBalancer
+      ```
 
-```yaml
-deployTarget: AMAZON
+      **NOTE: It is strongly recommended to configure SSL when exposing Pachyderm publicly.**
 
-pachd:
-  storage:
-    amazon:
-      bucket: blah
-      # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-      id: AKIAIOSFODNN7EXAMPLE
-      # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-      secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-      region: us-east-2
-```
-
-**Load Balancer Setup**
-If you would like to expose your pachd instance to the internet via load balancer, add the following config under `pachd` to your `values.yaml`
-
-**NOTE:** It is strongly recommended to configure SSL when exposing Pachyderm publicly
-
-```yaml
-#pachd:
-  service:
-    type: LoadBalancer
-```
 
 ### Deploy Pachyderm on the Kubernetes cluster
 
