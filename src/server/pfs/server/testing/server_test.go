@@ -5103,6 +5103,7 @@ func TestPFS(suite *testing.T) {
 			_, err = c.WaitCommit("in", "master", "")
 			require.NoError(t, err)
 			bi, err := c.InspectBranch("in", "master")
+			require.NoError(t, err)
 			head := bi.Head.ID
 			bi, err = c.InspectBranch("in", "trigger")
 			require.NoError(t, err)
@@ -5118,6 +5119,7 @@ func TestPFS(suite *testing.T) {
 			_, err = c.WaitCommit("in", "master", "")
 			require.NoError(t, err)
 			bi, err = c.InspectBranch("in", "master")
+			require.NoError(t, err)
 			head = bi.Head.ID
 
 			bi, err = c.InspectBranch("in", "trigger")
@@ -5135,6 +5137,7 @@ func TestPFS(suite *testing.T) {
 			_, err = c.WaitCommit("out", "master", "")
 			require.NoError(t, err)
 			bi, err = c.InspectBranch("out", "master")
+			require.NoError(t, err)
 			head = bi.Head.ID
 
 			// Output trigger should have triggered

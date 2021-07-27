@@ -151,6 +151,7 @@ func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, p
 				commitInfo.Finishing = txnCtx.Timestamp
 			}
 			commitInfo.Finished = txnCtx.Timestamp
+			commitInfo.Details = parentCommitInfo.Details
 			commitInfo.Error = parentCommitInfo.Error
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
 				return err

@@ -694,7 +694,7 @@ func (d *driver) repoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
 			if err := d.branches.ReadOnly(ctx).Get(pfsdb.BranchKey(branch), branchInfo); err != nil {
 				return 0, err
 			}
-			ci, err := d.inspectCommit(ctx, branchInfo.Head, pfs.CommitState_STARTED)
+			ci, err := d.getCommit(ctx, branchInfo.Head)
 			if err != nil {
 				return 0, err
 			}
