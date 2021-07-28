@@ -66,11 +66,13 @@ const LogRow: React.FC<LogRowProps> = ({
 
   return (
     <div
+      data-testid="LogRow__base"
       className={classnames(styles.row, styles[index % 2 ? 'even' : 'odd'])}
       style={style}
     >
       <div className={styles.timestampCol}>
         <PureCheckbox
+          data-testid="LogRow__checkbox"
           className={styles.timestampCheckbox}
           selected={selectedLogsMap[index] || false}
           onChange={onTimestampSelect}
@@ -79,7 +81,9 @@ const LogRow: React.FC<LogRowProps> = ({
       </div>
       <div ref={heightRef} className={styles.messageCol}>
         {highlightUserLogs && user ? (
-          <mark className={styles.mark}>{message}</mark>
+          <mark data-testid="LogRow__user_log" className={styles.mark}>
+            {message}
+          </mark>
         ) : (
           message
         )}

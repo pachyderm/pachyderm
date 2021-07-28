@@ -1,0 +1,173 @@
+import {render, waitFor} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import {format, fromUnixTime} from 'date-fns';
+import React from 'react';
+import {Size} from 'react-virtualized-auto-sizer';
+
+import {pipelineAndJobLogs} from '@dash-backend/mock/fixtures/logs';
+import {withContextProviders, click} from '@dash-frontend/testHelpers';
+
+import {LOGS_DATE_FORMAT} from '../constants/logsViewersConstants';
+import JobLogsViewerComponent from '../JobLogsViewer';
+import PipelineLogsViewerComponent from '../PipelineLogsViewer';
+
+const PipelineLogsViewer = withContextProviders(() => {
+  return <PipelineLogsViewerComponent />;
+});
+const JobLogsViewer = withContextProviders(() => {
+  return <JobLogsViewerComponent />;
+});
+
+jest.mock(
+  'react-virtualized-auto-sizer',
+  () =>
+    ({children}: {children: (size: Size) => React.ReactNode}) =>
+      children({height: 50, width: 50}),
+);
+
+describe('Logs Viewer', () => {
+  beforeEach(() => {
+    window.history.replaceState({}, '', '/project/1/pipeline/edges/logs');
+  });
+
+  it('should display empty state when there are no logs', async () => {
+    const {findByRole, getByText, findAllByTestId, findByText} = render(
+      <PipelineLogsViewer />,
+    );
+
+    expect(await findAllByTestId('LogRow__checkbox')).toHaveLength(2);
+
+    const defaultOption = await findByRole('button', {
+      name: 'Last Pipeline Job',
+    });
+    userEvent.click(defaultOption);
+    const otherOption = getByText('Last 30 Minutes');
+    userEvent.click(otherOption);
+    expect(
+      await findByText('No logs found for this time range.'),
+    ).toBeInTheDocument();
+  });
+
+  it('should enable and disable export options', async () => {
+    const {findByTestId, findAllByTestId, findByRole} = render(
+      <PipelineLogsViewer />,
+    );
+
+    const selectAll = await findByTestId('LogsListHeader__select_all');
+    const downloadButton = await findByRole('button', {
+      name: 'Download',
+    });
+
+    const copyButton = await findByRole('button', {
+      name: 'Copy selected rows',
+    });
+
+    await findAllByTestId('LogRow__checkbox');
+
+    expect(copyButton).toBeDisabled();
+    expect(downloadButton).toBeDisabled();
+
+    click(selectAll);
+
+    expect(copyButton).not.toBeDisabled();
+    expect(downloadButton).not.toBeDisabled();
+  });
+
+  it('should display logs', async () => {
+    const {findAllByTestId} = render(<PipelineLogsViewer />);
+
+    const rows = await findAllByTestId('LogRow__base');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toEqual(
+      `${format(
+        fromUnixTime(pipelineAndJobLogs['1'][1].getTs()?.getSeconds() || 0),
+        LOGS_DATE_FORMAT,
+      )}finished datum task`,
+    );
+    expect(rows[1].textContent).toEqual(
+      `${format(
+        fromUnixTime(pipelineAndJobLogs['1'][0].getTs()?.getSeconds() || 0),
+        LOGS_DATE_FORMAT,
+      )}started datum task`,
+    );
+  });
+
+  it('should highlight user logs', async () => {
+    const {queryAllByTestId, findAllByTestId, findByRole} = render(
+      <PipelineLogsViewer />,
+    );
+    expect(await queryAllByTestId('LogRow__user_log')).toHaveLength(0);
+
+    click(await findByRole('switch'));
+
+    expect(await findAllByTestId('LogRow__user_log')).toHaveLength(1);
+  });
+
+  describe('Pipeline Logs Viewer', () => {
+    beforeEach(() => {
+      window.history.replaceState({}, '', '/project/1/pipeline/edges/logs');
+    });
+
+    it('should display pipeline name from url', async () => {
+      const {findByText} = render(<PipelineLogsViewer />);
+
+      expect(await findByText('edges')).toBeInTheDocument();
+    });
+
+    it('should route to pipeline view when modal is closed', async () => {
+      const {findByTestId} = render(<PipelineLogsViewer />);
+      click(await findByTestId('FullPageModal__close'));
+
+      await waitFor(() =>
+        expect(window.location.pathname).toBe('/project/1/pipeline/edges'),
+      );
+    });
+
+    it('should add the correct dropdown value', async () => {
+      const {findByRole} = render(<PipelineLogsViewer />);
+      const datePicker = await findByRole('button', {
+        name: 'Last Pipeline Job',
+      });
+
+      expect(datePicker).toBeInTheDocument();
+    });
+  });
+
+  describe('Job Logs Viewer', () => {
+    beforeEach(() => {
+      window.history.replaceState(
+        {},
+        '',
+        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/montage/logs',
+      );
+    });
+
+    it('should display pipeline name from url', async () => {
+      const {findByText} = render(<JobLogsViewer />);
+
+      expect(
+        await findByText('montage:23b9af7d5d4343219bc8e02ff44cd55a'),
+      ).toBeInTheDocument();
+    });
+
+    it('should route to job view when modal is closed', async () => {
+      const {findByTestId} = render(<JobLogsViewer />);
+
+      click(await findByTestId('FullPageModal__close'));
+      await waitFor(() =>
+        expect(window.location.pathname).toBe(
+          '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/montage',
+        ),
+      );
+    });
+
+    it('should add the correct dropdown value', async () => {
+      const {findByRole} = render(<JobLogsViewer />);
+      const datePicker = await findByRole('button', {
+        name: 'Job Start Time',
+      });
+
+      expect(datePicker).toBeInTheDocument();
+    });
+  });
+});

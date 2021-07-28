@@ -9,6 +9,7 @@ const useDownloadText = (downloadText: string, fileName?: string) => {
       'href',
       'data:text/plain;charset=utf-8,' + encodeURIComponent(downloadText),
     );
+    element.setAttribute('data-testid', 'Download_text');
     element.setAttribute('download', fileName || 'data');
 
     element.style.display = 'none';

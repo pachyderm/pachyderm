@@ -58,7 +58,6 @@ const LogsModalHeader: React.FC<LogsModalHeaderProps> = ({
 
   const {copy} = useClipboardCopy(formatText());
   const {download} = useDownloadText(formatText(), `${headerText}_logs`);
-
   return (
     <Header appearance="light">
       <h4 className={styles.title}>{headerText}</h4>

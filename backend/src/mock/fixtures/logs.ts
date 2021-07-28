@@ -16,7 +16,7 @@ const tutorial = [
   new LogMessage()
     .setPipelineName('edges')
     .setJobId('23b9af7d5d4343219bc8e02ff4acd33a')
-    .setUser(false)
+    .setUser(true)
     .setMessage('finished datum task')
     .setTs(
       timestampFromObject({

@@ -51,11 +51,11 @@ const LogsListHeader: React.FC<LogsListHeaderProps> = ({
     }
     setSelectAllCheckbox(!selectAllCheckbox);
   }, [logs.length, selectAllCheckbox, setSelectedLogsMap]);
-
   return (
     <div className={styles.bodyHeader}>
       <div className={styles.timestampHeader}>
         <PureCheckbox
+          data-testid="LogsListHeader__select_all"
           selected={selectAllCheckbox}
           disabled={logs.length === 0}
           onChange={onSelectAll}
