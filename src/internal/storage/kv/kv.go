@@ -10,7 +10,7 @@ type ValueCallback = func([]byte) error
 // GetPut supports the basic Get and Put operations
 type GetPut interface {
 	// Get looks up the value that corresponds to key and calls cb once if the key exists
-	// if the key does not exist ErrKeyNotFound is returned
+	// if the key does not exist then a pacherr.ErrNotExist is returned
 	Get(ctx context.Context, key []byte, cb ValueCallback) error
 	// Put creates an entry mapping key to value, overwriting any previous mapping.
 	Put(ctx context.Context, key, value []byte) error

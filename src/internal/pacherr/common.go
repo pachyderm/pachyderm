@@ -16,23 +16,23 @@ type ErrNotExist struct {
 }
 
 func NewNotExist(collection, id string) error {
-	return &ErrNotExist{
+	return ErrNotExist{
 		Collection: collection,
 		ID:         id,
 	}
 }
 
-func (e *ErrNotExist) Error() string {
+func (e ErrNotExist) Error() string {
 	return fmt.Sprintf("%s does not contain item: (%s)", e.Collection, e.ID)
 }
 
-func (e *ErrNotExist) GRPCStatus() *status.Status {
+func (e ErrNotExist) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, e.Error())
 }
 
 func IsNotExist(err error) bool {
-	target := &ErrNotExist{}
-	return errors.As(err, target) || os.IsNotExist(err)
+	target := ErrNotExist{}
+	return errors.As(err, &target) || os.IsNotExist(err)
 }
 
 type ErrExists struct {
@@ -47,17 +47,17 @@ func NewExists(collection, id string) error {
 	}
 }
 
-func (e *ErrExists) Error() string {
+func (e ErrExists) Error() string {
 	return fmt.Sprintf("%s already contains an item: (%s)", e.Collection, e.ID)
 }
 
-func (e *ErrExists) GRPCStatus() *status.Status {
+func (e ErrExists) GRPCStatus() *status.Status {
 	return status.New(codes.AlreadyExists, e.Error())
 }
 
 func IsExists(err error) bool {
-	target := &ErrExists{}
-	return errors.As(err, target)
+	target := ErrExists{}
+	return errors.As(err, &target)
 }
 
 var (
