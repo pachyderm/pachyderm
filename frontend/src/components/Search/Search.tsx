@@ -68,6 +68,7 @@ const Search: React.FC = () => {
           <SearchBar />
         </Form>
         <div
+          data-testid="Search__dropdown"
           className={classnames(styles.dropdown, {
             [styles.open]: isOpen,
           })}
