@@ -1,0 +1,23 @@
+.base {
+  width: 100%;
+  color: var(--pachyderm-black);
+  white-space: nowrap;
+}
+
+.base:hover {
+  background-color: var(--background-grey);
+}
+
+.index {
+  text-align: right;
+  display: inline-block;
+  user-select: none;
+  background-color: var(--background-grey);
+  color: var(--placeholder-grey);
+  min-width: 3rem;
+  height: 24px;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  margin-right: 1rem;
+  line-height: 24px;
+}

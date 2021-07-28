@@ -1,16 +1,20 @@
 import {LoadingDots} from '@pachyderm/components';
 import intersection from 'lodash/intersection';
-import React, {CSSProperties, useCallback} from 'react';
+import React, {CSSProperties} from 'react';
 import {FixedSizeList} from 'react-window';
+
+import {FixedListRowProps} from '@dash-frontend/lib/types';
+import {
+  ITEM_SIZE,
+  PREVIEW_WIDTH,
+  HEADER_OVERHEAD,
+  PADDING_SIZE,
+} from '@dash-frontend/views/FileBrowser/constants/FileBrowser';
+
+import ContentWrapper from '../ContentWrapper';
 
 import JSONRow from './components/JSONRow';
 import useJSONPreview from './hooks/useJSONPreview';
-import styles from './JSONPreview.module.css';
-
-const ITEM_SIZE = 24;
-const PREVIEW_WIDTH = 1000;
-const HEADER_OVERHEAD = 200;
-export const PADDING_SIZE = 32;
 
 const InnerElement = ({style, ...rest}: {style: CSSProperties}) => (
   <ul
@@ -30,45 +34,43 @@ const JSONPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
   const {flatData, loading, minimizedRows, setMinimizedRows} =
     useJSONPreview(downloadLink);
 
-  const Row = useCallback(
-    ({index, style}: {index: number; style: CSSProperties}) => {
-      const {childOf, id} = flatData[index];
+  const Row: React.FC<FixedListRowProps> = ({index, style}) => {
+    const {childOf, id} = flatData[index];
 
-      const contentHidden = intersection(minimizedRows, childOf).length > 0;
+    const contentHidden = intersection(minimizedRows, childOf).length > 0;
 
-      if (contentHidden) return null;
+    if (contentHidden) return null;
 
-      return (
-        <JSONRow
-          itemData={flatData[index]}
-          style={style}
-          handleMinimize={() =>
-            setMinimizedRows((prevMinimizedRows) => [...prevMinimizedRows, id])
-          }
-          handleExpand={() =>
-            setMinimizedRows((prevMinimizedRows) =>
-              prevMinimizedRows.filter((v) => v !== id),
-            )
-          }
-        />
-      );
-    },
-    [flatData, minimizedRows, setMinimizedRows],
-  );
+    return (
+      <JSONRow
+        itemData={flatData[index]}
+        style={style}
+        handleMinimize={() =>
+          setMinimizedRows((prevMinimizedRows) => [...prevMinimizedRows, id])
+        }
+        handleExpand={() =>
+          setMinimizedRows((prevMinimizedRows) =>
+            prevMinimizedRows.filter((v) => v !== id),
+          )
+        }
+      />
+    );
+  };
 
   if (loading) return <LoadingDots />;
 
   return (
-    <FixedSizeList
-      height={window.innerHeight - HEADER_OVERHEAD}
-      itemCount={flatData.length}
-      innerElementType={InnerElement}
-      itemSize={ITEM_SIZE}
-      width={PREVIEW_WIDTH}
-      className={styles.base}
-    >
-      {Row}
-    </FixedSizeList>
+    <ContentWrapper>
+      <FixedSizeList
+        height={window.innerHeight - HEADER_OVERHEAD}
+        itemCount={flatData.length}
+        innerElementType={InnerElement}
+        itemSize={ITEM_SIZE}
+        width={PREVIEW_WIDTH}
+      >
+        {Row}
+      </FixedSizeList>
+    </ContentWrapper>
   );
 };
 

@@ -17,7 +17,7 @@ const WebPreview: React.FC<FilePreviewProps> = ({downloadLink, fileName}) => {
     async (res: Response) => await res.text(),
     [],
   );
-  const {data, loading} = useFetch({
+  const {data, loading} = useFetch<string>({
     url: downloadLink,
     formatResponse,
   });

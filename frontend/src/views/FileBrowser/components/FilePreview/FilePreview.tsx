@@ -8,6 +8,7 @@ import useFileDisplay from '../../hooks/useFileDisplay';
 import CSVPreview from './components/CSVPreview';
 import IFramePreview from './components/IFramePreview';
 import JSONPreview from './components/JSONPreview';
+import TextPreview from './components/TextPreview';
 import WebPreview from './components/WebPreview';
 import styles from './FilePreview.module.css';
 
@@ -44,13 +45,14 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
             );
         }
         switch (fileType) {
-          case 'pdf':
           case 'xml':
           case 'yml':
-          case 'txt':
             return (
               <IFramePreview downloadLink={fileLink} fileName={fileName} />
             );
+          case 'txt':
+          case 'jsonl':
+            return <TextPreview downloadLink={fileLink} />;
           case 'html':
           case 'htm':
             return <WebPreview downloadLink={fileLink} fileName={fileName} />;

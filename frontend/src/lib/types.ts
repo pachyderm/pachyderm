@@ -1,3 +1,5 @@
+import {CSSProperties} from 'react';
+
 export interface ProjectRouteParams {
   projectId: string;
   repoId?: string;
@@ -19,3 +21,14 @@ export type FileMajorType =
   | 'unknown';
 
 export type SidebarSize = 'sm' | 'md' | 'lg';
+
+export type FixedListRowProps = {
+  index: number;
+  style: CSSProperties;
+};
+
+export type FixedGridRowProps = {
+  columnIndex: number;
+  rowIndex: number;
+  style: CSSProperties;
+};

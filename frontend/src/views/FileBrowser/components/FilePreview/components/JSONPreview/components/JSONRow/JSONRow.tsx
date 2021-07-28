@@ -2,8 +2,9 @@ import classNames from 'classnames';
 import times from 'lodash/times';
 import React, {CSSProperties} from 'react';
 
+import {PADDING_SIZE} from '@dash-frontend/views/FileBrowser/constants/FileBrowser';
+
 import {ListItem} from '../../hooks/useJSONPreview';
-import {PADDING_SIZE} from '../../JSONPreview';
 
 import styles from './JSONRow.module.css';
 

@@ -14,8 +14,8 @@ const SUPPORTED_PREVIEW_MAJOR_TYPES: FileMajorType[] = [
 ];
 const SUPPORTED_PREVIEW_MINOR_TYPES: string[] = [
   'json',
+  'jsonl',
   'csv',
-  'pdf',
   'html',
   'xml',
   'htm',
@@ -75,6 +75,7 @@ const useFileDisplay = (file: File) => {
       case 'md':
       case 'csv':
       case 'json':
+      case 'jsonl':
       case 'yml':
       case 'txt':
         fileMajorType = 'document';

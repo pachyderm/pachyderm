@@ -9,6 +9,8 @@ import React, {
 } from 'react';
 import {FixedSizeGrid} from 'react-window';
 
+import {FixedGridRowProps} from '@dash-frontend/lib/types';
+
 import styles from './CSVPreview.module.css';
 
 const ITEM_HEIGHT = 34;
@@ -40,32 +42,21 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
 
   const headers = useMemo(() => Object.keys(data[0] || {}), [data]);
 
-  const Row = useCallback(
-    ({
-      rowIndex,
-      columnIndex,
-      style,
-    }: {
-      columnIndex: number;
-      rowIndex: number;
-      style: CSSProperties;
-    }) => {
-      const rowValue = data[rowIndex];
-      const columnValue = headers[columnIndex];
-      return (
-        <div
-          className={styles.cell}
-          style={{
-            ...style,
-            top: `${parseFloat(style.top + '') + ITEM_HEIGHT}px`,
-          }}
-        >
-          {JSON.stringify(rowValue[columnValue])}
-        </div>
-      );
-    },
-    [data, headers],
-  );
+  const Row: React.FC<FixedGridRowProps> = ({rowIndex, columnIndex, style}) => {
+    const rowValue = data[rowIndex];
+    const columnValue = headers[columnIndex];
+    return (
+      <div
+        className={styles.cell}
+        style={{
+          ...style,
+          top: `${parseFloat(style.top + '') + ITEM_HEIGHT}px`,
+        }}
+      >
+        {JSON.stringify(rowValue[columnValue])}
+      </div>
+    );
+  };
 
   const InnerElement = useCallback(
     ({style, ...rest}: {style: CSSProperties}) => (

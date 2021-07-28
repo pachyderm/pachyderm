@@ -1,4 +1,4 @@
-import {useEffect, useReducer} from 'react';
+import {useEffect, useReducer, useCallback} from 'react';
 
 type FetchState = {
   loading: boolean;
@@ -11,25 +11,25 @@ type FetchAction =
   | {type: 'FETCHED'; payload: unknown}
   | {type: 'ERROR'; payload: string};
 
-type useFetchParams = {
+interface useFetchParams<Type> {
   url: string;
   fetchFunc?: (
     input: RequestInfo,
     init?: RequestInit | undefined,
   ) => Promise<Response>;
-  formatResponse?: (data: Response) => Promise<unknown>;
-};
+  formatResponse?: (data: Response) => Promise<Type>;
+}
 
 const initialState: FetchState = {
   loading: false,
   data: {},
 };
 
-export const useFetch = ({
+export const useFetch = <ResponseType>({
   url,
   fetchFunc = fetch,
-  formatResponse = async (res) => res,
-}: useFetchParams) => {
+  formatResponse,
+}: useFetchParams<ResponseType>) => {
   const [state, dispatch] = useReducer(
     (state: FetchState, action: FetchAction) => {
       switch (action.type) {
@@ -57,7 +57,7 @@ export const useFetch = ({
         });
 
         if (res.ok) {
-          const data = await formatResponse(res);
+          const data = formatResponse ? await formatResponse(res) : res;
           dispatch({type: 'FETCHED', payload: data});
         } else {
           const data = await res.json();
