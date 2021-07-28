@@ -18,7 +18,7 @@ global:
     postgresqlPassword: "elephantastic"
     postgresqlDatabase: "pachyderm"
     # The postgresql database host to connect to. Defaults to built in postgres service
-    postgresqlHost: "postgres"
+    postgresqlHost: "pachyderm-postgresql"
     # The postgresql database port to connect to. Defaults to built in postgres service
     postgresqlPort: "5432"
     postgresqlSSL: "disable"
@@ -358,13 +358,13 @@ pgbouncer:
     #  cpu: "1"
     #  memory: "2G"
 
-postgresql:
+#postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
-  enabled: true
-  storageClass: ""
-  service:
-    type: "ClusterIP"
-  resources: {}
+#  enabled: true
+#  storageClass: ""
+#  service:
+#    type: "ClusterIP"
+#  resources: {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
