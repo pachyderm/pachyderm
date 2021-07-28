@@ -29,9 +29,9 @@ However, Pachyderm's Identity Service is based on [Dex](https://dexidp.io/docs/)
 and can therefore provide connectors to a large [variety of IdPs](https://dexidp.io/docs/connectors/) (LDAP, GitHub, SAML, OIDC, Google, OpenShift...). 
 Use the IdP of your choice.
 
-More IdP connectors example:
+#More IdP connectors example:
 
-- [Okta](./connectors/okta.md)
+#- [Okta](./connectors/okta.md)
 
 For now, let's configure Pachyderm so that our
 Pachyderm users can log in through Auth0.
@@ -184,7 +184,7 @@ $ pachctl idp update-connector <your connector id: auth0> --version 1
 ```
 or
 ```shell
-$ pachctl idp update-connector --config -oidc-dex-connector.yaml
+$ pachctl idp update-connector --config oidc-dex-connector.yaml
 ```
 !!! Info
     Run `pachct idp --help` for a full list of commands.

@@ -55,7 +55,7 @@ $ pachctl license delete-cluster --id <cluster id>
 ```
 
 ### Undeploy
-- Undeploy an enterprise Server: //TODO coming...
+
 - To undeploy a Cluster registered with an Enterprise Server: 
     - Unregister the cluster as mentioned above (`pachctl license delete-cluster`)
-    - THen, undeploy it: `pachctl undeploy`
+    - Then, undeploy it: `helm uninstall`

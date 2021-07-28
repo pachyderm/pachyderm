@@ -24,7 +24,7 @@ Deploying a Pachyderm cluster with the embedded enterprise server does not requi
 Proceed as usual:
 
 1. [Install your favorite version of `pachctl`](../../../../getting_started/local_installation/#install-pachctl).
-1. [Deploy Pachyderm](../../../getting_started/local_installation/#deploy-pachyderm): `pachctl deploy <local, google.....>`.
+1. [Deploy Pachyderm](../../../../deploy-manage/deploy/helm_install/): `helm install ...`.
 1. [Activate your enterprise Key](../deployment/#activate-pachyderm-enterprise-edition): `pachctl license activate`
 1. [Enable authentication](../index.md/#activate-user-access-management): `pachctl auth activate` 
 

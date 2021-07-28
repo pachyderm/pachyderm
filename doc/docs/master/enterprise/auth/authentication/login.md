@@ -41,10 +41,5 @@ Your Authentication is all set.
 
 Next - (Optional)[Configure the User Access to Pachyderm Ressources](../authorization/role-binding.md).
 
-## Login from JupiterHub (IDE)
-// TODO
-
-## Login from a client API
-// TODO
 
 
