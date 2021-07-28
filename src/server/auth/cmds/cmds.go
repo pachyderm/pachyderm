@@ -70,7 +70,7 @@ func newClient(enterprise bool) (*client.APIClient, error) {
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
-	var enterprise, supplyRootToken, onlyActivate bool
+	var enterprise, supplyRootToken, onlyActivate, localhostLogin bool
 	var issuer, redirect, clientId string
 	var trustedPeers, scopes []string
 	activate := &cobra.Command{
@@ -168,12 +168,13 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 
 				if _, err := c.SetConfiguration(c.Ctx(),
 					&auth.SetConfigurationRequest{Configuration: &auth.OIDCConfig{
-						Issuer:          issuer,
-						ClientID:        clientId,
-						ClientSecret:    oidcClient.Client.Secret,
-						RedirectURI:     redirect,
-						LocalhostIssuer: true,
-						Scopes:          scopes,
+						Issuer:            issuer,
+						ClientID:          clientId,
+						ClientSecret:      oidcClient.Client.Secret,
+						RedirectURI:       redirect,
+						LocalhostIssuer:   true,
+						LocalhostLoginURI: localhostLogin,
+						Scopes:            scopes,
 					}}); err != nil {
 					err = errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
 					_, deleteErr := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: oidcClient.Client.Id})
@@ -209,12 +210,13 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 
 				if _, err := c.SetConfiguration(c.Ctx(),
 					&auth.SetConfigurationRequest{Configuration: &auth.OIDCConfig{
-						Issuer:          idCfg.Config.Issuer,
-						ClientID:        clientId,
-						ClientSecret:    oidcClient.Client.Secret,
-						RedirectURI:     redirect,
-						LocalhostIssuer: false,
-						Scopes:          scopes,
+						Issuer:            idCfg.Config.Issuer,
+						ClientID:          clientId,
+						ClientSecret:      oidcClient.Client.Secret,
+						RedirectURI:       redirect,
+						LocalhostIssuer:   false,
+						LocalhostLoginURI: localhostLogin,
+						Scopes:            scopes,
 					}}); err != nil {
 					err = errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd.")
 					_, deleteErr := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: oidcClient.Client.Id})
@@ -239,7 +241,7 @@ Prompt the user to input a root token on stdin, rather than generating a random 
 	activate.PersistentFlags().StringVar(&clientId, "client-id", "pachd", "The client ID for this pachd")
 	activate.PersistentFlags().StringSliceVar(&trustedPeers, "trusted-peers", []string{}, "Comma-separated list of OIDC client IDs to trust")
 	activate.PersistentFlags().StringSliceVar(&scopes, "scopes", auth.DefaultOIDCScopes, "Comma-separated list of scopes to request")
-
+	activate.PersistentFlags().BoolVar(&localhostLogin, "localhost-login", false, "Route Login URIs to locahost hostname for locally deployed clusters")
 	return cmdutil.CreateAlias(activate, "auth activate")
 }
 

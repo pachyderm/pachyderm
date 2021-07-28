@@ -68,6 +68,11 @@ message OIDCConfig{
  // OIDC requests to the embedded OIDC provider. This is necessary to support
  // some network configurations like Minikube. 
  bool localhost_issuer = 7;
+
+// localhost_login_uri rewrites the OIDC login URL's hostname to localhost. 
+// This helps support local deployments such as Minikube where the Locally Deployed 
+// Issuer URI is not accessible to the user
+ bool localhost_login_uri = 8 [(gogoproto.customname) = "LocalhostLoginURI"];
 }
 
 message GetConfigurationRequest {}

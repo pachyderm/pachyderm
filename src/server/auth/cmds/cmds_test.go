@@ -288,6 +288,7 @@ func TestConfig(t *testing.T) {
         {
             "issuer": "http://pachd:1658/",
             "localhost_issuer": true,
+			"localhost_login_uri": true,
             "client_id": "localhost",
             "redirect_uri": "http://localhost:1650"
         }
@@ -295,6 +296,7 @@ EOF
 		pachctl auth get-config \
 		  | match '"issuer": "http://pachd:1658/"' \
 		  | match '"localhost_issuer": true' \
+		  | match '"localhost_login_uri": true' \
 		  | match '"client_id": "localhost"' \
 		  | match '"redirect_uri": "http://localhost:1650"' \
 		  | match '}'
@@ -304,6 +306,7 @@ EOF
 		pachctl auth get-config -o yaml \
 		  | match 'issuer: http://pachd:1658/' \
 		  | match 'localhost_issuer: true' \
+		  | match 'localhost_login_uri: true' \
 		  | match 'client_id: localhost' \
 		  | match 'redirect_uri: http://localhost:1650' \
 		`).Run())

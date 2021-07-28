@@ -160,7 +160,7 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 		oauth2.SetAuthURLParam("response_type", "code"),
 		oauth2.SetAuthURLParam("nonce", nonce))
 
-	if config.LocalhostIssuer {
+	if config.LocalhostLoginURI {
 		rewriteURL, err := url.Parse(authURL)
 		if err != nil {
 			return "", "", errors.Wrap(err, "could not parse Auth URL for Localhost Issuer rewrite")
