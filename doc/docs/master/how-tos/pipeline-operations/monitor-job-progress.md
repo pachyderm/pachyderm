@@ -35,51 +35,58 @@ to monitor its status:
   ```
 
 ## `pachctl list job`
-
-  This command shows the jobs that were run for each pipeline. 
+  This command shows the progress of all global jobs, in an aggregated format. 
   
-  For each job, Pachyderm shows the related pipeline, the time since the job started and its duration, the number of datums in the **PROGRESS** section,  and other information.
+  For each commit (global job), Pachyderm shows the number of subjobs run, and  a progress bar that mirroring all sub-jobs in each commit's DAG.
+
+  **Example:**
+  ```shell
+  ID                               SUBJOBS PROGRESS CREATED     MODIFIED
+  8862dae3ee1348ba8492b5863c32cae5 2       ▇▇▇▇▇▇▇▇ 3 hours ago 3 hours ago 
+  20f5ac9d632e47fb9b8e763f8bdce178 1       ▇▇▇▇▇▇▇▇ 3 hours ago 3 hours ago 
+  4b9aaebf49384842a72537d7e1532a63 1       ▇▇▇▇▇▇▇▇ 3 hours ago 3 hours ago 
+  ```
+
+  The progress bar is equally divided to the number of steps, or pipelines,
+  you have in your DAG. In the example above, it is two steps.
+  If one of the sub-jobs fails, you will see the progress bar turn red
+  for that pipeline step. To troubleshoot, look into that particular
+  pipeline execution.
+## `pachctl list job <global-id>`
+  This command shows the status of all the pipelines executions that run in the context of this global job.
+
+  For each pipeline executed as part of this global job, Pachyderm shows the time since each sub-job started and its duration, the number of datums in the **PROGRESS** section,  and other information.
   The format of the progress column is `DATUMS PROCESSED + DATUMS SKIPPED / TOTAL DATUMS`.
 
   For more information, see
   [Datum Processing States](../../../concepts/pipeline-concepts/datum/datum-processing-states/).
 
   **Example:**
-
   ```shell
-  % pachctl list job
-  ID                               PIPELINE STARTED       DURATION           RESTART PROGRESS    DL       UL       STATE
-  7321952b9a214d3dbb64cc4369cc67da montage  6 minutes ago 1 second           0       1 + 0 / 1   371.9KiB 1.283MiB success
-  95adc138e82e48949909364e8b9dbb53 edges    6 minutes ago 1 second           0       2 + 1 / 3   181.1KiB 111.4KiB success
-  84fe22432f22492c9fd4f23036c3c8b5 montage  6 minutes ago Less than a second 0       1 + 0 / 1   79.49KiB 378.6KiB success
-  2fbbc54ab3514d8a94d1b7a75bab96a7 edges    6 minutes ago Less than a second 0       1 + 0 / 1   57.27KiB 22.22KiB success
+  % pachctl list job 8862dae3ee1348ba8492b5863c32cae5
+  ID                               PIPELINE STARTED     DURATION  RESTART PROGRESS  DL       UL       STATE   
+  8862dae3ee1348ba8492b5863c32cae5 edges    3 hours ago 1 second  0       1 + 1 / 2 78.7KiB  37.15KiB success 
+  8862dae3ee1348ba8492b5863c32cae5 montage  3 hours ago 3 seconds 0       1 + 0 / 1 195.3KiB 815.1KiB success 
   ```
 
-## `pachctl list commit <repo>`
+.......
 
-  This command shows the status of the downstream jobs further in
-  the DAG that result from this commit.
-  
-  In the [Hyperparameter Tuning example](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter), we have four pipelines,
-  or a four-stage pipeline. Every subsequent pipeline takes the results
-  in the output repository of the previous pipeline and performs a
-  computation. Therefore, each step is executed one after another.
-  The **PROGRESS** bar in the output of the `pachctl list commit <first-repo-in-dag>`
-  command reflects these changes.
+## `pachctl list job -p <pipeline>`
+  This command shows the status of a pipeline's executions across all commits.
 
-  Running the command against the first repo in the DAG displays
-  a progress bar that shows job progress for all steps in your DAG.
+  For each commit, Pachyderm shows the time the job started with its duration, data downloaded and uploaded, STATE of the pipeline execution, the number of datums in the **PROGRESS** section,  and other information.
+  The format of the progress column is `DATUMS PROCESSED + DATUMS SKIPPED / TOTAL DATUMS`.
 
-  The following animation shows how the progress bar is updated
-  when a job for each pipeline completes.
+  For more information, see
+  [Datum Processing States](../../../concepts/pipeline-concepts/datum/datum-processing-states/).
 
-  ![Progress bar](../../../assets/images/list_commit_progress_bar.gif)
-
-  The progress bar is equally divided to the number of steps, or pipelines,
-  you have in your DAG. In the example above, it is four steps.
-  If one of the jobs fails, you will see the progress bar turn red
-  for that pipeline step. To troubleshoot, look into that particular
-  pipeline job.
+  **Example:** 
+  ```shell
+  % pachctl list job -p edges
+  ID                               PIPELINE STARTED     DURATION RESTART PROGRESS  DL       UL       STATE   
+  8862dae3ee1348ba8492b5863c32cae5 edges    3 hours ago 1 second 0       1 + 1 / 2 78.7KiB  37.15KiB success 
+  4b9aaebf49384842a72537d7e1532a63 edges    3 hours ago 1 second 0       1 + 0 / 1 57.27KiB 22.22KiB success 
+  ```
 
 !!! note "See Also"
     [Pipeline Troubleshooting](../../../troubleshooting/pipeline_troubleshooting/)
