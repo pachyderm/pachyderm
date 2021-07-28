@@ -700,6 +700,18 @@ modifyFile: {
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
+  // GetFile returns the contents of a single file
+getFile: {
+    path: '/pfs_v2.API/GetFile',
+    requestStream: false,
+    responseStream: true,
+    requestType: pfs_pfs_pb.GetFileRequest,
+    responseType: google_protobuf_wrappers_pb.BytesValue,
+    requestSerialize: serialize_pfs_v2_GetFileRequest,
+    requestDeserialize: deserialize_pfs_v2_GetFileRequest,
+    responseSerialize: serialize_google_protobuf_BytesValue,
+    responseDeserialize: deserialize_google_protobuf_BytesValue,
+  },
   // GetFileTAR returns a TAR stream of the contents matched by the request
 getFileTAR: {
     path: '/pfs_v2.API/GetFileTAR',

@@ -32,6 +32,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     listBranch: IAPIService_IListBranch;
     deleteBranch: IAPIService_IDeleteBranch;
     modifyFile: IAPIService_IModifyFile;
+    getFile: IAPIService_IGetFile;
     getFileTAR: IAPIService_IGetFileTAR;
     inspectFile: IAPIService_IInspectFile;
     listFile: IAPIService_IListFile;
@@ -210,6 +211,15 @@ interface IAPIService_IModifyFile extends grpc.MethodDefinition<pfs_pfs_pb.Modif
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
+interface IAPIService_IGetFile extends grpc.MethodDefinition<pfs_pfs_pb.GetFileRequest, google_protobuf_wrappers_pb.BytesValue> {
+    path: "/pfs_v2.API/GetFile";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.GetFileRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.GetFileRequest>;
+    responseSerialize: grpc.serialize<google_protobuf_wrappers_pb.BytesValue>;
+    responseDeserialize: grpc.deserialize<google_protobuf_wrappers_pb.BytesValue>;
+}
 interface IAPIService_IGetFileTAR extends grpc.MethodDefinition<pfs_pfs_pb.GetFileRequest, google_protobuf_wrappers_pb.BytesValue> {
     path: "/pfs_v2.API/GetFileTAR";
     requestStream: false;
@@ -358,6 +368,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     listBranch: grpc.handleServerStreamingCall<pfs_pfs_pb.ListBranchRequest, pfs_pfs_pb.BranchInfo>;
     deleteBranch: grpc.handleUnaryCall<pfs_pfs_pb.DeleteBranchRequest, google_protobuf_empty_pb.Empty>;
     modifyFile: handleClientStreamingCall<pfs_pfs_pb.ModifyFileRequest, google_protobuf_empty_pb.Empty>;
+    getFile: grpc.handleServerStreamingCall<pfs_pfs_pb.GetFileRequest, google_protobuf_wrappers_pb.BytesValue>;
     getFileTAR: grpc.handleServerStreamingCall<pfs_pfs_pb.GetFileRequest, google_protobuf_wrappers_pb.BytesValue>;
     inspectFile: grpc.handleUnaryCall<pfs_pfs_pb.InspectFileRequest, pfs_pfs_pb.FileInfo>;
     listFile: grpc.handleServerStreamingCall<pfs_pfs_pb.ListFileRequest, pfs_pfs_pb.FileInfo>;
@@ -424,6 +435,8 @@ export interface IAPIClient {
     modifyFile(metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
     modifyFile(options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
     modifyFile(metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
+    getFile(request: pfs_pfs_pb.GetFileRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<google_protobuf_wrappers_pb.BytesValue>;
+    getFile(request: pfs_pfs_pb.GetFileRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<google_protobuf_wrappers_pb.BytesValue>;
     getFileTAR(request: pfs_pfs_pb.GetFileRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<google_protobuf_wrappers_pb.BytesValue>;
     getFileTAR(request: pfs_pfs_pb.GetFileRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<google_protobuf_wrappers_pb.BytesValue>;
     inspectFile(request: pfs_pfs_pb.InspectFileRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.FileInfo) => void): grpc.ClientUnaryCall;
@@ -514,6 +527,8 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public modifyFile(metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
     public modifyFile(options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
     public modifyFile(metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
+    public getFile(request: pfs_pfs_pb.GetFileRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<google_protobuf_wrappers_pb.BytesValue>;
+    public getFile(request: pfs_pfs_pb.GetFileRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<google_protobuf_wrappers_pb.BytesValue>;
     public getFileTAR(request: pfs_pfs_pb.GetFileRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<google_protobuf_wrappers_pb.BytesValue>;
     public getFileTAR(request: pfs_pfs_pb.GetFileRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<google_protobuf_wrappers_pb.BytesValue>;
     public inspectFile(request: pfs_pfs_pb.InspectFileRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.FileInfo) => void): grpc.ClientUnaryCall;

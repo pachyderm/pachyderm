@@ -2337,6 +2337,7 @@ export enum JobState {
     JOB_SUCCESS = 5,
     JOB_KILLED = 6,
     JOB_EGRESSING = 7,
+    JOB_FINISHING = 8,
 }
 
 export enum DatumState {

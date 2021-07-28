@@ -3518,7 +3518,7 @@ proto.pfs_v2.Commit.prototype.setId = function(value) {
  * @private {!Array<number>}
  * @const
  */
-proto.pfs_v2.CommitInfo.repeatedFields_ = [5,8];
+proto.pfs_v2.CommitInfo.repeatedFields_ = [5,9];
 
 
 
@@ -3558,10 +3558,11 @@ proto.pfs_v2.CommitInfo.toObject = function(includeInstance, msg) {
     childCommitsList: jspb.Message.toObjectList(msg.getChildCommitsList(),
     proto.pfs_v2.Commit.toObject, includeInstance),
     started: (f = msg.getStarted()) && google_protobuf_timestamp_pb.Timestamp.toObject(includeInstance, f),
+    finishing: (f = msg.getFinishing()) && google_protobuf_timestamp_pb.Timestamp.toObject(includeInstance, f),
     finished: (f = msg.getFinished()) && google_protobuf_timestamp_pb.Timestamp.toObject(includeInstance, f),
     directProvenanceList: jspb.Message.toObjectList(msg.getDirectProvenanceList(),
     proto.pfs_v2.Branch.toObject, includeInstance),
-    error: jspb.Message.getBooleanFieldWithDefault(msg, 9, false),
+    error: jspb.Message.getBooleanFieldWithDefault(msg, 10, false),
     sizeBytesUpperBound: jspb.Message.getFieldWithDefault(msg, 11, 0),
     details: (f = msg.getDetails()) && proto.pfs_v2.CommitInfo.Details.toObject(includeInstance, f)
   };
@@ -3632,14 +3633,19 @@ proto.pfs_v2.CommitInfo.deserializeBinaryFromReader = function(msg, reader) {
     case 7:
       var value = new google_protobuf_timestamp_pb.Timestamp;
       reader.readMessage(value,google_protobuf_timestamp_pb.Timestamp.deserializeBinaryFromReader);
-      msg.setFinished(value);
+      msg.setFinishing(value);
       break;
     case 8:
+      var value = new google_protobuf_timestamp_pb.Timestamp;
+      reader.readMessage(value,google_protobuf_timestamp_pb.Timestamp.deserializeBinaryFromReader);
+      msg.setFinished(value);
+      break;
+    case 9:
       var value = new proto.pfs_v2.Branch;
       reader.readMessage(value,proto.pfs_v2.Branch.deserializeBinaryFromReader);
       msg.addDirectProvenance(value);
       break;
-    case 9:
+    case 10:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setError(value);
       break;
@@ -3647,7 +3653,7 @@ proto.pfs_v2.CommitInfo.deserializeBinaryFromReader = function(msg, reader) {
       var value = /** @type {number} */ (reader.readInt64());
       msg.setSizeBytesUpperBound(value);
       break;
-    case 10:
+    case 12:
       var value = new proto.pfs_v2.CommitInfo.Details;
       reader.readMessage(value,proto.pfs_v2.CommitInfo.Details.deserializeBinaryFromReader);
       msg.setDetails(value);
@@ -3728,7 +3734,7 @@ proto.pfs_v2.CommitInfo.serializeBinaryToWriter = function(message, writer) {
       google_protobuf_timestamp_pb.Timestamp.serializeBinaryToWriter
     );
   }
-  f = message.getFinished();
+  f = message.getFinishing();
   if (f != null) {
     writer.writeMessage(
       7,
@@ -3736,10 +3742,18 @@ proto.pfs_v2.CommitInfo.serializeBinaryToWriter = function(message, writer) {
       google_protobuf_timestamp_pb.Timestamp.serializeBinaryToWriter
     );
   }
+  f = message.getFinished();
+  if (f != null) {
+    writer.writeMessage(
+      8,
+      f,
+      google_protobuf_timestamp_pb.Timestamp.serializeBinaryToWriter
+    );
+  }
   f = message.getDirectProvenanceList();
   if (f.length > 0) {
     writer.writeRepeatedMessage(
-      8,
+      9,
       f,
       proto.pfs_v2.Branch.serializeBinaryToWriter
     );
@@ -3747,7 +3761,7 @@ proto.pfs_v2.CommitInfo.serializeBinaryToWriter = function(message, writer) {
   f = message.getError();
   if (f) {
     writer.writeBool(
-      9,
+      10,
       f
     );
   }
@@ -3761,7 +3775,7 @@ proto.pfs_v2.CommitInfo.serializeBinaryToWriter = function(message, writer) {
   f = message.getDetails();
   if (f != null) {
     writer.writeMessage(
-      10,
+      12,
       f,
       proto.pfs_v2.CommitInfo.Details.serializeBinaryToWriter
     );
@@ -4104,10 +4118,10 @@ proto.pfs_v2.CommitInfo.prototype.hasStarted = function() {
 
 
 /**
- * optional google.protobuf.Timestamp finished = 7;
+ * optional google.protobuf.Timestamp finishing = 7;
  * @return {?proto.google.protobuf.Timestamp}
  */
-proto.pfs_v2.CommitInfo.prototype.getFinished = function() {
+proto.pfs_v2.CommitInfo.prototype.getFinishing = function() {
   return /** @type{?proto.google.protobuf.Timestamp} */ (
     jspb.Message.getWrapperField(this, google_protobuf_timestamp_pb.Timestamp, 7));
 };
@@ -4117,8 +4131,45 @@ proto.pfs_v2.CommitInfo.prototype.getFinished = function() {
  * @param {?proto.google.protobuf.Timestamp|undefined} value
  * @return {!proto.pfs_v2.CommitInfo} returns this
 */
-proto.pfs_v2.CommitInfo.prototype.setFinished = function(value) {
+proto.pfs_v2.CommitInfo.prototype.setFinishing = function(value) {
   return jspb.Message.setWrapperField(this, 7, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.CommitInfo} returns this
+ */
+proto.pfs_v2.CommitInfo.prototype.clearFinishing = function() {
+  return this.setFinishing(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.CommitInfo.prototype.hasFinishing = function() {
+  return jspb.Message.getField(this, 7) != null;
+};
+
+
+/**
+ * optional google.protobuf.Timestamp finished = 8;
+ * @return {?proto.google.protobuf.Timestamp}
+ */
+proto.pfs_v2.CommitInfo.prototype.getFinished = function() {
+  return /** @type{?proto.google.protobuf.Timestamp} */ (
+    jspb.Message.getWrapperField(this, google_protobuf_timestamp_pb.Timestamp, 8));
+};
+
+
+/**
+ * @param {?proto.google.protobuf.Timestamp|undefined} value
+ * @return {!proto.pfs_v2.CommitInfo} returns this
+*/
+proto.pfs_v2.CommitInfo.prototype.setFinished = function(value) {
+  return jspb.Message.setWrapperField(this, 8, value);
 };
 
 
@@ -4136,17 +4187,17 @@ proto.pfs_v2.CommitInfo.prototype.clearFinished = function() {
  * @return {boolean}
  */
 proto.pfs_v2.CommitInfo.prototype.hasFinished = function() {
-  return jspb.Message.getField(this, 7) != null;
+  return jspb.Message.getField(this, 8) != null;
 };
 
 
 /**
- * repeated Branch direct_provenance = 8;
+ * repeated Branch direct_provenance = 9;
  * @return {!Array<!proto.pfs_v2.Branch>}
  */
 proto.pfs_v2.CommitInfo.prototype.getDirectProvenanceList = function() {
   return /** @type{!Array<!proto.pfs_v2.Branch>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.pfs_v2.Branch, 8));
+    jspb.Message.getRepeatedWrapperField(this, proto.pfs_v2.Branch, 9));
 };
 
 
@@ -4155,7 +4206,7 @@ proto.pfs_v2.CommitInfo.prototype.getDirectProvenanceList = function() {
  * @return {!proto.pfs_v2.CommitInfo} returns this
 */
 proto.pfs_v2.CommitInfo.prototype.setDirectProvenanceList = function(value) {
-  return jspb.Message.setRepeatedWrapperField(this, 8, value);
+  return jspb.Message.setRepeatedWrapperField(this, 9, value);
 };
 
 
@@ -4165,7 +4216,7 @@ proto.pfs_v2.CommitInfo.prototype.setDirectProvenanceList = function(value) {
  * @return {!proto.pfs_v2.Branch}
  */
 proto.pfs_v2.CommitInfo.prototype.addDirectProvenance = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 8, opt_value, proto.pfs_v2.Branch, opt_index);
+  return jspb.Message.addToRepeatedWrapperField(this, 9, opt_value, proto.pfs_v2.Branch, opt_index);
 };
 
 
@@ -4179,11 +4230,11 @@ proto.pfs_v2.CommitInfo.prototype.clearDirectProvenanceList = function() {
 
 
 /**
- * optional bool error = 9;
+ * optional bool error = 10;
  * @return {boolean}
  */
 proto.pfs_v2.CommitInfo.prototype.getError = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 9, false));
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 10, false));
 };
 
 
@@ -4192,7 +4243,7 @@ proto.pfs_v2.CommitInfo.prototype.getError = function() {
  * @return {!proto.pfs_v2.CommitInfo} returns this
  */
 proto.pfs_v2.CommitInfo.prototype.setError = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 9, value);
+  return jspb.Message.setProto3BooleanField(this, 10, value);
 };
 
 
@@ -4215,12 +4266,12 @@ proto.pfs_v2.CommitInfo.prototype.setSizeBytesUpperBound = function(value) {
 
 
 /**
- * optional Details details = 10;
+ * optional Details details = 12;
  * @return {?proto.pfs_v2.CommitInfo.Details}
  */
 proto.pfs_v2.CommitInfo.prototype.getDetails = function() {
   return /** @type{?proto.pfs_v2.CommitInfo.Details} */ (
-    jspb.Message.getWrapperField(this, proto.pfs_v2.CommitInfo.Details, 10));
+    jspb.Message.getWrapperField(this, proto.pfs_v2.CommitInfo.Details, 12));
 };
 
 
@@ -4229,7 +4280,7 @@ proto.pfs_v2.CommitInfo.prototype.getDetails = function() {
  * @return {!proto.pfs_v2.CommitInfo} returns this
 */
 proto.pfs_v2.CommitInfo.prototype.setDetails = function(value) {
-  return jspb.Message.setWrapperField(this, 10, value);
+  return jspb.Message.setWrapperField(this, 12, value);
 };
 
 
@@ -4247,7 +4298,7 @@ proto.pfs_v2.CommitInfo.prototype.clearDetails = function() {
  * @return {boolean}
  */
 proto.pfs_v2.CommitInfo.prototype.hasDetails = function() {
-  return jspb.Message.getField(this, 10) != null;
+  return jspb.Message.getField(this, 12) != null;
 };
 
 
@@ -12417,7 +12468,8 @@ proto.pfs_v2.CommitState = {
   COMMIT_STATE_UNKNOWN: 0,
   STARTED: 1,
   READY: 2,
-  FINISHED: 3
+  FINISHING: 3,
+  FINISHED: 4
 };
 
 /**

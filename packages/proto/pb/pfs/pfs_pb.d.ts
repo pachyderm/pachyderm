@@ -346,6 +346,11 @@ export class CommitInfo extends jspb.Message {
     getStarted(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setStarted(value?: google_protobuf_timestamp_pb.Timestamp): CommitInfo;
 
+    hasFinishing(): boolean;
+    clearFinishing(): void;
+    getFinishing(): google_protobuf_timestamp_pb.Timestamp | undefined;
+    setFinishing(value?: google_protobuf_timestamp_pb.Timestamp): CommitInfo;
+
     hasFinished(): boolean;
     clearFinished(): void;
     getFinished(): google_protobuf_timestamp_pb.Timestamp | undefined;
@@ -382,6 +387,7 @@ export namespace CommitInfo {
         parentCommit?: Commit.AsObject,
         childCommitsList: Array<Commit.AsObject>,
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+        finishing?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         directProvenanceList: Array<Branch.AsObject>,
         error: boolean,
@@ -1591,7 +1597,8 @@ export enum CommitState {
     COMMIT_STATE_UNKNOWN = 0,
     STARTED = 1,
     READY = 2,
-    FINISHED = 3,
+    FINISHING = 3,
+    FINISHED = 4,
 }
 
 export enum Delimiter {
