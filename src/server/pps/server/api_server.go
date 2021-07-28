@@ -376,7 +376,7 @@ func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineO
 
 // authorizePipelineOpInTransaction is identical to authorizePipelineOp, but runs in the provided transaction
 func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.TransactionContext, operation pipelineOperation, input *pps.Input, output string) error {
-	_, err := a.env.AuthServer().WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
+	_, err := txnCtx.WhoAmI()
 	if auth.IsErrNotActivated(err) {
 		return nil // Auth isn't activated, skip authorization completely
 	} else if err != nil {
@@ -1499,10 +1499,10 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	return nil
 }
 
-func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.CreatePipelineRequest) error {
 	pachClient := a.env.GetPachClient(ctx)
 	pipelines := a.pipelines.ReadOnly(ctx)
-	if err := pipelines.Get(pipelineInfo.Pipeline.Name, &pps.PipelineInfo{}); err == nil {
+	if err := pipelines.Get(req.Pipeline.Name, &pps.PipelineInfo{}); err == nil {
 		// Pipeline already exists so we allow people to update it even if
 		// they're over the limits.
 		return nil
@@ -1527,7 +1527,7 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *
 		return errors.Errorf("%s requires an activation key to create more than %d total pipelines (you have %d). %s\n\n%s",
 			enterprisetext.OpenSourceProduct, enterpriselimits.Pipelines, pipelineCount, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
 	}
-	if pipelineInfo.Details.ParallelismSpec != nil && pipelineInfo.Details.ParallelismSpec.Constant > enterpriselimits.Parallelism {
+	if req.ParallelismSpec != nil && req.ParallelismSpec.Constant > enterpriselimits.Parallelism {
 		enterprisemetrics.IncEnterpriseFailures()
 		return errors.Errorf("%s requires an activation key to create pipelines with parallelism more than %d. %s\n\n%s",
 			enterprisetext.OpenSourceProduct, enterpriselimits.Parallelism, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
@@ -1618,20 +1618,12 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-func (a *apiServer) writePipelineInfoToFileSet(ctx context.Context, pipelineInfo *pps.PipelineInfo) (string, error) {
+func (a *apiServer) writePipelineInfoToFileSet(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo) (string, error) {
 	data, err := pipelineInfo.Marshal()
 	if err != nil {
 		return "", errors.Wrapf(err, "could not marshal PipelineInfo")
 	}
-	pachClient := a.env.GetPachClient(ctx)
-	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
-		err := mf.PutFile(ppsconsts.SpecFile, bytes.NewReader(data))
-		return err
-	})
-	if err != nil {
-		return "", err
-	}
-	return resp.FileSetId, nil
+	return txnCtx.FileAccessor.CreateFileset(ppsconsts.SpecFile, data, false)
 }
 
 // commitPipelineInfoFromFileSet is a helper for all pipeline updates that
@@ -1830,6 +1822,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}()
 	extended.PersistAny(ctx, a.env.GetEtcdClient(), request.Pipeline.Name)
 
+	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
+		return nil, err
+	}
+
 	// Don't provide a fileset and the transaction env will generate it
 	filesetID := ""
 	prevPipelineVersion := uint64(0)
@@ -1917,7 +1913,7 @@ func (a *apiServer) latestPipelineInfo(txnCtx *txncontext.TransactionContext, pi
 		return nil, err
 	}
 	// the spec commit must already exist outside of the transaction, so we can retrieve it normally
-	if err := internal.GetPipelineDetails(txnCtx.ClientContext, a.env.PfsServer(), pipelineInfo); err != nil {
+	if err := txnCtx.FileAccessor.GetPipelineDetails(pipelineInfo); err != nil {
 		return nil, err
 	}
 	return pipelineInfo, nil
@@ -1945,10 +1941,6 @@ func (a *apiServer) pipelineInfosForUpdate(txnCtx *txncontext.TransactionContext
 		return nil, nil, err
 	}
 
-	if err := a.validateEnterpriseChecks(txnCtx.ClientContext, newPipelineInfo); err != nil {
-		return nil, nil, err
-	}
-
 	return oldPipelineInfo, newPipelineInfo, nil
 }
 
@@ -1964,13 +1956,6 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 	pipelineName := request.Pipeline.Name
 
-	if *specFileSetID != "" {
-		// If we already have a fileset, try to renew it - if that fails, invalidate it
-		if err := a.env.GetPachClient(txnCtx.ClientContext).RenewFileSet(*specFileSetID, 600*time.Second); err != nil {
-			*specFileSetID = ""
-		}
-	}
-
 	// If the expected pipeline version doesn't match up with oldPipelineInfo, we
 	// need to recreate the fileset
 	staleFileSet := false
@@ -1983,7 +1968,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	if staleFileSet || *specFileSetID == "" {
 		// No existing fileset or the old one expired, create a new fileset - the
 		// pipeline spec to be written into a fileset outside of the transaction.
-		*specFileSetID, err = a.writePipelineInfoToFileSet(txnCtx.ClientContext, newPipelineInfo)
+		*specFileSetID, err = a.writePipelineInfoToFileSet(txnCtx, newPipelineInfo)
 		if err != nil {
 			return err
 		}
@@ -2369,19 +2354,56 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 // Many functions (GetLogs, ListPipeline) need to inspect a pipeline, so they
 // call this instead of making an RPC
 func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bool) (*pps.PipelineInfo, error) {
-	var response *pps.PipelineInfo
+	var info *pps.PipelineInfo
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		response, err = a.InspectPipelineInTransaction(txnCtx, name, details)
+		info, err = a.InspectPipelineInTransaction(txnCtx, name)
 		return err
 	}); err != nil {
 		return nil, err
 	}
-	return response, nil
+
+	if details {
+		if err := internal.GetPipelineDetails(ctx, a.env.PfsServer(), info); err != nil {
+			return nil, err
+		}
+		kubeClient := a.env.GetKubeClient()
+		if info.Details.Service != nil {
+			rcName := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
+			service, err := kubeClient.CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
+			if err != nil {
+				if !errutil.IsNotFoundError(err) {
+					return nil, err
+				}
+			} else {
+				info.Details.Service.IP = service.Spec.ClusterIP
+			}
+		}
+
+		// TODO: move this into ppsutil.GetPipelineDetails?
+		workerPoolID := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
+		workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+		if err != nil {
+			logrus.Errorf("failed to get worker status with err: %s", err.Error())
+		} else {
+			info.Details.WorkersAvailable = int64(len(workerStatus))
+			info.Details.WorkersRequested = int64(info.Parallelism)
+		}
+		tasks, claims, err := work.NewWorker(
+			a.env.GetEtcdClient(),
+			a.etcdPrefix,
+			driver.WorkNamespace(info),
+		).TaskCount(ctx)
+		if err != nil {
+			return nil, err
+		}
+		info.Details.UnclaimedTasks = tasks - claims
+	}
+
+	return info, nil
 }
 
-func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, name string, details bool) (*pps.PipelineInfo, error) {
-	kubeClient := a.env.GetKubeClient()
+func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, name string) (*pps.PipelineInfo, error) {
 	name, ancestors, err := ancestry.Parse(name)
 	if err != nil {
 		return nil, err
@@ -2398,45 +2420,6 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	pipelineInfo.AuthToken = ""
 	// TODO(global ids): how should we treat ancestry here?  Alias commits are going to gum it up.
 	pipelineInfo.SpecCommit.ID = ancestry.Add(pipelineInfo.SpecCommit.ID, ancestors)
-	if details {
-		// the spec commit must already exist outside of the transaction, so we can retrieve it normally
-		if err := internal.GetPipelineDetails(txnCtx.ClientContext, a.env.PfsServer(), pipelineInfo); err != nil {
-			return nil, err
-		}
-		if pipelineInfo.Details.Service != nil {
-			rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-			if err != nil {
-				return nil, err
-			}
-			service, err := kubeClient.CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
-			if err != nil {
-				if !errutil.IsNotFoundError(err) {
-					return nil, err
-				}
-			} else {
-				pipelineInfo.Details.Service.IP = service.Spec.ClusterIP
-			}
-		}
-
-		// TODO: move this into ppsutil.GetPipelineDetails?
-		workerPoolID := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		workerStatus, err := workerserver.Status(txnCtx.ClientContext, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
-		if err != nil {
-			logrus.Errorf("failed to get worker status with err: %s", err.Error())
-		} else {
-			pipelineInfo.Details.WorkersAvailable = int64(len(workerStatus))
-			pipelineInfo.Details.WorkersRequested = int64(pipelineInfo.Parallelism)
-		}
-		tasks, claims, err := work.NewWorker(
-			a.env.GetEtcdClient(),
-			a.etcdPrefix,
-			driver.WorkNamespace(pipelineInfo),
-		).TaskCount(txnCtx.ClientContext)
-		if err != nil {
-			return nil, err
-		}
-		pipelineInfo.Details.UnclaimedTasks = tasks - claims
-	}
 	return pipelineInfo, nil
 }
 

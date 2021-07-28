@@ -171,12 +171,6 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 			err = directTxn.UpdateJobState(request.UpdateJobState)
 		} else if request.StopJob != nil {
 			err = directTxn.StopJob(request.StopJob)
-		} else if request.DeleteAll != nil {
-			// TODO: extend this to delete everything through PFS, PPS, Auth and
-			// update the client DeleteAll call to use only this, then remove unused
-			// RPCs.  This is not currently feasible because it does an orderly
-			// deletion that generates a very large transaction.
-			err = d.deleteAll(txnCtx.ClientContext, txnCtx.SqlTx, info.Transaction)
 		} else if request.CreatePipeline != nil {
 			if response.CreatePipelineResponse == nil {
 				response.CreatePipelineResponse = &transaction.CreatePipelineTransactionResponse{}

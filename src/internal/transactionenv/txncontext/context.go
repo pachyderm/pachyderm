@@ -5,8 +5,10 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
-
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 // TransactionContext is a helper type to encapsulate the state for a given
@@ -14,8 +16,7 @@ import (
 // transaction is started, a context will be created for it containing these
 // objects, which will be threaded through to every API call:
 type TransactionContext struct {
-	// ClientContext is the incoming context.Context for the request.
-	ClientContext context.Context
+	username string
 	// SqlTx is the ongoing database transaction.
 	SqlTx *sqlx.Tx
 	// CommitSetID is the ID of the CommitSet corresponding to PFS changes in this transaction.
@@ -29,6 +30,36 @@ type TransactionContext struct {
 	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
 	PpsJobStopper  PpsJobStopper
 	PpsJobFinisher PpsJobFinisher
+	FileAccessor   FileAccessor
+}
+
+type identifier interface {
+	WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
+}
+
+func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier) (*TransactionContext, error) {
+	var username string
+	// check auth once now so that we can refer to it later
+	if authServer != nil {
+		if me, err := authServer.WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil && !auth.IsErrNotActivated(err) {
+			return nil, err
+		} else {
+			username = me.Username
+		}
+	}
+	return &TransactionContext{
+		SqlTx:       sqlTx,
+		CommitSetID: uuid.NewWithoutDashes(),
+		Timestamp:   types.TimestampNow(),
+		username:    username,
+	}, nil
+}
+
+func (t *TransactionContext) WhoAmI() (*auth.WhoAmIResponse, error) {
+	if t.username == "" {
+		return nil, auth.ErrNotActivated
+	}
+	return &auth.WhoAmIResponse{Username: t.username}, nil
 }
 
 // PropagateJobs notifies PPS that there are new commits in the transaction's
@@ -106,4 +137,9 @@ type PpsJobStopper interface {
 type PpsJobFinisher interface {
 	FinishJob(commitInfo *pfs.CommitInfo)
 	Run() error
+}
+
+type FileAccessor interface {
+	CreateFileset(string, []byte, bool) (string, error)
+	GetPipelineDetails(into *pps.PipelineInfo) error
 }

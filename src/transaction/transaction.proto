@@ -26,7 +26,6 @@ message TransactionRequest {
   pps_v2.UpdateJobStateRequest update_job_state = 8;
   pps_v2.CreatePipelineRequest create_pipeline = 9;
   pps_v2.StopJobRequest stop_job = 10;
-  DeleteAllRequest delete_all = 11;
 }
 
 message TransactionResponse {

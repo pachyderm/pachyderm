@@ -9,7 +9,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -75,21 +74,30 @@ func (g *fileGetter) Send(bytes *types.BytesValue) error {
 	return err // always nil
 }
 
-func GetPipelineDetails(ctx context.Context, apiServer pfs.APIServer, info *pps.PipelineInfo) error {
+type fileReader interface {
+	GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) error
+}
+
+func getSmallFile(ctx context.Context, server fileReader, file *pfs.File) ([]byte, error) {
 	var getter fileGetter
 	getter.SetContext(ctx)
-	if err := apiServer.GetFileTAR(&pfs.GetFileRequest{File: info.SpecCommit.NewFile(ppsconsts.SpecFile)}, &getter); err != nil {
-		return err
+	if err := server.GetFile(&pfs.GetFileRequest{File: file}, &getter); err != nil {
+		return nil, err
 	}
-	var file bytes.Buffer
-	if err := tarutil.Iterate(&getter.buffer, func(f tarutil.File) error {
-		return f.Content(&file)
-	}); err != nil {
+	return getter.buffer.Bytes(), nil
+}
+
+func GetPipelineDetails(ctx context.Context, server fileReader, info *pps.PipelineInfo) error {
+	var getter fileGetter
+	getter.SetContext(ctx)
+
+	bytes, err := getSmallFile(ctx, server, info.SpecCommit.NewFile(ppsconsts.SpecFile))
+	if err != nil {
 		return err
 	}
 
 	loadedPipelineInfo := &pps.PipelineInfo{}
-	if err := loadedPipelineInfo.Unmarshal(file.Bytes()); err != nil {
+	if err := loadedPipelineInfo.Unmarshal(bytes); err != nil {
 		return errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
 	}
 	info.Version = loadedPipelineInfo.Version

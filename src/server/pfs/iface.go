@@ -1,6 +1,8 @@
 package pfs
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	pfs_client "github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -12,6 +14,7 @@ type APIServer interface {
 	pfs_client.APIServer
 
 	NewPropagater(*txncontext.TransactionContext) txncontext.PfsPropagater
+	NewFileAccessor(context.Context) txncontext.FileAccessor
 
 	CreateRepoInTransaction(*txncontext.TransactionContext, *pfs_client.CreateRepoRequest) error
 	InspectRepoInTransaction(*txncontext.TransactionContext, *pfs_client.InspectRepoRequest) (*pfs_client.RepoInfo, error)

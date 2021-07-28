@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -14,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -299,14 +297,13 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 // which can be used to perform reads and writes on the current cluster state.
 func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
 	return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		txnCtx := &txncontext.TransactionContext{
-			ClientContext: ctx,
-			SqlTx:         sqlTx,
-			CommitSetID:   uuid.NewWithoutDashes(),
-			Timestamp:     types.TimestampNow(),
+		txnCtx, err := txncontext.New(ctx, sqlTx, env.serviceEnv.AuthServer())
+		if err != nil {
+			return err
 		}
 		if env.serviceEnv.PfsServer() != nil {
 			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
+			txnCtx.FileAccessor = env.serviceEnv.PfsServer().NewFileAccessor(ctx)
 		}
 		if env.serviceEnv.PpsServer() != nil {
 			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
@@ -314,7 +311,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 			txnCtx.PpsJobFinisher = env.serviceEnv.PpsServer().NewJobFinisher(txnCtx)
 		}
 
-		err := cb(txnCtx)
+		err = cb(txnCtx)
 		if err != nil {
 			return err
 		}
@@ -327,14 +324,13 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 // transaction is used to perform any writes, they will be silently discarded.
 func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
 	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		txnCtx := &txncontext.TransactionContext{
-			ClientContext: ctx,
-			SqlTx:         sqlTx,
-			CommitSetID:   uuid.NewWithoutDashes(),
-			Timestamp:     types.TimestampNow(),
+		txnCtx, err := txncontext.New(ctx, sqlTx, env.serviceEnv.AuthServer())
+		if err != nil {
+			return err
 		}
 		if env.serviceEnv.PfsServer() != nil {
 			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
+			txnCtx.FileAccessor = env.serviceEnv.PfsServer().NewFileAccessor(ctx)
 		}
 		if env.serviceEnv.PpsServer() != nil {
 			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
@@ -342,7 +338,7 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 			txnCtx.PpsJobFinisher = env.serviceEnv.PpsServer().NewJobFinisher(txnCtx)
 		}
 
-		err := cb(txnCtx)
+		err = cb(txnCtx)
 		if err != nil {
 			return err
 		}

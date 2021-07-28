@@ -11,6 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -65,8 +68,18 @@ func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	var repoInfo pfs.RepoInfo
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.activateAuth(txnCtx)
+		return a.driver.repos.ReadOnly(ctx).List(&repoInfo, col.DefaultOptions(), func(string) error {
+			err := a.driver.env.AuthServer().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
+				Type: auth.ResourceType_REPO,
+				Name: repoInfo.Repo.Name,
+			})
+			if err != nil && !col.IsErrExists(err) {
+				return err
+			}
+			return nil
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -337,7 +350,12 @@ func (a *apiServer) InspectBranchInTransaction(txnCtx *txncontext.TransactionCon
 func (a *apiServer) ListBranch(request *pfs.ListBranchRequest, srv pfs.API_ListBranchServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.listBranch(srv.Context(), request.Repo, request.Reverse, srv.Send)
+	if request.Repo == nil {
+		return a.driver.listBranch(srv.Context(), request.Reverse, srv.Send)
+	}
+	return a.txnEnv.WithReadContext(srv.Context(), func(txnCtx *txncontext.TransactionContext) error {
+		return a.driver.listBranchInTransaction(txnCtx, request.Repo, request.Reverse, srv.Send)
+	})
 }
 
 // DeleteBranchInTransaction is identical to DeleteBranch except that it can run
