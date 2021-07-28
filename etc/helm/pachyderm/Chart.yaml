@@ -51,3 +51,12 @@ home: https://www.pachyderm.com/
 sources:
   - https://github.com/pachyderm/pachyderm
   - https://github.com/pachyderm/helmchart
+
+# Note this chart has one diverged change: 
+# Adding a label variable to the volumeClaimTemplate in the Postgres Stateful set
+# TODO: Upstream this change
+dependencies:
+- name: postgresql
+  version: "10.8.0"
+  repository: "file://../charts/postgresql"
+  condition: postgresql.enabled

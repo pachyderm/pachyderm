@@ -32,14 +32,16 @@ spec:
         - name: DB_HOST
           value: {{ .Values.global.postgresql.postgresqlHost }}
         - name: AUTH_TYPE
-          value: trust
+          value: md5
         - name: MAX_CLIENT_CONN
           value: "1000"
         - name: POOL_MODE
           value: "transaction"
-        envFrom:
-          - secretRef:
-              name: pgbouncer-secret
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres # Must match secret setup by postgres subchart
+              key: postgresql-password
         image: edoburu/pgbouncer:1.15.0
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
