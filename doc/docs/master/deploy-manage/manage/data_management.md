@@ -6,20 +6,6 @@ the performance of your data processing as related to
 data organization, and general good ideas when you
 are using Pachyderm to version/process your data.
 
-## Garbage collection
-
-When a file, commit, repo is deleted, the data is not immediately removed
-from the underlying storage system, such as S3, for performance and
-architectural reasons. This is similar to how when you delete a file
-on your computer, the file is not necessarily wiped from disk immediately.
-
-To actually remove the data, you may need to manually invoke garbage
-collection. The easiest way to do it is through `pachctl garbage-collect`.
-You can start `pachctl garbage-collect` only when no active jobs are
-running. Also, you need to ensure that all `pachctl put file` operations
-have been completed. Garbage collection puts the cluster into a read-only
-mode where no new jobs can be created and no data can be added.
-
 ## Setting a root volume size
 
 When planning and configuring your Pachyderm deployment, you need to
