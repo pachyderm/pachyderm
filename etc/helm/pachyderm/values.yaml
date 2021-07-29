@@ -405,3 +405,11 @@ cloudsqlAuthProxy:
     labels: {}
     # type specifies the Kubernetes type of the cloudsql auth proxy service.
     type: ClusterIP
+
+postgresql:
+  image:
+    tag: "13.3.0"
+  initdbScripts:
+    dex.sql: |
+      CREATE DATABASE dex;
+      GRANT ALL PRIVILEGES ON DATABASE dex TO "pachyderm";
