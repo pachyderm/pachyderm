@@ -1,10 +1,10 @@
+import {pipelineAndJobLogs} from '@dash-backend/mock/fixtures/logs';
 import {render, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 import {Size} from 'react-virtualized-auto-sizer';
 
-import {pipelineAndJobLogs} from '@dash-backend/mock/fixtures/logs';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import {LOGS_DATE_FORMAT} from '../constants/logsViewersConstants';
