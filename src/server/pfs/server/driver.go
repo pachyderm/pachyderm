@@ -91,6 +91,14 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	if err != nil {
 		return nil, err
 	}
+	// test object storage.
+	if err := func() error {
+		ctx, cf := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cf()
+		return obj.TestStorage(ctx, objClient)
+	}(); err != nil {
+		return nil, err
+	}
 	repos := pfsdb.Repos(env.GetDBClient(), env.GetPostgresListener())
 	commits := pfsdb.Commits(env.GetDBClient(), env.GetPostgresListener())
 	branches := pfsdb.Branches(env.GetDBClient(), env.GetPostgresListener())
