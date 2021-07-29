@@ -47,7 +47,7 @@ In the case where the enterprise server of your organization has multiple pachd 
 you can use the following command to “discover” other pachd instances. It will automatically update your `~/.pachyderm/config.json` file with all the contexts you can connect to.
 
 ```shell
-$ pachctl enterprise sync context
+$ pachctl enterprise sync-contexts
 ```	
 
 ### Update The Enterprise License
