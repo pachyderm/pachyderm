@@ -23,7 +23,6 @@ func Transactions(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollec
 		listener,
 		&transaction.TransactionInfo{},
 		transactionsIndexes,
-		nil,
 	)
 }
 
@@ -32,6 +31,6 @@ func Transactions(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollec
 // querying.
 func AllCollections() []col.PostgresCollection {
 	return []col.PostgresCollection{
-		col.NewPostgresCollection(transactionsCollectionName, nil, nil, nil, transactionsIndexes, nil),
+		col.NewPostgresCollection(transactionsCollectionName, nil, nil, nil, transactionsIndexes),
 	}
 }

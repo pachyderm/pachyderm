@@ -161,7 +161,11 @@ type etcdReadWriteCollection struct {
 	stm STM
 }
 
-func (c *etcdReadWriteCollection) Get(key string, val proto.Message) (retErr error) {
+func (c *etcdReadWriteCollection) Get(maybeKey interface{}, val proto.Message) (retErr error) {
+	key, ok := maybeKey.(string)
+	if !ok {
+		return errors.New("key must be a string")
+	}
 	span, _ := tracing.AddSpanToAnyExisting(c.stm.Context(), "/etcd.RW/Get",
 		"col", c.prefix, "key", strings.TrimPrefix(key, c.prefix))
 	defer func() {
@@ -174,7 +178,7 @@ func (c *etcdReadWriteCollection) Get(key string, val proto.Message) (retErr err
 	valStr, err := c.stm.Get(c.path(key))
 	if err != nil {
 		if IsErrNotFound(err) {
-			return ErrNotFound{c.prefix, key}
+			return ErrNotFound{Type: c.prefix, Key: key}
 		}
 		return err
 	}
@@ -196,14 +200,18 @@ func (c *etcdReadWriteCollection) getIndexPath(val proto.Message, index *Index, 
 	return c.indexPath(index, index.Extract(val), key)
 }
 
-func (c *etcdReadWriteCollection) Put(key string, val proto.Message) error {
+func (c *etcdReadWriteCollection) Put(maybeKey interface{}, val proto.Message) error {
+	key, ok := maybeKey.(string)
+	if !ok {
+		return errors.New("key must be a string")
+	}
 	return c.PutTTL(key, val, 0)
 }
 
 func (c *etcdReadWriteCollection) TTL(key string) (int64, error) {
 	ttl, err := c.stm.TTL(c.path(key))
 	if IsErrNotFound(err) {
-		return ttl, ErrNotFound{c.prefix, key}
+		return ttl, ErrNotFound{Type: c.prefix, Key: key}
 	}
 	return ttl, err
 }
@@ -263,13 +271,17 @@ func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int6
 // Update reads the current value associated with 'key', calls 'f' to update
 // the value, and writes the new value back to the collection. 'key' must be
 // present in the collection, or a 'Not Found' error is returned
-func (c *etcdReadWriteCollection) Update(key string, val proto.Message, f func() error) error {
+func (c *etcdReadWriteCollection) Update(maybeKey interface{}, val proto.Message, f func() error) error {
+	key, ok := maybeKey.(string)
+	if !ok {
+		return errors.New("key must be a string")
+	}
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
 	if err := c.Get(key, val); err != nil {
 		if IsErrNotFound(err) {
-			return ErrNotFound{c.prefix, key}
+			return ErrNotFound{Type: c.prefix, Key: key}
 		}
 		return err
 	}
@@ -280,7 +292,11 @@ func (c *etcdReadWriteCollection) Update(key string, val proto.Message, f func()
 }
 
 // Upsert is like Update but 'key' is not required to be present
-func (c *etcdReadWriteCollection) Upsert(key string, val proto.Message, f func() error) error {
+func (c *etcdReadWriteCollection) Upsert(maybeKey interface{}, val proto.Message, f func() error) error {
+	key, ok := maybeKey.(string)
+	if !ok {
+		return errors.New("key must be a string")
+	}
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -293,7 +309,11 @@ func (c *etcdReadWriteCollection) Upsert(key string, val proto.Message, f func()
 	return c.Put(key, val)
 }
 
-func (c *etcdReadWriteCollection) Create(key string, val proto.Message) error {
+func (c *etcdReadWriteCollection) Create(maybeKey interface{}, val proto.Message) error {
+	key, ok := maybeKey.(string)
+	if !ok {
+		return errors.New("key must be a string")
+	}
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -303,12 +323,16 @@ func (c *etcdReadWriteCollection) Create(key string, val proto.Message) error {
 		return err
 	}
 	if err == nil {
-		return ErrExists{c.prefix, key}
+		return ErrExists{Type: c.prefix, Key: key}
 	}
 	return c.Put(key, val)
 }
 
-func (c *etcdReadWriteCollection) Delete(key string) error {
+func (c *etcdReadWriteCollection) Delete(maybeKey interface{}) error {
+	key, ok := maybeKey.(string)
+	if !ok {
+		return errors.New("key must be a string")
+	}
 	fullKey := c.path(key)
 	if _, err := c.stm.Get(fullKey); err != nil {
 		return err
@@ -358,7 +382,11 @@ func (c *etcdReadOnlyCollection) get(key string, opts ...etcd.OpOption) (resp *e
 	return resp, errors.EnsureStack(err)
 }
 
-func (c *etcdReadOnlyCollection) Get(key string, val proto.Message) error {
+func (c *etcdReadOnlyCollection) Get(maybeKey interface{}, val proto.Message) error {
+	key, ok := maybeKey.(string)
+	if !ok {
+		return errors.New("key must be a string")
+	}
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -368,7 +396,7 @@ func (c *etcdReadOnlyCollection) Get(key string, val proto.Message) error {
 	}
 
 	if len(resp.Kvs) == 0 {
-		return ErrNotFound{c.prefix, key}
+		return ErrNotFound{Type: c.prefix, Key: key}
 	}
 
 	return proto.Unmarshal(resp.Kvs[0].Value, val)
@@ -401,7 +429,7 @@ func (c *etcdReadOnlyCollection) TTL(key string) (int64, error) {
 		return 0, err
 	}
 	if len(resp.Kvs) == 0 {
-		return 0, ErrNotFound{c.prefix, key}
+		return 0, ErrNotFound{Type: c.prefix, Key: key}
 	}
 	leaseID := etcd.LeaseID(resp.Kvs[0].Lease)
 
@@ -592,13 +620,21 @@ func (c *etcdReadOnlyCollection) WatchByIndexF(index *Index, indexVal string, f 
 
 // WatchOne watches a given item.  The first value returned from the watch
 // will be the current value of the item.
-func (c *etcdReadOnlyCollection) WatchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
+func (c *etcdReadOnlyCollection) WatchOne(maybeKey interface{}, opts ...watch.Option) (watch.Watcher, error) {
+	key, ok := maybeKey.(string)
+	if !ok {
+		return nil, errors.New("key must be a string")
+	}
 	return watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.path(key), c.template, opts...)
 }
 
 // WatchOneF watches a given item and executes a callback function each time an event occurs.
 // The first value returned from the watch will be the current value of the item.
-func (c *etcdReadOnlyCollection) WatchOneF(key string, f func(e *watch.Event) error, opts ...watch.Option) error {
+func (c *etcdReadOnlyCollection) WatchOneF(maybeKey interface{}, f func(e *watch.Event) error, opts ...watch.Option) error {
+	key, ok := maybeKey.(string)
+	if !ok {
+		return errors.New("key must be a string")
+	}
 	watcher, err := watch.NewEtcdWatcher(c.ctx, c.etcdClient, c.prefix, c.path(key), c.template, opts...)
 	if err != nil {
 		return err

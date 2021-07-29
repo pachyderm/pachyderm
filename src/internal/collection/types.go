@@ -72,16 +72,16 @@ type Index struct {
 // ReadWriteCollection is a collection interface that supports read,write and delete
 // operations.
 type ReadWriteCollection interface {
-	Get(key string, val proto.Message) error
-	Put(key string, val proto.Message) error
+	Get(key interface{}, val proto.Message) error
+	Put(key interface{}, val proto.Message) error
 	// Update reads the current value associated with 'key', calls 'f' to update
 	// the value, and writes the new value back to the collection. 'key' must be
 	// present in the collection, or a 'Not Found' error is returned
-	Update(key string, val proto.Message, f func() error) error
+	Update(key interface{}, val proto.Message, f func() error) error
 	// Upsert is like Update but 'key' is not required to be present
-	Upsert(key string, val proto.Message, f func() error) error
-	Create(key string, val proto.Message) error
-	Delete(key string) error
+	Upsert(key interface{}, val proto.Message, f func() error) error
+	Create(key interface{}, val proto.Message) error
+	Delete(key interface{}) error
 	DeleteAll() error
 }
 
@@ -97,11 +97,6 @@ type PostgresReadWriteCollection interface {
 	// exactly one row is not found.
 	// TODO: decide if we should merge this with GetByIndex and use an `Options`.
 	GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error
-
-	// Unsupported operations - only here during migration so we can compile
-	// TODO: remove these before merging into master
-	TTL(key string) (int64, error)
-	PutTTL(key string, val proto.Message, ttl int64) error
 }
 
 type EtcdReadWriteCollection interface {
@@ -122,15 +117,15 @@ type EtcdReadWriteCollection interface {
 
 // ReadOnlyCollection is a collection interface that only supports read ops.
 type ReadOnlyCollection interface {
-	Get(key string, val proto.Message) error
+	Get(key interface{}, val proto.Message) error
 	GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
 	List(val proto.Message, opts *Options, f func(string) error) error
 	ListRev(val proto.Message, opts *Options, f func(string, int64) error) error
 	Count() (int64, error)
 	Watch(opts ...watch.Option) (watch.Watcher, error)
 	WatchF(f func(*watch.Event) error, opts ...watch.Option) error
-	WatchOne(key string, opts ...watch.Option) (watch.Watcher, error)
-	WatchOneF(key string, f func(*watch.Event) error, opts ...watch.Option) error
+	WatchOne(key interface{}, opts ...watch.Option) (watch.Watcher, error)
+	WatchOneF(key interface{}, f func(*watch.Event) error, opts ...watch.Option) error
 	WatchByIndex(index *Index, val string, opts ...watch.Option) (watch.Watcher, error)
 	WatchByIndexF(index *Index, val string, f func(*watch.Event) error, opts ...watch.Option) error
 }
@@ -139,10 +134,6 @@ type PostgresReadOnlyCollection interface {
 	ReadOnlyCollection
 
 	GetRevByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string, int64) error) error
-
-	// Unsupported operation - only here during migration so we can compile
-	// TODO: remove this before merging into master
-	TTL(key string) (int64, error)
 }
 
 type EtcdReadOnlyCollection interface {

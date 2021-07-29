@@ -20,7 +20,6 @@ func licenseCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresC
 		listener,
 		&ec.LicenseRecord{},
 		licenseIndexes,
-		nil,
 	)
 }
 
