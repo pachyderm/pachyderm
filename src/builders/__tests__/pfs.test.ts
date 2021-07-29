@@ -18,6 +18,7 @@ import {
   deleteBranchRequestFromObject,
   repoFromObject,
   triggerFromObject,
+  commitInfoFromObject,
 } from '../pfs';
 
 describe('grpc/builders/pfs', () => {
@@ -128,6 +129,75 @@ describe('grpc/builders/pfs', () => {
 
     expect(commit.getBranch()?.getRepo()?.getName()).toBe('__spec__');
     expect(commit.getId()).toBe('4af40d34a0384f23a5b98d3bd7eaece1');
+  });
+
+  it('should create commitInfo from an object with defaults', () => {
+    const commitInfo = commitInfoFromObject({
+      commit: {
+        branch: {name: 'master', repo: {name: '__spec__'}},
+        id: '4af40d34a0384f23a5b98d3bd7eaece1',
+      },
+    });
+
+    expect(commitInfo.getCommit()?.getBranch()?.getName()).toBe('master');
+    expect(commitInfo.getCommit()?.getBranch()?.getRepo()?.getName()).toBe(
+      '__spec__',
+    );
+    expect(commitInfo.getCommit()?.getId()).toBe(
+      '4af40d34a0384f23a5b98d3bd7eaece1',
+    );
+
+    expect(commitInfo.getDescription()).toBe('');
+    expect(commitInfo.getDetails()?.getSizeBytes()).toBe(0);
+    expect(commitInfo.getStarted()?.getSeconds()).toBe(undefined);
+    expect(commitInfo.getStarted()?.getNanos()).toBe(undefined);
+    expect(commitInfo.getFinishing()?.getSeconds()).toBe(undefined);
+    expect(commitInfo.getFinishing()?.getNanos()).toBe(undefined);
+    expect(commitInfo.getFinished()?.getSeconds()).toBe(undefined);
+    expect(commitInfo.getFinished()?.getNanos()).toBe(undefined);
+    expect(commitInfo.getSizeBytesUpperBound()).toBe(0);
+  });
+
+  it('should create commitInfo from an object', () => {
+    const commitInfo = commitInfoFromObject({
+      commit: {
+        branch: {name: 'master', repo: {name: '__spec__'}},
+        id: '4af40d34a0384f23a5b98d3bd7eaece1',
+      },
+      description: 'this is a description',
+      sizeBytes: 342,
+      started: {
+        seconds: 1615922000,
+        nanos: 449796000,
+      },
+      finishing: {
+        seconds: 1615922010,
+        nanos: 449796010,
+      },
+      finished: {
+        seconds: 1615922001,
+        nanos: 449796001,
+      },
+      sizeBytesUpperBound: 200,
+    });
+
+    expect(commitInfo.getCommit()?.getBranch()?.getName()).toBe('master');
+    expect(commitInfo.getCommit()?.getBranch()?.getRepo()?.getName()).toBe(
+      '__spec__',
+    );
+    expect(commitInfo.getCommit()?.getId()).toBe(
+      '4af40d34a0384f23a5b98d3bd7eaece1',
+    );
+
+    expect(commitInfo.getDescription()).toBe('this is a description');
+    expect(commitInfo.getDetails()?.getSizeBytes()).toBe(342);
+    expect(commitInfo.getStarted()?.getSeconds()).toBe(1615922000);
+    expect(commitInfo.getStarted()?.getNanos()).toBe(449796000);
+    expect(commitInfo.getFinishing()?.getSeconds()).toBe(1615922010);
+    expect(commitInfo.getFinishing()?.getNanos()).toBe(449796010);
+    expect(commitInfo.getFinished()?.getSeconds()).toBe(1615922001);
+    expect(commitInfo.getFinished()?.getNanos()).toBe(449796001);
+    expect(commitInfo.getSizeBytesUpperBound()).toBe(200);
   });
 
   it('should create CommitSet from an object', () => {

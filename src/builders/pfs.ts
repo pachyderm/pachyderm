@@ -121,7 +121,9 @@ export type CommitInfoObject = {
   description?: CommitInfo.AsObject['description'];
   sizeBytes?: CommitInfo.Details.AsObject['sizeBytes'];
   started?: TimestampObject;
+  finishing?: TimestampObject;
   finished?: TimestampObject;
+  sizeBytesUpperBound?: CommitInfo.AsObject['sizeBytesUpperBound'];
 };
 
 export type CommitSetObject = {
@@ -426,14 +428,18 @@ export const commitInfoFromObject = ({
   description = '',
   sizeBytes = 0,
   started,
+  finishing,
   finished,
+  sizeBytesUpperBound = 0,
 }: CommitInfoObject) =>
   new CommitInfo()
     .setCommit(commitFromObject(commit))
     .setDescription(description)
     .setDetails(new CommitInfo.Details().setSizeBytes(sizeBytes))
     .setStarted(started ? timestampFromObject(started) : undefined)
-    .setFinished(finished ? timestampFromObject(finished) : undefined);
+    .setFinishing(finishing ? timestampFromObject(finishing) : undefined)
+    .setFinished(finished ? timestampFromObject(finished) : undefined)
+    .setSizeBytesUpperBound(sizeBytesUpperBound);
 
 export const commitSetFromObject = ({id}: CommitSetObject) => {
   const commitSet = new CommitSet();
