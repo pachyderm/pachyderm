@@ -8,12 +8,13 @@ import {
   InspectFileRequest,
   InspectRepoRequest,
   InspectBranchRequest,
-  ListCommitRequest,
   ListCommitSetRequest,
   ListFileRequest,
   ListRepoRequest,
   RepoInfo,
   SquashCommitSetRequest,
+  Commit,
+  ClearCommitRequest,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
@@ -40,6 +41,18 @@ import {
   repoFromObject,
   RepoObject,
   BranchObject,
+  StartCommitRequestObject,
+  CommitObject,
+  startCommitRequestFromObject,
+  FinishCommitRequestObject,
+  finishCommitRequestFromObject,
+  InspectCommitRequestObject,
+  inspectCommitRequestFromObject,
+  commitFromObject,
+  ListCommitRequestObject,
+  listCommitRequestFromObject,
+  SubscribeCommitRequestObject,
+  subscribeCommitRequestFromObject,
 } from '../builders/pfs';
 import {ServiceArgs} from '../lib/types';
 import streamToObjectArray from '../utils/streamToObjectArray';
@@ -125,22 +138,80 @@ const pfs = ({
         );
       });
     },
-    listCommit: (
-      repoName: RepoObject['name'],
-      limit?: number,
-      reverse = true,
-    ) => {
-      const listCommitRequest = new ListCommitRequest();
-      const repo = repoFromObject({name: repoName});
-
-      listCommitRequest.setRepo(repo);
-      listCommitRequest.setReverse(reverse);
-
-      if (limit) {
-        listCommitRequest.setNumber(limit);
-      }
-
+    listCommit: (request: ListCommitRequestObject) => {
+      const listCommitRequest = listCommitRequestFromObject(request);
       const stream = client.listCommit(listCommitRequest, credentialMetadata);
+
+      return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
+    },
+    startCommit: (request: StartCommitRequestObject) => {
+      return new Promise<Commit.AsObject>((resolve, reject) => {
+        const startCommitRequest = startCommitRequestFromObject(request);
+
+        client.startCommit(
+          startCommitRequest,
+          credentialMetadata,
+          (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve(res.toObject());
+          },
+        );
+      });
+    },
+    finishCommit: (request: FinishCommitRequestObject) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const finishCommitRequest = finishCommitRequestFromObject(request);
+
+        client.finishCommit(
+          finishCommitRequest,
+          credentialMetadata,
+          (error) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve({});
+          },
+        );
+      });
+    },
+    clearCommit: (params: CommitObject) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const clearCommitRequest = new ClearCommitRequest().setCommit(
+          commitFromObject(params),
+        );
+
+        client.clearCommit(clearCommitRequest, credentialMetadata, (error) => {
+          if (error) {
+            return reject(error);
+          }
+          return resolve({});
+        });
+      });
+    },
+    inspectCommit: (request: InspectCommitRequestObject) => {
+      return new Promise<CommitInfo.AsObject>((resolve, reject) => {
+        const inspectCommitRequest = inspectCommitRequestFromObject(request);
+
+        client.inspectCommit(
+          inspectCommitRequest,
+          credentialMetadata,
+          (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve(res.toObject());
+          },
+        );
+      });
+    },
+    subscribeCommit: (request: SubscribeCommitRequestObject) => {
+      const subscribeCommitRequest = subscribeCommitRequestFromObject(request);
+      const stream = client.subscribeCommit(
+        subscribeCommitRequest,
+        credentialMetadata,
+      );
 
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
     },
