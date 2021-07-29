@@ -59,15 +59,15 @@ func WithKeyGen(gen func(interface{}) (string, error)) Option {
 	}
 }
 
-func WithExistsMessage(convert func(interface{}) string) Option {
+func WithExistsMessage(format func(interface{}) string) Option {
 	return func(c *postgresCollection) {
-		c.exists = convert
+		c.exists = format
 	}
 }
 
-func WithNotFoundMessage(convert func(interface{}) string) Option {
+func WithNotFoundMessage(format func(interface{}) string) Option {
 	return func(c *postgresCollection) {
-		c.notFound = convert
+		c.notFound = format
 	}
 }
 
