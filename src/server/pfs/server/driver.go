@@ -1735,6 +1735,12 @@ func (d *driver) inspectBranch(txnCtx *txncontext.TransactionContext, branch *pf
 }
 
 func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.BranchInfo) error) error {
+	if _, err := d.env.AuthServer().WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil && !auth.IsErrNotActivated(err) {
+		return err
+	} else if err == nil {
+		return errors.New("Cannot list branches from all repos with auth activated")
+	}
+
 	var bis []*pfs.BranchInfo
 	sendBis := func() error {
 		if !reverse {
