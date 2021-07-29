@@ -37,7 +37,7 @@ to monitor its status:
 ## `pachctl list job`
   This command shows the progress of all global jobs, in an aggregated format. 
   
-  For each commit (global job), Pachyderm shows the number of subjobs run, and  a progress bar that mirroring all sub-jobs in each commit's DAG.
+  For each global job, Pachyderm shows the number of subjobs run, and a progress bar that aggregates all of the sub-jobs executed within the global job.
 
   **Example:**
   ```shell
@@ -53,9 +53,9 @@ to monitor its status:
   for that pipeline step. To troubleshoot, look into that particular
   pipeline execution.
 ## `pachctl list job <global-id>`
-  This command shows the status of all the pipelines executions that run in the context of this global job.
+  This command shows the status of all the sub-jobs that run as a part of this global job.
 
-  For each pipeline executed as part of this global job, Pachyderm shows the time since each sub-job started and its duration, the number of datums in the **PROGRESS** section,  and other information.
+  For each sub-job (pipeline execution) within this global job, Pachyderm shows the time since each sub-job started and its duration, the number of datums in the **PROGRESS** section,  and other information.
   The format of the progress column is `DATUMS PROCESSED + DATUMS SKIPPED / TOTAL DATUMS`.
 
   For more information, see
@@ -69,12 +69,12 @@ to monitor its status:
   8862dae3ee1348ba8492b5863c32cae5 montage  3 hours ago 3 seconds 0       1 + 0 / 1 195.3KiB 815.1KiB success 
   ```
 
-.......
+  To see sub-job executions appear in your terminal as they complete, run `pachctl wait job <global-id>` instead.
 
 ## `pachctl list job -p <pipeline>`
-  This command shows the status of a pipeline's executions across all commits.
+  This command shows the status of a pipeline's executions across all global jobs.
 
-  For each commit, Pachyderm shows the time the job started with its duration, data downloaded and uploaded, STATE of the pipeline execution, the number of datums in the **PROGRESS** section,  and other information.
+  For each global job, Pachyderm shows the time the pipeline started with its duration, data downloaded and uploaded, STATE of the pipeline execution, the number of datums in the **PROGRESS** section,  and other information.
   The format of the progress column is `DATUMS PROCESSED + DATUMS SKIPPED / TOTAL DATUMS`.
 
   For more information, see
