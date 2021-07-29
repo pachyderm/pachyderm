@@ -1,3 +1,4 @@
+import {GetLogsQuery} from '@graphqlTypes';
 import {
   Button,
   ButtonLink,
@@ -9,7 +10,6 @@ import {format, fromUnixTime} from 'date-fns';
 import React, {useCallback, useEffect, useState} from 'react';
 
 import Header from '@dash-frontend/components/Header';
-import {GetLogsQuery} from '@graphqlTypes';
 
 import {LOGS_DATE_FORMAT} from '../../../constants/logsViewersConstants';
 import useDownloadText from '../../hooks/useDownloadText';

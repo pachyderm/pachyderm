@@ -1,3 +1,4 @@
+import {DagDirection, Node} from '@graphqlTypes';
 import {extent} from 'd3-array';
 import {select} from 'd3-selection';
 import {D3ZoomEvent, zoom as d3Zoom, zoomIdentity} from 'd3-zoom';
@@ -15,7 +16,6 @@ import {useProjectDagsData} from '@dash-frontend/hooks/useProjectDAGsData';
 import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {DagDirection, Node} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../constants/nodeSizes';

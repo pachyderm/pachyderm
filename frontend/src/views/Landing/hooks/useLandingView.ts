@@ -1,3 +1,4 @@
+import {Project} from '@graphqlTypes';
 import {SortableItem, stringComparator, useSort} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import every from 'lodash/every';
@@ -6,7 +7,6 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
 import {useProjects} from '@dash-frontend/hooks/useProjects';
-import {Project} from '@graphqlTypes';
 
 type sortOptions = {
   [key: string]: SortableItem<Project>;

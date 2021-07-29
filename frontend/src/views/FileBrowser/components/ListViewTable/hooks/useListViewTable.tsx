@@ -1,11 +1,10 @@
+import {File} from '@graphqlTypes';
 import {
   stringComparator,
   useSort,
   numberComparator,
 } from '@pachyderm/components';
 import {useCallback} from 'react';
-
-import {File} from '@graphqlTypes';
 
 const nameComparator = {
   name: 'Name',

@@ -1,6 +1,5 @@
-import capitalize from 'lodash/capitalize';
-
 import {PipelineState} from '@graphqlTypes';
+import capitalize from 'lodash/capitalize';
 
 const readablePipelineState = (PipelineState: PipelineState | string) => {
   const state = PipelineState.toString().replace('PIPELINE_', '');

@@ -1,5 +1,6 @@
-import {useGetLogsQuery} from '@dash-frontend/generated/hooks';
 import {LogsArgs} from '@graphqlTypes';
+
+import {useGetLogsQuery} from '@dash-frontend/generated/hooks';
 
 const useLogs = (args: LogsArgs) => {
   const {data, error, loading} = useGetLogsQuery({

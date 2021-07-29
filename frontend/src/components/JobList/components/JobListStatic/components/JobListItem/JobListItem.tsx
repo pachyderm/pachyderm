@@ -1,3 +1,4 @@
+import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
 import {ArrowSVG, ButtonLink, Tooltip} from '@pachyderm/components';
 import classNames from 'classnames';
 import {formatDistanceToNowStrict, fromUnixTime, format} from 'date-fns';
@@ -6,7 +7,6 @@ import {Link} from 'react-router-dom';
 
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
-import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
 
 import isPipelineJob from '../../utils/isPipelineJob';
 

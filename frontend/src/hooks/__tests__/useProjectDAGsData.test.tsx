@@ -1,9 +1,9 @@
+import {DagDirection} from '@graphqlTypes';
 import {render, waitForElementToBeRemoved} from '@testing-library/react';
 import React from 'react';
 import {Route} from 'react-router';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
-import {DagDirection} from '@graphqlTypes';
 
 import {useProjectDagsData} from '../useProjectDAGsData';
 

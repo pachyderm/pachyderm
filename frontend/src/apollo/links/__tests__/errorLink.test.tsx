@@ -1,12 +1,12 @@
+import {createServiceError} from '@dash-backend/testHelpers';
+import {DagDirection} from '@graphqlTypes';
 import {render, waitFor} from '@testing-library/react';
 import Cookies from 'js-cookie';
 import React from 'react';
 
-import {createServiceError} from '@dash-backend/testHelpers';
 import {useDAGData} from '@dash-frontend/hooks/useDAGData';
 import useProject from '@dash-frontend/hooks/useProject';
 import {mockServer, withContextProviders} from '@dash-frontend/testHelpers';
-import {DagDirection} from '@graphqlTypes';
 
 const windowLocation = window.location;
 

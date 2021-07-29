@@ -1,8 +1,7 @@
+import {Node as GraphQLNode, NodeState, NodeType} from '@graphqlTypes';
 import {SuccessCheckmark} from '@pachyderm/components';
 import classNames from 'classnames';
 import React from 'react';
-
-import {Node as GraphQLNode, NodeState, NodeType} from '@graphqlTypes';
 
 import LeaveJobButton from './components/LeaveJobButton';
 import useNode from './hooks/useNode';

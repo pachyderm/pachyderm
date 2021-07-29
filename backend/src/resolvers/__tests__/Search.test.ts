@@ -1,5 +1,6 @@
-import {executeQuery, mockServer} from '@dash-backend/testHelpers';
 import {GET_SEARCH_RESULTS_QUERY} from '@dash-frontend/queries/GetSearchResultsQuery';
+
+import {executeQuery, mockServer} from '@dash-backend/testHelpers';
 import {SearchResultsQuery} from '@graphqlTypes';
 
 describe('Search resolver', () => {

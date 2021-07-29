@@ -1,3 +1,6 @@
+import {EXCHANGE_CODE_MUTATION} from '@dash-frontend/mutations/ExchangeCode';
+import {GET_ACCOUNT_QUERY} from '@dash-frontend/queries/GetAccountQuery';
+import {GET_AUTH_CONFIG_QUERY} from '@dash-frontend/queries/GetAuthConfigQuery';
 import {status} from '@grpc/grpc-js';
 
 import accounts from '@dash-backend/mock/fixtures/accounts';
@@ -7,9 +10,6 @@ import {
   executeMutation,
   executeQuery,
 } from '@dash-backend/testHelpers';
-import {EXCHANGE_CODE_MUTATION} from '@dash-frontend/mutations/ExchangeCode';
-import {GET_ACCOUNT_QUERY} from '@dash-frontend/queries/GetAccountQuery';
-import {GET_AUTH_CONFIG_QUERY} from '@dash-frontend/queries/GetAuthConfigQuery';
 import {Account, AuthConfig, Tokens} from '@graphqlTypes';
 
 describe('Auth resolver', () => {

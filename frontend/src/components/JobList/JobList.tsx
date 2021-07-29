@@ -1,6 +1,5 @@
-import React from 'react';
-
 import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
+import React from 'react';
 
 import EmptyState from '../EmptyState';
 

@@ -1,8 +1,8 @@
+import {DagDirection, Link, PointCoordinates} from '@graphqlTypes';
 import {line} from 'd3';
 import {useMemo} from 'react';
 
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
-import {DagDirection, Link, PointCoordinates} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
 
 const getLineArray = (

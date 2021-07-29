@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import {executeQuery} from '@dash-backend/testHelpers';
 import {GET_PIPELINE_QUERY} from '@dash-frontend/queries/GetPipelineQuery';
+
+import {executeQuery} from '@dash-backend/testHelpers';
 import {PipelineQuery} from '@graphqlTypes';
 
 describe('Pipeline resolver', () => {

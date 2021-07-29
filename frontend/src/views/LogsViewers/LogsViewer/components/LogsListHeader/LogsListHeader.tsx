@@ -1,3 +1,4 @@
+import {GetLogsQuery} from '@graphqlTypes';
 import {
   DefaultDropdown,
   DropdownItem,
@@ -6,8 +7,6 @@ import {
 } from '@pachyderm/components';
 import fill from 'lodash/fill';
 import React, {useCallback, useEffect, useState} from 'react';
-
-import {GetLogsQuery} from '@graphqlTypes';
 
 import styles from './LogsListHeader.module.css';
 

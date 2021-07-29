@@ -1,11 +1,12 @@
-import {randomBytes} from 'crypto';
-
 import 'cross-fetch';
-import {enableFetchMocks} from 'jest-fetch-mock';
 import '@testing-library/jest-dom';
 import '@testing-library/jest-dom/extend-expect';
 
+import {randomBytes} from 'crypto';
+
 import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
+import {enableFetchMocks} from 'jest-fetch-mock';
+
 import {server, mockServer} from '@dash-frontend/testHelpers';
 
 enableFetchMocks();

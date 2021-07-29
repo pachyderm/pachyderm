@@ -1,14 +1,14 @@
+import {
+  JobOverviewFragment,
+  JobSetFieldsFragment,
+  JobState,
+} from '@graphqlTypes';
 import cloneDeep from 'lodash/cloneDeep';
 import countBy from 'lodash/countBy';
 import {useCallback, useMemo} from 'react';
 
 import {JobFilters} from '@dash-frontend/components/JobList/hooks/useJobFilters';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import {
-  JobOverviewFragment,
-  JobSetFieldsFragment,
-  JobState,
-} from '@graphqlTypes';
 
 const useJobListStatusFilter = (
   jobs: (JobOverviewFragment | JobSetFieldsFragment)[],

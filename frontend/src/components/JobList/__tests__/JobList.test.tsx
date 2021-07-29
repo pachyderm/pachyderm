@@ -1,8 +1,8 @@
+import jobs from '@dash-backend/mock/fixtures/jobs';
+import jobSets from '@dash-backend/mock/fixtures/jobSets';
 import {render, waitFor, within} from '@testing-library/react';
 import React from 'react';
 
-import jobs from '@dash-backend/mock/fixtures/jobs';
-import jobSets from '@dash-backend/mock/fixtures/jobSets';
 import {useJobs} from '@dash-frontend/hooks/useJobs';
 import {useJobSets} from '@dash-frontend/hooks/useJobSets';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';

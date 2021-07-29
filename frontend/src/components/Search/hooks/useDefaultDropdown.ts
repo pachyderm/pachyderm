@@ -1,3 +1,4 @@
+import {JobState} from '@graphqlTypes';
 import countBy from 'lodash/countBy';
 import sum from 'lodash/sum';
 import values from 'lodash/values';
@@ -7,7 +8,6 @@ import {useJobSets} from '@dash-frontend/hooks/useJobSets';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
-import {JobState} from '@graphqlTypes';
 
 import {useSearch} from './useSearch';
 

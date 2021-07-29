@@ -1,7 +1,7 @@
+import {Dag, DagDirection, NodeState} from '@graphqlTypes';
 import {extent} from 'd3-array';
 import {useCallback, useEffect, useState} from 'react';
 
-import {Dag, DagDirection, NodeState} from '@graphqlTypes';
 import useRouteController from 'hooks/useRouteController';
 
 type useDagProps = {

@@ -1,5 +1,4 @@
 import {InMemoryCacheConfig} from '@apollo/client';
-
 import {Dag, Link} from '@graphqlTypes';
 
 const cacheConfig: InMemoryCacheConfig = {

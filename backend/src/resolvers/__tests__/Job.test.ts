@@ -1,8 +1,9 @@
-import jobs from '@dash-backend/mock/fixtures/jobs';
-import {executeQuery} from '@dash-backend/testHelpers';
 import {JOB_SET_QUERY} from '@dash-frontend/queries/GetJobsetQuery';
 import {JOB_SETS_QUERY} from '@dash-frontend/queries/GetJobSetsQuery';
 import {JOBS_QUERY} from '@dash-frontend/queries/GetJobsQuery';
+
+import jobs from '@dash-backend/mock/fixtures/jobs';
+import {executeQuery} from '@dash-backend/testHelpers';
 import {JobSetQuery, JobSetsQuery, JobsQuery, JobState} from '@graphqlTypes';
 
 describe('Jobs', () => {

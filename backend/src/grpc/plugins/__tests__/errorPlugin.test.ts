@@ -1,5 +1,6 @@
-import {executeQuery} from '@dash-backend/testHelpers';
 import {GET_DAG_QUERY} from '@dash-frontend/queries/GetDagQuery';
+
+import {executeQuery} from '@dash-backend/testHelpers';
 import {Dag, DagDirection} from '@graphqlTypes';
 
 describe('errorPlugin', () => {

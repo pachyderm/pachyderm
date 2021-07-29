@@ -1,7 +1,6 @@
+import {File} from '@graphqlTypes';
 import {Button, Group} from '@pachyderm/components';
 import React, {useCallback} from 'react';
-
-import {File} from '@graphqlTypes';
 
 import useFileDisplay from '../../hooks/useFileDisplay';
 

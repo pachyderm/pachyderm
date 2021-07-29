@@ -1,7 +1,6 @@
+import {DagDirection, Link as LinkType} from '@graphqlTypes';
 import classNames from 'classnames';
 import React from 'react';
-
-import {DagDirection, Link as LinkType} from '@graphqlTypes';
 
 import useLink from './hooks/useLink';
 import styles from './Link.module.css';

@@ -1,8 +1,7 @@
+import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
 import {LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
-
-import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
 
 import EmptyState from '../../../EmptyState';
 

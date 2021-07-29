@@ -1,3 +1,4 @@
+import {File, FileType} from '@graphqlTypes';
 import {
   CopySVG,
   ButtonLink,
@@ -7,8 +8,6 @@ import {
   Tooltip,
 } from '@pachyderm/components';
 import React from 'react';
-
-import {File, FileType} from '@graphqlTypes';
 
 import useFileDisplay from '../../hooks/useFileDisplay';
 

@@ -1,3 +1,4 @@
+import {File, FileType} from '@graphqlTypes';
 import {useClipboardCopy} from '@pachyderm/components';
 import {format, fromUnixTime} from 'date-fns';
 import {useMemo} from 'react';
@@ -5,7 +6,6 @@ import {useMemo} from 'react';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {FileMajorType} from '@dash-frontend/lib/types';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
-import {File, FileType} from '@graphqlTypes';
 
 const SUPPORTED_PREVIEW_MAJOR_TYPES: FileMajorType[] = [
   'image',

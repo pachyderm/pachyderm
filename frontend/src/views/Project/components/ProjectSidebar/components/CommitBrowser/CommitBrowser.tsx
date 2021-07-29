@@ -1,3 +1,4 @@
+import {RepoQuery} from '@graphqlTypes';
 import {Link} from '@pachyderm/components';
 import formatDistanceToNow from 'date-fns/formatDistanceToNow';
 import React, {useMemo} from 'react';
@@ -9,7 +10,6 @@ import {
   fileBrowserRoute,
   jobRoute,
 } from '@dash-frontend/views/Project/utils/routes';
-import {RepoQuery} from '@graphqlTypes';
 
 import styles from './CommitBrowser.module.css';
 import BranchBrowser from './components/BranchBrowser';

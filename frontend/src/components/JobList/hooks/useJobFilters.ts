@@ -1,11 +1,11 @@
-import {useMemo} from 'react';
-
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {
   JobOverviewFragment,
   JobSetFieldsFragment,
   JobState,
 } from '@graphqlTypes';
+import {useMemo} from 'react';
+
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 
 export type JobFilters = {
   [key in JobState]?: boolean;

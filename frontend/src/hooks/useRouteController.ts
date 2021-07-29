@@ -1,3 +1,4 @@
+import {Node, NodeType} from '@graphqlTypes';
 import {useCallback, useMemo} from 'react';
 import {useHistory} from 'react-router';
 
@@ -7,7 +8,6 @@ import {
   pipelineRoute,
   repoRoute,
 } from '@dash-frontend/views/Project/utils/routes';
-import {Node, NodeType} from '@graphqlTypes';
 
 import deriveRouteParamFromNode from '../lib/deriveRepoNameFromNode';
 

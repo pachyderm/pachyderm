@@ -1,7 +1,6 @@
+import {Maybe} from '@graphqlTypes';
 import {FullPageModal} from '@pachyderm/components';
 import React from 'react';
-
-import {Maybe} from '@graphqlTypes';
 
 import LogsBody from './components/LogsBody';
 import LogsListHeader from './components/LogsListHeader';

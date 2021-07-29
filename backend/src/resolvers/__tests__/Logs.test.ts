@@ -1,8 +1,9 @@
-import {executeQuery} from '@dash-backend/testHelpers';
 import {
   GET_LOGS_QUERY,
   GET_WORKSPACE_LOGS_QUERY,
 } from '@dash-frontend/queries/GetLogsQuerys';
+
+import {executeQuery} from '@dash-backend/testHelpers';
 import {GetLogsQuery, GetWorkspaceLogsQuery} from '@graphqlTypes';
 
 describe('Logs resolver', () => {

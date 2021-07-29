@@ -1,4 +1,5 @@
 import {ApolloError, useApolloClient} from '@apollo/client';
+import {MutationExchangeCodeArgs} from '@graphqlTypes';
 import Cookies from 'js-cookie';
 import noop from 'lodash/noop';
 import {useCallback, useEffect} from 'react';
@@ -6,7 +7,6 @@ import {useCallback, useEffect} from 'react';
 import {useExchangeCodeMutation} from '@dash-frontend/generated/hooks';
 import useAuthConfig from '@dash-frontend/hooks/useAuthConfig';
 import {GET_LOGGED_IN_QUERY} from '@dash-frontend/queries/GetLoggedInQuery';
-import {MutationExchangeCodeArgs} from '@graphqlTypes';
 
 import useLoggedIn from './useLoggedIn';
 

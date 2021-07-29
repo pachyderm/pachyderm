@@ -1,10 +1,10 @@
+import {DagQueryArgs, NodeType} from '@graphqlTypes';
 import {useEffect, useState} from 'react';
 import {useHistory} from 'react-router';
 
 import {useGetDagsSubscription} from '@dash-frontend/generated/hooks';
 import deriveRepoNameFromNode from '@dash-frontend/lib/deriveRepoNameFromNode';
 import {projectRoute} from '@dash-frontend/views/Project/utils/routes';
-import {DagQueryArgs, NodeType} from '@graphqlTypes';
 
 import useUrlState from './useUrlState';
 

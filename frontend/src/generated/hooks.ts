@@ -2,7 +2,6 @@
 
 import {gql} from '@apollo/client';
 import * as Apollo from '@apollo/client';
-
 import * as Types from '@graphqlTypes';
 const defaultOptions = {};
 export const JobOverviewFragmentDoc = gql`

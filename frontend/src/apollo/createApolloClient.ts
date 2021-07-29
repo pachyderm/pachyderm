@@ -4,12 +4,12 @@ import {
   NormalizedCacheObject,
   ApolloLink,
 } from '@apollo/client';
+import {LoggedInQuery} from '@graphqlTypes';
 import {sentryLink} from '@pachyderm/components';
 import {History as BrowserHistory} from 'history';
 
 import {errorLink} from '@dash-frontend/apollo/links/errorLink';
 import {GET_LOGGED_IN_QUERY} from '@dash-frontend/queries/GetLoggedInQuery';
-import {LoggedInQuery} from '@graphqlTypes';
 
 import cacheConfig from './cacheConfig';
 import {contextLink} from './links/contextLink';

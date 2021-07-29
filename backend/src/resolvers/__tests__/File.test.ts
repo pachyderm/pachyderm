@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import {executeQuery} from '@dash-backend/testHelpers';
 import {GET_FILES_QUERY} from '@dash-frontend/queries/GetFilesQuery';
+
+import {executeQuery} from '@dash-backend/testHelpers';
 import {File, FileType} from '@graphqlTypes';
 
 describe('File Resolver', () => {

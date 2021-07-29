@@ -1,3 +1,4 @@
+import {DagDirection} from '@graphqlTypes';
 import {render, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
@@ -8,7 +9,6 @@ import {
   NODE_HEIGHT,
   NODE_WIDTH,
 } from '@dash-frontend/views/Project/constants/nodeSizes';
-import {DagDirection} from '@graphqlTypes';
 
 describe('useRouteController', () => {
   const projectId = '2';
@@ -43,7 +43,7 @@ describe('useRouteController', () => {
 
     expect(
       await findByText('Selected node: likelihoods_repo', {}, {timeout: 10000}),
-    );
+    ).toBeInTheDocument();
   });
 
   it('should derive the correct selected pipeline from the url', async () => {
@@ -57,7 +57,7 @@ describe('useRouteController', () => {
 
     expect(
       await findByText('Selected node: likelihoods', {}, {timeout: 10000}),
-    );
+    ).toBeInTheDocument();
   });
 
   it('should update the url correctly when selecting a repo', async () => {

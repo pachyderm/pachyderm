@@ -1,5 +1,6 @@
-import {useGetFilesQuery} from '@dash-frontend/generated/hooks';
 import {FileQueryArgs} from '@graphqlTypes';
+
+import {useGetFilesQuery} from '@dash-frontend/generated/hooks';
 
 export const useFiles = ({
   commitId = 'master',

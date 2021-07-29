@@ -1,3 +1,4 @@
+import {NOT_FOUND_ERROR_CODE} from '@dash-backend/lib/types';
 import {ButtonLink, FileDocSVG, Link} from '@pachyderm/components';
 import {
   fromUnixTime,
@@ -7,7 +8,6 @@ import {
 import React, {useCallback, useMemo} from 'react';
 import {useRouteMatch, Redirect, useLocation} from 'react-router';
 
-import {NOT_FOUND_ERROR_CODE} from '@dash-backend/lib/types';
 import Description from '@dash-frontend/components/Description';
 import JSONBlock from '@dash-frontend/components/JSONBlock';
 import JsonSpec from '@dash-frontend/components/JsonSpec';

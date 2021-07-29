@@ -1,3 +1,4 @@
+import {JobState} from '@graphqlTypes';
 import {Link, Tooltip, LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
@@ -12,7 +13,6 @@ import {
   jobRoute,
   pipelineRoute,
 } from '@dash-frontend/views/Project/utils/routes';
-import {JobState} from '@graphqlTypes';
 
 import InfoPanel from './components/InfoPanel';
 import styles from './JobDetails.module.css';

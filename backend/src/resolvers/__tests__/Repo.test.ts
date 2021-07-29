@@ -1,5 +1,6 @@
-import {executeQuery} from '@dash-backend/testHelpers';
 import {GET_REPO_QUERY} from '@dash-frontend/queries/GetRepoQuery';
+
+import {executeQuery} from '@dash-backend/testHelpers';
 import {RepoQuery} from '@graphqlTypes';
 
 describe('resolvers/Repo', () => {

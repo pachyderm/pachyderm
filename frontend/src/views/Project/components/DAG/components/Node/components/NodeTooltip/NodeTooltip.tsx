@@ -1,8 +1,8 @@
+import {Node, NodeType} from '@graphqlTypes';
 import classnames from 'classnames';
 import React from 'react';
 
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
-import {Node, NodeType} from '@graphqlTypes';
 import {deriveNameFromNodeNameAndType} from 'lib/deriveRepoNameFromNode';
 
 import styles from './NodeTooltip.module.css';

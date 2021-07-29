@@ -1,12 +1,12 @@
-import {Chip, ChipGroup} from '@pachyderm/components';
-import React from 'react';
-
-import readableJobState from '@dash-frontend/lib/readableJobState';
 import {
   JobOverviewFragment,
   JobSetFieldsFragment,
   JobState,
 } from '@graphqlTypes';
+import {Chip, ChipGroup} from '@pachyderm/components';
+import React from 'react';
+
+import readableJobState from '@dash-frontend/lib/readableJobState';
 import getListTitle from 'lib/getListTitle';
 
 import {JobFilters} from '../../hooks/useJobFilters';

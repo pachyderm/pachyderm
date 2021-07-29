@@ -1,5 +1,6 @@
-import {useGetDagQuery} from '@dash-frontend/generated/hooks';
 import {DagQueryArgs} from '@graphqlTypes';
+
+import {useGetDagQuery} from '@dash-frontend/generated/hooks';
 
 export const useDAGData = ({
   projectId,

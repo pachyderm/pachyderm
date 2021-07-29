@@ -10,6 +10,7 @@ import {
   InMemoryCache,
   Observable,
 } from '@apollo/client/core';
+import cacheConfig from '@dash-frontend/apollo/cacheConfig';
 import {Metadata, StatusBuilder, status} from '@grpc/grpc-js';
 import {callErrorFromStatus} from '@grpc/grpc-js/build/src/call';
 import {ApolloError} from 'apollo-server-errors';
@@ -22,7 +23,6 @@ import ws from 'ws';
 
 import mockServer from '@dash-backend/mock';
 import keys from '@dash-backend/mock/fixtures/keys';
-import cacheConfig from '@dash-frontend/apollo/cacheConfig';
 import {Account} from '@graphqlTypes';
 
 import graphqlServer from '.';

@@ -1,3 +1,4 @@
+import {JobState} from '@graphqlTypes';
 import {useMemo} from 'react';
 import {useRouteMatch} from 'react-router';
 
@@ -8,7 +9,6 @@ import {
   jobsRoute,
   projectRoute,
 } from '@dash-frontend/views/Project/utils/routes';
-import {JobState} from '@graphqlTypes';
 
 const useProjectHeader = () => {
   const {projectId, currentProject, loading} = useCurrentProject();

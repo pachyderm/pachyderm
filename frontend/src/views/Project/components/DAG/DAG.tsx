@@ -1,6 +1,5 @@
-import React from 'react';
-
 import {Dag, DagDirection} from '@graphqlTypes';
+import React from 'react';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
 

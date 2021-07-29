@@ -1,3 +1,6 @@
+import {GET_PROJECT_DETAILS_QUERY} from '@dash-frontend/queries/GetProjectDetailsQuery';
+import {GET_PROJECT_QUERY} from '@dash-frontend/queries/GetProjectQuery';
+import {GET_PROJECTS_QUERY} from '@dash-frontend/queries/GetProjectsQuery';
 import {status} from '@grpc/grpc-js';
 
 import projects from '@dash-backend/mock/fixtures/projects';
@@ -6,9 +9,6 @@ import {
   createServiceError,
   executeQuery,
 } from '@dash-backend/testHelpers';
-import {GET_PROJECT_DETAILS_QUERY} from '@dash-frontend/queries/GetProjectDetailsQuery';
-import {GET_PROJECT_QUERY} from '@dash-frontend/queries/GetProjectQuery';
-import {GET_PROJECTS_QUERY} from '@dash-frontend/queries/GetProjectsQuery';
 import {Project, ProjectDetails} from '@graphqlTypes';
 
 import {DEFAULT_PROJECT_ID} from '../Projects';

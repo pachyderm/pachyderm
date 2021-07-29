@@ -1,8 +1,8 @@
 import {QueryFunctionOptions} from '@apollo/client';
+import {JobSetsQueryArgs} from '@graphqlTypes';
 
 import {JOBS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
 import {useJobSetsQuery} from '@dash-frontend/generated/hooks';
-import {JobSetsQueryArgs} from '@graphqlTypes';
 
 export const useJobSets = (
   args: JobSetsQueryArgs,

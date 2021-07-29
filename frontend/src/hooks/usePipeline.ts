@@ -1,5 +1,6 @@
-import {usePipelineQuery} from '@dash-frontend/generated/hooks';
 import {PipelineQueryArgs} from '@graphqlTypes';
+
+import {usePipelineQuery} from '@dash-frontend/generated/hooks';
 
 const usePipeline = (args: PipelineQueryArgs) => {
   const {data, error, loading} = usePipelineQuery({

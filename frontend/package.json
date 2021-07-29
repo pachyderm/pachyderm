@@ -47,7 +47,7 @@
   },
   "devDependencies": {
     "@cypress/code-coverage": "3.9.5",
-    "@pachyderm/config": "0.5.0",
+    "@pachyderm/config": "0.6.0",
     "@pachyderm/scripts": "0.5.4",
     "@sentry/cli": "1.55.0",
     "@testing-library/cypress": "7.0.6",

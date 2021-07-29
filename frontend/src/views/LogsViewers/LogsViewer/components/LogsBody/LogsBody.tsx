@@ -1,10 +1,10 @@
+import {GetLogsQuery} from '@graphqlTypes';
 import {LoadingDots} from '@pachyderm/components';
 import React from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import {VariableSizeList} from 'react-window';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
-import {GetLogsQuery} from '@graphqlTypes';
 
 import {HEADER_HEIGHT_OFFSET} from '../../../constants/logsViewersConstants';
 import useLogsBody from '../../hooks/useLogsBody';

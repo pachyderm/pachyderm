@@ -1,11 +1,10 @@
+import {Project} from '@graphqlTypes';
 import {Button, Info} from '@pachyderm/components';
 import classNames from 'classnames';
 import {format, fromUnixTime} from 'date-fns';
 import noop from 'lodash/noop';
 import React from 'react';
 import {useHistory} from 'react-router';
-
-import {Project} from '@graphqlTypes';
 
 import ProjectStatus from '../ProjectStatus';
 
