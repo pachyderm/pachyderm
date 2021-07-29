@@ -118,7 +118,7 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
 
 	realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
-		Use(func(txnctx *txncontext.TransactionContext, name string, details bool) (*pps.PipelineInfo, error) {
+		Use(func(txnctx *txncontext.TransactionContext, name string) (*pps.PipelineInfo, error) {
 			return nil, col.ErrNotFound{
 				Type: "pipelines",
 				Key:  name,

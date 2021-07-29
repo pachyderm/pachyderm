@@ -43,7 +43,7 @@ func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier) (*Transacti
 	if authServer != nil {
 		if me, err := authServer.WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil && !auth.IsErrNotActivated(err) {
 			return nil, err
-		} else {
+		} else if err == nil {
 			username = me.Username
 		}
 	}

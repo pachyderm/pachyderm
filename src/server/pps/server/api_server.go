@@ -45,6 +45,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -1661,7 +1662,10 @@ func (a *apiServer) commitPipelineInfoFromFileSet(
 	if err := a.env.PfsServer().AddFileSetInTransaction(txnCtx, &pfs.AddFileSetRequest{
 		Commit:    commit,
 		FileSetId: filesetID,
-	}); err != nil {
+	}); err != nil && errors.Is(err, fileset.ErrFileSetNotExists) {
+		// the fileset is gone, we need to recreate and try again
+		return nil, &col.ErrTransactionConflict{}
+	} else if err != nil {
 		return nil, err
 	}
 
