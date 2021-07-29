@@ -1,4 +1,4 @@
-import {useEffect, useReducer, useCallback} from 'react';
+import {useEffect, useReducer} from 'react';
 
 type FetchState = {
   loading: boolean;

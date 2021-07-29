@@ -56,7 +56,7 @@ const useFileDisplay = (file: File) => {
     let fileType: string;
 
     if (file.type === FileType.FILE) {
-      fileType = file.path.slice(file.path.lastIndexOf('.') + 1);
+      fileType = file.path.slice(file.path.lastIndexOf('.') + 1).toLowerCase();
     } else if (file.type === FileType.DIR) {
       fileType = 'folder';
     } else {

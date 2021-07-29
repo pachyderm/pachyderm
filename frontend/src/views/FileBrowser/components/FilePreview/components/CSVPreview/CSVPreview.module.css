@@ -11,6 +11,7 @@
 
 .cell {
   text-overflow: ellipsis;
+  text-align: right;
   overflow: hidden;
   white-space: nowrap;
   padding: 0.25rem;
@@ -20,6 +21,7 @@
 
 .header {
   position: sticky;
+  text-align: left;
   background-color: var(--background-blue);
   border-bottom: solid 1px var(--line-grey);
   top: 0;
