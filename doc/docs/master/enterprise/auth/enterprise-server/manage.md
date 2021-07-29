@@ -29,7 +29,7 @@ Run the following command to add more ClusterAdmin to your Enterprise Server:
 $ pachctl auth set enterprise clusterAdmin user:<email>
 ```
 
-### List All Registered Clusters)
+### List All Registered Clusters
 ```shell
 $ pachctl license list-clusters
 ```	
@@ -41,6 +41,14 @@ version: 2.0.0
 auth_enabled: true
 last_heartbeat: 2021-05-21 18:43:42.157027 +0000 UTC
 ```
+
+### Synchronize all available contexts in your `~/.pachyderm/config.json` file
+In the case where the enterprise server of your organization has multiple pachd instances,
+you can use the following command to “discover” other pachd instances. It will automatically update your `~/.pachyderm/config.json` file with all the contexts you can connect to.
+
+```shell
+$ pachctl enterprise sync context
+```	
 
 ### Update The Enterprise License
 To apply a new license and have it picked up by all clusters, run:
