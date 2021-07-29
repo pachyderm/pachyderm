@@ -8,7 +8,6 @@ import {
   InspectFileRequest,
   InspectRepoRequest,
   InspectBranchRequest,
-  ListCommitRequest,
   ListCommitSetRequest,
   ListFileRequest,
   ListRepoRequest,
@@ -50,8 +49,8 @@ import {
   InspectCommitRequestObject,
   inspectCommitRequestFromObject,
   commitFromObject,
-  // ListCommitRequestObject,
-  // listCommitRequestFromObject,
+  ListCommitRequestObject,
+  listCommitRequestFromObject,
   SubscribeCommitRequestObject,
   subscribeCommitRequestFromObject,
 } from '../builders/pfs';
@@ -139,21 +138,8 @@ const pfs = ({
         );
       });
     },
-    listCommit: (
-      repoName: RepoObject['name'],
-      limit?: number,
-      reverse = true,
-    ) => {
-      const listCommitRequest = new ListCommitRequest();
-      const repo = repoFromObject({name: repoName});
-
-      listCommitRequest.setRepo(repo);
-      listCommitRequest.setReverse(reverse);
-
-      if (limit) {
-        listCommitRequest.setNumber(limit);
-      }
-
+    listCommit: (request: ListCommitRequestObject) => {
+      const listCommitRequest = listCommitRequestFromObject(request);
       const stream = client.listCommit(listCommitRequest, credentialMetadata);
 
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
@@ -220,13 +206,6 @@ const pfs = ({
         );
       });
     },
-    // TODO: breaks interface with previous listCommit
-    // listCommit: (request: ListCommitRequestObject) => {
-    //   const listCommitRequest = listCommitRequestFromObject(request);
-    //   const stream = client.listCommit(listCommitRequest, credentialMetadata);
-
-    //   return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
-    // },
     subscribeCommit: (request: SubscribeCommitRequestObject) => {
       const subscribeCommitRequest = subscribeCommitRequestFromObject(request);
       const stream = client.subscribeCommit(

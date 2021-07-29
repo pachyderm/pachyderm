@@ -1,3 +1,4 @@
+import {CommitState, OriginKind} from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {
   commitFromObject,
   createRepoRequestFromObject,
@@ -16,10 +17,6 @@ import {
   deleteBranchRequestFromObject,
   repoFromObject,
   triggerFromObject,
-  CommitStateEnumObject,
-  OriginKindEnumObject,
-  commitStateObjectFromEnumString,
-  originKindObjectFromEnumString,
 } from '../pfs';
 
 describe('grpc/builders/pfs', () => {
@@ -138,78 +135,6 @@ describe('grpc/builders/pfs', () => {
     });
 
     expect(commitSet.getId()).toBe('4af40d34a0384f23a5b98d3bd7eaece1');
-  });
-
-  it('should create a commitStateObject from a type string, for ready', () => {
-    const commitStateObject = commitStateObjectFromEnumString(
-      CommitStateEnumObject.ready,
-    );
-
-    expect(commitStateObject).toBe(2);
-  });
-
-  it('should create a commitStateObject from a type string, for started', () => {
-    const commitStateObject = commitStateObjectFromEnumString(
-      CommitStateEnumObject.started,
-    );
-
-    expect(commitStateObject).toBe(1);
-  });
-
-  it('should create a commitStateObject from a type string, for finished', () => {
-    const commitStateObject = commitStateObjectFromEnumString(
-      CommitStateEnumObject.finished,
-    );
-
-    expect(commitStateObject).toBe(3);
-  });
-
-  it('should create a commitStateObject from a type string, for unkown state', () => {
-    const commitStateObject = commitStateObjectFromEnumString(
-      CommitStateEnumObject.commitStateUnknown,
-    );
-
-    expect(commitStateObject).toBe(0);
-  });
-
-  it('should create a originKindObject from a type string, for user', () => {
-    const originKindObject = originKindObjectFromEnumString(
-      OriginKindEnumObject.user,
-    );
-
-    expect(originKindObject).toBe(1);
-  });
-
-  it('should create a originKindObject from a type string, for auto', () => {
-    const originKindObject = originKindObjectFromEnumString(
-      OriginKindEnumObject.auto,
-    );
-
-    expect(originKindObject).toBe(2);
-  });
-
-  it('should create a originKindObject from a type string, for fsck', () => {
-    const originKindObject = originKindObjectFromEnumString(
-      OriginKindEnumObject.fsck,
-    );
-
-    expect(originKindObject).toBe(3);
-  });
-
-  it('should create a originKindObject from a type string, for alias', () => {
-    const originKindObject = originKindObjectFromEnumString(
-      OriginKindEnumObject.alias,
-    );
-
-    expect(originKindObject).toBe(4);
-  });
-
-  it('should create a originKindObject from a type string, for unknown origin', () => {
-    const originKindObject = originKindObjectFromEnumString(
-      OriginKindEnumObject.originKindUnknown,
-    );
-
-    expect(originKindObject).toBe(0);
   });
 
   it('should create a startCommitRequest from an object with defaults', () => {
@@ -353,7 +278,7 @@ describe('grpc/builders/pfs', () => {
 
   it('should create a inspectCommitRequest from an object with wait and commit', () => {
     const inspectCommitRequest = inspectCommitRequestFromObject({
-      wait: CommitStateEnumObject.ready,
+      wait: CommitState.READY,
       commit: {
         branch: {name: 'master', repo: {name: '__spec__'}},
         id: '4af40d34a0384f23a5b98d3bd7eaece1',
@@ -453,7 +378,7 @@ describe('grpc/builders/pfs', () => {
       repo: {
         name: '__spec__',
       },
-      originKind: OriginKindEnumObject.user,
+      originKind: OriginKind.USER,
     });
 
     expect(listCommitRequest.getRepo()?.getName()).toBe('__spec__');
@@ -550,7 +475,7 @@ describe('grpc/builders/pfs', () => {
       repo: {
         name: '__spec__',
       },
-      state: CommitStateEnumObject.finished,
+      state: CommitState.FINISHED,
     });
 
     expect(subscribeCommitRequest.getRepo()?.getName()).toBe('__spec__');
@@ -564,7 +489,7 @@ describe('grpc/builders/pfs', () => {
       repo: {
         name: '__spec__',
       },
-      originKind: OriginKindEnumObject.auto,
+      originKind: OriginKind.AUTO,
     });
 
     expect(subscribeCommitRequest.getRepo()?.getName()).toBe('__spec__');

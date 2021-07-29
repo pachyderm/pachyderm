@@ -70,8 +70,8 @@ export type FinishCommitRequestObject = {
 };
 
 export type InspectCommitRequestObject = {
-  wait: CommitStateEnumObject;
-  commit?: CommitObject;
+  wait: CommitState;
+  commit: CommitObject;
 };
 
 export type ListCommitRequestObject = {
@@ -79,7 +79,7 @@ export type ListCommitRequestObject = {
   number?: ListCommitRequest.AsObject['number'];
   reverse?: ListCommitRequest.AsObject['reverse'];
   all?: ListCommitRequest.AsObject['all'];
-  originKind?: OriginKindEnumObject;
+  originKind?: OriginKind;
   from?: CommitObject;
   to?: CommitObject;
 };
@@ -87,9 +87,9 @@ export type ListCommitRequestObject = {
 export type SubscribeCommitRequestObject = {
   repo: RepoObject;
   branch?: SubscribeCommitRequest.AsObject['branch'];
-  state?: CommitStateEnumObject;
+  state?: CommitState;
   all?: SubscribeCommitRequest.AsObject['all'];
-  originKind?: OriginKindEnumObject;
+  originKind?: OriginKind;
   from?: CommitObject;
 };
 
@@ -115,21 +115,6 @@ export type CommitObject = {
   id: Commit.AsObject['id'];
   branch?: BranchObject;
 };
-
-export enum CommitStateEnumObject {
-  commitStateUnknown = 'COMMIT_STATE_UNKNOWN',
-  started = 'STARTED',
-  ready = 'READY',
-  finished = 'FINISHED',
-}
-
-export enum OriginKindEnumObject {
-  originKindUnknown = 'ORIGIN_KIND_UNKNOWN',
-  user = 'USER',
-  auto = 'AUTO',
-  fsck = 'FSCK',
-  alias = 'ALIAS',
-}
 
 export type CommitInfoObject = {
   commit: CommitObject;
@@ -257,51 +242,6 @@ export const branchFromObject = ({name, repo}: BranchObject) => {
   return branch;
 };
 
-export const commitStateObjectFromEnumString = (type: string) => {
-  let commitStateObject;
-
-  switch (type) {
-    case CommitStateEnumObject.ready:
-      commitStateObject = CommitState.READY;
-      break;
-    case CommitStateEnumObject.started:
-      commitStateObject = CommitState.STARTED;
-      break;
-    case CommitStateEnumObject.finished:
-      commitStateObject = CommitState.FINISHED;
-      break;
-    default:
-      commitStateObject = CommitState.COMMIT_STATE_UNKNOWN;
-      break;
-  }
-
-  return commitStateObject;
-};
-
-export const originKindObjectFromEnumString = (type: string) => {
-  let originKindObject;
-
-  switch (type) {
-    case OriginKindEnumObject.user:
-      originKindObject = OriginKind.USER;
-      break;
-    case OriginKindEnumObject.auto:
-      originKindObject = OriginKind.AUTO;
-      break;
-    case OriginKindEnumObject.fsck:
-      originKindObject = OriginKind.FSCK;
-      break;
-    case OriginKindEnumObject.alias:
-      originKindObject = OriginKind.ALIAS;
-      break;
-    default:
-      originKindObject = OriginKind.ORIGIN_KIND_UNKNOWN;
-      break;
-  }
-
-  return originKindObject;
-};
-
 export const startCommitRequestFromObject = ({
   branch,
   parent,
@@ -345,8 +285,7 @@ export const inspectCommitRequestFromObject = ({
   const request = new InspectCommitRequest();
 
   if (wait) {
-    const commitStateObject = commitStateObjectFromEnumString(wait);
-    request.setWait(commitStateObject);
+    request.setWait(wait);
   }
 
   if (commit) {
@@ -384,8 +323,7 @@ export const listCommitRequestFromObject = ({
   }
 
   if (originKind) {
-    const originKindObject = originKindObjectFromEnumString(originKind);
-    request.setOriginKind(originKindObject);
+    request.setOriginKind(originKind);
   }
 
   request.setAll(all);
@@ -415,13 +353,11 @@ export const subscribeCommitRequestFromObject = ({
   }
 
   if (state) {
-    const commitStateObject = commitStateObjectFromEnumString(state);
-    request.setState(commitStateObject);
+    request.setState(state);
   }
 
   if (originKind) {
-    const originKindObject = originKindObjectFromEnumString(originKind);
-    request.setOriginKind(originKindObject);
+    request.setOriginKind(originKind);
   }
 
   request.setAll(all);
