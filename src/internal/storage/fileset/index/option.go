@@ -28,9 +28,9 @@ func WithExact(key string) Option {
 	return WithRange(&PathRange{Upper: key, Lower: key})
 }
 
-// WithTag adds a tag filter that matches a single tag.
-func WithTag(tag string) Option {
+// WithDatum adds a datum filter that matches a single datum.
+func WithDatum(datum string) Option {
 	return func(r *Reader) {
-		r.tag = tag
+		r.datum = datum
 	}
 }

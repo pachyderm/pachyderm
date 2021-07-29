@@ -45,17 +45,17 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 	return uw, nil
 }
 
-func (uw *UnorderedWriter) Put(p, tag string, appendFile bool, r io.Reader) (retErr error) {
+func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (retErr error) {
 	if err := uw.validate(p); err != nil {
 		return err
 	}
-	if tag == "" {
-		tag = DefaultFileTag
+	if datum == "" {
+		datum = DefaultFileDatum
 	}
 	if !appendFile {
-		uw.buffer.Delete(p, tag)
+		uw.buffer.Delete(p, datum)
 	}
-	w := uw.buffer.Add(p, tag)
+	w := uw.buffer.Add(p, datum)
 	for {
 		n, err := io.CopyN(w, r, uw.memAvailable)
 		uw.memAvailable -= n
@@ -69,7 +69,7 @@ func (uw *UnorderedWriter) Put(p, tag string, appendFile bool, r io.Reader) (ret
 			if err := uw.serialize(); err != nil {
 				return err
 			}
-			w = uw.buffer.Add(p, tag)
+			w = uw.buffer.Add(p, datum)
 		}
 	}
 }
@@ -88,13 +88,13 @@ func (uw *UnorderedWriter) serialize() error {
 		return nil
 	}
 	return uw.withWriter(func(w *Writer) error {
-		if err := uw.buffer.WalkAdditive(func(path, tag string, r io.Reader) error {
-			return w.Add(path, tag, r)
+		if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
+			return w.Add(path, datum, r)
 		}); err != nil {
 			return err
 		}
-		return uw.buffer.WalkDeletive(func(path, tag string) error {
-			return w.Delete(path, tag)
+		return uw.buffer.WalkDeletive(func(path, datum string) error {
+			return w.Delete(path, datum)
 		})
 	})
 }
@@ -125,16 +125,16 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 }
 
 // Delete deletes a file from the file set.
-func (uw *UnorderedWriter) Delete(p, tag string) error {
+func (uw *UnorderedWriter) Delete(p, datum string) error {
 	if err := uw.validate(p); err != nil {
 		return err
 	}
-	if tag == "" {
-		tag = DefaultFileTag
+	if datum == "" {
+		datum = DefaultFileDatum
 	}
 	p = Clean(p, IsDir(p))
 	if IsDir(p) {
-		uw.buffer.Delete(p, tag)
+		uw.buffer.Delete(p, datum)
 		var ids []ID
 		if uw.getParentID != nil {
 			parentID, err := uw.getParentID()
@@ -148,28 +148,28 @@ func (uw *UnorderedWriter) Delete(p, tag string) error {
 			return err
 		}
 		return fs.Iterate(uw.ctx, func(f File) error {
-			return uw.Delete(f.Index().Path, tag)
+			return uw.Delete(f.Index().Path, datum)
 		})
 	}
-	uw.buffer.Delete(p, tag)
+	uw.buffer.Delete(p, datum)
 	return nil
 }
 
-func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, tag string, appendFile bool) error {
+func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, appendFile bool) error {
 	if err := uw.serialize(); err != nil {
 		return err
 	}
-	if tag == "" {
-		tag = DefaultFileTag
+	if datum == "" {
+		datum = DefaultFileDatum
 	}
 	return uw.withWriter(func(w *Writer) error {
 		return fs.Iterate(ctx, func(f File) error {
 			if !appendFile {
-				if err := w.Delete(f.Index().Path, tag); err != nil {
+				if err := w.Delete(f.Index().Path, datum); err != nil {
 					return err
 				}
 			}
-			return w.Copy(f, tag)
+			return w.Copy(f, datum)
 		})
 	})
 }

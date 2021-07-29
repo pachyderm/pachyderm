@@ -401,7 +401,7 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			var err error
 			var n int64
 			p := mod.AddFile.Path
-			t := mod.AddFile.Tag
+			t := mod.AddFile.Datum
 			switch src := mod.AddFile.Source.(type) {
 			case *pfs.AddFile_Raw:
 				n, err = putFileRaw(uw, p, t, src.Raw)
@@ -421,7 +421,7 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			}
 		case *pfs.ModifyFileRequest_CopyFile:
 			cf := mod.CopyFile
-			if err := a.driver.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Tag); err != nil {
+			if err := a.driver.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Datum); err != nil {
 				return bytesRead, err
 			}
 		case *pfs.ModifyFileRequest_SetCommit:
@@ -489,7 +489,7 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 }
 
 func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
-	uw.Delete(request.Path, request.Tag)
+	uw.Delete(request.Path, request.Datum)
 	return nil
 }
 

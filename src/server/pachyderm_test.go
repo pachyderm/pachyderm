@@ -1446,8 +1446,12 @@ func TestEmptyFiles(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					fmt.Sprintf("if [ -s /pfs/%s/file ]; then exit 1; fi", dataRepo),
-					fmt.Sprintf("ln -s /pfs/%s/file /pfs/out/file", dataRepo),
+					fmt.Sprintf("if [ -s /pfs/%s/dir/file1 ]; then exit 1; fi", dataRepo),
+					fmt.Sprintf("ln -s /pfs/%s/dir/file1 /pfs/out/file1", dataRepo),
+					fmt.Sprintf("if [ -s /pfs/%s/dir/file2 ]; then exit 1; fi", dataRepo),
+					fmt.Sprintf("ln -s /pfs/%s/dir/file2 /pfs/out/file2", dataRepo),
+					fmt.Sprintf("if [ -s /pfs/%s/dir/file3 ]; then exit 1; fi", dataRepo),
+					fmt.Sprintf("ln -s /pfs/%s/dir/file3 /pfs/out/file3", dataRepo),
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
@@ -1466,7 +1470,9 @@ func TestEmptyFiles(t *testing.T) {
 	// Do a commit
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(dataCommit, "/dir/file1", strings.NewReader("foo\n")))
+	require.NoError(t, c.PutFile(dataCommit, "/dir/file2", strings.NewReader("foo\n")))
+	require.NoError(t, c.PutFile(dataCommit, "/dir/file3", strings.NewReader("foo\n")))
 	require.NoError(t, c.FinishCommit(dataRepo, "master", ""))
 
 	commitInfos, err := c.WaitCommitSetAll(commit.ID)
@@ -1475,7 +1481,13 @@ func TestEmptyFiles(t *testing.T) {
 
 	buffer := bytes.Buffer{}
 	outputCommit := client.NewCommit(pipelineName, "master", commit.ID)
-	require.NoError(t, c.GetFile(outputCommit, "file", &buffer))
+	require.NoError(t, c.GetFile(outputCommit, "file1", &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "file2", &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "file3", &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 }
 
@@ -3348,6 +3360,7 @@ func TestPipelineEnv(t *testing.T) {
 
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
+	input := client.NewPFSInput(dataRepo, "/*")
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
@@ -3363,6 +3376,7 @@ func TestPipelineEnv(t *testing.T) {
 					fmt.Sprintf("echo $%s >/pfs/out/output_commit_id", client.OutputCommitIDEnv),
 					fmt.Sprintf("echo $%s >/pfs/out/input", dataRepo),
 					fmt.Sprintf("echo $%s_COMMIT >/pfs/out/input_commit", dataRepo),
+					fmt.Sprintf("echo $%s >/pfs/out/datum_id", client.DatumIDEnv),
 				},
 				Env: map[string]string{"bar": "bar"},
 				Secrets: []*pps.SecretMount{
@@ -3377,7 +3391,7 @@ func TestPipelineEnv(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: input,
 		})
 	require.NoError(t, err)
 
@@ -3413,6 +3427,11 @@ func TestPipelineEnv(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(jis[0].OutputCommit, "input_commit", &buffer))
 	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Details.Input.Pfs.Commit), buffer.String())
+	datumInfos, err := c.ListDatumInputAll(input)
+	require.NoError(t, err)
+	buffer.Reset()
+	require.NoError(t, c.GetFile(jis[0].OutputCommit, "datum_id", &buffer))
+	require.Equal(t, datumInfos[0].Datum.ID, buffer.String())
 }
 
 func TestPipelineWithFullObjects(t *testing.T) {

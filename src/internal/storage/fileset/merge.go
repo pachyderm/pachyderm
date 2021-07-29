@@ -10,10 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
 
-// MergeReader is an abstraction for reading merged filesets.
-// A file's content is ordered based on the lexicographical order of
-// the tagged content, so the output file content is produced by
-// performing a merge of the tagged content.
+// MergeReader is an abstraction for reading merged file sets.
 type MergeReader struct {
 	chunks   *chunk.Storage
 	fileSets []FileSet
@@ -153,7 +150,7 @@ func compare(s1, s2 stream.Stream) int {
 	idx1 := s1.(*fileStream).file.Index()
 	idx2 := s2.(*fileStream).file.Index()
 	if idx1.Path == idx2.Path {
-		return strings.Compare(idx1.File.Tag, idx2.File.Tag)
+		return strings.Compare(idx1.File.Datum, idx2.File.Datum)
 	}
 	return strings.Compare(idx1.Path, idx2.Path)
 }

@@ -100,7 +100,7 @@ func (pj *pendingJob) load() error {
 		if err != nil {
 			return err
 		}
-		if !ci.Error {
+		if ci.Error == "" {
 			if ci.Finished != nil {
 				pj.parentDit = datum.NewCommitIterator(pachClient, pj.parentMetaCommit)
 			} else {
@@ -222,7 +222,7 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, cb func(context.Cont
 	if err != nil {
 		return err
 	}
-	if ci.Error {
+	if ci.Error != "" {
 		return pfsserver.ErrCommitError{Commit: ci.Commit}
 	}
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {

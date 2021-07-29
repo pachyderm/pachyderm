@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -94,15 +95,19 @@ func (d *downloader) Download(storageRoot string, file *pfs.File, opts ...Downlo
 	return tarutil.Import(storageRoot, r)
 }
 
-func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *downloadConfig) (retErr error) {
+func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *downloadConfig) error {
 	return d.pachClient.WalkFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
-		basePath, err := filepath.Rel(path.Dir(file.Path), fi.File.Path)
+		// TODO: Remove right trim when PFS dirs are not encoded with a trailing slash.
+		basePath, err := filepath.Rel(path.Dir(strings.TrimRight(file.Path, "/")), strings.TrimRight(fi.File.Path, "/"))
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
 		fullPath := path.Join(storageRoot, basePath)
 		if fi.FileType == pfs.FileType_DIR {
 			return errors.EnsureStack(os.MkdirAll(fullPath, 0700))
+		}
+		if err := os.MkdirAll(path.Dir(fullPath), 0700); err != nil {
+			return errors.EnsureStack(err)
 		}
 		if config.lazy {
 			return d.makePipe(fullPath, func(w io.Writer) error {
