@@ -482,7 +482,7 @@ describe('grpc/builders/pfs', () => {
     expect(subscribeCommitRequest.getRepo()?.getName()).toBe('__spec__');
     expect(subscribeCommitRequest.getRepo()?.getType()).toBe('user');
     expect(subscribeCommitRequest.getAll()).toBe(true);
-    expect(subscribeCommitRequest.getState()).toBe(3);
+    expect(subscribeCommitRequest.getState()).toBe(4);
   });
 
   it('should create a subscribeCommitRequest from an object with originKind set', () => {
