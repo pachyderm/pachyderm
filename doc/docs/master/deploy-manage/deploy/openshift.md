@@ -22,7 +22,7 @@ Pachyderm needs a few things to install and run successfully in any Kubernetes e
 ### Persistent volume
 
 You will need to create a persistent volume with enough space for the metadata associated with the data you plan to store Pachyderm. 
-The `pachctl deploy` command for AWS, GCP and Azure creates persistent storage for you, when you follow the instructions below.
+The helm chart when configured for AWS, GCP and Azure creates persistent storage for you, when you follow the instructions below.
 A custom deploy can also create storage.  
 We will show you below how to take out the PV that is automatically created, in case you want to create it outside of the Pachyderm deployment and just consume it.
 
