@@ -74,13 +74,34 @@ func pgBouncerPort() int {
 	return DefaultPGBouncerPort
 }
 
+func postgresUser() string {
+	if user, ok := os.LookupEnv("POSTGRES_USER"); ok {
+		return user
+	}
+	return DefaultPostgresUser
+}
+
+func postgresPassword() string {
+	if password, ok := os.LookupEnv("POSTGRES_PASSWORD"); ok {
+		return password
+	}
+	return DefaultPostgresPassword
+}
+
+func postgresDatabase() string {
+	if database, ok := os.LookupEnv("POSTGRES_DATABASE"); ok {
+		return database
+	}
+	return DefaultPostgresDatabase
+}
+
 // NewTestDBConfig creates an ephemeral database scoped to the life of the test, without connecting to it.
 // It returns a serviceenv.ConfigOption which can be used to configure the environment to connect directly, and indirectly to the database.
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 	db := openEphemeralDB(t,
-		dbutil.WithDBName(DefaultPostgresDatabase),
+		dbutil.WithDBName(postgresDatabase()),
 		dbutil.WithMaxOpenConns(1),
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+		dbutil.WithUserPassword(postgresUser(), postgresPassword()),
 		dbutil.WithHostPort(postgresHost(), postgresPort()),
 	)
 	dbName := createEphemeralDB(t, db)
@@ -95,7 +116,7 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		c.PGBouncerHost = pgBouncerHost()
 		c.PGBouncerPort = pgBouncerPort()
 
-		c.PostgresUser = DefaultPostgresUser
+		c.PostgresUser = postgresUser()
 	}
 }
 
@@ -103,15 +124,15 @@ func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
 	host, port := postgresHost(), postgresPort()
 	opts := []dbutil.Option{
 		dbutil.WithHostPort(host, port),
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+		dbutil.WithUserPassword(postgresUser(), postgresPassword()),
 		dbutil.WithMaxOpenConns(1),
-		dbutil.WithDBName(DefaultPostgresDatabase),
+		dbutil.WithDBName(postgresDatabase()),
 	}
 	db := openEphemeralDB(t, opts...)
 	dbName := createEphemeralDB(t, db)
 
 	return []dbutil.Option{
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+		dbutil.WithUserPassword(postgresUser(), postgresPassword()),
 		dbutil.WithDBName(dbName),
 		dbutil.WithMaxOpenConns(maxOpenConnsPerPool),
 
@@ -124,15 +145,15 @@ func NewTestDBOptions(t testing.TB) []dbutil.Option {
 	host, port := pgBouncerHost(), pgBouncerPort()
 	opts := []dbutil.Option{
 		dbutil.WithHostPort(host, port),
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+		dbutil.WithUserPassword(postgresHost(), postgresPassword()),
 		dbutil.WithMaxOpenConns(1),
-		dbutil.WithDBName(DefaultPostgresDatabase),
+		dbutil.WithDBName(postgresDatabase()),
 	}
 	db := openEphemeralDB(t, opts...)
 	dbName := createEphemeralDB(t, db)
 
 	return []dbutil.Option{
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+		dbutil.WithUserPassword(postgresUser(), postgresPassword()),
 		dbutil.WithDBName(dbName),
 		dbutil.WithMaxOpenConns(maxOpenConnsPerPool),
 
