@@ -51,3 +51,8 @@ home: https://www.pachyderm.com/
 sources:
   - https://github.com/pachyderm/pachyderm
   - https://github.com/pachyderm/helmchart
+
+dependencies:
+- name: postgresql
+  version: "10.8.0"
+  repository: "file://../charts/postgresql"
