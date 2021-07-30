@@ -56,3 +56,4 @@ dependencies:
 - name: postgresql
   version: "10.8.0"
   repository: "file://../charts/postgresql"
+  condition: postgresql.enabled

@@ -10,7 +10,6 @@ import (
 	"github.com/gruntwork-io/terratest/modules/helm"
 	appsV1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	storageV1 "k8s.io/api/storage/v1"
 )
 
 //Etcd / Pachd Storage Class - Should test  storage class name elsewhere
@@ -37,7 +36,7 @@ func TestGoogle(t *testing.T) {
 	}
 	var (
 		expectedServiceAccount = "my-fine-sa"
-		expectedProvisioner    = "kubernetes.io/gce-pd"
+		//expectedProvisioner    = "kubernetes.io/gce-pd"
 		expectedStorageBackend = "GOOGLE"
 	)
 	helmValues := map[string]string{
@@ -55,9 +54,9 @@ func TestGoogle(t *testing.T) {
 		"templates/pachd/rbac/serviceaccount.yaml":        false,
 		"templates/pachd/rbac/worker-serviceaccount.yaml": false,
 		"templates/etcd/statefulset.yaml":                 false,
-		"templates/etcd/storageclass-gcp.yaml":            false,
-		"templates/postgresql/statefulset.yaml":           false,
-		"templates/postgresql/storageclass-gcp.yaml":      false,
+		//"templates/etcd/storageclass-gcp.yaml":            false,
+		"charts/postgresql/templates/statefulset.yaml": false,
+		//"templates/postgresql/storageclass-gcp.yaml":      false,
 	}
 
 	templatesToRender := []string{}
@@ -119,24 +118,24 @@ func TestGoogle(t *testing.T) {
 				}
 			})
 			templatesToCheck["templates/pachd/deployment.yaml"] = true
-		case *storageV1.StorageClass:
-			if resource.Name == "postgresql-storage-class" || resource.Name == "etcd-storage-class" {
+		/*case *storageV1.StorageClass:
+		if resource.Name == "postgresql-storage-class" || resource.Name == "etcd-storage-class" {
 
-				t.Run(fmt.Sprintf("%s storage class annotation equals %s", resource.Name, expectedProvisioner), func(t *testing.T) {
-					if resource.Provisioner != expectedProvisioner {
-						t.Errorf("expected storageclass provisioner to be %q but it was %q", expectedProvisioner, resource.Provisioner)
-					}
-				})
+			t.Run(fmt.Sprintf("%s storage class annotation equals %s", resource.Name, expectedProvisioner), func(t *testing.T) {
+				if resource.Provisioner != expectedProvisioner {
+					t.Errorf("expected storageclass provisioner to be %q but it was %q", expectedProvisioner, resource.Provisioner)
+				}
+			})
 
-				if resource.Name == "postgresql-storage-class" {
-					templatesToCheck["templates/postgresql/storageclass-gcp.yaml"] = true
-				}
-				if resource.Name == "etcd-storage-class" {
-					templatesToCheck["templates/etcd/storageclass-gcp.yaml"] = true
-				}
+			if resource.Name == "postgresql-storage-class" {
+				templatesToCheck["templates/postgresql/storageclass-gcp.yaml"] = true
 			}
+			if resource.Name == "etcd-storage-class" {
+				templatesToCheck["templates/etcd/storageclass-gcp.yaml"] = true
+			}
+		}*/
 		case *appsV1.StatefulSet:
-			if resource.Name == "etcd" || resource.Name == "postgres" {
+			if resource.Name == "etcd" || resource.Name == "postgres" { //TODO: Update name of postgres statefulset
 
 				for _, pvc := range resource.Spec.VolumeClaimTemplates {
 					// Check Google Default Storage Request
@@ -159,7 +158,7 @@ func TestGoogle(t *testing.T) {
 
 							}
 						})
-						templatesToCheck["templates/postgresql/statefulset.yaml"] = true
+						templatesToCheck["charts/postgresql/templates/statefulset.yaml"] = true
 
 					}
 

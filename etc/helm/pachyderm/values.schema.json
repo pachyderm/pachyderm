@@ -590,22 +590,21 @@
         "postgresql": {
             "type": "object",
             "properties": {
-                "enabled": {
-                    "type": "boolean"
-                },
-                "resources": {
-                    "type": "object"
-                },
-                "service": {
+                "image": {
                     "type": "object",
                     "properties": {
-                        "type": {
+                        "tag": {
                             "type": "string"
                         }
                     }
                 },
-                "storageClass": {
-                    "type": "string"
+                "initdbScripts": {
+                    "type": "object",
+                    "properties": {
+                        "dex.sql": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },
