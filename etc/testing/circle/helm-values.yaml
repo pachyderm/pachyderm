@@ -19,6 +19,7 @@ pachd:
 postgresql:
   service:
     type: NodePort
+    nodePort: 32228
 etcd:
   resources:
     requests:
