@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
@@ -67,7 +66,7 @@ func (a *apiServer) ServeSidecarS3G() {
 		// auth is off)
 		s.pachClient.SetAuthToken(s.pipelineInfo.AuthToken)
 
-		if err := internal.GetPipelineDetails(s.pachClient.Ctx(), a.env.PfsServer(), s.pipelineInfo); err != nil {
+		if err := ppsutil.GetPipelineDetails(s.pachClient, s.pipelineInfo); err != nil {
 			return errors.Wrapf(err, "sidecar s3 gateway: could not get pipeline details")
 		}
 		return nil
