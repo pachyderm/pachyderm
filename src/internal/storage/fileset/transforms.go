@@ -81,10 +81,10 @@ func (im *indexMap) Index() *index.Index {
 	return im.idx
 }
 
-func (im *indexMap) Content(w io.Writer) error {
-	return im.inner.Content(w)
+func (im *indexMap) Content(ctx context.Context, w io.Writer) error {
+	return im.inner.Content(ctx, w)
 }
 
-func (im *indexMap) Hash() ([]byte, error) {
-	return im.inner.Hash()
+func (im *indexMap) Hash(ctx context.Context) ([]byte, error) {
+	return im.inner.Hash(ctx)
 }
