@@ -22,7 +22,13 @@ const repoResolver: RepoResolver = {
   Repo: {
     commits: async (repo, _args, {pachClient}) => {
       try {
-        return (await pachClient.pfs().listCommit(repo.id, NUM_COMMITS))
+        return (
+          await pachClient.pfs().listCommit({
+            repo: {name: repo.id},
+            number: NUM_COMMITS,
+            reverse: true,
+          })
+        )
           .map((commit) => ({
             repoName: repo.name,
             branch: commit.commit?.branch && {
