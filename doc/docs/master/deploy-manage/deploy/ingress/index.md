@@ -44,7 +44,7 @@ including:
     In particular, it must support gRPC protocol (for `pachd`) and WebSockets (for `dash`)
 
 !!! Info
-    No ingress controller is deployed by default with the `pachctl deploy` command.
+    No ingress controller is deployed by default with the default helm chart.
     **You will need to deploy an ingress
     controller and ingress resource object of your choice** (Nginx, Traefik, Ambassador...) on the Kubernetes cluster that
     runs your Pachyderm cluster.
