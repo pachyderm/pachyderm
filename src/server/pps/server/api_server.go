@@ -2087,7 +2087,11 @@ func (a *apiServer) CreatePipelineInTransaction(
 		specCommit = commitInfo.Commit
 	} else {
 		specCommit, err = a.commitPipelineInfoFromFileSet(txnCtx, pipelineName, *specFileSetID, *prevPipelineVersion)
-		if err != nil {
+		if err != nil && errors.Is(err, fileset.ErrFileSetNotExists) {
+			// the fileset is gone, we need to recreate and try again
+			*specFileSetID = ""
+			return &col.ErrTransactionConflict{}
+		} else if err != nil {
 			return err
 		}
 	}
