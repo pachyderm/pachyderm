@@ -13,19 +13,16 @@ This command saves your changes and closes that repository's commit,
 indicating the data is ready for processing by downstream pipelines.
 
 !!! Warning
-    `start commit` can only be used on source repos (i.e. repos without [provenance](./provenance.md)).
+    `start commit` can only be used on source repos (i.e., repos without [provenance](./provenance.md)). Such repos are the entry points of a DAG.
     You cannot manually start a commit from a pipeline [output or meta repo](./repo.md).
 
-
-When you create a new commit, the **sub-commit at the head of each branch becomes the parent** of
-each corresponding sub-commit, by default containing the same repository state.
-Your repo history consists of those parent-child relationships between your data commits.
+Each commit has an identifier (ID) that you can reference in the <repo>@<ID> format. When you create a new commit, the previous commit on which the new commit is based becomes the parent of the new commit. Your repo history consists of those parent-child relationships between your data commits.
 
 !!! Note
-    An initial sub-commit has `<none>` as a parent.
+    An initial commit has `<none>` as a parent.
 
-Additionally, **sub-commits have an "origin"**.
-You can see an origin as the answer to: **"What triggered the production of this sub-commit"**.
+Additionally, **commits have an "origin"**.
+You can see an origin as the answer to: **"What triggered the production of this commit"**.
 
 That origin can be of 3 types:
 
@@ -36,13 +33,12 @@ That origin can be of 3 types:
     trigger downstream processing jobs in your pipeline(s). The output commits from
     triggered jobs will be of type `AUTO`.
 - `ALIAS`: Neither `USER` nor `AUTO` - `ALIAS` commits are essentially placeholder commits.
-    They have the same content as their parent commit and are mainly used for [global IDs]().
+    They have the same content as their parent commit and are mainly used for [global IDs](../globalID/).
 
 
 !!! Warning "Important Note"
     To track provenance, Pachyderm requires **all sub-commits to belong to exactly one branch**.
-    When moving a sub-commit from one [branch](./branch.md) to another, Pachyderm creates an alias
-    sub-commit on the other branch.
+    When moving a sub-commit from one [branch](./branch.md) to another, Pachyderm creates an `ALIAS` sub-commit on the other branch.
 
 
 Each commit has an alphanumeric identifier (ID). You can reference its sub-commits

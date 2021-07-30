@@ -6,7 +6,7 @@ Pachyderm provides users with a simple way to follow a change throughout their D
 When you commit data to Pachyderm, your new commit has an ID associated with it that you can easily check by running `pachctl list commit repo@branch`. 
 **All resulting downstream commits and jobs will then share that ID (Global Identifier).**
 
-!!! Info "In other terms"
+!!! Info "TLDR"
     Commit and job IDs **represent a logically-related set of objects**. 
     The ID of a commit is also the ID of any commits created along with it due to provenance relationships, 
     as well as the ID of any jobs that were triggered because of the creation of those commits. 
@@ -24,31 +24,31 @@ You can list all global commits by running the following command:
 ```shell
 pachctl list commit
 ```
-Each global commit displays how many commits their are made of.
+Each global commit displays how many (sub) commits theiy are made of.
 ```
-ID                               COMMITS PROGRESS CREATED        MODIFIED
-1035715e796f45caae7a1d3ffd1f93ca 7       ▇▇▇▇▇▇▇▇ 7 seconds ago  7 seconds ago
-28363be08a8f4786b6dd0d3b142edd56 6       ▇▇▇▇▇▇▇▇ 24 seconds ago 24 seconds ago
-e050771b5c6f4082aed48a059e1ac203 4       ▇▇▇▇▇▇▇▇ 24 seconds ago 24 seconds ago
+ID                               SUBCOMMITS PROGRESS CREATED        MODIFIED
+1035715e796f45caae7a1d3ffd1f93ca 7          ▇▇▇▇▇▇▇▇ 7 seconds ago  7 seconds ago
+28363be08a8f4786b6dd0d3b142edd56 6          ▇▇▇▇▇▇▇▇ 24 seconds ago 24 seconds ago
+e050771b5c6f4082aed48a059e1ac203 4          ▇▇▇▇▇▇▇▇ 24 seconds ago 24 seconds ago
 ```
-Similarly, if you run the equivalent command for global job:
+Similarly, if you run the equivalent command for global jobs:
 ```shell
 pachctl list job
 ```
 you will notice that the job IDs are shared with the global commit IDs.
 
 ```
-ID                               JOBS PROGRESS CREATED            MODIFIED
-1035715e796f45caae7a1d3ffd1f93ca 2    ▇▇▇▇▇▇▇▇ 55 seconds ago     55 seconds ago
-28363be08a8f4786b6dd0d3b142edd56 1    ▇▇▇▇▇▇▇▇ About a minute ago About a minute ago
-e050771b5c6f4082aed48a059e1ac203 1    ▇▇▇▇▇▇▇▇ About a minute ago About a minute ago
+ID                               SUBJOBS PROGRESS CREATED            MODIFIED
+1035715e796f45caae7a1d3ffd1f93ca 2       ▇▇▇▇▇▇▇▇ 55 seconds ago     55 seconds ago
+28363be08a8f4786b6dd0d3b142edd56 1       ▇▇▇▇▇▇▇▇ About a minute ago About a minute ago
+e050771b5c6f4082aed48a059e1ac203 1       ▇▇▇▇▇▇▇▇ About a minute ago About a minute ago
 ```
 Note, for example, that 7 commits and 2 jobs are involved in the changes occured
 in the global commit ID 1035715e796f45caae7a1d3ffd1f93ca.
 
 ## List All Commits And Jobs With A Global ID
 
-To list all commits involved in a global commit:
+To list all (sub) commits involved in a global commit:
 ```shell
 pachctl list commit 1035715e796f45caae7a1d3ffd1f93ca
 ```
@@ -63,7 +63,7 @@ edges.meta   master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago -    AUTO
 montage      master 1035715e796f45caae7a1d3ffd1f93ca 4 minutes ago -    AUTO
 ```
 
-Similarly, change `commit` in `job` to list all jobs linked to your global job ID.
+Similarly, change `commit` in `job` to list all (sub) jobs linked to your global job ID.
 ```shell
 pachctl list job 1035715e796f45caae7a1d3ffd1f93ca
 ```
