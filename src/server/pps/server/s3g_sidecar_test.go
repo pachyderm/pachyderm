@@ -25,8 +25,6 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"golang.org/x/net/context"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -241,7 +239,7 @@ func TestS3Chain(t *testing.T) {
 		if i > 0 {
 			input = pipelines[i-1]
 		}
-		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipelines[i]),
 				Transform: &pps.Transform{
