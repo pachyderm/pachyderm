@@ -5904,7 +5904,6 @@ func TestCronPipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Skip("TODO: This tests passes when run in isolation, but is flaky and often hangs.")
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	t.Run("SimpleCron", func(t *testing.T) {
@@ -9668,48 +9667,6 @@ func TestMoveBranchTrigger(t *testing.T) {
 	require.Equal(t, "/foo", files[0].File.Path)
 }
 
-func monitorReplicas(t testing.TB, pipeline string, n int) {
-	c := tu.GetPachClient(t)
-	kc := tu.GetKubeClient(t)
-	rcName := ppsutil.PipelineRcName(pipeline, 1)
-	enoughReplicas := false
-	tooManyReplicas := false
-	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
-		for {
-			scale, err := kc.CoreV1().ReplicationControllers("default").GetScale(rcName, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			if int(scale.Spec.Replicas) >= n {
-				enoughReplicas = true
-			}
-			if int(scale.Spec.Replicas) > n {
-				tooManyReplicas = true
-			}
-			ci, err := c.InspectCommit(pipeline, "master", "")
-			require.NoError(t, err)
-			if ci.Finished != nil {
-				return nil
-			}
-			time.Sleep(time.Second * 2)
-		}
-	})
-	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
-	require.False(t, tooManyReplicas, "got too many replicas, looking for: %d", n)
-}
-
-func TestLoad(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
-	require.NoError(t, err)
-	buf := &bytes.Buffer{}
-	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
-	require.Equal(t, "", resp.Error, buf.String())
-}
-
 func TestExpiredFileset(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -9758,4 +9715,46 @@ func TestExpiredFileset(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
+}
+
+func monitorReplicas(t testing.TB, pipeline string, n int) {
+	c := tu.GetPachClient(t)
+	kc := tu.GetKubeClient(t)
+	rcName := ppsutil.PipelineRcName(pipeline, 1)
+	enoughReplicas := false
+	tooManyReplicas := false
+	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
+		for {
+			scale, err := kc.CoreV1().ReplicationControllers("default").GetScale(rcName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			if int(scale.Spec.Replicas) >= n {
+				enoughReplicas = true
+			}
+			if int(scale.Spec.Replicas) > n {
+				tooManyReplicas = true
+			}
+			ci, err := c.InspectCommit(pipeline, "master", "")
+			require.NoError(t, err)
+			if ci.Finished != nil {
+				return nil
+			}
+			time.Sleep(time.Second * 2)
+		}
+	})
+	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
+	require.False(t, tooManyReplicas, "got too many replicas, looking for: %d", n)
+}
+
+func TestLoad(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+	require.NoError(t, err)
+	buf := &bytes.Buffer{}
+	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
+	require.Equal(t, "", resp.Error, buf.String())
 }
