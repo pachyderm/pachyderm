@@ -62,6 +62,7 @@ func TestS3PipelineErrors(t *testing.T) {
 	}
 
 	c, _ := initPachClient(t)
+	defer c.DeleteAll()
 
 	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
 	require.NoError(t, c.CreateRepo(repo1))
@@ -136,6 +137,7 @@ func TestS3Input(t *testing.T) {
 	}
 
 	c, userToken := initPachClient(t)
+	defer c.DeleteAll()
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -226,6 +228,7 @@ func TestS3Chain(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, userToken := initPachClient(t)
+	defer c.DeleteAll()
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -290,6 +293,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	}
 
 	c, _ := initPachClient(t)
+	defer c.DeleteAll()
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -339,6 +343,7 @@ func TestS3Output(t *testing.T) {
 	}
 
 	c, userToken := initPachClient(t)
+	defer c.DeleteAll()
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -424,6 +429,7 @@ func TestFullS3(t *testing.T) {
 	}
 
 	c, userToken := initPachClient(t)
+	defer c.DeleteAll()
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -511,6 +517,7 @@ func TestS3SkippedDatums(t *testing.T) {
 	name := t.Name()
 
 	c, userToken := initPachClient(t)
+	defer c.DeleteAll()
 
 	t.Run("S3Inputs", func(t *testing.T) {
 		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
