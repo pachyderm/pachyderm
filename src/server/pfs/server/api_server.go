@@ -536,7 +536,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 			return getFileURL(ctx, request.URL, src)
 		}
 		if err := grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
-			return file.Content(w)
+			return file.Content(ctx, w)
 		}); err != nil {
 			return 0, err
 		}
@@ -560,7 +560,7 @@ func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
 			return nil
 		}
 		if err := miscutil.WithPipe(func(w io.Writer) error {
-			return file.Content(w)
+			return file.Content(ctx, w)
 		}, func(r io.Reader) error {
 			return objClient.Put(ctx, filepath.Join(parsedURL.Object, fi.File.Path), r)
 		}); err != nil {
@@ -599,7 +599,7 @@ func getFileTar(ctx context.Context, w io.Writer, src Source) error {
 	// 	},
 	// }
 	if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
-		return fileset.WriteTarEntry(w, file)
+		return fileset.WriteTarEntry(ctx, w, file)
 	}); err != nil {
 		return err
 	}
