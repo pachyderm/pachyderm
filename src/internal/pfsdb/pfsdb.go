@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 const (
@@ -55,7 +56,20 @@ func Repos(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 		listener,
 		&pfs.RepoInfo{},
 		reposIndexes,
-		repoKeyCheck,
+		col.WithKeyCheck(repoKeyCheck),
+		col.WithKeyGen(func(key interface{}) (string, error) {
+			if repo, ok := key.(*pfs.Repo); !ok {
+				return "", errors.New("key must be a repo")
+			} else {
+				return RepoKey(repo), nil
+			}
+		}),
+		col.WithNotFoundMessage(func(key interface{}) string {
+			return pfsserver.ErrRepoNotFound{Repo: key.(*pfs.Repo)}.Error()
+		}),
+		col.WithExistsMessage(func(key interface{}) string {
+			return pfsserver.ErrRepoExists{Repo: key.(*pfs.Repo)}.Error()
+		}),
 	)
 }
 
@@ -98,7 +112,19 @@ func Commits(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection 
 		listener,
 		&pfs.CommitInfo{},
 		commitsIndexes,
-		nil,
+		col.WithKeyGen(func(key interface{}) (string, error) {
+			if commit, ok := key.(*pfs.Commit); !ok {
+				return "", errors.New("key must be a commit")
+			} else {
+				return CommitKey(commit), nil
+			}
+		}),
+		col.WithNotFoundMessage(func(key interface{}) string {
+			return pfsserver.ErrCommitNotFound{Commit: key.(*pfs.Commit)}.Error()
+		}),
+		col.WithExistsMessage(func(key interface{}) string {
+			return pfsserver.ErrCommitExists{Commit: key.(*pfs.Commit)}.Error()
+		}),
 	)
 }
 
@@ -123,7 +149,14 @@ func Branches(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection
 		listener,
 		&pfs.BranchInfo{},
 		branchesIndexes,
-		func(key string) error {
+		col.WithKeyGen(func(key interface{}) (string, error) {
+			if branch, ok := key.(*pfs.Branch); !ok {
+				return "", errors.New("key must be a branch")
+			} else {
+				return BranchKey(branch), nil
+			}
+		}),
+		col.WithKeyCheck(func(key string) error {
 			keyParts := strings.Split(key, "@")
 			if len(keyParts) != 2 {
 				return errors.Errorf("branch key %s isn't valid, use BranchKey to generate it", key)
@@ -132,7 +165,13 @@ func Branches(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection
 				return errors.Errorf("branch name cannot be a UUID V4")
 			}
 			return repoKeyCheck(keyParts[0])
-		},
+		}),
+		col.WithNotFoundMessage(func(key interface{}) string {
+			return pfsserver.ErrBranchNotFound{Branch: key.(*pfs.Branch)}.Error()
+		}),
+		col.WithExistsMessage(func(key interface{}) string {
+			return pfsserver.ErrBranchExists{Branch: key.(*pfs.Branch)}.Error()
+		}),
 	)
 }
 
@@ -141,8 +180,8 @@ func Branches(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection
 // querying.
 func AllCollections() []col.PostgresCollection {
 	return []col.PostgresCollection{
-		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes, nil),
-		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes, nil),
-		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes, nil),
+		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes),
+		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes),
+		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes),
 	}
 }

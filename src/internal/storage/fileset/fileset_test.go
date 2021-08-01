@@ -47,7 +47,7 @@ func checkFile(t *testing.T, f File, tf *testFile) {
 	r, w := io.Pipe()
 	eg := errgroup.Group{}
 	eg.Go(func() error {
-		return f.Content(w)
+		return f.Content(context.Background(), w)
 	})
 	eg.Go(func() (retErr error) {
 		defer func() {
@@ -225,7 +225,7 @@ func TestStableHash(t *testing.T) {
 			}
 			found = true
 			var err error
-			hash, err = f.Hash()
+			hash, err = f.Hash(ctx)
 			return err
 		}), msg)
 		if !found {

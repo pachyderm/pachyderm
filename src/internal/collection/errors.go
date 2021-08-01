@@ -10,8 +10,9 @@ import (
 // ErrNotFound indicates that a key was not found when it was expected to
 // exist.
 type ErrNotFound struct {
-	Type string
-	Key  string
+	Type          string
+	Key           string
+	customMessage string
 }
 
 func (err ErrNotFound) Is(other error) bool {
@@ -20,6 +21,9 @@ func (err ErrNotFound) Is(other error) bool {
 }
 
 func (err ErrNotFound) Error() string {
+	if err.customMessage != "" {
+		return err.customMessage
+	}
 	return fmt.Sprintf("%s %s not found", strings.TrimPrefix(err.Type, DefaultPrefix), err.Key)
 }
 
@@ -31,8 +35,9 @@ func IsErrNotFound(err error) bool {
 // ErrExists indicates that a key was found to exist when it was expected not
 // to.
 type ErrExists struct {
-	Type string
-	Key  string
+	Type          string
+	Key           string
+	customMessage string
 }
 
 func (err ErrExists) Is(other error) bool {
@@ -41,6 +46,9 @@ func (err ErrExists) Is(other error) bool {
 }
 
 func (err ErrExists) Error() string {
+	if err.customMessage != "" {
+		return err.customMessage
+	}
 	return fmt.Sprintf("%s %s already exists", strings.TrimPrefix(err.Type, DefaultPrefix), err.Key)
 }
 

@@ -149,7 +149,7 @@ func (s *source) computeRegularFileInfo(ctx context.Context, f fileset.File) (*p
 		SizeBytes: index.SizeBytes(f.Index()),
 	}
 	var err error
-	fi.Hash, err = f.Hash()
+	fi.Hash, err = f.Hash(ctx)
 	if err != nil {
 		return nil, err
 	}

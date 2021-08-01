@@ -57,7 +57,7 @@ func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
 			return nil
 		}
 		if len(fss) == 1 {
-			return cb(newFileReader(ctx, mr.chunks, fss[0].file.Index()))
+			return cb(newFileReader(mr.chunks, fss[0].file.Index()))
 		}
 		var dataRefs []*chunk.DataRef
 		for _, fs := range fss {
@@ -66,7 +66,7 @@ func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
 		}
 		mergeIdx := fss[0].file.Index()
 		mergeIdx.File.DataRefs = dataRefs
-		return cb(newMergeFileReader(ctx, mr.chunks, mergeIdx))
+		return cb(newMergeFileReader(mr.chunks, mergeIdx))
 
 	})
 }
@@ -81,20 +81,18 @@ func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error)
 	pq := stream.NewPriorityQueue(ss, compare)
 	return pq.Iterate(func(ss []stream.Stream) error {
 		fs := ss[0].(*fileStream)
-		return cb(newFileReader(ctx, mr.chunks, fs.file.Index()))
+		return cb(newFileReader(mr.chunks, fs.file.Index()))
 	})
 }
 
 // MergeFileReader is an abstraction for reading a merged file.
 type MergeFileReader struct {
-	ctx    context.Context
 	chunks *chunk.Storage
 	idx    *index.Index
 }
 
-func newMergeFileReader(ctx context.Context, chunks *chunk.Storage, idx *index.Index) *MergeFileReader {
+func newMergeFileReader(chunks *chunk.Storage, idx *index.Index) *MergeFileReader {
 	return &MergeFileReader{
-		ctx:    ctx,
 		chunks: chunks,
 		idx:    idx,
 	}
@@ -108,15 +106,15 @@ func (mfr *MergeFileReader) Index() *index.Index {
 }
 
 // Content returns the content of the merged file.
-func (mfr *MergeFileReader) Content(w io.Writer) error {
-	r := mfr.chunks.NewReader(mfr.ctx, mfr.idx.File.DataRefs)
+func (mfr *MergeFileReader) Content(ctx context.Context, w io.Writer) error {
+	r := mfr.chunks.NewReader(ctx, mfr.idx.File.DataRefs)
 	return r.Get(w)
 }
 
 // Hash returns the hash of the file.
-func (mfr *MergeFileReader) Hash() ([]byte, error) {
+func (mfr *MergeFileReader) Hash(ctx context.Context) ([]byte, error) {
 	var resolvedDataRefs []*chunk.DataRef
-	cw := mfr.chunks.NewWriter(mfr.ctx, "resolve-writer", func(annotations []*chunk.Annotation) error {
+	cw := mfr.chunks.NewWriter(ctx, "resolve-writer", func(annotations []*chunk.Annotation) error {
 		if annotations[0].NextDataRef != nil {
 			resolvedDataRefs = append(resolvedDataRefs, annotations[0].NextDataRef)
 		}

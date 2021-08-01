@@ -40,13 +40,13 @@ func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) err
 }
 
 // WriteTarEntry writes an tar entry for f to w
-func WriteTarEntry(w io.Writer, f File) error {
+func WriteTarEntry(ctx context.Context, w io.Writer, f File) error {
 	idx := f.Index()
 	tw := tar.NewWriter(w)
 	if err := tw.WriteHeader(tarutil.NewHeader(idx.Path, index.SizeBytes(idx))); err != nil {
 		return err
 	}
-	if err := f.Content(tw); err != nil {
+	if err := f.Content(ctx, tw); err != nil {
 		return err
 	}
 	return tw.Flush()
@@ -56,7 +56,7 @@ func WriteTarEntry(w io.Writer, f File) error {
 // It will contain an entry for each File in fs
 func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 	if err := fs.Iterate(ctx, func(f File) error {
-		return WriteTarEntry(w, f)
+		return WriteTarEntry(ctx, w, f)
 	}); err != nil {
 		return err
 	}

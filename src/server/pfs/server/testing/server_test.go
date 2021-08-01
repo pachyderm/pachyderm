@@ -5863,6 +5863,31 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, err)
 		require.True(t, errutil.IsNotFoundError(err))
 	})
+	suite.Run("ErrorMessages", func(t *testing.T) {
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+		// don't show user .user suffix
+		_, err := env.PachClient.InspectRepo("test")
+		require.YesError(t, err)
+		require.True(t, errutil.IsNotFoundError(err))
+		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
+
+		require.NoError(t, env.PachClient.CreateRepo("test"))
+
+		err = env.PachClient.CreateRepo("test")
+		require.YesError(t, err)
+		require.True(t, errutil.IsAlreadyExistError(err))
+		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
+
+		_, err = env.PachClient.InspectBranch("test", "branch")
+		require.YesError(t, err)
+		require.True(t, errutil.IsNotFoundError(err))
+		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
+
+		_, err = env.PachClient.InspectCommit("test", "branch", uuid.NewWithoutDashes())
+		require.YesError(t, err)
+		require.True(t, errutil.IsNotFoundError(err))
+		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
+	})
 }
 
 var (

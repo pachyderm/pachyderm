@@ -26,9 +26,14 @@ type ErrRepoExists struct {
 	Repo *pfs.Repo
 }
 
-// ErrRepoDeleted represents a repo-deleted error.
-type ErrRepoDeleted struct {
-	Repo *pfs.Repo
+// ErrBranchNotFound represents a branch-not-found error.
+type ErrBranchNotFound struct {
+	Branch *pfs.Branch
+}
+
+// ErrBranchExists represents a branch-exists error.
+type ErrBranchExists struct {
+	Branch *pfs.Branch
 }
 
 // ErrCommitNotFound represents a commit-not-found error.
@@ -118,8 +123,12 @@ func (e ErrRepoExists) Error() string {
 	return fmt.Sprintf("repo %v already exists", e.Repo)
 }
 
-func (e ErrRepoDeleted) Error() string {
-	return fmt.Sprintf("repo %v was deleted", e.Repo)
+func (e ErrBranchNotFound) Error() string {
+	return fmt.Sprintf("branch %q not found in repo %v", e.Branch.Name, e.Branch.Repo)
+}
+
+func (e ErrBranchExists) Error() string {
+	return fmt.Sprintf("branch %q already exists in repo %v", e.Branch.Name, e.Branch.Repo)
 }
 
 func (e ErrCommitNotFound) Error() string {
@@ -178,7 +187,7 @@ var (
 	commitErrorRe             = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ finished with an error")
 	repoNotFoundRe            = regexp.MustCompile(`repos [a-zA-Z0-9.\-_]{1,255} not found`)
 	repoExistsRe              = regexp.MustCompile(`repo ?[a-zA-Z0-9.\-_]{1,255} already exists`)
-	branchNotFoundRe          = regexp.MustCompile(`branches [a-zA-Z0-9.\-_@]{1,255} not found`)
+	branchNotFoundRe          = regexp.MustCompile(`branch [^ ]+ not found in repo [^ ]+`)
 	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
 	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")
