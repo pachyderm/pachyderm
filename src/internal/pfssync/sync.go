@@ -97,15 +97,19 @@ func (d *downloader) Download(storageRoot string, file *pfs.File, opts ...Downlo
 
 func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *downloadConfig) error {
 	return d.pachClient.WalkFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
-		// TODO: Remove right trim when PFS dirs are not encoded with a trailing slash.
-		basePath, err := filepath.Rel(path.Dir(strings.TrimRight(file.Path, "/")), strings.TrimRight(fi.File.Path, "/"))
-		if err != nil {
-			return errors.EnsureStack(err)
+		if fi.FileType == pfs.FileType_DIR {
+			return nil
+		}
+		basePath := fi.File.Path
+		if file.Path != "/" {
+			// TODO: Remove right trim when PFS dirs are not encoded with a trailing slash.
+			var err error
+			basePath, err = filepath.Rel(path.Dir(strings.TrimRight(file.Path, "/")), fi.File.Path)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
 		}
 		fullPath := path.Join(storageRoot, basePath)
-		if fi.FileType == pfs.FileType_DIR {
-			return errors.EnsureStack(os.MkdirAll(fullPath, 0700))
-		}
 		if err := os.MkdirAll(path.Dir(fullPath), 0700); err != nil {
 			return errors.EnsureStack(err)
 		}

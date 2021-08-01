@@ -3431,7 +3431,7 @@ func TestPipelineEnv(t *testing.T) {
 	require.NoError(t, err)
 	buffer.Reset()
 	require.NoError(t, c.GetFile(jis[0].OutputCommit, "datum_id", &buffer))
-	require.Equal(t, datumInfos[0].Datum.ID, buffer.String())
+	require.Equal(t, fmt.Sprintf("%s\n", datumInfos[0].Datum.ID), buffer.String())
 }
 
 func TestPipelineWithFullObjects(t *testing.T) {

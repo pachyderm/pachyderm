@@ -81,7 +81,7 @@ func TestWriteThenRead(t *testing.T) {
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
-		for _, datum := range random.Perm(maxDatums) {
+		for _, datumInt := range random.Perm(maxDatums) {
 			datum := fmt.Sprintf("%08x", datumInt)
 			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
