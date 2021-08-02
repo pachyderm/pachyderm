@@ -1,5 +1,7 @@
 # Commit
 
+!!! Note "Attention"
+         Note that Pachyderm uses the term `commit` at two different levels. A global level (check [GlobalID](../globalID) for more details) and commits that occur in a repository. The following page details the latter. 
 ## Definition
 
 In Pachyderm, commits are atomic operations that **snapshot and preserve the state of
@@ -13,16 +15,16 @@ This command saves your changes and closes that repository's commit,
 indicating the data is ready for processing by downstream pipelines.
 
 !!! Warning
-    `start commit` can only be used on source repos (i.e., repos without [provenance](./provenance.md)). Such repos are the entry points of a DAG.
+    `start commit` can only be used on input repos without [provenance](./provenance.md). Such repos are the entry points of a DAG.
     You cannot manually start a commit from a pipeline [output or meta repo](./repo.md).
 
-Each commit has an identifier (ID) that you can reference in the <repo>@<ID> format. When you create a new commit, the previous commit on which the new commit is based becomes the parent of the new commit. Your repo history consists of those parent-child relationships between your data commits.
+ When you create a new commit, the previous commit on which the new commit is based becomes the parent of the new commit. Your repo history consists of those parent-child relationships between your data commits.
 
 !!! Note
     An initial commit has `<none>` as a parent.
 
 Additionally, **commits have an "origin"**.
-You can see an origin as the answer to: **"What triggered the production of this commit"**.
+You can see an origin as the answer to: **"What triggered the production of this commit?"**.
 
 That origin can be of 3 types:
 
@@ -37,13 +39,11 @@ That origin can be of 3 types:
 
 
 !!! Warning "Important Note"
-    To track provenance, Pachyderm requires **all sub-commits to belong to exactly one branch**.
-    When moving a sub-commit from one [branch](./branch.md) to another, Pachyderm creates an `ALIAS` sub-commit on the other branch.
+    To track provenance, Pachyderm requires **all commits to belong to exactly one branch**.
+    When moving a commit from one [branch](./branch.md) to another, Pachyderm creates an `ALIAS` commit on the other branch.
 
 
-Each commit has an alphanumeric identifier (ID). You can reference its sub-commits
-as `<repo>@<commitID>`, or `<repo>@<branch>=<commitID>` if the commit has multiple branches
-from the same repo.
+Each commit has an alphanumeric identifier (ID) that you can reference in the `<repo>@<commitID>` format (or `<repo>@<branch>=<commitID>` if the commit has multiple branches from the same repo) .
 
 You can obtain information about all commits in Pachyderm
 by running `list commit` or `inspect commit <commitID>`.
@@ -158,7 +158,7 @@ Pachyderm displays the information about the HEAD of the branch.
 
 ## Squash commit
 
-See [`squash commit`]().
+See [`squash commit`](./globalID/#squash-commit).
 
 
 

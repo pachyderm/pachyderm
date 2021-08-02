@@ -120,6 +120,7 @@ nav:
             - Commit: concepts/data-concepts/commit.md
             - Branch: concepts/data-concepts/branch.md
             - File: concepts/data-concepts/file.md
+            - Global ID: concepts/data-concepts/globalID.md
             - Provenance: concepts/data-concepts/provenance.md
             - History: concepts/data-concepts/history.md
         - Pipeline Concepts:
@@ -140,7 +141,6 @@ nav:
                 - Join: concepts/pipeline-concepts/datum/join.md
                 - Group: concepts/pipeline-concepts/datum/group.md
         - Advanced Concepts:
-            - Global ID: concepts/advanced-concepts/globalID.md
             - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
             - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
     - How-Tos:

@@ -13,9 +13,9 @@ When you commit data to Pachyderm, your new commit has an ID associated with it 
 
 This ability to track down related commits and jobs with one global identifier brought the need to introduce a new scope to our original concepts of [job](./job.md) and [commit](./commit.md):
 
-- A commit with a `global` scope (**global commit**), referred to in our CLI as `commit <commitID>` represents "the set of all provenance-dependent commits sharing the same ID". The same term of `commit`, applied to the more focused scope of a repo (`commit <repo>@<commitID>` or `commit <repo>@, branch>=<commitID>`), represents "a "Git-like" record of the state of a single repository's file system".
+- A commit with a `global` scope (**global commit**), referred to in our CLI as `pachctl commit <commitID>` represents "the set of all provenance-dependent commits sharing the same ID". The same term of `commit`, applied to the more focused scope of a repo (`pachctl commit <repo>@<commitID>` or `pachctl commit <repo>@, branch>=<commitID>`), represents "a "Git-like" record of the state of a single repository's file system".
 Similarly, the same nuances in the scope of a job give the term two possible meanings:
-- A job with a `global` scope (**global job**),  referred to in our CLI as `job <commitID>`, is "the set of jobs created due to commits in a global commit". Narrowing down the scope to a single pipeline (`job <pipeline>@<commitID>`) shifts the meaning to "an execution of a given pipeline of your DAG".
+- A job with a `global` scope (**global job**),  referred to in our CLI as `pachctl job <commitID>`, is "the set of jobs created due to commits in a global commit". Narrowing down the scope to a single pipeline (`pachctl job <pipeline>@<commitID>`) shifts the meaning to "an execution of a given pipeline of your DAG".
 
 Using this global identifier you can:
 
@@ -24,7 +24,7 @@ You can list all global commits by running the following command:
 ```shell
 pachctl list commit
 ```
-Each global commit displays how many (sub) commits theiy are made of.
+Each global commit displays how many (sub) commits they are made of.
 ```
 ID                               SUBCOMMITS PROGRESS CREATED        MODIFIED
 1035715e796f45caae7a1d3ffd1f93ca 7          ▇▇▇▇▇▇▇▇ 7 seconds ago  7 seconds ago
@@ -179,17 +179,17 @@ For a fuller view of GlobalID in action, take a look at our [GlobalID illustrati
 Pachyderm provides the `wait commit <commitID>` command that enables you
 to track your commits downstream as they are produced. 
 
-Unlike the `list commit <commitID>`, each line is printed as soon as a new commit of your global commit finishes.
+Unlike the `list commit <commitID>`, each line is printed as soon as a new (sub) commit of your global commit finishes.
 
 Change `commit` in `job` to list the jobs related to your global job as they finish processing a commit.
 
 ## Squash Commit
 
 `pachctl squash commit 1035715e796f45caae7a1d3ffd1f93ca`
-combines all the file changes in the commits of a global commit
-into their children and then removes the global commit.
+**combines all the file changes in the commits of a global commit
+into their children** and then removes the global commit.
 This behavior is inspired by the squash option in git rebase.
 No data stored in PFS is removed.
 
 !!! Warning
-    Squashing a global commit with no children results in the head of the branch disagreement with the state of the world: A new identical global commit is therefore created.
+    Squashing a global commit with no children (on the head of a branch) results in data loss. Additionally, a new identical global commit is created.
