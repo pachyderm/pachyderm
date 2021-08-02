@@ -93,7 +93,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	}
 	// test object storage.
 	if err := func() error {
-		ctx, cf := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cf := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cf()
 		return obj.TestStorage(ctx, objClient)
 	}(); err != nil {

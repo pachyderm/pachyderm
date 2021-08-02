@@ -19,7 +19,7 @@ func WithPipe(wcb func(w io.Writer) error, rcb func(r io.Reader) error) error {
 	eg.Go(func() error {
 		err := rcb(pr)
 		pr.CloseWithError(err)
-		return pr.Close()
+		return err
 	})
 	return eg.Wait()
 }
