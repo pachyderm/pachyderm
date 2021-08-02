@@ -7,12 +7,12 @@ Pachyderm uses **glob patterns** to provide flexibility to
 define data distribution. 
 
 !!! Note
-     The Pachyderm's concept of glob patterns is similar to the Unix glob patterns.
+     Pachyderm's concept of glob patterns is similar to Unix glob patterns.
      For example, the `ls *.md` command matches all files with the
      `.md` file extension.
 
-The glob is applied to given branches of all the directories / files of each pipeline's [PFS inputs](../../../../reference/pipeline_spec/#pfs-input). 
-The "matchs" constitute the [datums](../index.md) that will be processed by the worker(s) that run your pipeline code.
+
+The glob pattern applies to all of the directories/files in the branch specified by the [`pfs` section of the pipeline specification (referred to as PFS inputs)](../#pfs-input-and-glob-pattern). The directories/files that match are the [datums](../) that will be processed by the worker(s) that run your pipeline code. 
 
 !!! Important
         You must **configure a glob pattern for each PFS input** of a [pipeline specification](../../../../reference/pipeline_spec/#pipeline-specification). 
@@ -29,12 +29,13 @@ We have listed some commonly used glob patterns. We will later illustrate their 
 
 
 Glob patterns also let you take only a particular directory or subset of
-directories as an input instead of the whole repo.
+directories, a specific branch... as an input instead of the whole repo.
 We will elaborate on this more in the following example.
 
-If you have more than one input repo in your pipeline,
-you can define a different glob pattern for each input
-repo. You can additionally combine the datums from each input repo
+If you have more than one input repo in your pipeline, 
+or want to consider more than one branch in a repo, or any combination of the above,
+you can define a different glob pattern for each PFS input. 
+You can additionally combine the resulting datums
 by using the `cross`, `union`, `join`, or `group` operator to
 create the final datums that your code processes.
 For more information, see [Cross and Union](./cross-union.md), [Join](./join.md), [Group](./group.md).
@@ -172,7 +173,7 @@ You can use the `pachctl list datum -f <my_pipeline_spec.json>` command to previ
     ```
 
 ### Running list datum on a past job 
-You can use the `pachctl list datum <pipeline>@<job_number>` command to check the datums processed by a given job.
+You can use the `pachctl list datum <pipeline>@<job_ID>` command to check the datums processed by a given job.
 
 !!! example
     ```shell
