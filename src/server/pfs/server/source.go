@@ -188,25 +188,20 @@ func (emptySource) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.F
 	return nil
 }
 
-// singleFile iterates through the source and returns exactly one file or an error.
+// checkSingleFile iterates through the source and returns errors for non-files, or multiple files.
 // If the source contains a directory, then singleFile errors.
 // If the source contains more than one file of any type, then singleFile errors
-func singleFile(ctx context.Context, src Source) (*pfs.FileInfo, fileset.File, error) {
-	var retFinfo *pfs.FileInfo
-	var retFile fileset.File
-	err := src.Iterate(ctx, func(finfo *pfs.FileInfo, fsFile fileset.File) error {
-		if retFinfo != nil {
-			return errors.Errorf("matched multiple files. Try GetFileTAR")
-		}
+// the not exist error should be provided by the soruce
+func checkSingleFile(ctx context.Context, src Source) error {
+	var count int
+	return src.Iterate(ctx, func(finfo *pfs.FileInfo, fsFile fileset.File) error {
 		if finfo.FileType != pfs.FileType_FILE {
 			return errors.Errorf("cannot get non-regular file. Try GetFileTAR for directories")
 		}
-		retFinfo = finfo
-		retFile = fsFile
-		return nil
+		if count == 0 {
+			count++
+			return nil
+		}
+		return errors.Errorf("matched multiple files. Try GetFileTAR")
 	})
-	if err != nil {
-		return nil, nil, err
-	}
-	return retFinfo, retFile, nil
 }
