@@ -115,10 +115,12 @@ func (jf *JobFinisher) Run() error {
 				return nil
 			}
 			state := pps.JobState_JOB_SUCCESS
-			if commitInfo.Error {
+			var reason string
+			if commitInfo.Error != "" {
 				state = pps.JobState_JOB_FAILURE
+				reason = commitInfo.Error
 			}
-			if err := ppsutil.UpdateJobState(pipelines, jobs, jobInfo, state, ""); err != nil {
+			if err := ppsutil.UpdateJobState(pipelines, jobs, jobInfo, state, reason); err != nil {
 				return err
 			}
 		}

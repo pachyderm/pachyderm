@@ -2476,13 +2476,13 @@ func TestPFS(suite *testing.T) {
 		// Duplicate paths, different tags.
 		branch := "branch-1"
 		require.NoError(t, env.PachClient.WithModifyFileClient(client.NewCommit(repo, branch, ""), func(mf client.ModifyFile) error {
-			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), client.WithTagPutFile("tag1")))
-			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), client.WithTagPutFile("tag2")))
+			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), client.WithDatumPutFile("tag1")))
+			require.NoError(t, mf.PutFile("foo", strings.NewReader("foo\n"), client.WithDatumPutFile("tag2")))
 			return nil
 		}))
 		commitInfo, err := env.PachClient.WaitCommit(repo, branch, "")
 		require.NoError(t, err)
-		require.True(t, commitInfo.Error)
+		require.NotEqual(t, "", commitInfo.Error)
 		// Directory and file path collision.
 		branch = "branch-2"
 		require.NoError(t, env.PachClient.WithModifyFileClient(client.NewCommit(repo, branch, ""), func(mf client.ModifyFile) error {
@@ -2492,7 +2492,7 @@ func TestPFS(suite *testing.T) {
 		}))
 		commitInfo, err = env.PachClient.WaitCommit(repo, branch, "")
 		require.NoError(t, err)
-		require.True(t, commitInfo.Error)
+		require.NotEqual(t, "", commitInfo.Error)
 	})
 
 	suite.Run("BigListFile", func(t *testing.T) {
@@ -5808,7 +5808,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(branchCommit, "f2", strings.NewReader("foo\n")))
 			_, err = env.PachClient.PfsAPIClient.FinishCommit(context.Background(), &pfs.FinishCommitRequest{
 				Commit: commit,
-				Error:  true,
+				Error:  "error",
 			})
 			require.NoError(t, err)
 			require.NoError(t, env.PachClient.PutFile(branchCommit, "f3", strings.NewReader("foo\n")))
@@ -5824,7 +5824,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(branchCommit, "f2", strings.NewReader("foo\n")))
 			_, err = env.PachClient.PfsAPIClient.FinishCommit(context.Background(), &pfs.FinishCommitRequest{
 				Commit: commit,
-				Error:  true,
+				Error:  "error",
 			})
 			require.NoError(t, err)
 			_, err = env.PachClient.StartCommit(repo, branch)

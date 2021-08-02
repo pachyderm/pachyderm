@@ -50,7 +50,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
 		file := s.commitInfo.Commit.NewFile(idx.Path)
-		file.Tag = idx.File.Tag
+		file.Datum = idx.File.Datum
 		fi := &pfs.FileInfo{
 			File:      file,
 			FileType:  pfs.FileType_FILE,

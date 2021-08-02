@@ -3,7 +3,7 @@ package client
 import "github.com/pachyderm/pachyderm/v2/src/pfs"
 
 type putFileConfig struct {
-	tag    string
+	datum  string
 	append bool
 }
 
@@ -17,25 +17,25 @@ func WithAppendPutFile() PutFileOption {
 	}
 }
 
-// WithTagPutFile configures the PutFile call to apply to a particular tag.
-func WithTagPutFile(tag string) PutFileOption {
+// WithDatumPutFile configures the PutFile call to apply to a particular datum.
+func WithDatumPutFile(datum string) PutFileOption {
 	return func(pf *putFileConfig) {
-		pf.tag = tag
+		pf.datum = datum
 	}
 }
 
 type deleteFileConfig struct {
-	tag       string
+	datum     string
 	recursive bool
 }
 
 // DeleteFileOption configures a DeleteFile call.
 type DeleteFileOption func(*deleteFileConfig)
 
-// WithTagDeleteFile configures the DeleteFile call to apply to a particular tag.
-func WithTagDeleteFile(tag string) DeleteFileOption {
+// WithDatumDeleteFile configures the DeleteFile call to apply to a particular datum.
+func WithDatumDeleteFile(datum string) DeleteFileOption {
 	return func(dfc *deleteFileConfig) {
-		dfc.tag = tag
+		dfc.datum = datum
 	}
 }
 
@@ -56,19 +56,19 @@ func WithAppendCopyFile() CopyFileOption {
 	}
 }
 
-// WithTagCopyFile configures the CopyFile call to apply to a particular tag.
-func WithTagCopyFile(tag string) CopyFileOption {
+// WithDatumCopyFile configures the CopyFile call to apply to a particular datum.
+func WithDatumCopyFile(datum string) CopyFileOption {
 	return func(cf *pfs.CopyFile) {
-		cf.Tag = tag
+		cf.Datum = datum
 	}
 }
 
 // GetFileOption configures a GetFile call
 type GetFileOption func(*pfs.GetFileRequest)
 
-// WithTagGetFile sets the tag for the get file request
-func WithTagGetFile(tag string) GetFileOption {
+// WithDatumGetFile sets the datum for the get file request
+func WithDatumGetFile(datum string) GetFileOption {
 	return func(gf *pfs.GetFileRequest) {
-		gf.File.Tag = tag
+		gf.File.Datum = datum
 	}
 }

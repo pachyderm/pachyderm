@@ -131,8 +131,8 @@ func (mfc *modifyFileCore) PutFile(path string, r io.Reader, opts ...PutFileOpti
 	return mfc.maybeError(func() error {
 		if !config.append {
 			if err := mfc.sendDeleteFile(&pfs.DeleteFile{
-				Path: path,
-				Tag:  config.tag,
+				Path:  path,
+				Datum: config.datum,
 			}); err != nil {
 				return err
 			}
@@ -141,8 +141,8 @@ func (mfc *modifyFileCore) PutFile(path string, r io.Reader, opts ...PutFileOpti
 		if _, err := grpcutil.ChunkReader(r, func(data []byte) error {
 			emptyFile = false
 			return mfc.sendPutFile(&pfs.AddFile{
-				Path: path,
-				Tag:  config.tag,
+				Path:  path,
+				Datum: config.datum,
 				Source: &pfs.AddFile_Raw{
 					Raw: &types.BytesValue{Value: data},
 				},
@@ -152,8 +152,8 @@ func (mfc *modifyFileCore) PutFile(path string, r io.Reader, opts ...PutFileOpti
 		}
 		if emptyFile {
 			return mfc.sendPutFile(&pfs.AddFile{
-				Path: path,
-				Tag:  config.tag,
+				Path:  path,
+				Datum: config.datum,
 			})
 		}
 		return nil
@@ -198,24 +198,24 @@ func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error 
 			p := hdr.Name
 			if !config.append {
 				if err := mfc.sendDeleteFile(&pfs.DeleteFile{
-					Path: p,
-					Tag:  config.tag,
+					Path:  p,
+					Datum: config.datum,
 				}); err != nil {
 					return err
 				}
 			}
 			if hdr.Size == 0 {
 				if err := mfc.sendPutFile(&pfs.AddFile{
-					Path: p,
-					Tag:  config.tag,
+					Path:  p,
+					Datum: config.datum,
 				}); err != nil {
 					return err
 				}
 			} else {
 				if _, err := grpcutil.ChunkReader(tr, func(data []byte) error {
 					return mfc.sendPutFile(&pfs.AddFile{
-						Path: p,
-						Tag:  config.tag,
+						Path:  p,
+						Datum: config.datum,
 						Source: &pfs.AddFile_Raw{
 							Raw: &types.BytesValue{Value: data},
 						},
@@ -237,15 +237,15 @@ func (mfc *modifyFileCore) PutFileURL(path, url string, recursive bool, opts ...
 	return mfc.maybeError(func() error {
 		if !config.append {
 			if err := mfc.sendDeleteFile(&pfs.DeleteFile{
-				Path: path,
-				Tag:  config.tag,
+				Path:  path,
+				Datum: config.datum,
 			}); err != nil {
 				return err
 			}
 		}
 		pf := &pfs.AddFile{
-			Path: path,
-			Tag:  config.tag,
+			Path:  path,
+			Datum: config.datum,
 			Source: &pfs.AddFile_Url{
 				Url: &pfs.AddFile_URLSource{
 					URL:       url,
@@ -267,8 +267,8 @@ func (mfc *modifyFileCore) DeleteFile(path string, opts ...DeleteFileOption) err
 			path = strings.TrimRight(path, "/") + "/"
 		}
 		df := &pfs.DeleteFile{
-			Path: path,
-			Tag:  config.tag,
+			Path:  path,
+			Datum: config.datum,
 		}
 		return mfc.sendDeleteFile(df)
 	})

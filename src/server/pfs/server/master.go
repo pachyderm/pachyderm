@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"strings"
 	"time"
@@ -83,24 +84,8 @@ func (d *driver) finishCommits(ctx context.Context) error {
 				return err
 			}
 			// Validate the commit.
-			// TODO(2.0 optional): Improve the performance of this by doing a logarithmic lookup per new file,
-			// rather than a linear scan through all of the files.
-			fs, err := d.storage.Open(ctx, []fileset.ID{*compactedId})
+			size, validationError, err := d.validate(ctx, compactedId)
 			if err != nil {
-				return err
-			}
-			var prev string
-			var size int64
-			var validationError bool
-			if err := fs.Iterate(ctx, func(f fileset.File) error {
-				idx := f.Index()
-				if prev != "" && (idx.Path == prev || strings.HasPrefix(idx.Path, prev+"/")) {
-					validationError = true
-				}
-				prev = idx.Path
-				size += index.SizeBytes(idx)
-				return nil
-			}); err != nil {
 				return err
 			}
 			// Finish the commit.
@@ -113,7 +98,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 						commitInfo.Details = &pfs.CommitInfo_Details{}
 					}
 					commitInfo.Details.SizeBytes = size
-					if !commitInfo.Error {
+					if commitInfo.Error == "" {
 						commitInfo.Error = validationError
 					}
 					return nil
@@ -137,6 +122,34 @@ func (d *driver) finishCommits(ctx context.Context) error {
 			return nil
 		})
 	}, watch.IgnoreDelete)
+}
+
+// TODO(2.0 optional): Improve the performance of this by doing a logarithmic lookup per new file,
+// rather than a linear scan through all of the files.
+func (d *driver) validate(ctx context.Context, id *fileset.ID) (int64, string, error) {
+	fs, err := d.storage.Open(ctx, []fileset.ID{*id})
+	if err != nil {
+		return 0, "", err
+	}
+	var prev *index.Index
+	var size int64
+	var validationError string
+	if err := fs.Iterate(ctx, func(f fileset.File) error {
+		idx := f.Index()
+		if prev != nil && validationError == "" {
+			if idx.Path == prev.Path {
+				validationError = fmt.Sprintf("duplicate path output by different datums (%v from %v and %v from %v)", prev.Path, prev.File.Datum, idx.Path, idx.File.Datum)
+			} else if strings.HasPrefix(idx.Path, prev.Path+"/") {
+				validationError = fmt.Sprintf("file / directory path collision (%v)", idx.Path)
+			}
+		}
+		prev = idx
+		size += index.SizeBytes(idx)
+		return nil
+	}); err != nil {
+		return 0, "", err
+	}
+	return size, validationError, nil
 }
 
 // finishAliasDescendents will traverse the given commit's descendents, finding all

@@ -42,7 +42,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(repoInfo.Created))
 	}
 	if repoInfo.Details == nil {
-		fmt.Fprintf(w, "<= %s\t", units.BytesSize(float64(repoInfo.SizeBytesUpperBound)))
+		fmt.Fprintf(w, "\u2264 %s\t", units.BytesSize(float64(repoInfo.SizeBytesUpperBound)))
 	} else {
 		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.Details.SizeBytes)))
 	}
@@ -156,7 +156,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 		}
 	}
 	if commitInfo.Details == nil {
-		fmt.Fprintf(w, "<= %s\t", units.BytesSize(float64(commitInfo.SizeBytesUpperBound)))
+		fmt.Fprintf(w, "\u2264 %s\t", units.BytesSize(float64(commitInfo.SizeBytesUpperBound)))
 	} else {
 		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.Details.SizeBytes)))
 	}
@@ -174,7 +174,7 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 	var modified *types.Timestamp
 	for _, commitInfo := range commitSetInfo.Commits {
 		if commitInfo.Finished != nil {
-			if commitInfo.Error {
+			if commitInfo.Error != "" {
 				failure++
 			} else {
 				success++
@@ -259,7 +259,6 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 		fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
 	}
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
-	fmt.Fprintf(w, "%s\t", fileInfo.File.Tag)
 	if fileInfo.FileType == pfs.FileType_FILE {
 		fmt.Fprint(w, "file\t")
 	} else {
@@ -292,7 +291,7 @@ func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTime
 func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
 		`Path: {{.File.Path}}
-Tag: {{.File.Tag}}
+Datum: {{.File.Datum}}
 Type: {{fileType .FileType}}
 Size: {{prettySize .SizeBytes}}
 `)
