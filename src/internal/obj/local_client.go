@@ -18,9 +18,7 @@ import (
 
 // NewLocalClient returns a Client that stores data on the local file system
 func NewLocalClient(rootDir string) (Client, error) {
-	var c Client
-	var err error
-	c, err = newFSClient(rootDir)
+	c, err := newFSClient(rootDir)
 	if err != nil {
 		return nil, err
 	}
@@ -35,21 +33,26 @@ type fsClient struct {
 }
 
 func newFSClient(rootDir string) (Client, error) {
-	c := &fsClient{rootDir: filepath.Clean(rootDir)}
+	c := &fsClient{
+		rootDir: filepath.Clean(rootDir),
+	}
 	if c.rootDir == "" || c.rootDir == "/" || c.rootDir == "." {
 		panic("you probably didn't want to set the local client's root path to " + c.rootDir)
 	}
-	return c, c.init()
+	if err := c.init(); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
-func (c *fsClient) Put(ctx context.Context, name string, r io.Reader) error {
+func (c *fsClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
 	staging := c.stagingPathFor(name)
 	final := c.finalPathFor(name)
 	f, err := os.Create(staging)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer c.closeFile(&retErr, f)
 	if _, err := io.Copy(f, r); err != nil {
 		return err
 	}
@@ -65,7 +68,7 @@ func (c *fsClient) Get(ctx context.Context, name string, w io.Writer) (retErr er
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer c.closeFile(&retErr, f)
 	_, err = io.Copy(w, f)
 	return err
 }
@@ -146,4 +149,15 @@ func (c *fsClient) transformError(err error, name string) error {
 		return pacherr.NewNotExist(c.rootDir, name)
 	}
 	return err
+}
+
+func (c *fsClient) closeFile(retErr *error, f *os.File) {
+	err := f.Close()
+	if err != nil && !strings.Contains(err.Error(), "file already closed") {
+		if retErr == nil {
+			*retErr = err
+		} else {
+			logrus.Errorf("error closing file %v", err)
+		}
+	}
 }
