@@ -75,7 +75,7 @@ func newCollectionFunc(setup func(context.Context, *testing.T) (*sqlx.DB, col.Po
 		}
 
 		writeCallback := func(ctx context.Context, f func(col.ReadWriteCollection) error) error {
-			return col.NewSQLTx(ctx, db, func(tx *sqlx.Tx) error {
+			return dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
 				return f(testCol.ReadWrite(tx))
 			})
 		}

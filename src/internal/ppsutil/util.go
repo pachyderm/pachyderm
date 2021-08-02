@@ -29,6 +29,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
@@ -201,7 +202,7 @@ func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.Pipel
 // exclusively?) called by the PPS master
 func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	logSetPipelineState(pipeline, from, to, reason)
-	err := col.NewSQLTx(ctx, db, func(sqlTx *sqlx.Tx) error {
+	err := dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
 		pipelineInfo := &pps.PipelineInfo{}
 		if err := pipelines.Get(pipeline, pipelineInfo); err != nil {
