@@ -191,7 +191,7 @@ func (emptySource) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.F
 // checkSingleFile iterates through the source and returns errors for non-files, or multiple files.
 // If the source contains a directory, then singleFile errors.
 // If the source contains more than one file of any type, then singleFile errors
-// the not exist error should be provided by the soruce
+// the not exist error should be provided by the Source
 func checkSingleFile(ctx context.Context, src Source) error {
 	var count int
 	return src.Iterate(ctx, func(finfo *pfs.FileInfo, fsFile fileset.File) error {
