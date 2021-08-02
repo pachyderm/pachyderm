@@ -486,8 +486,8 @@ func (d *driver) commitSizeUpperBound(ctx context.Context, commit *pfs.Commit) (
 	return d.storage.SizeUpperBound(ctx, *fsid)
 }
 
-func newFileNotFound(commitID string, path string) *pacherr.ErrNotExist {
-	return &pacherr.ErrNotExist{
+func newFileNotFound(commitID string, path string) pacherr.ErrNotExist {
+	return pacherr.ErrNotExist{
 		Collection: "commit/" + commitID,
 		ID:         path,
 	}

@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 )
 
 type objectAdapter struct {
@@ -34,9 +33,6 @@ func (s *objectAdapter) Put(ctx context.Context, key, value []byte) (retErr erro
 func (s *objectAdapter) Get(ctx context.Context, key []byte, cb ValueCallback) (retErr error) {
 	return s.withBuffer(func(buf *bytes.Buffer) error {
 		if err := s.objC.Get(ctx, string(key), buf); err != nil {
-			if pacherr.IsNotExist(err) {
-				err = pacherr.NewNotExist("kv", string(key))
-			}
 			return err
 		}
 		return cb(buf.Bytes())
