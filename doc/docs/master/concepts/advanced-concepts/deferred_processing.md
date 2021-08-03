@@ -68,7 +68,7 @@ a staging branch:
       ```
       ```
       REPO BRANCH COMMIT                           FINISHED           SIZE  ORIGIN DESCRIPTION
-      data master 8090bfb4d4fe44158eac12199c37a591 About a minute ago <= 0B AUTO
+      data master 8090bfb4d4fe44158eac12199c37a591 About a minute ago   0B  AUTO
       ```
 
       Pachyderm automatically created an empty `HEAD` commit on the new branch,
@@ -131,7 +131,7 @@ a staging branch:
 1. Verify that the pipeline has new jobs:
 
       ```shell
-      $ pachctl list job
+      $ pachctl list job f3506f0fab6e483e8338754081109e69
 
       ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL   UL  STATE
       f3506f0fab6e483e8338754081109e69 test     32 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
