@@ -23,20 +23,20 @@ import (
 )
 
 const (
-	max     = 20 * units.MB
-	maxTags = 10
+	max       = 20 * units.MB
+	maxDatums = 10
 )
 
 type testFile struct {
-	path string
-	tag  string
-	data []byte
+	path  string
+	datum string
+	data  []byte
 }
 
 func writeFileSet(t *testing.T, s *Storage, files []*testFile) ID {
 	w := s.NewWriter(context.Background())
 	for _, file := range files {
-		require.NoError(t, w.Add(file.path, file.tag, bytes.NewReader(file.data)))
+		require.NoError(t, w.Add(file.path, file.datum, bytes.NewReader(file.data)))
 	}
 	id, err := w.Close()
 	require.NoError(t, err)
@@ -81,13 +81,13 @@ func TestWriteThenRead(t *testing.T) {
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
-		for _, tagInt := range random.Perm(maxTags) {
-			tag := fmt.Sprintf("%08x", tagInt)
+		for _, datumInt := range random.Perm(maxDatums) {
+			datum := fmt.Sprintf("%08x", datumInt)
 			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
-				path: "/" + fileName,
-				tag:  tag,
-				data: data,
+				path:  "/" + fileName,
+				datum: datum,
+				data:  data,
 			})
 		}
 	}
@@ -116,13 +116,13 @@ func TestWriteThenReadFuzz(t *testing.T) {
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
-		for _, tagInt := range random.Perm(maxTags) {
-			tag := fmt.Sprintf("%08x", tagInt)
+		for _, datumInt := range random.Perm(maxDatums) {
+			datum := fmt.Sprintf("%08x", datumInt)
 			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
-				path: "/" + fileName,
-				tag:  tag,
-				data: data,
+				path:  "/" + fileName,
+				datum: datum,
+				data:  data,
 			})
 		}
 	}
@@ -143,9 +143,9 @@ func TestWriteThenReadFuzz(t *testing.T) {
 		idx := random.Intn(len(files))
 		data := randutil.Bytes(random, random.Intn(max))
 		files[idx] = &testFile{
-			path: files[idx].path,
-			tag:  files[idx].tag,
-			data: data,
+			path:  files[idx].path,
+			datum: files[idx].datum,
+			data:  data,
 		}
 		require.NoError(t, storage.Drop(ctx, id))
 	}
@@ -159,13 +159,13 @@ func TestCopy(t *testing.T) {
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
-		for _, tagInt := range random.Perm(maxTags) {
-			tag := fmt.Sprintf("%08x", tagInt)
+		for _, datumInt := range random.Perm(maxDatums) {
+			datum := fmt.Sprintf("%08x", datumInt)
 			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
-				path: "/" + fileName,
-				tag:  tag,
-				data: data,
+				path:  "/" + fileName,
+				datum: datum,
+				data:  data,
 			})
 		}
 	}
@@ -209,7 +209,7 @@ func TestStableHash(t *testing.T) {
 	var ids []ID
 	write := func(data []byte) {
 		w := storage.NewWriter(ctx)
-		require.NoError(t, w.Add("test", DefaultFileTag, bytes.NewReader(data)), msg)
+		require.NoError(t, w.Add("test", DefaultFileDatum, bytes.NewReader(data)), msg)
 		id, err := w.Close()
 		require.NoError(t, err, msg)
 		ids = append(ids, *id)

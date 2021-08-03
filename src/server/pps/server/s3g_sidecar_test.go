@@ -25,8 +25,6 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"golang.org/x/net/context"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -50,8 +48,7 @@ func initPachClient(t testing.TB) (*client.APIClient, string) {
 		require.NoError(t, c.DeleteAll())
 		return c, ""
 	}
-	rootClient := tu.GetAuthenticatedPachClient(t, tu.RootToken)
-	require.NoError(t, rootClient.DeleteAll())
+	tu.ActivateAuth(t)
 	c := tu.GetAuthenticatedPachClient(t, tu.UniqueString("user-"))
 	return c, c.AuthToken()
 }
@@ -62,6 +59,7 @@ func TestS3PipelineErrors(t *testing.T) {
 	}
 
 	c, _ := initPachClient(t)
+	defer tu.DeleteAll(t)
 
 	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
 	require.NoError(t, c.CreateRepo(repo1))
@@ -136,6 +134,7 @@ func TestS3Input(t *testing.T) {
 	}
 
 	c, userToken := initPachClient(t)
+	defer tu.DeleteAll(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -226,6 +225,7 @@ func TestS3Chain(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, userToken := initPachClient(t)
+	defer tu.DeleteAll(t)
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -239,7 +239,7 @@ func TestS3Chain(t *testing.T) {
 		if i > 0 {
 			input = pipelines[i-1]
 		}
-		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipelines[i]),
 				Transform: &pps.Transform{
@@ -290,6 +290,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	}
 
 	c, _ := initPachClient(t)
+	defer tu.DeleteAll(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -339,6 +340,7 @@ func TestS3Output(t *testing.T) {
 	}
 
 	c, userToken := initPachClient(t)
+	defer tu.DeleteAll(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -424,6 +426,7 @@ func TestFullS3(t *testing.T) {
 	}
 
 	c, userToken := initPachClient(t)
+	defer tu.DeleteAll(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -511,6 +514,7 @@ func TestS3SkippedDatums(t *testing.T) {
 	name := t.Name()
 
 	c, userToken := initPachClient(t)
+	defer tu.DeleteAll(t)
 
 	t.Run("S3Inputs", func(t *testing.T) {
 		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.

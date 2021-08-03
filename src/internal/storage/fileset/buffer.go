@@ -13,9 +13,9 @@ type Buffer struct {
 }
 
 type file struct {
-	path string
-	tag  string
-	buf  *bytes.Buffer
+	path  string
+	datum string
+	buf   *bytes.Buffer
 }
 
 func NewBuffer() *Buffer {
@@ -25,24 +25,24 @@ func NewBuffer() *Buffer {
 	}
 }
 
-func (b *Buffer) Add(path, tag string) io.Writer {
+func (b *Buffer) Add(path, datum string) io.Writer {
 	path = Clean(path, false)
 	if _, ok := b.additive[path]; !ok {
 		b.additive[path] = make(map[string]*file)
 	}
-	taggedFiles := b.additive[path]
-	if _, ok := taggedFiles[tag]; !ok {
-		taggedFiles[tag] = &file{
-			path: path,
-			tag:  tag,
-			buf:  &bytes.Buffer{},
+	datumFiles := b.additive[path]
+	if _, ok := datumFiles[datum]; !ok {
+		datumFiles[datum] = &file{
+			path:  path,
+			datum: datum,
+			buf:   &bytes.Buffer{},
 		}
 	}
-	f := taggedFiles[tag]
+	f := datumFiles[datum]
 	return f.buf
 }
 
-func (b *Buffer) Delete(path, tag string) {
+func (b *Buffer) Delete(path, datum string) {
 	path = Clean(path, IsDir(path))
 	if IsDir(path) {
 		// TODO: Linear scan for directory delete is less than ideal.
@@ -54,22 +54,22 @@ func (b *Buffer) Delete(path, tag string) {
 		}
 		return
 	}
-	if taggedFiles, ok := b.additive[path]; ok {
-		delete(taggedFiles, tag)
+	if datumFiles, ok := b.additive[path]; ok {
+		delete(datumFiles, datum)
 	}
 	if _, ok := b.deletive[path]; !ok {
 		b.deletive[path] = make(map[string]*file)
 	}
-	taggedFiles := b.deletive[path]
-	taggedFiles[tag] = &file{
-		path: path,
-		tag:  tag,
+	datumFiles := b.deletive[path]
+	datumFiles[datum] = &file{
+		path:  path,
+		datum: datum,
 	}
 }
 
-func (b *Buffer) WalkAdditive(cb func(path, tag string, r io.Reader) error) error {
+func (b *Buffer) WalkAdditive(cb func(path, datum string, r io.Reader) error) error {
 	for _, file := range sortFiles(b.additive) {
-		if err := cb(file.path, file.tag, bytes.NewReader(file.buf.Bytes())); err != nil {
+		if err := cb(file.path, file.datum, bytes.NewReader(file.buf.Bytes())); err != nil {
 			return err
 		}
 	}
@@ -78,23 +78,23 @@ func (b *Buffer) WalkAdditive(cb func(path, tag string, r io.Reader) error) erro
 
 func sortFiles(files map[string]map[string]*file) []*file {
 	var result []*file
-	for _, taggedFiles := range files {
-		for _, f := range taggedFiles {
+	for _, datumFiles := range files {
+		for _, f := range datumFiles {
 			result = append(result, f)
 		}
 	}
 	sort.SliceStable(result, func(i, j int) bool {
 		if result[i].path == result[j].path {
-			return result[i].tag < result[j].tag
+			return result[i].datum < result[j].datum
 		}
 		return result[i].path < result[j].path
 	})
 	return result
 }
 
-func (b *Buffer) WalkDeletive(cb func(path, tag string) error) error {
+func (b *Buffer) WalkDeletive(cb func(path, datum string) error) error {
 	for _, file := range sortFiles(b.deletive) {
-		if err := cb(file.path, file.tag); err != nil {
+		if err := cb(file.path, file.datum); err != nil {
 			return err
 		}
 	}

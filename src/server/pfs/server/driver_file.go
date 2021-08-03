@@ -69,7 +69,7 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *renew.StringSet,
 		if err := d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
 			return err
 		}
-		return d.finishCommit(txnCtx, commit, "", false, false)
+		return d.finishCommit(txnCtx, commit, "", "", false)
 	})
 }
 
@@ -165,7 +165,7 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 		}
 		return path.Join(dstPath, relPath)
 	}
-	_, fs, err := d.openCommit(ctx, srcCommit, index.WithPrefix(srcPath), index.WithTag(src.Tag))
+	_, fs, err := d.openCommit(ctx, srcCommit, index.WithPrefix(srcPath), index.WithDatum(src.Datum))
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 func (d *driver) getFile(ctx context.Context, file *pfs.File) (Source, error) {
 	commit := file.Commit
 	glob := cleanPath(file.Path)
-	commitInfo, fs, err := d.openCommit(ctx, commit, index.WithPrefix(globLiteralPrefix(glob)), index.WithTag(file.Tag))
+	commitInfo, fs, err := d.openCommit(ctx, commit, index.WithPrefix(globLiteralPrefix(glob)), index.WithDatum(file.Datum))
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	if p == "/" {
 		p = ""
 	}
-	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(p), index.WithTag(file.Tag))
+	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(p), index.WithDatum(file.Datum))
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 
 func (d *driver) listFile(ctx context.Context, file *pfs.File, cb func(*pfs.FileInfo) error) error {
 	name := cleanPath(file.Path)
-	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(name), index.WithTag(file.Tag))
+	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(name), index.WithDatum(file.Datum))
 	if err != nil {
 		return err
 	}
@@ -269,7 +269,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 	if p == "/" {
 		p = ""
 	}
-	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(p), index.WithTag(file.Tag))
+	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(p), index.WithDatum(file.Datum))
 	if err != nil {
 		return err
 	}
@@ -365,7 +365,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 	}
 	var old Source = emptySource{}
 	if oldCommit != nil {
-		oldCommitInfo, fs, err := d.openCommit(ctx, oldCommit, index.WithPrefix(oldName), index.WithTag(oldFile.Tag))
+		oldCommitInfo, fs, err := d.openCommit(ctx, oldCommit, index.WithPrefix(oldName), index.WithDatum(oldFile.Datum))
 		if err != nil {
 			return err
 		}
@@ -378,7 +378,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 		}
 		old = NewSource(oldCommitInfo, fs, opts...)
 	}
-	newCommitInfo, fs, err := d.openCommit(ctx, newCommit, index.WithPrefix(newName), index.WithTag(newFile.Tag))
+	newCommitInfo, fs, err := d.openCommit(ctx, newCommit, index.WithPrefix(newName), index.WithDatum(newFile.Datum))
 	if err != nil {
 		return err
 	}
@@ -459,7 +459,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 		if err != nil {
 			return nil, err
 		}
-		if !commitInfo.Error {
+		if commitInfo.Error == "" {
 			// ¯\_(ツ)_/¯
 			parentId, err := d.getFileSet(ctx, parentCommit)
 			if err != nil {
@@ -486,8 +486,8 @@ func (d *driver) commitSizeUpperBound(ctx context.Context, commit *pfs.Commit) (
 	return d.storage.SizeUpperBound(ctx, *fsid)
 }
 
-func newFileNotFound(commitID string, path string) *pacherr.ErrNotExist {
-	return &pacherr.ErrNotExist{
+func newFileNotFound(commitID string, path string) pacherr.ErrNotExist {
+	return pacherr.ErrNotExist{
 		Collection: "commit/" + commitID,
 		ID:         path,
 	}

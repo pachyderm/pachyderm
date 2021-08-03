@@ -120,7 +120,7 @@ func (c *googleClient) transformError(err error, objectPath string) error {
 		return err
 	}
 
-	var googleErr googleapi.Error
+	googleErr := &googleapi.Error{}
 	if !errors.As(err, &googleErr) {
 		return err
 	}

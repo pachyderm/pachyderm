@@ -49,11 +49,11 @@ func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chu
 	return w
 }
 
-func (w *Writer) Add(path, tag string, r io.Reader) error {
+func (w *Writer) Add(path, datum string, r io.Reader) error {
 	idx := &index.Index{
 		Path: path,
 		File: &index.File{
-			Tag: tag,
+			Datum: datum,
 		},
 	}
 	if err := w.nextIdx(idx); err != nil {
@@ -75,11 +75,11 @@ func (w *Writer) nextIdx(idx *index.Index) error {
 }
 
 // Delete creates a delete operation for a file.
-func (w *Writer) Delete(path, tag string) error {
+func (w *Writer) Delete(path, datum string) error {
 	idx := &index.Index{
 		Path: path,
 		File: &index.File{
-			Tag: tag,
+			Datum: datum,
 		},
 	}
 	if err := w.checkPath(w.deleteIdx, idx); err != nil {
@@ -93,8 +93,8 @@ func (w *Writer) checkPath(prevIdx, idx *index.Index) error {
 	if prevIdx == nil {
 		return nil
 	}
-	if prevIdx.Path == idx.Path && prevIdx.File.Tag == idx.File.Tag {
-		return errors.Errorf("cannot write same path (%s) and tag (%s) twice", idx.Path, idx.File.Tag)
+	if prevIdx.Path == idx.Path && prevIdx.File.Datum == idx.File.Datum {
+		return errors.Errorf("cannot write same path (%s) and datum (%s) twice", idx.Path, idx.File.Datum)
 	}
 	if prevIdx.Path > idx.Path {
 		return errors.Errorf("cannot write path (%s) after (%s)", idx.Path, prevIdx.Path)
@@ -103,12 +103,12 @@ func (w *Writer) checkPath(prevIdx, idx *index.Index) error {
 }
 
 // Copy copies a file to the file set writer.
-func (w *Writer) Copy(file File, tag string) error {
+func (w *Writer) Copy(file File, datum string) error {
 	idx := file.Index()
 	copyIdx := &index.Index{
 		Path: idx.Path,
 		File: &index.File{
-			Tag: tag,
+			Datum: datum,
 		},
 	}
 	if err := w.nextIdx(copyIdx); err != nil {
@@ -130,7 +130,7 @@ func (w *Writer) callback(annotations []*chunk.Annotation) error {
 		if w.lastIdx == nil {
 			w.lastIdx = idx
 		}
-		if idx.Path != w.lastIdx.Path || idx.File.Tag != w.lastIdx.File.Tag {
+		if idx.Path != w.lastIdx.Path || idx.File.Datum != w.lastIdx.File.Datum {
 			if err := w.additive.WriteIndex(w.lastIdx); err != nil {
 				return err
 			}

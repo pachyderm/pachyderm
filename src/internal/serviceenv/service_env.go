@@ -321,8 +321,8 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 			dbutil.WithHostPort(env.config.PGBouncerHost, env.config.PGBouncerPort),
 			dbutil.WithDBName(env.config.PostgresDBName),
 			dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
-			dbutil.WithMaxOpenConns(env.config.PostgresMaxOpenConns),
-			dbutil.WithMaxIdleConns(env.config.PostgresMaxIdleConns),
+			dbutil.WithMaxOpenConns(env.config.PGBouncerMaxOpenConns),
+			dbutil.WithMaxIdleConns(env.config.PGBouncerMaxIdleConns),
 			dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
 			dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
 		)

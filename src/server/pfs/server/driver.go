@@ -91,6 +91,14 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	if err != nil {
 		return nil, err
 	}
+	// test object storage.
+	if err := func() error {
+		ctx, cf := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cf()
+		return obj.TestStorage(ctx, objClient)
+	}(); err != nil {
+		return nil, err
+	}
 	repos := pfsdb.Repos(env.GetDBClient(), env.GetPostgresListener())
 	commits := pfsdb.Commits(env.GetDBClient(), env.GetPostgresListener())
 	branches := pfsdb.Branches(env.GetDBClient(), env.GetPostgresListener())
@@ -552,7 +560,7 @@ func (d *driver) startCommit(
 	return newCommit, nil
 }
 
-func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description string, commitError, force bool) error {
+func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description, commitError string, force bool) error {
 	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err

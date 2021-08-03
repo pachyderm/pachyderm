@@ -29,13 +29,13 @@ func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) err
 	if len(deletive) > 0 && deletive[0] {
 		if err := fs.Iterate(ctx, func(f File) error {
 			idx := f.Index()
-			return w.Delete(idx.Path, idx.File.Tag)
+			return w.Delete(idx.Path, idx.File.Datum)
 		}, deletive...); err != nil {
 			return err
 		}
 	}
 	return fs.Iterate(ctx, func(f File) error {
-		return w.Copy(f, f.Index().File.Tag)
+		return w.Copy(f, f.Index().File.Datum)
 	})
 }
 

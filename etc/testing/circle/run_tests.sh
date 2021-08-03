@@ -103,6 +103,7 @@ case "${BUCKET}" in
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
+      export PACH_TEST_WITH_AUTH=1
       go test -v -count=1 ./src/server/pps/server -timeout 420s
     fi
     ;;
@@ -115,7 +116,7 @@ case "${BUCKET}" in
     make test-enterprise
     # Launch a stand-alone enterprise server in a separate namespace
     make launch-enterprise
-    echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTERPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite 
+    echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTERPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite
     pachctl config set active-enterprise-context enterprise
     make test-enterprise-integration
     ;;

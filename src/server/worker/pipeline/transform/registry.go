@@ -457,7 +457,7 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 		if err != nil {
 			return errors.Wrapf(err, "error blocking on commit %s", commit)
 		}
-		if ci.Error {
+		if ci.Error != "" {
 			failed = append(failed, name)
 		}
 		return nil
