@@ -30,7 +30,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -829,7 +828,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 
 	// If the commits for the job have been squashed, the pipeline spec can no
 	// longer be read for this job
-	if err := internal.GetPipelineDetails(ctx, a.env.PfsServer(), pipelineInfo); err != nil {
+	if err := grpcutil.GetPipelineDetails(ctx, a.env.PfsServer(), pipelineInfo); err != nil {
 		return err
 	}
 
@@ -2372,7 +2371,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 	}
 
 	if details {
-		if err := internal.GetPipelineDetails(ctx, a.env.PfsServer(), info); err != nil {
+		if err := grpcutil.GetPipelineDetails(ctx, a.env.PfsServer(), info); err != nil {
 			return nil, err
 		}
 		kubeClient := a.env.GetKubeClient()
@@ -2493,7 +2492,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		eg.Go(func() error {
 			for info := range infos {
 				if request.Details {
-					if err := internal.GetPipelineDetails(ctx, a.env.PfsServer(), info); err != nil {
+					if err := grpcutil.GetPipelineDetails(ctx, a.env.PfsServer(), info); err != nil {
 						return err
 					}
 				}
@@ -2598,7 +2597,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 
 	// Load pipeline details so we can do some cleanup tasks based on certain
 	// input types and the output branch.
-	if err := internal.GetPipelineDetails(ctx, a.env.PfsServer(), pipelineInfo); err != nil {
+	if err := grpcutil.GetPipelineDetails(ctx, a.env.PfsServer(), pipelineInfo); err != nil {
 		return err
 	}
 
