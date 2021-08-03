@@ -428,7 +428,7 @@ func ClusterRoleBinding(opts *AssetOpts) *rbacv1.ClusterRoleBinding {
 			Kind:       "ClusterRoleBinding",
 			APIVersion: "rbac.authorization.k8s.io/v1",
 		},
-		ObjectMeta: objectMeta(roleBindingName, labels(""), nil, opts.Namespace),
+		ObjectMeta: objectMeta(fmt.Sprintf("%s-%s", roleBindingName, opts.Namespace), labels(""), nil, opts.Namespace),
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      ServiceAccountName,
