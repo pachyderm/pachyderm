@@ -537,16 +537,3 @@ func (c APIClient) FsckFastExit() error {
 		}
 	}
 }
-
-// RunPFSLoadTest runs a PFS load test.
-func (c APIClient) RunPFSLoadTest(spec []byte, branch *pfs.Branch, seed int64) (_ *pfs.RunLoadTestResponse, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	req := &pfs.RunLoadTestRequest{
-		Spec:   spec,
-		Branch: branch,
-		Seed:   seed,
-	}
-	return c.PfsAPIClient.RunLoadTest(c.Ctx(), req)
-}

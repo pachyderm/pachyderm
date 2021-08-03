@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -9702,64 +9703,9 @@ func TestLoad(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := tu.GetPachClient(t)
-	for i, load := range loads {
-		load := load
-		t.Run(fmt.Sprint("Load-", i), func(t *testing.T) {
-			require.NoError(t, c.DeleteAll())
-			srcRepo := tu.UniqueString(fmt.Sprint("TestLoad-", i))
-			require.NoError(t, c.CreateRepo(srcRepo))
-			pipeline := tu.UniqueString("TestLoadPipeline")
-			require.NoError(t, c.CreatePipeline(
-				pipeline,
-				"",
-				[]string{"bash"},
-				[]string{
-					fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", srcRepo),
-				},
-				&pps.ParallelismSpec{
-					Constant: 1,
-				},
-				client.NewPFSInput(srcRepo, "/*"),
-				"",
-				false,
-			))
-			resp, err := c.RunPFSLoadTest([]byte(load), client.NewBranch(srcRepo, "master"), 0)
-			require.NoError(t, err)
-			require.Equal(t, "", resp.Error, fmt.Sprint("seed: ", resp.Seed))
-		})
-	}
+	resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+	require.NoError(t, err)
+	buf := &bytes.Buffer{}
+	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
+	require.Equal(t, "", resp.Error, buf.String())
 }
-
-var loads = []string{`
-count: 5
-operations:
-  - count: 5
-    operation:
-      - putFile:
-          files:
-            count: 5
-            file:
-              - source: "random"
-                prob: 100
-        prob: 100 
-validator: {}
-fileSources:
-  - name: "random"
-    random:
-      directory:
-        depth: 3
-        run: 3
-      size:
-        - min: 1000
-          max: 10000
-          prob: 30 
-        - min: 10000
-          max: 100000
-          prob: 30 
-        - min: 1000000
-          max: 10000000
-          prob: 30 
-        - min: 10000000
-          max: 100000000
-          prob: 10 
-`}

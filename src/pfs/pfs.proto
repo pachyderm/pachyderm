@@ -404,15 +404,16 @@ message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
 message RunLoadTestRequest {
-  bytes spec = 1;
+  string spec = 1;
   Branch branch = 2;
   int64 seed = 3; 
 }
 
 message RunLoadTestResponse {
-  Branch branch = 1;
-  int64 seed = 2;
-  string error = 3;
+  string spec = 1;
+  Branch branch = 2;
+  int64 seed = 3;
+  string error = 4;
 }
 
 service API {
@@ -491,4 +492,6 @@ service API {
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
+  // RunLoadTestDefault runs the default load tests.
+  rpc RunLoadTestDefault(google.protobuf.Empty) returns (RunLoadTestResponse) {}
 }

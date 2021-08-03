@@ -757,8 +757,8 @@ func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetReque
 
 // RunLoadTest implements the pfs.RunLoadTest RPC
 func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
 	repo := "load_test"
 	if req.Branch != nil {
@@ -779,6 +779,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 		seed = req.Seed
 	}
 	resp := &pfs.RunLoadTestResponse{
+		Spec:   req.Spec,
 		Branch: client.NewBranch(repo, branch),
 		Seed:   seed,
 	}
@@ -788,13 +789,109 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 	return resp, nil
 }
 
-func (a *apiServer) runLoadTest(pachClient *client.APIClient, branch *pfs.Branch, specBytes []byte, seed int64) error {
+func (a *apiServer) runLoadTest(pachClient *client.APIClient, branch *pfs.Branch, specStr string, seed int64) error {
 	spec := &pfsload.CommitsSpec{}
-	if err := yaml.UnmarshalStrict(specBytes, spec); err != nil {
+	if err := yaml.UnmarshalStrict([]byte(specStr), spec); err != nil {
 		return err
 	}
 	return pfsload.Commits(pachClient, branch.Repo.Name, branch.Name, spec, seed)
 }
+
+func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (resp *pfs.RunLoadTestResponse, retErr error) {
+	func() { a.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	for _, spec := range defaultLoadSpecs {
+		var err error
+		resp, err = a.RunLoadTest(ctx, &pfs.RunLoadTestRequest{
+			Spec: spec,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if resp.Error != "" {
+			return resp, nil
+		}
+	}
+	return resp, nil
+}
+
+var defaultLoadSpecs = []string{`
+count: 3 
+operations:
+  - count: 5
+    operation:
+      - putFile:
+          files:
+            count: 5
+            file:
+              - source: "random"
+                prob: 100
+        prob: 70 
+      - deleteFile:
+          count: 5
+          directoryProb: 20 
+        prob: 30 
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      directory:
+        depth: 3
+        run: 3
+      size:
+        - min: 1000
+          max: 10000
+          prob: 30 
+        - min: 10000
+          max: 100000
+          prob: 30 
+        - min: 1000000
+          max: 10000000
+          prob: 30 
+        - min: 10000000
+          max: 100000000
+          prob: 10 
+`, `
+count: 3 
+operations:
+  - count: 5
+    operation:
+      - putFile:
+          files:
+            count: 10000 
+            file:
+              - source: "random"
+                prob: 100
+        prob: 100
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      size:
+        - min: 100
+          max: 1000
+          prob: 100
+`, `
+count: 3 
+operations:
+  - count: 5
+    operation:
+      - putFile:
+          files:
+            count: 1
+            file:
+              - source: "random"
+                prob: 100
+        prob: 100
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      size:
+        - min: 10000000
+          max: 100000000
+          prob: 100 
+`}
 
 func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 	msg, err := srv.Recv()
