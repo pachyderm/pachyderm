@@ -423,12 +423,16 @@ func ClusterRole(opts *AssetOpts) *rbacv1.ClusterRole {
 // ClusterRoleBinding returns a ClusterRoleBinding that binds Pachyderm's
 // ClusterRole to its ServiceAccount.
 func ClusterRoleBinding(opts *AssetOpts) *rbacv1.ClusterRoleBinding {
+	// cluster role bindings are global to the cluster and not associated with a namespace,
+	// so if pachyderm is deployed multiple times in different namespaces, each will try to
+	// create its own cluster role binding. To avoid interference, include namespace in the name
+	scopedName := fmt.Sprintf("%s-%s", roleBindingName, opts.Namespace)
 	return &rbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterRoleBinding",
 			APIVersion: "rbac.authorization.k8s.io/v1",
 		},
-		ObjectMeta: objectMeta(roleBindingName, labels(""), nil, opts.Namespace),
+		ObjectMeta: objectMeta(scopedName, labels(""), nil, opts.Namespace),
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      ServiceAccountName,
