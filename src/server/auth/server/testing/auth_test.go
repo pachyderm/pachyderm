@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -2902,50 +2903,9 @@ func TestLoad(t *testing.T) {
 	defer tu.DeleteAll(t)
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
-	for i, load := range loads {
-		load := load
-		t.Run(fmt.Sprint("Load-", i), func(t *testing.T) {
-			resp, err := aliceClient.RunPFSLoadTest([]byte(load), nil, 0)
-			require.NoError(t, err)
-			require.Equal(t, "", resp.Error, fmt.Sprint("seed: ", resp.Seed))
-		})
-	}
+	resp, err := aliceClient.PfsAPIClient.RunLoadTestDefault(aliceClient.Ctx(), &types.Empty{})
+	require.NoError(t, err)
+	buf := &bytes.Buffer{}
+	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
+	require.Equal(t, "", resp.Error, string(buf.Bytes()))
 }
-
-var loads = []string{`
-count: 5
-operations:
-  - count: 5
-    operation:
-      - putFile:
-          files:
-            count: 5
-            file:
-              - source: "random"
-                prob: 100
-        prob: 70 
-      - deleteFile:
-          count: 5
-          directoryProb: 20 
-        prob: 30 
-validator: {}
-fileSources:
-  - name: "random"
-    random:
-      directory:
-        depth: 3
-        run: 3
-      size:
-        - min: 1000
-          max: 10000
-          prob: 30 
-        - min: 10000
-          max: 100000
-          prob: 30 
-        - min: 1000000
-          max: 10000000
-          prob: 30 
-        - min: 10000000
-          max: 100000000
-          prob: 10 
-`}
