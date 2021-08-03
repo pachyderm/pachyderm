@@ -120,7 +120,6 @@ nav:
             - Commit: concepts/data-concepts/commit.md
             - Branch: concepts/data-concepts/branch.md
             - File: concepts/data-concepts/file.md
-            - Global ID: concepts/data-concepts/globalID.md
             - Provenance: concepts/data-concepts/provenance.md
             - History: concepts/data-concepts/history.md
         - Pipeline Concepts:
@@ -141,6 +140,7 @@ nav:
                 - Join: concepts/pipeline-concepts/datum/join.md
                 - Group: concepts/pipeline-concepts/datum/group.md
         - Advanced Concepts:
+            - Global ID: concepts/advanced-concepts/globalID.md
             - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
             - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
     - How-Tos:
@@ -165,7 +165,6 @@ nav:
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
             - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
-            - Monitor Job Progress: how-tos/pipeline-operations/monitor-job-progress.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
             - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md

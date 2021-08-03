@@ -1,7 +1,7 @@
 # Commit
 
 !!! Note "Attention"
-         Note that Pachyderm uses the term `commit` at two different levels. A global level (check [GlobalID](../globalID) for more details) and commits that occur in a repository. The following page details the latter. 
+         Note that Pachyderm uses the term `commit` at two different levels. A global level (check [GlobalID](../../advanced-concepts/globalID) for more details) and commits that occur in a repository. The following page details the latter. 
 ## Definition
 
 In Pachyderm, commits are atomic operations that **snapshot and preserve the state of
@@ -29,94 +29,64 @@ You can see an origin as the answer to: **"What triggered the production of this
 That origin can be of 3 types:
 
 - `USER`: The commit is the result of a user change (`put file`, `update pipeline`, `delete file`...)
-!!! Info
-    Every initial change is a `USER` change.
+    
+    !!! Info
+        Every initial change is a `USER` change.
+
 - `AUTO`: Pachyderm's pipelines are data-driven. A data commit to a data repository may
     trigger downstream processing jobs in your pipeline(s). The output commits from
     triggered jobs will be of type `AUTO`.
 - `ALIAS`: Neither `USER` nor `AUTO` - `ALIAS` commits are essentially placeholder commits.
-    They have the same content as their parent commit and are mainly used for [global IDs](../globalID/).
+    They have the same content as their parent commit and are mainly used for [global IDs](../../advanced-concepts/globalID/).
 
 
-!!! Warning "Important Note"
+!!! Note
     To track provenance, Pachyderm requires **all commits to belong to exactly one branch**.
     When moving a commit from one [branch](./branch.md) to another, Pachyderm creates an `ALIAS` commit on the other branch.
 
 
 Each commit has an alphanumeric identifier (ID) that you can reference in the `<repo>@<commitID>` format (or `<repo>@<branch>=<commitID>` if the commit has multiple branches from the same repo) .
 
-You can obtain information about all commits in Pachyderm
-by running `list commit` or `inspect commit <commitID>`.
-To restrict to a particular repository, use `list commit <repo>`,
-`list commit <repo>@<branch>`, or `inspect commit <repo>@<commitID>`.
+You can obtain information about all commits with a given ID
+by running `list commit <commitID>` or restrict to a particular repository `list commit <repo>`,
+`list commit <repo>@<branch>`, or `inspect commit <repo>@<commitID> --raw`.
 
-## List commits
-The `pachctl list commit` command returns list of all commits, along with the number of
-sub-commits they contain, when they were created, and when a sub-commit was most recently modified.
+## List Commits
+- The `pachctl list commit` command returns list of all global commits. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-global-commits-and-global-jobs).
 
-!!! example
-    ```shell
-    pachctl list commit
-    ```
+- The `pachctl list commit <commitID>` commands returns the list of all commits sharing the same `<commitID>`. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-commits-and-jobs-with-a-global-id). 
 
-    **System Response:**
+- Note that you can also track your commits downstream as they complete by running `pachctl wait commit <commitID>`. 
 
-    ```shell
-    ID                               COMMITS PROGRESS CREATED        MODIFIED
-    c6d7be4a13614f2baec2cb52d14310d0 7       ▇▇▇▇▇▇▇▇ 13 seconds ago 13 seconds ago
-    385b70f90c3247e69e4bdadff12e44b2 7       ▇▇▇▇▇▇▇▇ 2 hours ago    13 seconds ago
-    ```
+- The `pachctl list commit <repo>@<branch>` command returns the commits in the given branch of a repo.
 
-The `pachctl list commit <repo>@<branch>` command returns the sub-commits in the given
-branch of a repo, including all commits.
+    !!! example
+        ```shell
+        $ pachctl list commit images@master
+        ```
 
-!!! example
-    ```shell
-    pachctl list commit images@master
-    ```
+        **System Response:**
 
-    **System Response:**
+        ```shell
+        REPO   BRANCH COMMIT                           FINISHED        SIZE       ORIGIN DESCRIPTION
+        images master c6d7be4a13614f2baec2cb52d14310d0 33 minutes ago  5.121MiB    USER
+        images master 385b70f90c3247e69e4bdadff12e44b2 2 hours ago     2.561MiB    USER
+        ```
 
-    ```shell
-    REPO   BRANCH COMMIT                           FINISHED        SIZE       ORIGIN DESCRIPTION
-    images master c6d7be4a13614f2baec2cb52d14310d0 33 minutes ago  5.121MiB    USER
-    images master 385b70f90c3247e69e4bdadff12e44b2 2 hours ago     2.561MiB    USER
-    ```
+- `list commit <repo>`, without mention of a branch, displays results from all branches of the specified repository.
 
-`list commit <repo>`, without mention of a branch, displays results from all branches of the specified repository.
-
-## Inspect commit
-The `pachctl inspect commit <commitID>` command enables you to view a list of sub-commits in a commit.
-
-!!! example
-    ```shell
-    $ pachctl inspect commit images@c6d7be4a13614f2baec2cb52d14310d0
-    ```
-
-    **System Response:**
-
-    ```shell
-    REPO         BRANCH COMMIT                           FINISHED       SIZE  ORIGIN DESCRIPTION
-    edges.spec   master c6d7be4a13614f2baec2cb52d14310d0 25 seconds ago <= 0B ALIAS
-    montage.spec master c6d7be4a13614f2baec2cb52d14310d0 25 seconds ago <= 0B ALIAS
-    images       master c6d7be4a13614f2baec2cb52d14310d0 25 seconds ago <= 0B USER
-    edges        master c6d7be4a13614f2baec2cb52d14310d0 16 seconds ago <= 0B AUTO
-    edges.meta   master c6d7be4a13614f2baec2cb52d14310d0 16 seconds ago <= 0B AUTO
-    montage      master c6d7be4a13614f2baec2cb52d14310d0 13 seconds ago <= 0B AUTO
-    montage.meta master c6d7be4a13614f2baec2cb52d14310d0 13 seconds ago <= 0B AUTO
-    ```
-
-The `pachctl inspect commit repo@commitID` command enables you to view detailed
-information about a sub-commit (size, parent, the branch it belongs to,
+## Inspect Commit
+The `pachctl inspect commit <repo>@<commitID>` command enables you to view detailed
+information about a commit in a given repo (size, parent, the branch it belongs to,
 how long ago the commit was started and finished...).
 
 - The `--full-timestamps` flag will give you the exact date and time
-of when the sub-commit was opened and finished.
-- If you specify a branch instead of a specific commit (`pachctl inspect commit repo@branch`),
+of when the commit was opened and finished.
+- If you specify a branch instead of a specific commit (`pachctl inspect commit <repo>@<branch>`),
 Pachyderm displays the information about the HEAD of the branch.
 
 !!! example
-    Add a `--raw` flag to output a more detailed JSON version of the sub-commit.
+    Add a `--raw` flag to output a detailed JSON version of the commit.
     ```shell
     $ pachctl inspect commit images@c6d7be4a13614f2baec2cb52d14310d0 --raw
     ```
@@ -148,17 +118,19 @@ Pachyderm displays the information about the HEAD of the branch.
             },
             "id": "385b70f90c3247e69e4bdadff12e44b2"
         },
-        "started": "2021-07-06T01:17:48.488831754Z",
-        "finished": "2021-07-06T01:17:48.488831754Z",
+        "started": "2021-08-02T20:13:10.393036120Z",
+        "finishing": "2021-08-02T20:13:10.393036120Z",
+        "finished": "2021-08-02T20:13:11.851931210Z",
+        "size_bytes_upper_bound": "244068",
         "details": {
             "size_bytes": "244068"
         }
     }
     ```
 
-## Squash commit
+## Squash Commit
 
-See [`squash commit`](./globalID/#squash-commit).
+See [`squash commit`](../../advanced-concepts/globalID/#squash-commit) in our in Global ID page.
 
 
 

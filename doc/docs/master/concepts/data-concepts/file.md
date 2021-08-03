@@ -19,14 +19,14 @@ command, you can put both files and directories into a Pachyderm repository.
 
 Pachyderm provides the following file processing strategies:
 
-**Appending files**
-:   By default, when you put a file into a Pachyderm repository and a
-    file by the same name already exists in the repo, Pachyderm overwrites
-    the existing file with the new data.
-    For example, you have an `A.csv` file in a repository. If you upload the
-    same file to that repository, Pachyderm *overwrites* the existing
-    file with the data, which results in the `A.csv` file having only data
-    from the most recent upload.
+### **Overwriting Files**
+By default, when you put a file into a Pachyderm repository and a
+file by the same name already exists in the repo, Pachyderm overwrites
+the existing file with the new data.
+For example, you have an `A.csv` file in a repository. If you upload the
+same file to that repository, Pachyderm *overwrites* the existing
+file with the data, which results in the `A.csv` file having only data
+from the most recent upload.
 
 !!! example
 
@@ -62,12 +62,12 @@ Pachyderm provides the following file processing strategies:
        /A.csv file 258B
        ```
 
-**Appending to files**
-:   When you enable the append mode by using the `--append`
-    flag or `-a`, the new files are appended to existing ones instead of overwriting them.
-    For example, you have an `A.csv` file in the `images` repository.
-    If you upload the same file to that repository with the
-    `--append` flag, Pachyderm *appends* to the file.
+### **Appending to files**
+When you enable the append mode by using the `--append`
+flag or `-a`, the new files are appended to existing ones instead of overwriting them.
+For example, you have an `A.csv` file in the `images` repository.
+If you upload the same file to that repository with the
+`--append` flag, Pachyderm *appends* to the file.
 
 !!! example
 
@@ -87,7 +87,7 @@ Pachyderm provides the following file processing strategies:
     1. Add the `A.csv` file once again:
 
        ```shell
-       pachctl put file --overwrite images@master -f A.csv
+       pachctl put file -a images@master -f A.csv
        ```
 
     1. Verify that the file size has doubled:

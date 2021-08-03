@@ -22,7 +22,7 @@ Using this global identifier you can:
 ## List All Global Commits And Global Jobs
 You can list all global commits by running the following command:
 ```shell
-pachctl list commit
+$ pachctl list commit
 ```
 Each global commit displays how many (sub) commits they are made of.
 ```
@@ -33,7 +33,7 @@ e050771b5c6f4082aed48a059e1ac203 4          ▇▇▇▇▇▇▇▇ 24 seconds 
 ```
 Similarly, if you run the equivalent command for global jobs:
 ```shell
-pachctl list job
+$ pachctl list job
 ```
 you will notice that the job IDs are shared with the global commit IDs.
 
@@ -43,50 +43,60 @@ ID                               SUBJOBS PROGRESS CREATED            MODIFIED
 28363be08a8f4786b6dd0d3b142edd56 1       ▇▇▇▇▇▇▇▇ About a minute ago About a minute ago
 e050771b5c6f4082aed48a059e1ac203 1       ▇▇▇▇▇▇▇▇ About a minute ago About a minute ago
 ```
-Note, for example, that 7 commits and 2 jobs are involved in the changes occured
+For example, in this example, 7 commits and 2 jobs are involved in the changes occured
 in the global commit ID 1035715e796f45caae7a1d3ffd1f93ca.
+
+!!! Note
+        The progress bar is equally divided to the number of steps, or pipelines,
+        you have in your DAG. In the example above, `1035715e796f45caae7a1d3ffd1f93ca` is two steps.
+        If one of the sub-jobs fails, you will see the progress bar turn red
+        for that pipeline step. To troubleshoot, look into that particular
+        pipeline execution.
 
 ## List All Commits And Jobs With A Global ID
 
 To list all (sub) commits involved in a global commit:
 ```shell
-pachctl list commit 1035715e796f45caae7a1d3ffd1f93ca
+$ pachctl list commit 1035715e796f45caae7a1d3ffd1f93ca
 ```
 ```
-REPO         BRANCH COMMIT                           FINISHED      SIZE ORIGIN DESCRIPTION
-images       master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago -    USER
-edges.spec   master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago -    ALIAS
-montage.spec master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago -    ALIAS
-montage.meta master 1035715e796f45caae7a1d3ffd1f93ca 4 minutes ago -    AUTO
-edges        master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago -    AUTO
-edges.meta   master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago -    AUTO
-montage      master 1035715e796f45caae7a1d3ffd1f93ca 4 minutes ago -    AUTO
+REPO         BRANCH COMMIT                           FINISHED      SIZE        ORIGIN DESCRIPTION
+images       master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago 238.3KiB    USER
+edges.spec   master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago 244B        ALIAS
+montage.spec master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago 405B        ALIAS
+montage.meta master 1035715e796f45caae7a1d3ffd1f93ca 4 minutes ago 1.656MiB    AUTO
+edges        master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago 133.6KiB    AUTO
+edges.meta   master 1035715e796f45caae7a1d3ffd1f93ca 5 minutes ago 373.9KiB    AUTO
+montage      master 1035715e796f45caae7a1d3ffd1f93ca 4 minutes ago 1.292MiB    AUTO
 ```
 
 Similarly, change `commit` in `job` to list all (sub) jobs linked to your global job ID.
 ```shell
-pachctl list job 1035715e796f45caae7a1d3ffd1f93ca
+$ pachctl list job 1035715e796f45caae7a1d3ffd1f93ca
 ```
 ```
 ID                               PIPELINE STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
 1035715e796f45caae7a1d3ffd1f93ca montage  5 minutes ago 4 seconds 0       1 + 0 / 1 79.49KiB 381.1KiB success
 1035715e796f45caae7a1d3ffd1f93ca edges    5 minutes ago 2 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
 ```
+For each pipeline execution (sub job) within this global job, Pachyderm shows the time since each sub job started and its duration, the number of datums in the **PROGRESS** section,  and other information.
+The format of the progress column is `DATUMS PROCESSED + DATUMS SKIPPED / TOTAL DATUMS`.
 
-The global commit and global job above have been created after
-a `pachctl put file images@master -i images.txt` in the images repo of the open cv example.
+For more information, see [Datum Processing States](../../../concepts/pipeline-concepts/datum/datum-processing-states/).
 
+!!! Note
+     The global commit and global job above have been created after
+     a `pachctl put file images@master -i images.txt` in the images repo of the open cv example.
 
 The following diagram illustrates the global commit and its various components:
     ![global_commit_after_putfile](../images/global_commit_after_putfile.png)
-
 
 Let's explain the origin of each commit.
 
 1. Inspect the commit ID 1035715e796f45caae7a1d3ffd1f93ca in the `images` repo,  the repo in which our change (`put file`) has originated:
 
     ```shell
-    pachctl inspect commit images@1035715e796f45caae7a1d3ffd1f93ca --raw
+    $ pachctl inspect commit images@1035715e796f45caae7a1d3ffd1f93ca --raw
     ```
     Note that this original commit is of `USER` origin (i.e., the result of a user change).
 
@@ -101,7 +111,7 @@ Let's explain the origin of each commit.
 
 1. Inspect the following commit 1035715e796f45caae7a1d3ffd1f93ca produced in the output repos of the edges pipeline:
     ```shell
-    pachctl inspect commit edges@1035715e796f45caae7a1d3ffd1f93ca --raw
+    $ pachctl inspect commit edges@1035715e796f45caae7a1d3ffd1f93ca --raw
     ```
     ```json
     {
@@ -165,7 +175,7 @@ Let's explain the origin of each commit.
 
 - Besides  the `USER` and `AUTO` commits, notice a set of `ALIAS` commits in `edges.spec` and `montage.spec`:
 ```shell
-    pachctl inspect commit edges.spec@336f02bdbbbb446e91ba27d2d2b516c6 --raw
+    $ pachctl inspect commit edges.spec@336f02bdbbbb446e91ba27d2d2b516c6 --raw
 ```
 The version of each pipeline within their respective `.spec` repos are neither the result of a user change, nor of an automatic change.
 They have, however, contributed to the creation of the previous `AUTO` commits. 
@@ -192,4 +202,4 @@ This behavior is inspired by the squash option in git rebase.
 No data stored in PFS is removed.
 
 !!! Warning
-    Squashing a global commit with no children (on the head of a branch) results in data loss. Additionally, a new identical global commit is created.
+    Squashing a global commit on the head of a branch (no children) results in a new identical global commit being created.
