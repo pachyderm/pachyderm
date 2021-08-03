@@ -94,10 +94,10 @@ export type SubscribeCommitRequestObject = {
 };
 
 export type CreateBranchRequestObject = {
-  head: CommitObject;
-  branch: BranchObject;
+  head?: CommitObject;
+  branch?: BranchObject;
   provenance: BranchObject[];
-  trigger: TriggerObject;
+  trigger?: TriggerObject;
   newCommitSet: CreateBranchRequest.AsObject['newCommitSet'];
 };
 
@@ -371,13 +371,13 @@ export const createBranchRequestFromObject = ({
   head,
   branch,
   trigger,
-  provenance = [],
-  newCommitSet = false,
+  provenance,
+  newCommitSet,
 }: CreateBranchRequestObject) => {
   const request = new CreateBranchRequest();
 
-  request.setHead(commitFromObject(head));
-  request.setBranch(branchFromObject(branch));
+  if (head) request.setHead(commitFromObject(head));
+  if (branch) request.setBranch(branchFromObject(branch));
 
   if (provenance) {
     const provenanceArray: Branch[] = provenance.map((eachProvenanceObject) => {
@@ -386,7 +386,7 @@ export const createBranchRequestFromObject = ({
     request.setProvenanceList(provenanceArray);
   }
 
-  request.setTrigger(triggerFromObject(trigger));
+  if (trigger) request.setTrigger(triggerFromObject(trigger));
   request.setNewCommitSet(newCommitSet);
 
   return request;
@@ -398,7 +398,7 @@ export const listBranchRequestFromObject = ({
 }: ListBranchRequestObject) => {
   const request = new ListBranchRequest();
 
-  request.setRepo(new Repo().setName(repo.name || '').setType('user'));
+  request.setRepo(new Repo().setName(repo?.name || '').setType('user'));
   request.setReverse(reverse);
 
   return request;

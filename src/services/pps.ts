@@ -14,6 +14,7 @@ import {
   ListJobSetRequest,
   JobSetInfo,
 } from '@pachyderm/proto/pb/pps/pps_pb';
+import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 
 import {
   jobFromObject,
@@ -150,6 +151,17 @@ const pps = ({
           }
         },
       );
+    },
+
+    deleteAll: () => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        client.deleteAll(new Empty(), (error) => {
+          if (error) {
+            return reject(error);
+          }
+          return resolve({});
+        });
+      });
     },
   };
 };
