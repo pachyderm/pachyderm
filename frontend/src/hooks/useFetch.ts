@@ -1,14 +1,14 @@
 import {useEffect, useReducer} from 'react';
 
-type FetchState = {
+type FetchState<ResponseType> = {
   loading: boolean;
   error?: string;
-  data?: unknown;
+  data?: ResponseType;
 };
 
-type FetchAction =
+type FetchAction<ResponseType> =
   | {type: 'FETCHING'}
-  | {type: 'FETCHED'; payload: unknown}
+  | {type: 'FETCHED'; payload: ResponseType}
   | {type: 'ERROR'; payload: string};
 
 interface useFetchParams<Type> {
@@ -17,21 +17,19 @@ interface useFetchParams<Type> {
     input: RequestInfo,
     init?: RequestInit | undefined,
   ) => Promise<Response>;
-  formatResponse?: (data: Response) => Promise<Type>;
+  formatResponse: (data: Response) => Promise<Type> | Type;
 }
-
-const initialState: FetchState = {
-  loading: false,
-  data: {},
-};
 
 export const useFetch = <ResponseType>({
   url,
   fetchFunc = fetch,
   formatResponse,
 }: useFetchParams<ResponseType>) => {
+  const initialState: FetchState<ResponseType> = {
+    loading: false,
+  };
   const [state, dispatch] = useReducer(
-    (state: FetchState, action: FetchAction) => {
+    (state: FetchState<ResponseType>, action: FetchAction<ResponseType>) => {
       switch (action.type) {
         case 'FETCHING':
           return {...initialState, loading: true};
@@ -57,7 +55,7 @@ export const useFetch = <ResponseType>({
         });
 
         if (res.ok) {
-          const data = formatResponse ? await formatResponse(res) : res;
+          const data = await formatResponse(res);
           dispatch({type: 'FETCHED', payload: data});
         } else {
           const data = await res.json();
