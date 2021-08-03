@@ -9707,5 +9707,5 @@ func TestLoad(t *testing.T) {
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
-	require.Equal(t, "", resp.Error, string(buf.Bytes()))
+	require.Equal(t, "", resp.Error, buf.String())
 }
