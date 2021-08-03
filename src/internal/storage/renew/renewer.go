@@ -34,9 +34,9 @@ func NewRenewer(ctx context.Context, ttl time.Duration, renewFunc Func) *Renewer
 		done:   make(chan struct{}),
 	}
 	go func() {
+		defer close(r.done)
+		defer r.cancel()
 		r.err = r.renewLoop(ctx)
-		r.cancel()
-		close(r.done)
 	}()
 	return r
 }

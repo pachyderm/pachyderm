@@ -59,7 +59,7 @@ func NewRenewer(tracker Tracker, name string, ttl time.Duration) *Renewer {
 // Add adds an object to the set of objects being renewed.
 func (r *Renewer) Add(ctx context.Context, id string) error {
 	n := r.nextInt()
-	id2 := fmt.Sprintf("%s/%d", r.id, n)
+	id2 := fmt.Sprintf("%s/%04d", r.id, n)
 	// create an object whos sole purpose is to reference id, and to have a structured name
 	// which can be renewed in bulk by prefix
 	return Create(ctx, r.tracker, id2, []string{id}, r.ttl)

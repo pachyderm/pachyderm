@@ -177,6 +177,9 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 				// get rid of "expire"
 				require.Equal(t, 1, runGC(t, tracker))
 
+				// should be no-op
+				require.Equal(t, 0, runGC(t, tracker))
+
 				// get rid of "keep"
 				_, err = tracker.SetTTLPrefix(ctx, "keep", ExpireNow)
 				require.NoError(t, err)

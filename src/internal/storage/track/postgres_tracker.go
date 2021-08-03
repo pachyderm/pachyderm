@@ -180,7 +180,7 @@ func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
 		WITH target AS (
 			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
 		)
-		SELECT count(distinct from_id) FROM storage.tracker_refs WHERE to_id IN (SELECT int_id FROM TARGET)
+		SELECT count(distinct from_id) FROM storage.tracker_refs WHERE to_id IN (SELECT int_id FROM target)
 	`, id); err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
 		WITH target AS (
 			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
 		)
-		DELETE FROM storage.tracker_refs WHERE from_id IN (SELECT int_id FROM TARGET)
+		DELETE FROM storage.tracker_refs WHERE from_id IN (SELECT int_id FROM target)
 	`, id)
 	if err != nil {
 		return err
