@@ -310,7 +310,7 @@ func (env *NonblockingServiceEnv) initDirectDBClient() error {
 		return err
 	}
 	if err := prometheus.Register(sqlstats.NewStatsCollector("direct", env.directDBClient.DB)); err != nil {
-		return fmt.Errorf("init stats collector for direct db client: %w", err)
+		log.WithError(err).Warning("problem registering stats collector for direct db client")
 	}
 	return nil
 }
@@ -335,7 +335,7 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 		return err
 	}
 	if err := prometheus.Register(sqlstats.NewStatsCollector("pg_bouncer", env.dbClient.DB)); err != nil {
-		return fmt.Errorf("init stats collector for pg_bouncer db client: %w", err)
+		log.WithError(err).Warning("problem registering stats collector for pg_bouncer db client")
 	}
 	return nil
 }
