@@ -2,6 +2,7 @@ package track
 
 import (
 	"context"
+	"database/sql"
 	"sort"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 )
 
 var _ Tracker = &postgresTracker{}
@@ -115,6 +117,12 @@ func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl t
 		WHERE str_id LIKE $1 || '%'
 		RETURNING expires_at`, prefix, ttl.Microseconds())
 	if err != nil {
+		if err == sql.ErrNoRows {
+			if err := t.db.GetContext(ctx, &expiresAt, `SELECT CURRENT_TIMESTAMP + $1 * interval '1 microsecond'`, ttl); err != nil {
+				return time.Time{}, err
+			}
+			return expiresAt, nil
+		}
 		return time.Time{}, err
 	}
 	return expiresAt, nil
@@ -151,6 +159,19 @@ func (t *postgresTracker) GetUpstream(ctx context.Context, id string) ([]string,
 		return nil, err
 	}
 	return ups, nil
+}
+
+func (t *postgresTracker) GetExpiresAt(ctx context.Context, id string) (time.Time, error) {
+	var expiresAt time.Time
+	if err := t.db.GetContext(ctx, &expiresAt,
+		`SELECT expires_at FROM storage.tracker_objects WHERE str_id = $1
+	`, id); err != nil {
+		if err == sql.ErrNoRows {
+			return time.Time{}, pacherr.NewNotExist("tracker", id)
+		}
+		return time.Time{}, err
+	}
+	return expiresAt, nil
 }
 
 func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
