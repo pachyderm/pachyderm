@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -1132,6 +1133,29 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(listSecret, "list secret"))
+
+	runLoadTest := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Run a PPS load test.",
+		Long:  "Run a PPS load test.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := c.Close(); retErr == nil {
+					retErr = err
+				}
+			}()
+			resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+			if err != nil {
+				return err
+			}
+			return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
 	return commands
 }

@@ -238,8 +238,8 @@ func (c APIClient) inspectJobSet(id string, wait bool, details bool, cb func(*pp
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	req := &pps.InspectJobSetRequest{
-		JobSet: NewJobSet(id),
-		Wait:   wait,
+		JobSet:  NewJobSet(id),
+		Wait:    wait,
 		Details: details,
 	}
 	client, err := c.PpsAPIClient.InspectJobSet(ctx, req)

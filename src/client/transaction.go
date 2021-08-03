@@ -410,6 +410,9 @@ func (c *pfsBuilderClient) GetFileSet(ctx context.Context, req *pfs.GetFileSetRe
 func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTest")
 }
+func (c *pfsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
+	return nil, unsupportedError("RunLoadTestDefault")
+}
 
 func (c *ppsBuilderClient) InspectJobSet(ctx context.Context, req *pps.InspectJobSetRequest, opts ...grpc.CallOption) (pps.API_InspectJobSetClient, error) {
 	return nil, unsupportedError("InspectJobSet")
@@ -479,6 +482,9 @@ func (c *ppsBuilderClient) InspectSecret(ctx context.Context, req *pps.InspectSe
 }
 func (c *ppsBuilderClient) ListSecret(ctx context.Context, in *types.Empty, opt ...grpc.CallOption) (*pps.SecretInfos, error) {
 	return nil, unsupportedError("ListSecret")
+}
+func (c *ppsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
+	return nil, unsupportedError("RunLoadTestDefault")
 }
 
 func (c *authBuilderClient) Activate(ctx context.Context, req *auth.ActivateRequest, opts ...grpc.CallOption) (*auth.ActivateResponse, error) {

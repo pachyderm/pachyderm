@@ -1546,7 +1546,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 		Short:   "Run a PFS load test.",
 		Long:    "Run a PFS load test.",
 		Example: pfsload.LoadSpecification,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -1556,6 +1556,13 @@ Objects are a low-level resource and should not be accessed directly by most use
 					retErr = err
 				}
 			}()
+			if len(args) == 0 {
+				resp, err := c.PfsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+				if err != nil {
+					return err
+				}
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
+			}
 			spec, err := ioutil.ReadFile(args[0])
 			if err != nil {
 				return err
@@ -1567,7 +1574,11 @@ Objects are a low-level resource and should not be accessed directly by most use
 					return err
 				}
 			}
-			resp, err := c.RunPFSLoadTest(spec, branch, seed)
+			resp, err := c.PfsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
+				Spec:   string(spec),
+				Branch: branch,
+				Seed:   seed,
+			})
 			if err != nil {
 				return err
 			}
