@@ -779,6 +779,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 		seed = req.Seed
 	}
 	resp := &pfs.RunLoadTestResponse{
+		Spec:   req.Spec,
 		Branch: client.NewBranch(repo, branch),
 		Seed:   seed,
 	}

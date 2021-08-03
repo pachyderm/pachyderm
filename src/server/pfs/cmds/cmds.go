@@ -1561,6 +1561,8 @@ Objects are a low-level resource and should not be accessed directly by most use
 				if err != nil {
 					return err
 				}
+				fmt.Println(resp.Spec)
+				resp.Spec = ""
 				return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
 			}
 			spec, err := ioutil.ReadFile(args[0])
@@ -1582,6 +1584,8 @@ Objects are a low-level resource and should not be accessed directly by most use
 			if err != nil {
 				return err
 			}
+			fmt.Println(resp.Spec)
+			resp.Spec = ""
 			return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
 		}),
 	}
