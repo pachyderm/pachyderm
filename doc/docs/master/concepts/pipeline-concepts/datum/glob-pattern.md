@@ -4,45 +4,38 @@ Defining how your data is spread among workers is one of
 the most important aspects of distributed computation.
 
 Pachyderm uses **glob patterns** to provide flexibility to
-define data distribution.
-
-TODO: I would instead focus on the fact that PFS inputs are essentially like this (although I wouldn't word it as "glob pattern is applied to the root", rather glob pattern applied to all of the directories / files with the matching ones being the datums produced for the PFS input). Also, datums are actually determined by how the inputs are composed. If you just have a PFS input, then you basically get this. If you have a cross of multiple PFS inputs, then you generally get more datums than input files / directories. 
-
-You can think of each input repository as a filesystem where
-the glob pattern is applied to the root. 
-The files and directories that match the
-glob pattern constitute the [datums](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/)
-that will be processed by the worker(s) that run your pipeline code.
-
-!!! Important
-        You must **configure a glob pattern for each PFS input** of a [pipeline specification](). 
+define data distribution. 
 
 !!! Note
-     The Pachyderm's concept of glob patterns is similar to the Unix glob patterns.
+     Pachyderm's concept of glob patterns is similar to Unix glob patterns.
      For example, the `ls *.md` command matches all files with the
      `.md` file extension.
 
-TODO: I would just remove this line, the examples below seem to be what we want. Also, I would be very clear that the below are just some examples, globs have much more flexibility than what is shown in the examples below.
-In Pachyderm, the `/` and `*` indicators are most
-commonly used globs.
 
-Let's list the glob patterns at your disposal. We will later illustrate their use in an example:
+The glob pattern applies to all of the directories/files in the branch specified by the [`pfs` section of the pipeline specification (referred to as PFS inputs)](../#pfs-input-and-glob-pattern). The directories/files that match are the [datums](../) that will be processed by the worker(s) that run your pipeline code. 
+
+!!! Important
+        You must **configure a glob pattern for each PFS input** of a [pipeline specification](../../../../reference/pipeline_spec/#pipeline-specification). 
+
+
+We have listed some commonly used glob patterns. We will later illustrate their use in an example:
 
 | Glob Pattern     | Datum created|
 |-----------------|---------------------------------|
 | `/` | Pachyderm denotes the **whole repository as a single datum** and sends all input data to a single worker node to be processed together.|
-| `/*`| Pachyderm defines **each top-level filesystem object**, a file or a directory in the input repo, **as a separate datum**. For example, if you have a repository with ten files and no directory structure, Pachyderm identifies each file as a single datum and processes them independently.|
-| `/*/*`| Pachyderm processes **each filesystem object in each subdirectory as a separate datum**.|
-| `/**` | Pachyderm processes **each filesystem object in all directories and subdirectories as a separate datum**.|
+| `/*`| Pachyderm defines **each top-level files / directories** in the input repo, **as a separate datum**. For example, if you have a repository with ten files and no directory structure, Pachyderm identifies each file as a single datum and processes them independently.|
+| `/*/*`| Pachyderm processes **each file / directory in each subdirectories as a separate datum**.|
+| `/**` | Pachyderm processes **each file in all directories and subdirectories as a separate datum**.|
 
-TODO: I would just say subset of the files / directories.
-Glob patterns also let you take only a particular directory or subset of
-directories as an input instead of the whole repo.
+Glob patterns also let you take only a particular
+subset of the files / directories, a specific branch...
+as an input instead of the whole repo.
 We will elaborate on this more in the following example.
 
-If you have more than one input repo in your pipeline,
-you can define a different glob pattern for each input
-repo. You can additionally combine the datums from each input repo
+If you have more than one input repo in your pipeline, 
+or want to consider more than one branch in a repo, or any combination of the above,
+you can define a different glob pattern for each PFS input. 
+You can additionally combine the resulting datums
 by using the `cross`, `union`, `join`, or `group` operator to
 create the final datums that your code processes.
 For more information, see [Cross and Union](./cross-union.md), [Join](./join.md), [Group](./group.md).
@@ -110,6 +103,7 @@ Now let's consider what the following glob patterns would match respectively:
 !!! See "See Also"
         - To understand how Pachyderm scales, read [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/).
         - To learn about Datums' incremental processing, read our [Datum Processing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/#datum-processing) section.
+
 ## Test a Glob pattern
 
 You can use the `pachctl glob file` command to preview which filesystem
@@ -179,25 +173,24 @@ You can use the `pachctl list datum -f <my_pipeline_spec.json>` command to previ
     ```
 
 ### Running list datum on a past job 
-You can use the `pachctl list datum <job_number>` command to check the datums processed by a given job.
+You can use the `pachctl list datum <pipeline>@<job_ID>` command to check the datums processed by a given job.
 
 !!! example
     ```shell
-    pachctl list datum d10979d9f9894610bb287fa5e0d734b5
+    pachctl list datum edges@3c41e27fcebf4f2e8602f24a26cabab6
     ```
     **System Response:**
 
     ```shell
-        ID                                                                   FILES                                                STATUS TIME
-    ebd35bb33c5f772f02d7dfc4735ad1dde8cc923474a1ee28a19b16b2990d29592e30 images@8c958d1523f3428a98ac97fbfc367bae:/g2QnNqa.jpg -      -
-    ebd3ce3cdbab9b78cc58f40aa2019a5a6bce82d1f70441bd5d41a625b7769cce9bc4 images@8c958d1523f3428a98ac97fbfc367bae:/8MN9Kg0.jpg -      -
-    ebd32cf84c73cfcc4237ac4afdfe6f27beee3cb039d38613421149122e1f9faff349 images@8c958d1523f3428a98ac97fbfc367bae:/46Q8nDz.jpg -      -
+    ID                                                               FILES                                                STATUS  TIME
+    353b6d2a5ac78f56facc7979e190affbb8f75c6f74da84b758216a8df77db473 images@3c41e27fcebf4f2e8602f24a26cabab6:/8MN9Kg0.jpg success Less than a second
+    b751702850acad5502dc51c3e7e7a1ac10ba2199fdb839989cd0c5430ee10b84 images@caeb3fd2554d47dfae5ddea374e9ffee:/46Q8nDz.jpg skipped 1 second
+    de9e3703322eff2ab90e89ff01a18c448af9870f17e78438c5b0f56588af9c44 images@3c41e27fcebf4f2e8602f24a26cabab6:/g2QnNqa.jpg success Less than a second
     ```
 
 !!! note "Note"  
-    Now that the 3 datums have been processed, their ID field is showing.
+    Now that the 3 datums have been processed, their ID field is showing along with their [STATUS](../datum-processing-states) (skipped, failed, success, recovered) and TIME.
 
-TODO: Enabling stats isn't a thing in 2.0. We always have a meta commit in 2.0 which serves the same purpose as stats in 1.x.
-!!! info "Enabling Stats"
-    - Running `list datum` on a given job execution of a pipeline that [enables stats](https://docs.pachyderm.com/latest/enterprise/stats/#enabling-stats-for-a-pipeline) allows you to additionally display the STATUS (running, failed, success) and TIME of each datum.
-    - You might want to follow up with [inspect datum <ID>](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_datum/) to detail the files that a specific datum includes.
+
+!!! tip "More"
+    You might want to follow up with [inspect datum pipeline@globalID](../metadata.md) to detail the files that a specific datum includes. This is especially useful when troubleshooting a failed datum.

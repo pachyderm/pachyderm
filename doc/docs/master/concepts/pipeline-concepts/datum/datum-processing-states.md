@@ -12,7 +12,7 @@ of datums that can occur in Pachyderm:
 
 | State      | Description |
 | ---------- | ----------- |
-| Successful | The datum has been successfully processed in this job. |
+| Success    | The datum has been successfully processed in this job. |
 | Skipped    | The datum has been successfully processed in a previous job, has not changed since then, and therefore, it was skipped in the current job. |
 
 **Failure States**

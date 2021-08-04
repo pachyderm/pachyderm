@@ -11,6 +11,12 @@ Each job has the following stages:
 
 | Stage     | Description  |
 | --------- | ------------ |
-| Starting  | Pachyderm starts the job when it detects new data in the input repository. <br> The new data appears as a commit in the input repository, and Pachyderm <br> automatically launches the job. Pachyderm spins the number of Pachyderm worker pods <br> specified in the pipeline spec and spreads the workload among them. |
-| Running   | Pachyderm runs the transformation code that is specified <br> in the pipeline specification against the data in the input commit. |
-| Merging   | Pachyderm concatenates the results of the processed <br> data into one or more files, uploads them to the output repository, completes the final output commits, and creates/persists all the versioning metadata |
+|CREATED| An output commit exists, but the job has not been started by a worker yet.|
+|STARTING| The worker has allocated resources for the job (that is, the job counts towards parallelism), but it is still waiting on the inputs to be ready.|
+|RUNNING|The worker is processing datums.|
+|EGRESS|The worker has completed all the datums but is uploading the output to the egress endpoint.|
+|FAILURE|The worker encountered too many errors when processing a datum.|
+|KILLED|The job timed out, the output commits were deleted, or a user otherwise called StopJob|
+|SUCCESS| None of the bad stuff happened.|
+
+
