@@ -120,20 +120,10 @@ func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection 
 	return &postgresReadWriteCollection{c, tx}
 }
 
-type ErrTransactionConflict = dbutil.ErrTransactionConflict
-
-// NewSQLTx starts a transaction on the given DB, passes it to the callback, and
-// finishes the transaction afterwards. If the callback was successful, the
-// transaction is committed. If any errors occur, the transaction is rolled
-// back.  This will reattempt the transaction forever.
-func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	return dbutil.WithTx(ctx, db, apply)
-}
-
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
 // transaction instead of committing it.
 func NewDryrunSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	err := NewSQLTx(ctx, db, func(tx *sqlx.Tx) error {
+	err := dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
 		if err := apply(tx); err != nil {
 			return err
 		}

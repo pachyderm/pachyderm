@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -1991,7 +1992,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		}
 
 		// The transaction cannot continue because it cannot see the fileset - abort and retry
-		return &col.ErrTransactionConflict{}
+		return &dbutil.ErrTransactionConflict{}
 	}
 
 	// Verify that all input repos exist (create cron and git repos if necessary)
@@ -2685,7 +2686,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 
 	// Delete PipelineInfo
-	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		return a.pipelines.ReadWrite(sqlTx).Delete(request.Pipeline.Name)
 	}); err != nil {
 		return errors.Wrapf(err, "collection.Delete")
@@ -2761,7 +2762,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		return a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
 			if newPipelineInfo.Version != pipelineInfo.Version {
 				// If the pipeline has changed, restart the transaction and try again
-				return col.ErrTransactionConflict{}
+				return dbutil.ErrTransactionConflict{}
 			}
 			newPipelineInfo.Stopped = false
 			return nil
@@ -2819,7 +2820,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
 				if newPipelineInfo.Version != pipelineInfo.Version {
 					// If the pipeline has changed, restart the transaction and try again
-					return col.ErrTransactionConflict{}
+					return dbutil.ErrTransactionConflict{}
 				}
 				newPipelineInfo.Stopped = true
 				return nil
