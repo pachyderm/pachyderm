@@ -72,3 +72,9 @@ func WithDatumGetFile(datum string) GetFileOption {
 		gf.File.Datum = datum
 	}
 }
+
+func WithOffset(offset int64) GetFileOption {
+	return func(gf *pfs.GetFileRequest) {
+		gf.Offset = offset
+	}
+}

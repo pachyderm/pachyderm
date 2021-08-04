@@ -102,7 +102,7 @@ type File interface {
 	// Index returns the index for the file.
 	Index() *index.Index
 	// Content writes the content of the file.
-	Content(ctx context.Context, w io.Writer) error
+	Content(ctx context.Context, w io.Writer, opts ...chunk.ReaderOption) error
 	// Hash returns the hash of the file.
 	Hash(ctx context.Context) ([]byte, error)
 }
