@@ -98,6 +98,7 @@ func postgresDatabase() string {
 // NewTestDBConfig creates an ephemeral database scoped to the life of the test, without connecting to it.
 // It returns a serviceenv.ConfigOption which can be used to configure the environment to connect directly, and indirectly to the database.
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
+	t.Log(fmt.Sprintf("PG user: %s, PG pass: %s", postgresUser(), postgresPassword()))
 	db := openEphemeralDB(t,
 		dbutil.WithDBName(postgresDatabase()),
 		dbutil.WithMaxOpenConns(1),
