@@ -9,7 +9,7 @@ const (
 	// EnterpriseProduct is the name of enterprise Pachyderm.
 	EnterpriseProduct = "Pachyderm Enterprise"
 	// ActivateCTA is a CTA to users to enter their enterprise keys.
-	ActivateCTA = "Use the command `pachctl enterprise activate` to enter your key."
+	ActivateCTA = "Use the command `pachctl license activate` to enter your key."
 	// RegisterCTA is a CTA to users to register for an enterprise key.
 	RegisterCTA = `Pachyderm offers readily available activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. Tell us about your project to get one.
 
