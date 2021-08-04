@@ -18,7 +18,7 @@ global:
     postgresqlPassword: "elephantastic"
     postgresqlDatabase: "pachyderm"
     # The postgresql database host to connect to. Defaults to built in postgres service
-    postgresqlHost: "pachyderm-postgresql"
+    postgresqlHost: "postgres"
     # The postgresql database port to connect to. Defaults to built in postgres service
     postgresqlPort: "5432"
     postgresqlSSL: "disable"
@@ -407,9 +407,20 @@ cloudsqlAuthProxy:
     type: ClusterIP
 
 postgresql:
+  enabled: true
   image:
     tag: "13.3.0"
   initdbScripts:
-    dex.sql: |
-      CREATE DATABASE dex;
-      GRANT ALL PRIVILEGES ON DATABASE dex TO "pachyderm";
+    dex.sh: |
+      #!/bin/bash
+      set -e
+      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+        CREATE DATABASE dex;
+        GRANT ALL PRIVILEGES ON DATABASE dex TO "$POSTGRES_USER";
+      EOSQL
+  fullnameOverride: postgres
+  persistence:
+    labels:
+      suite: pachyderm
+  #persistence:
+  #  storageClass: postgresql-storage-class
