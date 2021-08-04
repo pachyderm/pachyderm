@@ -330,7 +330,7 @@ describe('grpc/builders/pfs', () => {
       },
       description: 'neato',
       force: true,
-      error: true,
+      error: 'error',
     });
 
     expect(finishCommitRequest.getCommit()?.getBranch()?.getName()).toBe(
@@ -344,7 +344,7 @@ describe('grpc/builders/pfs', () => {
     );
     expect(finishCommitRequest.getDescription()).toBe('neato');
     expect(finishCommitRequest.getForce()).toBe(true);
-    expect(finishCommitRequest.getError()).toBe(true);
+    expect(finishCommitRequest.getError()).toBe('error');
   });
 
   it('should create a inspectCommitRequest from an object with wait and commit', () => {
