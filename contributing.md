@@ -41,11 +41,11 @@ Update `version.json` to reference the version of Pachyderm you want to pull. Th
 
 #### Deploy pachyderm locally
 1. [Install helm](https://helm.sh/docs/intro/install/).
-1. Grab the latest pachyderm helm chart: `helm repo add pachyderm https://pachyderm.github.io/helmchart`
-1. If you haven't already, start up minikube
-2. Install pachyderm locally: `helm install pachyderm --set deployTarget=LOCAL --version {DESIRED_VERSION} pachyderm/pachyderm`
-3. Delete your existing pre-2.0 pachctl config file: `rm ~/.pachyderm/config.json`
-4. Run `pachctl port-forward`
+2. Grab the latest pachyderm helm chart: `helm repo add pachyderm https://pachyderm.github.io/helmchart`
+3. If you haven't already, start up minikube
+4. Install pachyderm locally: `helm install pachyderm --set deployTarget=LOCAL --version {DESIRED_VERSION} pachyderm/pachyderm`
+5. Delete your existing pre-2.0 pachctl config file: `rm ~/.pachyderm/config.json`
+6. Run `pachctl port-forward`
 
 After deploying pachyderm locally you can run all tests with the following command
 ```bash
