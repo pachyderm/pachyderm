@@ -1222,7 +1222,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				defer f.Close()
 				w = f
 			}
-			return c.GetFile(file.Commit, file.Path, w, client.WithOffsetBytes(offsetBytes))
+			return c.GetFile(file.Commit, file.Path, w, client.WithOffset(offsetBytes))
 		}),
 	}
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")

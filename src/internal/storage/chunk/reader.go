@@ -7,7 +7,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
-	"github.com/sirupsen/logrus"
 )
 
 // Reader reads data from chunk storage.
@@ -93,8 +92,10 @@ func (dr *DataReader) DataRef() *DataRef {
 
 // Get writes the data referenced by the data reference.
 func (dr *DataReader) Get(w io.Writer) error {
-	logrus.Errorf("Offset:::: %v", dr.offset)
 	return Get(dr.ctx, dr.client, dr.memCache, dr.dataRef.Ref, func(chunk []byte) error {
+		if dr.offset > dr.dataRef.SizeBytes {
+			return errors.Errorf("DataReader.offset cannot be greater than the dataRef size. offset size: %v, dataRef size: %v.", dr.offset, dr.dataRef.SizeBytes)
+		}
 		data := chunk[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
 		_, err := w.Write(data)
 		return err

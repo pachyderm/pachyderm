@@ -2407,7 +2407,7 @@ func TestPFS(suite *testing.T) {
 
 			for i := 0; i <= len(data); i++ {
 				var b bytes.Buffer
-				require.NoError(t, env.PachClient.GetFile(commit, "file", &b, client.WithOffsetBytes(int64(i))))
+				require.NoError(t, env.PachClient.GetFile(commit, "file", &b, client.WithOffset(int64(i))))
 				if i < len(data) {
 					require.Equal(t, data[i:], b.String())
 				} else {
