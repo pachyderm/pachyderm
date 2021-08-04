@@ -1208,7 +1208,10 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				defer f.Close()
 				w = f
 			}
-			return c.GetFile(file.Commit, file.Path, w)
+			if err := c.GetFile(file.Commit, file.Path, w); err != nil {
+				return errors.Errorf("File %s not found. Command only supports file paths", file.Path)
+			}
+			return nil
 		}),
 	}
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
