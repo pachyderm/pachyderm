@@ -28,3 +28,5 @@ const demo = async () => {
 
 demo();
 ```
+## Contributing
+This driver is co-maintained by Pachyderm and the community. If you're looking to contribute to the project, this is a fantastic place to get involved. Take a look at [the contributing guide](./contributing.md) for more info (including testing instructions).
