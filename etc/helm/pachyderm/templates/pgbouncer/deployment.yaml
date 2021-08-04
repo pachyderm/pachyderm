@@ -34,7 +34,7 @@ spec:
         - name: DB_HOST
           value: {{ .Values.global.postgresql.postgresqlHost }}
         - name: AUTH_TYPE
-          value: trust
+          value: md5
         - name: MAX_CLIENT_CONN
           value: "1000"
         - name: POOL_MODE
