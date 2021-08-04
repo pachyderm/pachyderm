@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"golang.org/x/sync/semaphore"
 )
@@ -280,16 +279,14 @@ func (s *Storage) Size(ctx context.Context, id ID) (int64, error) {
 }
 
 // WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.
-func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *renew.StringSet) error) error {
-	rf := func(ctx context.Context, idHexStr string, ttl time.Duration) error {
-		id, err := ParseID(idHexStr)
-		if err != nil {
-			return err
+func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *Renewer) error) (retErr error) {
+	r := newRenewer(ctx, s.tracker, ttl)
+	defer func() {
+		if err := r.Close(); retErr == nil {
+			retErr = err
 		}
-		_, err = s.SetTTL(ctx, *id, ttl)
-		return err
-	}
-	return renew.WithStringSet(ctx, ttl, rf, cb)
+	}()
+	return cb(r.Context(), r)
 }
 
 // GC creates a track.GarbageCollector with a Deleter that can handle deleting filesets and chunks

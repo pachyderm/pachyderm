@@ -7,7 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
+	"golang.org/x/sync/semaphore"
 )
 
 // StorageOption configures a storage.
@@ -49,7 +49,7 @@ type UnorderedWriterOption func(*UnorderedWriter)
 
 // WithRenewal configures the UnorderedWriter to renew subfileset paths
 // with the provided renewer.
-func WithRenewal(ttl time.Duration, r *renew.StringSet) UnorderedWriterOption {
+func WithRenewal(ttl time.Duration, r *Renewer) UnorderedWriterOption {
 	return func(uw *UnorderedWriter) {
 		uw.ttl = ttl
 		uw.renewer = r
