@@ -10,11 +10,9 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
-	"github.com/dlmiddlecote/sqlstats"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jmoiron/sqlx"
-	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -305,12 +303,12 @@ func (env *NonblockingServiceEnv) initDirectDBClient() error {
 			return err
 		}
 		env.directDBClient = db
-		if err := prometheus.Register(sqlstats.NewStatsCollector("pg_bouncer", db.DB)); err != nil {
+		/*if err := prometheus.Register(sqlstats.NewStatsCollector("pg_bouncer", db.DB)); err != nil {
 			// This is not a retryable error.  Rather it will always happen for the
 			// second (and subsequent) service environment because of a naming conflict.
 			// If you see this message in production, it's a bug.  In tests, it's OK.
 			log.WithError(err).Warn("problem registering database statistics collector")
-		}
+		}*/
 		return db.Ping()
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
@@ -330,12 +328,12 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 			return err
 		}
 		env.dbClient = db
-		if err := prometheus.Register(sqlstats.NewStatsCollector("postgres", db.DB)); err != nil {
+		/*if err := prometheus.Register(sqlstats.NewStatsCollector("postgres", db.DB)); err != nil {
 			// This is not a retryable error.  Rather it will always happen for the
 			// second (and subsequent) service environment because of a naming conflict.
 			// If you see this message in production, it's a bug.  In tests, it's OK.
 			log.WithError(err).Warn("problem registering database statistics collector")
-		}
+		}*/
 		return db.Ping()
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
