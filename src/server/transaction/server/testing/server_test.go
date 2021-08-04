@@ -27,7 +27,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Parallel()
 
 	suite.Run("TestEmptyTransaction", func(t *testing.T) {
-		t.Parallel()
+		//t.Parallel()
 		env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
