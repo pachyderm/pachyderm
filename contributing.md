@@ -54,7 +54,7 @@ npm run test
 
 As of now we are testing the builders and service functions. 
 ### Builder 
-Tests should be in the `__tests__` directory inside the `builders` folder. For each builder function, the default parameters along with parameters that override the default values should be tested. 
+These tests do not require you to deploy pachyderm locally to run against. Tests should be in the `__tests__` directory inside the `builders` folder. For each builder function, the default parameters along with parameters that override the default values should be tested.
 ### Service
 Tests should be in the `__tests__` directory inside the `services` folder. These tests should use the `pachClient` to hit pachyderm and test that the expected behavior of each service call is satisfied.
 
@@ -62,13 +62,6 @@ Tests should be in the `__tests__` directory inside the `services` folder. These
 
 1. Code your change on a feature branch
 2. Add the appropriate tests and make sure existing tests pass
-3. Bump version in `package.json`
-4. Run `npm install` to update the version in the package-lock
-5. Create a PR
+3. Create a PR
 
-Once your PR is approved, merge your changes and publish the library to npm.
-
-### Publishing to npm
-
-1. Login to npm: `npm login`
-2. Publish to npm: `npm publish`
+Once your PR is approved, it will be merged into the library.
