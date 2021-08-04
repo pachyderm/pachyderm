@@ -23,7 +23,7 @@ Code layout, as of 8/2021:
 
 ### Style and Linting 
 
-This project uses prettier and eslint to ensure coding consistency. To run the linter locally, run
+This project uses prettier and eslint to ensure coding consistency. To run the linter locally run
 ```bash
 npm run lint
 ```
