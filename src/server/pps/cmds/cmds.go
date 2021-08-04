@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -67,7 +68,6 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAlias(jobDocs, "job", " job$"))
 
-	var wait bool
 	inspectJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Return info about a job.",
@@ -103,45 +103,32 @@ If the job fails, the output commit will not be populated with data.`,
 	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectJob, "inspect job"))
 
+	writeJobInfos := func(out io.Writer, jobInfos []*pps.JobInfo) error {
+		if raw {
+			e := cmdutil.Encoder(output, out)
+			for _, jobInfo := range jobInfos {
+				if err := e.EncodeProto(jobInfo); err != nil {
+					return err
+				}
+			}
+			return nil
+		} else if output != "" {
+			return errors.New("cannot set --output (-o) without --raw")
+		}
+
+		return pager.Page(noPager, out, func(w io.Writer) error {
+			writer := tabwriter.NewWriter(w, pretty.JobHeader)
+			for _, jobInfo := range jobInfos {
+				pretty.PrintJobInfo(writer, jobInfo, fullTimestamps)
+			}
+			return writer.Flush()
+		})
+	}
+
 	waitJob := &cobra.Command{
-		Use:   "{{alias}} <pipeline>@<job>",
+		Use:   "{{alias}} <job>|<pipeline>@<job>",
 		Short: "Wait for a job to finish then return info about the job.",
 		Long:  "Wait for a job to finish then return info about the job.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			job, err := cmdutil.ParseJob(args[0])
-			if err != nil {
-				return err
-			}
-			client, err := pachdclient.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			jobInfo, err := client.WaitJob(job.Pipeline.Name, job.ID, true)
-			if err != nil {
-				errors.Wrap(err, "error from InspectJob")
-			}
-			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(jobInfo)
-			} else if output != "" {
-				return errors.New("cannot set --output (-o) without --raw")
-			}
-			pji := &pretty.PrintableJobInfo{
-				JobInfo:        jobInfo,
-				FullTimestamps: fullTimestamps,
-			}
-			return pretty.PrintDetailedJobInfo(os.Stdout, pji)
-		}),
-	}
-	waitJob.Flags().AddFlagSet(outputFlags)
-	waitJob.Flags().AddFlagSet(timestampFlags)
-	shell.RegisterCompletionFunc(waitJob, shell.JobCompletion)
-	commands = append(commands, cmdutil.CreateAlias(waitJob, "wait job"))
-
-	inspectJobSet := &cobra.Command{
-		Use:   "{{alias}} <job-id>",
-		Short: "Return info about all the jobs in a jobset.",
-		Long:  "Return info about all the jobs in a jobset.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
@@ -150,115 +137,67 @@ If the job fails, the output commit will not be populated with data.`,
 			defer client.Close()
 
 			var jobInfos []*pps.JobInfo
-			if wait {
-				jobInfos, err = client.WaitJobSetAll(args[0], false)
-			} else {
-				jobInfos, err = client.InspectJobSet(args[0], false)
-			}
-			if err != nil {
-				return errors.Wrap(err, "error from InspectJobSet")
-			}
-
-			if raw {
-				e := cmdutil.Encoder(output, os.Stdout)
-				for _, jobInfo := range jobInfos {
-					if err := e.EncodeProto(jobInfo); err != nil {
-						return err
-					}
-				}
-				return nil
-			} else if output != "" {
-				return errors.New("cannot set --output (-o) without --raw")
-			}
-
-			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
-				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				for _, jobInfo := range jobInfos {
-					pretty.PrintJobInfo(writer, jobInfo, fullTimestamps)
-				}
-				return writer.Flush()
-			})
-		}),
-	}
-	inspectJobSet.Flags().BoolVarP(&wait, "wait", "w", false, "wait until each job has either succeeded or failed")
-	inspectJobSet.Flags().AddFlagSet(outputFlags)
-	inspectJobSet.Flags().AddFlagSet(timestampFlags)
-	inspectJobSet.Flags().AddFlagSet(pagerFlags)
-	shell.RegisterCompletionFunc(inspectJobSet, shell.JobCompletion)
-	commands = append(commands, cmdutil.CreateAlias(inspectJobSet, "inspect jobset"))
-
-	listJobSet := &cobra.Command{
-		Short: "Return info about jobsets.",
-		Long:  "Return info about jobsets.",
-		Example: `
-# Return all jobsets
-$ {{alias}}`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-
-			listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{})
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-
-			if raw {
-				e := cmdutil.Encoder(output, os.Stdout)
-				return clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
-					return e.EncodeProto(jobSetInfo)
-				})
-			} else if output != "" {
-				return errors.New("cannot set --output (-o) without --raw")
-			}
-
-			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
-				writer := tabwriter.NewWriter(w, pretty.JobSetHeader)
-				if err := clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
-					pretty.PrintJobSetInfo(writer, jobSetInfo, fullTimestamps)
-					return nil
-				}); err != nil {
+			if uuid.IsUUIDWithoutDashes(args[0]) {
+				jobInfos, err = client.WaitJobSetAll(args[0], true)
+				if err != nil {
 					return err
 				}
-				return writer.Flush()
-			})
+			} else {
+				job, err := cmdutil.ParseJob(args[0])
+				if err != nil {
+					return err
+				}
+				jobInfo, err := client.WaitJob(job.Pipeline.Name, job.ID, true)
+				if err != nil {
+					errors.Wrap(err, "error from InspectJob")
+				}
+				jobInfos = []*pps.JobInfo{jobInfo}
+			}
+
+			return writeJobInfos(os.Stdout, jobInfos)
 		}),
 	}
-	listJobSet.Flags().AddFlagSet(outputFlags)
-	listJobSet.Flags().AddFlagSet(timestampFlags)
-	listJobSet.Flags().AddFlagSet(pagerFlags)
-	commands = append(commands, cmdutil.CreateAlias(listJobSet, "list jobset"))
+	waitJob.Flags().AddFlagSet(outputFlags)
+	waitJob.Flags().AddFlagSet(timestampFlags)
+	shell.RegisterCompletionFunc(waitJob, shell.JobCompletion)
+	commands = append(commands, cmdutil.CreateAlias(waitJob, "wait job"))
 
 	var pipelineName string
 	var inputCommitStrs []string
 	var history string
 	var stateStrs []string
+	var expand bool
 	listJob := &cobra.Command{
+		Use:   "{{alias}} [<job-id>]",
 		Short: "Return info about jobs.",
 		Long:  "Return info about jobs.",
 		Example: `
-# Return all jobs
+# Return a summary list of all jobs
 $ {{alias}}
 
-# Return all jobs from the most recent version of pipeline "foo"
+# Return all sub-jobs in a job
+$ {{alias}} <job-id>
+
+# Return all sub-jobs split across all pipelines
+$ {{alias}} --expand
+
+# Return only the sub-jobs from the most recent version of pipeline "foo"
 $ {{alias}} -p foo
 
-# Return all jobs from all versions of pipeline "foo"
+# Return all sub-jobs from all versions of pipeline "foo"
 $ {{alias}} -p foo --history all
 
-# Return all jobs whose input commits include foo@XXX and bar@YYY
+# Return all sub-jobs whose input commits include foo@XXX and bar@YYY
 $ {{alias}} -i foo@XXX -i bar@YYY
 
-# Return all jobs in pipeline foo and whose input commits include bar@YYY
+# Return all sub-jobs in pipeline foo and whose input commits include bar@YYY
 $ {{alias}} -p foo -i bar@YYY`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			commits, err := cmdutil.ParseCommits(inputCommitStrs)
 			if err != nil {
 				return err
 			}
-			history, err := cmdutil.ParseHistory(history)
+			historyCount, err := cmdutil.ParseHistory(history)
 			if err != nil {
 				return errors.Wrapf(err, "error parsing history flag")
 			}
@@ -276,36 +215,95 @@ $ {{alias}} -p foo -i bar@YYY`,
 			}
 			defer client.Close()
 
-			if raw {
-				e := cmdutil.Encoder(output, os.Stdout)
-				return client.ListJobFilterF(pipelineName, commits, history, true, filter, func(ji *ppsclient.JobInfo) error {
-					return e.EncodeProto(ji)
-				})
-			} else if output != "" {
+			if !raw && output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
-				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				if err := client.ListJobFilterF(pipelineName, commits, history, false, filter, func(ji *ppsclient.JobInfo) error {
-					pretty.PrintJobInfo(writer, ji, fullTimestamps)
-					return nil
-				}); err != nil {
-					return err
+			if len(args) == 0 {
+				if pipelineName == "" && !expand {
+					// We are listing jobs
+					if len(stateStrs) != 0 {
+						return errors.Errorf("cannot specify '--state' when listing all jobs")
+					} else if len(inputCommitStrs) != 0 {
+						return errors.Errorf("cannot specify '--input' when listing all jobs")
+					} else if history != "none" {
+						return errors.Errorf("cannot specify '--history' when listing all jobs")
+					}
+
+					listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{})
+					if err != nil {
+						return grpcutil.ScrubGRPC(err)
+					}
+
+					if raw {
+						e := cmdutil.Encoder(output, os.Stdout)
+						return clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
+							return e.EncodeProto(jobSetInfo)
+						})
+					}
+
+					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+						writer := tabwriter.NewWriter(w, pretty.JobSetHeader)
+						if err := clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
+							pretty.PrintJobSetInfo(writer, jobSetInfo, fullTimestamps)
+							return nil
+						}); err != nil {
+							return err
+						}
+						return writer.Flush()
+					})
+				} else {
+					// We are listing all sub-jobs, possibly restricted to a single pipeline
+					if raw {
+						e := cmdutil.Encoder(output, os.Stdout)
+						return client.ListJobFilterF(pipelineName, commits, historyCount, true, filter, func(ji *ppsclient.JobInfo) error {
+							return e.EncodeProto(ji)
+						})
+					}
+
+					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+						writer := tabwriter.NewWriter(w, pretty.JobHeader)
+						if err := client.ListJobFilterF(pipelineName, commits, historyCount, false, filter, func(ji *ppsclient.JobInfo) error {
+							pretty.PrintJobInfo(writer, ji, fullTimestamps)
+							return nil
+						}); err != nil {
+							return err
+						}
+						return writer.Flush()
+					})
 				}
-				return writer.Flush()
-			})
+			} else {
+				// We are listing sub-jobs of a specific job
+				if len(stateStrs) != 0 {
+					return errors.Errorf("cannot specify '--state' when listing sub-jobs")
+				} else if len(inputCommitStrs) != 0 {
+					return errors.Errorf("cannot specify '--input' when listing sub-jobs")
+				} else if history != "none" {
+					return errors.Errorf("cannot specify '--history' when listing sub-jobs")
+				} else if pipelineName != "" {
+					return errors.Errorf("cannot specify '--pipeline' when listing sub-jobs")
+				}
+
+				var jobInfos []*pps.JobInfo
+				jobInfos, err = client.InspectJobSet(args[0], false)
+				if err != nil {
+					return errors.Wrap(err, "error from InspectJobSet")
+				}
+
+				return writeJobInfos(os.Stdout, jobInfos)
+			}
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
+	listJob.Flags().BoolVarP(&expand, "expand", "x", false, "Show one line for each sub-job and include more columns")
 	listJob.Flags().AddFlagSet(outputFlags)
 	listJob.Flags().AddFlagSet(timestampFlags)
 	listJob.Flags().AddFlagSet(pagerFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
-	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only jobs with the specified state. Can be repeated to include multiple states")
+	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only sub-jobs with the specified state. Can be repeated to include multiple states")
 	shell.RegisterCompletionFunc(listJob,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-p" || flag == "--pipeline" {
@@ -344,17 +342,36 @@ $ {{alias}} -p foo -i bar@YYY`,
 		Short: "Stop a job.",
 		Long:  "Stop a job.  The job will be stopped immediately.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			job, err := cmdutil.ParseJob(args[0])
-			if err != nil {
-				return err
-			}
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			if err := client.StopJob(job.Pipeline.Name, job.ID); err != nil {
-				return errors.Wrap(err, "error from StopJob")
+
+			if uuid.IsUUIDWithoutDashes(args[0]) {
+				// Stop each subjob in a transaction
+				jobInfos, err := client.InspectJobSet(args[0], false)
+				if err != nil {
+					return err
+				}
+				if _, err := client.RunBatchInTransaction(func(tb *pachdclient.TransactionBuilder) error {
+					for _, jobInfo := range jobInfos {
+						if err := tb.StopJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID); err != nil {
+							return err
+						}
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
+			} else {
+				job, err := cmdutil.ParseJob(args[0])
+				if err != nil {
+					return err
+				}
+				if err := client.StopJob(job.Pipeline.Name, job.ID); err != nil {
+					return errors.Wrap(err, "error from StopJob")
+				}
 			}
 			return nil
 		}),
@@ -1116,6 +1133,31 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(listSecret, "list secret"))
+
+	runLoadTest := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Run a PPS load test.",
+		Long:  "Run a PPS load test.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := c.Close(); retErr == nil {
+					retErr = err
+				}
+			}()
+			resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+			if err != nil {
+				return err
+			}
+			fmt.Println(resp.Spec)
+			resp.Spec = ""
+			return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
 	return commands
 }

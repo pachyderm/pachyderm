@@ -29,6 +29,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
@@ -119,8 +120,6 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 func GetPipelineDetails(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
 	// ensure we are authorized to read the pipeline's spec commit, but don't propagate that back out
 	pachClient = pachClient.WithCtx(pachClient.Ctx())
-	pachClient.SetAuthToken(pipelineInfo.AuthToken)
-
 	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(pipelineInfo.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
 		return errors.Wrapf(err, "could not retrieve pipeline spec file from PFS for pipeline '%s'", pipelineInfo.Pipeline.Name)
@@ -203,7 +202,7 @@ func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.Pipel
 // exclusively?) called by the PPS master
 func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	logSetPipelineState(pipeline, from, to, reason)
-	err := col.NewSQLTx(ctx, db, func(sqlTx *sqlx.Tx) error {
+	err := dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
 		pipelineInfo := &pps.PipelineInfo{}
 		if err := pipelines.Get(pipeline, pipelineInfo); err != nil {
@@ -308,7 +307,7 @@ func IsTerminal(state pps.JobState) bool {
 	switch state {
 	case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE, pps.JobState_JOB_KILLED:
 		return true
-	case pps.JobState_JOB_CREATED, pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_EGRESSING:
+	case pps.JobState_JOB_CREATED, pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_EGRESSING, pps.JobState_JOB_FINISHING:
 		return false
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
@@ -371,21 +370,19 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
 	jobInfo.State = state
 	jobInfo.Reason = reason
-	var commitError bool
-	if state == pps.JobState_JOB_FAILURE || state == pps.JobState_JOB_KILLED {
-		commitError = true
-	}
+	// TODO: Leaning on the reason rather than state for commit errors seems a bit sketchy, but we don't
+	// store commit states.
 	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,
-			Error:  commitError,
+			Error:  reason,
 			Force:  true,
 		}); err != nil {
 			return err
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: MetaCommit(jobInfo.OutputCommit),
-			Error:  commitError,
+			Error:  reason,
 			Force:  true,
 		}); err != nil {
 			return err

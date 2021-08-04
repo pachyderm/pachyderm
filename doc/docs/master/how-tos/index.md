@@ -20,8 +20,8 @@ data operations in Pachyderm.
           <li><a href="developer-workflow/working-with-pipelines" class="md-typeset md-link">
           Working with Data and Pipelines</a>
           </li>
-          <li><a href="developer-workflow/build-flag" class="md-typeset md-link">
-          Build Flag</a>
+          <li><a href="developer-workflow/push-images-flag" class="md-typeset md-link">
+          Tag and Push your Image Flag</a>
           </li>
           <li><a href="developer-workflow/ci-cd-integration" class="md-typeset md-link">
           CI/CD Integration
@@ -84,10 +84,6 @@ data operations in Pachyderm.
            </li>
            <li><a href="pipeline-operations/updating_pipelines/" class="md-typeset md-link">
            Update a Pipeline
-           </a>
-           </li>
-           <li><a href="pipeline-operations/run_pipeline/" class="md-typeset md-link">
-           Run a Pipeline on a Specific Commit
            </a>
            </li>
            <li><a href="pipeline-operations/delete-pipeline/" class="md-typeset md-link">

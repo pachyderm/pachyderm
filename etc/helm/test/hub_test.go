@@ -4,7 +4,6 @@
 package helmtest
 
 import (
-	"log"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
@@ -17,16 +16,20 @@ func TestHub(t *testing.T) {
 	var (
 		objects []interface{}
 		checks  = map[string]bool{
-			"ingress":                false,
-			"metricsEndpoint":        false,
-			"dash limits":            false,
-			"etcd limits":            false,
-			"loki logging":           false,
-			"postgres host":          false,
-			"pachd service type":     false,
-			"etcd prometheus port":   false,
-			"etcd prometheus scrape": false,
-			"etcd storage class":     false,
+			"ingress":                             false,
+			"metricsEndpoint":                     false,
+			"console limits":                      false,
+			"etcd limits":                         false,
+			"loki logging":                        false,
+			"postgres host":                       false,
+			"pachd service type":                  false,
+			"etcd prometheus port":                false,
+			"etcd prometheus scrape":              false,
+			"etcd storage class":                  false,
+			"secrets":                             false,
+			"cloudsql auth proxy service":         false,
+			"cloudsql auth proxy service account": false,
+			"cloudsql auth proxy depoyment":       false,
 		}
 		err error
 	)
@@ -41,14 +44,28 @@ func TestHub(t *testing.T) {
 	for _, object := range objects {
 		switch object := object.(type) {
 		case *v1beta1.Ingress:
-			log.Println("ingress", object.String())
 			for _, rule := range object.Spec.Rules {
-				if rule.Host == "dash.test" {
+				if rule.Host == "console.test" {
 					checks["ingress"] = true
 				}
 			}
+		case *v1.ServiceAccount:
+			switch object.Name {
+			case "k8s-cloudsql-auth-proxy":
+				for k, v := range object.Annotations {
+					switch k {
+					case "iam.gke.io/gcp-service-account":
+						if v != "ServiceAccount" {
+							t.Errorf("Cloudsql Auth Proxy service account not properly configured")
+						}
+					}
+				}
+				checks["cloudsql auth proxy service account"] = true
+			}
 		case *appsV1.Deployment:
 			switch object.Name {
+			case "cloudsql-auth-proxy":
+				checks["cloudsql auth proxy depoyment"] = true
 			case "pachd":
 				for _, cc := range object.Spec.Template.Spec.Containers {
 					if cc.Name != "pachd" {
@@ -68,31 +85,59 @@ func TestHub(t *testing.T) {
 							}
 							checks["loki logging"] = true
 						case "POSTGRES_HOST":
-							if v.Value != "169.254.169.254" {
+							if v.Value != "cloudsql-auth-proxy.default.svc.cluster.local." {
 								t.Error("Postgres Host should be set")
 							}
 							checks["postgres host"] = true
 						}
 					}
 				}
-			case "dash":
+			case "console":
 				for _, cc := range object.Spec.Template.Spec.Containers {
-					if cc.Name != "dash" {
+					if cc.Name != "console" {
 						continue
 					}
 					if len(cc.Resources.Limits) > 0 {
-						t.Errorf("dash should have no resource limits")
+						t.Errorf("console should have no resource limits")
 					}
-					checks["dash limits"] = true
+					checks["console limits"] = true
 				}
 			}
 		case *v1.Secret:
-			if object.Name != "dash-tls" {
+			switch object.Name {
+			case "dash-tls":
+				t.Errorf("there should be no dash-tls secret")
+			case "pachyderm-storage-secret":
+				for k, v := range object.Data {
+					switch k {
+					case "POSTGRES_PASSWORD":
+						if string(v) != "Example-Password" {
+							t.Errorf("Postgres Password value is wrong: %s", v)
+						}
+					case "IDENTITY_SERVER_PASSWORD":
+						if string(v) != "Example-Password" {
+							t.Errorf("Identity Server Password value is wrong: %s", v)
+						}
+					case "GOOGLE_BUCKET":
+						if string(v) != "test-bucket" {
+							t.Errorf("Google Bucket value is wrong: %s", v)
+						}
+					}
+				}
+				if _, ok := object.Data["MICROSOFT_CONTAINER"]; ok {
+					t.Errorf("Microsoft Container should not be set")
+				}
+				if _, ok := object.Data["GOOGLE_BUCKET"]; !ok {
+					t.Errorf("Google Bucket should be set")
+				}
+			default:
 				continue
 			}
-			t.Errorf("there should be no dash-tls secret")
+			checks["secrets"] = true
 		case *v1.Service:
 			switch object.Name {
+			case "cloudsql-auth-proxy":
+				checks["cloudsql auth proxy service"] = true
 			case "pachd":
 				if object.Spec.Type != "ClusterIP" {
 					t.Errorf("pachd service type should be \"ClusterIP\", not %q", object.Spec.Type)
@@ -121,10 +166,6 @@ func TestHub(t *testing.T) {
 				}{
 					"api-grpc-port": {
 						port:  31400,
-						found: false,
-					},
-					"api-http-port": {
-						port:  30652,
 						found: false,
 					},
 					"s3gateway-port": {

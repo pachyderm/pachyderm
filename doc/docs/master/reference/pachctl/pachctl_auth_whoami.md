@@ -13,7 +13,8 @@ pachctl auth whoami [flags]
 ### Options
 
 ```
-  -h, --help   help for whoami
+      --enterprise   
+  -h, --help         help for whoami
 ```
 
 ### Options inherited from parent commands

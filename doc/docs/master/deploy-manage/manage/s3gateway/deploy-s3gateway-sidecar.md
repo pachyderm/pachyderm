@@ -97,10 +97,6 @@ could be an important performance consideration for some processing steps.
 * You can create a cross of an S3-enabled input with a non-S3 input.
 For a non-S3 input in such a cross, you can still specify a glob pattern.
 
-* Statistics collection for S3-enabled pipelines is not supported. If you
-set `"s3_out": true`, you need to disable the `enable_stats`
-parameter in your pipeline. 
-
 * As in standard Pachyderm pipelines in which input repo are read-only
 and output repo writable, 
 input bucket(s) are read-only, and the output bucket is initially empty and writable. 

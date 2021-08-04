@@ -9,6 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -79,7 +80,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 		Started:  now(),
 	}
 
-	if err := col.NewSQLTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
 		return d.transactions.ReadWrite(sqlTx).Put(
 			info.Transaction.ID,
 			info,
@@ -168,6 +169,8 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 			err = directTxn.DeleteBranch(request.DeleteBranch)
 		} else if request.UpdateJobState != nil {
 			err = directTxn.UpdateJobState(request.UpdateJobState)
+		} else if request.StopJob != nil {
+			err = directTxn.StopJob(request.StopJob)
 		} else if request.DeleteAll != nil {
 			// TODO: extend this to delete everything through PFS, PPS, Auth and
 			// update the client DeleteAll call to use only this, then remove unused
@@ -286,7 +289,7 @@ func (d *driver) updateTransaction(
 		if err == nil {
 			// only persist the transaction if we succeeded, otherwise just update localInfo
 			var storedInfo transaction.TransactionInfo
-			if err = col.NewSQLTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
+			if err = dbutil.WithTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
 				// Update the existing transaction with the new requests/responses
 				return d.transactions.ReadWrite(sqlTx).Update(txn.ID, &storedInfo, func() error {
 					if storedInfo.Version != localInfo.Version {

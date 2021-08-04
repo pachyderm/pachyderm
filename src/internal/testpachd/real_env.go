@@ -10,11 +10,14 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authtesting "github.com/pachyderm/pachyderm/v2/src/server/auth/testing"
@@ -113,6 +116,14 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
 	linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
 	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
+
+	realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
+		Use(func(txnctx *txncontext.TransactionContext, name string, details bool) (*pps.PipelineInfo, error) {
+			return nil, col.ErrNotFound{
+				Type: "pipelines",
+				Key:  name,
+			}
+		})
 
 	return realEnv
 }

@@ -166,6 +166,8 @@ func checkCollection(t *testing.T, ro col.ReadOnlyCollection, expected map[strin
 	}
 }
 
+type TestConstructor = func(context.Context, *testing.T) (ReadCallback, WriteCallback)
+
 func collectionTests(
 	parent *testing.T,
 	newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback),

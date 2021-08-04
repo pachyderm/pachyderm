@@ -98,6 +98,15 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
 	}); err != nil {
 		return err
 	}
+	return client.WaitCommitSet(commit.ID, func(ci *pfs.CommitInfo) error {
+		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType {
+			return nil
+		}
+		return validate(client, ci.Commit, files)
+	})
+}
+
+func validate(client Client, commit *pfs.Commit, files []*file) (retErr error) {
 	defer func() {
 		if retErr == nil {
 			if len(files) != 0 {
@@ -105,7 +114,7 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
 			}
 		}
 	}()
-	r, err := client.GetFileTar(client.Ctx(), commit, "**")
+	r, err := client.GetFileTAR(client.Ctx(), commit, "**")
 	if err != nil {
 		return err
 	}
@@ -151,7 +160,7 @@ func (vc *validatorClient) WithModifyFileClient(ctx context.Context, commit *pfs
 			return err
 		}
 		for _, p := range vmfc.deletes {
-			vc.validator.buffer.Delete(p, fileset.DefaultFileTag)
+			vc.validator.buffer.Delete(p, fileset.DefaultFileDatum)
 		}
 		return vmfc.buffer.WalkAdditive(func(p, tag string, r io.Reader) error {
 			w := vc.validator.buffer.Add(p, tag)
@@ -172,8 +181,8 @@ func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ..
 	if err := vmfc.ModifyFile.PutFile(path, io.TeeReader(r, h), opts...); err != nil {
 		return err
 	}
-	vmfc.buffer.Delete(path, fileset.DefaultFileTag)
-	w := vmfc.buffer.Add(path, fileset.DefaultFileTag)
+	vmfc.buffer.Delete(path, fileset.DefaultFileDatum)
+	w := vmfc.buffer.Add(path, fileset.DefaultFileDatum)
 	_, err := io.Copy(w, bytes.NewReader(h.Sum(nil)))
 	return err
 }
@@ -183,6 +192,6 @@ func (vmfc *validatorModifyFileClient) DeleteFile(path string, opts ...client.De
 		return err
 	}
 	vmfc.deletes = append(vmfc.deletes, path)
-	vmfc.buffer.Delete(path, fileset.DefaultFileTag)
+	vmfc.buffer.Delete(path, fileset.DefaultFileDatum)
 	return nil
 }

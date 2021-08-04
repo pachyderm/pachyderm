@@ -83,5 +83,6 @@ As soon as the enterprise
 activation code is updated (As a 'clusterAdmin', run `pachctl license activate` and submit your new code), the
 Pachyderm cluster returns to its previous state.
 
+## Auth Token Duration
 
-
+Pachd auth tokens duration is set to a 30 days default in pachd environment variable  `SESSION_DURATION_MINUTES`.

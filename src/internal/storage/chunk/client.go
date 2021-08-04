@@ -99,7 +99,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	if err := c.store.Put(ctx, key, chunkData); err != nil {
 		return nil, err
 	}
-	_, err := c.db.Exec(`
+	_, err := c.db.ExecContext(ctx, `
 	UPDATE storage.chunk_objects
 	SET uploaded = TRUE
 	WHERE chunk_id = $1 AND gen = $2

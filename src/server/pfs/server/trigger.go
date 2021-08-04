@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -22,11 +21,11 @@ func (d *driver) triggerCommit(
 	commit *pfs.Commit,
 ) error {
 	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(commit.Branch.Repo), repoInfo); err != nil {
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(commit.Branch.Repo, repoInfo); err != nil {
 		return err
 	}
 	commitInfo := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(commit, commitInfo); err != nil {
 		return err
 	}
 
@@ -41,7 +40,7 @@ func (d *driver) triggerCommit(
 		}
 
 		bi := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(branch), bi); err != nil {
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, bi); err != nil {
 			return nil, err
 		}
 
@@ -54,7 +53,7 @@ func (d *driver) triggerCommit(
 
 			if newHead != nil {
 				oldHead := &pfs.CommitInfo{}
-				if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(bi.Head), oldHead); err != nil {
+				if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(bi.Head, oldHead); err != nil {
 					return nil, err
 				}
 
@@ -97,18 +96,16 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		}
 	}
 	if t.Size_ != "" {
-		_, err := units.FromHumanSize(t.Size_)
+		size, err := units.FromHumanSize(t.Size_)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
 			return false, errors.EnsureStack(err)
 		}
-		// TODO(2.0 required): the size of a commit isn't known when finishing the
-		// commit due to async compaction, so commitInfo.Details is nil here.
-		// var oldSize uint64
-		// if oldHead != nil {
-		// 	oldSize = oldHead.Details.SizeBytes
-		// }
-		// merge(int64(newHead.Details.SizeBytes-oldSize) >= size)
+		var oldSize int64
+		if oldHead != nil {
+			oldSize = oldHead.Details.SizeBytes
+		}
+		merge(newHead.Details.SizeBytes-oldSize >= size)
 	}
 	if t.CronSpec != "" {
 		// Shouldn't be possible to error here since we validate on ingress

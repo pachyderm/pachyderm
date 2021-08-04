@@ -17,10 +17,6 @@ if your code writes data to an external system and you want
 to know the current job ID, you can use the `PACH_JOB_ID`
 environment variable to refer to the current job ID.
 
-You can access all the variables in the Pachyderm manifest that
-is generated when you run `pachctl deploy` with the --dry-run`
-flag.
-
 !!! note "See Also:"
     [Deploy Pachyderm](../../../getting_started/local_installation/#deploy-pachyderm)
 
@@ -64,7 +60,6 @@ environment variables.
 | `LOG_LEVEL`                | `info`   | Verbosity of the log output. If you want to disable <br> logging, set this variable to `0`. Viable Options <br>`debug` <br>`info` <br> `error`<br>For more information, see [Go logrus log levels](https://godoc.org/github.com/sirupsen/logrus#Level). ||
 | `IAM_ROLE`                 |  `""`    | The role that defines permissions for Pachyderm in AWS.|
 | `IMAGE_PULL_SECRET`        |  `""`    | The Kubernetes secret for image pull credentials.|
-| `NO_EXPOSE_DOCKER_SOCKET`  |  `false` | Controls whether you can build images using <br> the `--build` command.|
 | `EXPOSE_OBJECT_API`        |  `false` | Controls access to internal Pachyderm API.|
 | `WORKER_USES_ROOT`         |  `true`  | Controls root access in the worker container.|
 | `S3GATEWAY_PORT`           |  `600`   | The S3 gateway port number|
@@ -101,8 +96,7 @@ specification like this:
         "cmd": ["sh" ],
         "stdin": ["env"],
         "image": "ubuntu:14.04"
-    },
-    "enable_stats": true
+    }
 }
 ```
 

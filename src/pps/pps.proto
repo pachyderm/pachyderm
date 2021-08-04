@@ -62,6 +62,7 @@ enum JobState {
   JOB_SUCCESS = 5;
   JOB_KILLED = 6;
   JOB_EGRESSING = 7;
+  JOB_FINISHING = 8;
 }
 
 message Metadata {
@@ -756,4 +757,7 @@ service API {
 
   // An internal call used to move a job from one state to another
   rpc UpdateJobState(UpdateJobStateRequest) returns(google.protobuf.Empty) {}
+
+  // RunLoadTest runs the default load test.
+  rpc RunLoadTestDefault(google.protobuf.Empty) returns (pfs_v2.RunLoadTestResponse) {}
 }

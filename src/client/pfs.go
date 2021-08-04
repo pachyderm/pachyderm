@@ -181,14 +181,15 @@ func (c APIClient) StartCommitParent(repoName string, branchName string, parentB
 // FinishCommit ends the process of committing data to a Repo and persists the
 // Commit. Once a Commit is finished the data becomes immutable and future
 // attempts to write to it with PutFile will error.
-func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) error {
+func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) (retErr error) {
+	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	_, err := c.PfsAPIClient.FinishCommit(
 		c.Ctx(),
 		&pfs.FinishCommitRequest{
 			Commit: NewCommit(repoName, branchName, commitID),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // InspectCommit returns info about a specific Commit.
@@ -366,7 +367,9 @@ func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInf
 		CommitSet: NewCommitSet(id),
 		Wait:      wait,
 	}
-	client, err := c.PfsAPIClient.InspectCommitSet(c.Ctx(), req)
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	client, err := c.PfsAPIClient.InspectCommitSet(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -533,18 +536,4 @@ func (c APIClient) FsckFastExit() error {
 			return errors.Errorf(resp.Error)
 		}
 	}
-}
-
-// RunPFSLoadTest runs a PFS load test.
-func (c APIClient) RunPFSLoadTest(spec []byte, seed ...int64) (_ *pfs.RunLoadTestResponse, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	req := &pfs.RunLoadTestRequest{
-		Spec: spec,
-	}
-	if len(seed) > 0 {
-		req.Seed = seed[0]
-	}
-	return c.PfsAPIClient.RunLoadTest(c.Ctx(), req)
 }

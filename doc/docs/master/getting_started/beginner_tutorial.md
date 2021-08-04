@@ -9,7 +9,7 @@ to complete and introduce you to Pachyderm's original concepts.
 This guide assumes that you already have Pachyderm running.
 
 - For an easy and quick start, 
-[**we recommend creating a free workspace on Hub**](../hub/hub_getting-started/), our **SaaS platform**.
+[**we recommend creating a free workspace on Hub**](../../hub/hub_getting_started/), our **SaaS platform**.
 
 - You can also install Pachyderm on your local
 machine as described in [Local Installation](local_installation.md).

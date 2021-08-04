@@ -5,9 +5,10 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
+	"github.com/pachyderm/pachyderm/v2/src/internal"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -28,6 +29,8 @@ type Reporter struct {
 	clusterID string
 	env       serviceenv.ServiceEnv
 }
+
+const metricsUsername = "metrics"
 
 // NewReporter creates a new reporter and kicks off the loop to report cluster
 // metrics
@@ -243,6 +246,9 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	// Activation code
 	ctx, cf := context.WithCancel(context.Background())
 	defer cf()
+
+	// add permission-less user to requests
+	ctx = auth.AsInternalUser(ctx, metricsUsername)
 	enterpriseState, err := r.env.EnterpriseServer().GetState(ctx, &enterprise.GetStateRequest{})
 	if err == nil {
 		metrics.ActivationCode = enterpriseState.ActivationCode
@@ -251,28 +257,12 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 
 	// Pipeline info
 	if err := func() error {
-		lpClient, err := r.env.GetPachClient(ctx).PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{Details: false})
-		if err != nil {
-			return err
-		}
-		pipelineInfos, err := clientsdk.ListPipelineInfo(lpClient)
+		pipelineInfos, err := internal.ListPipeline(ctx, r.env.PpsServer(), &pps.ListPipelineRequest{Details: true})
 		if err != nil {
 			return err
 		}
 		metrics.Pipelines = int64(len(pipelineInfos)) // Number of pipelines
 		for _, pi := range pipelineInfos {
-			if pi.Details.ParallelismSpec != nil {
-				if metrics.MaxParallelism < pi.Details.ParallelismSpec.Constant {
-					metrics.MaxParallelism = pi.Details.ParallelismSpec.Constant
-				}
-				if metrics.MinParallelism > pi.Details.ParallelismSpec.Constant {
-					metrics.MinParallelism = pi.Details.ParallelismSpec.Constant
-				}
-				metrics.NumParallelism++
-			}
-			if pi.Details.Egress != nil {
-				metrics.CfgEgress++
-			}
 			if pi.JobCounts != nil {
 				var cnt int64 = 0
 				for _, c := range pi.JobCounts {
@@ -366,11 +356,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	}
 
 	if err := func() error {
-		rClient, err := r.env.GetPachClient(ctx).PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
-		if err != nil {
-			return err
-		}
-		repoInfos, err := clientsdk.ListRepoInfo(rClient)
+		repoInfos, err := internal.ListRepo(ctx, r.env.PfsServer(), &pfs.ListRepoRequest{Type: pfs.UserRepoType})
 		if err != nil {
 			return err
 		}

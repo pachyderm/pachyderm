@@ -30,104 +30,120 @@ changes in one batch by re-pointing the `HEAD` of your `master` branch
 to a commit in the staging branch.
 
 Although, in this section, the branch in which you consolidate changes
-is called `staging`, you can name it as you like. Also, you can have multiple
-staging branches. For example, `dev1`, `dev2`, and so on.
+is called `staging`, you can name it as you like. 
 
-In the example below, the repository that is created called `data`.
+!!! Note
+    You can have multiple staging branches. 
+    For example, `dev1`, `dev2`, `staging`...
 
-To configure a staging branch, complete the following steps:
+In the example below, we first create a repository called `data` on which we configure
+a staging branch:
+
+!!! Tip "Additionnaly"
+      A simple [pipeline](../pipeline-concepts/pipeline/index.md) subscribes to the master branch of the repo `data`:
+      ```json
+         "pfs": {
+            "repo": "data",
+            "branch": "master",
+            "glob": "/*",
+      }
+      ```
 
 1. Create a repository. For example, `data`.
 
-   ```shell
-   $ pachctl create repo data
-   ```
+      ```shell
+      $ pachctl create repo data
+      ```
 
 1. Create a `master` branch.
 
-   ```shell
-   $ pachctl create branch data@master
-   ```
+      ```shell
+      $ pachctl create branch data@master
+      ```
 
 1. View the created branch:
 
-   ```shell
-   $ pachctl list branch data
+      ```shell
+      $ pachctl list commit data
+      ```
+      ```
+      REPO BRANCH COMMIT                           FINISHED           SIZE  ORIGIN DESCRIPTION
+      data master 8090bfb4d4fe44158eac12199c37a591 About a minute ago <= 0B AUTO
+      ```
 
-   BRANCH HEAD
-   master -
-   ```
-
-   No `HEAD` means that nothing has yet been committed into this
-   branch. When you commit data to the `master` branch, the pipeline
-   immediately starts a job to process it.
-   However, if you want to commit something without immediately
-   processing it, you need to commit it to a different branch.
+      Pachyderm automatically created an empty `HEAD` commit on the new branch,
+      as you can see from the zero-byte size and `AUTO` commit origin.
+      When you commit data to the `master` branch, the pipeline
+      immediately starts a job to process it.
+      However, if you want to commit something without immediately
+      processing it, you need to commit it to a different branch.
 
 1. Commit a file to the staging branch:
 
-   ```shell
-   $ pachctl put file data@staging -f <file>
-   ```
+      ```shell
+      $ pachctl put file data@staging -f <file>
+      ```
 
-   Pachyderm automatically creates the `staging` branch.
-   Your repo now has 2 branches, `staging` and `master`. In this
-   example, the `staging` name is used, but you can
-   name the branch as you want.
+      Pachyderm automatically creates the `staging` branch.
+      Your repo now has 2 branches, `staging` and `master`. In this
+      example, the `staging` name is used, but you can
+      name the branch as you want.
 
 1. Verify that the branches were created:
 
-   ```shell
-   $ pachctl list branch data
+      ```shell
+      $ pachctl list branch data
+      ```
+      ```
+      BRANCH  HEAD                              TRIGGER
+      
+      staging f3506f0fab6e483e8338754081109e69   -
+      master  8090bfb4d4fe44158eac12199c37a591   -
+      ```
 
-   BRANCH  HEAD
-   
-   staging f3506f0fab6e483e8338754081109e69
-   master  -
-   ```
-
-   The `master` branch still does not have a `HEAD` commit, but the
-   new branch, `staging`, does. There still have been no jobs, because
-   there are no pipelines that take `staging` as inputs. You can
-   continue to commit to `staging` to add new data to the branch, and the
-   pipeline will not process anything.
+      The `master` branch still has the same `HEAD` commit.
+      No jobs have started to process the new file, because
+      there are no pipelines that take `staging` as inputs. You can
+      continue to commit to `staging` to add new data to the branch, and the
+      pipeline will not process anything.
 
 1. When you are ready to process the data, update the `master` branch
    to point it to the head of the staging branch:
 
-   ```shell
-   $ pachctl create branch data@master --head staging
-   ```
+      ```shell
+      $ pachctl create branch data@master --head staging
+      ```
 
-1. List your branches to verify that the master branch has a `HEAD`
-   commit:
+1. List your branches to verify that the master branch's `HEAD`
+   commit has changed:
 
-   ```shell
-   $ pachctl list branch data
+      ```shell
+      $ pachctl list branch data
+      ```
+      ```
+      staging f3506f0fab6e483e8338754081109e69
+      master  f3506f0fab6e483e8338754081109e69
+      ```
 
-   staging f3506f0fab6e483e8338754081109e69
-   master  f3506f0fab6e483e8338754081109e69
-   ```
-
-   The `master` and `staging` branches now have the same `HEAD` commit.
-   This means that your pipeline has data to process.
+      The `master` and `staging` branches now have the same `HEAD` commit.
+      This means that your pipeline has data to process.
 
 1. Verify that the pipeline has new jobs:
 
-   ```shell
-   $ pachctl list job
+      ```shell
+      $ pachctl list job
 
-   ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL   UL  STATE
-   061b0ef8f44f41bab5247420b4e62ca2 test     32 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
-   ```
+      ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL   UL  STATE
+      f3506f0fab6e483e8338754081109e69 test     32 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
+      ```
 
-   You should see one job that Pachyderm created for all the changes you
-   have submitted to the `staging` branch. While the commits to the
-   `staging` branch are ancestors of the current `HEAD` in  `master`,
-   they were never the actual `HEAD` of `master` themselves, so they
-   do not get processed. This behavior works for most of the use cases
-   because commits in Pachyderm are generally additive, so processing
-   the HEAD commit also processes data from previous commits.
+      You should see one job that Pachyderm created for all the changes you
+      have submitted to the `staging` branch, with the same ID. While the commits to the
+      `staging` branch are ancestors of the current `HEAD` in  `master`,
+      they were never the actual `HEAD` of `master` themselves, so they
+      do not get processed. This behavior works for most of the use cases
+      because commits in Pachyderm are generally additive, so processing
+      the HEAD commit also processes data from previous commits.
 
 ![deferred processing](../../assets/images/deferred_processing.gif)
 
@@ -181,26 +197,27 @@ To copy files from one branch to another, complete the following steps:
 
 1. Start a commit:
 
-   ```shell
-   $ pachctl start commit data@master
-   ```
+      ```shell
+      $ pachctl start commit data@master
+      ```
 
 1. Copy files:
 
-   ```shell
-   $ pachctl copy file data@staging:file1 data@master:file1
-   $ pachctl copy file data@staging:file2 data@master:file2
-   ...
-   ```
+      ```shell
+      $ pachctl copy file data@staging:file1 data@master:file1
+      $ pachctl copy file data@staging:file2 data@master:file2
+      ...
+      ```
 
 1. Close the commit:
 
-   ```shell
-   $ pachctl finish commit data@master
-   ```
+      ```shell
+      $ pachctl finish commit data@master
+      ```
 
-While the commit is open, you can run `pachctl delete file` if you want to remove something from
-the parent commit or `pachctl put file`if you want to upload something that is not in a repo yet.
+!!! Note
+      While the commit is open, you can run `pachctl delete file` if you want to remove something from
+      the parent commit or `pachctl put file` if you want to upload something that is not in a repo yet.
 
 ## Deferred Processing in Output Repositories
 
@@ -209,22 +226,22 @@ repositories. To do so, rather than committing to a
 `staging` branch, configure the `output_branch` field
 in your pipeline specification.
 
-To configure deffered processing in an output repository, complete the
+To configure deferred processing in an output repository, complete the
 following steps:
 
 1. In the pipeline specification, add the `output_branch` field with
    the name of the branch in which you want to accumulate your data
    before processing:
 
-   ```
-   "output_branch": "staging"
-   ```
+      ```
+      "output_branch": "staging"
+      ```
 
 1. When you want to process data, run:
 
-   ```shell
-   $ pachctl create branch pipeline@master --head staging
-   ```
+      ```shell
+      $ pachctl create branch pipeline@master --head staging
+      ```
 
 ## Automate Deferred Processing With Branch Triggers
 
@@ -232,7 +249,7 @@ Typically, repointing from one branch to another happens when a certain
 condition is met. For example, you might want to repoint your branch when you
 have a specific number of commits, or when the amount of unprocessed data
 reaches a certain size, or at a specific time interval, such as daily, or
-other. This can be automated using branch triggers. A trigger is a relationship
+other. This can be automated using **branch triggers**. A trigger is a relationship
 between two branches, such as `master` and `staging` in the examples above,
 that says: when the head commit of `staging` meets a certain condition it
 should trigger `master` to update its head to that same commit. In other words it
@@ -245,24 +262,26 @@ there's 1 Megabyte of new data on `staging`, run:
 ```shell
 $ pachctl create branch data@master --trigger staging --trigger-size 1MB
 $ pachctl list branch data
-
+```
+```
 BRANCH  HEAD                             TRIGGER
 staging 8b5f3eb8dc4346dcbd1a547f537982a6 -
-master  -                                staging on Size(1MB)
+master  8090bfb4d4fe44158eac12199c37a591 staging on Size(1MB)
 ```
 
 When you run that command, it may or may not set the head of `master`.  It depends
 on the difference between the size of the head of `staging` and the existing
 head of `master`, or `0` if it doesn't exist. Notice that in the example above
 `staging` had an existing head with less than a MB of data in it so `master`
-still has no head. If you don't see `staging` when you `list branch` that's ok,
+is still empty. If you don't see `staging` when you `list branch` that's ok,
 triggers can point to branches that don't exist yet. The head of `master` will
 update if you add a MB of new data to `staging`:
 
 ```shell
 $ dd if=/dev/urandom bs=1MiB count=1 | pachctl put file data@staging:/file
 $ pachctl list branch data
-
+```
+```
 BRANCH  HEAD                             TRIGGER
 staging 64b70e6aeda84845858c42d755023673 -
 master  64b70e6aeda84845858c42d755023673 staging on Size(1MB)
@@ -327,10 +346,10 @@ input. The name of the branch is auto-generated with the form
 to trigger processing just like in the previous example.
 
 !!! note
-   Deleting or updating a pipeline **will not clean up** the trigger branch that it has created.
-   In fact, the trigger branch has a lifetime that is not tied to the pipeline's lifetime.
-   There is no guarantee that other pipelines are not using that trigger branch.
-   A trigger branch can, however, be deleted manually.
+      Deleting or updating a pipeline **will not clean up** the trigger branch that it has created.
+      In fact, the trigger branch has a lifetime that is not tied to the pipeline's lifetime.
+      There is no guarantee that other pipelines are not using that trigger branch.
+      A trigger branch can, however, be deleted manually (`pachctl delete branch <repo>@<branch>`).
 
 ## More advanced automation
 

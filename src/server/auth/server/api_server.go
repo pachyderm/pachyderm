@@ -12,13 +12,14 @@ import (
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
-	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -356,7 +357,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		a.roleBindings.ReadWrite(sqlTx).DeleteAll()
 		a.deleteAllAuthTokens(ctx, sqlTx)
 		a.members.ReadWrite(sqlTx).DeleteAll()
@@ -979,7 +980,7 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txncontext.TransactionC
 // based on signed JWT claims). This does no auth checks, so the caller must do all
 // relevant authorization.
 func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
-	return col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+	return dbutil.WithTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		members := a.members.ReadWrite(sqlTx)
 
 		// Get groups to remove/add user from/to
@@ -1055,7 +1056,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 		return nil, err
 	}
 
-	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		members := a.members.ReadWrite(sqlTx)
 		var groupsProto auth.Groups
 		for _, username := range req.Add {
@@ -1165,7 +1166,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	// Filter by group
 	if req.Group != "" {
 		var membersProto auth.Users
-		if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		if err := dbutil.WithTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 			groups := a.groups.ReadWrite(sqlTx)
 			if err := groups.Get(req.Group, &membersProto); err != nil {
 				return err
@@ -1215,16 +1216,17 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		return nil, err
 	}
 
-	token, err := auth.GetAuthToken(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	// try to lookup pre-computed subject
 	if subject := internalauth.GetWhoAmI(ctx); subject != "" {
 		return &auth.TokenInfo{
 			Subject: subject,
 		}, nil
+	}
+
+	// otherwise, we need a token
+	token, err := auth.GetAuthToken(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	tokenInfo, lookupErr := a.lookupAuthTokenInfo(ctx, auth.HashToken(token))
@@ -1340,7 +1342,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 	}
 
 	// set the new config
-	if err := col.NewSQLTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		return a.authConfig.ReadWrite(sqlTx).Put(configKey, configToStore)
 	}); err != nil {
 		return nil, err
@@ -1531,31 +1533,14 @@ func (a *apiServer) deleteAuthToken(ctx context.Context, sqlTx *sqlx.Tx, tokenHa
 }
 
 func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject string) error {
-	return a.processInTransaction(ctx, func(sqlTx *sqlx.Tx) error {
+	return dbutil.WithTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		return a.deleteAuthTokensForSubjectInTransaction(sqlTx, subject)
-	})
+	}, dbutil.WithIsolationLevel(sql.LevelRepeatableRead))
 }
 
 func (a *apiServer) deleteAuthTokensForSubjectInTransaction(tx *sqlx.Tx, subject string) error {
 	if _, err := tx.Exec(`DELETE FROM auth.auth_tokens WHERE subject = $1`, subject); err != nil {
 		return errors.Wrapf(err, "error deleting all auth tokens")
-	}
-	return nil
-}
-
-func (a *apiServer) processInTransaction(ctx context.Context, f func(sqlTx *sqlx.Tx) error) error {
-	sqlTx, err := a.env.GetDBClient().BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
-	if err != nil {
-		return err
-	}
-	err = f(sqlTx)
-	if err != nil {
-		sqlTx.Rollback()
-		return err
-	}
-	err = sqlTx.Commit()
-	if err != nil {
-		return errors.Wrapf(err, "Error while commiting SQL Transaction")
 	}
 	return nil
 }

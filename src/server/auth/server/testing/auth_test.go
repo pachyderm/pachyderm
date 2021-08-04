@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -983,25 +984,21 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole, pl(pipeline), auth.RepoWriterRole),
 		getRepoRoleBinding(t, aliceClient, pipeline))
 
-	// bob still can't stop or delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
+	// bob can now start and stop the pipeline, but can't delete it
+	require.NoError(t, bobClient.StopPipeline(pipeline))
+	require.NoError(t, bobClient.StartPipeline(pipeline))
 	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-
 	// alice re-adds bob as a reader of the input repo
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, pl(pipeline), auth.RepoReaderRole),
 		getRepoRoleBinding(t, aliceClient, repo))
 
-	// bob can stop (and start) but not delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
-	require.NoError(t, err)
-	err = bobClient.StartPipeline(pipeline)
-	require.NoError(t, err)
+	// no change to bob's capabilities
+	require.NoError(t, bobClient.StopPipeline(pipeline))
+	require.NoError(t, bobClient.StartPipeline(pipeline))
 	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -1012,9 +1009,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole),
 		getRepoRoleBinding(t, aliceClient, pipeline))
 
-	// finally bob can stop and delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
-	require.NoError(t, err)
+	// finally bob can delete alice's pipeline
 	err = bobClient.DeletePipeline(pipeline, false)
 	require.NoError(t, err)
 }
@@ -2428,7 +2423,7 @@ func TestDeletePipelineMissingInput(t *testing.T) {
 		false,
 	))
 
-	// force-delete input and output repos
+	// force-delete input repo
 	require.NoError(t, aliceClient.DeleteRepo(repo, true))
 
 	// Attempt to delete the pipeline--must succeed
@@ -2908,50 +2903,9 @@ func TestLoad(t *testing.T) {
 	defer tu.DeleteAll(t)
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
-	for i, load := range loads {
-		load := load
-		t.Run(fmt.Sprint("Load-", i), func(t *testing.T) {
-			resp, err := aliceClient.RunPFSLoadTest([]byte(load))
-			require.NoError(t, err)
-			require.Equal(t, "", resp.Error, fmt.Sprint("seed: ", resp.Seed))
-		})
-	}
+	resp, err := aliceClient.PfsAPIClient.RunLoadTestDefault(aliceClient.Ctx(), &types.Empty{})
+	require.NoError(t, err)
+	buf := &bytes.Buffer{}
+	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
+	require.Equal(t, "", resp.Error, buf.String())
 }
-
-var loads = []string{`
-count: 5
-operations:
-  - count: 5
-    operation:
-      - putFile:
-          files:
-            count: 5
-            file:
-              - source: "random"
-                prob: 100
-        prob: 70 
-      - deleteFile:
-          count: 5
-          directoryProb: 20 
-        prob: 30 
-validator: {}
-fileSources:
-  - name: "random"
-    random:
-      directory:
-        depth: 3
-        run: 3
-      size:
-        - min: 1000
-          max: 10000
-          prob: 30 
-        - min: 10000
-          max: 100000
-          prob: 30 
-        - min: 1000000
-          max: 10000000
-          prob: 30 
-        - min: 10000000
-          max: 100000000
-          prob: 10 
-`}

@@ -15,14 +15,13 @@ import (
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
@@ -410,7 +409,7 @@ func RunLocal() (retErr error) {
 	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		http.Handle("/metrics", promhttp.Handler())
-		return http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
+		return http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil)
 	})
 	return <-errChan
 }

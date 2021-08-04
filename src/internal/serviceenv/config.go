@@ -14,6 +14,7 @@ type GlobalConfiguration struct {
 	EtcdPort                       string `env:"ETCD_SERVICE_PORT,required"`
 	PPSWorkerPort                  uint16 `env:"PPS_WORKER_GRPC_PORT,default=1080"`
 	Port                           uint16 `env:"PORT,default=1650"`
+	PrometheusPort                 uint16 `env:"PROMETHEUS_PORT,default=1656"`
 	PeerPort                       uint16 `env:"PEER_PORT,default=1653"`
 	S3GatewayPort                  uint16 `env:"S3GATEWAY_PORT,default=1600"`
 	PPSEtcdPrefix                  string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
@@ -23,14 +24,16 @@ type GlobalConfiguration struct {
 	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
 	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
 	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
-	PostgresHost                   string `env:"POSTGRES_HOST"`
-	PostgresPort                   int    `env:"POSTGRES_PORT"`
+	PGBouncerHost                  string `env:"PG_BOUNCER_HOST"`
+	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT"`
 	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
-	PostgresDBName                 string `env:"POSTGRES_DATABASE_NAME"`
-	PostgresUser                   string `env:"POSTGRES_USER,default=postgres"`
+	PostgresDBName                 string `env:"POSTGRES_DATABASE,required"`
+	PostgresUser                   string `env:"POSTGRES_USER,required"`
 	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
 	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=10"`
 	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=2"`
+	PGBouncerMaxOpenConns          int    `env:"PG_BOUNCER_MAX_OPEN_CONNS,default=100"`
+	PGBouncerMaxIdleConns          int    `env:"PG_BOUNCER_MAX_IDLE_CONNS,default=20"`
 	PostgresConnMaxLifetimeSeconds int    `env:"POSTGRES_CONN_MAX_LIFETIME_SECONDS,default=0"`
 	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS,default=0"`
 	PachdServiceHost               string `env:"PACHD_SERVICE_HOST"`
@@ -47,7 +50,6 @@ type GlobalConfiguration struct {
 	SessionDurationMinutes int `env:"SESSION_DURATION_MINUTES,default=43200"`
 
 	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
-	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`
 	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
 
 	// PPSSpecCommitID and PPSPipelineName are only set for workers and sidecar
@@ -66,6 +68,9 @@ type GlobalConfiguration struct {
 	// the target project.  If set on a pachd pod, propagates to workers and sidecars (which
 	// also need permission).
 	GoogleCloudProfilerProject string `env:"GOOGLE_CLOUD_PROFILER_PROJECT"`
+
+	PostgresHost string `env:"POSTGRES_HOST"`
+	PostgresPort int    `env:"POSTGRES_PORT"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.

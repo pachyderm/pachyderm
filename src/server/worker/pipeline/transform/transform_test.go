@@ -244,7 +244,7 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 	require.NoError(t, err)
 	require.NotNil(t, branchInfo)
 
-	r, err := env.PachClient.GetFileTar(jobInfo.OutputCommit, "/*")
+	r, err := env.PachClient.GetFileTAR(jobInfo.OutputCommit, "/*")
 	require.NoError(t, err)
 	require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 		ok, err := tarutil.Equal(files[0], file)
@@ -294,6 +294,17 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 	})
 
+	suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
+		t.Parallel()
+		_, bucket := testutil.NewObjectClient(t)
+		pi := defaultPipelineInfo()
+		pi.Details.Input.Pfs.Glob = "/"
+		pi.Details.Egress = &pps.Egress{URL: fmt.Sprintf("local://%s/", bucket)}
+		env := newWorkerSpawnerPair(t, testutil.NewTestDBConfig(t), pi)
+
+		testJobSuccess(t, env, pi, nil)
+	})
+
 	suite.Run("TestJobFailedDatum", func(t *testing.T) {
 		t.Parallel()
 		pi := defaultPipelineInfo()
@@ -337,7 +348,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetFileTar(jobInfo.OutputCommit, "/*")
+		r, err := env.PachClient.GetFileTAR(jobInfo.OutputCommit, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[0], file)
@@ -380,7 +391,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetFileTar(jobInfo.OutputCommit, "/*")
+		r, err := env.PachClient.GetFileTAR(jobInfo.OutputCommit, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[0], file)
@@ -429,7 +440,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetFileTar(jobInfo.OutputCommit, "/*")
+		r, err := env.PachClient.GetFileTAR(jobInfo.OutputCommit, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[1], file)

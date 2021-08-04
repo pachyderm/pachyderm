@@ -3,7 +3,15 @@
 
 deployTarget: GOOGLE
 
-dash:
+global:
+  postgresql:
+    postgresqlHost: "cloudsql-auth-proxy.default.svc.cluster.local."
+    postgresqlPort: "5432"
+    postgresqlSSL: "disable"
+    postgresqlUsername: "postgres"
+    postgresqlPassword: "Example-Password"
+
+console:
   enabled: true
   image:
     tag: "newVersion"
@@ -25,18 +33,12 @@ ingress:
   enabled: true
   tls:
     enabled: true
-    secretName: "dash-tls"
+    secretName: "console-tls"
   annotations:
     kubernetes.io/ingress.class: "traefik"
-  host: "dash.test"
+  host: "console.test"
 
 pachd:
-  postgresql:
-    host: "169.254.169.254"
-    port: "5432"
-    ssl: "disable"
-    user: "postgres"
-    password: "Example-Password"
   goMaxProcs: 3
   # image.tag is configured per workspace.
   lokiLogging: true
@@ -48,15 +50,12 @@ pachd:
     enabled: true
     loadBalancerIP: "192.168.1.1"
     apiGRPCPort: 31400
-    apiHTTPPort: 30652
     s3GatewayPort: 30600
   storage:
     google:
       # bucket is configured per workspace.
       bucket: "test-bucket"
       cred: ""
-      # serviceAccountName is configured per workspace.
-      serviceAccountName: "test-service-account"
     putFileConcurrencyLimit: 10
   resources:
     limits:
@@ -68,6 +67,26 @@ pachd:
   tls:
     enabled: true
     secretName: "dash-tls"
+  serviceAccount:
+    additionalAnnotations:
+      # serviceAccountName is configured per workspace.
+      iam.gke.io/gcp-service-account: "test-service-account"
+
+worker:
+  serviceAccount:
+    additionalAnnotations:
+      # serviceAccountName is configured per workspace.
+      iam.gke.io/gcp-service-account: "test-service-account"
+
 postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
   enabled: false
+
+cloudsqlAuthProxy:
+  enabled: true
+  connectionName: "PgConnectionName"
+  serviceAccount: "ServiceAccount"
+  resources:
+    requests:
+      memory: "500Mi"
+      cpu:    "250m"

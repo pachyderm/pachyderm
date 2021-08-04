@@ -14,6 +14,7 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
@@ -26,7 +27,7 @@ const (
 	// JobHeader is the header for jobs
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// JobSetHeader is the header for jobsets
-	JobSetHeader = "ID\tJOBS\tPROGRESS\tCREATED\tMODIFIED\n"
+	JobSetHeader = "ID\tSUBJOBS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// DatumHeader is the header for datums
 	DatumHeader = "ID\tFILES\tSTATUS\tTIME\t\n"
 	// SecretHeader is the header for secrets
@@ -80,10 +81,9 @@ func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestam
 	var created *types.Timestamp
 	var modified *types.Timestamp
 	for _, job := range jobSetInfo.Jobs {
-		switch job.State {
-		case ppsclient.JobState_JOB_SUCCESS:
+		if job.State == ppsclient.JobState_JOB_SUCCESS {
 			success++
-		case ppsclient.JobState_JOB_FAILURE:
+		} else if ppsutil.IsTerminal(job.State) {
 			failure++
 		}
 
@@ -419,6 +419,8 @@ func JobState(jobState ppsclient.JobState) string {
 		return color.New(color.FgRed).SprintFunc()("killed")
 	case ppsclient.JobState_JOB_EGRESSING:
 		return color.New(color.FgYellow).SprintFunc()("egressing")
+	case ppsclient.JobState_JOB_FINISHING:
+		return color.New(color.FgYellow).SprintFunc()("finishing")
 
 	}
 	return "-"

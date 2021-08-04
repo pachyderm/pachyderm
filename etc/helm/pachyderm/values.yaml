@@ -12,19 +12,30 @@ imagePullSecret: ""
 # MINIO, MICROSOFT, CUSTOM or LOCAL.
 deployTarget: ""
 
-dash:
-  # enabled controls whether the dash manifests are created or not.
+global:
+  postgresql:
+    postgresqlUsername: "pachyderm"
+    postgresqlPassword: "elephantastic"
+    postgresqlDatabase: "pachyderm"
+    # The postgresql database host to connect to. Defaults to built in postgres service
+    postgresqlHost: "postgres"
+    # The postgresql database port to connect to. Defaults to built in postgres service
+    postgresqlPort: "5432"
+    postgresqlSSL: "disable"
+
+console:
+  # enabled controls whether the console manifests are created or not.
   enabled: false
   image:
     # repository is the image repo to pull from; together with tag it
-    # replicates the --dash-image & --registry arguments to pachctl
+    # replicates the --console-image & --registry arguments to pachctl
     # deploy.
     repository: "pachyderm/haberdashery"
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
-    # replicates the --dash-image argument to pachctl deploy.
-    tag: "b6769ac1ad4561d76e9382bc24ac271bc7686956"
-  # podLabels specifies labels to add to the dash pod.
+    # replicates the --console-image argument to pachctl deploy.
+    tag: "41f09332d40f1e897314f0529fd5bbda37fc069e"
+  # podLabels specifies labels to add to the console pod.
   podLabels: {}
   # resources specifies the resource request and limits.
   resources: {}
@@ -36,6 +47,7 @@ dash:
     #  memory: "2G"
   config:
     issuerURI: ""
+    reactAppRuntimeIssuerURI: ""
     oauthRedirectURI: ""
     oauthClientID: ""
     oauthClientSecret: ""
@@ -44,9 +56,9 @@ dash:
     pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
 
   service:
-    # labels specifies labels to add to the dash service.
+    # labels specifies labels to add to the console service.
     labels: {}
-    # type specifies the Kubernetes type of the dash service.
+    # type specifies the Kubernetes type of the console service.
     type: ClusterIP
 
 etcd:
@@ -162,15 +174,10 @@ pachd:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
+
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
-  postgresql:
-    host: "postgres"
-    port: "5432"
-    ssl: "disable"
-    user: ""
-    password: ""
   requireCriticalServersOnly: false
   # If enabled, External service creates a service which is safe to
   # be exposed externally
@@ -179,7 +186,6 @@ pachd:
     # (Optional) specify the existing IP Address of the load balancer
     loadBalancerIP: ""
     apiGRPCPort: 30650
-    apiHTTPPort: 30652
     s3GatewayPort: 30600
   service:
     # labels specifies labels to add to the pachd service.
@@ -189,6 +195,9 @@ pachd:
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
+  enterpriseLicenseKey: ""
+  rootToken: ""
+  enterpriseSecret: ""
   serviceAccount:
     create: true
     additionalAnnotations: {}
@@ -278,7 +287,6 @@ pachd:
       #    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
       #    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/…%40….iam.gserviceaccount.com"
       #  }
-      serviceAccountName: "" # For Workload Identity access to the bucket
     local:
       # hostPath indicates the path on the host where the PFS metadata
       # will be stored.  It must end in /.  It is analogous to the
@@ -338,7 +346,17 @@ worker:
     # name sets the name of the worker service account.  Analogous to
     # the --worker-service-account argument to pachctl deploy.
     name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
-  usesRoot: false
+
+pgbouncer:
+  service:
+    type: ClusterIP
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+    #  memory: "2G"
 
 postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
@@ -353,3 +371,37 @@ postgresql:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
+
+cloudsqlAuthProxy:
+  # connectionName may be found by running `gcloud sql instances describe INSTANCE_NAME --project PROJECT_ID`
+  connectionName: ""
+  serviceAccount: ""
+  port: 5432
+  enabled: false
+  image:
+    # repository is the image repo to pull from; together with tag it
+    # replicates the --dash-image & --registry arguments to pachctl
+    # deploy.
+    repository: "gcr.io/cloudsql-docker/gce-proxy"
+    pullPolicy: "IfNotPresent"
+    # tag is the image repo to pull from; together with repository it
+    # replicates the --dash-image argument to pachctl deploy.
+    tag: "1.23.0"
+  # podLabels specifies labels to add to the dash pod.
+  podLabels: {}
+  # resources specifies the resource request and limits.
+  resources: {}
+  # requests:
+    #   The proxy's memory use scales linearly with the number of active
+    #   connections. Fewer open connections will use less memory. Adjust
+    #   this value based on your application's requirements.
+    # memory: ""
+    #   The proxy's CPU use scales linearly with the amount of IO between
+    #   the database and the application. Adjust this value based on your
+    #   application's requirements.
+    # cpu: ""
+  service:
+    # labels specifies labels to add to the cloudsql auth proxy service.
+    labels: {}
+    # type specifies the Kubernetes type of the cloudsql auth proxy service.
+    type: ClusterIP

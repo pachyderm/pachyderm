@@ -18,7 +18,7 @@ func TestGC(t *testing.T) {
 	s := NewTestStorage(t, db, tr)
 	gc := s.newGC()
 	w := s.NewWriter(ctx, WithTTL(time.Hour))
-	require.NoError(t, w.Add("a.txt", "tag1", strings.NewReader("test data")))
+	require.NoError(t, w.Add("a.txt", "datum1", strings.NewReader("test data")))
 	id, err := w.Close()
 	require.NoError(t, err)
 	// check that it's there

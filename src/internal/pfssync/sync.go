@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -84,7 +85,7 @@ func (d *downloader) Download(storageRoot string, file *pfs.File, opts ...Downlo
 	if dc.lazy || dc.empty {
 		return d.downloadInfo(storageRoot, file, dc)
 	}
-	r, err := d.pachClient.GetFileTar(file.Commit, file.Path)
+	r, err := d.pachClient.GetFileTAR(file.Commit, file.Path)
 	if err != nil {
 		return err
 	}
@@ -94,19 +95,27 @@ func (d *downloader) Download(storageRoot string, file *pfs.File, opts ...Downlo
 	return tarutil.Import(storageRoot, r)
 }
 
-func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *downloadConfig) (retErr error) {
+func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *downloadConfig) error {
 	return d.pachClient.WalkFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
-		basePath, err := filepath.Rel(path.Dir(file.Path), fi.File.Path)
-		if err != nil {
-			return errors.EnsureStack(err)
+		if fi.FileType == pfs.FileType_DIR {
+			return nil
+		}
+		basePath := fi.File.Path
+		if file.Path != "/" {
+			// TODO: Remove right trim when PFS dirs are not encoded with a trailing slash.
+			var err error
+			basePath, err = filepath.Rel(path.Dir(strings.TrimRight(file.Path, "/")), fi.File.Path)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
 		}
 		fullPath := path.Join(storageRoot, basePath)
-		if fi.FileType == pfs.FileType_DIR {
-			return errors.EnsureStack(os.MkdirAll(fullPath, 0700))
+		if err := os.MkdirAll(path.Dir(fullPath), 0700); err != nil {
+			return errors.EnsureStack(err)
 		}
 		if config.lazy {
 			return d.makePipe(fullPath, func(w io.Writer) error {
-				r, err := d.pachClient.GetFileTar(file.Commit, fi.File.Path)
+				r, err := d.pachClient.GetFileTAR(file.Commit, fi.File.Path)
 				if err != nil {
 					return err
 				}

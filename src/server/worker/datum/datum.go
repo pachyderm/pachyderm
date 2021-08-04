@@ -338,7 +338,7 @@ func (d *Datum) uploadMetaFile(mf client.ModifyFile) error {
 		return err
 	}
 	fullPath := path.Join(MetaPrefix, d.ID, MetaFileName)
-	return mf.PutFile(fullPath, buf, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
+	return mf.PutFile(fullPath, buf, client.WithAppendPutFile(), client.WithDatumPutFile(d.ID))
 }
 
 func (d *Datum) uploadOutput() error {
@@ -370,7 +370,7 @@ func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar
 		}
 		return tarutil.Export(storageRoot, bufW, opts...)
 	}, func(r io.Reader) error {
-		return mf.PutFileTAR(r, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
+		return mf.PutFileTAR(r, client.WithAppendPutFile(), client.WithDatumPutFile(d.ID))
 	}); err != nil {
 		return err
 	}
@@ -416,7 +416,7 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 					retErr = err
 				}
 			}()
-			return mf.PutFile(dstPath, f, client.WithTagPutFile(d.ID))
+			return mf.PutFile(dstPath, f, client.WithDatumPutFile(d.ID))
 		}
 		relPath, err := filepath.Rel(d.PFSStorageRoot(), file)
 		if err != nil {
@@ -431,7 +431,7 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 		}
 		srcFile := input.FileInfo.File
 		srcFile.Path = path.Join(pathSplit[1:]...)
-		return mf.CopyFile(dstPath, srcFile, client.WithTagCopyFile(d.ID))
+		return mf.CopyFile(dstPath, srcFile, client.WithDatumCopyFile(d.ID))
 	})
 }
 
@@ -445,7 +445,7 @@ type Deleter func(*Meta) error
 func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient client.ModifyFile) Deleter {
 	return func(meta *Meta) error {
 		ID := common.DatumID(meta.Inputs)
-		tagOption := client.WithTagDeleteFile(ID)
+		tagOption := client.WithDatumDeleteFile(ID)
 		// Delete the datum directory in the meta output.
 		if err := metaOutputClient.DeleteFile(path.Join(MetaPrefix, ID)+"/", tagOption); err != nil {
 			return err

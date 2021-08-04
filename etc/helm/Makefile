@@ -4,7 +4,7 @@
 SHELL := /bin/bash -o pipefail # Use bash syntax
 
 
-.PHONY: all test lint kubeval-aws kubeval-gcp kubeval-gcp-tls kubeval-local kubeval-minio kubeval-microsoft
+.PHONY: all test lint kubeval-aws kubeval-gcp kubeval-gcp-tls kubeval-local kubeval-minio kubeval-microsoft schema
 
 all: pachyderm/values.schema.json
 
@@ -41,5 +41,5 @@ kubeval-microsoft:
 kubeval-enterprise:
 	helm template pachyderm -f examples/enterprise-values.yaml | kubeval --strict
 
-pachyderm/values.schema.json: pachyderm/values.yaml
+schema:
 	helm schema-gen pachyderm/values.yaml > pachyderm/values.schema.json

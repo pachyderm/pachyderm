@@ -42,9 +42,10 @@ func (mc *memoryCache) Get(ctx context.Context, key []byte, cb ValueCallback) er
 }
 
 func (mc *memoryCache) Delete(ctx context.Context, key []byte) error {
+	k := string(key)
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	mc.cache.Remove(key)
+	mc.cache.Remove(k)
 	return nil
 }
 

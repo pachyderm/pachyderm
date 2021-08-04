@@ -2,7 +2,55 @@
     "$schema": "http://json-schema.org/schema#",
     "type": "object",
     "properties": {
-        "dash": {
+        "cloudsqlAuthProxy": {
+            "type": "object",
+            "properties": {
+                "connectionName": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "podLabels": {
+                    "type": "object"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {
+                            "type": "object"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "serviceAccount": {
+                    "type": "string"
+                }
+            }
+        },
+        "console": {
             "type": "object",
             "properties": {
                 "config": {
@@ -27,6 +75,9 @@
                             "type": "string"
                         },
                         "pachdAddress": {
+                            "type": "string"
+                        },
+                        "reactAppRuntimeIssuerURI": {
                             "type": "string"
                         }
                     }
@@ -188,6 +239,34 @@
                 }
             }
         },
+        "global": {
+            "type": "object",
+            "properties": {
+                "postgresql": {
+                    "type": "object",
+                    "properties": {
+                        "postgresqlDatabase": {
+                            "type": "string"
+                        },
+                        "postgresqlHost": {
+                            "type": "string"
+                        },
+                        "postgresqlPassword": {
+                            "type": "string"
+                        },
+                        "postgresqlPort": {
+                            "type": "string"
+                        },
+                        "postgresqlSSL": {
+                            "type": "string"
+                        },
+                        "postgresqlUsername": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "imagePullSecret": {
             "type": "string"
         },
@@ -242,13 +321,16 @@
                 "enabled": {
                     "type": "boolean"
                 },
+                "enterpriseLicenseKey": {
+                    "type": "string"
+                },
+                "enterpriseSecret": {
+                    "type": "string"
+                },
                 "externalService": {
                     "type": "object",
                     "properties": {
                         "apiGRPCPort": {
-                            "type": "integer"
-                        },
-                        "apiHTTPPort": {
                             "type": "integer"
                         },
                         "enabled": {
@@ -299,26 +381,6 @@
                 "podLabels": {
                     "type": "object"
                 },
-                "postgresql": {
-                    "type": "object",
-                    "properties": {
-                        "host": {
-                            "type": "string"
-                        },
-                        "password": {
-                            "type": "string"
-                        },
-                        "port": {
-                            "type": "string"
-                        },
-                        "ssl": {
-                            "type": "string"
-                        },
-                        "user": {
-                            "type": "string"
-                        }
-                    }
-                },
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
                 },
@@ -327,6 +389,9 @@
                 },
                 "resources": {
                     "type": "object"
+                },
+                "rootToken": {
+                    "type": "string"
                 },
                 "service": {
                     "type": "object",
@@ -420,9 +485,6 @@
                                 },
                                 "cred": {
                                     "type": "string"
-                                },
-                                "serviceAccountName": {
-                                    "type": "string"
                                 }
                             }
                         },
@@ -509,6 +571,22 @@
                 }
             }
         },
+        "pgbouncer": {
+            "type": "object",
+            "properties": {
+                "resources": {
+                    "type": "object"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "postgresql": {
             "type": "object",
             "properties": {
@@ -553,9 +631,6 @@
                         },
                         "repository": {
                             "type": "string"
-                        },
-                        "usesRoot": {
-                            "type": "boolean"
                         }
                     }
                 },

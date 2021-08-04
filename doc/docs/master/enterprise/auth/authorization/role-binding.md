@@ -249,9 +249,7 @@ In this diagram, the `data-scientists` group has been assigned the `repoReader` 
 The IdP user `one-pachyderm-user@company.io` has been assigned the `repoOwner` role on the `nlp` project. This gives them permission to **read, write and grant permissions for repos within the nlp project**. 
 It does not give them any permission on the `image-recognition` project, or on the `cluster` itself.
 
-If `one-pachyderm-user@company.io` was a member of the `data-scientists` group, then they would cumulate both roles: 'repoReader' on all repo and `repoOwner` on the `nlp` project.
+If `one-pachyderm-user@company.io` was a member of the `data-scientists` group, then they would cumulate both roles: `repoReader` on all repo and `repoOwner` on the `nlp` project.
 
 The IdP user `another-pachyderm-user@company.io` has been assigned the `repoWriter` role on the repo `categorize-text`. This gives them permission to **read and write in that repo**, but not to access any other repo, project, or the cluster itself.
 
-## User Revocation
-//TODO Coming soon -> In dev

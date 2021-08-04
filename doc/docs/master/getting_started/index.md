@@ -2,6 +2,7 @@
 
 Our fully managed **SaaS platform** [Hub](../hub/hub_getting_started)
 provides a fast and easy way to get Pachyderm up and running quickly.
+**The first 4 hours are free!**
 You can also deploy Pachyderm on your local machine or in your favorite cloud
 provider. 
 
