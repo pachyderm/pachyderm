@@ -145,7 +145,7 @@ func NewTestDBOptions(t testing.TB) []dbutil.Option {
 	host, port := pgBouncerHost(), pgBouncerPort()
 	opts := []dbutil.Option{
 		dbutil.WithHostPort(host, port),
-		dbutil.WithUserPassword(postgresHost(), postgresPassword()),
+		dbutil.WithUserPassword(postgresUser(), postgresPassword()),
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithDBName(postgresDatabase()),
 	}
