@@ -290,6 +290,9 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return reg.processDatums(ctx, pj, master, dit)
 		})
 	}); err != nil {
+		if errors.Is(err, errutil.ErrBreak) {
+			return nil
+		}
 		return err
 	}
 	if pj.ji.Details.Egress != nil {
@@ -394,7 +397,10 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, master *
 		return err
 	}
 	if stats.FailedID != "" {
-		return reg.failJob(pj, fmt.Sprintf("datum %v failed", stats.FailedID))
+		if err := reg.failJob(pj, fmt.Sprintf("datum %v failed", stats.FailedID)); err != nil {
+			return err
+		}
+		return errutil.ErrBreak
 	}
 	return nil
 }
