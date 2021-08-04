@@ -1,7 +1,7 @@
 # Contributor guide
 
 ## Getting started
-Install all dependancies by running 
+Install all dependencies by running 
 ```bash
 npm install
 ```
@@ -10,7 +10,6 @@ npm install
 
 ### Layout
 
-Code layout, as of 8/2021:
 ```
 .
 ├── src
