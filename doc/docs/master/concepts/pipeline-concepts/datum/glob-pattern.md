@@ -23,10 +23,9 @@ We have listed some commonly used glob patterns. We will later illustrate their 
 | Glob Pattern     | Datum created|
 |-----------------|---------------------------------|
 | `/` | Pachyderm denotes the **whole repository as a single datum** and sends all input data to a single worker node to be processed together.|
-| `/*`| Pachyderm defines **each top-level filesystem object**, a file or a directory in the input repo, **as a separate datum**. For example, if you have a repository with ten files and no directory structure, Pachyderm identifies each file as a single datum and processes them independently.|
-| `/*/*`| Pachyderm processes **each filesystem object in each subdirectory as a separate datum**.|
-| `/**` | Pachyderm processes **each filesystem object in all directories and subdirectories as a separate datum**.|
-
+| `/*`| Pachyderm defines **each top-level files / directories** in the input repo, **as a separate datum**. For example, if you have a repository with ten files and no directory structure, Pachyderm identifies each file as a single datum and processes them independently.|
+| `/*/*`| Pachyderm processes **each subset of the files / directories as a separate datum**.|
+| `/**` | Pachyderm processes **all files / directories in their subset files / directories as a separate datum**.|
 
 Glob patterns also let you take only a particular directory or subset of
 directories, a specific branch... as an input instead of the whole repo.

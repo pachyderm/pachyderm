@@ -23,7 +23,7 @@ You define how your data is spread among workers by
 in its pipeline specification file. 
 
 Based on this specification file, the data in the `input` 
-of your pipeline is "glob-ed" or "broken down" in datums 
+of your pipeline is turned in datums 
 each of which can contain 1 to many files.
 Pachyderm provides a wide variety of ways to define the granularity of each datum. 
 

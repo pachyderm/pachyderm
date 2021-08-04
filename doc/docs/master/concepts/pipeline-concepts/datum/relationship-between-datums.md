@@ -10,8 +10,8 @@ When new data comes in (in the form of commit(s) in its input repo(s)), a Pachyd
 following stages:
 
 ### 1- **Creation of input datums** 
-In this stage, Pachyderm **breaks
-input files into datums according to the [pipeline input(s)](../#pipeline-inputs)** set
+In this stage, Pachyderm **creates datums based on the input data according to the
+[pipeline input(s)](../#pipeline-inputs)** set
 in the [pipeline specification file](../../../../reference/pipeline_spec/#pipeline-specification).
 
 ### 2- **Transformation**
@@ -28,12 +28,15 @@ each pipeline's job.
 !!! Note "Reminder"
         The output produced by a pipeline's job is written to an output repo of the same name.
 
-The content of all `/pfs/out` is then combined in a commit to the pipeline's output repo. 
+The content of all `/pfs/out` is combined in a commit to the pipeline's output repo. 
 This generally means unioning all the files together.
 
 !!! Important "The Single Datum Provenance Rule"
      If two outputted files have the same name (i.e. two datums wrote to the same output file, creating a conflict), then an error is raised resulting in your pipeline failure. 
-     An easy way to avoid this anti-pattern from the start is to **have each datum write in separate files.
+
+     To avoid this anti-pattern from the start, **have each datum write in separate files**. 
+     Pachyderm provides an **environment variable `PACH_DATUM_ID`**, available in the pipeline's user code, 
+     that stores the datum ID. It gives an easy way to ensure that each datum outputs distinct file paths.
 ### 5. **Next: Add a `Reduce` pipeline**
 
 If you need files from different datums merged into single files in a particular way, **add a pipeline that groups the files from the previous output repo into single datums using the appropriate glob pattern and merges them as intended using your code**. The example that follows illustrates this two steps approach. 
@@ -65,8 +68,7 @@ these data to create the following final result:
 ![Map Reduce](../../../images/parallel_data_processing_following_commit.png)
 
 ## Incrementality 
-In Pachyderm, glob patterns are applied to the entire input, 
-however, unchanged datums are never re-processed. 
+In Pachyderm, unchanged datums are never re-processed. 
 For example, if you have multiple datums, 
 and only one datum was modified; Pachyderm processes that datum only
 and `skips` processing other datums. 
