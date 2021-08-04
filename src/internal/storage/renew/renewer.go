@@ -38,7 +38,11 @@ func NewRenewer(ctx context.Context, ttl time.Duration, renewFunc Func) *Renewer
 	go func() {
 		defer close(r.done)
 		defer r.cancel()
-		r.err = r.renewLoop(ctx)
+		err := r.renewLoop(ctx)
+		if errors.Is(err, ctx.Err()) {
+			err = nil
+		}
+		r.err = err
 	}()
 	return r
 }
