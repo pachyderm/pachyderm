@@ -1594,7 +1594,7 @@ proto.pfs_v2.File.toObject = function(includeInstance, msg) {
   var f, obj = {
     commit: (f = msg.getCommit()) && proto.pfs_v2.Commit.toObject(includeInstance, f),
     path: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    tag: jspb.Message.getFieldWithDefault(msg, 3, "")
+    datum: jspb.Message.getFieldWithDefault(msg, 3, "")
   };
 
   if (includeInstance) {
@@ -1642,7 +1642,7 @@ proto.pfs_v2.File.deserializeBinaryFromReader = function(msg, reader) {
       break;
     case 3:
       var value = /** @type {string} */ (reader.readString());
-      msg.setTag(value);
+      msg.setDatum(value);
       break;
     default:
       reader.skipField();
@@ -1688,7 +1688,7 @@ proto.pfs_v2.File.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getTag();
+  f = message.getDatum();
   if (f.length > 0) {
     writer.writeString(
       3,
@@ -1754,10 +1754,10 @@ proto.pfs_v2.File.prototype.setPath = function(value) {
 
 
 /**
- * optional string tag = 3;
+ * optional string datum = 3;
  * @return {string}
  */
-proto.pfs_v2.File.prototype.getTag = function() {
+proto.pfs_v2.File.prototype.getDatum = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
@@ -1766,7 +1766,7 @@ proto.pfs_v2.File.prototype.getTag = function() {
  * @param {string} value
  * @return {!proto.pfs_v2.File} returns this
  */
-proto.pfs_v2.File.prototype.setTag = function(value) {
+proto.pfs_v2.File.prototype.setDatum = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
@@ -3562,7 +3562,7 @@ proto.pfs_v2.CommitInfo.toObject = function(includeInstance, msg) {
     finished: (f = msg.getFinished()) && google_protobuf_timestamp_pb.Timestamp.toObject(includeInstance, f),
     directProvenanceList: jspb.Message.toObjectList(msg.getDirectProvenanceList(),
     proto.pfs_v2.Branch.toObject, includeInstance),
-    error: jspb.Message.getBooleanFieldWithDefault(msg, 10, false),
+    error: jspb.Message.getFieldWithDefault(msg, 10, ""),
     sizeBytesUpperBound: jspb.Message.getFieldWithDefault(msg, 11, 0),
     details: (f = msg.getDetails()) && proto.pfs_v2.CommitInfo.Details.toObject(includeInstance, f)
   };
@@ -3646,7 +3646,7 @@ proto.pfs_v2.CommitInfo.deserializeBinaryFromReader = function(msg, reader) {
       msg.addDirectProvenance(value);
       break;
     case 10:
-      var value = /** @type {boolean} */ (reader.readBool());
+      var value = /** @type {string} */ (reader.readString());
       msg.setError(value);
       break;
     case 11:
@@ -3759,8 +3759,8 @@ proto.pfs_v2.CommitInfo.serializeBinaryToWriter = function(message, writer) {
     );
   }
   f = message.getError();
-  if (f) {
-    writer.writeBool(
+  if (f.length > 0) {
+    writer.writeString(
       10,
       f
     );
@@ -4230,20 +4230,20 @@ proto.pfs_v2.CommitInfo.prototype.clearDirectProvenanceList = function() {
 
 
 /**
- * optional bool error = 10;
- * @return {boolean}
+ * optional string error = 10;
+ * @return {string}
  */
 proto.pfs_v2.CommitInfo.prototype.getError = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 10, false));
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 10, ""));
 };
 
 
 /**
- * @param {boolean} value
+ * @param {string} value
  * @return {!proto.pfs_v2.CommitInfo} returns this
  */
 proto.pfs_v2.CommitInfo.prototype.setError = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 10, value);
+  return jspb.Message.setProto3StringField(this, 10, value);
 };
 
 
@@ -5898,7 +5898,7 @@ proto.pfs_v2.FinishCommitRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     commit: (f = msg.getCommit()) && proto.pfs_v2.Commit.toObject(includeInstance, f),
     description: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    error: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
+    error: jspb.Message.getFieldWithDefault(msg, 3, ""),
     force: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
   };
 
@@ -5946,7 +5946,7 @@ proto.pfs_v2.FinishCommitRequest.deserializeBinaryFromReader = function(msg, rea
       msg.setDescription(value);
       break;
     case 3:
-      var value = /** @type {boolean} */ (reader.readBool());
+      var value = /** @type {string} */ (reader.readString());
       msg.setError(value);
       break;
     case 4:
@@ -5998,8 +5998,8 @@ proto.pfs_v2.FinishCommitRequest.serializeBinaryToWriter = function(message, wri
     );
   }
   f = message.getError();
-  if (f) {
-    writer.writeBool(
+  if (f.length > 0) {
+    writer.writeString(
       3,
       f
     );
@@ -6070,20 +6070,20 @@ proto.pfs_v2.FinishCommitRequest.prototype.setDescription = function(value) {
 
 
 /**
- * optional bool error = 3;
- * @return {boolean}
+ * optional string error = 3;
+ * @return {string}
  */
 proto.pfs_v2.FinishCommitRequest.prototype.getError = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 3, false));
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
 
 /**
- * @param {boolean} value
+ * @param {string} value
  * @return {!proto.pfs_v2.FinishCommitRequest} returns this
  */
 proto.pfs_v2.FinishCommitRequest.prototype.setError = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 3, value);
+  return jspb.Message.setProto3StringField(this, 3, value);
 };
 
 
@@ -8480,7 +8480,7 @@ proto.pfs_v2.AddFile.prototype.toObject = function(opt_includeInstance) {
 proto.pfs_v2.AddFile.toObject = function(includeInstance, msg) {
   var f, obj = {
     path: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    tag: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    datum: jspb.Message.getFieldWithDefault(msg, 2, ""),
     raw: (f = msg.getRaw()) && google_protobuf_wrappers_pb.BytesValue.toObject(includeInstance, f),
     url: (f = msg.getUrl()) && proto.pfs_v2.AddFile.URLSource.toObject(includeInstance, f)
   };
@@ -8525,7 +8525,7 @@ proto.pfs_v2.AddFile.deserializeBinaryFromReader = function(msg, reader) {
       break;
     case 2:
       var value = /** @type {string} */ (reader.readString());
-      msg.setTag(value);
+      msg.setDatum(value);
       break;
     case 3:
       var value = new google_protobuf_wrappers_pb.BytesValue;
@@ -8573,7 +8573,7 @@ proto.pfs_v2.AddFile.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getTag();
+  f = message.getDatum();
   if (f.length > 0) {
     writer.writeString(
       2,
@@ -8778,10 +8778,10 @@ proto.pfs_v2.AddFile.prototype.setPath = function(value) {
 
 
 /**
- * optional string tag = 2;
+ * optional string datum = 2;
  * @return {string}
  */
-proto.pfs_v2.AddFile.prototype.getTag = function() {
+proto.pfs_v2.AddFile.prototype.getDatum = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
@@ -8790,7 +8790,7 @@ proto.pfs_v2.AddFile.prototype.getTag = function() {
  * @param {string} value
  * @return {!proto.pfs_v2.AddFile} returns this
  */
-proto.pfs_v2.AddFile.prototype.setTag = function(value) {
+proto.pfs_v2.AddFile.prototype.setDatum = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -8902,7 +8902,7 @@ proto.pfs_v2.DeleteFile.prototype.toObject = function(opt_includeInstance) {
 proto.pfs_v2.DeleteFile.toObject = function(includeInstance, msg) {
   var f, obj = {
     path: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    tag: jspb.Message.getFieldWithDefault(msg, 2, "")
+    datum: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -8945,7 +8945,7 @@ proto.pfs_v2.DeleteFile.deserializeBinaryFromReader = function(msg, reader) {
       break;
     case 2:
       var value = /** @type {string} */ (reader.readString());
-      msg.setTag(value);
+      msg.setDatum(value);
       break;
     default:
       reader.skipField();
@@ -8983,7 +8983,7 @@ proto.pfs_v2.DeleteFile.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getTag();
+  f = message.getDatum();
   if (f.length > 0) {
     writer.writeString(
       2,
@@ -9012,10 +9012,10 @@ proto.pfs_v2.DeleteFile.prototype.setPath = function(value) {
 
 
 /**
- * optional string tag = 2;
+ * optional string datum = 2;
  * @return {string}
  */
-proto.pfs_v2.DeleteFile.prototype.getTag = function() {
+proto.pfs_v2.DeleteFile.prototype.getDatum = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
@@ -9024,7 +9024,7 @@ proto.pfs_v2.DeleteFile.prototype.getTag = function() {
  * @param {string} value
  * @return {!proto.pfs_v2.DeleteFile} returns this
  */
-proto.pfs_v2.DeleteFile.prototype.setTag = function(value) {
+proto.pfs_v2.DeleteFile.prototype.setDatum = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -9062,7 +9062,7 @@ proto.pfs_v2.CopyFile.prototype.toObject = function(opt_includeInstance) {
 proto.pfs_v2.CopyFile.toObject = function(includeInstance, msg) {
   var f, obj = {
     dst: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    tag: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    datum: jspb.Message.getFieldWithDefault(msg, 2, ""),
     src: (f = msg.getSrc()) && proto.pfs_v2.File.toObject(includeInstance, f),
     append: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
   };
@@ -9107,7 +9107,7 @@ proto.pfs_v2.CopyFile.deserializeBinaryFromReader = function(msg, reader) {
       break;
     case 2:
       var value = /** @type {string} */ (reader.readString());
-      msg.setTag(value);
+      msg.setDatum(value);
       break;
     case 3:
       var value = new proto.pfs_v2.File;
@@ -9154,7 +9154,7 @@ proto.pfs_v2.CopyFile.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getTag();
+  f = message.getDatum();
   if (f.length > 0) {
     writer.writeString(
       2,
@@ -9198,10 +9198,10 @@ proto.pfs_v2.CopyFile.prototype.setDst = function(value) {
 
 
 /**
- * optional string tag = 2;
+ * optional string datum = 2;
  * @return {string}
  */
-proto.pfs_v2.CopyFile.prototype.getTag = function() {
+proto.pfs_v2.CopyFile.prototype.getDatum = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
@@ -9210,7 +9210,7 @@ proto.pfs_v2.CopyFile.prototype.getTag = function() {
  * @param {string} value
  * @return {!proto.pfs_v2.CopyFile} returns this
  */
-proto.pfs_v2.CopyFile.prototype.setTag = function(value) {
+proto.pfs_v2.CopyFile.prototype.setDatum = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 

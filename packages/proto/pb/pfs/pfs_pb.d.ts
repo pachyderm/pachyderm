@@ -68,8 +68,8 @@ export class File extends jspb.Message {
     setCommit(value?: Commit): File;
     getPath(): string;
     setPath(value: string): File;
-    getTag(): string;
-    setTag(value: string): File;
+    getDatum(): string;
+    setDatum(value: string): File;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): File.AsObject;
@@ -85,7 +85,7 @@ export namespace File {
     export type AsObject = {
         commit?: Commit.AsObject,
         path: string,
-        tag: string,
+        datum: string,
     }
 }
 
@@ -359,8 +359,8 @@ export class CommitInfo extends jspb.Message {
     getDirectProvenanceList(): Array<Branch>;
     setDirectProvenanceList(value: Array<Branch>): CommitInfo;
     addDirectProvenance(value?: Branch, index?: number): Branch;
-    getError(): boolean;
-    setError(value: boolean): CommitInfo;
+    getError(): string;
+    setError(value: string): CommitInfo;
     getSizeBytesUpperBound(): number;
     setSizeBytesUpperBound(value: number): CommitInfo;
 
@@ -390,7 +390,7 @@ export namespace CommitInfo {
         finishing?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         directProvenanceList: Array<Branch.AsObject>,
-        error: boolean,
+        error: string,
         sizeBytesUpperBound: number,
         details?: CommitInfo.Details.AsObject,
     }
@@ -644,8 +644,8 @@ export class FinishCommitRequest extends jspb.Message {
     setCommit(value?: Commit): FinishCommitRequest;
     getDescription(): string;
     setDescription(value: string): FinishCommitRequest;
-    getError(): boolean;
-    setError(value: boolean): FinishCommitRequest;
+    getError(): string;
+    setError(value: string): FinishCommitRequest;
     getForce(): boolean;
     setForce(value: boolean): FinishCommitRequest;
 
@@ -663,7 +663,7 @@ export namespace FinishCommitRequest {
     export type AsObject = {
         commit?: Commit.AsObject,
         description: string,
-        error: boolean,
+        error: string,
         force: boolean,
     }
 }
@@ -992,8 +992,8 @@ export namespace DeleteBranchRequest {
 export class AddFile extends jspb.Message { 
     getPath(): string;
     setPath(value: string): AddFile;
-    getTag(): string;
-    setTag(value: string): AddFile;
+    getDatum(): string;
+    setDatum(value: string): AddFile;
 
     hasRaw(): boolean;
     clearRaw(): void;
@@ -1020,7 +1020,7 @@ export class AddFile extends jspb.Message {
 export namespace AddFile {
     export type AsObject = {
         path: string,
-        tag: string,
+        datum: string,
         raw?: google_protobuf_wrappers_pb.BytesValue.AsObject,
         url?: AddFile.URLSource.AsObject,
     }
@@ -1061,8 +1061,8 @@ export namespace AddFile {
 export class DeleteFile extends jspb.Message { 
     getPath(): string;
     setPath(value: string): DeleteFile;
-    getTag(): string;
-    setTag(value: string): DeleteFile;
+    getDatum(): string;
+    setDatum(value: string): DeleteFile;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DeleteFile.AsObject;
@@ -1077,15 +1077,15 @@ export class DeleteFile extends jspb.Message {
 export namespace DeleteFile {
     export type AsObject = {
         path: string,
-        tag: string,
+        datum: string,
     }
 }
 
 export class CopyFile extends jspb.Message { 
     getDst(): string;
     setDst(value: string): CopyFile;
-    getTag(): string;
-    setTag(value: string): CopyFile;
+    getDatum(): string;
+    setDatum(value: string): CopyFile;
 
     hasSrc(): boolean;
     clearSrc(): void;
@@ -1107,7 +1107,7 @@ export class CopyFile extends jspb.Message {
 export namespace CopyFile {
     export type AsObject = {
         dst: string,
-        tag: string,
+        datum: string,
         src?: File.AsObject,
         append: boolean,
     }
