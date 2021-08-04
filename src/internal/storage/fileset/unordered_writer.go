@@ -115,7 +115,7 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 	}
 	uw.ids = append(uw.ids, *id)
 	if uw.renewer != nil {
-		uw.renewer.Add(id.TrackerID())
+		uw.renewer.Add(id.HexString())
 	}
 	// Reset fileset buffer.
 	uw.buffer = NewBuffer()

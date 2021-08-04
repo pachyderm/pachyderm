@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -538,7 +539,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 		if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
 			n = fileset.SizeFromIndex(file.Index())
 			return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
-				return file.Content(ctx, w)
+				return file.Content(ctx, w, chunk.WithOffsetBytes(request.Offset))
 			})
 		}); err != nil {
 			return 0, err

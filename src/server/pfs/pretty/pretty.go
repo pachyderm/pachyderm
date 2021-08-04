@@ -26,9 +26,9 @@ const (
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// FileHeader is the header for files.
-	FileHeader = "NAME\tTAG\tTYPE\tSIZE\t\n"
+	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
-	FileHeaderWithCommit = "COMMIT\tNAME\tTAG\tTYPE\tCOMMITTED\tSIZE\t\n"
+	FileHeaderWithCommit = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
 	// DiffFileHeader is the header for files produced by diff file.
 	DiffFileHeader = "OP\t" + FileHeader
 )

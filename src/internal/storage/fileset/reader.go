@@ -71,8 +71,8 @@ func (fr *FileReader) Index() *index.Index {
 }
 
 // Content writes the content of the file.
-func (fr *FileReader) Content(ctx context.Context, w io.Writer) error {
-	r := fr.chunks.NewReader(ctx, fr.idx.File.DataRefs)
+func (fr *FileReader) Content(ctx context.Context, w io.Writer, opts ...chunk.ReaderOption) error {
+	r := fr.chunks.NewReader(ctx, fr.idx.File.DataRefs, opts...)
 	return r.Get(w)
 }
 

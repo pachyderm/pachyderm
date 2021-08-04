@@ -1156,6 +1156,8 @@ $ {{alias}} repo@branch -i http://host/path`,
 	commands = append(commands, cmdutil.CreateAlias(copyFile, "copy file"))
 
 	var outputPath string
+	var offsetBytes int64
+	var retry bool
 	getFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Return the contents of a file.",
@@ -1201,9 +1203,21 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				if err != nil {
 					return err
 				}
-				f, err := progress.Create(outputPath, int64(fi.SizeBytes))
-				if err != nil {
-					return err
+				var f *progress.File
+				if ofi, err := os.Stat(outputPath); retry && err == nil {
+					// when retrying, just write the unwritten bytes
+					if offsetBytes == 0 {
+						offsetBytes = ofi.Size()
+					}
+					f, err = progress.OpenAppend(outputPath, int64(fi.SizeBytes)-offsetBytes)
+					if err != nil {
+						return err
+					}
+				} else {
+					f, err = progress.Create(outputPath, int64(fi.SizeBytes)-offsetBytes)
+					if err != nil {
+						return err
+					}
 				}
 				defer f.Close()
 				w = f
@@ -1216,6 +1230,8 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 	}
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
 	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
+	getFile.Flags().Int64Var(&offsetBytes, "offset", 0, "The number of bytes in the file to skip ahead when reading.")
+	getFile.Flags().BoolVar(&retry, "retry", false, "{true|false} Whether to append the missing bytes to an existing file. No-op if the file doesn't exist.")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
 
