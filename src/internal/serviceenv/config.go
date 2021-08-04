@@ -24,8 +24,10 @@ type GlobalConfiguration struct {
 	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
 	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
 	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
-	PGBouncerHost                  string `env:"PG_BOUNCER_HOST"`
-	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT"`
+	PostgresHost                   string `env:"POSTGRES_HOST,required"`
+	PostgresPort                   int    `env:"POSTGRES_PORT,required"`
+	PGBouncerHost                  string `env:"PG_BOUNCER_HOST,required"`
+	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT,required"`
 	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
 	PostgresDBName                 string `env:"POSTGRES_DATABASE,required"`
 	PostgresUser                   string `env:"POSTGRES_USER,required"`
@@ -50,7 +52,6 @@ type GlobalConfiguration struct {
 	SessionDurationMinutes int `env:"SESSION_DURATION_MINUTES,default=43200"`
 
 	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
-	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
 
 	// PPSSpecCommitID and PPSPipelineName are only set for workers and sidecar
 	// pachd instances. Because both pachd and worker need to know the spec commit
@@ -68,9 +69,6 @@ type GlobalConfiguration struct {
 	// the target project.  If set on a pachd pod, propagates to workers and sidecars (which
 	// also need permission).
 	GoogleCloudProfilerProject string `env:"GOOGLE_CLOUD_PROFILER_PROJECT"`
-
-	PostgresHost string `env:"POSTGRES_HOST"`
-	PostgresPort int    `env:"POSTGRES_PORT"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.
