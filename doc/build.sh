@@ -37,7 +37,7 @@ EOF
 done
     cat <<EOF >>overrides/partials/versions.html
         <option style="color:white;background-color:#4b2a5c;" value="archive">Archive</option>"
-        <option style="color:white;background-color:#4b2a5c;" value="2.0.x-Beta">2.0.x-Beta</option>"
+        <option style="color:white;background-color:#4b2a5c;" value="2.0.x-beta">2.0.x-beta</option>"
     </select>
     <!-- set initial value of 'select' to the version of the docs being browsed -->
     <script type="text/javascript">
