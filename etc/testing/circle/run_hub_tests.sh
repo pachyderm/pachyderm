@@ -6,6 +6,13 @@ set -euxo pipefail
 wget https://github.com/pachyderm/hubcli/releases/download/v0.0.1-beta.1/hubcli
 chmod a+x hubcli
 
+# install goreleaser
+mkdir cached-deps
+GORELEASER_VERSION=0.169.0
+curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
+    | tar xzf - -C cached-deps goreleaser
+
+
 # install pachctl and friends
 make install
 VERSION=$(pachctl version --client-only)
