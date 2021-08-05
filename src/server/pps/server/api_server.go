@@ -2357,6 +2357,10 @@ func (a *apiServer) ListPipeline(request *pps.ListPipelineRequest, srv pps.API_L
 	defer func(start time.Time) {
 		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
+	return a.listPipeline(srv.Context(), request, srv.Send)
+}
+
+func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
 	var jqCode *gojq.Code
 	var enc serde.Encoder
 	var jsonBuffer bytes.Buffer
@@ -2388,7 +2392,7 @@ func (a *apiServer) ListPipeline(request *pps.ListPipelineRequest, srv pps.API_L
 		return true
 	}
 	// the mess below is so we can lookup the PFS info for each pipeline concurrently.
-	eg, ctx := errgroup.WithContext(srv.Context())
+	eg, ctx := errgroup.WithContext(ctx)
 	infos := make(chan *pps.PipelineInfo)
 	// stream these out of etcd
 	eg.Go(func() error {
