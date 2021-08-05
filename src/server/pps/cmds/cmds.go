@@ -164,7 +164,8 @@ If the job fails, the output commit will not be populated with data.`,
 
 	var pipelineName string
 	var inputCommitStrs []string
-	var history string
+	var listPipelineHistory string
+	var listJobHistory string
 	var stateStrs []string
 	var expand bool
 	listJob := &cobra.Command{
@@ -197,7 +198,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 			if err != nil {
 				return err
 			}
-			historyCount, err := cmdutil.ParseHistory(history)
+			fmt.Printf("History: %s\n", listJobHistory)
+			historyCount, err := cmdutil.ParseHistory(listJobHistory)
 			if err != nil {
 				return errors.Wrapf(err, "error parsing history flag")
 			}
@@ -226,7 +228,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 						return errors.Errorf("cannot specify '--state' when listing all jobs")
 					} else if len(inputCommitStrs) != 0 {
 						return errors.Errorf("cannot specify '--input' when listing all jobs")
-					} else if history != "none" {
+					} else if listJobHistory != "all" {
 						return errors.Errorf("cannot specify '--history' when listing all jobs")
 					}
 
@@ -278,7 +280,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 					return errors.Errorf("cannot specify '--state' when listing sub-jobs")
 				} else if len(inputCommitStrs) != 0 {
 					return errors.Errorf("cannot specify '--input' when listing sub-jobs")
-				} else if history != "none" {
+				} else if listJobHistory != "all" {
 					return errors.Errorf("cannot specify '--history' when listing sub-jobs")
 				} else if pipelineName != "" {
 					return errors.Errorf("cannot specify '--pipeline' when listing sub-jobs")
@@ -302,7 +304,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().AddFlagSet(outputFlags)
 	listJob.Flags().AddFlagSet(timestampFlags)
 	listJob.Flags().AddFlagSet(pagerFlags)
-	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
+	listJob.Flags().StringVar(&listJobHistory, "history", "all", "Return jobs from historical versions of pipelines.")
 	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only sub-jobs with the specified state. Can be repeated to include multiple states")
 	shell.RegisterCompletionFunc(listJob,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
@@ -877,7 +879,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			} else if !raw && !spec && output != "" {
 				return errors.New("cannot set --output (-o) without --raw or --spec")
 			}
-			history, err := cmdutil.ParseHistory(history)
+			historyCount, err := cmdutil.ParseHistory(listPipelineHistory)
 			if err != nil {
 				return errors.Wrapf(err, "error parsing history flag")
 			}
@@ -898,7 +900,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter, Details: true}
+			request := &ppsclient.ListPipelineRequest{History: historyCount, JqFilter: filter, Details: true}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewPipeline(pipeline)
 			}
@@ -943,7 +945,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output 'create pipeline' compatibility specs.")
 	listPipeline.Flags().AddFlagSet(outputFlags)
 	listPipeline.Flags().AddFlagSet(timestampFlags)
-	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
+	listPipeline.Flags().StringVar(&listPipelineHistory, "history", "none", "Return revision history for pipelines.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
 
