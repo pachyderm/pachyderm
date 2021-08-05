@@ -24,13 +24,24 @@ LOCAL
 {{- end -}}
 
 {{- define "pachyderm.consoleSecret" -}}
-{{ default (randAlphaNum 32) .Values.console.config.oauthClientSecret }}
+{{ include "defaultOrStableHash" (dict "defaultValue" .Values.console.config.oauthClientSecret "hashSalt" "consoleSecret") }}
 {{- end -}}
 
 {{- define "pachyderm.clusterDeploymentId" -}}
-{{ default (randAlphaNum 32) .Values.pachd.clusterDeploymentID }}
+{{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.clusterDeploymentID "hashSalt" "deployID") }}
 {{- end -}}
 
 {{- define "pachyderm.enterpriseSecret" -}}
-{{ default (randAlphaNum 32) .Values.pachd.enterpriseSecret }}
+{{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.enterpriseSecret "hashSalt" "entsec") }}
+{{- end -}}
+
+## if 'defaultValue' isn't defined use the date/time to create a hash
+## truncate the date to the minute and use 'genPrefix' to produce a different hash per useage
+## expects a context containing 'defaultValue' and 'hashSalt' keys
+{{- define "defaultOrStableHash" -}}
+{{ if .defaultValue }}
+{{- .defaultValue }}
+{{ else }}
+{{- now | print | trunc 16 | printf "%s-%s" .hashSalt | sha256sum -}}
+{{- end }}
 {{- end -}}
