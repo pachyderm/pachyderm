@@ -41,7 +41,7 @@ This generally means unioning all the files together.
 
 If you need files from different datums merged into single files in a particular way, **add a pipeline that groups the files from the previous output repo into single datums using the appropriate glob pattern and merges them as intended using your code**. The example that follows illustrates this two steps approach. 
 
-### Example: 2 Steps pattern and Single Datum Provenance Rule
+### Example: Two Steps Map/Reduce Pattern and Single Datum Provenance Rule
 
 In this example, we highlight a 2 pipelines pattern where a first pipeline's glob pattern splits an incoming commit into 3 datums (called "Red", "Blue", "Purple"), each producing 2 files each.
 The files can then be further
