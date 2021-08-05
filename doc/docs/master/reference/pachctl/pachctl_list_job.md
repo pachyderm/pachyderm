@@ -39,7 +39,7 @@ $ pachctl list job -p foo -i bar@YYY
 ### Options
 
 ```
-      --expand              Show one line for each sub-job and include more columns
+  -x, --expand              Show one line for each sub-job and include more columns
       --full-timestamps     Return absolute timestamps (as opposed to the default, relative timestamps).
   -h, --help                help for job
       --history string      Return jobs from historical versions of pipelines. (default "none")
