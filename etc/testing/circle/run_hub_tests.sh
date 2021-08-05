@@ -8,10 +8,10 @@ chmod a+x hubcli
 
 # install goreleaser
 mkdir cached-deps
+export PATH=$PATH:$(pwd)/cached-deps
 GORELEASER_VERSION=0.169.0
 curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
     | tar xzf - -C cached-deps goreleaser
-
 
 # install pachctl and friends
 make install
