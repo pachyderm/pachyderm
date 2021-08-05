@@ -145,6 +145,10 @@ func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoS
 	return a.driver.listRepo(srv.Context(), true, request.Type, srv.Send)
 }
 
+func (a *apiServer) ListRepoCallback(ctx context.Context, request *pfs.ListRepoRequest, cb func(info *pfs.RepoInfo) error) error {
+	return a.driver.listRepo(ctx, true, request.Type, cb)
+}
+
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
@@ -537,32 +541,41 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 	})
 }
 
+func (a *apiServer) GetFileWithWriter(ctx context.Context, request *pfs.GetFileRequest, writer io.Writer) (int64, error) {
+	src, err := a.driver.getFile(ctx, request.File)
+	if err != nil {
+		return 0, err
+	}
+	if request.URL != "" {
+		return getFileURL(ctx, request.URL, src)
+	}
+	if err := checkSingleFile(ctx, src); err != nil {
+		return 0, err
+	}
+	var n int64
+	if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
+		n = fileset.SizeFromIndex(file.Index())
+		return file.Content(ctx, writer, chunk.WithOffsetBytes(request.Offset))
+	}); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
 // GetFile implements the protobuf pfs.GetFile RPC
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
-		ctx := server.Context()
-		src, err := a.driver.getFile(ctx, request.File)
-		if err != nil {
-			return 0, err
-		}
-		if request.URL != "" {
-			return getFileURL(ctx, request.URL, src)
-		}
-		if err := checkSingleFile(ctx, src); err != nil {
-			return 0, err
-		}
-		var n int64
-		if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
-			n = fileset.SizeFromIndex(file.Index())
-			return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
-				return file.Content(ctx, w, chunk.WithOffsetBytes(request.Offset))
-			})
+		var size int64
+		if err := grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
+			var err error
+			size, err = a.GetFileWithWriter(server.Context(), request, w)
+			return err
 		}); err != nil {
 			return 0, err
 		}
-		return n, nil
+		return size, nil
 	})
 }
 
@@ -714,6 +727,10 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 		return err
 	}
 	return nil
+}
+
+func (a *apiServer) CreateFileSetCallback(ctx context.Context, cb func(uw *fileset.UnorderedWriter) error) (*fileset.ID, error) {
+	return a.driver.createFileSet(ctx, cb)
 }
 
 // CreateFileSet implements the pfs.CreateFileset RPC

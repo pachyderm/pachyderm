@@ -44,7 +44,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -828,7 +827,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 
 	// If the commits for the job have been squashed, the pipeline spec can no
 	// longer be read for this job
-	if err := grpcutil.GetPipelineDetails(ctx, a.env.PfsServer(), pipelineInfo); err != nil {
+	if err := ppsutil.GetPipelineDetails(ctx, a.env, pipelineInfo); err != nil {
 		return err
 	}
 
@@ -1618,14 +1617,6 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-func (a *apiServer) writePipelineInfoToFileSet(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo) (string, error) {
-	data, err := pipelineInfo.Marshal()
-	if err != nil {
-		return "", errors.Wrapf(err, "could not marshal PipelineInfo")
-	}
-	return txnCtx.FileAccessor.CreateFileset(ppsconsts.SpecFile, data, false)
-}
-
 // commitPipelineInfoFromFileSet is a helper for all pipeline updates that
 // creates a commit with 'pipelineInfo' in SpecRepo (in PFS). It's called in
 // both the case where a user is updating a pipeline and the case where a user
@@ -1638,19 +1629,7 @@ func (a *apiServer) commitPipelineInfoFromFileSet(
 	txnCtx *txncontext.TransactionContext,
 	pipelineName string,
 	filesetID string,
-	prevPipelineVersion uint64,
 ) (*pfs.Commit, error) {
-	// Make sure the PipelineInfo is the same version we expect so we don't clobber another pipeline update
-	if prevPipelineVersion != 0 {
-		latestPipelineInfo, err := a.latestPipelineInfo(txnCtx, pipelineName)
-		if err != nil {
-			return nil, err
-		}
-		if prevPipelineVersion != latestPipelineInfo.Version {
-			return nil, errors.Errorf("pipeline operation aborted due to concurrent pipeline update")
-		}
-	}
-
 	commit, err := a.env.PfsServer().StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
 		Branch: client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"),
 	})
@@ -1661,10 +1640,7 @@ func (a *apiServer) commitPipelineInfoFromFileSet(
 	if err := a.env.PfsServer().AddFileSetInTransaction(txnCtx, &pfs.AddFileSetRequest{
 		Commit:    commit,
 		FileSetId: filesetID,
-	}); err != nil && errors.Is(err, fileset.ErrFileSetNotExists) {
-		// the fileset is gone, we need to recreate and try again
-		return nil, &col.ErrTransactionConflict{}
-	} else if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
@@ -1907,80 +1883,32 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	return pipelineInfo, nil
 }
 
-// latestPipelineInfo doesn't actually work transactionally because
-// ppsutil.GetPipelineInfo needs to use pfs.GetFile to read the spec commit,
-// which does not support transactions.
-func (a *apiServer) latestPipelineInfo(txnCtx *txncontext.TransactionContext, pipelineName string) (*pps.PipelineInfo, error) {
-	pipelineInfo := &pps.PipelineInfo{}
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(pipelineName, pipelineInfo); err != nil {
-		return nil, err
-	}
-	// the spec commit must already exist outside of the transaction, so we can retrieve it normally
-	if err := txnCtx.FileAccessor.GetPipelineDetails(pipelineInfo); err != nil {
-		return nil, err
-	}
-	return pipelineInfo, nil
-}
-
-func (a *apiServer) pipelineInfosForUpdate(txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) (*pps.PipelineInfo, *pps.PipelineInfo, error) {
-	if request.Pipeline == nil {
-		return nil, nil, errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
-	}
-
-	// We can't recover from an incomplete pipeline info here because
-	// modifying the spec repo depends on being able to access the previous
-	// commit. We therefore use `GetPipelineInfo` which will error if the
-	// spec commit isn't working.
-	oldPipelineInfo, err := a.latestPipelineInfo(txnCtx, request.Pipeline.Name)
-	if err != nil {
-		if !col.IsErrNotFound(err) {
-			return nil, nil, err
-		}
-		// Continue with a 'nil' oldPipelineInfo if it does not already exist
-	}
-
-	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return oldPipelineInfo, newPipelineInfo, nil
-}
-
 func (a *apiServer) CreatePipelineInTransaction(
 	txnCtx *txncontext.TransactionContext,
 	request *pps.CreatePipelineRequest,
 	specFileSetID *string,
 	prevPipelineVersion *uint64,
 ) error {
-	oldPipelineInfo, newPipelineInfo, err := a.pipelineInfosForUpdate(txnCtx, request)
+	oldPipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
 	if err != nil {
 		return err
 	}
 	pipelineName := request.Pipeline.Name
 
-	// If the expected pipeline version doesn't match up with oldPipelineInfo, we
-	// need to recreate the fileset
-	staleFileSet := false
-	if oldPipelineInfo == nil {
-		staleFileSet = (*prevPipelineVersion != 0)
-	} else {
-		staleFileSet = oldPipelineInfo.Version != *prevPipelineVersion
+	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
+	if err != nil {
+		return err
 	}
 
-	if staleFileSet || *specFileSetID == "" {
-		// No existing fileset or the old one expired, create a new fileset - the
-		// pipeline spec to be written into a fileset outside of the transaction.
-		*specFileSetID, err = a.writePipelineInfoToFileSet(txnCtx, newPipelineInfo)
+	if newPipelineInfo.Version != *prevPipelineVersion {
+		data, err := newPipelineInfo.Marshal()
 		if err != nil {
 			return err
 		}
-		if oldPipelineInfo != nil {
-			*prevPipelineVersion = oldPipelineInfo.Version
-		}
-
-		// The transaction cannot continue because it cannot see the fileset - abort and retry
-		return &dbutil.ErrTransactionConflict{}
+		// this data is up to date with the version we retrieved
+		*prevPipelineVersion = newPipelineInfo.Version
+		// always errors
+		return txnCtx.FilesetManager.CreateFileset(specFileSetID, ppsconsts.SpecFile, data)
 	}
 
 	// Verify that all input repos exist (create cron and git repos if necessary)
@@ -2089,12 +2017,8 @@ func (a *apiServer) CreatePipelineInTransaction(
 		// There is, so we use that as the spec commit, rather than making a new one
 		specCommit = commitInfo.Commit
 	} else {
-		specCommit, err = a.commitPipelineInfoFromFileSet(txnCtx, pipelineName, *specFileSetID, *prevPipelineVersion)
-		if err != nil && errors.Is(err, fileset.ErrFileSetNotExists) {
-			// the fileset is gone, we need to recreate and try again
-			*specFileSetID = ""
-			return &col.ErrTransactionConflict{}
-		} else if err != nil {
+		specCommit, err = a.commitPipelineInfoFromFileSet(txnCtx, pipelineName, *specFileSetID)
+		if err != nil {
 			return err
 		}
 	}
@@ -2371,7 +2295,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 	}
 
 	if details {
-		if err := grpcutil.GetPipelineDetails(ctx, a.env.PfsServer(), info); err != nil {
+		if err := ppsutil.GetPipelineDetails(ctx, a.env, info); err != nil {
 			return nil, err
 		}
 		kubeClient := a.env.GetKubeClient()
@@ -2436,10 +2360,10 @@ func (a *apiServer) ListPipeline(request *pps.ListPipelineRequest, srv pps.API_L
 	defer func(start time.Time) {
 		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
-	return a.listPipeline(srv.Context(), request, srv.Send)
+	return a.ListPipelineCallback(srv.Context(), request, srv.Send)
 }
 
-func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
+func (a *apiServer) ListPipelineCallback(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
 	var jqCode *gojq.Code
 	var enc serde.Encoder
 	var jsonBuffer bytes.Buffer
@@ -2492,7 +2416,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		eg.Go(func() error {
 			for info := range infos {
 				if request.Details {
-					if err := grpcutil.GetPipelineDetails(ctx, a.env.PfsServer(), info); err != nil {
+					if err := ppsutil.GetPipelineDetails(ctx, a.env, info); err != nil {
 						return err
 					}
 				}
@@ -2597,7 +2521,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 
 	// Load pipeline details so we can do some cleanup tasks based on certain
 	// input types and the output branch.
-	if err := grpcutil.GetPipelineDetails(ctx, a.env.PfsServer(), pipelineInfo); err != nil {
+	if err := ppsutil.GetPipelineDetails(ctx, a.env, pipelineInfo); err != nil {
 		return err
 	}
 
@@ -2718,10 +2642,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		// This reads the pipeline spec from PFS which is not transactional, so we
-		// may have to abort and reattempt.  We only need this to authorize the
-		// update.
-		pipelineInfo, err := a.latestPipelineInfo(txnCtx, request.Pipeline.Name)
+		pipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
 		if err != nil {
 			return err
 		}
@@ -2750,10 +2671,6 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 
 		newPipelineInfo := &pps.PipelineInfo{}
 		return a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
-			if newPipelineInfo.Version != pipelineInfo.Version {
-				// If the pipeline has changed, restart the transaction and try again
-				return dbutil.ErrTransactionConflict{}
-			}
 			newPipelineInfo.Stopped = false
 			return nil
 		})
@@ -2772,10 +2689,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		// This reads the pipeline spec from PFS which is not transactional, so we
-		// may have to abort and reattempt.  We only need this to authorize the
-		// update.
-		pipelineInfo, err := a.latestPipelineInfo(txnCtx, request.Pipeline.Name)
+		pipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
 		if err != nil {
 			return err
 		}
@@ -2808,10 +2722,6 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 
 			newPipelineInfo := &pps.PipelineInfo{}
 			if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
-				if newPipelineInfo.Version != pipelineInfo.Version {
-					// If the pipeline has changed, restart the transaction and try again
-					return dbutil.ErrTransactionConflict{}
-				}
 				newPipelineInfo.Stopped = true
 				return nil
 			}); err != nil {

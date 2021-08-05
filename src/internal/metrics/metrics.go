@@ -7,7 +7,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -257,12 +256,8 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 
 	// Pipeline info
 	if err := func() error {
-		pipelineInfos, err := grpcutil.ListPipeline(ctx, r.env.PpsServer(), &pps.ListPipelineRequest{Details: true})
-		if err != nil {
-			return err
-		}
-		metrics.Pipelines = int64(len(pipelineInfos)) // Number of pipelines
-		for _, pi := range pipelineInfos {
+		return r.env.PpsServer().ListPipelineCallback(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+			metrics.Pipelines += 1
 			if pi.JobCounts != nil {
 				var cnt int64 = 0
 				for _, c := range pi.JobCounts {
@@ -349,25 +344,26 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 					metrics.CfgTfjob++
 				}
 			}
-		}
-		return nil
+			return nil
+		})
 	}(); err != nil {
 		log.Errorf("Error getting pipeline metrics: %v", err)
 	}
 
 	if err := func() error {
-		repoInfos, err := grpcutil.ListRepo(ctx, r.env.PfsServer(), &pfs.ListRepoRequest{Type: pfs.UserRepoType})
-		if err != nil {
-			return err
-		}
-		var sz, mbranch uint64 = 0, 0
-		for _, ri := range repoInfos {
+		var count int64
+		var sz, mbranch uint64
+		if err := r.env.PfsServer().ListRepoCallback(ctx, &pfs.ListRepoRequest{Type: pfs.UserRepoType}, func(ri *pfs.RepoInfo) error {
+			count += 1
 			sz += uint64(ri.SizeBytesUpperBound)
 			if mbranch < uint64(len(ri.Branches)) {
 				mbranch = uint64(len(ri.Branches))
 			}
+			return nil
+		}); err != nil {
+			return err
 		}
-		metrics.Repos = int64(len(repoInfos))
+		metrics.Repos = count
 		metrics.Bytes = sz
 		metrics.MaxBranches = mbranch
 		return nil

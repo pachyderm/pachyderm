@@ -5,6 +5,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -30,14 +31,15 @@ type TransactionContext struct {
 	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
 	PpsJobStopper  PpsJobStopper
 	PpsJobFinisher PpsJobFinisher
-	FileAccessor   FileAccessor
+
+	FilesetManager FilesetManager
 }
 
 type identifier interface {
 	WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 }
 
-func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier) (*TransactionContext, error) {
+func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier, m FilesetManager) (*TransactionContext, error) {
 	var username string
 	// check auth once now so that we can refer to it later
 	if authServer != nil {
@@ -48,10 +50,11 @@ func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier) (*Transacti
 		}
 	}
 	return &TransactionContext{
-		SqlTx:       sqlTx,
-		CommitSetID: uuid.NewWithoutDashes(),
-		Timestamp:   types.TimestampNow(),
-		username:    username,
+		SqlTx:          sqlTx,
+		CommitSetID:    uuid.NewWithoutDashes(),
+		Timestamp:      types.TimestampNow(),
+		username:       username,
+		FilesetManager: m,
 	}, nil
 }
 
@@ -139,7 +142,7 @@ type PpsJobFinisher interface {
 	Run() error
 }
 
-type FileAccessor interface {
-	CreateFileset(string, []byte, bool) (string, error)
-	GetPipelineDetails(into *pps.PipelineInfo) error
+type FilesetManager interface {
+	CreateFileset(idDest *string, path string, data []byte) error
+	LatestPipelineInfo(*TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
 }

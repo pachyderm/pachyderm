@@ -293,29 +293,34 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 	}
 }
 
+func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *sqlx.Tx, r txncontext.FilesetManager, cb func(*txncontext.TransactionContext) error) error {
+	txnCtx, err := txncontext.New(ctx, sqlTx, env.serviceEnv.AuthServer(), r)
+	if err != nil {
+		return err
+	}
+	if env.serviceEnv.PfsServer() != nil {
+		txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
+	}
+	if env.serviceEnv.PpsServer() != nil {
+		txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
+		txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
+		txnCtx.PpsJobFinisher = env.serviceEnv.PpsServer().NewJobFinisher(txnCtx)
+	}
+
+	err = cb(txnCtx)
+	if err != nil {
+		return err
+	}
+	return txnCtx.Finish()
+}
+
 // WithWriteContext will call the given callback with a txncontext.TransactionContext
 // which can be used to perform reads and writes on the current cluster state.
 func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
-	return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		txnCtx, err := txncontext.New(ctx, sqlTx, env.serviceEnv.AuthServer())
-		if err != nil {
-			return err
-		}
-		if env.serviceEnv.PfsServer() != nil {
-			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
-			txnCtx.FileAccessor = env.serviceEnv.PfsServer().NewFileAccessor(ctx)
-		}
-		if env.serviceEnv.PpsServer() != nil {
-			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
-			txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
-			txnCtx.PpsJobFinisher = env.serviceEnv.PpsServer().NewJobFinisher(txnCtx)
-		}
-
-		err = cb(txnCtx)
-		if err != nil {
-			return err
-		}
-		return txnCtx.Finish()
+	return env.withRefreshLoop(ctx, func(r txncontext.FilesetManager) error {
+		return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+			return env.attemptTx(ctx, sqlTx, r, cb)
+		})
 	})
 }
 
@@ -323,25 +328,9 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
 func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
-	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		txnCtx, err := txncontext.New(ctx, sqlTx, env.serviceEnv.AuthServer())
-		if err != nil {
-			return err
-		}
-		if env.serviceEnv.PfsServer() != nil {
-			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
-			txnCtx.FileAccessor = env.serviceEnv.PfsServer().NewFileAccessor(ctx)
-		}
-		if env.serviceEnv.PpsServer() != nil {
-			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
-			txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
-			txnCtx.PpsJobFinisher = env.serviceEnv.PpsServer().NewJobFinisher(txnCtx)
-		}
-
-		err = cb(txnCtx)
-		if err != nil {
-			return err
-		}
-		return txnCtx.Finish()
+	return env.withRefreshLoop(ctx, func(r txncontext.FilesetManager) error {
+		return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+			return env.attemptTx(ctx, sqlTx, r, cb)
+		})
 	})
 }

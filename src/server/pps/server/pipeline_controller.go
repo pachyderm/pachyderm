@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -139,7 +138,7 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 	// this reads the pipelineInfo associated with 'op's pipeline, as most other
 	// methods (e.g.  getRC, though not failPipeline) assume that
 	// op.pipelineInfo.Details is set.
-	if err := grpcutil.GetPipelineDetails(op.ctx, op.m.a.env.PfsServer(), op.pipelineInfo); err != nil {
+	if err := ppsutil.GetPipelineDetails(op.ctx, op.m.a.env, op.pipelineInfo); err != nil {
 		return nil, newRetriableError(err, "error retrieving spec")
 	}
 	return op, nil

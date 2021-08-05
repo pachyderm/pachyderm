@@ -55,7 +55,7 @@ func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
 	pipelineInfo.SpecCommit.ID = env.Config().PPSSpecCommitID
-	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
+	if err := ppsutil.GetPipelineDetails(pachClient.Ctx(), env, pipelineInfo); err != nil {
 		return nil, err
 	}
 	return pipelineInfo, nil

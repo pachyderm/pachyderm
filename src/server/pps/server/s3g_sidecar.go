@@ -14,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -67,7 +66,7 @@ func (a *apiServer) ServeSidecarS3G() {
 		// auth is off)
 		s.pachClient.SetAuthToken(s.pipelineInfo.AuthToken)
 
-		if err := grpcutil.GetPipelineDetails(s.pachClient.Ctx(), a.env.PfsServer(), s.pipelineInfo); err != nil {
+		if err := ppsutil.GetPipelineDetails(s.pachClient.Ctx(), a.env, s.pipelineInfo); err != nil {
 			return errors.Wrapf(err, "sidecar s3 gateway: could not get pipeline details")
 		}
 		return nil
