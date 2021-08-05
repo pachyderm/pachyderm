@@ -198,7 +198,6 @@ $ {{alias}} -p foo -i bar@YYY`,
 			if err != nil {
 				return err
 			}
-			fmt.Printf("History: %s\n", listJobHistory)
 			historyCount, err := cmdutil.ParseHistory(listJobHistory)
 			if err != nil {
 				return errors.Wrapf(err, "error parsing history flag")
