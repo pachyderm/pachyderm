@@ -9,10 +9,12 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -207,6 +209,50 @@ func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, Ca
 		result = append(result, prompt.Suggest{
 			Text:        pi.Pipeline.Name,
 			Description: pi.Details.Description,
+		})
+		return nil
+	}); err != nil {
+		return nil, CacheNone
+	}
+	return result, CacheAll
+}
+
+func jobSetDesc(jsi *pps.JobSetInfo) string {
+	failure := 0
+	var created *types.Timestamp
+	var modified *types.Timestamp
+	for _, job := range jsi.Jobs {
+		if job.State != pps.JobState_JOB_SUCCESS && ppsutil.IsTerminal(job.State) {
+			failure++
+		}
+
+		if created == nil {
+			created = job.Created
+			modified = job.Created
+		} else {
+			if job.Created.Compare(created) < 0 {
+				created = job.Created
+			}
+			if job.Created.Compare(modified) > 0 {
+				modified = job.Created
+			}
+		}
+	}
+	return fmt.Sprintf("%s, %d subjobs %d failure(s)", pretty.Ago(created), len(jsi.Jobs), failure)
+}
+
+// JobCompletion completes job parameters of the form <job-set>
+func JobSetCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+	c := getPachClient()
+	var result []prompt.Suggest
+	listJobSetClient, err := c.PpsAPIClient.ListJobSet(c.Ctx(), &pps.ListJobSetRequest{})
+	if err != nil {
+		return nil, CacheNone
+	}
+	if err := clientsdk.ForEachJobSet(listJobSetClient, func(jsi *pps.JobSetInfo) error {
+		result = append(result, prompt.Suggest{
+			Text:        jsi.JobSet.ID,
+			Description: jobSetDesc(jsi),
 		})
 		return nil
 	}); err != nil {
