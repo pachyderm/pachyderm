@@ -359,6 +359,16 @@ const pfs = ({
         });
       });
     },
+    deleteAll: () => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        client.deleteAll(new Empty(), (error) => {
+          if (error) {
+            return reject(error);
+          }
+          return resolve({});
+        });
+      });
+    },
   };
 };
 
