@@ -7,16 +7,19 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
+	pathpkg "path"
 	"strings"
 	"time"
 
 	"github.com/araddon/gou"
+	"github.com/gogo/protobuf/types"
 	"github.com/lytics/cloudstorage"
 	"github.com/lytics/cloudstorage/csbufio"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
 )
@@ -80,68 +83,38 @@ func (l *PFSStore) NewObject(objectname string) (cloudstorage.Object, error) {
 	}, nil
 }
 
-// List objects at Query location.
-func (l *PFSStore) List(ctx context.Context, query cloudstorage.Query) (*cloudstorage.ObjectsResponse, error) {
-	resp := cloudstorage.NewObjectsResponse()
-	objects := make(map[string]*object)
-	metadatas := make(map[string]map[string]string)
-
-	repoAndCommit, path := path.Split(query.Prefix)
+func (l *PFSStore) parsePath(path string) (string, string, string) {
+	repoAndCommit, path := pathpkg.Split(path)
 	repoParts := strings.Split(repoAndCommit, ".")
 	repo := repoParts[0]
 	commit := "master"
 	if len(repoParts) > 1 {
 		commit = repoParts[1]
 	}
-	l.pachClient.WalkFile
-	err := filepath.Walk(spath, func(fo string, f os.FileInfo, err error) error {
+	return repo, commit, path
+}
+
+// List objects at Query location.
+func (l *PFSStore) List(ctx context.Context, query cloudstorage.Query) (*cloudstorage.ObjectsResponse, error) {
+	resp := cloudstorage.NewObjectsResponse()
+	objects := make(map[string]*object)
+	metadatas := make(map[string]map[string]string)
+
+	repo, commit, path := l.parsePath(query.Prefix)
+	if err := l.pachClient.WithCtx(ctx).WalkFile(client.NewCommit(repo, "master", commit), path, func(fi *pfs.FileInfo) error {
+		t, err := types.TimestampFromProto(fi.Committed)
 		if err != nil {
 			return err
 		}
-
-		obj := strings.Replace(fo, l.pathCleaned, "", 1)
-
-		if f.IsDir() {
-			return nil
-		} else if filepath.Ext(f.Name()) == ".metadata" {
-			b, err := ioutil.ReadFile(fo)
-			if err != nil {
-				return err
-			}
-			md := make(map[string]string)
-			err = json.Unmarshal(b, &md)
-			if err != nil {
-				return err
-			}
-
-			mdkey := strings.Replace(obj, ".metadata", "", 1)
-			metadatas[mdkey] = md
-		} else {
-
-			oname := strings.TrimPrefix(obj, "/")
-			objects[obj] = &object{
-				name:      oname,
-				updated:   f.ModTime(),
-				storepath: fo,
-				cachepath: cloudstorage.CachePathObj(l.cachepath, oname, l.Id),
-			}
+		objects[path] = &object{
+			name:    fi.File.Path,
+			updated: t,
 		}
-		return err
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("localfile: error occurred listing files. searchpath=%v err=%v", spath, err)
+		return nil
+	}); err != nil {
+		return nil, errors.Wrapf(err, "failed to walk files")
 	}
-
-	for objname, obj := range objects {
-		if md, ok := metadatas[objname]; ok {
-			obj.metadata = md
-		}
-		resp.Objects = append(resp.Objects, obj)
-	}
-
 	resp.Objects = query.ApplyFilters(resp.Objects)
-
 	return resp, nil
 }
 
@@ -157,22 +130,15 @@ func (l *PFSStore) Objects(ctx context.Context, csq cloudstorage.Query) (cloudst
 
 // Folders list of folders for given path query.
 func (l *PFSStore) Folders(ctx context.Context, csq cloudstorage.Query) ([]string, error) {
-	spath := path.Join(l.storepath, csq.Prefix)
-	if !cloudstorage.Exists(spath) {
-		return nil, fmt.Errorf("That folder %q does not exist", spath)
-	}
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
-
-	folders := make([]string, 0)
-	files, _ := ioutil.ReadDir(spath)
-	for _, f := range files {
-		if f.IsDir() {
-			folders = append(folders, fmt.Sprintf("%s/", path.Join(csq.Prefix, f.Name())))
+	repo, commit, path := l.parsePath(csq.Prefix)
+	var folders []string
+	if err := l.pachClient.WithCtx(ctx).ListFile(client.NewCommit(repo, "master", commit), path, func(fi *pfs.FileInfo) error {
+		if fi.FileType == pfs.FileType_DIR {
+			folders = append(folders, fi.File.Path)
 		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrapf(err, "failed to list files")
 	}
 	return folders, nil
 }
@@ -182,19 +148,22 @@ func (l *PFSStore) NewReader(o string) (io.ReadCloser, error) {
 	return l.NewReaderWithContext(context.Background(), o)
 }
 func (l *PFSStore) NewReaderWithContext(ctx context.Context, o string) (io.ReadCloser, error) {
-	fo := path.Join(l.storepath, o)
-	if !cloudstorage.Exists(fo) {
+	if !cloudstorage.Exists(o) {
 		return nil, cloudstorage.ErrObjectNotFound
 	}
-	return csbufio.OpenReader(fo)
+	repo, commit, path := l.parsePath(o)
+	r, err := l.pachClient.GetFileReader(client.NewCommit(repo, "master", commit), path)
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.NopCloser(r), nil
 }
 
 func (l *PFSStore) NewWriter(o string, metadata map[string]string) (io.WriteCloser, error) {
 	return l.NewWriterWithContext(context.Background(), o, metadata)
 }
 func (l *PFSStore) NewWriterWithContext(ctx context.Context, o string, metadata map[string]string, opts ...cloudstorage.Opts) (io.WriteCloser, error) {
-
-	fo := path.Join(l.storepath, o)
+	repo, commit, path := l.parsePath(o)
 
 	err := cloudstorage.EnsureDir(fo)
 	if err != nil {
