@@ -2,7 +2,7 @@
   color: var(--pachyderm-black);
   text-decoration: none;
   font-family: 'Montserrat', sans-serif;
-  font-weight: 600;
+  font-weight: 500;
   padding-bottom: 0.5rem;
   font-size: 0.875rem;
 }
@@ -10,7 +10,7 @@
 .base a[aria-selected=true] {
   border-bottom: 2px solid var(--pachyderm-plum);
   color: var(--pachyderm-plum);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .base a:hover {
