@@ -1,21 +1,16 @@
-# Set up Ingress with Traefik to access Pachyderm UI (`dash`) service in your cluster 
+# Set up Ingress with Traefik to access Pachyderm UI (`console`) service in your cluster 
 Before completing the following steps, read the [Overview](../index).
 This section provides an example of how to route
 cluster-external requests (URLs - hostname and path) to cluster-internal services
-(here Pachyderm UI (`dash`) service) 
+(here Pachyderm UI (`console`) service 
 using the **ingress controller** Traefik.
  
 However, we recommend you choose the ingress controller
 implementation that best fits your cluster.
-For Pachyderm UI (`dash`) service in particular,
+For Pachyderm UI (`console`) service in particular,
 make sure that it supports WebSockets (Traefik, Nginx, Ambassador...).
 
-Pachyderm UI requires two ports to be open:
-
-- An HTTP port used to serve static assets 
-(HTML, CSS, JS, images, etc; port 30080 by default routes to the dash container within the dash pod)
-- A WebSocket port, used to connect to the GRPC proxy 
-(which in turn connects to pachd; port 30081 by default routes to the grpc-proxy container within the dash pod)  
+Pachyderm UI requires a single (HTTP) port to be open.
 
 ## Traefik ingress controller on Pachyderm UI's cluster in one diagram
 Here is a quick high-level view of the various components at play.
@@ -57,7 +52,7 @@ Here is a quick high-level view of the various components at play.
 1. Create your Ingress route rules (Ingress Ressource):
 
     The ingress rules expose the private services
-    (here Pachyderm UI - `dash` - service) 
+    (here Pachyderm UI - `console` - service) 
     from your cluster to the ingress controller.
 
     - Create a mypachydermUICRDs.yaml
@@ -71,17 +66,14 @@ Here is a quick high-level view of the various components at play.
           traefik.frontend.rule.type: PathPrefixStrip
       spec:
         rules:
-          - host: dash.localhost
+          - host: console.localhost
             http:
               paths:
                 - path: /
                   backend:
-                    serviceName: dash
-                    servicePort: dash-http
-                - path: /ws
-                  backend:
-                    serviceName: dash
-                    servicePort: grpc-proxy-http
+                    serviceName: console
+                    servicePort: console-http
+
 
       ```
 
@@ -107,8 +99,7 @@ Here is a quick high-level view of the various components at play.
       Rules:
       Host            Path  Backends
       dash.localhost
-                        /     dash:dash-http (10.1.0.7:8080)
-                        /ws   dash:grpc-proxy-http (10.1.0.7:8081)
+                        /     console:console-http (10.1.0.7:4000)
       Annotations:      kubernetes.io/ingress.class: traefik
                         traefik.frontend.rule.type: PathPrefixStrip
       Events:           <none>
@@ -121,37 +112,22 @@ Here is a quick high-level view of the various components at play.
 
 !!! Note
        The `servicePort`(s) on which your `serviceName`(s) listens,
-       are defined in your Pachyderm deployment manifest (`pachctl deploy local --dry-run > pachd.json`).
-       Take a look at the service declaration of `dash` from our manifest below
+       are defined in your Pachyderm helm chart values.
+       Take a look at the service declaration of `console` from our manifest below
        and the 2 ports `dash-http` and `grpc-proxy-http` it listens to.
-      ```yaml
-         "kind": "Service",
-         "apiVersion": "v1",
-         "metadata": {
-            "name": "dash",
-            "namespace": "default",
-            "creationTimestamp": null,
-            "labels": {
-               "app": "dash",
-               "suite": "pachyderm"
-            }
-         },
-         "spec": {
-            "ports": [
-               {
-               "name": "dash-http",
-               "port": 8080,
-               "targetPort": 0,
-               "nodePort": 30080
-               },
-               {
-               "name": "grpc-proxy-http",
-               "port": 8081,
-               "targetPort": 0,
-               "nodePort": 30081
-               }
-            ],
-      ```      
+
+```yaml
+console:
+   config:
+      issuerURI: ""
+      reactAppRuntimeIssuerURI: ""
+      oauthRedirectURI: ""
+      oauthClientID: ""
+      oauthClientSecret: ""
+      graphqlPort: 4000
+      oauthPachdClientID: ""
+      pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
+```      
 
  
 !!! Warning
