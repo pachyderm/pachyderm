@@ -16,7 +16,7 @@ copyright: 'Copyright Pachyderm Inc, 2021'
 pach_featured_version: '1.13.3'
 pach_latest_version: '2.0.0-beta.5'
 pach_major_minor_version: '2.0'
-search_index_version: 'master'
+search_index_version: '2.0.x-beta'
 
 # Configuration
 theme:
