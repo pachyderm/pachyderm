@@ -1,6 +1,7 @@
 package testpachd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -78,6 +79,16 @@ func (mock *mockInspectPipelineInTransaction) Use(cb inspectPipelineInTransactio
 	mock.handler = cb
 }
 
+type listPipelineCallbackFunc func(context.Context, *pps.ListPipelineRequest, func(*pps.PipelineInfo) error) error
+
+type mockListPipelineCallback struct {
+	handler listPipelineCallbackFunc
+}
+
+func (mock *mockListPipelineCallback) Use(cb listPipelineCallbackFunc) {
+	mock.handler = cb
+}
+
 type ppsTransactionAPI struct {
 	ppsServerAPI
 	mock *MockPPSTransactionServer
@@ -94,6 +105,7 @@ type MockPPSTransactionServer struct {
 	UpdateJobStateInTransaction  mockUpdateJobStateInTransaction
 	CreatePipelineInTransaction  mockCreatePipelineInTransaction
 	InspectPipelineInTransaction mockInspectPipelineInTransaction
+	ListPipelineCallback         mockListPipelineCallback
 }
 
 type MockPPSPropagater struct{}
@@ -158,6 +170,13 @@ func (api *ppsTransactionAPI) InspectPipelineInTransaction(txnCtx *txncontext.Tr
 		return api.mock.InspectPipelineInTransaction.handler(txnCtx, pipeline)
 	}
 	return nil, fmt.Errorf("unhandled pachd mock: pps.InspectPipelineInTransaction")
+}
+
+func (api *ppsTransactionAPI) ListPipelineCallback(ctx context.Context, req *pps.ListPipelineRequest, cb func(*pps.PipelineInfo) error) error {
+	if api.mock.InspectPipelineInTransaction.handler != nil {
+		return api.mock.ListPipelineCallback.handler(ctx, req, cb)
+	}
+	return fmt.Errorf("unhandled pachd mock: pps.ListPipelineCallback")
 }
 
 // NewMockPPSTransactionServer instantiates a MockPPSTransactionServer

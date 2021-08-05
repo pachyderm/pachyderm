@@ -1,8 +1,9 @@
 package transactionenv
 
 import (
-	"bytes"
 	"context"
+
+	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -140,8 +141,16 @@ func (r *refresher) refresh(ctx context.Context) error {
 
 	// create new filesets
 	for _, req := range r.filesetQueue {
-		id, err := r.env.PfsServer().CreateFileSetCallback(ctx, func(uw *fileset.UnorderedWriter) error {
-			return uw.Put(req.path, "", false, bytes.NewReader(req.data))
+		id, err := r.env.PfsServer().CreateFileSetCallback(ctx, []*pfs.ModifyFileRequest{
+			{Body: &pfs.ModifyFileRequest_DeleteFile{DeleteFile: &pfs.DeleteFile{
+				Path: req.path,
+			}}},
+			{Body: &pfs.ModifyFileRequest_AddFile{AddFile: &pfs.AddFile{
+				Path: req.path,
+				Source: &pfs.AddFile_Raw{
+					Raw: &types.BytesValue{Value: req.data},
+				},
+			}}},
 		})
 		if err != nil {
 			return nil

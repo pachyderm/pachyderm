@@ -407,6 +407,43 @@ type modifyFileSource interface {
 	Recv() (*pfs.ModifyFileRequest, error)
 }
 
+func (a *apiServer) handleModifyFileRequest(ctx context.Context, uw *fileset.UnorderedWriter, msg *pfs.ModifyFileRequest) (int64, error) {
+	switch mod := msg.Body.(type) {
+	case *pfs.ModifyFileRequest_AddFile:
+		var err error
+		var n int64
+		p := mod.AddFile.Path
+		t := mod.AddFile.Datum
+		switch src := mod.AddFile.Source.(type) {
+		case *pfs.AddFile_Raw:
+			n, err = putFileRaw(uw, p, t, src.Raw)
+		case *pfs.AddFile_Url:
+			n, err = putFileURL(ctx, uw, p, t, src.Url)
+		default:
+			// need to write empty data to path
+			n, err = putFileRaw(uw, p, t, &types.BytesValue{})
+		}
+		if err != nil {
+			return 0, err
+		}
+		return n, nil
+	case *pfs.ModifyFileRequest_DeleteFile:
+		if err := deleteFile(uw, mod.DeleteFile); err != nil {
+			return 0, err
+		}
+	case *pfs.ModifyFileRequest_CopyFile:
+		cf := mod.CopyFile
+		if err := a.driver.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Datum); err != nil {
+			return 0, err
+		}
+	case *pfs.ModifyFileRequest_SetCommit:
+		return 0, errors.Errorf("cannot set commit")
+	default:
+		return 0, errors.Errorf("unrecognized message type")
+	}
+	return 0, nil
+}
+
 // modifyFile reads from a modifyFileSource until io.EOF and writes changes to an UnorderedWriter.
 // SetCommit messages will result in an error.
 func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter, server modifyFileSource) (int64, error) {
@@ -419,39 +456,11 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			}
 			return bytesRead, err
 		}
-		switch mod := msg.Body.(type) {
-		case *pfs.ModifyFileRequest_AddFile:
-			var err error
-			var n int64
-			p := mod.AddFile.Path
-			t := mod.AddFile.Datum
-			switch src := mod.AddFile.Source.(type) {
-			case *pfs.AddFile_Raw:
-				n, err = putFileRaw(uw, p, t, src.Raw)
-			case *pfs.AddFile_Url:
-				n, err = putFileURL(ctx, uw, p, t, src.Url)
-			default:
-				// need to write empty data to path
-				n, err = putFileRaw(uw, p, t, &types.BytesValue{})
-			}
-			if err != nil {
-				return bytesRead, err
-			}
-			bytesRead += n
-		case *pfs.ModifyFileRequest_DeleteFile:
-			if err := deleteFile(uw, mod.DeleteFile); err != nil {
-				return bytesRead, err
-			}
-		case *pfs.ModifyFileRequest_CopyFile:
-			cf := mod.CopyFile
-			if err := a.driver.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Datum); err != nil {
-				return bytesRead, err
-			}
-		case *pfs.ModifyFileRequest_SetCommit:
-			return bytesRead, errors.Errorf("cannot set commit")
-		default:
-			return bytesRead, errors.Errorf("unrecognized message type")
+		n, err := a.handleModifyFileRequest(ctx, uw, msg)
+		if err != nil {
+			return bytesRead, err
 		}
+		bytesRead += n
 	}
 	return bytesRead, nil
 }
@@ -729,8 +738,15 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	return nil
 }
 
-func (a *apiServer) CreateFileSetCallback(ctx context.Context, cb func(uw *fileset.UnorderedWriter) error) (*fileset.ID, error) {
-	return a.driver.createFileSet(ctx, cb)
+func (a *apiServer) CreateFileSetCallback(ctx context.Context, reqs []*pfs.ModifyFileRequest) (*fileset.ID, error) {
+	return a.driver.createFileSet(ctx, func(uw *fileset.UnorderedWriter) error {
+		for _, req := range reqs {
+			if _, err := a.handleModifyFileRequest(ctx, uw, req); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // CreateFileSet implements the pfs.CreateFileset RPC

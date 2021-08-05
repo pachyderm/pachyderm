@@ -35,6 +35,6 @@ type APIServer interface {
 	AddFileSetInTransaction(*txncontext.TransactionContext, *pfs_client.AddFileSetRequest) error
 
 	ListRepoCallback(context.Context, *pfs_client.ListRepoRequest, func(*pfs_client.RepoInfo) error) error
-	CreateFileSetCallback(ctx context.Context, cb func(*fileset.UnorderedWriter) error) (*fileset.ID, error)
-	GetFileWithWriter(ctx context.Context, request *pfs_client.GetFileRequest, writer io.Writer) (int64, error)
+	CreateFileSetCallback(context.Context, []*pfs_client.ModifyFileRequest) (*fileset.ID, error)
+	GetFileWithWriter(context.Context, *pfs_client.GetFileRequest, io.Writer) (int64, error)
 }
