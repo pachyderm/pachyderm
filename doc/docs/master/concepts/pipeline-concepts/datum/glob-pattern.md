@@ -4,42 +4,38 @@ Defining how your data is spread among workers is one of
 the most important aspects of distributed computation.
 
 Pachyderm uses **glob patterns** to provide flexibility to
-define data distribution.
-
-You can think of each input repository as a filesystem where
-the glob pattern is applied to the root. 
-The files and directories that match the
-glob pattern constitute the [datums](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/)
-that will be processed by the worker(s) that run your pipeline code.
-
-!!! Important
-        You must **configure a glob pattern for each PFS input** of a [pipeline specification](). 
+define data distribution. 
 
 !!! Note
-     The Pachyderm's concept of glob patterns is similar to the Unix glob patterns.
+     Pachyderm's concept of glob patterns is similar to Unix glob patterns.
      For example, the `ls *.md` command matches all files with the
      `.md` file extension.
 
 
-In Pachyderm, the `/` and `*` indicators are most
-commonly used globs.
+The glob pattern applies to all of the directories/files in the branch specified by the [`pfs` section of the pipeline specification (referred to as PFS inputs)](../#pfs-input-and-glob-pattern). The directories/files that match are the [datums](../) that will be processed by the worker(s) that run your pipeline code. 
 
-Let's list the glob patterns at your disposal. We will later illustrate their use in an example:
+!!! Important
+        You must **configure a glob pattern for each PFS input** of a [pipeline specification](../../../../reference/pipeline_spec/#pipeline-specification). 
+
+
+We have listed some commonly used glob patterns. We will later illustrate their use in an example:
 
 | Glob Pattern     | Datum created|
 |-----------------|---------------------------------|
 | `/` | Pachyderm denotes the **whole repository as a single datum** and sends all input data to a single worker node to be processed together.|
-| `/*`| Pachyderm defines **each top-level filesystem object**, a file or a directory in the input repo, **as a separate datum**. For example, if you have a repository with ten files and no directory structure, Pachyderm identifies each file as a single datum and processes them independently.|
-| `/*/*`| Pachyderm processes **each filesystem object in each subdirectory as a separate datum**.|
-| `/**` | Pachyderm processes **each filesystem object in all directories and subdirectories as a separate datum**.|
+| `/*`| Pachyderm defines **each top-level files / directories** in the input repo, **as a separate datum**. For example, if you have a repository with ten files and no directory structure, Pachyderm identifies each file as a single datum and processes them independently.|
+| `/*/*`| Pachyderm processes **each file / directory in each subdirectories as a separate datum**.|
+| `/**` | Pachyderm processes **each file in all directories and subdirectories as a separate datum**.|
 
-Glob patterns also let you take only a particular directory or subset of
-directories as an input instead of the whole repo.
+Glob patterns also let you take only a particular
+subset of the files / directories, a specific branch...
+as an input instead of the whole repo.
 We will elaborate on this more in the following example.
 
-If you have more than one input repo in your pipeline,
-you can define a different glob pattern for each input
-repo. You can additionally combine the datums from each input repo
+If you have more than one input repo in your pipeline, 
+or want to consider more than one branch in a repo, or any combination of the above,
+you can define a different glob pattern for each PFS input. 
+You can additionally combine the resulting datums
 by using the `cross`, `union`, `join`, or `group` operator to
 create the final datums that your code processes.
 For more information, see [Cross and Union](./cross-union.md), [Join](./join.md), [Group](./group.md).
@@ -62,12 +58,11 @@ state with a `json` file for each city in that state:
         /Vancouver.json
 ```
 
-
 Now let's consider what the following glob patterns would match respectively:
 
 |Glob Pattern| Corresponding match| Example|
 |-----------------|---------------------------------||
-| `/`| This pattern matches `/`, the root directory itself, meaning **all the data would be one large datum**. All changes in any of the files and directories trigger Pachyderm to process the whole repository contents as a single datum.|*If you add a new file `Sacramento.json` to the `California/` directory, Pachyderm processes all changed files and folders in the repo as a single datum.*|
+| `/`| This pattern matches `/`, the root directory itself, meaning **all the data would be one large datum**. All changes in any of the files and directories trigger Pachyderm to process the whole repository contents as a single datum.|*If you add a new file `Sacramento.json` to the `California/` directory, Pachyderm processes all changed files and directories in the repo as a single datum.*|
 | `/*`| This pattern matches **everything under the root directory**. It defines **one datum per state**, which means that all the cities for a given state are processed together by a single worker, but each state is processed independently.|*If you add a new file `Sacramento.json` to the `California/` directory, Pachyderm processes the `California/` datum only*.|
 | `/Colorado/*`| This pattern matches **files only under the `/Colorado` directory**. It defines **one datum per city**.|*If you add a new file `Alamosa.json` to the `Colorado/` directory and `Sacramento.json` to the `California/` directory, Pachyderm processes the `Alamosa.json` datum only.*|
 | `/C*`|  This pattern matches all **files under the root directory that start with the character `C`.**| *In the example, the `California` and  `Colorado` directories will each define a datum.*|
@@ -108,6 +103,7 @@ Now let's consider what the following glob patterns would match respectively:
 !!! See "See Also"
         - To understand how Pachyderm scales, read [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/).
         - To learn about Datums' incremental processing, read our [Datum Processing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/#datum-processing) section.
+
 ## Test a Glob pattern
 
 You can use the `pachctl glob file` command to preview which filesystem
@@ -179,11 +175,11 @@ You can use the `pachctl list datum -f <my_pipeline_spec.json>` command to previ
     ```
 
 ### Running list datum on a past job 
-You can use the `pachctl list datum <pipeline>@<job_number>` command to check the datums processed by a given job.
+You can use the `pachctl list datum <pipeline>@<job_ID>` command to check the datums processed by a given job.
 
 !!! example
     ```shell
-    pachctl list datum edges@b8687e9720f04b7ab53ae8c64541003b
+    $ pachctl list datum edges@b8687e9720f04b7ab53ae8c64541003b
     ```
     **System Response:**
 
@@ -225,3 +221,4 @@ You can use the `pachctl list datum <pipeline>@<job_number>` command to check th
           images   b8687e9720f04b7ab53ae8c64541003b   /w7RVTsv.jpg
         ```
         Add `--raw` for a full JSON version of the [datum's metadata](../metadata/).
+
