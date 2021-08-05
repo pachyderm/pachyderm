@@ -66,7 +66,7 @@ func (a *apiServer) ServeSidecarS3G() {
 		// auth is off)
 		s.pachClient.SetAuthToken(s.pipelineInfo.AuthToken)
 
-		if err := ppsutil.GetPipelineDetails(s.pachClient.Ctx(), a.env, s.pipelineInfo); err != nil {
+		if err := ppsutil.GetPipelineDetails(s.pachClient, s.pipelineInfo); err != nil {
 			return errors.Wrapf(err, "sidecar s3 gateway: could not get pipeline details")
 		}
 		return nil

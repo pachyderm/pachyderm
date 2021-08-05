@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	auth_client "github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -246,17 +245,31 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	ctx, cf := context.WithCancel(context.Background())
 	defer cf()
 
-	// add permission-less user to requests
-	ctx = auth.AsInternalUser(ctx, metricsUsername)
 	enterpriseState, err := r.env.EnterpriseServer().GetState(ctx, &enterprise.GetStateRequest{})
 	if err == nil {
 		metrics.ActivationCode = enterpriseState.ActivationCode
 	}
 	metrics.EnterpriseFailures = enterprisemetrics.GetEnterpriseFailures()
 
+	resp, err := r.env.AuthServer().GetRobotToken(ctx, &auth_client.GetRobotTokenRequest{
+		Robot: metricsUsername,
+		TTL:   int64(reportingInterval.Seconds() / 2),
+	})
+	if err != nil && !auth_client.IsErrNotActivated(err) {
+		log.Errorf("Error getting metics auth token: %v", err)
+		return // couldn't authorize, can't continue
+	}
+
+	pachClient := r.env.GetPachClient(ctx)
+	if resp != nil {
+		pachClient.SetAuthToken(resp.Token)
+	}
 	// Pipeline info
-	if err := func() error {
-		return r.env.PpsServer().ListPipelineCallback(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+	infos, err := pachClient.ListPipeline(true)
+	if err != nil {
+		log.Errorf("Error getting pipeline metrics: %v", err)
+	} else {
+		for _, pi := range infos {
 			metrics.Pipelines += 1
 			if pi.JobCounts != nil {
 				var cnt int64 = 0
@@ -344,31 +357,25 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 					metrics.CfgTfjob++
 				}
 			}
-			return nil
-		})
-	}(); err != nil {
-		log.Errorf("Error getting pipeline metrics: %v", err)
+		}
 	}
 
-	if err := func() error {
-		var count int64
-		var sz, mbranch uint64
-		if err := r.env.PfsServer().ListRepoCallback(ctx, &pfs.ListRepoRequest{Type: pfs.UserRepoType}, func(ri *pfs.RepoInfo) error {
+	var count int64
+	var sz, mbranch uint64
+	repos, err := pachClient.ListRepo()
+	if err != nil {
+		log.Errorf("Error getting repos: %v", err)
+	} else {
+		for _, ri := range repos {
 			count += 1
 			sz += uint64(ri.SizeBytesUpperBound)
 			if mbranch < uint64(len(ri.Branches)) {
 				mbranch = uint64(len(ri.Branches))
 			}
-			return nil
-		}); err != nil {
-			return err
 		}
-		metrics.Repos = count
+		metrics.Repos = int64(len(repos))
 		metrics.Bytes = sz
 		metrics.MaxBranches = mbranch
-		return nil
-	}(); err != nil {
-		log.Errorf("Error getting repos: %v", err)
 	}
 	//log.Infof("Metrics logged: %v", metrics)
 }

@@ -275,7 +275,7 @@ func (d *driver) updateTransaction(
 	}); err != nil {
 		return nil, err
 	}
-	refresher := d.txnEnv.NewRefresher(ctx, &prefetch)
+	refresher := d.txnEnv.NewRefresher(&prefetch)
 
 	// Run this thing in a loop in case we get a conflict, time out after some tries
 	for i := 0; i < 10; i++ {

@@ -143,6 +143,6 @@ type PpsJobFinisher interface {
 }
 
 type FilesetManager interface {
-	CreateFileset(idDest *string, path string, data []byte) error
+	CreateFileset(path string, data []byte) (string, error)
 	LatestPipelineInfo(*TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
 }

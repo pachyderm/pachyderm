@@ -1,15 +1,14 @@
 package transactionenv
 
 import (
+	"bytes"
 	"context"
-
-	"github.com/gogo/protobuf/types"
+	"crypto/md5"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -39,17 +38,25 @@ type basicPutFile struct {
 	data []byte
 }
 
+func (b basicPutFile) Hash() [16]byte {
+	hasher := md5.New()
+	hasher.Write([]byte(b.path))
+	hasher.Write([]byte{0})
+	hasher.Write(b.data)
+	return md5.Sum(nil)
+}
+
 type refresher struct {
 	env           serviceenv.ServiceEnv
 	filesetQueue  []basicPutFile
-	filesets      map[fileset.ID]struct{}
+	filesets      map[[16]byte]string
 	pipelineCache map[string]*pps.PipelineInfo
 }
 
-func (env *TransactionEnv) NewRefresher(ctx context.Context, info *transaction.TransactionInfo) *refresher {
+func (env *TransactionEnv) NewRefresher(info *transaction.TransactionInfo) *refresher {
 	out := &refresher{
 		env:           env.serviceEnv,
-		filesets:      map[fileset.ID]struct{}{},
+		filesets:      map[[16]byte]string{},
 		pipelineCache: map[string]*pps.PipelineInfo{},
 	}
 	for _, req := range info.Requests {
@@ -60,19 +67,10 @@ func (env *TransactionEnv) NewRefresher(ctx context.Context, info *transaction.T
 
 	for _, resp := range info.Responses {
 		if resp.CreatePipelineResponse != nil {
-			id := resp.CreatePipelineResponse.FileSetId
-			parsed, err := fileset.ParseID(id)
-			if err == nil {
-				_, err = env.serviceEnv.PfsServer().RenewFileSet(ctx, &pfs.RenewFileSetRequest{FileSetId: id, TtlSeconds: defaultTTLSeconds})
-			}
-			if err != nil {
-				// don't error, just assume fileset is gone and start from scratch
-				resp.CreatePipelineResponse.FileSetId = ""
-				resp.CreatePipelineResponse.PrevPipelineVersion = 0
-			} else {
-				// add this to the set to be renewed
-				out.filesets[*parsed] = struct{}{}
-			}
+			// start from scratch
+			// TODO(peter): store fileset hashes or read the data so we don't have to do this
+			resp.CreatePipelineResponse.FileSetId = ""
+			resp.CreatePipelineResponse.PrevPipelineVersion = 0
 		}
 	}
 
@@ -83,7 +81,7 @@ func (env *TransactionEnv) withRefreshLoop(ctx context.Context, r *refresher, cb
 	if r == nil {
 		r = &refresher{
 			env:           env.serviceEnv,
-			filesets:      map[fileset.ID]struct{}{},
+			filesets:      map[[16]byte]string{},
 			pipelineCache: map[string]*pps.PipelineInfo{},
 		}
 	}
@@ -95,21 +93,18 @@ func (env *TransactionEnv) withRefreshLoop(ctx context.Context, r *refresher, cb
 	}
 }
 
-// CreateFileset creates a fileset with a single file
-func (r *refresher) CreateFileset(idDest *string, path string, data []byte) error {
-	if *idDest != "" {
-		// try to clean up
-		if parsed, err := fileset.ParseID(*idDest); err != nil {
-			delete(r.filesets, *parsed)
-		}
-	}
-	r.filesetQueue = append(r.filesetQueue, basicPutFile{
-		dest: idDest,
+// CreateFileset checks if a fileset with the given data has already been created
+func (r *refresher) CreateFileset(path string, data []byte) (string, error) {
+	req := basicPutFile{
 		path: path,
 		data: data,
-	})
+	}
+	if id, ok := r.filesets[req.Hash()]; ok {
+		return id, nil
+	}
+	r.filesetQueue = append(r.filesetQueue, req)
 	// return error to force transaction restart
-	return errTransactionConflict{}
+	return "", errTransactionConflict{}
 }
 
 func (r *refresher) LatestPipelineInfo(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
@@ -133,31 +128,22 @@ func (r *refresher) LatestPipelineInfo(txnCtx *txncontext.TransactionContext, pi
 
 func (r *refresher) refresh(ctx context.Context) error {
 	// renew existing filesets
-	for id := range r.filesets {
-		if _, err := r.env.PfsServer().RenewFileSet(ctx, &pfs.RenewFileSetRequest{FileSetId: id.HexString(), TtlSeconds: defaultTTLSeconds}); err != nil {
+	for _, id := range r.filesets {
+		if _, err := r.env.PfsServer().RenewFileSet(ctx, &pfs.RenewFileSetRequest{FileSetId: id, TtlSeconds: defaultTTLSeconds}); err != nil {
 			return err
 		}
 	}
 
 	// create new filesets
 	for _, req := range r.filesetQueue {
-		id, err := r.env.PfsServer().CreateFileSetCallback(ctx, []*pfs.ModifyFileRequest{
-			{Body: &pfs.ModifyFileRequest_DeleteFile{DeleteFile: &pfs.DeleteFile{
-				Path: req.path,
-			}}},
-			{Body: &pfs.ModifyFileRequest_AddFile{AddFile: &pfs.AddFile{
-				Path: req.path,
-				Source: &pfs.AddFile_Raw{
-					Raw: &types.BytesValue{Value: req.data},
-				},
-			}}},
+		resp, err := r.env.GetPachClient(ctx).WithCreateFileSetClient(func(m client.ModifyFile) error {
+			return m.PutFile(req.path, bytes.NewReader(req.data))
 		})
 		if err != nil {
 			return nil
 		}
 		// add to set of filesets and store in destination
-		r.filesets[*id] = struct{}{}
-		*req.dest = id.HexString()
+		r.filesets[req.Hash()] = resp.FileSetId
 	}
 	r.filesetQueue = r.filesetQueue[:0]
 

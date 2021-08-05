@@ -1,8 +1,6 @@
 package pps
 
 import (
-	"context"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	pps_client "github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -21,6 +19,4 @@ type APIServer interface {
 	UpdateJobStateInTransaction(*txncontext.TransactionContext, *pps_client.UpdateJobStateRequest) error
 	CreatePipelineInTransaction(*txncontext.TransactionContext, *pps_client.CreatePipelineRequest, *string, *uint64) error
 	InspectPipelineInTransaction(*txncontext.TransactionContext, string) (*pps_client.PipelineInfo, error)
-
-	ListPipelineCallback(context.Context, *pps_client.ListPipelineRequest, func(*pps_client.PipelineInfo) error) error
 }

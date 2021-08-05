@@ -827,7 +827,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 
 	// If the commits for the job have been squashed, the pipeline spec can no
 	// longer be read for this job
-	if err := ppsutil.GetPipelineDetails(ctx, a.env, pipelineInfo); err != nil {
+	if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), pipelineInfo); err != nil {
 		return err
 	}
 
@@ -1900,15 +1900,12 @@ func (a *apiServer) CreatePipelineInTransaction(
 		return err
 	}
 
-	if newPipelineInfo.Version != *prevPipelineVersion {
-		data, err := newPipelineInfo.Marshal()
-		if err != nil {
-			return err
-		}
-		// this data is up to date with the version we retrieved
-		*prevPipelineVersion = newPipelineInfo.Version
-		// always errors
-		return txnCtx.FilesetManager.CreateFileset(specFileSetID, ppsconsts.SpecFile, data)
+	data, err := newPipelineInfo.Marshal()
+	if err != nil {
+		return err
+	}
+	if *specFileSetID, err = txnCtx.FilesetManager.CreateFileset(ppsconsts.SpecFile, data); err != nil {
+		return err
 	}
 
 	// Verify that all input repos exist (create cron and git repos if necessary)
@@ -2295,7 +2292,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 	}
 
 	if details {
-		if err := ppsutil.GetPipelineDetails(ctx, a.env, info); err != nil {
+		if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), info); err != nil {
 			return nil, err
 		}
 		kubeClient := a.env.GetKubeClient()
@@ -2360,10 +2357,6 @@ func (a *apiServer) ListPipeline(request *pps.ListPipelineRequest, srv pps.API_L
 	defer func(start time.Time) {
 		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
-	return a.ListPipelineCallback(srv.Context(), request, srv.Send)
-}
-
-func (a *apiServer) ListPipelineCallback(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
 	var jqCode *gojq.Code
 	var enc serde.Encoder
 	var jsonBuffer bytes.Buffer
@@ -2395,7 +2388,7 @@ func (a *apiServer) ListPipelineCallback(ctx context.Context, request *pps.ListP
 		return true
 	}
 	// the mess below is so we can lookup the PFS info for each pipeline concurrently.
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, ctx := errgroup.WithContext(srv.Context())
 	infos := make(chan *pps.PipelineInfo)
 	// stream these out of etcd
 	eg.Go(func() error {
@@ -2416,7 +2409,7 @@ func (a *apiServer) ListPipelineCallback(ctx context.Context, request *pps.ListP
 		eg.Go(func() error {
 			for info := range infos {
 				if request.Details {
-					if err := ppsutil.GetPipelineDetails(ctx, a.env, info); err != nil {
+					if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), info); err != nil {
 						return err
 					}
 				}
@@ -2519,13 +2512,13 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		return err
 	}
 
+	pachClient := a.env.GetPachClient(ctx)
 	// Load pipeline details so we can do some cleanup tasks based on certain
 	// input types and the output branch.
-	if err := ppsutil.GetPipelineDetails(ctx, a.env, pipelineInfo); err != nil {
+	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
 		return err
 	}
 
-	pachClient := a.env.GetPachClient(ctx)
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
 	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {

@@ -1,10 +1,6 @@
 package pfs
 
 import (
-	"context"
-	"io"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	pfs_client "github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -33,8 +29,4 @@ type APIServer interface {
 	DeleteBranchInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteBranchRequest) error
 
 	AddFileSetInTransaction(*txncontext.TransactionContext, *pfs_client.AddFileSetRequest) error
-
-	ListRepoCallback(context.Context, *pfs_client.ListRepoRequest, func(*pfs_client.RepoInfo) error) error
-	CreateFileSetCallback(context.Context, []*pfs_client.ModifyFileRequest) (*fileset.ID, error)
-	GetFileWithWriter(context.Context, *pfs_client.GetFileRequest, io.Writer) (int64, error)
 }

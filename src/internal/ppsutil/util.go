@@ -32,7 +32,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -117,17 +116,10 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 
 // GetPipelineDetails retrieves the pipeline spec for the given PipelineInfo from PFS,
 // then fills in the Details field in the given PipelineInfo from the spec.
-func GetPipelineDetails(ctx context.Context, env serviceenv.ServiceEnv, pipelineInfo *pps.PipelineInfo) error {
+func GetPipelineDetails(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
 	var buf bytes.Buffer
-	var fileErr error
-	// if we can talk directly with a pfs server, use it, otherwise make a request through a client
-	if env.PfsServer() != nil {
-		_, fileErr = env.PfsServer().GetFileWithWriter(ctx, &pfs.GetFileRequest{File: pipelineInfo.SpecCommit.NewFile(ppsconsts.SpecFile)}, &buf)
-	} else {
-		fileErr = env.GetPachClient(ctx).GetFile(pipelineInfo.SpecCommit, ppsconsts.SpecFile, &buf)
-	}
-	if fileErr != nil {
-		return errors.Wrapf(fileErr, "could not retrieve pipeline spec file from PFS for pipeline '%s'", pipelineInfo.Pipeline.Name)
+	if err := pachClient.GetFile(pipelineInfo.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
+		return errors.Wrapf(err, "could not retrieve pipeline spec file from PFS for pipeline '%s'", pipelineInfo.Pipeline.Name)
 	}
 
 	loadedPipelineInfo := &pps.PipelineInfo{}
