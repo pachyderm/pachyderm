@@ -34,8 +34,10 @@ $ pachctl get file 'foo@master:/test\[\].txt'
 
 ```
   -h, --help            help for file
+      --offset int      The number of bytes in the file to skip ahead when reading.
   -o, --output string   The path where data will be downloaded.
       --progress        {true|false} Whether or not to print the progress bars. (default true)
+      --retry           {true|false} Whether to append the missing bytes to an existing file. No-op if the file doesn't exist.
 ```
 
 ### Options inherited from parent commands

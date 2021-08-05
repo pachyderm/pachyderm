@@ -31,7 +31,7 @@ $ pachctl list commit foo@master --from XXX
 
 ```
       --all               return all types of commits, including aliases
-      --expand            show one line for each sub-commmit and include more columns
+  -x, --expand            show one line for each sub-commmit and include more columns
   -f, --from string       list all commits since this commit
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
   -h, --help              help for commit
