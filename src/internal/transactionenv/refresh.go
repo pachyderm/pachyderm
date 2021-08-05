@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -14,7 +12,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
+
+const defaultTTLSeconds = 60 * 10
 
 type errTransactionConflict struct{}
 
@@ -44,15 +45,50 @@ type refresher struct {
 	pipelineCache map[string]*pps.PipelineInfo
 }
 
-func (env *TransactionEnv) withRefreshLoop(ctx context.Context, cb func(txncontext.FilesetManager) error) error {
-	r := refresher{
+func (env *TransactionEnv) NewRefresher(ctx context.Context, info *transaction.TransactionInfo) *refresher {
+	out := &refresher{
 		env:           env.serviceEnv,
 		filesets:      map[fileset.ID]struct{}{},
 		pipelineCache: map[string]*pps.PipelineInfo{},
 	}
+	for _, req := range info.Requests {
+		if req.CreatePipeline != nil {
+			out.pipelineCache[req.CreatePipeline.Pipeline.Name] = nil
+		}
+	}
+
+	for _, resp := range info.Responses {
+		if resp.CreatePipelineResponse != nil {
+			id := resp.CreatePipelineResponse.FileSetId
+			parsed, err := fileset.ParseID(id)
+			if err == nil {
+				_, err = env.serviceEnv.PfsServer().RenewFileSet(ctx, &pfs.RenewFileSetRequest{FileSetId: id, TtlSeconds: defaultTTLSeconds})
+			}
+			if err != nil {
+				// don't error, just assume fileset is gone and start from scratch
+				resp.CreatePipelineResponse.FileSetId = ""
+				resp.CreatePipelineResponse.PrevPipelineVersion = 0
+			} else {
+				// add this to the set to be renewed
+				out.filesets[*parsed] = struct{}{}
+			}
+		}
+	}
+
+	return out
+}
+
+func (env *TransactionEnv) withRefreshLoop(ctx context.Context, r *refresher, cb func(txncontext.FilesetManager) error) error {
+	if r == nil {
+		r = &refresher{
+			env:           env.serviceEnv,
+			filesets:      map[fileset.ID]struct{}{},
+			pipelineCache: map[string]*pps.PipelineInfo{},
+		}
+	}
 	for {
 		r.refresh(ctx)
-		if err := cb(&r); err == nil || !isErrTransactionConflict(err) {
+		if err := cb(r); err == nil || !isErrTransactionConflict(err) {
 			return err
 		}
 	}
@@ -77,7 +113,7 @@ func (r *refresher) CreateFileset(idDest *string, path string, data []byte) erro
 
 func (r *refresher) LatestPipelineInfo(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
 	newInfo, err := r.env.PpsServer().InspectPipelineInTransaction(txnCtx, pipeline.Name)
-	if err != nil && col.IsErrNotFound(err) {
+	if err != nil && errutil.IsNotFoundError(err) {
 		// pipeline doesn't exist, so we can return nil info, meaning it's up to date in this transaction
 		return nil, nil
 	} else if err != nil {
@@ -97,7 +133,7 @@ func (r *refresher) LatestPipelineInfo(txnCtx *txncontext.TransactionContext, pi
 func (r *refresher) refresh(ctx context.Context) error {
 	// renew existing filesets
 	for id := range r.filesets {
-		if _, err := r.env.PfsServer().RenewFileSet(ctx, &pfs.RenewFileSetRequest{FileSetId: id.HexString(), TtlSeconds: 60 * 10}); err != nil {
+		if _, err := r.env.PfsServer().RenewFileSet(ctx, &pfs.RenewFileSetRequest{FileSetId: id.HexString(), TtlSeconds: defaultTTLSeconds}); err != nil {
 			return err
 		}
 	}

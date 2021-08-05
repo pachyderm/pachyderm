@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -116,7 +117,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.GetDBClient())
-	chunkStorageOpts, err := chunk.StorageOptions(env.Config())
+	chunkStorageOpts, err := storage.ChunkOptions(env.Config())
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +129,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	}
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.GetDBClient(), tracker, chunkStorageOpts...)
-	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.GetDBClient()), tracker, chunkStorage, fileset.StorageOptions(env.Config())...)
+	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.GetDBClient()), tracker, chunkStorage, storage.FilesetOptions(env.Config())...)
 	// Setup compaction queue and worker.
 	d.compactor, err = newCompactor(env.Context(), d.storage, etcdClient, etcdPrefix, env.Config().StorageCompactionMaxFanIn)
 	if err != nil {

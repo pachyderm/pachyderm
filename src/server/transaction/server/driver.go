@@ -268,14 +268,18 @@ func (d *driver) updateTransaction(
 		return err
 	}
 
+	// prefetch transaction info and add data to refresher ahead of time
+	var prefetch transaction.TransactionInfo
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, &prefetch)
+	}); err != nil {
+		return nil, err
+	}
+	refresher := d.txnEnv.NewRefresher(ctx, &prefetch)
+
 	// Run this thing in a loop in case we get a conflict, time out after some tries
 	for i := 0; i < 10; i++ {
-		var err error
-		if writeTxn {
-			err = d.txnEnv.WithWriteContext(ctx, attempt)
-		} else {
-			err = d.txnEnv.WithReadContext(ctx, attempt)
-		}
+		err := d.txnEnv.WithRefresher(ctx, refresher, writeTxn, attempt)
 		if err == nil && gotBreak {
 			return localInfo, nil // no need to update
 		}
