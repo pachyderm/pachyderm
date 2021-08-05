@@ -33,8 +33,6 @@ const (
 	rcExpected
 )
 
-const controllerUsername = "pipeline-controller"
-
 func max(is ...int) int {
 	if len(is) == 0 {
 		return 0

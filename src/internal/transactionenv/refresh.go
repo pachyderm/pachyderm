@@ -33,7 +33,6 @@ func isErrTransactionConflict(err error) bool {
 }
 
 type basicPutFile struct {
-	dest *string
 	path string
 	data []byte
 }
