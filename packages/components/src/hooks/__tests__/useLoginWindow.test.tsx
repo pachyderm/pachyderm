@@ -8,6 +8,7 @@ const googleConnectionOpts = {
   clientId: 'app',
   redirect: 'http://app.com/oauth/redirect',
   connection: 'google',
+  loginHint: 'test@pachyderm.com',
 };
 
 const oidcConnectionOpts = {
@@ -16,6 +17,8 @@ const oidcConnectionOpts = {
   redirect: 'http://app.com/oauth/redirect',
   openWindow: false,
   scope: 'openid+email+audience:server:client_id:otherApp',
+  connection: 'google',
+  loginHint: 'test@pachyderm.com',
 };
 
 const windowOpen = window.open;
@@ -79,6 +82,7 @@ describe('useLoginWindow', () => {
         '&scope=openid+profile+email+user_id',
         '&state=AAAAAAAAAAAAAAAAAAAA',
         `&connection=${googleConnectionOpts.connection}`,
+        `&login_hint=${googleConnectionOpts.loginHint}`,
       ].join(''),
       '',
       'width=500,height=500,left=262,top=107.2',
@@ -122,6 +126,8 @@ describe('useLoginWindow', () => {
         '&response_type=code',
         `&scope=${oidcConnectionOpts.scope}`,
         '&state=AAAAAAAAAAAAAAAAAAAA',
+        `&connection=${googleConnectionOpts.connection}`,
+        `&login_hint=${googleConnectionOpts.loginHint}`,
       ].join(''),
     );
 
@@ -151,6 +157,8 @@ describe('useLoginWindow', () => {
         '&response_type=code',
         `&scope=${oidcConnectionOpts.scope}`,
         '&state=AAAAAAAAAAAAAAAAAAAA',
+        `&connection=${googleConnectionOpts.connection}`,
+        `&login_hint=${googleConnectionOpts.loginHint}`,
       ].join(''),
     );
 

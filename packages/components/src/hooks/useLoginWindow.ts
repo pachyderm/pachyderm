@@ -14,6 +14,7 @@ interface InitiateOauthFlowArgs {
   openWindow?: boolean;
   connection?: string;
   scope?: string;
+  loginHint?: string;
 }
 
 const useLoginWindow = ({onSuccess = noop}: UseLoginWindowProps = {}) => {
@@ -29,6 +30,7 @@ const useLoginWindow = ({onSuccess = noop}: UseLoginWindowProps = {}) => {
       openWindow = true,
       connection,
       scope = 'openid+profile+email+user_id',
+      loginHint,
     }: InitiateOauthFlowArgs) => {
       if (loginWindow && !loginWindow.closed && openWindow) {
         return;
@@ -52,6 +54,10 @@ const useLoginWindow = ({onSuccess = noop}: UseLoginWindowProps = {}) => {
 
       if (connection) {
         url += `&connection=${connection}`;
+      }
+
+      if (loginHint) {
+        url += `&login_hint=${loginHint}`;
       }
 
       window.localStorage.setItem('oauthState', nonce);
