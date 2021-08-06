@@ -29,8 +29,6 @@ spec:
       - env:
         - name: DB_USER
           value: {{ .Values.global.postgresql.postgresqlUsername }}
-        - name: DB_PASSWORD
-          value: {{ .Values.global.postgresql.postgresqlPassword }}
         - name: DB_HOST
           value: {{ .Values.global.postgresql.postgresqlHost }}
         - name: AUTH_TYPE
@@ -39,6 +37,9 @@ spec:
           value: "1000"
         - name: POOL_MODE
           value: "transaction"
+        envFrom:
+          - secretRef:
+              name: pgbouncer-secret
         image: edoburu/pgbouncer:1.15.0
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
