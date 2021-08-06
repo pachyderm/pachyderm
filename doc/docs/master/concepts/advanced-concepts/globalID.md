@@ -24,7 +24,7 @@ You can list all global commits by running the following command:
 ```shell
 $ pachctl list commit
 ```
-Each global commit displays how many (sub) commits they are made of.
+Each global commit displays how many (sub) commits it is made of.
 ```
 ID                               SUBCOMMITS PROGRESS CREATED        MODIFIED
 1035715e796f45caae7a1d3ffd1f93ca 7          ▇▇▇▇▇▇▇▇ 7 seconds ago  7 seconds ago

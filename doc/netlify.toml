@@ -229,7 +229,7 @@
 
 [[redirects]]
   from = "/2.0.x/how-tos/pipeline-operations/monitor-job-progress/"
-  to = "/latest/concepts/advanced-concepts/job/"
+  to = "/latest/concepts/pipeline-concepts/job/"
   status = 301
   force = true 
 
