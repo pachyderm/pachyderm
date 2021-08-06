@@ -68,7 +68,7 @@ func (mock *mockCreatePipelineInTransaction) Use(cb createPipelineInTransactionF
 	mock.handler = cb
 }
 
-type inspectPipelineInTransactionFunc func(*txncontext.TransactionContext, string, bool) (*pps.PipelineInfo, error)
+type inspectPipelineInTransactionFunc func(*txncontext.TransactionContext, string) (*pps.PipelineInfo, error)
 
 type mockInspectPipelineInTransaction struct {
 	handler inspectPipelineInTransactionFunc
@@ -153,9 +153,9 @@ func (api *ppsTransactionAPI) CreatePipelineInTransaction(txnCtx *txncontext.Tra
 	return fmt.Errorf("unhandled pachd mock: pps.CreatePipelineInTransaction")
 }
 
-func (api *ppsTransactionAPI) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, pipeline string, details bool) (*pps.PipelineInfo, error) {
+func (api *ppsTransactionAPI) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, pipeline string) (*pps.PipelineInfo, error) {
 	if api.mock.InspectPipelineInTransaction.handler != nil {
-		return api.mock.InspectPipelineInTransaction.handler(txnCtx, pipeline, details)
+		return api.mock.InspectPipelineInTransaction.handler(txnCtx, pipeline)
 	}
 	return nil, fmt.Errorf("unhandled pachd mock: pps.InspectPipelineInTransaction")
 }

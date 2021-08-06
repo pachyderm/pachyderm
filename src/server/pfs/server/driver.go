@@ -140,20 +140,6 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	return d, nil
 }
 
-func (d *driver) activateAuth(txnCtx *txncontext.TransactionContext) error {
-	repoInfo := &pfs.RepoInfo{}
-	return d.repos.ReadOnly(txnCtx.ClientContext).List(repoInfo, col.DefaultOptions(), func(string) error {
-		err := d.env.AuthServer().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
-			Type: auth.ResourceType_REPO,
-			Name: repoInfo.Repo.Name,
-		})
-		if err != nil && !col.IsErrExists(err) {
-			return err
-		}
-		return nil
-	})
-}
-
 func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, description string, update bool) error {
 	// Validate arguments
 	if repo == nil {
@@ -162,7 +148,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 	// Check that the user is logged in (user doesn't need any access level to
 	// create a repo, but they must be authenticated if auth is active)
-	whoAmI, err := d.env.AuthServer().WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
+	whoAmI, err := txnCtx.WhoAmI()
 	authIsActivated := !auth.IsErrNotActivated(err)
 	if authIsActivated && err != nil {
 		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to create a repo)")
@@ -256,14 +242,16 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 		return nil, err
 	}
 	if includeAuth {
-		permissions, roles, err := d.getPermissions(txnCtx.ClientContext, repo)
+		resp, err := d.env.AuthServer().GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{
+			Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
+		})
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
 				return repoInfo, nil
 			}
 			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for %q", repo)
 		}
-		repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
+		repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	}
 	return repoInfo, nil
 }
@@ -355,7 +343,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	}
 
 	if !force {
-		if _, err := d.env.PpsServer().InspectPipelineInTransaction(txnCtx, repo.Name, false); err == nil {
+		if _, err := d.env.PpsServer().InspectPipelineInTransaction(txnCtx, repo.Name); err == nil {
 			return errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
 		} else if err != nil && !errutil.IsNotFoundError(err) {
 			return err
@@ -395,7 +383,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	// make a list of all the commits
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	commitInfo := &pfs.CommitInfo{}
-	if err := d.commits.ReadOnly(txnCtx.ClientContext).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), commitInfo, col.DefaultOptions(), func(string) error {
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), commitInfo, col.DefaultOptions(), func(string) error {
 		commitInfos[commitInfo.Commit.ID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
@@ -575,7 +563,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	}
 	if !force && len(commitInfo.DirectProvenance) > 0 {
 		if info, err := d.env.PpsServer().InspectPipelineInTransaction(txnCtx,
-			commit.Branch.Repo.Name, false,
+			commit.Branch.Repo.Name,
 		); err != nil && !errutil.IsNotFoundError(err) {
 			return err
 		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
@@ -1733,7 +1721,7 @@ func (d *driver) inspectBranch(txnCtx *txncontext.TransactionContext, branch *pf
 	}
 
 	// Check that the user is logged in, but don't require any access level
-	if _, err := d.env.AuthServer().WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{}); err != nil {
+	if _, err := txnCtx.WhoAmI(); err != nil {
 		if !auth.IsErrNotActivated(err) {
 			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to inspect a branch)")
 		}
@@ -1746,24 +1734,11 @@ func (d *driver) inspectBranch(txnCtx *txncontext.TransactionContext, branch *pf
 	return result, nil
 }
 
-func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo, reverse bool, cb func(*pfs.BranchInfo) error) error {
-	// Validate arguments
-	if repo == nil {
-		return errors.New("repo cannot be nil")
-	}
-
-	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.BranchInfo) error) error {
+	if _, err := d.env.AuthServer().WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil && !auth.IsErrNotActivated(err) {
 		return err
-	}
-
-	// Make sure that the repo exists
-	if repo.Name != "" {
-		if err := d.repos.ReadOnly(ctx).Get(repo, &pfs.RepoInfo{}); err != nil {
-			if col.IsErrNotFound(err) {
-				return pfsserver.ErrRepoNotFound{Repo: repo}
-			}
-			return err
-		}
+	} else if err == nil {
+		return errors.New("Cannot list branches from all repos with auth activated")
 	}
 
 	var bis []*pfs.BranchInfo
@@ -1797,17 +1772,41 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo, reverse bool, c
 	if reverse {
 		opts.Order = col.SortAscend
 	}
-	if repo.Name == "" {
-		if err := d.branches.ReadOnly(ctx).ListRev(branchInfo, opts, listCallback); err != nil {
-			return err
-		}
-	} else {
-		if err := d.branches.ReadOnly(ctx).GetRevByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo), branchInfo, opts, listCallback); err != nil {
+	if err := d.branches.ReadOnly(ctx).ListRev(branchInfo, opts, listCallback); err != nil {
+		return err
+	}
+
+	return sendBis()
+}
+
+func (d *driver) listBranchInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, reverse bool, cb func(*pfs.BranchInfo) error) error {
+	// Validate arguments
+	if repo == nil {
+		return errors.New("repo cannot be nil")
+	}
+
+	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+		return err
+	}
+
+	// Make sure that the repo exists
+	if repo.Name != "" {
+		if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(pfsdb.RepoKey(repo), &pfs.RepoInfo{}); err != nil {
+			if col.IsErrNotFound(err) {
+				return pfsserver.ErrRepoNotFound{Repo: repo}
+			}
 			return err
 		}
 	}
 
-	return sendBis()
+	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
+	if reverse {
+		opts.Order = col.SortAscend
+	}
+	branchInfo := &pfs.BranchInfo{}
+	return d.branches.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo), branchInfo, opts, func(_ string) error {
+		return cb(branchInfo)
+	})
 }
 
 func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, force bool) error {

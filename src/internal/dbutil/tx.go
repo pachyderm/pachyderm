@@ -187,26 +187,5 @@ func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) error {
 
 func isTransactionError(err error) bool {
 	pqerr := &pq.Error{}
-	if errors.As(err, &pqerr) {
-		return pqerr.Code.Class() == "40"
-	}
-	return IsErrTransactionConflict(err)
-}
-
-// ErrTransactionConflict should be used by user code to indicate a conflict in
-// the transaction that should be reattempted.
-type ErrTransactionConflict struct{}
-
-func (err ErrTransactionConflict) Is(other error) bool {
-	_, ok := other.(ErrTransactionConflict)
-	return ok
-}
-
-func (err ErrTransactionConflict) Error() string {
-	return "transaction conflict, will be reattempted"
-}
-
-// IsErrTransactionConflict determines if an error is an ErrTransactionConflict error
-func IsErrTransactionConflict(err error) bool {
-	return errors.Is(err, ErrTransactionConflict{})
+	return errors.As(err, &pqerr) && pqerr.Code.Class() == "40"
 }

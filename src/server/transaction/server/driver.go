@@ -171,12 +171,6 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 			err = directTxn.UpdateJobState(request.UpdateJobState)
 		} else if request.StopJob != nil {
 			err = directTxn.StopJob(request.StopJob)
-		} else if request.DeleteAll != nil {
-			// TODO: extend this to delete everything through PFS, PPS, Auth and
-			// update the client DeleteAll call to use only this, then remove unused
-			// RPCs.  This is not currently feasible because it does an orderly
-			// deletion that generates a very large transaction.
-			err = d.deleteAll(txnCtx.ClientContext, txnCtx.SqlTx, info.Transaction)
 		} else if request.CreatePipeline != nil {
 			if response.CreatePipelineResponse == nil {
 				response.CreatePipelineResponse = &transaction.CreatePipelineTransactionResponse{}
@@ -274,14 +268,18 @@ func (d *driver) updateTransaction(
 		return err
 	}
 
+	// prefetch transaction info and add data to refresher ahead of time
+	var prefetch transaction.TransactionInfo
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, &prefetch)
+	}); err != nil {
+		return nil, err
+	}
+	refresher := d.txnEnv.NewRefresher(&prefetch)
+
 	// Run this thing in a loop in case we get a conflict, time out after some tries
 	for i := 0; i < 10; i++ {
-		var err error
-		if writeTxn {
-			err = d.txnEnv.WithWriteContext(ctx, attempt)
-		} else {
-			err = d.txnEnv.WithReadContext(ctx, attempt)
-		}
+		err := d.txnEnv.WithRefresher(ctx, refresher, writeTxn, attempt)
 		if err == nil && gotBreak {
 			return localInfo, nil // no need to update
 		}

@@ -3,10 +3,11 @@ package fileset
 import (
 	"time"
 
+	"golang.org/x/sync/semaphore"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
-	"golang.org/x/sync/semaphore"
 )
 
 // StorageOption configures a storage.

@@ -5904,7 +5904,6 @@ func TestCronPipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Skip("TODO: This tests passes when run in isolation, but is flaky and often hangs.")
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	t.Run("SimpleCron", func(t *testing.T) {
@@ -9666,6 +9665,56 @@ func TestMoveBranchTrigger(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(files))
 	require.Equal(t, "/foo", files[0].File.Path)
+}
+
+func TestExpiredFileset(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// create a pipeline taking both master and the trigger branch as input
+	pipeline := tu.UniqueString("pipeline")
+
+	txn, err := c.StartTransaction()
+	require.NoError(t, err)
+
+	require.NoError(t, c.WithTransaction(txn).CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	info, err := c.InspectTransaction(txn)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(info.Responses))
+	require.NotNil(t, info.Responses[0].CreatePipelineResponse)
+	id := info.Responses[0].CreatePipelineResponse.FileSetId
+
+	// make sure the fileset is gone
+	// TODO: do this without a sleep (delete from database directly?)
+	require.NoError(t, c.RenewFileSet(id, time.Second))
+	time.Sleep(30 * time.Second)
+
+	// transaction should still finish and create the pipeline
+	_, err = c.FinishTransaction(txn)
+	require.NoError(t, err)
+	_, err = c.InspectPipeline(pipeline, true)
+	require.NoError(t, err)
 }
 
 func monitorReplicas(t testing.TB, pipeline string, n int) {

@@ -171,7 +171,7 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	}
 
 	biMaps := make(map[string]*pfs.BranchInfo)
-	if err := d.listBranch(txnCtx.ClientContext, branch.Repo, false, func(bi *pfs.BranchInfo) error {
+	if err := d.listBranchInTransaction(txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
 		biMaps[bi.Branch.Name] = bi
 		return nil
 	}); err != nil {

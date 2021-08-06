@@ -13,11 +13,10 @@ package ppsutil
 
 import (
 	"bytes"
+	"crypto/md5"
 	"fmt"
 	"strings"
 	"time"
-
-	"crypto/md5"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -118,9 +117,7 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 // GetPipelineDetails retrieves the pipeline spec for the given PipelineInfo from PFS,
 // then fills in the Details field in the given PipelineInfo from the spec.
 func GetPipelineDetails(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
-	// ensure we are authorized to read the pipeline's spec commit, but don't propagate that back out
-	pachClient = pachClient.WithCtx(pachClient.Ctx())
-	buf := bytes.Buffer{}
+	var buf bytes.Buffer
 	if err := pachClient.GetFile(pipelineInfo.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
 		return errors.Wrapf(err, "could not retrieve pipeline spec file from PFS for pipeline '%s'", pipelineInfo.Pipeline.Name)
 	}

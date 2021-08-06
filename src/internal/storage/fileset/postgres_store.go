@@ -48,7 +48,7 @@ func (s *postgresStore) SetTx(tx *sqlx.Tx, id ID, md *Metadata) error {
 		return err
 	}
 	if n == 0 {
-		return ErrFileSetExists
+		return errors.WithStack(ErrFileSetExists)
 	}
 	return nil
 }
@@ -57,7 +57,7 @@ func (s *postgresStore) get(ctx context.Context, q sqlx.QueryerContext, id ID) (
 	var mdData []byte
 	if err := sqlx.GetContext(ctx, q, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE id = $1`, id); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrFileSetNotExists
+			return nil, errors.WithStack(ErrFileSetNotExists)
 		}
 		return nil, err
 	}

@@ -11,7 +11,7 @@ import (
 // CheckClusterIsAuthorizedInTransaction returns an error if the current user doesn't have
 // the permissions in `p` on the cluster
 func (a *apiServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, p ...auth.Permission) error {
-	me, err := a.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
+	me, err := txnCtx.WhoAmI()
 	if auth.IsErrNotActivated(err) {
 		return nil
 	}
@@ -30,7 +30,7 @@ func (a *apiServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.Tra
 // CheckRepoIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
 func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, r *pfs.Repo, p ...auth.Permission) error {
-	me, err := a.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
+	me, err := txnCtx.WhoAmI()
 	if auth.IsErrNotActivated(err) {
 		return nil
 	}

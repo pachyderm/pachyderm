@@ -8,11 +8,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -34,8 +32,6 @@ const (
 	noRCExpected
 	rcExpected
 )
-
-const controllerUsername = "pipeline-controller"
 
 func max(is ...int) int {
 	if len(is) == 0 {
@@ -123,7 +119,6 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipelineOp, error) {
 	op := &pipelineOp{
 		m:            m,
-		ctx:          internalauth.AsInternalUser(ctx, controllerUsername),
 		pipelineInfo: &pps.PipelineInfo{},
 	}
 	// get latest PipelineInfo (events can pile up, so that the current state
@@ -134,12 +129,18 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 	tracing.TagAnySpan(ctx,
 		"current-state", op.pipelineInfo.State.String(),
 		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
+
+	// add pipeline auth
+	pachClient := m.a.env.GetPachClient(ctx)
+	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
+	op.ctx = pachClient.Ctx()
+
 	// set op.pipelineInfo.Details
 
 	// this reads the pipelineInfo associated with 'op's pipeline, as most other
 	// methods (e.g.  getRC, though not failPipeline) assume that
 	// op.pipelineInfo.Details is set.
-	if err := internal.GetPipelineDetails(op.ctx, op.m.a.env.PfsServer(), op.pipelineInfo); err != nil {
+	if err := ppsutil.GetPipelineDetails(pachClient, op.pipelineInfo); err != nil {
 		return nil, newRetriableError(err, "error retrieving spec")
 	}
 	return op, nil

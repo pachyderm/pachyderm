@@ -336,10 +336,14 @@ func (c APIClient) InspectBranch(repoName string, branchName string) (*pfs.Branc
 func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
+	var repo *pfs.Repo
+	if repoName != "" {
+		repo = NewRepo(repoName)
+	}
 	client, err := c.PfsAPIClient.ListBranch(
 		ctx,
 		&pfs.ListBranchRequest{
-			Repo: NewRepo(repoName),
+			Repo: repo,
 		},
 	)
 	if err != nil {
