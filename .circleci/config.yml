@@ -120,7 +120,7 @@ jobs:
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --package-path ../.cr-release-packages --push
   hub:
     docker:
-      - image: circleci/golang:1.15
+      - image: circleci/golang:1.16
     steps:
       - checkout
       - run: etc/testing/circle/run_hub_tests.sh
