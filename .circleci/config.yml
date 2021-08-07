@@ -119,6 +119,7 @@ jobs:
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --package-path ../.cr-release-packages --push
   hub:
+    resource_class: large
     docker:
       - image: circleci/golang:1.16
     steps:

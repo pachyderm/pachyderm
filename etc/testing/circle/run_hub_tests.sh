@@ -32,7 +32,7 @@ make install
 export VERSION=$(pachctl version --client-only)
 
 # build docker images
-DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot --skip-publish --rm-dist -f goreleaser/docker.yml
+goreleaser release -p 1 --snapshot --skip-publish --rm-dist -f goreleaser/docker.yml
 docker tag pachyderm/pachd pachyderm/pachd:$VERSION
 docker tag pachyderm/worker pachyderm/worker:$VERSION
 docker tag pachyderm/pachctl pachyderm/pachctl:$VERSION
