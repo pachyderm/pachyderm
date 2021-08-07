@@ -3,6 +3,7 @@
 set -euxo pipefail
 
 mkdir -p $HOME/go/bin
+export PATH=$PATH:$HOME/go/bin
 
 # install hubcli
 pushd $HOME/go/bin
