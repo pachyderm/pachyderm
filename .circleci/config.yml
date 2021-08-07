@@ -123,8 +123,7 @@ jobs:
       - image: circleci/golang:1.16
     steps:
       - checkout
-      - setup_remote_docker:
-        version: 19.03.13
+      - setup_remote_docker
       - run: etc/testing/circle/run_hub_tests.sh
 workflows:
   circleci:
