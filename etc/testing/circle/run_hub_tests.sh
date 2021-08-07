@@ -2,33 +2,49 @@
 
 set -euxo pipefail
 
+mkdir -p $HOME/go/bin
+
 # install hubcli
-wget https://github.com/pachyderm/hubcli/releases/download/v0.0.1-beta.1/hubcli
+pushd $HOME/go/bin
+rm -f hubcli
+wget https://github.com/pachyderm/hubcli/releases/download/0.0.2/hubcli
 chmod a+x hubcli
+popd
 
 # install goreleaser
-mkdir cached-deps
-export PATH=$PATH:$(pwd)/cached-deps
 GORELEASER_VERSION=0.169.0
 curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
-    | tar xzf - -C cached-deps goreleaser
+    | tar xzf - -C $HOME/go/bin goreleaser
 
-# install pachctl and friends
+# TODO: upgrade go here (as per install.sh)
+
+# setup environment for build
+export VERSION_ADDITIONAL="-$(git log --pretty=format:%H | head -n 1)"
+export CLIENT_ADDITIONAL_VERSION="github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion=${VERSION_ADDITIONAL}"
+export GC_FLAGS="all=-trimpath=${PWD}"
+export LD_FLAGS="-X ${CLIENT_ADDITIONAL_VERSION}"
+
+# build pachctl
 make install
-VERSION=$(pachctl version --client-only)
-git config user.email "donotreply@pachyderm.com"
-git config user.name "anonymous"
-git tag -f -am "Circle CI test v$VERSION" v"$VERSION"
 
-# push a docker image
-make docker-build
+# set up version for docker builds
+export VERSION=$(pachctl version --client-only)
+
+# build docker images
+DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot --skip-publish --rm-dist -f goreleaser/docker.yml
+docker tag pachyderm/pachd pachyderm/pachd:$VERSION
+docker tag pachyderm/worker pachyderm/worker:$VERSION
+docker tag pachyderm/pachctl pachyderm/pachctl:$VERSION
+docker push pachyderm/pachd:$VERSION
+docker push pachyderm/worker:$VERSION
+docker push pachyderm/pachctl:$VERSION
 
 # create a workspace
-./hubcli --endpoint https://hub.pachyderm.com/api/graphql --apikey $HUB_API_KEY --op create-workspace-and-wait --orgid 2193 --loglevel trace --infofile workspace.json --version $VERSION
+hubcli --endpoint https://hub.pachyderm.com/api/graphql --apikey $HUB_API_KEY --op create-workspace-and-wait --orgid 2193 --loglevel trace --infofile workspace.json --version $VERSION
 
 # run tests against hub
 pachctl run pfs-load-test
 pachctl run pps-load-test
 
 # delete the workspace
-./hubcli --endpoint https://hub.pachyderm.com/api/graphql --apikey $HUB_API_KEY --op delete-workspace --loglevel trace --infofile workspace.json
+hubcli --endpoint https://hub.pachyderm.com/api/graphql --apikey $HUB_API_KEY --op delete-workspace --loglevel trace --infofile workspace.json
