@@ -43,6 +43,9 @@ docker push pachyderm/pachctl:$VERSION
 # create a workspace
 hubcli --endpoint https://hub.pachyderm.com/api/graphql --apikey $HUB_API_KEY --op create-workspace-and-wait --orgid 2193 --loglevel trace --infofile workspace.json --version $VERSION --expiration 2h
 
+# print versions for debugging
+pachctl version
+
 # run tests against hub
 pachctl run pfs-load-test
 pachctl run pps-load-test
