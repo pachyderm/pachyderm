@@ -29,6 +29,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -2376,69 +2377,70 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
-	filterPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
-		if jqCode != nil {
-			jsonBuffer.Reset()
-			// convert pipelineInfo to a map[string]interface{} for use with gojq
-			enc.EncodeProto(pipelineInfo)
-			var pipelineInterface interface{}
-			json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface)
-			iter := jqCode.Run(pipelineInterface)
-			// treat either jq false-y value as rejection
-			if v, _ := iter.Next(); v == false || v == nil {
-				return false
-			}
-		}
-		return true
+	// get all pipelines at once to avoid holding the list query open
+	// this should be fine with numbers of pipelines pachyderm can actually run
+	var infos []*pps.PipelineInfo
+	if err := a.listPipelineInfo(ctx, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
+		infos = append(infos, proto.Clone(ptr).(*pps.PipelineInfo))
+		return nil
+	}); err != nil {
+		return err
 	}
-	// the mess below is so we can lookup the PFS info for each pipeline concurrently.
 	eg, ctx := errgroup.WithContext(ctx)
-	infos := make(chan *pps.PipelineInfo)
-	// stream these out of etcd
+	mus := make([]sync.Mutex, len(infos))
+
+	if request.Details {
+		// spin up goroutines to get the PFS info
+		limiter := limit.New(5)
+		for i := range infos {
+			// lock the corresponding mutex immediately so the info doesn't get processed early
+			mus[i].Lock()
+			limiter.Acquire()
+			i := i
+			eg.Go(func() error {
+				defer limiter.Release()
+				defer mus[i].Unlock() // unlock mutex, this pipeline is ready (or errored)
+				return ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), infos[i])
+			})
+
+		}
+	}
+
 	eg.Go(func() error {
-		defer close(infos)
-		return a.listPipelineInfo(ctx, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
+		filterPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
+			if jqCode != nil {
+				jsonBuffer.Reset()
+				// convert pipelineInfo to a map[string]interface{} for use with gojq
+				enc.EncodeProto(pipelineInfo)
+				var pipelineInterface interface{}
+				json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface)
+				iter := jqCode.Run(pipelineInterface)
+				// treat either jq false-y value as rejection
+				if v, _ := iter.Next(); v == false || v == nil {
+					return false
+				}
+			}
+			return true
+		}
+
+		// filter and call f in a single goro to preserve order and avoid worrying about concurrent buffer use
+		for i, info := range infos {
+			mus[i].Lock()
+			// mutex was released, ready to send this pipeline
+			// but first check if there have been any errors
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
-			case infos <- proto.Clone(ptr).(*pps.PipelineInfo):
-				return nil
+				return nil // saw an error, exit early
+			default:
 			}
-		})
-	})
-	// spin up goroutines to get the PFS info, and then use the mutex to call f all synchronized like.
-	var mu sync.Mutex
-	var fHasErrored bool
-	for i := 0; i < 20; i++ {
-		eg.Go(func() error {
-			for info := range infos {
-				if request.Details {
-					if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), info); err != nil {
-						return err
-					}
-				}
-				if err := func() error {
-					mu.Lock()
-					defer mu.Unlock()
-					if fHasErrored {
-						return nil
-					}
-					// the filtering shares that buffer thing, and it's CPU bound so why not do it with the lock
-					if !filterPipeline(info) {
-						return nil
-					}
-					if err := f(info); err != nil {
-						fHasErrored = true
-						return err
-					}
-					return nil
-				}(); err != nil {
+			if filterPipeline(info) {
+				if err := f(info); err != nil {
 					return err
 				}
 			}
-			return nil
-		})
-	}
+		}
+		return nil
+	})
 	return eg.Wait()
 }
 
