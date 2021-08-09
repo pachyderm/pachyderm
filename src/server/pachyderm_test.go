@@ -6164,10 +6164,10 @@ func TestCronPipeline(t *testing.T) {
 		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
 		require.NoError(t, err)
 
-		// We should see an initial empty commit, exactly three from our RunCron calls, and nothing else
+		// We should see an initial empty commit, exactly six from our RunCron calls (two each), and nothing else
 		commits, err := c.ListCommit(client.NewRepo(pipeline9), nil, nil, 0)
 		require.NoError(t, err)
-		require.Equal(t, 4, len(commits))
+		require.Equal(t, 7, len(commits))
 	})
 }
 
