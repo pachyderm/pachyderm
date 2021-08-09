@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.4
+- Adds support to retry download of a partially retrieved file in the `pachctl get file --retry` (#6702)
+- Fixes a bug that ignored containers’ default working directories when docker is not used (#6662)
+- Fixes a bug with multiple pachyderm deployments in the same cluster (#6656)
+- Fixes a bug that did not set IDE namespace and also add a deploy option `--namespace` to specify a namespace to deploy (#6448)
+- Fixes couple of bugs with multipart s3 upload (#6447)
+
 ## 1.13.3
 - Adds support to list files at a commit via S3 Gateway (#6293)
 - Fixes a bug that would crash pachd when writing a file larger than the requested memory (#6281)
