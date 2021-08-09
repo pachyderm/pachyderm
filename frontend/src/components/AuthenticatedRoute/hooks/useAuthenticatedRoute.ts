@@ -27,6 +27,8 @@ const useAuthenticatedRoute = () => {
     routerHistory.push('/');
   }
 
+  const loginHintParam = params.get('login_hint');
+  const connectionParam = params.get('connection');
   const redirectSearchString = `?${params.toString()}`;
 
   useEffect(() => {
@@ -43,6 +45,16 @@ const useAuthenticatedRoute = () => {
         issuerUri = pachDashConfig.REACT_APP_RUNTIME_ISSUER_URI;
       }
 
+      let connection = undefined;
+      if (connectionParam) {
+        connection = connectionParam;
+      }
+
+      let loginHint = undefined;
+      if (loginHintParam) {
+        loginHint = loginHintParam;
+      }
+
       initiateOauthFlow({
         authUrl: `${issuerUri}${authConfig.authEndpoint}`,
         clientId: authConfig.clientId,
@@ -53,9 +65,19 @@ const useAuthenticatedRoute = () => {
           `audience:server:client_id:${authConfig.pachdClientId}`,
         ].join('+'),
         openWindow: false,
+        connection,
+        loginHint,
       });
     }
-  }, [error, loggedIn, initiateOauthFlow, loginWindowSucceeded, authConfig]);
+  }, [
+    error,
+    loggedIn,
+    initiateOauthFlow,
+    loginWindowSucceeded,
+    authConfig,
+    loginHintParam,
+    connectionParam,
+  ]);
 
   return {
     error,

@@ -95,7 +95,11 @@ describe('AuthenticatedRoute', () => {
 
   describe('external navigation', () => {
     beforeEach(() => {
-      window.history.pushState('', '', '/authenticated');
+      window.history.pushState(
+        '',
+        '',
+        '/authenticated?connection=github&login_hint=test@pachyderm.com',
+      );
     });
 
     afterAll(() => {
@@ -126,6 +130,8 @@ describe('AuthenticatedRoute', () => {
             '&response_type=code',
             `&scope=openid+email+profile+audience:server:client_id:${process.env.OAUTH_PACHD_CLIENT_ID}`,
             '&state=AAAAAAAAAAAAAAAAAAAA',
+            '&connection=github',
+            '&login_hint=test@pachyderm.com',
           ].join(''),
         ),
       );
