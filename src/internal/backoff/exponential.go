@@ -61,8 +61,8 @@ type ExponentialBackOff struct {
 	MaxElapsedTime time.Duration
 	Clock          Clock
 
-	currentInterval time.Duration
-	startTime       time.Time
+	CurrentInterval time.Duration
+	StartTime       time.Time
 }
 
 // Clock is an interface that returns current time for BackOff.
@@ -183,8 +183,8 @@ var SystemClock = systemClock{}
 
 // Reset the interval back to the initial retry interval and restarts the timer.
 func (b *ExponentialBackOff) Reset() {
-	b.currentInterval = b.InitialInterval
-	b.startTime = b.Clock.Now()
+	b.CurrentInterval = b.InitialInterval
+	b.StartTime = b.Clock.Now()
 }
 
 // NextBackOff calculates the next backoff interval using the formula:
@@ -195,7 +195,7 @@ func (b *ExponentialBackOff) NextBackOff() time.Duration {
 		return Stop
 	}
 	defer b.incrementCurrentInterval()
-	return getRandomValueFromInterval(b.RandomizationFactor, rand.Float64(), b.currentInterval)
+	return GetRandomValueFromInterval(b.RandomizationFactor, rand.Float64(), b.CurrentInterval)
 }
 
 // GetElapsedTime returns the elapsed time since an ExponentialBackOff instance
@@ -203,22 +203,22 @@ func (b *ExponentialBackOff) NextBackOff() time.Duration {
 //
 // The elapsed time is computed using time.Now().UnixNano().
 func (b *ExponentialBackOff) GetElapsedTime() time.Duration {
-	return b.Clock.Now().Sub(b.startTime)
+	return b.Clock.Now().Sub(b.StartTime)
 }
 
 // Increments the current interval by multiplying it with the multiplier.
 func (b *ExponentialBackOff) incrementCurrentInterval() {
 	// Check for overflow, if overflow is detected set the current interval to the max interval.
-	if float64(b.currentInterval) >= float64(b.MaxInterval)/b.Multiplier {
-		b.currentInterval = b.MaxInterval
+	if float64(b.CurrentInterval) >= float64(b.MaxInterval)/b.Multiplier {
+		b.CurrentInterval = b.MaxInterval
 	} else {
-		b.currentInterval = time.Duration(float64(b.currentInterval) * b.Multiplier)
+		b.CurrentInterval = time.Duration(float64(b.CurrentInterval) * b.Multiplier)
 	}
 }
 
 // Returns a random value from the following interval:
 // 	[randomizationFactor * currentInterval, randomizationFactor * currentInterval].
-func getRandomValueFromInterval(randomizationFactor, random float64, currentInterval time.Duration) time.Duration {
+func GetRandomValueFromInterval(randomizationFactor, random float64, currentInterval time.Duration) time.Duration {
 	var delta = randomizationFactor * float64(currentInterval)
 	var minInterval = float64(currentInterval) - delta
 	var maxInterval = float64(currentInterval) + delta
