@@ -253,7 +253,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 						if !ok {
 							return nil // subscribeCommit exited, nothing left to do
 						}
-						if ci.Finished != nil {
+						if ci.Finishing != nil {
 							continue
 						}
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
@@ -424,7 +424,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master", "")
 	if err != nil {
 		return err
-	} else if commitInfo != nil && commitInfo.Finished == nil {
+	} else if commitInfo != nil && commitInfo.Finishing == nil {
 		// and if there is, delete it
 		if err = pachClient.SquashCommitSet(commitInfo.Commit.ID); err != nil {
 			return err

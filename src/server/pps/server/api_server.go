@@ -1972,7 +1972,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			Commit: client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewCommit("master", ""),
 		}); err != nil {
 			return err
-		} else if ci.Finished == nil {
+		} else if ci.Finishing == nil {
 			return errors.Errorf("the HEAD commit of this pipeline's spec branch " +
 				"is open. Either another CreatePipeline call is running or a previous " +
 				"call crashed. If you're sure no other CreatePipeline commands are " +
@@ -2816,7 +2816,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 
 	for _, commitInfo := range commitInfos {
 		// Skip alias commits and any commits which have already been finished
-		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS || commitInfo.Finished != nil {
+		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS || commitInfo.Finishing != nil {
 			continue
 		}
 

@@ -54,7 +54,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 		fi := &pfs.FileInfo{
 			File:      file,
 			FileType:  pfs.FileType_FILE,
-			Committed: s.commitInfo.Finished,
+			Committed: s.commitInfo.Finishing,
 		}
 		if fileset.IsDir(idx.Path) {
 			fi.FileType = pfs.FileType_DIR
