@@ -1,4 +1,7 @@
 # Spout Pipelines - An introductory example
+
+>**COMING SOON: README UPDATE** We have adapted the source code of this example to Pachyderm 2.0.0 [new Map/Reduce Pattern](https://docs.pachyderm.com/2.0.x-beta/concepts/pipeline-concepts/datum/relationship-between-datums/). However, this README needs rewriting. Stay tuned.
+
 ## Intro
 A spout is a type of pipeline that ingests 
 streaming data (message queue, database transactions logs,
