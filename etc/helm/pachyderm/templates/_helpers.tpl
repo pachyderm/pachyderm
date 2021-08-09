@@ -28,11 +28,11 @@ LOCAL
 {{- end -}}
 
 {{- define "pachyderm.clusterDeploymentId" -}}
-{{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.clusterDeploymentID "hashSalt" "deployID") }}
+{{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.clusterDeploymentID "hashSalt" "deploymentID") }}
 {{- end -}}
 
 {{- define "pachyderm.enterpriseSecret" -}}
-{{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.enterpriseSecret "hashSalt" "entsec") }}
+{{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.enterpriseSecret "hashSalt" "enterpriseSecret") }}
 {{- end -}}
 
 ## if 'defaultValue' isn't defined use the date/time to create a hash
@@ -42,6 +42,6 @@ LOCAL
 {{ if .defaultValue }}
 {{- .defaultValue }}
 {{ else }}
-{{- now | print | trunc 16 | printf "%s-%s" .hashSalt | sha256sum -}}
+{{- derivePassword 1 "long" (now | toString | trunc 16) .hashSalt "pachyderm" -}}
 {{- end }}
 {{- end -}}
