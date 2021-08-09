@@ -35,7 +35,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -413,20 +412,17 @@ func (m *ppsMaster) monitorCrashingPipeline(ctx context.Context, pipelineInfo *p
 	}
 }
 
-func cronFileset(pachClient *client.APIClient, now time.Time, overwrite bool) (string, error) {
-	resp, err := pachClient.WithCreateFileSetClient(func(m client.ModifyFile) error {
-		if overwrite {
-			if err := m.DeleteFile("/"); err != nil {
-				return err
+func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) error {
+	return pachClient.WithModifyFileClient(
+		client.NewRepo(cron.Repo).NewCommit("master", ""),
+		func(m client.ModifyFile) error {
+			if cron.Overwrite {
+				if err := m.DeleteFile("/"); err != nil {
+					return err
+				}
 			}
-		}
-		return m.PutFile(now.Format(time.RFC3339), bytes.NewReader(nil))
-	})
-
-	if err != nil {
-		return "", err
-	}
-	return resp.FileSetId, nil
+			return m.PutFile(now.Format(time.RFC3339), bytes.NewReader(nil))
+		})
 }
 
 // makeCronCommits makes commits to a single cron input's repo. It's
@@ -456,23 +452,9 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		}
-		if err != nil {
+		if err := cronTick(pachClient, next, in.Cron); err != nil {
 			return err
 		}
-
-		id, err := cronFileset(pachClient, next, in.Cron.Overwrite)
-		if err != nil {
-			return err
-		}
-
-		if err := m.a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			_, err := commitFilesetInTransaction(m.a.env.PfsServer(), txnCtx,
-				client.NewBranch(in.Cron.Repo, "master"), id)
-			return err
-		}); err != nil {
-			return err
-		}
-
 		// set latestTime to the next time
 		latestTime = next
 	}

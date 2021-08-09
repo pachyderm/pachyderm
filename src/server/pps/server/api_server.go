@@ -2753,31 +2753,14 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 
 	// put the same time for all ticks
 	now := time.Now()
-	// create the filesets
-	tickFilesets := map[bool]string{}
-	for _, overwrite := range []bool{true, false} {
-		tickFilesets[overwrite], err = cronFileset(a.env.GetPachClient(ctx), now, overwrite)
-		if err != nil {
-			return nil, errors.Wrapf(err, "couldn't create tick file")
+
+	// add all the ticks. These will be in separate transactions if there are more than one
+	for _, c := range crons {
+		if err := cronTick(a.env.GetPachClient(ctx), now, c); err != nil {
+			return nil, err
 		}
 	}
 
-	// add all the filesets in a single transaction
-	err = a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		for _, c := range crons {
-			if _, err := commitFilesetInTransaction(a.env.PfsServer(), txnCtx,
-				client.NewBranch(c.Repo, "master"),
-				tickFilesets[c.Overwrite],
-			); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
 	return &types.Empty{}, nil
 }
 
