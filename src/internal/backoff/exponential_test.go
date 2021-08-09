@@ -1,9 +1,11 @@
-package backoff
+package backoff_test
 
 import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 )
 
 func TestBackOff(t *testing.T) {
@@ -15,7 +17,7 @@ func TestBackOff(t *testing.T) {
 		testMaxElapsedTime      = 15 * time.Minute
 	)
 
-	exp := NewExponentialBackOff()
+	exp := backoff.NewExponentialBackOff()
 	exp.InitialInterval = testInitialInterval
 	exp.RandomizationFactor = testRandomizationFactor
 	exp.Multiplier = testMultiplier
@@ -29,7 +31,7 @@ func TestBackOff(t *testing.T) {
 	}
 
 	for _, expected := range expectedResults {
-		assertEquals(t, expected, exp.currentInterval)
+		assertEquals(t, expected, exp.CurrentInterval)
 		// Assert that the next backoff falls in the expected range.
 		var minInterval = expected - time.Duration(testRandomizationFactor*float64(expected))
 		var maxInterval = expected + time.Duration(testRandomizationFactor*float64(expected))
@@ -42,14 +44,14 @@ func TestBackOff(t *testing.T) {
 
 func TestGetRandomizedInterval(t *testing.T) {
 	// 33% chance of being 1.
-	assertEquals(t, 1, getRandomValueFromInterval(0.5, 0, 2))
-	assertEquals(t, 1, getRandomValueFromInterval(0.5, 0.33, 2))
+	assertEquals(t, 1, backoff.GetRandomValueFromInterval(0.5, 0, 2))
+	assertEquals(t, 1, backoff.GetRandomValueFromInterval(0.5, 0.33, 2))
 	// 33% chance of being 2.
-	assertEquals(t, 2, getRandomValueFromInterval(0.5, 0.34, 2))
-	assertEquals(t, 2, getRandomValueFromInterval(0.5, 0.66, 2))
+	assertEquals(t, 2, backoff.GetRandomValueFromInterval(0.5, 0.34, 2))
+	assertEquals(t, 2, backoff.GetRandomValueFromInterval(0.5, 0.66, 2))
 	// 33% chance of being 3.
-	assertEquals(t, 3, getRandomValueFromInterval(0.5, 0.67, 2))
-	assertEquals(t, 3, getRandomValueFromInterval(0.5, 0.99, 2))
+	assertEquals(t, 3, backoff.GetRandomValueFromInterval(0.5, 0.67, 2))
+	assertEquals(t, 3, backoff.GetRandomValueFromInterval(0.5, 0.99, 2))
 }
 
 type TestClock struct {
@@ -64,7 +66,7 @@ func (c *TestClock) Now() time.Time {
 }
 
 func TestGetElapsedTime(t *testing.T) {
-	var exp = NewExponentialBackOff()
+	var exp = backoff.NewExponentialBackOff()
 	exp.Clock = &TestClock{}
 	exp.Reset()
 
@@ -75,12 +77,12 @@ func TestGetElapsedTime(t *testing.T) {
 }
 
 func TestMaxElapsedTime(t *testing.T) {
-	var exp = NewExponentialBackOff()
+	var exp = backoff.NewExponentialBackOff()
 	exp.Clock = &TestClock{start: time.Time{}.Add(10000 * time.Second)}
 	// Change the currentElapsedTime to be 0 ensuring that the elapsed time will be greater
 	// than the max elapsed time.
-	exp.startTime = time.Time{}
-	assertEquals(t, Stop, exp.NextBackOff())
+	exp.StartTime = time.Time{}
+	assertEquals(t, backoff.Stop, exp.NextBackOff())
 }
 
 func TestBackOffOverflow(t *testing.T) {
@@ -90,7 +92,7 @@ func TestBackOffOverflow(t *testing.T) {
 		testMultiplier                    = 2.1
 	)
 
-	exp := NewExponentialBackOff()
+	exp := backoff.NewExponentialBackOff()
 	exp.InitialInterval = testInitialInterval
 	exp.Multiplier = testMultiplier
 	exp.MaxInterval = testMaxInterval
@@ -98,7 +100,7 @@ func TestBackOffOverflow(t *testing.T) {
 
 	exp.NextBackOff()
 	// Assert that when an overflow is possible the current varerval   time.Duration    is set to the max varerval   time.Duration   .
-	assertEquals(t, testMaxInterval, exp.currentInterval)
+	assertEquals(t, testMaxInterval, exp.CurrentInterval)
 }
 
 func assertEquals(t *testing.T, expected, value time.Duration) {
