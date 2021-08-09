@@ -45,6 +45,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -2386,62 +2387,46 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	}); err != nil {
 		return err
 	}
-	eg, ctx := errgroup.WithContext(ctx)
-	mus := make([]sync.Mutex, len(infos))
 
-	if request.Details {
-		// spin up goroutines to get the PFS info
-		limiter := limit.New(5)
-		for i := range infos {
-			// lock the corresponding mutex immediately so the info doesn't get processed early
-			mus[i].Lock()
-			limiter.Acquire()
-			i := i
-			eg.Go(func() error {
-				defer limiter.Release()
-				defer mus[i].Unlock() // unlock mutex, this pipeline is ready (or errored)
-				return ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), infos[i])
-			})
-
+	filterPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
+		if jqCode != nil {
+			jsonBuffer.Reset()
+			// convert pipelineInfo to a map[string]interface{} for use with gojq
+			enc.EncodeProto(pipelineInfo)
+			var pipelineInterface interface{}
+			json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface)
+			iter := jqCode.Run(pipelineInterface)
+			// treat either jq false-y value as rejection
+			if v, _ := iter.Next(); v == false || v == nil {
+				return false
+			}
 		}
+		return true
 	}
 
-	eg.Go(func() error {
-		filterPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
-			if jqCode != nil {
-				jsonBuffer.Reset()
-				// convert pipelineInfo to a map[string]interface{} for use with gojq
-				enc.EncodeProto(pipelineInfo)
-				var pipelineInterface interface{}
-				json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface)
-				iter := jqCode.Run(pipelineInterface)
-				// treat either jq false-y value as rejection
-				if v, _ := iter.Next(); v == false || v == nil {
-					return false
-				}
-			}
-			return true
-		}
+	// fetch details and filter via a task chain so that order is preserved
+	chain := chunk.NewTaskChain(ctx)
 
-		// filter and call f in a single goro to preserve order and avoid worrying about concurrent buffer use
-		for i, info := range infos {
-			mus[i].Lock()
-			// mutex was released, ready to send this pipeline
-			// but first check if there have been any errors
-			select {
-			case <-ctx.Done():
-				return nil // saw an error, exit early
-			default:
-			}
-			if filterPipeline(info) {
-				if err := f(info); err != nil {
+	// spin up goroutines to get the PFS info
+	limiter := limit.New(5)
+	for i := range infos {
+		limiter.Acquire()
+		chain.CreateTask(func(ctx context.Context, serial func(func() error) error) error {
+			defer limiter.Release()
+			if request.Details {
+				if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), infos[i]); err != nil {
 					return err
 				}
 			}
-		}
-		return nil
-	})
-	return eg.Wait()
+			return serial(func() error {
+				if filterPipeline(infos[i]) {
+					return f(infos[i])
+				}
+				return nil
+			})
+		})
+	}
+	return chain.Wait()
 }
 
 // listPipelineInfo enumerates all PPS pipelines in the database, filters them

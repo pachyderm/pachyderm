@@ -9717,7 +9717,7 @@ func TestExpiredFileset(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestListPipelineError(t testing.TB) {
+func TestListPipelineError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
