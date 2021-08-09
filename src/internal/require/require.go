@@ -421,10 +421,9 @@ func NoErrorWithinT(tb testing.TB, t time.Duration, f func() error, msgAndArgs .
 // emit an error. Unlike NoErrorWithinT if f does error, it will retry it.
 func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndArgs ...interface{}) {
 	tb.Helper()
-	ctx, _ := context.WithTimeout(context.Background(), t)
-	err := backoff.RetryUntilCancel(ctx, f, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		return nil
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), t)
+	defer cancel()
+	err := backoff.RetryUntilCancel(ctx, f, backoff.NewExponentialBackOff(), nil)
 	if err != nil {
 		fatal(tb, msgAndArgs, "operation did not finish within %s - last error: %v", t.String(), err)
 	}
