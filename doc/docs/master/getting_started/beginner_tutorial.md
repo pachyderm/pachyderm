@@ -64,7 +64,7 @@ pachctl list repo
 
 ```shell
 NAME   CREATED       SIZE (MASTER) ACCESS LEVEL
-images 8 seconds ago 0B            [repoOwner]
+images 4 seconds ago ≤ 0B          [repoOwner]
 ```
 
 This output shows that the repo has been successfully created. Because we
@@ -118,7 +118,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
   ```
   NAME   CREATED       SIZE (MASTER) ACCESS LEVEL
-  images 5 minutes ago 57.27KiB      [repoOwner]
+  images 2 minutes ago ≤ 57.27KiB    [repoOwner]
   ```
 
 * View the commit that was just created:
@@ -130,8 +130,8 @@ We can check to make sure the data we just added is in Pachyderm.
   **System response:**
 
   ```
-  REPO   BRANCH COMMIT                           FINISHED       SIZE ORIGIN DESCRIPTION
-  images master a23b70c3bdc142a79442f352cb15172a 28 seconds ago -    USER
+  REPO   BRANCH COMMIT                           FINISHED       SIZE     ORIGIN DESCRIPTION
+  images master 89a5ab3a23c949949f763943dd7a8aac 55 seconds ago 57.27KiB USER
   ```
 
 * View the file in that commit:
@@ -143,8 +143,8 @@ We can check to make sure the data we just added is in Pachyderm.
   **System response:**
 
   ```
-  NAME         TAG     TYPE SIZE
-  /liberty.png default file 57.27KiB
+  NAME         TYPE SIZE
+  /liberty.png file 57.27KiB
   ```
 
 Now you can view the file by retrieving it from Pachyderm. Because this is an
@@ -216,7 +216,7 @@ to the running pipeline, and how to process the data from the repos. **Commits t
 these repos will automatically trigger the pipeline to create new jobs to
 process them**. In this case, `images` is the repo, and `/*` is the glob pattern.
 
-The glob pattern defines how the input data can be broken up if you want
+The glob pattern defines how the input data will be transformed into datums if you want
 to distribute computation. `/*` means that each file can be
 processed individually, which makes sense for images. Glob patterns are
 one of the most powerful features in Pachyderm.
@@ -291,15 +291,20 @@ pachctl list job
 **System response:**
 
 ```
-ID                               PIPELINE STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE
-0d46c2f930c141788c70aae54f6c5834 edges    13 seconds ago 2 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
-
+ID                               SUBJOBS PROGRESS CREATED       MODIFIED
+23378d899d3d45738f55df3809841145 1       ▇▇▇▇▇▇▇▇ 5 seconds ago 5 seconds ago
 ```
 
-!!! Note
-    You can check the state of your pipeline by running 'pachctl list pipeline`.
+You can check the state of your pipeline by running `pachctl list pipeline`.
 
-Yay! Our pipeline succeeded! Pachyderm creates a corresponding output
+**System response:**
+
+```
+NAME  VERSION INPUT     CREATED       STATE / LAST JOB  DESCRIPTION
+edges 1       images:/* 2 minutes ago running / success A pipeline that performs image edge detection by using the OpenCV library.
+```
+
+Yay! Your pipeline succeeded! Pachyderm creates a corresponding output
 repo for every pipeline. This output repo will have the same name as the
 pipeline, and all the results of that pipeline will be versioned in this
 output repo. In our example, the `edges` pipeline created an output repo
@@ -313,9 +318,9 @@ pachctl list repo
 **System response:**
 
 ```
-NAME   CREATED             SIZE (MASTER) ACCESS LEVEL
-edges  About a minute ago  22.22KiB      [repoOwner]  Output repo for pipeline edges.
-images 3 minutes ago       57.27KiB      [repoOwner]
+NAME   CREATED        SIZE (MASTER) ACCESS LEVEL
+edges  10 minutes ago ≤ 22.22KiB    [repoOwner]  Output repo for pipeline edges.
+images 3 hours ago    ≤ 57.27KiB    [repoOwner]
 ```
 
 ### Reading the Output
@@ -371,10 +376,10 @@ pachctl list job
 **System response:**
 
 ```
-ID                               PIPELINE STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE
-1f3f5ac642c54b629f11944c02ccb08c edges    10 seconds ago 3 seconds 0       1 + 2 / 3 102.4KiB 74.21KiB success
-f48cb89bac134c8baa79c657b03e2091 edges    13 seconds ago 2 seconds 0       1 + 1 / 2 78.7KiB  37.15KiB success
-0d46c2f930c141788c70aae54f6c5834 edges    2 minutes ago  2 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
+ID                               SUBJOBS PROGRESS CREATED        MODIFIED
+1c1a9d7d36944eabb4f6f14ebca25bf1 1       ▇▇▇▇▇▇▇▇ 31 seconds ago 31 seconds ago
+fe5c4f70ac4347fd9c5934f0a9c44651 1       ▇▇▇▇▇▇▇▇ 47 seconds ago 47 seconds ago
+23378d899d3d45738f55df3809841145 1       ▇▇▇▇▇▇▇▇ 12 minutes ago 12 minutes ago
 ```
 
 View the output data
@@ -467,11 +472,11 @@ pachctl list job
 **System response:**
 
 ```shell
-ID                               PIPELINE STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE
-ec1a1724d50e493d9972d03d431107d6 montage  6 minutes ago  3 seconds 0       1 + 0 / 1 371.9KiB 1.292MiB success
-1f3f5ac642c54b629f11944c02ccb08c edges    8 minutes ago  3 seconds 0       1 + 2 / 3 102.4KiB 74.21KiB success
-f48cb89bac134c8baa79c657b03e2091 edges    8 minutes ago  2 seconds 0       1 + 1 / 2 78.7KiB  37.15KiB success
-0d46c2f930c141788c70aae54f6c5834 edges    10 minutes ago 2 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
+ID                               SUBJOBS PROGRESS CREATED        MODIFIED
+01e0c8040e18429daf7f67ce34c3a5d7 1       ▇▇▇▇▇▇▇▇ 11 seconds ago 11 seconds ago
+1c1a9d7d36944eabb4f6f14ebca25bf1 1       ▇▇▇▇▇▇▇▇ 12 minutes ago 12 minutes ago
+fe5c4f70ac4347fd9c5934f0a9c44651 1       ▇▇▇▇▇▇▇▇ 12 minutes ago 12 minutes ago
+23378d899d3d45738f55df3809841145 1       ▇▇▇▇▇▇▇▇ 24 minutes ago 24 minutes ago
 ```
 
 View the generated montage image by running one of
@@ -509,12 +514,17 @@ should see something similar to this:
 ![image](../images/console_landing_page.png)
 
 Upon clicking on your **default Project** (We are working on allowing you to organize your DAGs and teams by Projects), 
-you will be able to see your pipeline structure, and interactively explore the various pieces
-of your pipeline as pictured below:
+you will be able to see your DAG's structure, and interactively explore your repos and pipelines:
 
 ![image](../images/console_dag_display.png)
 
+Click on a repo to visualize its commits, see the related jobs, or inspect the files of a given commit:
+
 ![image](../images/console_repo_commits.png)
+
+Or click on a pipeline to visualize its specification file, list its jobs, or view the details of a particular job.
+
+![image](../images/console_pipeline_jobs.png)
 
 ## Next Steps
 
@@ -522,9 +532,9 @@ You can use what you have learned to build on or
 change these pipelines. 
 You can also dig in and learn more details about:
 
-- [Deploying Pachyderm to the cloud or on prem](../deploy-manage/deploy/index.md)
-- [Load Your Data into Pachyderm](../how-tos/basic-data-operations/load-data-into-pachyderm.md)
 - [Working with Pipelines](../how-tos/developer-workflow/working-with-pipelines.md)
+- [Load Your Data into Pachyderm](../how-tos/basic-data-operations/load-data-into-pachyderm.md)
+- [Deploying Pachyderm to the cloud or on prem](../deploy-manage/deploy/index.md)
 
 Again, we would love to help and see what you come up with! Submit any
 questions, comment, contribution on
