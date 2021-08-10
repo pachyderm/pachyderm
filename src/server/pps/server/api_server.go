@@ -1978,7 +1978,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		// There is, so we use that as the spec commit, rather than making a new one
 		specCommit = commitInfo.Commit
 	} else {
-		specCommit, err = commitFilesetInTransaction(a.env.PfsServer(), txnCtx,
+		specCommit, err = commitFileSetInTransaction(a.env.PfsServer(), txnCtx,
 			client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"), *specFileSetID)
 		if err != nil {
 			return err
@@ -2710,7 +2710,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	return nil, errors.New("unimplemented")
 }
 
-func commitFilesetInTransaction(a pfsServer.APIServer, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, filesetID string) (*pfs.Commit, error) {
+func commitFileSetInTransaction(a pfsServer.APIServer, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, filesetID string) (*pfs.Commit, error) {
 	commit, err := a.StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{Branch: branch})
 	if err != nil {
 		return nil, err
@@ -2718,8 +2718,7 @@ func commitFilesetInTransaction(a pfsServer.APIServer, txnCtx *txncontext.Transa
 	if err := a.AddFileSetInTransaction(txnCtx, &pfs.AddFileSetRequest{Commit: commit, FileSetId: filesetID}); err != nil {
 		return nil, err
 	}
-	err = a.FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{Commit: commit})
-	if err != nil {
+	if err = a.FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{Commit: commit}); err != nil {
 		return nil, err
 	}
 	return commit, nil

@@ -38,7 +38,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
@@ -433,11 +432,6 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		return err // Shouldn't happen, as the input is validated in CreatePipeline
 	}
 	pachClient := m.a.env.GetPachClient(ctx)
-	// finish any open commit on the branch
-	if err := pachClient.FinishCommit(in.Cron.Repo, "master", ""); err != nil && !pfs_server.IsCommitFinishedErr(err) {
-		return err
-	}
-
 	latestTime, err := m.getLatestCronTime(ctx, in)
 	if err != nil {
 		return err
