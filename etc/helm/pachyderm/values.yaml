@@ -22,6 +22,7 @@ global:
     # The postgresql database port to connect to. Defaults to built in postgres service
     postgresqlPort: "5432"
     postgresqlSSL: "disable"
+    identityServerDatabase: "dex"
 
 console:
   # enabled controls whether the console manifests are created or not.

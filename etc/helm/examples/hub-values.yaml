@@ -10,6 +10,7 @@ global:
     postgresqlSSL: "disable"
     postgresqlUsername: "postgres"
     postgresqlPassword: "Example-Password"
+    identityServerDatabase: "not_dex"
 
 console:
   enabled: true

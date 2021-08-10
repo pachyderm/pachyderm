@@ -30,6 +30,7 @@ func TestHub(t *testing.T) {
 			"cloudsql auth proxy service":         false,
 			"cloudsql auth proxy service account": false,
 			"cloudsql auth proxy depoyment":       false,
+			"identity server database":            false,
 		}
 		err error
 	)
@@ -122,6 +123,11 @@ func TestHub(t *testing.T) {
 						if string(v) != "test-bucket" {
 							t.Errorf("Google Bucket value is wrong: %s", v)
 						}
+					case "IDENTITY_SERVER_DATABASE":
+						if string(v) != "not_dex" {
+							t.Errorf("Identity Server Database value is wrong: %s", v)
+						}
+						checks["identity server database"] = true
 					}
 				}
 				if _, ok := object.Data["MICROSOFT_CONTAINER"]; ok {
