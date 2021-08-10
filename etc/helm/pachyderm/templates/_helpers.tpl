@@ -51,6 +51,7 @@ LOCAL
 ## gives us a unique enough value to use as a hash seed. We truncate it 
 ## to the minute to reduce the odds that it will produce different timestamp 
 ## values between renderings of this template.
+## Reference https://github.com/helm/helm/issues/6456
 ##
 ## 2.) 'onlyDefault' is used to force this template to fail if a default value is not provided
 {{- define "defaultOrStableHash" -}}
