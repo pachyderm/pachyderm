@@ -1617,42 +1617,6 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-// commitPipelineInfoFromFileSet is a helper for all pipeline updates that
-// creates a commit with 'pipelineInfo' in SpecRepo (in PFS). It's called in
-// both the case where a user is updating a pipeline and the case where a user
-// is creating a new pipeline.
-// pipelineInfo.Version is used to ensure that (in the absence of
-// transactionality) the new pipelineInfo is only applied on top of the previous
-// pipelineInfo - if the version of the pipeline has changed, this operation
-// will error out.
-func (a *apiServer) commitPipelineInfoFromFileSet(
-	txnCtx *txncontext.TransactionContext,
-	pipelineName string,
-	filesetID string,
-) (*pfs.Commit, error) {
-	commit, err := a.env.PfsServer().StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
-		Branch: client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"),
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not marshal PipelineInfo")
-	}
-
-	if err := a.env.PfsServer().AddFileSetInTransaction(txnCtx, &pfs.AddFileSetRequest{
-		Commit:    commit,
-		FileSetId: filesetID,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
-		Commit: commit,
-	}); err != nil {
-		return nil, err
-	}
-
-	return commit, nil
-}
-
 func (a *apiServer) fixPipelineInputRepoACLs(ctx context.Context, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) error {
 	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, prevPipelineInfo)
@@ -2014,7 +1978,8 @@ func (a *apiServer) CreatePipelineInTransaction(
 		// There is, so we use that as the spec commit, rather than making a new one
 		specCommit = commitInfo.Commit
 	} else {
-		specCommit, err = a.commitPipelineInfoFromFileSet(txnCtx, pipelineName, *specFileSetID)
+		specCommit, err = commitFileSetInTransaction(a.env.PfsServer(), txnCtx,
+			client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"), *specFileSetID)
 		if err != nil {
 			return err
 		}
@@ -2745,6 +2710,20 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	return nil, errors.New("unimplemented")
 }
 
+func commitFileSetInTransaction(a pfsServer.APIServer, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, filesetID string) (*pfs.Commit, error) {
+	commit, err := a.StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{Branch: branch})
+	if err != nil {
+		return nil, err
+	}
+	if err := a.AddFileSetInTransaction(txnCtx, &pfs.AddFileSetRequest{Commit: commit, FileSetId: filesetID}); err != nil {
+		return nil, err
+	}
+	if err = a.FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{Commit: commit}); err != nil {
+		return nil, err
+	}
+	return commit, nil
+}
+
 func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2755,7 +2734,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	}
 
 	if pipelineInfo.Details.Input == nil {
-		return nil, errors.Errorf("pipeline must have a cron input")
+		return nil, errors.Errorf("pipeline doesn't have a cron input")
 	}
 
 	// find any cron inputs
@@ -2768,43 +2747,19 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	})
 
 	if len(crons) < 1 {
-		return nil, errors.Errorf("pipeline must have a cron input")
+		return nil, errors.Errorf("pipeline doesn't have a cron input")
 	}
 
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.StartTransaction()
-	if err != nil {
-		return nil, err
-	}
+	// put the same time for all ticks
+	now := time.Now()
 
-	// We need all the DeleteFile and the PutFile requests to happen atomicly
-	txnClient := pachClient.WithTransaction(txn)
-
-	// make a tick on each cron input
-	for _, cron := range crons {
-		// TODO: This isn't transactional, we could support a transactional modify file through the fileset API though.
-		if err := txnClient.WithModifyFileClient(client.NewCommit(cron.Repo, "master", ""), func(mf client.ModifyFile) error {
-			if cron.Overwrite {
-				// get rid of any files, so the new file "overwrites" previous runs
-				err = mf.DeleteFile("/")
-				if err != nil && !errutil.IsNotFoundError(err) {
-					return errors.Wrapf(err, "delete error")
-				}
-			}
-			// Put in an empty file named by the timestamp
-			if err := mf.PutFile(time.Now().Format(time.RFC3339), strings.NewReader("")); err != nil {
-				return errors.Wrapf(err, "put error")
-			}
-			return nil
-		}); err != nil {
+	// add all the ticks. These will be in separate transactions if there are more than one
+	for _, c := range crons {
+		if err := cronTick(a.env.GetPachClient(ctx), now, c); err != nil {
 			return nil, err
 		}
 	}
 
-	_, err = txnClient.FinishTransaction(txn)
-	if err != nil {
-		return nil, err
-	}
 	return &types.Empty{}, nil
 }
 

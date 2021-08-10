@@ -6141,6 +6141,8 @@ func TestCronPipeline(t *testing.T) {
 	})
 	t.Run("RunCronCross", func(t *testing.T) {
 		pipeline9 := tu.UniqueString("cron9-")
+		// schedule cron ticks so they definitely won't occur
+		futureMonth := int(time.Now().AddDate(0, 2, 0).Month())
 		require.NoError(t, c.CreatePipeline(
 			pipeline9,
 			"",
@@ -6148,8 +6150,8 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"echo 'tick'"},
 			nil,
 			client.NewCrossInput(
-				client.NewCronInput("time1", "@every 3h"),
-				client.NewCronInput("time2", "@every 2h"),
+				client.NewCronInput("time1", fmt.Sprintf("0 0 1 %d *", futureMonth)),
+				client.NewCronInput("time2", fmt.Sprintf("0 0 15 %d *", futureMonth)),
 			),
 			"",
 			false,
@@ -6162,17 +6164,10 @@ func TestCronPipeline(t *testing.T) {
 		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
 		require.NoError(t, err)
 
-		// subscribe to the pipeline1 cron repo and wait for inputs
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
-		defer cancel() //cleanup resources
-		// We expect to see at least three commits, despite the schedules not ticking until three hours, and the timeout 120 seconds
-		repo := pipeline9
-		countBreakFunc := newCountBreakFunc(3)
-		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
-			return countBreakFunc(func() error {
-				return nil
-			})
-		}))
+		// We should see an initial empty commit, exactly six from our RunCron calls (two each), and nothing else
+		commits, err := c.ListCommit(client.NewRepo(pipeline9), nil, nil, 0)
+		require.NoError(t, err)
+		require.Equal(t, 7, len(commits))
 	})
 }
 
