@@ -1,0 +1,9 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.isTest -}}
+consoleSecret: {{ include "pachyderm.consoleSecret" . }}
+clusterDeploymentId: {{ include "pachyderm.clusterDeploymentId" . }}
+enterpriseSecret: {{ include "pachyderm.enterpriseSecret" . }}
+{{- end -}}
