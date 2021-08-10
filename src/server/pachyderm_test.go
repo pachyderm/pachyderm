@@ -9253,17 +9253,20 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	input := tu.UniqueString("in")
-	commit := client.NewCommit(input, "master", "")
+	inputCommit := client.NewCommit(input, "master", "")
 	pipelineA := tu.UniqueString("A")
 	pipelineB := tu.UniqueString("B")
 	repoB := client.NewRepo(pipelineB)
 
-	createPipeline := func(c *client.APIClient, input, pipeline string, update bool) error {
+	createPipeline := func(c *client.APIClient, input, pipeline, suffix string, update bool) error {
 		return c.CreatePipeline(
 			pipeline,
 			"",
 			[]string{"bash"},
-			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
+			[]string{
+				fmt.Sprintf("cat /pfs/%s/foo >> /pfs/out/foo", input),
+				fmt.Sprintf("echo '%s' >> /pfs/out/foo", suffix),
+			},
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
@@ -9274,21 +9277,29 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	}
 
 	require.NoError(t, c.CreateRepo(input))
-	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("bar"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(inputCommit, "foo", strings.NewReader("bar"), client.WithAppendPutFile()))
 
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
-		require.NoError(t, createPipeline(txnClient, input, pipelineA, false))
-		require.NoError(t, createPipeline(txnClient, pipelineA, pipelineB, false))
+		require.NoError(t, createPipeline(txnClient, input, pipelineA, "A", false))
+		require.NoError(t, createPipeline(txnClient, pipelineA, pipelineB, "B", false))
 		return nil
 	})
 	require.NoError(t, err)
 	_, err = c.WaitCommit(pipelineB, "master", "")
 	require.NoError(t, err)
 
+	// make sure file contents are correct, appending both suffixes in the right order
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(client.NewCommit(pipelineA, "master", ""), "foo", &buf))
+	require.Equal(t, "barA", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(client.NewCommit(pipelineB, "master", ""), "foo", &buf))
+	require.Equal(t, "barAB", buf.String())
+
 	// now update both
 	_, err = c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
-		require.NoError(t, createPipeline(txnClient, input, pipelineA, true))
-		require.NoError(t, createPipeline(txnClient, pipelineA, pipelineB, true))
+		require.NoError(t, createPipeline(txnClient, input, pipelineA, "1", true))
+		require.NoError(t, createPipeline(txnClient, pipelineA, pipelineB, "2", true))
 		return nil
 	})
 	require.NoError(t, err)
@@ -9302,6 +9313,17 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	jobInfos, err := c.ListJob(pipelineB, nil, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
+
+	require.NoError(t, c.PutFile(inputCommit, "foo", strings.NewReader("new")))
+	_, err = c.WaitCommit(pipelineB, "master", "")
+	require.NoError(t, err)
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(client.NewCommit(pipelineA, "master", ""), "foo", &buf))
+	require.Equal(t, "new1", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(client.NewCommit(pipelineB, "master", ""), "foo", &buf))
+	require.Equal(t, "new12", buf.String())
 }
 
 func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
