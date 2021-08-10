@@ -126,7 +126,7 @@ jobs:
       image: ubuntu-2004:202101-01
     steps:
       - checkout
-      - setup_remote_docker
+      # - setup_remote_docker
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run: etc/testing/circle/run_hub_tests.sh
