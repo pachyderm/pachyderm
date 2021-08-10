@@ -38,11 +38,11 @@ type basicPutFile struct {
 }
 
 func (b basicPutFile) Hash() [16]byte {
-	hasher := md5.New()
-	hasher.Write([]byte(b.path))
-	hasher.Write([]byte{0})
-	hasher.Write(b.data)
-	return md5.Sum(nil)
+	buf := &bytes.Buffer{}
+	buf.Write([]byte(b.path))
+	buf.Write([]byte{0})
+	buf.Write(b.data)
+	return md5.Sum(buf.Bytes())
 }
 
 type refresher struct {
