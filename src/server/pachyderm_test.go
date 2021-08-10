@@ -5015,6 +5015,45 @@ func TestJoinInput(t *testing.T) {
 		// 1 byte per repo
 		require.Equal(t, expectedNames[i], fi.File.Path)
 	}
+
+	dataRepo0 := "TestJoinInputDirectory-0"
+	require.NoError(t, c.CreateRepo(dataRepo0))
+	masterCommit := client.NewCommit(dataRepo0, "master", "")
+	require.NoError(t, c.PutFile(masterCommit, "/dir-01/foo", strings.NewReader("foo")))
+	dataRepo1 := "TestJoinInputDirectory-1"
+	require.NoError(t, c.CreateRepo(dataRepo1))
+	masterCommit = client.NewCommit(dataRepo1, "master", "")
+	require.NoError(t, c.PutFile(masterCommit, "/dir-10/bar", strings.NewReader("bar")))
+
+	pipeline = tu.UniqueString("join-pipeline-directory")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp -r /pfs/%s/*/. /pfs/out", dataRepo0),
+			fmt.Sprintf("cp -r /pfs/%s/*/. /pfs/out", dataRepo1),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewJoinInput(
+			client.NewPFSInputOpts("", dataRepo0, "", "/dir-(?)(?)", "$2", "", false, false, nil),
+			client.NewPFSInputOpts("", dataRepo1, "", "/dir-(?)(?)", "$1", "", false, false, nil),
+		),
+		"",
+		false,
+	))
+
+	commitInfo, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	fileInfos, err = c.ListFileAll(commitInfo.Commit, "")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+	expectedNames = []string{"/bar", "/foo"}
+	for i, fi := range fileInfos {
+		require.Equal(t, expectedNames[i], fi.File.Path)
+	}
 }
 
 func TestGroupInput(t *testing.T) {
