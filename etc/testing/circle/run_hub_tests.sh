@@ -4,6 +4,7 @@ set -euxo pipefail
 
 mkdir -p $HOME/go/bin
 export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+export GOPATH=$HOME/go
 
 # Install go.
 sudo rm -rf /usr/local/go
@@ -24,18 +25,12 @@ curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER
 
 # Build pachctl.
 make install
+pachctl version --client-only
 
-# set up version for docker builds
+# Set version for docker builds.
 export VERSION=$(pachctl version --client-only)
 
-# build docker images
-# goreleaser release -p 1 --snapshot --skip-publish --rm-dist -f goreleaser/docker.yml
-# docker tag pachyderm/pachd pachyderm/pachd:$VERSION
-# docker tag pachyderm/worker pachyderm/worker:$VERSION
-# docker tag pachyderm/pachctl pachyderm/pachctl:$VERSION
-# docker push pachyderm/pachd:$VERSION
-# docker push pachyderm/worker:$VERSION
-# docker push pachyderm/pachctl:$VERSION
+# Build and push docker images.
 make docker-build
 make docker-push
 
