@@ -4717,12 +4717,15 @@ func TestPFS(suite *testing.T) {
 		// squash fails, child is still open
 		err = env.PachClient.SquashCommitSet(commitA.ID)
 		require.YesError(t, err)
-		require.Matches(t, "finished", err.Error())
+		require.Matches(t, "cannot squash until child commit .* is finished", err.Error())
 
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master", ""))
-		require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-			return env.PachClient.SquashCommitSet(commitA.ID)
-		})
+		// wait until the commit is completely finished
+		_, err = env.PachClient.WaitCommit(repo, "master", "")
+		require.NoError(t, err)
+
+		// now squashing succeeds
+		require.NoError(t, env.PachClient.SquashCommitSet(commitA.ID))
 
 		var b bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(commitB, file, &b))
