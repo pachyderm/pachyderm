@@ -24,25 +24,40 @@ LOCAL
 {{- end -}}
 
 {{- define "pachyderm.consoleSecret" -}}
-{{ include "defaultOrStableHash" (dict "defaultValue" .Values.console.config.oauthClientSecret "hashSalt" "consoleSecret" "OnlyDefault" .Release.IsUpgrade) }}
+{{ include "defaultOrStableHash" (dict "defaultValue" .Values.console.config.oauthClientSecret "hashSalt" "consoleSecret" "onlyDefault" .Release.IsUpgrade) }}
 {{- end -}}
 
 {{- define "pachyderm.clusterDeploymentId" -}}
-{{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.clusterDeploymentID "hashSalt" "deploymentID" "OnlyDefault" .Release.IsUpgrade) }}
+{{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.clusterDeploymentID "hashSalt" "deploymentID" "onlyDefault" .Release.IsUpgrade) }}
 {{- end -}}
 
 {{- define "pachyderm.enterpriseSecret" -}}
-{{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.enterpriseSecret "hashSalt" "enterpriseSecret" "OnlyDefault" .Release.IsUpgrade) }}
+{{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.enterpriseSecret "hashSalt" "enterpriseSecret" "onlyDefault" .Release.IsUpgrade) }}
 {{- end -}}
 
-## if 'defaultValue' isn't defined use the date/time to create a hash
-## truncate the date to the minute and use 'genPrefix' to produce a different hash per useage
-## expects a context containing 'defaultValue' and 'hashSalt' keys
+
+## Input:
+## This function expects a context containing 'defaultValue', 'hashSalt' and 'onlyDefault' keys
+##
+## Behavior: 
+## Use 'defaultValue' if it's provided, otherwise use the current date/time to create a stable hash
+## incorporating the 'hashSalt' value to produce a different hash per client template's usage. 
+## This way different caller templates can produce different random values.
+##
+## Discussions: 
+## 1.) The reason we use a a truncated time string to create the hash, 
+## is because we want to this template to produce the same hash each 
+## time it's executed in a release. In this case, the current timestamp 
+## gives us a unique enough value to use as a hash seed. We truncate it 
+## to the minute to reduce the odds that it will produce different timestamp 
+## values between renderings of this template.
+##
+## 2.) 'onlyDefault' is used to force this template to fail if a default value is not provided
 {{- define "defaultOrStableHash" -}}
 {{- if .defaultValue }}
     {{- .defaultValue }}
 {{- else }}
-    {{- if .OnlyDefault }}
+    {{- if .onlyDefault }}
         {{- fail "must provide a default value during release upgrade." }}
     {{- else }}
         {{- derivePassword 1 "long" (now | toString | trunc 16) .hashSalt "pachyderm" -}}
