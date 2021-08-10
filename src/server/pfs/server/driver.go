@@ -1353,6 +1353,22 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 			return err
 		}
 
+		// make sure all children are finished, so we don't lose data
+		for _, child := range commitInfo.ChildCommits {
+			var childInfo pfs.CommitInfo
+			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(child, &childInfo); err != nil {
+				return errors.Wrapf(err, "error checking child commit state")
+			}
+			if childInfo.Finished == nil {
+				var suffix string
+				if childInfo.Finishing != nil {
+					// user might already have called "finish",
+					suffix = ", consider using WaitCommit"
+				}
+				return errors.Errorf("cannot squash until child commit %s is finished%s", child, suffix)
+			}
+		}
+
 		// Delete the commit's filesets
 		if err := d.commitStore.DropFileSetsTx(txnCtx.SqlTx, commitInfo.Commit); err != nil {
 			return err
