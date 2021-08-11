@@ -12,7 +12,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -24,6 +23,7 @@ const (
 )
 
 func postgresHost() string {
+	return "127.0.0.1"
 	endpoint, isSet := os.LookupEnv("DOCKER_HOST")
 	if !isSet {
 		return "127.0.0.1"
@@ -121,11 +121,8 @@ fi
 	`)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return err
-	}
-	if ec := cmd.ProcessState.ExitCode(); ec != 0 {
 		fmt.Println(string(output))
-		return errors.Errorf("dockertestenv: non zero exit code during setup %v", ec)
+		return err
 	}
 	return nil
 }
