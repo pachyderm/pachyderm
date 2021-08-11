@@ -74,53 +74,27 @@ func pgBouncerPort() int {
 	return DefaultPGBouncerPort
 }
 
-func MinikubeDBOptions() []dbutil.Option {
-	return []dbutil.Option{
-		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort()),
-		dbutil.WithDBName(DefaultPostgresDatabase),
-		dbutil.WithMaxOpenConns(1),
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
-	}
-}
+// func MinikubeDBOptions() []dbutil.Option {
+// 	return []dbutil.Option{
+// 		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort()),
+// 		dbutil.WithDBName(DefaultPostgresDatabase),
+// 		dbutil.WithMaxOpenConns(1),
+// 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+// 	}
+// }
 
-func MinikubeDirectDBOptions() []dbutil.Option {
-	return []dbutil.Option{
-		dbutil.WithHostPort(postgresHost(), postgresPort()),
-		dbutil.WithDBName(DefaultPostgresDatabase),
-		dbutil.WithMaxOpenConns(1),
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
-	}
-}
+// func MinikubeDirectDBOptions() []dbutil.Option {
+// 	return []dbutil.Option{
+// 		dbutil.WithHostPort(postgresHost(), postgresPort()),
+// 		dbutil.WithDBName(DefaultPostgresDatabase),
+// 		dbutil.WithMaxOpenConns(1),
+// 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+// 	}
+// }
 
-// NewTestDBConfig creates an ephemeral database scoped to the life of the test, without connecting to it.
-// It returns a serviceenv.ConfigOption which can be used to configure the environment to connect directly, and indirectly to the database.
-func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
-	db := OpenDB(t,
-		dbutil.WithDBName(DefaultPostgresDatabase),
-		dbutil.WithMaxOpenConns(1),
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
-		dbutil.WithHostPort(postgresHost(), postgresPort()),
-	)
-	dbName := CreateEphemeralDB(t, db)
-	return func(c *serviceenv.Configuration) {
-		// common
-		c.PostgresDBName = dbName
-
-		// direct
-		c.PostgresHost = postgresHost()
-		c.PostgresPort = postgresPort()
-		// pg_bouncer
-		c.PGBouncerHost = pgBouncerHost()
-		c.PGBouncerPort = pgBouncerPort()
-
-		c.PostgresUser = DefaultPostgresUser
-	}
-}
-
-func NewTestDirectDBOptions(t testing.TB, opts ...dbutil.Option) []dbutil.Option {
-	if len(opts) == 0 {
-		opts = MinikubeDirectDBOptions()
-	}
+// NewTestDBOptions connects to postgres using opts, creates a database
+// with a unique name then returns options to connect to the new database
+func NewTestDBOptions(t testing.TB, opts []dbutil.Option) []dbutil.Option {
 	db := OpenDB(t, opts...)
 	dbName := CreateEphemeralDB(t, db)
 	opts2 := []dbutil.Option{
@@ -131,30 +105,11 @@ func NewTestDirectDBOptions(t testing.TB, opts ...dbutil.Option) []dbutil.Option
 	return opts2
 }
 
-// NewTestDBOptions creates an ephemeral db and returns options that can be used to connect to it.
-func NewTestDBOptions(t testing.TB, opts ...dbutil.Option) []dbutil.Option {
-	if len(opts) == 0 {
-		opts = MinikubeDBOptions()
-	}
-	db := OpenDB(t, opts...)
-	dbName := CreateEphemeralDB(t, db)
-	opts2 := []dbutil.Option{
-		dbutil.WithMaxOpenConns(maxOpenConnsPerPool),
-	}
-	opts2 = append(opts2, opts...)
-	opts2 = append(opts2, dbutil.WithDBName(dbName))
-	return opts2
-}
-
-// NewTestDB connects to postgres using the default settings, creates a database
+// NewTestDB connects to postgres using opts, creates a database
 // with a unique name then returns a sqlx.DB configured to use the newly created
 // database. After the test or suite finishes, the database is dropped.
-func NewTestDB(t testing.TB, opts ...dbutil.Option) *sqlx.DB {
-	return OpenDB(t, NewTestDBOptions(t, opts...)...)
-}
-
-func NewTestDirectDB(t testing.TB, opts ...dbutil.Option) *sqlx.DB {
-	return OpenDB(t, NewTestDirectDBOptions(t, opts...)...)
+func NewTestDB(t testing.TB, opts []dbutil.Option) *sqlx.DB {
+	return OpenDB(t, NewTestDBOptions(t, opts)...)
 }
 
 // OpenDB connects to a database using opts and returns it.

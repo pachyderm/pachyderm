@@ -23,6 +23,7 @@ import (
 const (
 	postgresPort  = 30228
 	pgBouncerPort = 30229
+	maxOpenConns  = 10
 )
 
 func postgresHost() string {
@@ -72,25 +73,35 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 }
 
 func NewTestDB(t testing.TB) *sqlx.DB {
-	ctx := context.Background()
-	require.NoError(t, ensureDBEnv(t, ctx))
-	opts := []dbutil.Option{
-		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
-		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-	}
-	return testutil.NewTestDB(t, opts...)
+	opts := NewTestDBOptions(t)
+	return testutil.NewTestDB(t, opts)
 }
 
 func NewTestDirectDB(t testing.TB) *sqlx.DB {
+	opts := NewTestDirectDBOptions(t)
+	return testutil.NewTestDB(t, opts)
+}
+
+func NewTestDBOptions(t testing.TB) []dbutil.Option {
 	ctx := context.Background()
 	require.NoError(t, ensureDBEnv(t, ctx))
-	opts := []dbutil.Option{
+	return testutil.NewTestDBOptions(t, []dbutil.Option{
+		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
+		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
+		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
+		dbutil.WithMaxOpenConns(maxOpenConns),
+	})
+}
+
+func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
+	ctx := context.Background()
+	require.NoError(t, ensureDBEnv(t, ctx))
+	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 		dbutil.WithHostPort(postgresHost(), postgresPort),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-	}
-	return testutil.NewTestDirectDB(t, opts...)
+		dbutil.WithMaxOpenConns(maxOpenConns),
+	})
 }
 
 // TODO: use the docker client.
