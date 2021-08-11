@@ -1787,7 +1787,7 @@ func (a *apiServer) initializePipelineInfo(txnCtx *txncontext.TransactionContext
 
 	// Reprocess overrides the salt in the request
 	if request.Salt == "" || request.Reprocess {
-		request.Salt = uuid.NewWithoutDashes()
+		request.Salt = txnCtx.CommitSetID
 	}
 
 	pipelineInfo := &pps.PipelineInfo{
@@ -1800,7 +1800,7 @@ func (a *apiServer) initializePipelineInfo(txnCtx *txncontext.TransactionContext
 			Input:                 request.Input,
 			OutputBranch:          request.OutputBranch,
 			Egress:                request.Egress,
-			CreatedAt:             now(txnCtx),
+			CreatedAt:             txnCtx.Timestamp,
 			ResourceRequests:      request.ResourceRequests,
 			ResourceLimits:        request.ResourceLimits,
 			SidecarResourceLimits: request.SidecarResourceLimits,

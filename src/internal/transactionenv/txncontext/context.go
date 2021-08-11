@@ -2,7 +2,6 @@ package txncontext
 
 import (
 	"context"
-	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
@@ -18,7 +17,6 @@ import (
 // transaction is started, a context will be created for it containing these
 // objects, which will be threaded through to every API call:
 type TransactionContext struct {
-	start    time.Time
 	username string
 	// SqlTx is the ongoing database transaction.
 	SqlTx *sqlx.Tx
@@ -41,7 +39,7 @@ type identifier interface {
 	WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 }
 
-func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier, m FilesetManager, start time.Time) (*TransactionContext, error) {
+func New(ctx context.Context, authServer identifier, m FilesetManager) (*TransactionContext, error) {
 	var username string
 	// check auth once now so that we can refer to it later
 	if authServer != nil {
@@ -51,9 +49,8 @@ func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier, m FilesetMa
 			username = me.Username
 		}
 	}
+
 	return &TransactionContext{
-		start:          start,
-		SqlTx:          sqlTx,
 		CommitSetID:    uuid.NewWithoutDashes(),
 		Timestamp:      types.TimestampNow(),
 		username:       username,
@@ -66,10 +63,6 @@ func (t *TransactionContext) WhoAmI() (*auth.WhoAmIResponse, error) {
 		return nil, auth.ErrNotActivated
 	}
 	return &auth.WhoAmIResponse{Username: t.username}, nil
-}
-
-func (t *TransactionContext) Now() time.Time {
-	return t.start
 }
 
 // PropagateJobs notifies PPS that there are new commits in the transaction's

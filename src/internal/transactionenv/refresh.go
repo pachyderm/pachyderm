@@ -76,7 +76,7 @@ func (env *TransactionEnv) NewRefresher(info *transaction.TransactionInfo) *refr
 	return out
 }
 
-func (env *TransactionEnv) withRefreshLoop(ctx context.Context, r *refresher, cb func(txncontext.FilesetManager) error) error {
+func (env *TransactionEnv) withRefreshLoop(ctx context.Context, txnCtx *txncontext.TransactionContext, r *refresher, cb func(*txncontext.TransactionContext) error) error {
 	if r == nil {
 		r = &refresher{
 			env:           env.serviceEnv,
@@ -84,9 +84,10 @@ func (env *TransactionEnv) withRefreshLoop(ctx context.Context, r *refresher, cb
 			pipelineCache: map[string]*pps.PipelineInfo{},
 		}
 	}
+	txnCtx.FilesetManager = r
 	for {
 		r.refresh(ctx)
-		if err := cb(r); err == nil || !isErrTransactionConflict(err) {
+		if err := cb(txnCtx); err == nil || !isErrTransactionConflict(err) {
 			return err
 		}
 	}
