@@ -8,7 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
-// Renewer renews filesets by ID
+// Renewer renews file sets by ID
 // It is a renew.StringSet wrapped for type safety
 type Renewer struct {
 	r *renew.StringSet

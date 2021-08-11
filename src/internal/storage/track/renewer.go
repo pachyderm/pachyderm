@@ -40,7 +40,7 @@ type Renewer struct {
 // NewRenewer returns a renewer renewing objects in tracker with ttl
 func NewRenewer(tracker Tracker, name string, ttl time.Duration) *Renewer {
 	if ttl == 0 {
-		panic("must provide non-zero TTL for track.Rewnewer")
+		panic("must provide non-zero TTL for track.Renewer")
 	}
 	if name == "" {
 		panic("must provide non-empty name for track.Renewer")

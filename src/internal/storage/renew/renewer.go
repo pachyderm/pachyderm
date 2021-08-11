@@ -68,11 +68,8 @@ func (r *Renewer) renewLoop(ctx context.Context) (retErr error) {
 			defer cf()
 			return r.renewFunc(ctx, r.ttl)
 		}(); err != nil {
-			// if the context errored, then exit, otherwise log it and keep going.
-			if errors.Is(err, ctx.Err()) {
-				return err
-			}
 			logrus.Errorf("error during renewal: %v", err)
+			return err
 		}
 		select {
 		case <-ticker.C:
