@@ -74,16 +74,34 @@ func pgBouncerPort() int {
 	return DefaultPGBouncerPort
 }
 
+func MinikubeDBOptions() []dbutil.Option {
+	return []dbutil.Option{
+		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort()),
+		dbutil.WithDBName(DefaultPostgresDatabase),
+		dbutil.WithMaxOpenConns(1),
+		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+	}
+}
+
+func MinikubeDirectDBOptions() []dbutil.Option {
+	return []dbutil.Option{
+		dbutil.WithHostPort(postgresHost(), postgresPort()),
+		dbutil.WithDBName(DefaultPostgresDatabase),
+		dbutil.WithMaxOpenConns(1),
+		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+	}
+}
+
 // NewTestDBConfig creates an ephemeral database scoped to the life of the test, without connecting to it.
 // It returns a serviceenv.ConfigOption which can be used to configure the environment to connect directly, and indirectly to the database.
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
-	db := openEphemeralDB(t,
+	db := OpenDB(t,
 		dbutil.WithDBName(DefaultPostgresDatabase),
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
 		dbutil.WithHostPort(postgresHost(), postgresPort()),
 	)
-	dbName := createEphemeralDB(t, db)
+	dbName := CreateEphemeralDB(t, db)
 	return func(c *serviceenv.Configuration) {
 		// common
 		c.PostgresDBName = dbName
@@ -99,57 +117,45 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 	}
 }
 
-func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
-	host, port := postgresHost(), postgresPort()
-	opts := []dbutil.Option{
-		dbutil.WithHostPort(host, port),
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
-		dbutil.WithMaxOpenConns(1),
-		dbutil.WithDBName(DefaultPostgresDatabase),
+func NewTestDirectDBOptions(t testing.TB, opts ...dbutil.Option) []dbutil.Option {
+	if len(opts) == 0 {
+		opts = MinikubeDirectDBOptions()
 	}
-	db := openEphemeralDB(t, opts...)
-	dbName := createEphemeralDB(t, db)
-
-	return []dbutil.Option{
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
-		dbutil.WithDBName(dbName),
-		dbutil.WithMaxOpenConns(maxOpenConnsPerPool),
-
-		dbutil.WithHostPort(host, port),
-	}
+	db := OpenDB(t, opts...)
+	dbName := CreateEphemeralDB(t, db)
+	opts2 := []dbutil.Option{}
+	opts2 = append(opts2, opts...)
+	opts2 = append(opts2, dbutil.WithDBName(dbName))
+	return opts2
 }
 
 // NewTestDBOptions creates an ephemeral db and returns options that can be used to connect to it.
-func NewTestDBOptions(t testing.TB) []dbutil.Option {
-	host, port := pgBouncerHost(), pgBouncerPort()
-	opts := []dbutil.Option{
-		dbutil.WithHostPort(host, port),
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
-		dbutil.WithMaxOpenConns(1),
-		dbutil.WithDBName(DefaultPostgresDatabase),
+func NewTestDBOptions(t testing.TB, opts ...dbutil.Option) []dbutil.Option {
+	if len(opts) == 0 {
+		opts = MinikubeDBOptions()
 	}
-	db := openEphemeralDB(t, opts...)
-	dbName := createEphemeralDB(t, db)
-
-	return []dbutil.Option{
-		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
-		dbutil.WithDBName(dbName),
-		dbutil.WithMaxOpenConns(maxOpenConnsPerPool),
-
-		dbutil.WithHostPort(host, port),
-	}
+	db := OpenDB(t, opts...)
+	dbName := CreateEphemeralDB(t, db)
+	opts2 := []dbutil.Option{}
+	opts2 = append(opts2, opts...)
+	opts2 = append(opts2, dbutil.WithDBName(dbName))
+	return opts2
 }
 
 // NewTestDB connects to postgres using the default settings, creates a database
 // with a unique name then returns a sqlx.DB configured to use the newly created
 // database. After the test or suite finishes, the database is dropped.
-func NewTestDB(t testing.TB) *sqlx.DB {
-	return openEphemeralDB(t, NewTestDBOptions(t)...)
+func NewTestDB(t testing.TB, opts ...dbutil.Option) *sqlx.DB {
+	return OpenDB(t, NewTestDBOptions(t, opts...)...)
 }
 
-// openEphemeralDB connects to a database using opts and returns it.
+func NewTestDirectDB(t testing.TB, opts ...dbutil.Option) *sqlx.DB {
+	return OpenDB(t, NewTestDirectDBOptions(t, opts...)...)
+}
+
+// OpenDB connects to a database using opts and returns it.
 // the database will be cleaned up at the end of the test.
-func openEphemeralDB(t testing.TB, opts ...dbutil.Option) *sqlx.DB {
+func OpenDB(t testing.TB, opts ...dbutil.Option) *sqlx.DB {
 	db, err := dbutil.NewDB(opts...)
 	require.NoError(t, err)
 	require.NoError(t, db.Ping())
@@ -157,9 +163,9 @@ func openEphemeralDB(t testing.TB, opts ...dbutil.Option) *sqlx.DB {
 	return db
 }
 
-// createEphemeralDB creates a new database using db with a lifetime scoped to the test t
+// CreateEphemeralDB creates a new database using db with a lifetime scoped to the test t
 // and returns its name
-func createEphemeralDB(t testing.TB, db *sqlx.DB) string {
+func CreateEphemeralDB(t testing.TB, db *sqlx.DB) string {
 	dbName := ephemeralDBName(t)
 	_, err := db.Exec(`CREATE DATABASE ` + dbName)
 	require.NoError(t, err)
