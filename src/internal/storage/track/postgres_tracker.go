@@ -138,7 +138,7 @@ func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl t
 			WHERE str_id LIKE $1 || '%'
 			RETURNING expires_at
 		)
-		SELECT COUNT(*) as count, COALESCE(MIN(expires_at), CURRENT_TIMESTAMP) as expires_at FROM rows
+		SELECT COUNT(*) as count, COALESCE(MIN(expires_at), CURRENT_TIMESTAMP + $2 * interval '1 microsecond') as expires_at FROM rows
 		`, prefix, ttl.Microseconds())
 	if err != nil {
 		return time.Time{}, 0, err
