@@ -18,8 +18,6 @@ var (
 	ErrDifferentObjectExists = errors.Errorf("a different object exists at that id")
 	// ErrDanglingRef the operation would create a dangling reference
 	ErrDanglingRef = errors.Errorf("the operation would create a dangling reference")
-	// ErrTombstone cannot create object because it is marked as a tombstone
-	ErrTombstone = errors.Errorf("cannot create object because it is marked as a tombstone")
 	// ErrSelfReference object cannot reference itself
 	ErrSelfReference = errors.Errorf("object cannot reference itself")
 )
@@ -60,7 +58,7 @@ type Tracker interface {
 	// If the id doesn't exist, no error is returned
 	DeleteTx(tx *sqlx.Tx, id string) error
 
-	// IterateDeletable calls cb with all the objects objects which are no longer referenced and have expired or are tombstoned
+	// IterateDeletable calls cb with all the objects objects which are no longer referenced and have expired
 	IterateDeletable(ctx context.Context, cb func(id string) error) error
 }
 
