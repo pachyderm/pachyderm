@@ -107,8 +107,11 @@ git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --
 Update the changelog in the branch and commit it locally. Edit `CHANGELOG.md`
 
 ```shell
-git commit -am "Upadate change log for $(pachctl version --client-onlt) release"
+git commit -am "Update change log for $(pachctl version --client-only) release"
 ```
+
+### To Update the Pachyderm version in the Helm Chart follow the instructions at the link below:
+https://github.com/pachyderm/helmchart/blob/master/RELEASE.md
 
 ### Push changes [apply step only when running point-release target]
 
