@@ -34,15 +34,15 @@ jobs:
          keys:
          - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
          - pach-build-dependencies-v2-
-      - run: etc/testing/circle/install.sh 
+      - run: etc/testing/circle/install.sh
       - save_cache:
          key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
          paths:
          - cached-deps/
-      - run: etc/testing/circle/start-minikube.sh 
+      - run: etc/testing/circle/start-minikube.sh
       - run: etc/testing/circle/launch-loki.sh
 
-      # The build cache will grow indefinitely, so we rotate the cache once a week. 
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
       - restore_cache:
@@ -55,9 +55,9 @@ jobs:
       - restore_cache:
          keys:
          - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-      - run: etc/testing/circle/build.sh 
+      - run: etc/testing/circle/build.sh
       - when: #Save cache in only one bucket, after build and before running tests, this ensures build cache is saved even when tests fail
-          condition: 
+          condition:
             equal: [MISC, <<parameters.bucket>> ]
           steps:
             - save_cache:
@@ -68,9 +68,9 @@ jobs:
                 key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
                 paths:
                   - /home/circleci/.gocache
-      - run: etc/testing/circle/launch.sh 
-      - run: etc/testing/circle/run_tests.sh 
-      - run: etc/testing/circle/upload_stats.sh 
+      - run: etc/testing/circle/launch.sh
+      - run: etc/testing/circle/run_tests.sh
+      - run: etc/testing/circle/upload_stats.sh
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
@@ -110,7 +110,7 @@ jobs:
       - run: git config --global user.name buildbot
       - run:
           name: Clone Pachyderm
-          command: git clone -b ${CIRCLE_TAG} --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm 
+          command: git clone -b ${CIRCLE_TAG} --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm
       - run:
           # the helmchart git repo hosts the helm repository (gh-pages) Chart releaser only supports https clone, not ssh
           name: Clone Helmchart
@@ -118,6 +118,15 @@ jobs:
       - run: cr package pachyderm/etc/helm/pachyderm
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --package-path ../.cr-release-packages --push
+  hub:
+    resource_class: large
+    machine:
+      image: ubuntu-2004:202101-01
+    steps:
+      - checkout
+      - run: |
+          echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run: etc/testing/circle/run_hub_tests.sh
 workflows:
   circleci:
     jobs:
@@ -154,3 +163,6 @@ workflows:
               ignore: /.*/
             tags:
               only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  hub_live_tests:
+    jobs:
+      - hub
