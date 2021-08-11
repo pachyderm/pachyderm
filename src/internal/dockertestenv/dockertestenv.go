@@ -9,12 +9,14 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -69,7 +71,7 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 
 func NewTestDB(t testing.TB) *sqlx.DB {
 	ctx := context.Background()
-	require.NoError(t, ensureDBEnv(ctx))
+	require.NoError(t, ensureDBEnv(t, ctx))
 	opts := []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
@@ -80,7 +82,7 @@ func NewTestDB(t testing.TB) *sqlx.DB {
 
 func NewTestDirectDB(t testing.TB) *sqlx.DB {
 	ctx := context.Background()
-	require.NoError(t, ensureDBEnv(ctx))
+	require.NoError(t, ensureDBEnv(t, ctx))
 	opts := []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 		dbutil.WithHostPort(postgresHost(), postgresPort),
@@ -90,7 +92,7 @@ func NewTestDirectDB(t testing.TB) *sqlx.DB {
 }
 
 // TODO: use the docker client.
-func ensureDBEnv(ctx context.Context) error {
+func ensureDBEnv(t testing.TB, ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "bash", "-c", `
 set -ve
 unset DOCKER_HOST
@@ -115,7 +117,7 @@ then
     -e DB_PASS="password" \
     -e DB_HOST=$postgres_ip \
     -e DB_PORT=5432 \
-	-e DB_MAX_CONN=1000 \
+	-e MAX_CLIENT_CONN=1000 \
     -e POOL_MODE=transaction \
     -p 30229:5432 \
     edoburu/pgbouncer:1.15.0
@@ -128,5 +130,18 @@ fi
 		fmt.Println(string(output))
 		return err
 	}
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		db, err := dbutil.NewDB(
+			dbutil.WithDBName(testutil.DefaultPostgresDatabase),
+			dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
+			dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
+		)
+		if err != nil {
+			logrus.Error("error connecting to db:", err)
+			return err
+		}
+		defer db.Close()
+		return db.Ping()
+	})
 	return nil
 }
