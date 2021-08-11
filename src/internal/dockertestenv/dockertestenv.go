@@ -4,6 +4,9 @@ package dockertestenv
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
+	"os"
 	"os/exec"
 	"testing"
 
@@ -18,15 +21,33 @@ import (
 const (
 	postgresPort  = 30228
 	pgBouncerPort = 30229
-	postgresHost  = "127.0.0.1"
-	pgBouncerHost = postgresHost
 )
+
+func postgresHost() string {
+	endpoint, isSet := os.LookupEnv("DOCKER_HOST")
+	if !isSet {
+		return "127.0.0.1"
+	}
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		panic(err)
+	}
+	host, _, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		panic(err)
+	}
+	return host
+}
+
+func pgBouncerHost() string {
+	return postgresHost()
+}
 
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithHostPort(pgBouncerHost, pgBouncerPort),
+		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
 	dbName := testutil.CreateEphemeralDB(t, db)
@@ -35,10 +56,10 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		c.PostgresDBName = dbName
 
 		// direct
-		c.PostgresHost = postgresHost
+		c.PostgresHost = postgresHost()
 		c.PostgresPort = postgresPort
 		// pg_bouncer
-		c.PGBouncerHost = pgBouncerHost
+		c.PGBouncerHost = pgBouncerHost()
 		c.PGBouncerPort = pgBouncerPort
 
 		c.PostgresUser = testutil.DefaultPostgresUser
@@ -49,8 +70,8 @@ func NewTestDB(t testing.TB) *sqlx.DB {
 	ctx := context.Background()
 	require.NoError(t, ensureDBEnv(ctx))
 	opts := []dbutil.Option{
-		dbutil.WithDBName(testutil.DefaultPostgresUser),
-		dbutil.WithHostPort(pgBouncerHost, pgBouncerPort),
+		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
+		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 	}
 	return testutil.NewTestDB(t, opts...)
@@ -60,8 +81,8 @@ func NewTestDirectDB(t testing.TB) *sqlx.DB {
 	ctx := context.Background()
 	require.NoError(t, ensureDBEnv(ctx))
 	opts := []dbutil.Option{
-		dbutil.WithDBName("pachyderm"),
-		dbutil.WithHostPort(postgresHost, postgresPort),
+		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
+		dbutil.WithHostPort(postgresHost(), postgresPort),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 	}
 	return testutil.NewTestDirectDB(t, opts...)
