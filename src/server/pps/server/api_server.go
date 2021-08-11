@@ -2410,8 +2410,9 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	// spin up goroutines to get the PFS info
 	limiter := limit.New(5)
 	for i := range infos {
+		i := i
 		limiter.Acquire()
-		chain.CreateTask(func(ctx context.Context, serial func(func() error) error) error {
+		if err := chain.CreateTask(func(ctx context.Context, serial func(func() error) error) error {
 			defer limiter.Release()
 			if request.Details {
 				if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), infos[i]); err != nil {
@@ -2424,7 +2425,9 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 				}
 				return nil
 			})
-		})
+		}); err != nil {
+			return err
+		}
 	}
 	return chain.Wait()
 }
