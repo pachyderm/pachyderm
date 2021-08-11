@@ -3,11 +3,13 @@ package dockertestenv
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -88,6 +90,7 @@ then
     -e DB_PASS="password" \
     -e DB_HOST=$postgres_ip \
     -e DB_PORT=5432 \
+	-e DB_MAX_CONN=1000 \
     -e POOL_MODE=transaction \
     -p 30229:5432 \
     edoburu/pgbouncer:1.15.0
@@ -95,8 +98,13 @@ else
     echo "postgres already started"
 fi
 	`)
-	if err := cmd.Run(); err != nil {
+	output, err := cmd.CombinedOutput()
+	if err != nil {
 		return err
+	}
+	if ec := cmd.ProcessState.ExitCode(); ec != 0 {
+		fmt.Println(string(output))
+		return errors.Errorf("dockertestenv: non zero exit code during setup %v", ec)
 	}
 	return nil
 }
