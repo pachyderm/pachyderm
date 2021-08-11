@@ -896,8 +896,8 @@ github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5/go.mod h1:/wsWhb9smxS
 github.com/openzipkin/zipkin-go v0.1.6/go.mod h1:QgAqvLzwWbR/WpD4A3cGpPtJrZXNIiJc5AZX7/PBEpw=
 github.com/openzipkin/zipkin-go v0.2.1/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnhQw8ySjnjRyN4=
 github.com/openzipkin/zipkin-go v0.2.2/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnhQw8ySjnjRyN4=
-github.com/pachyderm/dex v0.0.0-20210722202136-a3bf676b9e9e h1:LF6ZSlC1Y0q6yBZPhLow7Hx7qBpUpYDgkMgkBaPkioc=
-github.com/pachyderm/dex v0.0.0-20210722202136-a3bf676b9e9e/go.mod h1:E6IFWtq4slh89pVZH0hDG7KKu6e7mn8wCemSEErgbRo=
+github.com/pachyderm/dex v0.0.0-20210811182333-56fc504b721f h1:X+SaEf4bq2ps7IRt2v3nJuUgi6yXqsYHVdeNS42iTtI=
+github.com/pachyderm/dex v0.0.0-20210811182333-56fc504b721f/go.mod h1:E6IFWtq4slh89pVZH0hDG7KKu6e7mn8wCemSEErgbRo=
 github.com/pachyderm/ohmyglob v0.0.0-20210308211843-d5b47775fc36 h1:BYlMmKAikMsokjseoeg/7ZIE5Z/kM7b54hIe6y2/n3c=
 github.com/pachyderm/ohmyglob v0.0.0-20210308211843-d5b47775fc36/go.mod h1:zTTB59W9i3MPZor62iS6A5hL1rbPCKDLPo/CetUPLuQ=
 github.com/pachyderm/s2 v0.0.0-20190725181334-d1f4a476d240/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
