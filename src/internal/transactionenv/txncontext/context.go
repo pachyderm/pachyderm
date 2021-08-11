@@ -89,6 +89,12 @@ func (t *TransactionContext) PropagateBranch(branch *pfs.Branch) error {
 	return t.PfsPropagater.PropagateBranch(branch)
 }
 
+// DeleteBranch removes a branch from the list of branches to propagate, if
+// it is present.
+func (t *TransactionContext) DeleteBranch(branch *pfs.Branch) {
+	t.PfsPropagater.DeleteBranch(branch)
+}
+
 // Finish applies the deferred logic in the pfsPropagator and ppsPropagator to
 // the transaction
 func (t *TransactionContext) Finish() error {
@@ -119,6 +125,7 @@ func (t *TransactionContext) Finish() error {
 // the end of a transaction.  It is defined here to avoid a circular dependency.
 type PfsPropagater interface {
 	PropagateBranch(branch *pfs.Branch) error
+	DeleteBranch(branch *pfs.Branch)
 	Run() error
 }
 

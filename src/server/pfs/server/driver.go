@@ -1872,6 +1872,7 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			return err
 		}
 	}
+	txnCtx.DeleteBranch(branch)
 	return nil
 }
 

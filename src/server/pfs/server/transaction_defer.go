@@ -36,6 +36,12 @@ func (t *Propagater) PropagateBranch(branch *pfs.Branch) error {
 	return nil
 }
 
+// DeleteBranch removes a branch from the list of those needing propagation
+// if present.
+func (t *Propagater) DeleteBranch(branch *pfs.Branch) {
+	delete(t.branches, pfsdb.BranchKey(branch))
+}
+
 // Run performs any final tasks and cleanup tasks in the transaction, such as
 // propagating branches
 func (t *Propagater) Run() error {
