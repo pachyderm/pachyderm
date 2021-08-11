@@ -268,30 +268,10 @@ func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionC
 func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	for {
-		if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-			return txn.SquashCommitSet(request)
-		}, nil); err != nil && !errors.Is(err, pfsserver.ErrCommitNotFinished{}) {
-			return nil, err
-		} else if err == nil {
-			break
-		}
-
-		var children []*pfs.Commit
-		if err := a.driver.inspectCommitSet(ctx, request.CommitSet, false, func(info *pfs.CommitInfo) error {
-			children = append(children, info.ChildCommits...)
-			return nil
-		}); err != nil {
-			return nil, errors.Wrapf(err, "error waiting for child commits")
-		}
-
-		for _, child := range children {
-			if _, err := a.driver.inspectCommit(ctx, child, pfs.CommitState_FINISHED); err != nil {
-				return nil, err
-			}
-		}
-		// now try again
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.SquashCommitSet(request)
+	}, nil); err != nil {
+		return nil, err
 	}
 	return &types.Empty{}, nil
 }

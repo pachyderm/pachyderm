@@ -84,11 +84,6 @@ type ErrCommitNotFinished struct {
 	Commit *pfs.Commit
 }
 
-func (e ErrCommitNotFinished) Is(other error) bool {
-	_, ok := other.(ErrCommitNotFinished)
-	return ok
-}
-
 // ErrAmbiguousCommit represents an error where a user-specified commit did not
 // specify a branch and resolved to multiple commits on different branches.
 type ErrAmbiguousCommit struct {
@@ -169,7 +164,7 @@ func (e ErrOutputCommitNotFinished) Error() string {
 }
 
 func (e ErrCommitNotFinished) Error() string {
-	return fmt.Sprintf("commit %v not finished", e.Commit)
+	return fmt.Sprintf("commit %v not finished", e.Commit.ID)
 }
 
 func (e ErrAmbiguousCommit) Error() string {

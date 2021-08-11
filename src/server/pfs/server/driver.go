@@ -1359,10 +1359,13 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(child, &childInfo); err != nil {
 				return errors.Wrapf(err, "error checking child commit state")
 			}
-			if childInfo.Finishing == nil {
-				return errors.Errorf("cannot squash while child commit %s is still open", child, suffix)
-			} else if childInfo.Finished == nil {
-				return errors.Wrapf(&pfsserver.ErrCommitNotFinished{Commit: child}, "cannot squash")
+			if childInfo.Finished == nil {
+				var suffix string
+				if childInfo.Finishing != nil {
+					// user might already have called "finish",
+					suffix = ", consider using WaitCommit"
+				}
+				return errors.Errorf("cannot squash until child commit %s is finished%s", child, suffix)
 			}
 		}
 
