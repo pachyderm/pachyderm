@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"sync"
 	"testing"
 	"time"
 
@@ -104,8 +105,12 @@ func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
 	})
 }
 
+var spawnLock sync.Mutex
+
 // TODO: use the docker client.
 func ensureDBEnv(t testing.TB, ctx context.Context) error {
+	spawnLock.Lock()
+	defer spawnLock.Unlock()
 	cmd := exec.CommandContext(ctx, "bash", "-c", `
 set -ve
 
