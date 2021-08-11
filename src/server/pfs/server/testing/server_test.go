@@ -756,6 +756,40 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, eg.Wait())
 	})
 
+	suite.Run("DropCommitSet", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+
+		commit1, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+
+		fileContent := "foo\n"
+		require.NoError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader(fileContent)))
+
+		require.NoError(t, env.PachClient.FinishCommit(repo, "master", ""))
+
+		commit2, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+
+		require.NoError(t, env.PachClient.DropCommitSet(commit2.ID))
+
+		_, err = env.PachClient.InspectCommit(repo, commit2.Branch.Name, commit2.ID)
+		require.YesError(t, err)
+
+		// Check that the head has been set to the parent
+		commitInfo, err := env.PachClient.InspectCommit(repo, "master", "")
+		require.NoError(t, err)
+		require.Equal(t, commit1.ID, commitInfo.Commit.ID)
+
+		// Check that the branch still exists
+		branchInfos, err := env.PachClient.ListBranch(repo)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(branchInfos))
+	})
+
 	suite.Run("SquashCommitSet", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
