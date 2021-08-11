@@ -7,7 +7,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"golang.org/x/sync/semaphore"
 )
 
 // StorageOption configures a storage.
