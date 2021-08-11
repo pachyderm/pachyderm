@@ -84,7 +84,7 @@ func (env *TransactionEnv) withRefreshLoop(ctx context.Context, txnCtx *txnconte
 			pipelineCache: map[string]*pps.PipelineInfo{},
 		}
 	}
-	txnCtx.FilesetManager = r
+	txnCtx.FileSetManager = r
 	for {
 		r.refresh(ctx)
 		if err := cb(txnCtx); err == nil || !isErrTransactionConflict(err) {

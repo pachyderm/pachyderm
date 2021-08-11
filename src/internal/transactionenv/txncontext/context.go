@@ -32,14 +32,14 @@ type TransactionContext struct {
 	PpsJobStopper  PpsJobStopper
 	PpsJobFinisher PpsJobFinisher
 
-	FilesetManager FilesetManager
+	FileSetManager FileSetManager
 }
 
 type identifier interface {
 	WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 }
 
-func New(ctx context.Context, authServer identifier, m FilesetManager) (*TransactionContext, error) {
+func New(ctx context.Context, authServer identifier, m FileSetManager) (*TransactionContext, error) {
 	var username string
 	// check auth once now so that we can refer to it later
 	if authServer != nil {
@@ -54,7 +54,7 @@ func New(ctx context.Context, authServer identifier, m FilesetManager) (*Transac
 		CommitSetID:    uuid.NewWithoutDashes(),
 		Timestamp:      types.TimestampNow(),
 		username:       username,
-		FilesetManager: m,
+		FileSetManager: m,
 	}, nil
 }
 
@@ -142,7 +142,7 @@ type PpsJobFinisher interface {
 	Run() error
 }
 
-type FilesetManager interface {
+type FileSetManager interface {
 	CreateFileset(path string, data []byte) (string, error)
 	LatestPipelineInfo(*TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
 }

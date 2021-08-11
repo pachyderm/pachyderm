@@ -1453,14 +1453,6 @@ func (s podSlice) Less(i, j int) bool {
 	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
 }
 
-func now(txnCtx *txncontext.TransactionContext) *types.Timestamp {
-	t, err := types.TimestampProto(txnCtx.Now())
-	if err != nil {
-		panic(err)
-	}
-	return t
-}
-
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
 	if request.Pipeline == nil {
 		return errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
@@ -1853,7 +1845,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	specFileSetID *string,
 	prevPipelineVersion *uint64,
 ) error {
-	oldPipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
+	oldPipelineInfo, err := txnCtx.FileSetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
 	if err != nil {
 		return err
 	}
@@ -1868,7 +1860,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	if err != nil {
 		return err
 	}
-	if *specFileSetID, err = txnCtx.FilesetManager.CreateFileset(ppsconsts.SpecFile, data); err != nil {
+	if *specFileSetID, err = txnCtx.FileSetManager.CreateFileset(ppsconsts.SpecFile, data); err != nil {
 		return err
 	}
 
@@ -2604,7 +2596,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		pipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
+		pipelineInfo, err := txnCtx.FileSetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
 		if err != nil {
 			return err
 		}
@@ -2651,7 +2643,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		pipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
+		pipelineInfo, err := txnCtx.FileSetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
 		if err != nil {
 			return err
 		}
