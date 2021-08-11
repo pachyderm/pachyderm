@@ -39,7 +39,7 @@ func NewRenewer(ctx context.Context, ttl time.Duration, renewFunc Func) *Renewer
 		defer close(r.done)
 		defer r.cancel()
 		err := r.renewLoop(ctx)
-		if errors.Is(err, ctx.Err()) {
+		if errors.Is(ctx.Err(), context.Canceled) {
 			err = nil
 		}
 		r.err = err

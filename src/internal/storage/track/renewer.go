@@ -78,6 +78,7 @@ func (r *Renewer) Close() (retErr error) {
 	if err != nil {
 		return err
 	}
+	// TODO: try to check this earlier. beware of the race when incrementing r.n and creating a new entry.
 	if n != r.n {
 		return errors.Errorf("renewer prefix has wrong count HAVE: %d WANT: %d", n, r.n)
 	}
