@@ -8,10 +8,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 )
 
 const (
@@ -33,15 +31,9 @@ const postgresMaxConnections = 100
 // concurrently running tests
 var maxOpenConnsPerPool = (postgresMaxConnections - 1) / runtime.GOMAXPROCS(0)
 
-// TestDatabaseDeployment represents a deployment of postgres, and databases may
-// be created for individual tests.
-type TestDatabaseDeployment interface {
-	NewDatabase(t testing.TB) (*sqlx.DB, col.PostgresListener)
-	NewDatabaseConfig(t testing.TB) serviceenv.ConfigOption
-}
-
 // NewTestDBOptions connects to postgres using opts, creates a database
 // with a unique name then returns options to connect to the new database
+// After t finishes, the database is dropped.
 func NewTestDBOptions(t testing.TB, opts []dbutil.Option) []dbutil.Option {
 	db := OpenDB(t, opts...)
 	dbName := CreateEphemeralDB(t, db)
@@ -54,14 +46,14 @@ func NewTestDBOptions(t testing.TB, opts []dbutil.Option) []dbutil.Option {
 }
 
 // NewTestDB connects to postgres using opts, creates a database
-// with a unique name then returns a sqlx.DB configured to use the newly created
-// database. After the test or suite finishes, the database is dropped.
+// with a unique name then returns a sqlx.DB configured to use the newly created database.
+// After t finishes, the database is dropped.
 func NewTestDB(t testing.TB, opts []dbutil.Option) *sqlx.DB {
 	return OpenDB(t, NewTestDBOptions(t, opts)...)
 }
 
 // OpenDB connects to a database using opts and returns it.
-// the database will be cleaned up at the end of the test.
+// The database will be closed at the end of the test.
 func OpenDB(t testing.TB, opts ...dbutil.Option) *sqlx.DB {
 	db, err := dbutil.NewDB(opts...)
 	require.NoError(t, err)
