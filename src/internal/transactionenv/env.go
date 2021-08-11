@@ -2,6 +2,7 @@ package transactionenv
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
@@ -293,8 +294,8 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 	}
 }
 
-func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *sqlx.Tx, r txncontext.FilesetManager, cb func(*txncontext.TransactionContext) error) error {
-	txnCtx, err := txncontext.New(ctx, sqlTx, env.serviceEnv.AuthServer(), r)
+func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *sqlx.Tx, r txncontext.FilesetManager, start time.Time, cb func(*txncontext.TransactionContext) error) error {
+	txnCtx, err := txncontext.New(ctx, sqlTx, env.serviceEnv.AuthServer(), r, start)
 	if err != nil {
 		return err
 	}
@@ -317,9 +318,10 @@ func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *sqlx.Tx, r txnc
 // WithWriteContext will call the given callback with a txncontext.TransactionContext
 // which can be used to perform reads and writes on the current cluster state.
 func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
+	start := time.Now()
 	return env.withRefreshLoop(ctx, nil, func(r txncontext.FilesetManager) error {
 		return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-			return env.attemptTx(ctx, sqlTx, r, cb)
+			return env.attemptTx(ctx, sqlTx, r, start, cb)
 		})
 	})
 }
@@ -328,22 +330,24 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
 func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
+	start := time.Now()
 	return env.withRefreshLoop(ctx, nil, func(r txncontext.FilesetManager) error {
 		return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-			return env.attemptTx(ctx, sqlTx, r, cb)
+			return env.attemptTx(ctx, sqlTx, r, start, cb)
 		})
 	})
 }
 
 func (env *TransactionEnv) WithRefresher(ctx context.Context, r *refresher, write bool, cb func(*txncontext.TransactionContext) error) error {
+	start := time.Now()
 	return env.withRefreshLoop(ctx, r, func(r txncontext.FilesetManager) error {
 		if write {
 			return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-				return env.attemptTx(ctx, sqlTx, r, cb)
+				return env.attemptTx(ctx, sqlTx, r, start, cb)
 			})
 		} else {
 			return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-				return env.attemptTx(ctx, sqlTx, r, cb)
+				return env.attemptTx(ctx, sqlTx, r, start, cb)
 			})
 		}
 	})

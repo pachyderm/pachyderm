@@ -1453,8 +1453,8 @@ func (s podSlice) Less(i, j int) bool {
 	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
 }
 
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
+func now(txnCtx *txncontext.TransactionContext) *types.Timestamp {
+	t, err := types.TimestampProto(txnCtx.Now())
 	if err != nil {
 		panic(err)
 	}
@@ -1780,7 +1780,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
+func (a *apiServer) initializePipelineInfo(txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
 	if err := a.validatePipelineRequest(request); err != nil {
 		return nil, err
 	}
@@ -1800,7 +1800,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			Input:                 request.Input,
 			OutputBranch:          request.OutputBranch,
 			Egress:                request.Egress,
-			CreatedAt:             now(),
+			CreatedAt:             now(txnCtx),
 			ResourceRequests:      request.ResourceRequests,
 			ResourceLimits:        request.ResourceLimits,
 			SidecarResourceLimits: request.SidecarResourceLimits,
@@ -1859,7 +1859,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 	pipelineName := request.Pipeline.Name
 
-	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
+	newPipelineInfo, err := a.initializePipelineInfo(txnCtx, request, oldPipelineInfo)
 	if err != nil {
 		return err
 	}
