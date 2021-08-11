@@ -9,6 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
@@ -17,14 +18,36 @@ const (
 	pgBouncerPort = 30229
 	postgresHost  = "127.0.0.1"
 	pgBouncerHost = postgresHost
-	pgUsername    = "pachyderm"
 )
+
+func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
+	db := testutil.OpenDB(t,
+		dbutil.WithMaxOpenConns(1),
+		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
+		dbutil.WithHostPort(pgBouncerHost, pgBouncerPort),
+		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
+	)
+	dbName := testutil.CreateEphemeralDB(t, db)
+	return func(c *serviceenv.Configuration) {
+		// common
+		c.PostgresDBName = dbName
+
+		// direct
+		c.PostgresHost = postgresHost
+		c.PostgresPort = postgresPort
+		// pg_bouncer
+		c.PGBouncerHost = pgBouncerHost
+		c.PGBouncerPort = pgBouncerPort
+
+		c.PostgresUser = testutil.DefaultPostgresUser
+	}
+}
 
 func NewTestDB(t testing.TB) *sqlx.DB {
 	ctx := context.Background()
 	require.NoError(t, ensureDBEnv(ctx))
 	opts := []dbutil.Option{
-		dbutil.WithDBName(pgUsername),
+		dbutil.WithDBName(testutil.DefaultPostgresUser),
 		dbutil.WithHostPort(pgBouncerHost, pgBouncerPort),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 	}
