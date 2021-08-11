@@ -25,8 +25,6 @@ const (
 )
 
 func postgresHost() string {
-	return "127.0.0.1"
-	// TODO: this breaks in CI even though it works with minikube and docker desktop on mac.
 	endpoint, isSet := os.LookupEnv("DOCKER_HOST")
 	if !isSet {
 		return "127.0.0.1"
@@ -47,6 +45,8 @@ func pgBouncerHost() string {
 }
 
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
+	ctx := context.Background()
+	require.NoError(t, ensureDBEnv(t, ctx))
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
@@ -95,9 +95,6 @@ func NewTestDirectDB(t testing.TB) *sqlx.DB {
 func ensureDBEnv(t testing.TB, ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "bash", "-c", `
 set -ve
-unset DOCKER_HOST
-unset DOCKER_CERT_PATH	
-unset DOCKER_TLS_VERIFY
 
 if ! docker ps | grep -q postgres
 then

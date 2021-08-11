@@ -123,7 +123,9 @@ func NewTestDirectDBOptions(t testing.TB, opts ...dbutil.Option) []dbutil.Option
 	}
 	db := OpenDB(t, opts...)
 	dbName := CreateEphemeralDB(t, db)
-	opts2 := []dbutil.Option{}
+	opts2 := []dbutil.Option{
+		dbutil.WithMaxOpenConns(maxOpenConnsPerPool),
+	}
 	opts2 = append(opts2, opts...)
 	opts2 = append(opts2, dbutil.WithDBName(dbName))
 	return opts2
@@ -136,7 +138,9 @@ func NewTestDBOptions(t testing.TB, opts ...dbutil.Option) []dbutil.Option {
 	}
 	db := OpenDB(t, opts...)
 	dbName := CreateEphemeralDB(t, db)
-	opts2 := []dbutil.Option{}
+	opts2 := []dbutil.Option{
+		dbutil.WithMaxOpenConns(maxOpenConnsPerPool),
+	}
 	opts2 = append(opts2, opts...)
 	opts2 = append(opts2, dbutil.WithDBName(dbName))
 	return opts2
