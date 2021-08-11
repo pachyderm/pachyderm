@@ -111,6 +111,24 @@ type ErrCommitOnOutputBranch struct {
 	Branch *pfs.Branch
 }
 
+// ErrSquashWithoutChildren represents an error when attempting to squash a
+// commit that has no children.  Since squash works by removing a commit and
+// leaving its data in any child commits, a squash would result in data loss in
+// this situation, so it is not allowed.  To proceed anyway, use the
+// DropCommitSet operation, which implies data loss.
+type ErrSquashWithoutChildren struct {
+	Commit *pfs.Commit
+}
+
+// ErrDropWithChildren represents an error when attempting to drop a commit that
+// has children.  Because proper datum removal semantics have not been
+// implemented in the middle of a commit chain, this operation is unsupported.
+// However, a drop is still allowed for a commit with no children as there is no
+// cleanup needed for child commits.
+type ErrDropWithChildren struct {
+	Commit *pfs.Commit
+}
+
 func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo, e.File.Commit.ID)
 }
@@ -179,6 +197,14 @@ func (e ErrCommitOnOutputBranch) Error() string {
 	return fmt.Sprintf("cannot start a commit on an output branch: %s", e.Branch)
 }
 
+func (e ErrSquashWithoutChildren) Error() string {
+	return fmt.Sprintf("cannot squash a commit that has no children as that would cause data loss, use the drop operation instead: %s", e.Commit)
+}
+
+func (e ErrDropWithChildren) Error() string {
+	return fmt.Sprintf("cannot drop a commit that has children: %s", e.Commit)
+}
+
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
 	commitsetNotFoundRe       = regexp.MustCompile("no commits found for commitset")
@@ -194,6 +220,8 @@ var (
 	ambiguousCommitRe         = regexp.MustCompile("commit .+ is ambiguous")
 	inconsistentCommitRe      = regexp.MustCompile("branch already has a commit in this transaction")
 	commitOnOutputBranchRe    = regexp.MustCompile("cannot start a commit on an output branch")
+	squashWithoutChildrenRe   = regexp.MustCompile("cannot squash a commit that has no children")
+	dropWithChildrenRe        = regexp.MustCompile("cannot drop a commit that has children")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -327,4 +355,18 @@ func IsCommitOnOutputBranchErr(err error) bool {
 		return false
 	}
 	return commitOnOutputBranchRe.MatchString(err.Error())
+}
+
+func IsSquashWithoutChildrenErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return squashWithoutChildrenRe.MatchString(err.Error())
+}
+
+func IsDropWithChildrenErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return dropWithChildrenRe.MatchString(err.Error())
 }

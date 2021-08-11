@@ -237,6 +237,10 @@ message SquashCommitSetRequest {
   CommitSet commit_set = 1;
 }
 
+message DropCommitSetRequest {
+  CommitSet commit_set = 1;
+}
+
 message SubscribeCommitRequest {
   Repo repo = 1;
   string branch = 2;
@@ -445,6 +449,8 @@ service API {
   rpc ListCommitSet(ListCommitSetRequest) returns (stream CommitSetInfo) {}
   // SquashCommitSet squashes the commits of a CommitSet into their children.
   rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
+  // DropCommitSet drops the commits of a CommitSet and all data included in the commits.
+  rpc DropCommitSet(DropCommitSetRequest) returns (google.protobuf.Empty) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
