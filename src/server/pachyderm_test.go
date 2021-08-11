@@ -9751,6 +9751,53 @@ func TestExpiredFileset(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestListPipelineError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	bad := tu.UniqueString("bad")
+	base := tu.UniqueString("pipeline")
+
+	for i := 0; i < 15; i++ {
+		name := fmt.Sprintf("%s-%d", base, i)
+		if i == 0 {
+			name = bad
+		}
+		require.NoError(t, c.CreatePipeline(
+			name,
+			"",
+			[]string{"bash"},
+			[]string{"echo test"},
+			nil,
+			client.NewPFSInput(dataRepo, "/"),
+			"master",
+			false,
+		))
+	}
+
+	// delete the first pipeline's spec repo, which will cause getting details to error
+	require.NoError(t, c.DeleteRepo(bad, true))
+
+	_, err := c.InspectPipeline(bad, true)
+	require.YesError(t, err)
+
+	// listing without details should be fine
+	_, err = c.ListPipeline(false)
+	require.NoError(t, err)
+
+	// but requesting details will fail, make sure it's due to the missing spec file
+	_, err = c.ListPipeline(true)
+	require.YesError(t, err)
+	require.Matches(t, "spec file", err.Error())
+}
+
 func monitorReplicas(t testing.TB, pipeline string, n int) {
 	c := tu.GetPachClient(t)
 	kc := tu.GetKubeClient(t)

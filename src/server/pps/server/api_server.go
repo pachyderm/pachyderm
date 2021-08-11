@@ -29,6 +29,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -44,6 +45,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -2341,6 +2343,16 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
+	// get all pipelines at once to avoid holding the list query open
+	// this should be fine with numbers of pipelines pachyderm can actually run
+	var infos []*pps.PipelineInfo
+	if err := a.listPipelineInfo(ctx, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
+		infos = append(infos, proto.Clone(ptr).(*pps.PipelineInfo))
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	filterPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
 		if jqCode != nil {
 			jsonBuffer.Reset()
@@ -2356,55 +2368,33 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 		return true
 	}
-	// the mess below is so we can lookup the PFS info for each pipeline concurrently.
-	eg, ctx := errgroup.WithContext(ctx)
-	infos := make(chan *pps.PipelineInfo)
-	// stream these out of etcd
-	eg.Go(func() error {
-		defer close(infos)
-		return a.listPipelineInfo(ctx, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case infos <- proto.Clone(ptr).(*pps.PipelineInfo):
-				return nil
-			}
-		})
-	})
-	// spin up goroutines to get the PFS info, and then use the mutex to call f all synchronized like.
-	var mu sync.Mutex
-	var fHasErrored bool
-	for i := 0; i < 20; i++ {
-		eg.Go(func() error {
-			for info := range infos {
-				if request.Details {
-					if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), info); err != nil {
-						return err
-					}
-				}
-				if err := func() error {
-					mu.Lock()
-					defer mu.Unlock()
-					if fHasErrored {
-						return nil
-					}
-					// the filtering shares that buffer thing, and it's CPU bound so why not do it with the lock
-					if !filterPipeline(info) {
-						return nil
-					}
-					if err := f(info); err != nil {
-						fHasErrored = true
-						return err
-					}
-					return nil
-				}(); err != nil {
+
+	// fetch details and filter via a task chain so that order is preserved
+	chain := chunk.NewTaskChain(ctx)
+
+	// spin up goroutines to get the PFS info
+	limiter := limit.New(5)
+	for i := range infos {
+		i := i
+		limiter.Acquire()
+		if err := chain.CreateTask(func(ctx context.Context, serial func(func() error) error) error {
+			defer limiter.Release()
+			if request.Details {
+				if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), infos[i]); err != nil {
 					return err
 				}
 			}
-			return nil
-		})
+			return serial(func() error {
+				if filterPipeline(infos[i]) {
+					return f(infos[i])
+				}
+				return nil
+			})
+		}); err != nil {
+			return err
+		}
 	}
-	return eg.Wait()
+	return chain.Wait()
 }
 
 // listPipelineInfo enumerates all PPS pipelines in the database, filters them
