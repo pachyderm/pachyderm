@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -25,6 +26,7 @@ const (
 )
 
 func postgresHost() string {
+	return "127.0.0.1"
 	endpoint, isSet := os.LookupEnv("DOCKER_HOST")
 	if !isSet {
 		return "127.0.0.1"
@@ -96,6 +98,10 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "bash", "-c", `
 set -ve
 
+unset DOCKER_HOST
+unset DOCKER_CERT_PATH
+unset DOCKER_TLS_VERIFY
+
 if ! docker ps | grep -q postgres
 then
     echo "starting postgres..."
@@ -127,7 +133,10 @@ fi
 		fmt.Println(string(output))
 		return err
 	}
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+	timeout := 30 * time.Second
+	ctx, cf := context.WithTimeout(ctx, timeout)
+	defer cf()
+	return backoff.RetryUntilCancel(ctx, func() error {
 		db, err := dbutil.NewDB(
 			dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 			dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
@@ -138,7 +147,8 @@ fi
 			return err
 		}
 		defer db.Close()
-		return db.Ping()
+		return db.PingContext(ctx)
+	}, backoff.RetryEvery(time.Second), func(err error, _ time.Duration) error {
+		return nil
 	})
-	return nil
 }
