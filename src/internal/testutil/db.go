@@ -3,9 +3,7 @@ package testutil
 import (
 	"crypto/rand"
 	"fmt"
-	"os"
 	"runtime"
-	"strconv"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -41,56 +39,6 @@ type TestDatabaseDeployment interface {
 	NewDatabase(t testing.TB) (*sqlx.DB, col.PostgresListener)
 	NewDatabaseConfig(t testing.TB) serviceenv.ConfigOption
 }
-
-func postgresHost() string {
-	if host, ok := os.LookupEnv("POSTGRES_HOST"); ok {
-		return host
-	}
-	return DefaultPostgresHost
-}
-
-func postgresPort() int {
-	if port, ok := os.LookupEnv("POSTGRES_PORT"); ok {
-		if portInt, err := strconv.Atoi(port); err == nil {
-			return portInt
-		}
-	}
-	return DefaultPostgresPort
-}
-
-func pgBouncerHost() string {
-	if host, ok := os.LookupEnv("PG_BOUNCER_HOST"); ok {
-		return host
-	}
-	return DefaultPGBouncerHost
-}
-
-func pgBouncerPort() int {
-	if port, ok := os.LookupEnv("PG_BOUNCER_PORT"); ok {
-		if portInt, err := strconv.Atoi(port); err == nil {
-			return portInt
-		}
-	}
-	return DefaultPGBouncerPort
-}
-
-// func MinikubeDBOptions() []dbutil.Option {
-// 	return []dbutil.Option{
-// 		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort()),
-// 		dbutil.WithDBName(DefaultPostgresDatabase),
-// 		dbutil.WithMaxOpenConns(1),
-// 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
-// 	}
-// }
-
-// func MinikubeDirectDBOptions() []dbutil.Option {
-// 	return []dbutil.Option{
-// 		dbutil.WithHostPort(postgresHost(), postgresPort()),
-// 		dbutil.WithDBName(DefaultPostgresDatabase),
-// 		dbutil.WithMaxOpenConns(1),
-// 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
-// 	}
-// }
 
 // NewTestDBOptions connects to postgres using opts, creates a database
 // with a unique name then returns options to connect to the new database

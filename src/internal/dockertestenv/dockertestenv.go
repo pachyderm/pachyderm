@@ -4,9 +4,6 @@ package dockertestenv
 import (
 	"context"
 	"fmt"
-	"net"
-	"net/url"
-	"os"
 	"os/exec"
 	"sync"
 	"testing"
@@ -29,19 +26,20 @@ const (
 
 func postgresHost() string {
 	return "127.0.0.1"
-	endpoint, isSet := os.LookupEnv("DOCKER_HOST")
-	if !isSet {
-		return "127.0.0.1"
-	}
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		panic(err)
-	}
-	host, _, err := net.SplitHostPort(u.Host)
-	if err != nil {
-		panic(err)
-	}
-	return host
+	// TODO: this lets you use minikube or docker desktop on macOS, but doesn't work in CI.
+	// endpoint, isSet := os.LookupEnv("DOCKER_HOST")
+	// if !isSet {
+	// 	return "127.0.0.1"
+	// }
+	// u, err := url.Parse(endpoint)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// host, _, err := net.SplitHostPort(u.Host)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// return host
 }
 
 func pgBouncerHost() string {
