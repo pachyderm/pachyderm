@@ -14,6 +14,7 @@ export const GET_REPO_QUERY = gql`
           name
         }
         description
+        hasLinkedJob
         id
         started
         finished

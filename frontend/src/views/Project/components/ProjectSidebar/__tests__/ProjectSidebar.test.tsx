@@ -80,6 +80,26 @@ describe('ProjectSidebar', () => {
       expect(commit).toBeInTheDocument();
     });
 
+    it('should not show a linked job when there is no job for the commit', async () => {
+      window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
+
+      const {findByTestId, queryByRole} = render(<Project />);
+
+      await findByTestId('Title__name');
+
+      expect(queryByRole('link', {name: 'Linked Job'})).toBeNull();
+    });
+
+    it('should show a linked job for a commit', async () => {
+      window.history.replaceState('', '', '/project/2/repo/test/branch/master');
+
+      const {findByTestId, queryByRole} = render(<Project />);
+
+      await findByTestId('Title__name');
+
+      expect(queryByRole('link', {name: 'Linked Job'})).toBeInTheDocument();
+    });
+
     it('should show no commits when the branch has no commits', async () => {
       window.history.replaceState(
         '',

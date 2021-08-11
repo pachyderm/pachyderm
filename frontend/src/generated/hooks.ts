@@ -1171,6 +1171,7 @@ export const RepoDocument = gql`
           name
         }
         description
+        hasLinkedJob
         id
         started
         finished

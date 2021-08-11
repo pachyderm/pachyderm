@@ -50,6 +50,7 @@ export type Commit = {
   repoName: Scalars['String'];
   branch?: Maybe<Branch>;
   description?: Maybe<Scalars['String']>;
+  hasLinkedJob: Scalars['Boolean'];
   id: Scalars['ID'];
   started: Scalars['Int'];
   finished: Scalars['Int'];
@@ -635,6 +636,7 @@ export type ResolversTypes = ResolversObject<{
   AuthConfig: ResolverTypeWrapper<AuthConfig>;
   Branch: ResolverTypeWrapper<Branch>;
   Commit: ResolverTypeWrapper<Commit>;
+  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
   CronInput: ResolverTypeWrapper<CronInput>;
   Dag: ResolverTypeWrapper<Dag>;
@@ -642,7 +644,6 @@ export type ResolversTypes = ResolversObject<{
   DagQueryArgs: DagQueryArgs;
   File: ResolverTypeWrapper<File>;
   Float: ResolverTypeWrapper<Scalars['Float']>;
-  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   FileQueryArgs: FileQueryArgs;
   FileType: FileType;
   GitInput: ResolverTypeWrapper<GitInput>;
@@ -696,13 +697,13 @@ export type ResolversParentTypes = ResolversObject<{
   AuthConfig: AuthConfig;
   Branch: Branch;
   Commit: Commit;
+  Boolean: Scalars['Boolean'];
   Int: Scalars['Int'];
   CronInput: CronInput;
   Dag: Dag;
   DagQueryArgs: DagQueryArgs;
   File: File;
   Float: Scalars['Float'];
-  Boolean: Scalars['Boolean'];
   FileQueryArgs: FileQueryArgs;
   GitInput: GitInput;
   Input: Input;
@@ -780,6 +781,7 @@ export type CommitResolvers<
     ParentType,
     ContextType
   >;
+  hasLinkedJob?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   started?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   finished?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -1671,6 +1673,7 @@ export type RepoQuery = {__typename?: 'Query'} & {
           Commit,
           | 'repoName'
           | 'description'
+          | 'hasLinkedJob'
           | 'id'
           | 'started'
           | 'finished'

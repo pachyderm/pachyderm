@@ -1,5 +1,6 @@
 import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';
+import {PachClient} from '@dash-backend/lib/types';
 import {QueryResolvers, RepoResolvers} from '@graphqlTypes';
 
 import {pipelineInfoToGQLPipeline, repoInfoToGQLRepo} from './builders/pps';
@@ -13,6 +14,14 @@ interface RepoResolver {
 
 const NUM_COMMITS = 100;
 
+const getJobs = (pipelineId: string, pachClient: PachClient) => {
+  try {
+    return pachClient.pps().listJobs({pipelineId, limit: NUM_COMMITS});
+  } catch (err) {
+    return [];
+  }
+};
+
 const repoResolver: RepoResolver = {
   Query: {
     repo: async (_parent, {args: {id}}, {pachClient}) => {
@@ -22,6 +31,7 @@ const repoResolver: RepoResolver = {
   Repo: {
     commits: async (repo, _args, {pachClient}) => {
       try {
+        const jobs = await getJobs(repo.id, pachClient);
         return (
           await pachClient.pfs().listCommit({
             repo: {name: repo.id},
@@ -37,6 +47,7 @@ const repoResolver: RepoResolver = {
             },
             description: commit.description,
             finished: commit.finished?.seconds || 0,
+            hasLinkedJob: jobs.some((job) => job.job?.id === commit.commit?.id),
             id: commit.commit?.id || '',
             started: commit.started?.seconds || 0,
             sizeBytes: getSizeBytes(commit),

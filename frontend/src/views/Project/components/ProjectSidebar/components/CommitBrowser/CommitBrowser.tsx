@@ -62,15 +62,17 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                     Size {commit.sizeDisplay}
                   </dt>
                   <dt className={styles.commitData}>
-                    <Link
-                      to={jobRoute({
-                        projectId,
-                        jobId: commit.id,
-                        pipelineId: repo?.name,
-                      })}
-                    >
-                      Linked Job
-                    </Link>
+                    {commit.hasLinkedJob && (
+                      <Link
+                        to={jobRoute({
+                          projectId,
+                          jobId: commit.id,
+                          pipelineId: repo?.name,
+                        })}
+                      >
+                        Linked Job
+                      </Link>
+                    )}
                   </dt>
                   <dt className={styles.commitData}>
                     <Link
