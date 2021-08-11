@@ -17,7 +17,7 @@ type Renewer struct {
 func newRenewer(ctx context.Context, tracker track.Tracker, ttl time.Duration) *Renewer {
 	return &Renewer{
 		r: renew.NewStringSet(ctx, ttl, func(ctx context.Context, id string, ttl time.Duration) error {
-			_, err := tracker.SetTTLPrefix(ctx, id, ttl)
+			_, err := tracker.SetTTL(ctx, id, ttl)
 			return err
 		}),
 	}

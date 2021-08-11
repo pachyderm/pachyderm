@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
@@ -50,7 +51,7 @@ func NewRenewer(tracker Tracker, name string, ttl time.Duration) *Renewer {
 		ttl:     ttl,
 	}
 	r.r = renew.NewRenewer(context.Background(), ttl, func(ctx context.Context, ttl time.Duration) error {
-		_, err := r.tracker.SetTTLPrefix(ctx, r.id+"/", ttl)
+		_, _, err := r.tracker.SetTTLPrefix(ctx, r.id+"/", ttl)
 		return err
 	})
 	return r
@@ -73,7 +74,13 @@ func (r *Renewer) Close() (retErr error) {
 		}
 	}()
 	ctx := context.Background()
-	_, err := r.tracker.SetTTLPrefix(ctx, r.id+"/", ExpireNow)
+	_, n, err := r.tracker.SetTTLPrefix(ctx, r.id+"/", ExpireNow)
+	if err != nil {
+		return err
+	}
+	if n != r.n {
+		return errors.Errorf("renewer prefix has wrong count HAVE: %d WANT: %d", n, r.n)
+	}
 	return err
 }
 

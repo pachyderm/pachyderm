@@ -245,7 +245,7 @@ func (s *Storage) Drop(ctx context.Context, id ID) error {
 // SetTTL sets the time-to-live for the fileset at id
 func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Time, error) {
 	oid := id.TrackerID()
-	return s.tracker.SetTTLPrefix(ctx, oid, ttl)
+	return s.tracker.SetTTL(ctx, oid, ttl)
 }
 
 // SizeUpperBound returns an upper bound for the size of the data in the file set in bytes.

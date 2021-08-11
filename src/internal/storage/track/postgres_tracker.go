@@ -109,23 +109,41 @@ func (t *postgresTracker) addReferences(tx *sqlx.Tx, intID int, pointsTo []strin
 	return nil
 }
 
-func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
+func (t *postgresTracker) SetTTL(ctx context.Context, id string, ttl time.Duration) (time.Time, error) {
 	var expiresAt time.Time
 	err := t.db.GetContext(ctx, &expiresAt,
 		`UPDATE storage.tracker_objects
 		SET expires_at = CURRENT_TIMESTAMP + $2 * interval '1 microsecond'
-		WHERE str_id LIKE $1 || '%'
-		RETURNING expires_at`, prefix, ttl.Microseconds())
+		WHERE str_id = $1
+		RETURNING expires_at
+	`, id, ttl.Microseconds())
 	if err != nil {
 		if err == sql.ErrNoRows {
-			if err := t.db.GetContext(ctx, &expiresAt, `SELECT CURRENT_TIMESTAMP + $1 * interval '1 microsecond'`, ttl); err != nil {
-				return time.Time{}, err
-			}
-			return expiresAt, nil
+			err = pacherr.NewNotExist("tracker", id)
 		}
 		return time.Time{}, err
 	}
 	return expiresAt, nil
+}
+
+func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, int, error) {
+	var x struct {
+		Count     int       `db:"count"`
+		ExpiresAt time.Time `db:"expires_at"`
+	}
+	err := t.db.GetContext(ctx, &x,
+		`WITH rows AS (
+			UPDATE storage.tracker_objects
+			SET expires_at = CURRENT_TIMESTAMP + $2 * interval '1 microsecond'
+			WHERE str_id LIKE $1 || '%'
+			RETURNING expires_at
+		)
+		SELECT COUNT(*) as count, COALESCE(MIN(expires_at), CURRENT_TIMESTAMP) as expires_at FROM rows
+		`, prefix, ttl.Microseconds())
+	if err != nil {
+		return time.Time{}, 0, err
+	}
+	return x.ExpiresAt, x.Count, nil
 }
 
 func (t *postgresTracker) GetDownstream(ctx context.Context, id string) ([]string, error) {
