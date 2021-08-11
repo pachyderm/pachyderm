@@ -1074,7 +1074,7 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 }
 
 func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb func(*datum.Meta) error) error {
-	setInputDefaults("", input)
+	setInputDefaults("", input, types.TimestampNow())
 	if visitErr := pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			pachClient := a.env.GetPachClient(ctx)
@@ -1814,7 +1814,7 @@ func (a *apiServer) initializePipelineInfo(txnCtx *txncontext.TransactionContext
 		},
 	}
 
-	if err := setPipelineDefaults(pipelineInfo); err != nil {
+	if err := setPipelineDefaults(txnCtx, pipelineInfo); err != nil {
 		return nil, err
 	}
 	// Validate final PipelineInfo (now that defaults have been populated)
@@ -2153,11 +2153,11 @@ func pipelineTypeFromInfo(pipelineInfo *pps.PipelineInfo) pps.PipelineInfo_Pipel
 }
 
 // setPipelineDefaults sets the default values for a pipeline info
-func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
+func setPipelineDefaults(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Details.Transform.Image == "" {
 		pipelineInfo.Details.Transform.Image = DefaultUserImage
 	}
-	setInputDefaults(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input)
+	setInputDefaults(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input, txnCtx.Timestamp)
 	if pipelineInfo.Details.OutputBranch == "" {
 		// Output branches default to master
 		pipelineInfo.Details.OutputBranch = "master"
@@ -2179,8 +2179,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	return nil
 }
 
-func setInputDefaults(pipelineName string, input *pps.Input) {
-	now := time.Now()
+func setInputDefaults(pipelineName string, input *pps.Input, ts *types.Timestamp) {
 	nCreatedBranches := make(map[string]int)
 	pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
@@ -2205,8 +2204,7 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 		}
 		if input.Cron != nil {
 			if input.Cron.Start == nil {
-				start, _ := types.TimestampProto(now)
-				input.Cron.Start = start
+				input.Cron.Start = ts
 			}
 			if input.Cron.Repo == "" {
 				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineName, input.Cron.Name)

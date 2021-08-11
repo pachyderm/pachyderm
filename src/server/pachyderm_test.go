@@ -9265,7 +9265,7 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 			[]string{"bash"},
 			[]string{
 				fmt.Sprintf("cat /pfs/%s/foo >> /pfs/out/foo", input),
-				fmt.Sprintf("echo '%s' >> /pfs/out/foo", suffix),
+				fmt.Sprintf("echo -n '%s' >> /pfs/out/foo", suffix),
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
