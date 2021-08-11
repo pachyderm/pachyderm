@@ -5001,7 +5001,12 @@ func TestPFS(suite *testing.T) {
 				branch := inputBranches[r.Intn(len(inputBranches))]
 				commit, err := env.PachClient.StartCommit(branch.Repo.Name, branch.Name)
 				require.NoError(t, err)
-				require.NoError(t, env.PachClient.FinishCommit(branch.Repo.Name, branch.Name, ""))
+				// find and finish all commits in output branches, too
+				infos, err := env.PachClient.InspectCommitSet(commit.ID)
+				require.NoError(t, err)
+				for _, info := range infos {
+					require.NoError(t, env.PachClient.FinishCommit(info.Commit.Branch.Repo.Name, info.Commit.Branch.Name, commit.ID))
+				}
 				commits = append(commits, commit)
 			case squashCommitSet:
 				if len(commits) == 0 {
@@ -5015,7 +5020,7 @@ func TestPFS(suite *testing.T) {
 				if len(inputBranches) == 0 {
 					continue OpLoop
 				}
-				repo := tu.UniqueString("repo")
+				repo := tu.UniqueString("out")
 				require.NoError(t, env.PachClient.CreateRepo(repo))
 				outputRepos = append(outputRepos, repo)
 				var provBranches []*pfs.Branch
