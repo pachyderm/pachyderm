@@ -5046,6 +5046,7 @@ func TestPFS(suite *testing.T) {
 				err = env.PachClient.CreateBranch(repo, "master", "", "", provBranches)
 				if err != nil && !strings.Contains(err.Error(), "cannot be in the provenance of its own branch") {
 					require.NoError(t, err)
+				} else if err == nil {
 					outputBranches = append(outputBranches, client.NewBranch(repo, "master"))
 					require.NoError(t, finishCommit(env.PachClient, repo, "master", ""))
 				}
@@ -5078,6 +5079,7 @@ func TestPFS(suite *testing.T) {
 				err = env.PachClient.CreateBranch(repo, branch, "", "", provBranches)
 				if err != nil && !strings.Contains(err.Error(), "cannot be in the provenance of its own branch") {
 					require.NoError(t, err)
+				} else if err == nil {
 					outputBranches = append(outputBranches, client.NewBranch(repo, branch))
 					require.NoError(t, finishCommit(env.PachClient, repo, branch, ""))
 				}
