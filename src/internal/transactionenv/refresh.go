@@ -121,7 +121,7 @@ func (r *refresher) LatestPipelineInfo(txnCtx *txncontext.TransactionContext, pi
 		return nil, err
 	}
 
-	if cached, ok := r.pipelineCache[pipeline.Name]; ok && (cached.err != nil || cached.info.Version == newInfo.Version) {
+	if cached, ok := r.pipelineCache[pipeline.Name]; ok && (cached.err != nil || cached.info.GetVersion() == newInfo.Version) {
 		// up to date
 		return cached.info, cached.err
 	}
