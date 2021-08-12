@@ -27,6 +27,8 @@ export * from './Label';
 export * from './Link';
 export * from './LoadingDots';
 export * from './Modal';
+export * from './NotificationBanner';
+export * from './PachctlConnectDetails';
 export * from './Page';
 export * from './RadioButton';
 export * from './Search';

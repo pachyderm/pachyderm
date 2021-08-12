@@ -1,0 +1,33 @@
+.base {
+  position: relative;
+}
+
+.base::marker {
+  font-weight: 600;
+}
+
+.mono {
+  font-weight: 400;
+  margin-left: -1.25rem;
+  margin-right: -1.25rem;
+}
+
+.copy {
+  position: absolute;
+  right: -1.25rem;
+  top: 0;
+}
+
+.title {
+  font-weight: 600;
+  font-size: var(--font-size-body-medium);
+  margin-bottom: 0.25rem;
+  padding-right: 3rem;
+  display: inline-block;
+}
+
+.note {
+  font-weight: 400;
+  line-height: 2rem;
+  margin: 0;
+}
