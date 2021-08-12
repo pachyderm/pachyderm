@@ -1856,7 +1856,8 @@ func (a *apiServer) CreatePipelineInTransaction(
 	prevPipelineVersion *uint64,
 ) error {
 	oldPipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
-	if err != nil {
+	if err != nil && !ppsServer.IsPipelineNotFoundErr(err) {
+		// silently ignore pipeline not found, old info will be nil
 		return err
 	}
 	pipelineName := request.Pipeline.Name
@@ -2495,7 +2496,10 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 
 	// stop the pipeline to avoid interference from new jobs
-	if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
+	if _, err := a.StopPipeline(ctx,
+		&pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil && errutil.IsNotFoundError(err) {
+		logrus.Errorf("failed to stop pipeline, continuing with delete: %v", err)
+	} else if err != nil {
 		return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline.Name)
 	}
 
@@ -2590,6 +2594,8 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 			}); err != nil && !errutil.IsNotFoundError(err) {
 				return err
 			}
+		} else {
+			return errors.New("pipeline deletion incomplete, provenance may still be intact")
 		}
 	}
 	return nil
@@ -2651,15 +2657,15 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		pipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
-		if err != nil {
-			return err
-		}
-
 		// make sure the repo exists
 		if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 			Repo: client.NewRepo(request.Pipeline.Name),
 		}); err == nil {
+			pipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
+			if err != nil {
+				return err
+			}
+
 			// check if the caller is authorized to update this pipeline
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
 			// so we don't need to check any permissions

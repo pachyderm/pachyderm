@@ -49,18 +49,18 @@ type refresher struct {
 	env           serviceenv.ServiceEnv
 	filesetQueue  []basicPutFile
 	filesets      map[[16]byte]string
-	pipelineCache map[string]*pps.PipelineInfo
+	pipelineCache map[string]pipelineResult
 }
 
 func (env *TransactionEnv) NewRefresher(info *transaction.TransactionInfo) *refresher {
 	out := &refresher{
 		env:           env.serviceEnv,
 		filesets:      map[[16]byte]string{},
-		pipelineCache: map[string]*pps.PipelineInfo{},
+		pipelineCache: map[string]pipelineResult{},
 	}
 	for _, req := range info.Requests {
 		if req.CreatePipeline != nil {
-			out.pipelineCache[req.CreatePipeline.Pipeline.Name] = nil
+			out.pipelineCache[req.CreatePipeline.Pipeline.Name] = pipelineResult{}
 		}
 	}
 
@@ -81,7 +81,7 @@ func (env *TransactionEnv) withRefreshLoop(ctx context.Context, r *refresher, cb
 		r = &refresher{
 			env:           env.serviceEnv,
 			filesets:      map[[16]byte]string{},
-			pipelineCache: map[string]*pps.PipelineInfo{},
+			pipelineCache: map[string]pipelineResult{},
 		}
 	}
 	for {
@@ -106,22 +106,28 @@ func (r *refresher) CreateFileset(path string, data []byte) (string, error) {
 	return "", errTransactionConflict{}
 }
 
+type pipelineResult struct {
+	info *pps.PipelineInfo
+	err  error
+}
+
 func (r *refresher) LatestPipelineInfo(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
 	newInfo, err := r.env.PpsServer().InspectPipelineInTransaction(txnCtx, pipeline.Name)
-	if err != nil && errutil.IsNotFoundError(err) {
-		// pipeline doesn't exist, so we can return nil info, meaning it's up to date in this transaction
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
+		if errutil.IsNotFoundError(err) {
+			// pipeline doesn't exist, drop it from the refresh cache
+			delete(r.pipelineCache, pipeline.Name)
+		}
 		return nil, err
 	}
 
-	if cached, ok := r.pipelineCache[pipeline.Name]; ok && cached.Version == newInfo.Version {
+	if cached, ok := r.pipelineCache[pipeline.Name]; ok && (cached.err != nil || cached.info.Version == newInfo.Version) {
 		// up to date
-		return r.pipelineCache[pipeline.Name], nil
+		return cached.info, cached.err
 	}
 
 	// clear space for updated info and fail the transaction
-	r.pipelineCache[pipeline.Name] = nil
+	r.pipelineCache[pipeline.Name] = pipelineResult{}
 	return nil, errTransactionConflict{}
 }
 
@@ -146,16 +152,10 @@ func (r *refresher) refresh(ctx context.Context) error {
 	}
 	r.filesetQueue = r.filesetQueue[:0]
 
-	// refetch pipeline infos
+	// refetch pipeline infos, but save error for caller rather than exiting
 	for pipeline := range r.pipelineCache {
 		info, err := r.env.PpsServer().InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: client.NewPipeline(pipeline), Details: true})
-		if errutil.IsNotFoundError(err) {
-			delete(r.pipelineCache, pipeline)
-		} else if err != nil {
-			return err
-		} else {
-			r.pipelineCache[pipeline] = info
-		}
+		r.pipelineCache[pipeline] = pipelineResult{info: info, err: err}
 	}
 	return nil
 }
