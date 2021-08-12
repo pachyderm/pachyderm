@@ -29,6 +29,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -44,6 +45,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -1617,42 +1619,6 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-// commitPipelineInfoFromFileSet is a helper for all pipeline updates that
-// creates a commit with 'pipelineInfo' in SpecRepo (in PFS). It's called in
-// both the case where a user is updating a pipeline and the case where a user
-// is creating a new pipeline.
-// pipelineInfo.Version is used to ensure that (in the absence of
-// transactionality) the new pipelineInfo is only applied on top of the previous
-// pipelineInfo - if the version of the pipeline has changed, this operation
-// will error out.
-func (a *apiServer) commitPipelineInfoFromFileSet(
-	txnCtx *txncontext.TransactionContext,
-	pipelineName string,
-	filesetID string,
-) (*pfs.Commit, error) {
-	commit, err := a.env.PfsServer().StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
-		Branch: client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"),
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not marshal PipelineInfo")
-	}
-
-	if err := a.env.PfsServer().AddFileSetInTransaction(txnCtx, &pfs.AddFileSetRequest{
-		Commit:    commit,
-		FileSetId: filesetID,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := a.env.PfsServer().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
-		Commit: commit,
-	}); err != nil {
-		return nil, err
-	}
-
-	return commit, nil
-}
-
 func (a *apiServer) fixPipelineInputRepoACLs(ctx context.Context, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) error {
 	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, prevPipelineInfo)
@@ -2014,7 +1980,8 @@ func (a *apiServer) CreatePipelineInTransaction(
 		// There is, so we use that as the spec commit, rather than making a new one
 		specCommit = commitInfo.Commit
 	} else {
-		specCommit, err = a.commitPipelineInfoFromFileSet(txnCtx, pipelineName, *specFileSetID)
+		specCommit, err = commitFileSetInTransaction(a.env.PfsServer(), txnCtx,
+			client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"), *specFileSetID)
 		if err != nil {
 			return err
 		}
@@ -2376,6 +2343,16 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
+	// get all pipelines at once to avoid holding the list query open
+	// this should be fine with numbers of pipelines pachyderm can actually run
+	var infos []*pps.PipelineInfo
+	if err := a.listPipelineInfo(ctx, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
+		infos = append(infos, proto.Clone(ptr).(*pps.PipelineInfo))
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	filterPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
 		if jqCode != nil {
 			jsonBuffer.Reset()
@@ -2391,55 +2368,33 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 		return true
 	}
-	// the mess below is so we can lookup the PFS info for each pipeline concurrently.
-	eg, ctx := errgroup.WithContext(ctx)
-	infos := make(chan *pps.PipelineInfo)
-	// stream these out of etcd
-	eg.Go(func() error {
-		defer close(infos)
-		return a.listPipelineInfo(ctx, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case infos <- proto.Clone(ptr).(*pps.PipelineInfo):
-				return nil
-			}
-		})
-	})
-	// spin up goroutines to get the PFS info, and then use the mutex to call f all synchronized like.
-	var mu sync.Mutex
-	var fHasErrored bool
-	for i := 0; i < 20; i++ {
-		eg.Go(func() error {
-			for info := range infos {
-				if request.Details {
-					if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), info); err != nil {
-						return err
-					}
-				}
-				if err := func() error {
-					mu.Lock()
-					defer mu.Unlock()
-					if fHasErrored {
-						return nil
-					}
-					// the filtering shares that buffer thing, and it's CPU bound so why not do it with the lock
-					if !filterPipeline(info) {
-						return nil
-					}
-					if err := f(info); err != nil {
-						fHasErrored = true
-						return err
-					}
-					return nil
-				}(); err != nil {
+
+	// fetch details and filter via a task chain so that order is preserved
+	chain := chunk.NewTaskChain(ctx)
+
+	// spin up goroutines to get the PFS info
+	limiter := limit.New(5)
+	for i := range infos {
+		i := i
+		limiter.Acquire()
+		if err := chain.CreateTask(func(ctx context.Context, serial func(func() error) error) error {
+			defer limiter.Release()
+			if request.Details {
+				if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), infos[i]); err != nil {
 					return err
 				}
 			}
-			return nil
-		})
+			return serial(func() error {
+				if filterPipeline(infos[i]) {
+					return f(infos[i])
+				}
+				return nil
+			})
+		}); err != nil {
+			return err
+		}
 	}
-	return eg.Wait()
+	return chain.Wait()
 }
 
 // listPipelineInfo enumerates all PPS pipelines in the database, filters them
@@ -2745,6 +2700,20 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	return nil, errors.New("unimplemented")
 }
 
+func commitFileSetInTransaction(a pfsServer.APIServer, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, filesetID string) (*pfs.Commit, error) {
+	commit, err := a.StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{Branch: branch})
+	if err != nil {
+		return nil, err
+	}
+	if err := a.AddFileSetInTransaction(txnCtx, &pfs.AddFileSetRequest{Commit: commit, FileSetId: filesetID}); err != nil {
+		return nil, err
+	}
+	if err = a.FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{Commit: commit}); err != nil {
+		return nil, err
+	}
+	return commit, nil
+}
+
 func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2755,7 +2724,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	}
 
 	if pipelineInfo.Details.Input == nil {
-		return nil, errors.Errorf("pipeline must have a cron input")
+		return nil, errors.Errorf("pipeline doesn't have a cron input")
 	}
 
 	// find any cron inputs
@@ -2768,43 +2737,19 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	})
 
 	if len(crons) < 1 {
-		return nil, errors.Errorf("pipeline must have a cron input")
+		return nil, errors.Errorf("pipeline doesn't have a cron input")
 	}
 
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.StartTransaction()
-	if err != nil {
-		return nil, err
-	}
+	// put the same time for all ticks
+	now := time.Now()
 
-	// We need all the DeleteFile and the PutFile requests to happen atomicly
-	txnClient := pachClient.WithTransaction(txn)
-
-	// make a tick on each cron input
-	for _, cron := range crons {
-		// TODO: This isn't transactional, we could support a transactional modify file through the fileset API though.
-		if err := txnClient.WithModifyFileClient(client.NewCommit(cron.Repo, "master", ""), func(mf client.ModifyFile) error {
-			if cron.Overwrite {
-				// get rid of any files, so the new file "overwrites" previous runs
-				err = mf.DeleteFile("/")
-				if err != nil && !errutil.IsNotFoundError(err) {
-					return errors.Wrapf(err, "delete error")
-				}
-			}
-			// Put in an empty file named by the timestamp
-			if err := mf.PutFile(time.Now().Format(time.RFC3339), strings.NewReader("")); err != nil {
-				return errors.Wrapf(err, "put error")
-			}
-			return nil
-		}); err != nil {
+	// add all the ticks. These will be in separate transactions if there are more than one
+	for _, c := range crons {
+		if err := cronTick(a.env.GetPachClient(ctx), now, c); err != nil {
 			return nil, err
 		}
 	}
 
-	_, err = txnClient.FinishTransaction(txn)
-	if err != nil {
-		return nil, err
-	}
 	return &types.Empty{}, nil
 }
 

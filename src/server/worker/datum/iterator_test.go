@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -14,7 +15,7 @@ import (
 
 func TestIterators(t *testing.T) {
 	t.Parallel()
-	env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 	c := env.PachClient
 	dataRepo := tu.UniqueString(t.Name() + "_data")
@@ -288,7 +289,7 @@ func TestIterators(t *testing.T) {
 // ends in a trailing slash.
 //func TestJoinTrailingSlash(t *testing.T) {
 //	t.Parallel()
-//  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+//  env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 //
 //	c := env.PachClient
 //	repo := []string{ // singular name b/c we only refer to individual elements

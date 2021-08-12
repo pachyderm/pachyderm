@@ -53,8 +53,10 @@ func (pi *pfsIterator) Iterate(cb func(*Meta) error) error {
 	pattern := pi.input.Glob
 	return pi.pachClient.GlobFile(client.NewCommit(repo, branch, commit), pattern, func(fi *pfs.FileInfo) error {
 		g := glob.MustCompile(pi.input.Glob, '/')
-		joinOn := g.Replace(fi.File.Path, pi.input.JoinOn)
-		groupBy := g.Replace(fi.File.Path, pi.input.GroupBy)
+		// Remove the trailing slash to support glob replace on directory paths.
+		p := strings.TrimRight(fi.File.Path, "/")
+		joinOn := g.Replace(p, pi.input.JoinOn)
+		groupBy := g.Replace(p, pi.input.GroupBy)
 		return cb(&Meta{
 			Inputs: []*common.Input{
 				&common.Input{

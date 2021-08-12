@@ -2,6 +2,7 @@ package track
 
 import (
 	"context"
+	"database/sql"
 	"sort"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 )
 
 var _ Tracker = &postgresTracker{}
@@ -107,17 +109,41 @@ func (t *postgresTracker) addReferences(tx *sqlx.Tx, intID int, pointsTo []strin
 	return nil
 }
 
-func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
+func (t *postgresTracker) SetTTL(ctx context.Context, id string, ttl time.Duration) (time.Time, error) {
 	var expiresAt time.Time
 	err := t.db.GetContext(ctx, &expiresAt,
 		`UPDATE storage.tracker_objects
 		SET expires_at = CURRENT_TIMESTAMP + $2 * interval '1 microsecond'
-		WHERE str_id LIKE $1 || '%'
-		RETURNING expires_at`, prefix, ttl.Microseconds())
+		WHERE str_id = $1
+		RETURNING expires_at
+	`, id, ttl.Microseconds())
 	if err != nil {
+		if err == sql.ErrNoRows {
+			err = pacherr.NewNotExist("tracker", id)
+		}
 		return time.Time{}, err
 	}
 	return expiresAt, nil
+}
+
+func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, int, error) {
+	var x struct {
+		Count     int       `db:"count"`
+		ExpiresAt time.Time `db:"expires_at"`
+	}
+	err := t.db.GetContext(ctx, &x,
+		`WITH rows AS (
+			UPDATE storage.tracker_objects
+			SET expires_at = CURRENT_TIMESTAMP + $2 * interval '1 microsecond'
+			WHERE str_id LIKE $1 || '%'
+			RETURNING expires_at
+		)
+		SELECT COUNT(*) as count, COALESCE(MIN(expires_at), CURRENT_TIMESTAMP + $2 * interval '1 microsecond') as expires_at FROM rows
+		`, prefix, ttl.Microseconds())
+	if err != nil {
+		return time.Time{}, 0, err
+	}
+	return x.ExpiresAt, x.Count, nil
 }
 
 func (t *postgresTracker) GetDownstream(ctx context.Context, id string) ([]string, error) {
@@ -153,13 +179,26 @@ func (t *postgresTracker) GetUpstream(ctx context.Context, id string) ([]string,
 	return ups, nil
 }
 
+func (t *postgresTracker) GetExpiresAt(ctx context.Context, id string) (time.Time, error) {
+	var expiresAt time.Time
+	if err := t.db.GetContext(ctx, &expiresAt,
+		`SELECT expires_at FROM storage.tracker_objects WHERE str_id = $1
+	`, id); err != nil {
+		if err == sql.ErrNoRows {
+			return time.Time{}, pacherr.NewNotExist("tracker", id)
+		}
+		return time.Time{}, err
+	}
+	return expiresAt, nil
+}
+
 func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
 	var count int
 	if err := tx.Get(&count, `
 		WITH target AS (
 			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
 		)
-		SELECT count(distinct from_id) FROM storage.tracker_refs WHERE to_id IN (SELECT int_id FROM TARGET)
+		SELECT count(distinct from_id) FROM storage.tracker_refs WHERE to_id IN (SELECT int_id FROM target)
 	`, id); err != nil {
 		return err
 	}
@@ -170,7 +209,7 @@ func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
 		WITH target AS (
 			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
 		)
-		DELETE FROM storage.tracker_refs WHERE from_id IN (SELECT int_id FROM TARGET)
+		DELETE FROM storage.tracker_refs WHERE from_id IN (SELECT int_id FROM target)
 	`, id)
 	if err != nil {
 		return err

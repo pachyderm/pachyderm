@@ -5015,6 +5015,45 @@ func TestJoinInput(t *testing.T) {
 		// 1 byte per repo
 		require.Equal(t, expectedNames[i], fi.File.Path)
 	}
+
+	dataRepo0 := "TestJoinInputDirectory-0"
+	require.NoError(t, c.CreateRepo(dataRepo0))
+	masterCommit := client.NewCommit(dataRepo0, "master", "")
+	require.NoError(t, c.PutFile(masterCommit, "/dir-01/foo", strings.NewReader("foo")))
+	dataRepo1 := "TestJoinInputDirectory-1"
+	require.NoError(t, c.CreateRepo(dataRepo1))
+	masterCommit = client.NewCommit(dataRepo1, "master", "")
+	require.NoError(t, c.PutFile(masterCommit, "/dir-10/bar", strings.NewReader("bar")))
+
+	pipeline = tu.UniqueString("join-pipeline-directory")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp -r /pfs/%s/*/. /pfs/out", dataRepo0),
+			fmt.Sprintf("cp -r /pfs/%s/*/. /pfs/out", dataRepo1),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewJoinInput(
+			client.NewPFSInputOpts("", dataRepo0, "", "/dir-(?)(?)", "$2", "", false, false, nil),
+			client.NewPFSInputOpts("", dataRepo1, "", "/dir-(?)(?)", "$1", "", false, false, nil),
+		),
+		"",
+		false,
+	))
+
+	commitInfo, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	fileInfos, err = c.ListFileAll(commitInfo.Commit, "")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+	expectedNames = []string{"/bar", "/foo"}
+	for i, fi := range fileInfos {
+		require.Equal(t, expectedNames[i], fi.File.Path)
+	}
 }
 
 func TestGroupInput(t *testing.T) {
@@ -6141,6 +6180,8 @@ func TestCronPipeline(t *testing.T) {
 	})
 	t.Run("RunCronCross", func(t *testing.T) {
 		pipeline9 := tu.UniqueString("cron9-")
+		// schedule cron ticks so they definitely won't occur
+		futureMonth := int(time.Now().AddDate(0, 2, 0).Month())
 		require.NoError(t, c.CreatePipeline(
 			pipeline9,
 			"",
@@ -6148,8 +6189,8 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"echo 'tick'"},
 			nil,
 			client.NewCrossInput(
-				client.NewCronInput("time1", "@every 3h"),
-				client.NewCronInput("time2", "@every 2h"),
+				client.NewCronInput("time1", fmt.Sprintf("0 0 1 %d *", futureMonth)),
+				client.NewCronInput("time2", fmt.Sprintf("0 0 15 %d *", futureMonth)),
 			),
 			"",
 			false,
@@ -6162,17 +6203,10 @@ func TestCronPipeline(t *testing.T) {
 		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
 		require.NoError(t, err)
 
-		// subscribe to the pipeline1 cron repo and wait for inputs
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
-		defer cancel() //cleanup resources
-		// We expect to see at least three commits, despite the schedules not ticking until three hours, and the timeout 120 seconds
-		repo := pipeline9
-		countBreakFunc := newCountBreakFunc(3)
-		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
-			return countBreakFunc(func() error {
-				return nil
-			})
-		}))
+		// We should see an initial empty commit, exactly six from our RunCron calls (two each), and nothing else
+		commits, err := c.ListCommit(client.NewRepo(pipeline9), nil, nil, 0)
+		require.NoError(t, err)
+		require.Equal(t, 7, len(commits))
 	})
 }
 
@@ -9715,6 +9749,53 @@ func TestExpiredFileset(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.InspectPipeline(pipeline, true)
 	require.NoError(t, err)
+}
+
+func TestListPipelineError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	bad := tu.UniqueString("bad")
+	base := tu.UniqueString("pipeline")
+
+	for i := 0; i < 15; i++ {
+		name := fmt.Sprintf("%s-%d", base, i)
+		if i == 0 {
+			name = bad
+		}
+		require.NoError(t, c.CreatePipeline(
+			name,
+			"",
+			[]string{"bash"},
+			[]string{"echo test"},
+			nil,
+			client.NewPFSInput(dataRepo, "/"),
+			"master",
+			false,
+		))
+	}
+
+	// delete the first pipeline's spec repo, which will cause getting details to error
+	require.NoError(t, c.DeleteRepo(bad, true))
+
+	_, err := c.InspectPipeline(bad, true)
+	require.YesError(t, err)
+
+	// listing without details should be fine
+	_, err = c.ListPipeline(false)
+	require.NoError(t, err)
+
+	// but requesting details will fail, make sure it's due to the missing spec file
+	_, err = c.ListPipeline(true)
+	require.YesError(t, err)
+	require.Matches(t, "spec file", err.Error())
 }
 
 func monitorReplicas(t testing.TB, pipeline string, n int) {

@@ -310,7 +310,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
 				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
 			}
-			return nil, shell.SameFlag(flag)
+			return shell.JobSetCompletion(flag, text, maxCompletions)
 		})
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
 
