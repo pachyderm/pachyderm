@@ -5048,7 +5048,9 @@ func TestPFS(suite *testing.T) {
 					require.NoError(t, err)
 				} else if err == nil {
 					outputBranches = append(outputBranches, client.NewBranch(repo, "master"))
-					require.NoError(t, finishCommit(env.PachClient, repo, "master", ""))
+					if len(provBranches) > 0 {
+						require.NoError(t, finishCommit(env.PachClient, repo, "master", ""))
+					}
 				}
 			case outputBranch:
 				if len(outputRepos) == 0 {
@@ -5081,7 +5083,9 @@ func TestPFS(suite *testing.T) {
 					require.NoError(t, err)
 				} else if err == nil {
 					outputBranches = append(outputBranches, client.NewBranch(repo, branch))
-					require.NoError(t, finishCommit(env.PachClient, repo, branch, ""))
+					if len(provBranches) > 0 {
+						require.NoError(t, finishCommit(env.PachClient, repo, branch, ""))
+					}
 				}
 			case deleteOutputBranch:
 				if len(outputBranches) == 0 {
