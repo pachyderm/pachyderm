@@ -26,20 +26,10 @@ const (
 
 func postgresHost() string {
 	return "127.0.0.1"
-	// TODO: this lets you use minikube or docker desktop on macOS, but doesn't work in CI.
-	// endpoint, isSet := os.LookupEnv("DOCKER_HOST")
-	// if !isSet {
-	// 	return "127.0.0.1"
-	// }
-	// u, err := url.Parse(endpoint)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// host, _, err := net.SplitHostPort(u.Host)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// return host
+	// TODO: it should be possible to set the docker API endpoint using the DOCKER_HOST environment variable.
+	// Switching between minikube and docker desktop on macOS was working with that method.
+	// However, it seems to break in CI, which uses minikube, but doesn't seem to expose the ports on DOCKER_HOST.
+	// So for now we are just hardcoding localhost.
 }
 
 func pgBouncerHost() string {
@@ -105,7 +95,9 @@ func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
 
 var spawnLock sync.Mutex
 
-// TODO: use the docker client.
+// TODO: use the docker client, instead of the bash script
+// TODO: use the bitnami pg_bouncer image
+// TODO: look into https://github.com/ory/dockertest
 func ensureDBEnv(t testing.TB, ctx context.Context) error {
 	spawnLock.Lock()
 	defer spawnLock.Unlock()
