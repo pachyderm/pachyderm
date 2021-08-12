@@ -7,7 +7,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 )
 
 // UnorderedWriter allows writing Files, unordered by path, into multiple ordered filesets.
@@ -19,7 +18,7 @@ type UnorderedWriter struct {
 	buffer                     *Buffer
 	subFileSet                 int64
 	ttl                        time.Duration
-	renewer                    *renew.StringSet
+	renewer                    *Renewer
 	ids                        []ID
 	getParentID                func() (*ID, error)
 	validator                  func(string) error
@@ -115,7 +114,7 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 	}
 	uw.ids = append(uw.ids, *id)
 	if uw.renewer != nil {
-		uw.renewer.Add(id.HexString())
+		uw.renewer.Add(*id)
 	}
 	// Reset fileset buffer.
 	uw.buffer = NewBuffer()
