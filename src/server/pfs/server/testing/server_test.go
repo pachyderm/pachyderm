@@ -5103,6 +5103,10 @@ func TestPFS(suite *testing.T) {
 			}
 			require.NoError(t, env.PachClient.FsckFastExit())
 		}
+
+		// make sure we can delete at the end
+		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+		require.NoError(t, err)
 	})
 
 	// TestAtomicHistory repeatedly writes to a file while concurrently reading
