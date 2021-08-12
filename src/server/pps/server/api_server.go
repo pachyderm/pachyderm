@@ -2474,10 +2474,13 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	pachClient := a.env.GetPachClient(ctx)
 	// Load pipeline details so we can do some cleanup tasks based on certain
 	// input types and the output branch.
-	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
+	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil && !errutil.IsNotFoundError(err) {
 		return err
+	} else if err != nil {
+		logrus.Errorf("couldn't find pipeline info for %q, attempting delete anyway", request.Pipeline.Name)
 	}
 
+	var missingRepo bool
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
 	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
@@ -2487,6 +2490,8 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		if err := a.authorizePipelineOp(ctx, pipelineOpDelete, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
+	} else {
+		missingRepo = true
 	}
 
 	// stop the pipeline to avoid interference from new jobs
@@ -2535,20 +2540,23 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		return err
 	}
 
-	eg = errgroup.Group{}
-	// Delete cron input repos
-	if !request.KeepRepo {
-		pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
-			if input.Cron != nil {
-				eg.Go(func() error {
-					return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
-				})
-			}
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return err
+	// only do this if we were able to read the spec file
+	if pipelineInfo.Details != nil {
+		eg = errgroup.Group{}
+		// Delete cron input repos
+		if !request.KeepRepo {
+			pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
+				if input.Cron != nil {
+					eg.Go(func() error {
+						return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
+					})
+				}
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return err
+		}
 	}
 
 	// Delete PipelineInfo
@@ -2558,28 +2566,30 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		return errors.Wrapf(err, "collection.Delete")
 	}
 
-	if request.KeepRepo {
-		// Remove branch provenance from output and meta
-		if err := pachClient.CreateBranch(
-			request.Pipeline.Name,
-			pipelineInfo.Details.OutputBranch,
-			"",
-			"",
-			nil,
-		); err != nil {
-			return err
-		}
-		if _, err := pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{
-			Branch: client.
-				NewSystemRepo(request.Pipeline.Name, pfs.MetaRepoType).
-				NewBranch(pipelineInfo.Details.OutputBranch),
-		}); err != nil && !errutil.IsNotFoundError(err) {
-			return grpcutil.ScrubGRPC(err)
-		}
-	} else {
-		// delete the pipeline's output repo
-		if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
-			return err
+	if !missingRepo {
+		if !request.KeepRepo {
+			// delete the pipeline's output repo
+			if _, err := a.env.PfsServer().DeleteRepo(ctx, &pfs.DeleteRepoRequest{
+				Repo:  client.NewRepo(request.Pipeline.Name),
+				Force: request.Force,
+			}); err != nil && !errutil.IsNotFoundError(err) {
+				return errors.Wrap(err, "error deleting pipeline repo")
+			}
+		} else if pipelineInfo.Details != nil {
+			// Remove branch provenance from output and meta
+			// we can only proceed if we have details
+			if _, err := a.env.PfsServer().CreateBranch(ctx, &pfs.CreateBranchRequest{
+				Branch: client.NewBranch(request.Pipeline.Name, pipelineInfo.Details.OutputBranch),
+			}); err != nil && !errutil.IsNotFoundError(err) {
+				return err
+			}
+			if _, err := a.env.PfsServer().CreateBranch(ctx, &pfs.CreateBranchRequest{
+				Branch: client.
+					NewSystemRepo(request.Pipeline.Name, pfs.MetaRepoType).
+					NewBranch(pipelineInfo.Details.OutputBranch),
+			}); err != nil && !errutil.IsNotFoundError(err) {
+				return err
+			}
 		}
 	}
 	return nil

@@ -2392,10 +2392,10 @@ func TestDeleteFailedPipeline(t *testing.T) {
 	})
 }
 
-// TestDeletePipelineMissingInput creates a pipeline, force-deletes its input
-// repo, and then confirms that DeletePipeline still works (i.e. the missing
-// repos/ACLs don't cause an auth error).
-func TestDeletePipelineMissingInput(t *testing.T) {
+// TestDeletePipelineMissingRepos creates a pipeline, force-deletes its input
+// and output repos, and then confirms that DeletePipeline still works
+// (i.e. the missing repos/ACLs don't cause an auth error).
+func TestDeletePipelineMissingRepos(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2423,23 +2423,19 @@ func TestDeletePipelineMissingInput(t *testing.T) {
 		false,
 	))
 
-	// force-delete input repo
+	// force-delete input and output repos
 	require.NoError(t, aliceClient.DeleteRepo(repo, true))
+	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
 
 	// Attempt to delete the pipeline--must succeed
 	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pis, err := aliceClient.ListPipeline(false)
-		if err != nil {
-			return err
+	pis, err := aliceClient.ListPipeline(false)
+	require.NoError(t, err)
+	for _, pi := range pis {
+		if pi.Pipeline.Name == pipeline {
+			t.Fatalf("Expected %q to be deleted, but still present", pipeline)
 		}
-		for _, pi := range pis {
-			if pi.Pipeline.Name == pipeline {
-				return errors.Errorf("Expected %q to be deleted, but still present", pipeline)
-			}
-		}
-		return nil
-	})
+	}
 }
 
 // TestDeactivateFSAdmin tests that users with the FS admin role can't call Deactivate
