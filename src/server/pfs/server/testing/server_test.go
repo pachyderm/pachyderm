@@ -1183,15 +1183,15 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, "input", masterCommit.Branch.Name, masterCommit.ID))
 
-		// Make two branches provenant on the same commit on the master branch
+		// Make two branches pointing to (aliases of) the commit on the master branch
 		require.NoError(t, env.PachClient.CreateBranch("input", "A", masterCommit.Branch.Name, masterCommit.ID, nil))
 		require.NoError(t, env.PachClient.CreateBranch("input", "B", masterCommit.Branch.Name, masterCommit.ID, nil))
 
 		// Now create a branch provenant on both branches A and B
 		require.NoError(t, env.PachClient.CreateBranch("output", "C", "", "", []*pfs.Branch{client.NewBranch("input", "A"), client.NewBranch("input", "B")}))
 
-		// The head commit of the C branch should have the same ID as the new head
-		// of branches A and B
+		// The head commit of the C branch should have the same ID as the new heads
+		// of branches A and B, aliases of the old ones
 		ci, err := env.PachClient.InspectCommit("output", "C", "")
 		require.NoError(t, err)
 		aHead, err := env.PachClient.InspectCommit("input", "A", "")
@@ -5013,7 +5013,11 @@ func TestPFS(suite *testing.T) {
 				infos, err := env.PachClient.InspectCommitSet(commit.ID)
 				require.NoError(t, err)
 				for _, info := range infos {
-					require.NoError(t, finishCommit(env.PachClient, info.Commit.Branch.Repo.Name, info.Commit.Branch.Name, commit.ID))
+					if info.Origin.Kind == pfs.OriginKind_ALIAS {
+						continue
+					}
+					require.NoError(t, finishCommit(env.PachClient,
+						info.Commit.Branch.Repo.Name, info.Commit.Branch.Name, commit.ID))
 				}
 				commits = append(commits, commit)
 			case squashCommitSet:
@@ -5043,6 +5047,7 @@ func TestPFS(suite *testing.T) {
 				if err != nil && !strings.Contains(err.Error(), "cannot be in the provenance of its own branch") {
 					require.NoError(t, err)
 					outputBranches = append(outputBranches, client.NewBranch(repo, "master"))
+					require.NoError(t, finishCommit(env.PachClient, repo, "master", ""))
 				}
 			case outputBranch:
 				if len(outputRepos) == 0 {
@@ -5074,6 +5079,7 @@ func TestPFS(suite *testing.T) {
 				if err != nil && !strings.Contains(err.Error(), "cannot be in the provenance of its own branch") {
 					require.NoError(t, err)
 					outputBranches = append(outputBranches, client.NewBranch(repo, branch))
+					require.NoError(t, finishCommit(env.PachClient, repo, branch, ""))
 				}
 			case deleteOutputBranch:
 				if len(outputBranches) == 0 {

@@ -1355,6 +1355,11 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 
 		// make sure all children are finished, so we don't lose data
 		for _, child := range commitInfo.ChildCommits {
+			if _, ok := deleted[pfsdb.CommitKey(child)]; ok {
+				// this child is being deleted, any files from this commit will end up
+				// as part of *its* children, which have already been checked
+				continue
+			}
 			var childInfo pfs.CommitInfo
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(child, &childInfo); err != nil {
 				return errors.Wrapf(err, "error checking child commit state")
