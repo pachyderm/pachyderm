@@ -15,7 +15,8 @@ sudo apt-get install -y -qq \
   fuse \
   conntrack \
   pv \
-  shellcheck
+  shellcheck \
+  docker-ce-cli
 
 # Install fuse
 sudo modprobe fuse
