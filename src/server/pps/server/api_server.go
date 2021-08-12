@@ -2510,8 +2510,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		// revoking
 		if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err == nil {
 			// 'pipelineInfo' == nil => remove pipeline from all input repos
-			if err := a.fixPipelineInputRepoACLs(ctx, nil, pipelineInfo); err != nil {
-				return grpcutil.ScrubGRPC(err)
+			if pipelineInfo.Details != nil {
+				// need details for acls
+				if err := a.fixPipelineInputRepoACLs(ctx, nil, pipelineInfo); err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
 			}
 			if _, err := pachClient.RevokeAuthToken(pachClient.Ctx(),
 				&auth.RevokeAuthTokenRequest{
