@@ -1856,7 +1856,8 @@ func (a *apiServer) CreatePipelineInTransaction(
 	prevPipelineVersion *uint64,
 ) error {
 	oldPipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
-	if err != nil {
+	if err != nil && !ppsServer.IsPipelineNotFoundErr(err) {
+		// silently ignore pipeline not found, old info will be nil
 		return err
 	}
 	pipelineName := request.Pipeline.Name
@@ -2474,10 +2475,13 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	pachClient := a.env.GetPachClient(ctx)
 	// Load pipeline details so we can do some cleanup tasks based on certain
 	// input types and the output branch.
-	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
+	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil && !errutil.IsNotFoundError(err) {
 		return err
+	} else if err != nil {
+		logrus.Errorf("couldn't find pipeline info for %q, attempting delete anyway", request.Pipeline.Name)
 	}
 
+	var missingRepo bool
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
 	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
@@ -2487,10 +2491,15 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		if err := a.authorizePipelineOp(ctx, pipelineOpDelete, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
+	} else {
+		missingRepo = true
 	}
 
 	// stop the pipeline to avoid interference from new jobs
-	if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
+	if _, err := a.StopPipeline(ctx,
+		&pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil && errutil.IsNotFoundError(err) {
+		logrus.Errorf("failed to stop pipeline, continuing with delete: %v", err)
+	} else if err != nil {
 		return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline.Name)
 	}
 
@@ -2501,8 +2510,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		// revoking
 		if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err == nil {
 			// 'pipelineInfo' == nil => remove pipeline from all input repos
-			if err := a.fixPipelineInputRepoACLs(ctx, nil, pipelineInfo); err != nil {
-				return grpcutil.ScrubGRPC(err)
+			if pipelineInfo.Details != nil {
+				// need details for acls
+				if err := a.fixPipelineInputRepoACLs(ctx, nil, pipelineInfo); err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
 			}
 			if _, err := pachClient.RevokeAuthToken(pachClient.Ctx(),
 				&auth.RevokeAuthTokenRequest{
@@ -2535,20 +2547,23 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		return err
 	}
 
-	eg = errgroup.Group{}
-	// Delete cron input repos
-	if !request.KeepRepo {
-		pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
-			if input.Cron != nil {
-				eg.Go(func() error {
-					return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
-				})
-			}
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return err
+	// only do this if we were able to read the spec file
+	if pipelineInfo.Details != nil {
+		eg = errgroup.Group{}
+		// Delete cron input repos
+		if !request.KeepRepo {
+			pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
+				if input.Cron != nil {
+					eg.Go(func() error {
+						return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
+					})
+				}
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return err
+		}
 	}
 
 	// Delete PipelineInfo
@@ -2558,28 +2573,32 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		return errors.Wrapf(err, "collection.Delete")
 	}
 
-	if request.KeepRepo {
-		// Remove branch provenance from output and meta
-		if err := pachClient.CreateBranch(
-			request.Pipeline.Name,
-			pipelineInfo.Details.OutputBranch,
-			"",
-			"",
-			nil,
-		); err != nil {
-			return err
-		}
-		if _, err := pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{
-			Branch: client.
-				NewSystemRepo(request.Pipeline.Name, pfs.MetaRepoType).
-				NewBranch(pipelineInfo.Details.OutputBranch),
-		}); err != nil && !errutil.IsNotFoundError(err) {
-			return grpcutil.ScrubGRPC(err)
-		}
-	} else {
-		// delete the pipeline's output repo
-		if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
-			return err
+	if !missingRepo {
+		if !request.KeepRepo {
+			// delete the pipeline's output repo
+			if _, err := a.env.PfsServer().DeleteRepo(ctx, &pfs.DeleteRepoRequest{
+				Repo:  client.NewRepo(request.Pipeline.Name),
+				Force: request.Force,
+			}); err != nil && !errutil.IsNotFoundError(err) {
+				return errors.Wrap(err, "error deleting pipeline repo")
+			}
+		} else if pipelineInfo.Details != nil {
+			// Remove branch provenance from output and meta
+			// we can only proceed if we have details
+			if _, err := a.env.PfsServer().CreateBranch(ctx, &pfs.CreateBranchRequest{
+				Branch: client.NewBranch(request.Pipeline.Name, pipelineInfo.Details.OutputBranch),
+			}); err != nil && !errutil.IsNotFoundError(err) {
+				return err
+			}
+			if _, err := a.env.PfsServer().CreateBranch(ctx, &pfs.CreateBranchRequest{
+				Branch: client.
+					NewSystemRepo(request.Pipeline.Name, pfs.MetaRepoType).
+					NewBranch(pipelineInfo.Details.OutputBranch),
+			}); err != nil && !errutil.IsNotFoundError(err) {
+				return err
+			}
+		} else {
+			return errors.New("pipeline deletion incomplete, provenance may still be intact")
 		}
 	}
 	return nil
@@ -2641,15 +2660,15 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		pipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
-		if err != nil {
-			return err
-		}
-
 		// make sure the repo exists
 		if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 			Repo: client.NewRepo(request.Pipeline.Name),
 		}); err == nil {
+			pipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
+			if err != nil {
+				return err
+			}
+
 			// check if the caller is authorized to update this pipeline
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
 			// so we don't need to check any permissions
