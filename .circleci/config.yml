@@ -30,6 +30,7 @@ jobs:
       TEST_RESULTS_BUCKET: pach-test-data
     steps:
       - checkout
+      - run: git merge origin/master
       - restore_cache:
          keys:
          - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
