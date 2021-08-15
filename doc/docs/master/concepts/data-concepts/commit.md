@@ -31,7 +31,7 @@ That origin can be of 3 types:
 - `USER`: The commit is the result of a user change (`put file`, `update pipeline`, `delete file`...)
     
     !!! Info
-        Every initial change is a `USER` change.
+        Every `USER` change is an initial commit.
 
 - `AUTO`: Pachyderm's pipelines are data-driven. A data commit to a data repository may
     trigger downstream processing jobs in your pipeline(s). The output commits from
@@ -48,8 +48,8 @@ That origin can be of 3 types:
 Each commit has an alphanumeric identifier (ID) that you can reference in the `<repo>@<commitID>` format (or `<repo>@<branch>=<commitID>` if the commit has multiple branches from the same repo) .
 
 You can obtain information about all commits with a given ID
-by running `list commit <commitID>` or restrict to a particular repository `list commit <repo>`,
-`list commit <repo>@<branch>`, or `inspect commit <repo>@<commitID> --raw`.
+by running `pachctl list commit <commitID>` or restrict to a particular repository `pachctl list commit <repo>`,
+`pachctl list commit <repo>@<branch>`, or `pachctl inspect commit <repo>@<commitID> --raw`.
 
 ## List Commits
 - The `pachctl list commit` command returns list of all global commits. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-global-commits-and-global-jobs).

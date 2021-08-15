@@ -13,9 +13,9 @@ When you commit data to Pachyderm, your new commit has an ID associated with it 
 
 This ability to track down related commits and jobs with one global identifier brought the need to introduce a new scope to our original concepts of [job](./job.md) and [commit](./commit.md):
 
-- A commit with a `global` scope (**global commit**), referred to in our CLI as `pachctl commit <commitID>` represents "the set of all provenance-dependent commits sharing the same ID". The same term of `commit`, applied to the more focused scope of a repo (`pachctl commit <repo>@<commitID>` or `pachctl commit <repo>@, branch>=<commitID>`), represents "a "Git-like" record of the state of a single repository's file system".
+- A commit with a `global` scope (**global commit**), referred to in our CLI as `pachctl list commit <commitID>` represents "the set of all provenance-dependent commits sharing the same ID". The same term of `commit`, applied to the more focused scope of a repo (`pachctl list commit <repo>@<commitID>` or `pachctl list commit <repo>@, branch>=<commitID>`), represents "a Git-like record of the state of a single repository's file system".
 Similarly, the same nuances in the scope of a job give the term two possible meanings:
-- A job with a `global` scope (**global job**),  referred to in our CLI as `pachctl job <commitID>`, is "the set of jobs created due to commits in a global commit". Narrowing down the scope to a single pipeline (`pachctl job <pipeline>@<commitID>`) shifts the meaning to "an execution of a given pipeline of your DAG".
+- A job with a `global` scope (**global job**),  referred to in our CLI as `pachctl list job <commitID>`, is "the set of jobs created due to commits in a global commit". Narrowing down the scope to a single pipeline (`pachctl list job <pipeline>@<commitID>`) shifts the meaning to "an execution of a given pipeline of your DAG".
 
 Using this global identifier you can:
 
@@ -193,7 +193,7 @@ Unlike the `list commit <commitID>`, each line is printed as soon as a new (sub)
 
 Change `commit` in `job` to list the jobs related to your global job as they finish processing a commit.
 
-## Squash Commit
+## Squash A Global Commit
 
 `pachctl squash commit 1035715e796f45caae7a1d3ffd1f93ca`
 **combines all the file changes in the commits of a global commit
@@ -201,5 +201,3 @@ into their children** and then removes the global commit.
 This behavior is inspired by the squash option in git rebase.
 No data stored in PFS is removed.
 
-!!! Warning
-    Squashing a global commit on the head of a branch (no children) results in a new identical global commit being created.
