@@ -118,6 +118,7 @@
   status = 301
   force = true 
 
+
 [[redirects]]
   from = "/latest/how-tos/use-jupyterhub/"
   to = "/latest/how-tos/use-pachyderm-ide/"
@@ -225,6 +226,12 @@
   to = "/latest/how-tos/pipeline-operations/monitor-job-progress/"
   status = 301
   force = true
+
+[[redirects]]
+  from = "/2.0.x/how-tos/pipeline-operations/monitor-job-progress/"
+  to = "/latest/concepts/pipeline-concepts/job/"
+  status = 301
+  force = true 
 
 [[redirects]]
   from = "/latest/how-tos/create-ml-workflow/"

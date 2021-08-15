@@ -104,23 +104,9 @@ semantics. You can use the `-p <pipeline>` flag with the
 `pachctl list job` command to list all the jobs that were run
 for the latest version of the pipeline. To view a previous version
 of a pipeline you can add the caret symbol to the end of the
-pipeline name. For example `-p edges^`.
+pipeline name. For example `pachctl list job -p edges^`.
 
-Furthermore, you can get jobs from multiple versions of
-pipelines by passing the `--history` flag. For example,
-`pachctl list job  --history all` returns all jobs from all
-versions of all pipelines.
-
-To view job history, run the following command:
-
-* By using the `-p` flag:
-
-  ```shell
-  pachctl list job -p <pipeline^>
-  ```
-
-* By using the `history` flag:
-
-  ```shell
-  pachctl list job --history all
-  ```
+Furthermore, you can get jobs from multiple versions of a
+pipeline by passing the `--history` flag. For example,
+`pachctl list job -p edges --history all` returns all jobs from all
+versions of the pipeline edges.
