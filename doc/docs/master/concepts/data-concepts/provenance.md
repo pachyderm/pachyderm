@@ -45,7 +45,7 @@ complete audit trail so that all results are reproducible.
 
 The following diagram demonstrates how provenance works:
 
-![Provenance example](../../assets/images/provenance.svg) (needs updated commit IDs)
+![Provenance example](../../assets/images/provenance.svg) 
 
 
 In the diagram above, you can see two input repositories called `params`
