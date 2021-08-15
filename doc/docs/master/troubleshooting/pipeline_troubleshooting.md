@@ -94,11 +94,7 @@ Data failures can be triaged in a few different way depending on the nature of t
 
 In some cases, where malformed datums are expected to happen occasionally, they can be “swallowed” (e.g. marked as successful using `transform.accept_return_codes` or written out to a “failed_datums” directory and handled within user code). This would simply require the necessary updates to the user code and pipeline config as described above.  For cases where your code detects bad input data, a "dead letter queue" design pattern may be needed.  Many pachyderm developers use a special directory in each output repo for "bad data" and pipelines with globs for detecting bad data direct that data for automated and manual intervention.
 
-Pachyderm's engineering team is working on changes to the Pachyderm Pipeline System in a future release that may make implementation of design patterns like this easier.   [Take a look at the pipeline design changes for pachyderm 1.9](https://github.com/pachyderm/pachyderm/issues/3345)
-
 If a few files as part of the input commit are causing the failure, they can simply be removed from the HEAD commit with `start commit`, `delete file`, `finish commit`. The files can also be corrected in this manner as well. This method is similar to a revert in Git -- the “bad” data will still live in the older commits in Pachyderm, but will not be part of the HEAD commit and therefore not processed by the pipeline.
-
-If the entire commit is bad and you just want to remove it forever as if it never happened, `delete commit` will both remove that commit and all downstream commits and jobs that were created as downstream effects of that input data. 
 
 ### System-level Failures
 
@@ -161,26 +157,11 @@ rescheduled to a different node, where the same thing will happen.
 
 #### Symptom
 
-You can see the pipeline via:
+You can see the pipeline via `pachctl list pipeline`, but if you look at the job via `pachctl list job`,
+it's marked as running with `0/0` datums having been processed.  
+If you inspect the job via `pachctl inspect job`, you don't see any worker set. 
 
-```
-pachctl list pipeline
-```
-
-But if you look at the job via:
-
-```
-pachctl list job
-```
-
-It's marked as running with `0/0` datums having been processed.  If you inspect the job via:
-
-```
-pachctl inspect job
-```
-
-You don't see any worker set. E.g:
-
+E.g:
 ```
 Worker Status:
 WORKER              JOB                 DATUM               STARTED             
