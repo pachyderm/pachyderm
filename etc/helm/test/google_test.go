@@ -10,7 +10,6 @@ import (
 	"github.com/gruntwork-io/terratest/modules/helm"
 	appsV1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	storageV1 "k8s.io/api/storage/v1"
 )
 
 //Etcd / Pachd Storage Class - Should test  storage class name elsewhere
@@ -37,7 +36,6 @@ func TestGoogle(t *testing.T) {
 	}
 	var (
 		expectedServiceAccount = "my-fine-sa"
-		expectedProvisioner    = "kubernetes.io/gce-pd"
 		expectedStorageBackend = "GOOGLE"
 	)
 	helmValues := map[string]string{
@@ -54,10 +52,6 @@ func TestGoogle(t *testing.T) {
 		"templates/pachd/deployment.yaml":                 false,
 		"templates/pachd/rbac/serviceaccount.yaml":        false,
 		"templates/pachd/rbac/worker-serviceaccount.yaml": false,
-		"templates/etcd/statefulset.yaml":                 false,
-		"templates/etcd/storageclass-gcp.yaml":            false,
-		"templates/postgresql/statefulset.yaml":           false,
-		"templates/postgresql/storageclass-gcp.yaml":      false,
 	}
 
 	templatesToRender := []string{}
@@ -119,52 +113,7 @@ func TestGoogle(t *testing.T) {
 				}
 			})
 			templatesToCheck["templates/pachd/deployment.yaml"] = true
-		case *storageV1.StorageClass:
-			if resource.Name == "postgresql-storage-class" || resource.Name == "etcd-storage-class" {
 
-				t.Run(fmt.Sprintf("%s storage class annotation equals %s", resource.Name, expectedProvisioner), func(t *testing.T) {
-					if resource.Provisioner != expectedProvisioner {
-						t.Errorf("expected storageclass provisioner to be %q but it was %q", expectedProvisioner, resource.Provisioner)
-					}
-				})
-
-				if resource.Name == "postgresql-storage-class" {
-					templatesToCheck["templates/postgresql/storageclass-gcp.yaml"] = true
-				}
-				if resource.Name == "etcd-storage-class" {
-					templatesToCheck["templates/etcd/storageclass-gcp.yaml"] = true
-				}
-			}
-		case *appsV1.StatefulSet:
-			if resource.Name == "etcd" || resource.Name == "postgres" {
-
-				for _, pvc := range resource.Spec.VolumeClaimTemplates {
-					// Check Google Default Storage Request
-					expectedStorageSize := "50Gi"
-
-					if pvc.Name == "etcd-storage" {
-						t.Run(fmt.Sprintf("%s storage class storage resource request equals %s", resource.Name, expectedStorageSize), func(t *testing.T) {
-							if got := pvc.Spec.Resources.Requests.Storage().String(); got != expectedStorageSize {
-								t.Errorf("expected stateful set storage resource request to be %q but it was %q", expectedStorageSize, got)
-
-							}
-						})
-						templatesToCheck["templates/etcd/statefulset.yaml"] = true
-					}
-
-					if pvc.Name == "postgres-storage" {
-						t.Run(fmt.Sprintf("%s storage class storage resource request equals %s", resource.Name, expectedStorageSize), func(t *testing.T) {
-							if got := pvc.Spec.Resources.Requests.Storage().String(); got != expectedStorageSize {
-								t.Errorf("expected stateful set storage resource request to be %q but it was %q", expectedStorageSize, got)
-
-							}
-						})
-						templatesToCheck["templates/postgresql/statefulset.yaml"] = true
-
-					}
-
-				}
-			}
 		}
 	}
 
