@@ -8,7 +8,9 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -17,7 +19,18 @@ const (
 	jobsCollectionName      = "jobs"
 )
 
-var pipelinesIndexes = []*col.Index{}
+// PipelinesVersionIndex records the version numbers of pipelines
+var PipelinesVersionIndex = &col.Index{
+	Name: "version",
+	Extract: func(val proto.Message) string {
+		info := val.(*pps.PipelineInfo)
+		return fmt.Sprintf("%s@%d", info.Pipeline.Name, info.Version)
+	},
+}
+
+var pipelinesIndexes = []*col.Index{
+	PipelinesVersionIndex,
+}
 
 // Pipelines returns a PostgresCollection of pipelines
 func Pipelines(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
@@ -26,7 +39,16 @@ func Pipelines(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollectio
 		db,
 		listener,
 		&pps.PipelineInfo{},
-		nil,
+		pipelinesIndexes,
+		col.WithKeyGen(func(key interface{}) (string, error) {
+			if commit, ok := key.(*pfs.Commit); ok {
+				if commit.Branch.Repo.Type != pfs.SpecRepoType {
+					return "", errors.Errorf("commit %s is not from a spec repo", commit)
+				}
+				return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
+			}
+			return "", errors.New("must provide a spec commit")
+		}),
 	)
 }
 
