@@ -116,7 +116,10 @@ spec:
               resource: requests.memory
         {{- end }}
         - name: CLUSTER_DEPLOYMENT_ID
-          value: {{ include "pachyderm.clusterDeploymentId" . | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: deployment-id-secret
+              key: CLUSTER_DEPLOYMENT_ID
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
         - name: PACHD_POD_NAME

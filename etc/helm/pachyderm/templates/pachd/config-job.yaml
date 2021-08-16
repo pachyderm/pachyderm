@@ -21,9 +21,17 @@ spec:
         volumeMounts:
         - name: config
           mountPath: "/pachConfig"
-        envFrom:
-          - secretRef:
+        env:
+        - name: CONSOLE_OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
               name: console-secret
+              key: OAUTH_CLIENT_SECRET
+        - name: CLUSTER_DEPLOYMENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: deployment-id-secret
+              key: CLUSTER_DEPLOYMENT_ID
       restartPolicy: Never
       volumes:
       - name: config

@@ -54,9 +54,11 @@ spec:
           value: {{ .Values.console.config.oauthPachdClientID | quote }}
         - name: PACHD_ADDRESS
           value: {{ .Values.console.config.pachdAddress | quote }}
-        envFrom:
-          - secretRef:
+        - name: OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
               name: console-secret
+              key: OAUTH_CLIENT_SECRET
         {{- if .Values.console.resources }}
         resources: {{ toYaml .Values.console.resources | nindent 10 }}
         {{- end }}
