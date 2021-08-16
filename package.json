@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "test": "jest --max-workers=6",
+    "test": "jest --max-workers=1",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "build": "npm run clean && npm run build:src && npm run build:types",
     "build:src": "tsc -p tsconfig.json",
