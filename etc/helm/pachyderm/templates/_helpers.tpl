@@ -31,9 +31,9 @@ LOCAL
 {{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.clusterDeploymentID "hashSalt" "deploymentID" "onlyDefault" .Release.IsUpgrade) }}
 {{- end -}}
 
-{{- define "pachyderm.enterpriseSecret" -}}
-{{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.enterpriseSecret "hashSalt" "enterpriseSecret" "onlyDefault" .Release.IsUpgrade) }}
-{{- end -}}
+# {{- define "pachyderm.enterpriseSecret" -}}
+# {{ include "defaultOrStableHash" (dict "defaultValue" .Values.pachd.enterpriseSecret "hashSalt" "enterpriseSecret" "onlyDefault" .Release.IsUpgrade) }}
+# {{- end -}}
 
 
 ## Input:
@@ -64,4 +64,12 @@ LOCAL
         {{- derivePassword 1 "long" (now | toString | trunc 16) .hashSalt "pachyderm" -}}
     {{- end }}
 {{- end }}
+{{- end -}}
+
+{{- define "pachyderm.enterpriseSecret" -}}
+{{ default (randAlphaNum 32) .Values.pachd.enterpriseSecret }}
+{{- end -}}
+
+{{- define "pachyderm.pachClientSecret" -}}
+{{ default (randAlphaNum 32) .Values.pachd.oauthClientSecret }}
 {{- end -}}

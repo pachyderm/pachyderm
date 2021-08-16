@@ -21,6 +21,9 @@ spec:
         volumeMounts:
         - name: config
           mountPath: "/pachConfig"
+        envFrom:
+          - secretRef:
+              name: console-secret
       restartPolicy: Never
       volumes:
       - name: config
