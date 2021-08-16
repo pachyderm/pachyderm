@@ -378,6 +378,9 @@
                         }
                     }
                 },
+                "oauthClientSecret": {
+                    "type": "string"
+                },
                 "podLabels": {
                     "type": "object"
                 },
