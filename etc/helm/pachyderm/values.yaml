@@ -86,8 +86,7 @@ etcd:
   # --etcd-storage-class argument to pachctl deploy.
   storageClass: ""
   # storageSize specifies the size of the volume to use for etcd.
-  # If you do not specify, it will default to 256Gi on Azure and 100Gi on GCP/AWS
-  storageSize: ""
+  storageSize: 10Gi
   service:
     # annotations specifies annotations to add to the etcd service.
     annotations: {}
@@ -362,6 +361,8 @@ postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
   enabled: true
   storageClass: ""
+  # storageSize specifies the size of the volume to use for postgresql
+  storageSize: 10Gi
   service:
     type: "ClusterIP"
   resources: {}

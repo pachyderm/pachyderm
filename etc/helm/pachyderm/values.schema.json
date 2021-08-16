@@ -606,6 +606,9 @@
                 },
                 "storageClass": {
                     "type": "string"
+                },
+                "storageSize": {
+                    "type": "string"
                 }
             }
         },
