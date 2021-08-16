@@ -1239,8 +1239,8 @@ func TestPFS(suite *testing.T) {
 		// We should be able to squash the parent commits of A and B Head
 		require.NoError(t, env.PachClient.SquashCommitSet(aHead.ParentCommit.ID))
 
-		// Now, squashing the head of A and B and C should leave each of them with just an empty head commit
-		require.NoError(t, env.PachClient.SquashCommitSet(aHead.Commit.ID))
+		// Now, dropping the head of A and B and C should leave each of them with just an empty head commit
+		require.NoError(t, env.PachClient.DropCommitSet(aHead.Commit.ID))
 
 		_, err = env.PachClient.InspectCommit("output", "C", "")
 		require.NoError(t, err)
