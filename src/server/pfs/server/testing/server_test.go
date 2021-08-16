@@ -4709,7 +4709,7 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("SquashCommitEmptyChild", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		file := "foo"
