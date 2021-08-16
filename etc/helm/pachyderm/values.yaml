@@ -431,9 +431,8 @@ cloudsqlAuthProxy:
   # podLabels specifies labels to add to the dash pod.
   podLabels: {}
   # resources specifies the resource request and limits.
-  resources:
-    {}
-    # requests:
+  resources: {}
+  # requests:
     #   The proxy's memory use scales linearly with the number of active
     #   connections. Fewer open connections will use less memory. Adjust
     #   this value based on your application's requirements.
