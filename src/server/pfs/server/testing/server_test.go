@@ -767,7 +767,7 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DropCommitSet", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
+		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
