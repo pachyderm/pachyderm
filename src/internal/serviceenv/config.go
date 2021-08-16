@@ -50,7 +50,6 @@ type GlobalConfiguration struct {
 	SessionDurationMinutes int `env:"SESSION_DURATION_MINUTES,default=43200"`
 
 	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
-	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
 
 	// PPSSpecCommitID and PPSPipelineName are only set for workers and sidecar
 	// pachd instances. Because both pachd and worker need to know the spec commit
