@@ -5010,6 +5010,7 @@ func TestPFS(suite *testing.T) {
 				branch := inputBranches[r.Intn(len(inputBranches))]
 				commit, err := env.PachClient.StartCommit(branch.Repo.Name, branch.Name)
 				require.NoError(t, err)
+				require.NoError(t, env.PachClient.FinishCommit(branch.Repo.Name, branch.Name, ""))
 				// find and finish all commits in output branches, too
 				infos, err := env.PachClient.InspectCommitSet(commit.ID)
 				require.NoError(t, err)
