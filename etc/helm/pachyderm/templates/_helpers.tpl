@@ -23,6 +23,10 @@ LOCAL
 {{- end -}}
 {{- end -}}
 
+{{- define "pachyderm.consoleSecret" -}}
+{{ default (randAlphaNum 32) .Values.console.config.oauthClientSecret }}
+{{- end -}}
+
 {{- define "pachyderm.clusterDeploymentId" -}}
 {{ default (randAlphaNum 32) .Values.pachd.clusterDeploymentID }}
 {{- end -}}
@@ -33,8 +37,4 @@ LOCAL
 
 {{- define "pachyderm.pachClientSecret" -}}
 {{ default (randAlphaNum 32) .Values.pachd.oauthClientSecret }}
-{{- end -}}
-
-{{- define "pachyderm.consoleSecret" -}}
-{{ default (randAlphaNum 32) .Values.console.config.oauthClientSecret }}
 {{- end -}}
