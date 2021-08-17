@@ -40,7 +40,7 @@ spec:
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres # Must match secret setup by postgres subchart
+              name: postgres # Must match secret setup by postgres subchart, or postgres-secret.yaml 
               key: postgresql-password
         image: edoburu/pgbouncer:1.15.0
         imagePullPolicy: IfNotPresent
