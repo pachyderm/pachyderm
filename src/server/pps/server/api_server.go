@@ -2374,7 +2374,19 @@ func (a *apiServer) listPipelineInfo(ctx context.Context,
 		return f(p)
 	}
 	if pipeline != nil {
-		return a.pipelines.ReadOnly(ctx).GetByIndex(ppsdb.PipelinesNameIndex, pipeline.Name, p, col.DefaultOptions(), checkPipelineVersion)
+		if err := a.pipelines.ReadOnly(ctx).GetByIndex(
+			ppsdb.PipelinesNameIndex,
+			pipeline.Name,
+			p,
+			col.DefaultOptions(),
+			checkPipelineVersion); err != nil {
+			return err
+		}
+		if len(versionMap) == 0 {
+			// pipeline didn't exist after all
+			return ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
+		}
+		return nil
 	}
 	return a.pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), checkPipelineVersion)
 }
