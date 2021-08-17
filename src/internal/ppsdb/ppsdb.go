@@ -34,8 +34,18 @@ func VersionKey(pipeline string, version uint64) string {
 	return fmt.Sprintf("%s@%04d", pipeline, version)
 }
 
+// PipelinesNameIndex records the name of pipelines
+var PipelinesNameIndex = &col.Index{
+	Name: "name",
+	Extract: func(val proto.Message) string {
+		info := val.(*pps.PipelineInfo)
+		return info.Pipeline.Name
+	},
+}
+
 var pipelinesIndexes = []*col.Index{
 	PipelinesVersionIndex,
+	PipelinesNameIndex,
 }
 
 // Pipelines returns a PostgresCollection of pipelines
