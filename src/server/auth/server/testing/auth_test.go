@@ -552,7 +552,6 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
 		require.Equal(t, "", pipelineInfo.AuthToken)
-		require.Nil(t, pipelineInfo.Details)
 	}
 
 	// Users can access a spec commit even if they can't list the repo itself,

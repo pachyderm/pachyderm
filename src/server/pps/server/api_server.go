@@ -2206,7 +2206,9 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 		return nil, err
 	}
 
-	if details {
+	if !details {
+		info.Details = nil // preserve old behavior
+	} else {
 		kubeClient := a.env.GetKubeClient()
 		if info.Details.Service != nil {
 			rcName := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)

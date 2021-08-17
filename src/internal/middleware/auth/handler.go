@@ -75,6 +75,10 @@ func GetWhoAmI(ctx context.Context) string {
 	return ""
 }
 
+func ClearWhoAmI(ctx context.Context) context.Context {
+	return context.WithValue(ctx, whoAmIResultKey, "")
+}
+
 func setWhoAmI(ctx context.Context, username string) context.Context {
 	return context.WithValue(ctx, whoAmIResultKey, username)
 }

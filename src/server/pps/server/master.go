@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -110,6 +111,8 @@ func (a *apiServer) master() {
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
+		// set internal auth for basic operations
+		ctx = auth.AsInternalUser(ctx, "pps-master")
 		defer cancel()
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {

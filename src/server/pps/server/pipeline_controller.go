@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	auth_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -139,8 +140,8 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 
 	// add pipeline auth
 	pachClient := m.a.env.GetPachClient(ctx)
+	op.ctx = auth_middleware.ClearWhoAmI(pachClient.Ctx())
 	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
-	op.ctx = pachClient.Ctx()
 	return op, nil
 }
 
