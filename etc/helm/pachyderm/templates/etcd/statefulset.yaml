@@ -81,7 +81,9 @@ spec:
       name: etcd-storage
       namespace: {{ .Release.Namespace }}
     spec:
+      {{- if .Values.etcd.storageClass }}
       storageClassName: {{ .Values.etcd.storageClass }}
+      {{- end }}
       accessModes:
       - ReadWriteOnce
       resources:
