@@ -377,7 +377,7 @@ func (op *pipelineOp) rcIsFresh() bool {
 // collection watch event and cause step() to eventually run again.
 func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) error {
 	if err := op.m.a.setPipelineState(op.ctx,
-		op.pipelineInfo.Pipeline.Name, state, reason); err != nil {
+		op.pipelineInfo.SpecCommit, state, reason); err != nil {
 		// don't bother failing if we can't set the state
 		return stepError{
 			error: errors.Wrapf(err, "could not set pipeline state to %v"+

@@ -223,7 +223,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 					m.a.env.GetEtcdClient(), pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
 				if err := m.a.transitionPipelineState(ctx,
-					pipeline,
+					pipelineInfo.SpecCommit,
 					[]pps.PipelineState{
 						pps.PipelineState_PIPELINE_RUNNING,
 						pps.PipelineState_PIPELINE_CRASHING,
@@ -261,7 +261,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 							"commit", ci.Commit.ID)
 
 						if err := m.a.transitionPipelineState(ctx,
-							pipeline,
+							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{pps.PipelineState_PIPELINE_STANDBY},
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 
@@ -303,7 +303,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 						}
 
 						if err := m.a.transitionPipelineState(ctx,
-							pipeline,
+							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{
 								pps.PipelineState_PIPELINE_RUNNING,
 								pps.PipelineState_PIPELINE_CRASHING,
@@ -394,7 +394,7 @@ func (m *ppsMaster) monitorCrashingPipeline(ctx context.Context, pipelineInfo *p
 			return errors.Wrap(err, "could not check if all workers are up")
 		}
 		if int(parallelism) == len(workerStatus) {
-			if err := m.a.transitionPipelineState(ctx, pipeline,
+			if err := m.a.transitionPipelineState(ctx, pipelineInfo.SpecCommit,
 				[]pps.PipelineState{pps.PipelineState_PIPELINE_CRASHING},
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 				return errors.Wrap(err, "could not transition pipeline to RUNNING")

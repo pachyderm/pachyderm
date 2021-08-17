@@ -63,7 +63,7 @@ func NewWorker(
 
 	if pipelineInfo.Details.Transform.Image != "" && pipelineInfo.Details.Transform.Cmd == nil {
 		ppsutil.FailPipeline(env.Context(), env.GetDBClient(), driver.Pipelines(),
-			pipelineInfo.Pipeline.Name,
+			pipelineInfo.SpecCommit,
 			"nothing to run: no transform.cmd")
 	}
 
@@ -144,7 +144,7 @@ func (w *Worker) master(env serviceenv.ServiceEnv) {
 				w.driver.PachClient().Ctx(),
 				env.GetDBClient(),
 				w.driver.Pipelines(),
-				pipelineInfo.Pipeline.Name,
+				pipelineInfo.SpecCommit,
 				"worker master could not access output repo to watch for new commits",
 			)
 		}

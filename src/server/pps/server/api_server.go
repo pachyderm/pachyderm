@@ -2148,8 +2148,10 @@ func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext,
 	})
 }
 
-func (a *apiServer) findPipelineSpecCommit(txnCtx *txncontext.TransactionContext, pipeline, id string) (*pfs.Commit, error) {
-	curr := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", id)
+// findPipelineSpecCommit finds the spec commit corresponding to the pipeline version present in the commit given
+// by startID. If startID is blank, find the current pipeline version
+func (a *apiServer) findPipelineSpecCommit(txnCtx *txncontext.TransactionContext, pipeline, startID string) (*pfs.Commit, error) {
+	curr := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", startID)
 	commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx,
 		&pfs.InspectCommitRequest{Commit: curr})
 	if err != nil {

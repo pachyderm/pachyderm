@@ -3,12 +3,14 @@ package ppsdb
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -52,6 +54,13 @@ func Pipelines(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollectio
 				return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
 			}
 			return "", errors.New("must provide a spec commit")
+		}),
+		col.WithKeyCheck(func(key string) error {
+			parts := strings.Split(key, "@")
+			if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
+				return errors.New("pipeline keys must be of form <pipelineName>@<commitID>")
+			}
+			return nil
 		}),
 	)
 }

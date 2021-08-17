@@ -109,14 +109,14 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 }
 
 // FailPipeline updates the pipeline's state to failed and sets the failure reason
-func FailPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, pipelineName string, reason string) error {
-	return SetPipelineState(ctx, db, pipelinesCollection, pipelineName,
+func FailPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, reason string) error {
+	return SetPipelineState(ctx, db, pipelinesCollection, specCommit,
 		nil, pps.PipelineState_PIPELINE_FAILURE, reason)
 }
 
 // CrashingPipeline updates the pipeline's state to crashing and sets the reason
-func CrashingPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, pipelineName string, reason string) error {
-	return SetPipelineState(ctx, db, pipelinesCollection, pipelineName,
+func CrashingPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, reason string) error {
+	return SetPipelineState(ctx, db, pipelinesCollection, specCommit,
 		nil, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
 
@@ -174,12 +174,13 @@ func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.Pipel
 //
 // This function logs a lot for a library function, but it's mostly (maybe
 // exclusively?) called by the PPS master
-func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+	pipeline := specCommit.Branch.Repo.Name
 	logSetPipelineState(pipeline, from, to, reason)
 	err := dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
 		pipelineInfo := &pps.PipelineInfo{}
-		if err := pipelines.Get(pipeline, pipelineInfo); err != nil {
+		if err := pipelines.Get(specCommit, pipelineInfo); err != nil {
 			return err
 		}
 		tracing.TagAnySpan(ctx, "old-state", pipelineInfo.State)
@@ -223,7 +224,7 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 		log.Infof("SetPipelineState moving pipeline %s from %s to %s", pipeline, pipelineInfo.State, to)
 		pipelineInfo.State = to
 		pipelineInfo.Reason = reason
-		return pipelines.Put(pipeline, pipelineInfo)
+		return pipelines.Put(specCommit, pipelineInfo)
 	})
 	return err
 }
@@ -302,7 +303,7 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 	}
 	pipelineInfo.JobCounts[int32(state)]++
 	pipelineInfo.LastJobState = state
-	if err := pipelines.Put(jobInfo.Job.Pipeline.Name, pipelineInfo); err != nil {
+	if err := pipelines.Put(pipelineInfo.SpecCommit, pipelineInfo); err != nil {
 		return err
 	}
 

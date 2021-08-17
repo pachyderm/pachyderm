@@ -16,6 +16,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -126,12 +128,12 @@ func (a *apiServer) master() {
 	panic("internal error: PPS master has somehow exited. Restarting pod...")
 }
 
-func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
-	return a.setPipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_FAILURE, reason)
+func (a *apiServer) setPipelineFailure(ctx context.Context, specCommit *pfs.Commit, reason string) error {
+	return a.setPipelineState(ctx, specCommit, pps.PipelineState_PIPELINE_FAILURE, reason)
 }
 
-func (a *apiServer) setPipelineCrashing(ctx context.Context, pipelineName string, reason string) error {
-	return a.setPipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_CRASHING, reason)
+func (a *apiServer) setPipelineCrashing(ctx context.Context, specCommit *pfs.Commit, reason string) error {
+	return a.setPipelineState(ctx, specCommit, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
 
 func (m *ppsMaster) run() {
@@ -198,7 +200,15 @@ func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 	})
 	// we've given up on the step, check if the error indicated that the pipeline should fail
 	if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
-		failError := m.a.setPipelineFailure(ctx, e.pipeline, fmt.Sprintf(
+		var specCommit *pfs.Commit
+		if err := m.a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			var err error
+			specCommit, err = m.a.findPipelineSpecCommit(txnCtx, e.pipeline, "")
+			return err
+		}); err != nil {
+			return errors.Wrapf(err, "error failing pipeline %q", e.pipeline)
+		}
+		failError := m.a.setPipelineFailure(ctx, specCommit, fmt.Sprintf(
 			"could not update resources after %d attempts: %v", errCount, err))
 		if failError != nil {
 			return errors.Wrapf(failError, "error failing pipeline %q", e.pipeline)
@@ -274,27 +284,27 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 
 // setPipelineState is a PPS-master-specific helper that wraps
 // ppsutil.SetPipelineState in a trace
-func (a *apiServer) setPipelineState(ctx context.Context, pipeline string, state pps.PipelineState, reason string) (retErr error) {
+func (a *apiServer) setPipelineState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/SetPipelineState", "pipeline", pipeline, "new-state", state)
+		"/pps.Master/SetPipelineState", "pipeline", specCommit.Branch.Repo.Name, "new-state", state)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
 	return ppsutil.SetPipelineState(ctx, a.env.GetDBClient(), a.pipelines,
-		pipeline, nil, state, reason)
+		specCommit, nil, state, reason)
 }
 
 // transitionPipelineState is similar to setPipelineState, except that it sets
 // 'from' and logs a different trace
-func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+func (a *apiServer) transitionPipelineState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/TransitionPipelineState", "pipeline", pipeline,
+		"/pps.Master/TransitionPipelineState", "pipeline", specCommit.Branch.Repo.Name,
 		"from-state", from, "to-state", to)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
 	return ppsutil.SetPipelineState(ctx, a.env.GetDBClient(), a.pipelines,
-		pipeline, from, to, reason)
+		specCommit, from, to, reason)
 }
