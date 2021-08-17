@@ -391,7 +391,7 @@ func Cmds() []*cobra.Command {
 	updateContext.Flags().StringVar(&authInfo, "auth-info", "", "Set a new k8s auth info.")
 	updateContext.Flags().StringVar(&serverCAs, "server-cas", "", "Set new trusted CA certs.")
 	updateContext.Flags().StringVar(&namespace, "namespace", "", "Set a new namespace.")
-	updateContext.Flags().BoolVar(&removeClusterDeploymentID, "remove-cluster-deployment-id", false, "Remove the cluster deployment ID field, which will be repopulated on the next `pachctl` call using this context.")
+	updateContext.Flags().BoolVar(&removeClusterDeploymentID, "remove-cluster-deployment-id", false, "Remove the cluster deployment ID field, which will be repopulated on the next 'pachctl' call using this context.")
 	shell.RegisterCompletionFunc(updateContext, contextCompletion)
 	commands = append(commands, cmdutil.CreateAlias(updateContext, "config update context"))
 
