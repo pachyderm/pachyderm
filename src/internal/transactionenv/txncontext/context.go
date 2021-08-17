@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 // TransactionContext is a helper type to encapsulate the state for a given
@@ -31,15 +30,13 @@ type TransactionContext struct {
 	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
 	PpsJobStopper  PpsJobStopper
 	PpsJobFinisher PpsJobFinisher
-
-	FilesetManager FilesetManager
 }
 
 type identifier interface {
 	WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 }
 
-func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier, m FilesetManager) (*TransactionContext, error) {
+func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier) (*TransactionContext, error) {
 	var username string
 	// check auth once now so that we can refer to it later
 	if authServer != nil {
@@ -50,11 +47,10 @@ func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier, m FilesetMa
 		}
 	}
 	return &TransactionContext{
-		SqlTx:          sqlTx,
-		CommitSetID:    uuid.NewWithoutDashes(),
-		Timestamp:      types.TimestampNow(),
-		username:       username,
-		FilesetManager: m,
+		SqlTx:       sqlTx,
+		CommitSetID: uuid.NewWithoutDashes(),
+		Timestamp:   types.TimestampNow(),
+		username:    username,
 	}, nil
 }
 
@@ -147,9 +143,4 @@ type PpsJobStopper interface {
 type PpsJobFinisher interface {
 	FinishJob(commitInfo *pfs.CommitInfo)
 	Run() error
-}
-
-type FilesetManager interface {
-	CreateFileset(path string, data []byte) (string, error)
-	LatestPipelineInfo(*TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
 }

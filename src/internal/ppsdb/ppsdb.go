@@ -9,7 +9,6 @@ import (
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -24,8 +23,13 @@ var PipelinesVersionIndex = &col.Index{
 	Name: "version",
 	Extract: func(val proto.Message) string {
 		info := val.(*pps.PipelineInfo)
-		return fmt.Sprintf("%s@%d", info.Pipeline.Name, info.Version)
+		return VersionKey(info.Pipeline.Name, info.Version)
 	},
+}
+
+func VersionKey(pipeline string, version uint64) string {
+	// zero pad in case we want to sort
+	return fmt.Sprintf("%s@%04d", pipeline, version)
 }
 
 var pipelinesIndexes = []*col.Index{
@@ -68,7 +72,7 @@ var JobsTerminalIndex = &col.Index{
 	Name: "job_state",
 	Extract: func(val proto.Message) string {
 		jobInfo := val.(*pps.JobInfo)
-		return JobTerminalKey(jobInfo.Job.Pipeline, ppsutil.IsTerminal(jobInfo.State))
+		return JobTerminalKey(jobInfo.Job.Pipeline, pps.IsTerminal(jobInfo.State))
 	},
 }
 
@@ -81,7 +85,10 @@ var JobsJobSetIndex = &col.Index{
 
 var jobsIndexes = []*col.Index{JobsPipelineIndex, JobsTerminalIndex, JobsJobSetIndex}
 
-var JobKey = ppsutil.JobKey
+// JobKey is the string representation of a Job suitable for use as an indexing key
+func JobKey(job *pps.Job) string {
+	return job.String()
+}
 
 // Jobs returns a PostgresCollection of Jobs
 func Jobs(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {

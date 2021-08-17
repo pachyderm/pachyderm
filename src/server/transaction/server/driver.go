@@ -172,17 +172,7 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 		} else if request.StopJob != nil {
 			err = directTxn.StopJob(request.StopJob)
 		} else if request.CreatePipeline != nil {
-			if response.CreatePipelineResponse == nil {
-				response.CreatePipelineResponse = &transaction.CreatePipelineTransactionResponse{}
-			}
-			filesetID := &response.CreatePipelineResponse.FileSetId
-			prevPipelineVersion := &response.CreatePipelineResponse.PrevPipelineVersion
-
-			// CreatePipeline may update the fileset and prevPipelineVersion even if
-			// it fails (because these refer to things outside of the transaction) -
-			// we need to save them into the response so they can be seen the next
-			// time the transaction is attempted.
-			err = directTxn.CreatePipeline(request.CreatePipeline, filesetID, prevPipelineVersion)
+			err = directTxn.CreatePipeline(request.CreatePipeline)
 		} else {
 			err = errors.New("unrecognized transaction request type")
 		}
@@ -275,11 +265,15 @@ func (d *driver) updateTransaction(
 	}); err != nil {
 		return nil, err
 	}
-	refresher := d.txnEnv.NewRefresher(&prefetch)
 
 	// Run this thing in a loop in case we get a conflict, time out after some tries
 	for i := 0; i < 10; i++ {
-		err := d.txnEnv.WithRefresher(ctx, refresher, writeTxn, attempt)
+		var err error
+		if writeTxn {
+			err = d.txnEnv.WithWriteContext(ctx, attempt)
+		} else {
+			err = d.txnEnv.WithReadContext(ctx, attempt)
+		}
 		if err == nil && gotBreak {
 			return localInfo, nil // no need to update
 		}

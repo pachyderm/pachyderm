@@ -28,7 +28,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -43,7 +42,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -467,7 +465,7 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txncontext.TransactionCo
 	if err := jobs.Get(ppsdb.JobKey(request.Job), jobInfo); err != nil {
 		return err
 	}
-	if ppsutil.IsTerminal(jobInfo.State) {
+	if pps.IsTerminal(jobInfo.State) {
 		return ppsServer.ErrJobFinished{Job: jobInfo.Job}
 	}
 
@@ -520,7 +518,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 				if err := ev.Unmarshal(&jobID, jobInfo); err != nil {
 					return nil, err
 				}
-				if ppsutil.IsTerminal(jobInfo.State) {
+				if pps.IsTerminal(jobInfo.State) {
 					break watchLoop
 				}
 			}
@@ -810,24 +808,20 @@ func (a *apiServer) listJob(
 }
 
 func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) error {
-	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Name: jobInfo.Job.Pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
-		return err
-	}
+	pipelineName := jobInfo.Job.Pipeline.Name
 
-	pipelineInfo := &pps.PipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).Get(jobInfo.Job.Pipeline.Name, pipelineInfo); err != nil {
+	if err := a.env.AuthServer().CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Name: pipelineName}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 		return err
 	}
 
 	// Override the SpecCommit for the pipeline to be what it was when this job
 	// was created, this prevents races between updating a pipeline and
 	// previous jobs running.
-	specCommit := client.NewSystemRepo(jobInfo.Job.Pipeline.Name, pfs.SpecRepoType).NewCommit("master", jobInfo.OutputCommit.ID)
-	pipelineInfo.SpecCommit = specCommit
-
-	// If the commits for the job have been squashed, the pipeline spec can no
-	// longer be read for this job
-	if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), pipelineInfo); err != nil {
+	var pipelineInfo pps.PipelineInfo
+	if err := a.pipelines.ReadOnly(ctx).GetUniqueByIndex(
+		ppsdb.PipelinesVersionIndex,
+		ppsdb.VersionKey(pipelineName, jobInfo.PipelineVersion),
+		&pipelineInfo); err != nil {
 		return err
 	}
 
@@ -840,7 +834,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	details.ResourceRequests = pipelineInfo.Details.ResourceRequests
 	details.ResourceLimits = pipelineInfo.Details.ResourceLimits
 	details.SidecarResourceLimits = pipelineInfo.Details.SidecarResourceLimits
-	details.Input = ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit)
+	details.Input = ppsutil.JobInput(&pipelineInfo, jobInfo.OutputCommit)
 	details.Salt = pipelineInfo.Details.Salt
 	details.DatumSetSpec = pipelineInfo.Details.DatumSetSpec
 	details.DatumTimeout = pipelineInfo.Details.DatumTimeout
@@ -1499,15 +1493,14 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 }
 
 func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.CreatePipelineRequest) error {
-	pachClient := a.env.GetPachClient(ctx)
-	pipelines := a.pipelines.ReadOnly(ctx)
-	if err := pipelines.Get(req.Pipeline.Name, &pps.PipelineInfo{}); err == nil {
+	if _, err := a.inspectPipeline(ctx, req.Pipeline.Name, false); err == nil {
 		// Pipeline already exists so we allow people to update it even if
 		// they're over the limits.
 		return nil
 	} else if !col.IsErrNotFound(err) {
 		return err
 	}
+	pachClient := a.env.GetPachClient(ctx)
 	resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
 		&enterpriseclient.GetStateRequest{})
 	if err != nil {
@@ -1517,14 +1510,18 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 		// Enterprise is enabled so anything goes.
 		return nil
 	}
-	pipelineCount, err := pipelines.Count()
-	if err != nil {
+	var info pps.PipelineInfo
+	seen := make(map[string]struct{})
+	if err := a.pipelines.ReadOnly(ctx).List(&info, col.DefaultOptions(), func(_ string) error {
+		seen[info.Pipeline.Name] = struct{}{}
+		return nil
+	}); err != nil {
 		return err
 	}
-	if pipelineCount >= enterpriselimits.Pipelines {
+	if len(seen) >= enterpriselimits.Pipelines {
 		enterprisemetrics.IncEnterpriseFailures()
 		return errors.Errorf("%s requires an activation key to create more than %d total pipelines (you have %d). %s\n\n%s",
-			enterprisetext.OpenSourceProduct, enterpriselimits.Pipelines, pipelineCount, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
+			enterprisetext.OpenSourceProduct, enterpriselimits.Pipelines, len(seen), enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
 	}
 	if req.ParallelismSpec != nil && req.ParallelismSpec.Constant > enterpriselimits.Parallelism {
 		enterprisemetrics.IncEnterpriseFailures()
@@ -1769,11 +1766,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 
-	// Don't provide a fileset and the transaction env will generate it
-	filesetID := ""
-	prevPipelineVersion := uint64(0)
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.CreatePipeline(request, &filesetID, &prevPipelineVersion)
+		return txn.CreatePipeline(request)
 	}, nil); err != nil {
 		return nil, err
 	}
@@ -1982,10 +1976,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 
 	// store the new PipelineInfo in the collection
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(
-		client.NewSystemRepo(pipelineName, pfs.SpecRepoType).
-			NewCommit("master", txnCtx.CommitSetID),
-		newPipelineInfo); err != nil {
+	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {
 		return err
 	}
 
@@ -2182,19 +2173,15 @@ func (a *apiServer) updatePipeline(
 	txnCtx *txncontext.TransactionContext,
 	pipeline string,
 	info *pps.PipelineInfo,
-	cb func() error) (*pfs.Commit, error) {
+	cb func() error) error {
 
 	// get most recent pipeline key
 	key, err := a.findPipelineSpecCommit(txnCtx, pipeline, "")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Update(key, info, cb); err != nil {
-		return nil, err
-	}
-
-	return key, nil
+	return a.pipelines.ReadWrite(txnCtx.SqlTx).Update(key, info, cb)
 }
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
@@ -2218,9 +2205,6 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 	}
 
 	if details {
-		if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), info); err != nil {
-			return nil, err
-		}
 		kubeClient := a.env.GetKubeClient()
 		if info.Details.Service != nil {
 			rcName := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
@@ -2334,32 +2318,14 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		return true
 	}
 
-	// fetch details and filter via a task chain so that order is preserved
-	chain := chunk.NewTaskChain(ctx)
-
-	// spin up goroutines to get the PFS info
-	limiter := limit.New(5)
 	for i := range infos {
-		i := i
-		limiter.Acquire()
-		if err := chain.CreateTask(func(ctx context.Context, serial func(func() error) error) error {
-			defer limiter.Release()
-			if request.Details {
-				if err := ppsutil.GetPipelineDetails(a.env.GetPachClient(ctx), infos[i]); err != nil {
-					return err
-				}
+		if filterPipeline(infos[i]) {
+			if err := f(infos[i]); err != nil {
+				return err
 			}
-			return serial(func() error {
-				if filterPipeline(infos[i]) {
-					return f(infos[i])
-				}
-				return nil
-			})
-		}); err != nil {
-			return err
 		}
 	}
-	return chain.Wait()
+	return nil
 }
 
 // listPipelineInfo enumerates all PPS pipelines in the database, filters them
@@ -2367,41 +2333,37 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 func (a *apiServer) listPipelineInfo(ctx context.Context,
 	pipeline *pps.Pipeline, history int64, f func(*pps.PipelineInfo) error) error {
 	p := &pps.PipelineInfo{}
-	forEachPipeline := func() error {
+	versionMap := make(map[string]uint64)
+	checkPipelineVersion := func() error {
 		// Erase any AuthToken - this shouldn't be returned to anyone (the workers
 		// won't use this function to get their auth token)
 		p.AuthToken = ""
 		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
-		lastVersionToSend := int64(p.Version) - history
-		if history == -1 || lastVersionToSend < 1 {
-			lastVersionToSend = 1
-		}
-		for int64(p.Version) >= lastVersionToSend {
-			if err := f(p); err != nil {
-				return err
+		if current, ok := versionMap[p.Pipeline.Name]; ok {
+			if p.Version < current {
+				// don't send, exit early
+				return nil
 			}
-			p.Version -= 1
-		}
-		return nil
-	}
-	if pipeline == nil {
-		if err := a.pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), func(string) error {
-			return forEachPipeline()
-		}); err != nil {
-			return err
-		}
-	} else {
-		if err := a.pipelines.ReadOnly(ctx).Get(pipeline.Name, p); err != nil {
-			if col.IsErrNotFound(err) {
-				return errors.Errorf("pipeline \"%s\" not found", pipeline.Name)
+		} else {
+			// we haven't seen this pipeline yet, rely on sort order and assume this is latest
+			var lastVersionToSend uint64
+			if history < 0 || uint64(history) > p.Version {
+				lastVersionToSend = 1
+			} else {
+				lastVersionToSend = p.Version - uint64(history)
 			}
-			return err
+			versionMap[p.Pipeline.Name] = lastVersionToSend
 		}
-		if err := forEachPipeline(); err != nil {
-			return err
-		}
+
+		return f(p)
 	}
-	return nil
+	return a.pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), func(string) error {
+		if pipeline != nil && pipeline.Name != p.Pipeline.Name {
+			// skip non-matching pipelines
+			return nil
+		}
+		return checkPipelineVersion()
+	})
 }
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
@@ -2412,9 +2374,19 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	if request.All {
 		request.Pipeline = &pps.Pipeline{}
 		pipelineInfo := &pps.PipelineInfo{}
+		deleted := make(map[string]struct{})
 		if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
+			if _, ok := deleted[pipelineInfo.Pipeline.Name]; ok {
+				// while the delete pipeline call will delete historical versions,
+				// they could still show up in the list. Ignore them
+				return nil
+			}
 			request.Pipeline.Name = pipelineInfo.Pipeline.Name
-			return a.deletePipeline(ctx, request)
+			err := a.deletePipeline(ctx, request)
+			if err == nil {
+				deleted[pipelineInfo.Pipeline.Name] = struct{}{}
+			}
+			return err
 		}); err != nil {
 			return nil, err
 		}
@@ -2534,7 +2506,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	if err := dbutil.WithTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		for version := pipelineInfo.Version; version > 0; version-- {
 			if err := a.pipelines.ReadWrite(sqlTx).DeleteByIndex(
-				ppsdb.PipelinesVersionIndex, fmt.Sprintf("%s@%d", request.Pipeline.Name, version)); err != nil {
+				ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(request.Pipeline.Name, version)); err != nil {
 				return err
 			}
 		}
@@ -2583,7 +2555,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		pipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
+		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline.Name)
 		if err != nil {
 			return err
 		}
@@ -2611,7 +2583,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		}
 
 		newPipelineInfo := &pps.PipelineInfo{}
-		return a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
+		return a.updatePipeline(txnCtx, pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
 			newPipelineInfo.Stopped = false
 			return nil
 		})
@@ -2634,7 +2606,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 		if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 			Repo: client.NewRepo(request.Pipeline.Name),
 		}); err == nil {
-			pipelineInfo, err := txnCtx.FilesetManager.LatestPipelineInfo(txnCtx, request.Pipeline)
+			pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline.Name)
 			if err != nil {
 				return err
 			}
@@ -2662,7 +2634,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			}
 
 			newPipelineInfo := &pps.PipelineInfo{}
-			if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Update(pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
+			if err := a.updatePipeline(txnCtx, pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
 				newPipelineInfo.Stopped = true
 				return nil
 			}); err != nil {
@@ -2760,8 +2732,8 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 		}
 
 		// Skip commits from repos that have no associated pipeline
-		pipelineInfo := &pps.PipelineInfo{}
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(commitInfo.Commit.Branch.Repo.Name, pipelineInfo); err != nil {
+		var pipelineInfo *pps.PipelineInfo
+		if pipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, commitInfo.Commit.Branch.Repo.Name); err != nil {
 			if col.IsErrNotFound(err) {
 				continue
 			}
@@ -2948,7 +2920,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 				}
 
 				pipelineInfo := &pps.PipelineInfo{}
-				if _, err := a.updatePipeline(txnCtx, pipelineName, pipelineInfo, func() error {
+				if err := a.updatePipeline(txnCtx, pipelineName, pipelineInfo, func() error {
 					pipelineInfo.AuthToken = token
 					return nil
 				}); err != nil {

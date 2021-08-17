@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 	"time"
@@ -46,18 +47,16 @@ func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*
 	defer cancel()
 	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
 	pipelineInfo := &pps.PipelineInfo{}
+	// Notice we use the SpecCommitID from our env, not from postgres. This is
+	// because the value in postgres might get updated while the worker pod is
+	// being created and we don't want to run the transform of one version of
+	// the pipeline in the image of a different verison.
+	fmt.Sprintf("%s@%s", env.Config().PPSPipelineName, env.Config().PPSSpecCommitID)
 	if err := pipelines.ReadOnly(ctx).Get(env.Config().PPSPipelineName, pipelineInfo); err != nil {
 		return nil, err
 	}
 	pachClient.SetAuthToken(pipelineInfo.AuthToken)
-	// Notice we use the SpecCommitID from our env, not from etcd. This is
-	// because the value in etcd might get updated while the worker pod is
-	// being created and we don't want to run the transform of one version of
-	// the pipeline in the image of a different verison.
-	pipelineInfo.SpecCommit.ID = env.Config().PPSSpecCommitID
-	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
-		return nil, err
-	}
+
 	return pipelineInfo, nil
 }
 

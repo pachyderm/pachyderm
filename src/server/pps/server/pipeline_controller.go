@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -123,7 +124,13 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 	}
 	// get latest PipelineInfo (events can pile up, so that the current state
 	// doesn't match the event being processed)
-	if err := m.a.pipelines.ReadOnly(ctx).Get(pipeline, op.pipelineInfo); err != nil {
+	if err := m.a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		specCommit, err := m.a.findPipelineSpecCommit(txnCtx, pipeline, "")
+		if err != nil {
+			return err
+		}
+		return m.a.pipelines.ReadWrite(txnCtx.SqlTx).Get(specCommit, op.pipelineInfo)
+	}); err != nil {
 		return nil, errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
 	}
 	tracing.TagAnySpan(ctx,
@@ -134,15 +141,6 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 	pachClient := m.a.env.GetPachClient(ctx)
 	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
 	op.ctx = pachClient.Ctx()
-
-	// set op.pipelineInfo.Details
-
-	// this reads the pipelineInfo associated with 'op's pipeline, as most other
-	// methods (e.g.  getRC, though not failPipeline) assume that
-	// op.pipelineInfo.Details is set.
-	if err := ppsutil.GetPipelineDetails(pachClient, op.pipelineInfo); err != nil {
-		return nil, newRetriableError(err, "error retrieving spec")
-	}
 	return op, nil
 }
 
