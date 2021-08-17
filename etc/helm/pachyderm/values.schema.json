@@ -625,6 +625,9 @@
                         },
                         "size": {
                             "type": "string"
+                        },
+                        "storageClass": {
+                            "type": "string"
                         }
                     }
                 }
