@@ -2251,7 +2251,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		return nil, err
 	}
 
-	if ancestors > 0 {
+	if ancestors < 0 {
 		return nil, errors.New("cannot inspect future pipelines")
 	}
 
@@ -2267,10 +2267,10 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		}
 		return nil, err
 	}
-	if ancestors < 0 {
+	if ancestors > 0 {
 		targetVersion := int(pipelineInfo.Version) - ancestors
 		if targetVersion < 1 {
-			return nil, errors.Errorf("pipeline %q has only %d versions, not enough to find ancestor %d", name, pipelineInfo.Version, -ancestors)
+			return nil, errors.Errorf("pipeline %q has only %d versions, not enough to find ancestor %d", name, pipelineInfo.Version, ancestors)
 		}
 		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(name, uint64(targetVersion)), pipelineInfo); err != nil {
 			return nil, err
@@ -2355,15 +2355,15 @@ func (a *apiServer) listPipelineInfo(ctx context.Context,
 		// won't use this function to get their auth token)
 		p.AuthToken = ""
 		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
-		if current, ok := versionMap[p.Pipeline.Name]; ok {
-			if p.Version < current {
+		if last, ok := versionMap[p.Pipeline.Name]; ok {
+			if p.Version < last {
 				// don't send, exit early
 				return nil
 			}
 		} else {
 			// we haven't seen this pipeline yet, rely on sort order and assume this is latest
 			var lastVersionToSend uint64
-			if history < 0 || uint64(history) > p.Version {
+			if history < 0 || uint64(history) >= p.Version {
 				lastVersionToSend = 1
 			} else {
 				lastVersionToSend = p.Version - uint64(history)

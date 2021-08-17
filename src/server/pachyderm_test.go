@@ -63,6 +63,22 @@ func newCountBreakFunc(maxCount int) func(func() error) error {
 	}
 }
 
+func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
+	return &pps.CreatePipelineRequest{
+		Pipeline: client.NewPipeline(name),
+		Transform: &pps.Transform{
+			Cmd: []string{"bash"},
+			Stdin: []string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input),
+			},
+		},
+		ParallelismSpec: &pps.ParallelismSpec{
+			Constant: 1,
+		},
+		Input: client.NewPFSInput(input, "/*"),
+	}
+}
+
 func TestSimplePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -9599,7 +9615,7 @@ func TestMoveBranchTrigger(t *testing.T) {
 	require.Equal(t, "/foo", files[0].File.Path)
 }
 
-func TestListPipelineError(t *testing.T) {
+func TestPipelineAncestry(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -9610,40 +9626,55 @@ func TestListPipelineError(t *testing.T) {
 	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	bad := tu.UniqueString("bad")
-	base := tu.UniqueString("pipeline")
+	pipeline := tu.UniqueString("pipeline")
+	base := basicPipelineReq(pipeline, dataRepo)
+	base.Autoscaling = true
 
-	for i := 0; i < 15; i++ {
-		name := fmt.Sprintf("%s-%d", base, i)
-		if i == 0 {
-			name = bad
-		}
-		require.NoError(t, c.CreatePipeline(
-			name,
-			"",
-			[]string{"bash"},
-			[]string{"echo test"},
-			nil,
-			client.NewPFSInput(dataRepo, "/"),
-			"master",
-			false,
-		))
+	// create three versions of the pipeline differing only in the transform user field
+	for i := 1; i <= 3; i++ {
+		base.Transform.User = fmt.Sprintf("user:%d", i)
+		base.Update = i != 1
+		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), base)
+		require.NoError(t, err)
 	}
 
-	// delete the first pipeline's spec repo, which will cause getting details to error
-	require.NoError(t, c.DeleteRepo(bad, true))
+	for i := 1; i <= 3; i++ {
+		info, err := c.InspectPipeline(fmt.Sprintf("%s^%d", pipeline, 3-i), true)
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("user:%d", i), info.Details.Transform.User)
+	}
 
-	_, err := c.InspectPipeline(bad, true)
-	require.YesError(t, err)
-
-	// listing without details should be fine
-	_, err = c.ListPipeline(false)
+	infos, err := c.ListPipeline(true)
 	require.NoError(t, err)
+	require.Equal(t, 1, len(infos))
+	require.Equal(t, pipeline, infos[0].Pipeline.Name)
+	require.Equal(t, fmt.Sprintf("user:%d", 3), infos[0].Details.Transform.User)
 
-	// but requesting details will fail, make sure it's due to the missing spec file
-	_, err = c.ListPipeline(true)
-	require.YesError(t, err)
-	require.Matches(t, "spec file", err.Error())
+	checkInfos := func(infos []*pps.PipelineInfo) {
+		// make sure versions are sorted and have the correct details
+		for i, info := range infos {
+			require.Equal(t, 3-i, int(info.Version))
+			require.Equal(t, fmt.Sprintf("user:%d", 3-i), info.Details.Transform.User)
+		}
+	}
+
+	// get all pipelines
+	infos, err = c.ListPipelineHistory(pipeline, -1, true)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(infos))
+	checkInfos(infos)
+
+	// get all pipelines by asking for too many
+	infos, err = c.ListPipelineHistory(pipeline, 3, true)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(infos))
+	checkInfos(infos)
+
+	// get only the later two pipelines
+	infos, err = c.ListPipelineHistory(pipeline, 1, true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(infos))
+	checkInfos(infos)
 }
 
 func monitorReplicas(t testing.TB, pipeline string, n int) {
