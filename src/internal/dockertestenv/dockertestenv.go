@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	docker "github.com/docker/docker/client"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -25,7 +26,12 @@ const (
 )
 
 func postgresHost() string {
-	return "127.0.0.1"
+	_, err := docker.NewEnvClient()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return "172.19.248.223"
 	// TODO: it should be possible to set the docker API endpoint using the DOCKER_HOST environment variable.
 	// Switching between minikube and docker desktop on macOS was working with that method.
 	// However, it seems to break in CI, which uses minikube, but doesn't seem to expose the ports on DOCKER_HOST.
@@ -104,11 +110,11 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "bash", "-c", `
 set -ve
 
-unset DOCKER_HOST
-unset DOCKER_CERT_PATH
-unset DOCKER_TLS_VERIFY
+#unset DOCKER_HOST
+#unset DOCKER_CERT_PATH
+#unset DOCKER_TLS_VERIFY
 
-if ! docker ps | grep -q postgres
+if ! docker ps | grep -q pach_test_postgres
 then
     echo "starting postgres..."
     postgres_id=$(docker run -d \
@@ -116,6 +122,7 @@ then
     -e POSTGRES_USER=pachyderm \
     -e POSTGRES_HOST_AUTH_METHOD=trust \
     -p 30228:5432 \
+		--name pach_test_postgres \
     postgres:13.0-alpine)
 
     postgres_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $postgres_id)
