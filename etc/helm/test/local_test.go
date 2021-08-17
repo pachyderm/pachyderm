@@ -75,7 +75,7 @@ func TestLocal(t *testing.T) {
 			checks["headless service"] = true
 
 		case *v1.Secret:
-			if object.Name == "pachyderm-config" {
+			if object.Name == "pachyderm-bootstrap-config" {
 				enterpriseSecret := object.StringData["enterpriseSecret"]
 				if !strings.Contains(object.StringData["enterpriseClusters"], enterpriseSecret) {
 					t.Errorf("enterprise secret %s should be present in the enterpriseClusters config %v", enterpriseSecret, object.StringData["enterpriseClusters"])
