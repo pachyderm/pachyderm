@@ -27,11 +27,9 @@ spec:
             secretKeyRef:
               name: console-secret
               key: OAUTH_CLIENT_SECRET
-        - name: CLUSTER_DEPLOYMENT_ID
-          valueFrom:
-            secretKeyRef:
-              name: deployment-id-secret
-              key: CLUSTER_DEPLOYMENT_ID
+        envFrom:
+        - secretRef:
+            name: pachyderm-deployment-id-secret
       restartPolicy: Never
       volumes:
       - name: config

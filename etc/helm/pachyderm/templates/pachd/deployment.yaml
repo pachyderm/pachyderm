@@ -115,11 +115,6 @@ spec:
               divisor: "0"
               resource: requests.memory
         {{- end }}
-        - name: CLUSTER_DEPLOYMENT_ID
-          valueFrom:
-            secretKeyRef:
-              name: deployment-id-secret
-              key: CLUSTER_DEPLOYMENT_ID
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
         - name: PACHD_POD_NAME
@@ -136,6 +131,8 @@ spec:
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
+          - secretRef:
+              name: pachyderm-deployment-id-secret
         image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachd
