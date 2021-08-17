@@ -42,11 +42,13 @@ Cypress.Commands.add('login', () => {
 });
 
 Cypress.Commands.add('openDash', (workspaceName) => {
-  cy.findByLabelText(`Workspace ${workspaceName} actions`).click();
-  cy.findAllByText('Dash').filter(':visible').click();
-  cy.window().its('open').should('be.called').then(() => {
-    cy.writeFile('/tmp/dashUrl.txt', dashUrl);
-  });
+  cy.findAllByTestId('WorkspaceTableRow__row')
+    .filter(`:contains(${workspaceName})`).within(() => {
+      cy.findByTestId('WorkspaceTableRow__dash').click();
+    })
+    cy.window().its('open').should('be.called').then(() => {
+      cy.writeFile('/tmp/dashUrl.txt', dashUrl);
+    });
 });
 
 Cypress.Commands.add('visitDash', () => {
@@ -73,8 +75,7 @@ Cypress.Commands.add('createWorkspace', (workspaceName) => {
 
 Cypress.Commands.add('deleteWorkspace', (workspaceName) => {
   cy.findAllByTestId('WorkspaceTableRow__row').filter(`:contains(${workspaceName})`).within(() => {
-    cy.findByTestId('WorkspaceTableRow__dropdownButton').click();
-    cy.findAllByTestId('WorkspaceTableRow__delete').filter(':visible').click();
+    cy.findAllByTestId('WorkspaceTableRow__delete').click();
   });
   cy.findByTestId('WorkspaceDeleteModal__confirm').click();
   
