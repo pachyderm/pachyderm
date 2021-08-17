@@ -1494,8 +1494,7 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 
 	for _, ci := range commitInfos {
 		if len(ci.ChildCommits) != 0 {
-			// TODO: proper PFS error?
-			return errors.Errorf("cannot drop a commit that is not the head of a branch")
+			return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}
 		}
 	}
 
@@ -1523,8 +1522,7 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 
 	for _, ci := range commitInfos {
 		if len(ci.ChildCommits) == 0 {
-			// TODO: proper PFS error?
-			return errors.Errorf("cannot squash a commit with no children as that would cause data loss")
+			return &pfsserver.ErrSquashWithoutChildren{Commit: ci.Commit}
 		}
 	}
 
