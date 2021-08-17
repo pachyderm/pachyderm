@@ -35,9 +35,9 @@ spec:
       {{-  if .Values.pachd.affinity }}
       affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
       {{- end }}
-      {{- if .Values.imagePullSecret }}
+      {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
-        - name: {{ .Values.imagePullSecret | quote }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
       - command:

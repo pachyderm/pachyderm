@@ -242,6 +242,9 @@
         "global": {
             "type": "object",
             "properties": {
+                "imagePullSecrets": {
+                    "type": "array"
+                },
                 "postgresql": {
                     "type": "object",
                     "properties": {
@@ -266,9 +269,6 @@
                     }
                 }
             }
-        },
-        "imagePullSecret": {
-            "type": "string"
         },
         "ingress": {
             "type": "object",

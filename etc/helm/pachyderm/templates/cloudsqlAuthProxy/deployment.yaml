@@ -29,6 +29,10 @@ spec:
       namespace: {{ .Release.Namespace }}
     spec:
       serviceAccountName: k8s-cloudsql-auth-proxy
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: cloud-sql-proxy
         image: {{ .Values.cloudsqlAuthProxy.image.repository }}:{{ .Values.cloudsqlAuthProxy.image.tag }}

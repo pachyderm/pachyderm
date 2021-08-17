@@ -34,9 +34,9 @@ spec:
       {{-  if .Values.etcd.affinity }}
       affinity: {{ toYaml .Values.etcd.affinity | nindent 8 }}
       {{- end }}
-      {{- if .Values.imagePullSecret }}
+      {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
-        - name: {{ .Values.imagePullSecret | quote }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
       - args:

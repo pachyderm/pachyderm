@@ -25,6 +25,10 @@ spec:
       name: pg-bouncer
       namespace: {{ .Release.Namespace }}
     spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - env:
         - name: DB_USER
