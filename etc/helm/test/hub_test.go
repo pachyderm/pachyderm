@@ -114,10 +114,6 @@ func TestHub(t *testing.T) {
 						if string(v) != "Example-Password" {
 							t.Errorf("Postgres Password value is wrong: %s", v)
 						}
-					case "IDENTITY_SERVER_PASSWORD":
-						if string(v) != "Example-Password" {
-							t.Errorf("Identity Server Password value is wrong: %s", v)
-						}
 					case "GOOGLE_BUCKET":
 						if string(v) != "test-bucket" {
 							t.Errorf("Google Bucket value is wrong: %s", v)
