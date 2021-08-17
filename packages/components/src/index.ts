@@ -16,6 +16,7 @@ export * from './Circle';
 export * from './Checkbox';
 export * from './Chip';
 export * from './Dropdown';
+export * from './EllipsisMessage';
 export * from './ErrorRetry';
 export * from './Form';
 export * from './GenericError';
