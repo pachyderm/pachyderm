@@ -5,3 +5,4 @@ export TIMEOUT=$1
 
 # grep out PFS server logs, as otherwise the test output is too verbose
 go test -v -count=1 ./src/server/pfs/server ./src/server/pfs/server/testing -timeout "$TIMEOUT" | grep -v "$(date +^%FT)"
+go test -v -count=10 ./src/server/pfs/server/testing -run FuzzProvenance

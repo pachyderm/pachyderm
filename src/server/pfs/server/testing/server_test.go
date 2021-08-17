@@ -5029,6 +5029,15 @@ func TestPFS(suite *testing.T) {
 				commit := commits[i]
 				commits = append(commits[:i], commits[i+1:]...)
 				require.NoError(t, env.PachClient.SquashCommitSet(commit.ID))
+				// some output branches might have had new commits added either because their old heads
+				// were squashed or because the head of a branch they are provenant on was squashed
+				for _, branch := range outputBranches {
+					info, err := env.PachClient.InspectCommit(branch.Repo.Name, branch.Name, "")
+					require.NoError(t, err)
+					if info.Finishing == nil {
+						require.NoError(t, finishCommit(env.PachClient, branch.Repo.Name, branch.Name, ""))
+					}
+				}
 			case outputRepo:
 				if len(inputBranches) == 0 {
 					continue OpLoop
