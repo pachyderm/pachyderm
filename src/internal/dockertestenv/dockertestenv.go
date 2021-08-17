@@ -27,7 +27,7 @@ const (
 )
 
 func postgresHost() string {
-	client, err := docker.NewEnvClient()
+	client, err := docker.NewClientWithOpts(docker.FromEnv)
 	if err != nil {
 		panic(err.Error())
 	}
