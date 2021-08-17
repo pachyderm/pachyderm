@@ -2451,7 +2451,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		return err
 	} else if err == nil {
 		// Check if the caller is authorized to delete this pipeline
-		if err := a.authorizePipelineOp(ctx, pipelineOpDelete, pipelineInfo.Details.Input, pipelineName); err != nil {
+		if err := a.authorizePipelineOp(ctx, pipelineOpDelete, pipelineInfo.GetDetails().GetInput(), pipelineName); err != nil {
 			return err
 		}
 	} else {
