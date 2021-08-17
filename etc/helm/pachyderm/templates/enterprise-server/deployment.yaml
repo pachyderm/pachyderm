@@ -52,7 +52,7 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres # Must match secret setup by postgres subchart
+              name: postgres # Must match secret setup by postgres subchart or postgres-secret.yaml if using external postgres
               key: postgresql-password
         - name: CLUSTER_DEPLOYMENT_ID
           value: {{ default (randAlphaNum 32) .Values.enterpriseServer.clusterDeploymentID | quote }}
