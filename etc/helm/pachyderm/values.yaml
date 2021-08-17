@@ -84,10 +84,16 @@ etcd:
   # storageClass indicates the etcd should use an existing
   # StorageClass for its storage.  It is analogous to the
   # --etcd-storage-class argument to pachctl deploy.
+  # More info for setting up storage classes on various cloud providers:
+  # AWS: https://docs.aws.amazon.com/eks/latest/userguide/storage-classes.html
+  # GCP: https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/ssd-pd
+  # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage
   storageClass: ""
   # storageSize specifies the size of the volume to use for etcd.
-  # If you do not specify, it will default to 256Gi on Azure and 100Gi on GCP/AWS
-  storageSize: ""
+  # Recommended Minimum Disk size for Microsoft/Azure: 256Gi  - 1,100 IOPS https://azure.microsoft.com/en-us/pricing/details/managed-disks/
+  # Recommended Minimum Disk size for Google/GCP: 50Gi        - 1,500 IOPS https://cloud.google.com/compute/docs/disks/performance
+  # Recommended Minimum Disk size for Amazon/AWS: 500Gi (GP2) - 1,500 IOPS https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html
+  storageSize: 10Gi
   service:
     # annotations specifies annotations to add to the etcd service.
     annotations: {}
@@ -361,7 +367,17 @@ pgbouncer:
 postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
   enabled: true
+  # Specify the storage class for the postgresql Persistent Volume (PV)
+  # More info for setting up storage classes on various cloud providers:
+  # AWS: https://docs.aws.amazon.com/eks/latest/userguide/storage-classes.html
+  # GCP: https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/ssd-pd
+  # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage
   storageClass: ""
+  # storageSize specifies the size of the volume to use for postgresql
+  # Recommended Minimum Disk size for Microsoft/Azure: 256Gi  - 1,100 IOPS https://azure.microsoft.com/en-us/pricing/details/managed-disks/
+  # Recommended Minimum Disk size for Google/GCP: 50Gi        - 1,500 IOPS https://cloud.google.com/compute/docs/disks/performance
+  # Recommended Minimum Disk size for Amazon/AWS: 500Gi (GP2) - 1,500 IOPS https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html
+  storageSize: 10Gi
   service:
     type: "ClusterIP"
   resources: {}
