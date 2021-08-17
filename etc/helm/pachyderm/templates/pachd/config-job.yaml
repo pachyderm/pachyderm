@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: config-pod
-        image: pachyderm/config-pod:0.2
+        image: pachyderm/config-pod:0.3
         command: [ "/config-pod" ]
         volumeMounts:
         - name: config
