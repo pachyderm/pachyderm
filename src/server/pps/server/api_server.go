@@ -80,10 +80,6 @@ var (
 	suite = "pachyderm"
 )
 
-func newErrPipelineExists(pipeline string) error {
-	return errors.Errorf("pipeline %v already exists", pipeline)
-}
-
 // apiServer implements the public interface of the Pachyderm Pipeline System,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
@@ -1497,7 +1493,7 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 		// Pipeline already exists so we allow people to update it even if
 		// they're over the limits.
 		return nil
-	} else if !col.IsErrNotFound(err) {
+	} else if !errutil.IsNotFoundError(err) {
 		return err
 	}
 	pachClient := a.env.GetPachClient(ctx)
@@ -1850,6 +1846,10 @@ func (a *apiServer) CreatePipelineInTransaction(
 	if err != nil && !errutil.IsNotFoundError(err) {
 		// silently ignore pipeline not found, old info will be nil
 		return err
+	}
+
+	if oldPipelineInfo != nil && !request.Update {
+		return errors.Errorf("pipeline %q already exists", pipelineName)
 	}
 
 	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
@@ -2249,6 +2249,10 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		return nil, err
 	}
 
+	if ancestors > 0 {
+		return nil, errors.New("cannot inspect future pipelines")
+	}
+
 	key, err := a.findPipelineSpecCommit(txnCtx, name, "")
 	if err != nil {
 		return nil, errors.Wrapf(err, "couldn't find up to date spec for pipeline %q", name)
@@ -2261,11 +2265,19 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		}
 		return nil, err
 	}
+	if ancestors < 0 {
+		targetVersion := int(pipelineInfo.Version) - ancestors
+		if targetVersion < 1 {
+			return nil, errors.Errorf("pipeline %q has only %d versions, not enough to find ancestor %d", name, pipelineInfo.Version, -ancestors)
+		}
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(name, uint64(targetVersion)), pipelineInfo); err != nil {
+			return nil, err
+		}
+	}
+
 	// Erase any AuthToken - this shouldn't be returned to anyone (the workers
 	// won't use this function to get their auth token)
 	pipelineInfo.AuthToken = ""
-	// TODO(global ids): how should we treat ancestry here?  Alias commits are going to gum it up.
-	pipelineInfo.SpecCommit.ID = ancestry.Add(pipelineInfo.SpecCommit.ID, ancestors)
 	return pipelineInfo, nil
 }
 
@@ -2661,20 +2673,6 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	return nil, errors.New("unimplemented")
-}
-
-func commitFileSetInTransaction(a pfsServer.APIServer, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, filesetID string) (*pfs.Commit, error) {
-	commit, err := a.StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{Branch: branch})
-	if err != nil {
-		return nil, err
-	}
-	if err := a.AddFileSetInTransaction(txnCtx, &pfs.AddFileSetRequest{Commit: commit, FileSetId: filesetID}); err != nil {
-		return nil, err
-	}
-	if err = a.FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{Commit: commit}); err != nil {
-		return nil, err
-	}
-	return commit, nil
 }
 
 func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {
