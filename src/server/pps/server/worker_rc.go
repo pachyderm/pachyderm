@@ -313,13 +313,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 				},
 			},
 		},
-		{
-			SecretRef: &v1.SecretEnvSource{
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: client.PostgresSecretName,
-				},
-			},
-		},
 	}
 	podSpec := v1.PodSpec{
 		InitContainers: []v1.Container{
