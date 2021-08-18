@@ -1336,7 +1336,7 @@ func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) 
 	})
 }
 
-func (d *driver) squashCommitsInternal(txnCtx *txncontext.TransactionContext, commitInfos []*pfs.CommitInfo) error {
+func (d *driver) squashCommitSetInternal(txnCtx *txncontext.TransactionContext, commitInfos []*pfs.CommitInfo) error {
 	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
 
 	// 1) Delete each commit in the CommitSet
@@ -1493,7 +1493,7 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 	}
 
 	for _, ci := range commitInfos {
-		if len(ci.ChildCommits) != 0 {
+		if len(ci.ChildCommits) > 0 {
 			return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}
 		}
 	}
@@ -1503,7 +1503,7 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 	// effectively a drop, though, because there is no child commit that contains
 	// the data from the given commits, which is why it is an error to drop any
 	// non-head commits (until generalized drop semantics are implemented).
-	if err := d.squashCommitsInternal(txnCtx, commitInfos); err != nil {
+	if err := d.squashCommitSetInternal(txnCtx, commitInfos); err != nil {
 		return err
 	}
 
@@ -1526,7 +1526,7 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 		}
 	}
 
-	if err := d.squashCommitsInternal(txnCtx, commitInfos); err != nil {
+	if err := d.squashCommitSetInternal(txnCtx, commitInfos); err != nil {
 		return err
 	}
 
