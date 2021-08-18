@@ -23,6 +23,8 @@ cmds=(
   'pachctl list job'
   'kubectl version'
   'kubectl get all --all-namespaces'
+  'kubectl logs -l component=worker --container=user'
+  'kubectl logs -l component=worker --container=storage'
   'kubectl describe pod -l suite=pachyderm,app=pachd'
   'kubectl describe pod -l suite=pachyderm,app=etcd'
   'curl -s http://$(minikube ip):30656/metrics'
