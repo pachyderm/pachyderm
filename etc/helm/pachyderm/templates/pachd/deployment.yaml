@@ -55,6 +55,11 @@ spec:
         - name: POSTGRES_SSL
           value: {{ .Values.global.postgresql.ssl | quote }}
         {{- end }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres # Must match secret setup by postgres subchart or postgres-secret.yaml
+              key: postgresql-password
         - name: PG_BOUNCER_HOST
           value: pg-bouncer # Must match pgbouncer service name
         - name: PG_BOUNCER_PORT
@@ -110,8 +115,6 @@ spec:
               divisor: "0"
               resource: requests.memory
         {{- end }}
-        - name: CLUSTER_DEPLOYMENT_ID
-          value: {{ include "pachyderm.clusterDeploymentId" . | quote }}
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
         - name: PACHD_POD_NAME
@@ -128,6 +131,8 @@ spec:
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
+          - secretRef:
+              name: pachyderm-deployment-id-secret
         image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachd
