@@ -49,6 +49,9 @@ const (
 	MaxListItemsLog = 10
 	// StorageSecretName is the name of the Kubernetes secret in which storage credentials are stored.
 	StorageSecretName = "pachyderm-storage-secret"
+	// PostgresSecretName is the name of the secret containing the postgres password
+	// It must match the secret passed to pachd here: etc/helm/pachyderm/templates/pachd/deployment.yaml
+	PostgresSecretName = "postgres"
 	// PachctlSecretName is the name of the Kubernetes secret in which
 	// pachctl credentials are stored.
 	PachctlSecretName = "pachyderm-pachctl-secret"
