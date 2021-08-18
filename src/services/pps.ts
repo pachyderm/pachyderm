@@ -19,9 +19,7 @@ import {
 } from '@pachyderm/proto/pb/pps/pps_pb';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 
-import {commitFromObject} from 'builders/pfs';
-import {durationFromObject} from 'builders/protobuf';
-
+import {commitFromObject} from '../builders/pfs';
 import {
   jobFromObject,
   pipelineFromObject,
@@ -37,6 +35,7 @@ import {
   spoutFromObject,
   transformFromObject,
 } from '../builders/pps';
+import {durationFromObject} from '../builders/protobuf';
 import {JobSetQueryArgs, JobQueryArgs, ServiceArgs} from '../lib/types';
 import {DEFAULT_JOBS_LIMIT} from '../services/constants/pps';
 import streamToObjectArray from '../utils/streamToObjectArray';
