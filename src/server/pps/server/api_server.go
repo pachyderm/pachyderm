@@ -2471,6 +2471,8 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	if err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
 		// we know there is pipeline data, so not found errors shouldn't stop us from deleting
 		return err
+	} else if pipelineInfo == nil {
+		pipelineInfo = &pps.PipelineInfo{}
 	}
 	pachClient := a.env.GetPachClient(ctx)
 
@@ -2506,15 +2508,17 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 				return errors.Wrapf(err, "error fixing repo ACLs for pipeline %q", pipelineName)
 			}
 		}
-		authInfo := &pps.PipelineInfo{}
-		if err := a.pipelines.ReadOnly(ctx).Get(pipelineInfo.SpecCommit, authInfo); err != nil && !col.IsErrNotFound(err) {
-			return err
-		} else if err == nil {
-			if _, err := pachClient.RevokeAuthToken(pachClient.Ctx(),
-				&auth.RevokeAuthTokenRequest{
-					Token: authInfo.AuthToken,
-				}); err != nil {
-				return grpcutil.ScrubGRPC(err)
+		if pipelineInfo.SpecCommit != nil {
+			authInfo := &pps.PipelineInfo{}
+			if err := a.pipelines.ReadOnly(ctx).Get(pipelineInfo.SpecCommit, authInfo); err != nil && !col.IsErrNotFound(err) {
+				return err
+			} else if err == nil {
+				if _, err := pachClient.RevokeAuthToken(pachClient.Ctx(),
+					&auth.RevokeAuthTokenRequest{
+						Token: authInfo.AuthToken,
+					}); err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
 			}
 		}
 	}
