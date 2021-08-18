@@ -48,7 +48,7 @@ export interface ListJobArgs extends ListArgs {
   pipelineId?: string | null;
 }
 
-interface CreatePipelineRequestOptions
+export interface CreatePipelineRequestOptions
   extends Omit<
     CreatePipelineRequest.AsObject,
     | 'autoscaling'
