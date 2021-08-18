@@ -84,14 +84,12 @@ case "${BUCKET}" in
     ./etc/testing/examples.sh
     ;;
   PFS)
-    export PACH_TEST_WITH_AUTH=1
-    go test -v -count=1 ./src/server/pps/server -run TestS3Input
+    make test-pfs-server
     ;;
   PPS?)
     make docker-build-kafka
-
-    go test -v -count=1 ./src/server -run UpdateFailed
-
+    bucket_num="${BUCKET#PPS}"
+    test_bucket "./src/server" test-pps "2" "${PPS_BUCKETS}"
     ;;
   AUTH)
     make test-identity
