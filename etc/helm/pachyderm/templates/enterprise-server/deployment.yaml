@@ -49,6 +49,11 @@ spec:
           value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
         - name: POSTGRES_USER
           value: {{ required "postgresql username required" .Values.global.postgresql.postgresqlUsername | quote }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres # Must match secret setup by postgres subchart or postgres-secret.yaml if using external postgres
+              key: postgresql-password
         - name: CLUSTER_DEPLOYMENT_ID
           value: {{ default (randAlphaNum 32) .Values.enterpriseServer.clusterDeploymentID | quote }}
         image: "{{ .Values.enterpriseServer.image.repository }}:{{ default .Chart.AppVersion .Values.enterpriseServer.image.tag }}"
