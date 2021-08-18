@@ -17,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
@@ -41,9 +40,7 @@ type sidecarS3G struct {
 
 func (a *apiServer) ServeSidecarS3G() {
 	s := &sidecarS3G{
-		apiServer:    a,
-		pipelineInfo: &pps.PipelineInfo{}, // populate below
-		pachClient:   a.env.GetPachClient(context.Background()),
+		apiServer: a,
 	}
 	port := a.env.Config().S3GatewayPort
 	s.server = s3.Server(port, nil)
@@ -62,20 +59,15 @@ func (a *apiServer) ServeSidecarS3G() {
 		retryCtx = auth.AsInternalUser(retryCtx, "s3-sidecar")
 		defer retryCancel()
 
-		if err := a.txnEnv.WithReadContext(retryCtx, func(txnCtx *txncontext.TransactionContext) error {
-			specCommit, err := a.findPipelineSpecCommit(txnCtx, pipelineName, "")
-			if err != nil {
-				return err
-			}
-			return a.pipelines.ReadWrite(txnCtx.SqlTx).Get(specCommit, s.pipelineInfo)
-		}); err != nil {
+		var err error
+		s.pipelineInfo, err = a.inspectPipeline(retryCtx, pipelineName, true)
+		if err != nil {
 			return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
 		}
 
-		// Set auth token for s.pachClient (pipelinePtr.AuthToken will be empty if
-		// auth is off)
-		s.pachClient.SetAuthToken(s.pipelineInfo.AuthToken)
-		return nil
+		// Set auth token for s.pachClient
+		s.pachClient, err = a.pipelineAuthorizedClient(context.Background(), s.pipelineInfo.SpecCommit)
+		return err
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logrus.Errorf("error starting sidecar s3 gateway: %v; retrying in %d", err, d)
 		return nil

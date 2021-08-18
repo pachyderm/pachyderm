@@ -17,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -203,18 +202,14 @@ func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 	})
 	// we've given up on the step, check if the error indicated that the pipeline should fail
 	if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
-		var specCommit *pfs.Commit
-		if err := m.a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			var err error
-			specCommit, err = m.a.findPipelineSpecCommit(txnCtx, e.pipeline, "")
-			return err
-		}); err != nil {
-			return errors.Wrapf(err, "error failing pipeline %q", e.pipeline)
+		specCommit, specErr := m.a.findPipelineSpecCommit(ctx, e.pipeline)
+		if specErr != nil {
+			return errors.Wrapf(specErr, "error failing pipeline %q (%v)", e.pipeline, err)
 		}
 		failError := m.a.setPipelineFailure(ctx, specCommit, fmt.Sprintf(
 			"could not update resources after %d attempts: %v", errCount, err))
 		if failError != nil {
-			return errors.Wrapf(failError, "error failing pipeline %q", e.pipeline)
+			return errors.Wrapf(failError, "error failing pipeline %q (%v)", e.pipeline, err)
 		}
 		return errors.Wrapf(err, "failing pipeline %q", e.pipeline)
 	}

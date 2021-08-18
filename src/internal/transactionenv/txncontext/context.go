@@ -2,11 +2,13 @@ package txncontext
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -46,10 +48,16 @@ func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier) (*Transacti
 			username = me.Username
 		}
 	}
+	var currTime time.Time
+	sqlTx.GetContext(ctx, &currTime, "select CURRENT_TIMESTAMP as Timestamp")
+	ts, err := types.TimestampProto(currTime)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error getting transaction timestamp")
+	}
 	return &TransactionContext{
 		SqlTx:       sqlTx,
 		CommitSetID: uuid.NewWithoutDashes(),
-		Timestamp:   types.TimestampNow(),
+		Timestamp:   ts,
 		username:    username,
 	}, nil
 }

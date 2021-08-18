@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"strconv"
-	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -278,11 +277,10 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 			if event.Err != nil {
 				return errors.Wrapf(event.Err, "event err")
 			}
-			parts := strings.SplitN(string(event.Key), "@", 2)
-			if len(parts) < 2 {
-				return errors.Errorf("bad pipeline key %s", event.Key)
+			pipelineName, _, err := ppsdb.ParsePipelineKey(string(event.Key))
+			if err != nil {
+				return errors.Wrap(err, "bad watch event key")
 			}
-			pipelineName := parts[0]
 			switch event.Type {
 			case watch.EventPut:
 				m.eventCh <- &pipelineEvent{

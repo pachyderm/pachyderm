@@ -11,11 +11,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	auth_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -120,18 +118,13 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 
 func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipelineOp, error) {
 	op := &pipelineOp{
-		m:            m,
-		pipelineInfo: &pps.PipelineInfo{},
+		m: m,
 	}
 	// get latest PipelineInfo (events can pile up, so that the current state
 	// doesn't match the event being processed)
-	if err := m.a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		specCommit, err := m.a.findPipelineSpecCommit(txnCtx, pipeline, "")
-		if err != nil {
-			return err
-		}
-		return m.a.pipelines.ReadWrite(txnCtx.SqlTx).Get(specCommit, op.pipelineInfo)
-	}); err != nil {
+	var err error
+	op.pipelineInfo, err = m.a.inspectPipeline(ctx, pipeline, true)
+	if err != nil {
 		return nil, errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
 	}
 	tracing.TagAnySpan(ctx,
@@ -139,9 +132,11 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
 
 	// add pipeline auth
-	pachClient := m.a.env.GetPachClient(ctx)
-	op.ctx = auth_middleware.ClearWhoAmI(pachClient.Ctx())
-	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
+	if pachClient, err := m.a.pipelineAuthorizedClient(ctx, op.pipelineInfo.SpecCommit); err != nil {
+		return nil, err
+	} else {
+		op.ctx = pachClient.Ctx()
+	}
 	return op, nil
 }
 

@@ -31,7 +31,7 @@ var PipelinesVersionIndex = &col.Index{
 
 func VersionKey(pipeline string, version uint64) string {
 	// zero pad in case we want to sort
-	return fmt.Sprintf("%s@%04d", pipeline, version)
+	return fmt.Sprintf("%s@%08d", pipeline, version)
 }
 
 // PipelinesNameIndex records the name of pipelines
@@ -46,6 +46,14 @@ var PipelinesNameIndex = &col.Index{
 var pipelinesIndexes = []*col.Index{
 	PipelinesVersionIndex,
 	PipelinesNameIndex,
+}
+
+func ParsePipelineKey(key string) (string, string, error) {
+	parts := strings.Split(key, "@")
+	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
+		return "", "", errors.Errorf("key %s is not of form <pipeline>@<id>")
+	}
+	return parts[0], parts[1], nil
 }
 
 // Pipelines returns a PostgresCollection of pipelines
@@ -66,11 +74,8 @@ func Pipelines(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollectio
 			return "", errors.New("must provide a spec commit")
 		}),
 		col.WithKeyCheck(func(key string) error {
-			parts := strings.Split(key, "@")
-			if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
-				return errors.New("pipeline keys must be of form <pipelineName>@<commitID>")
-			}
-			return nil
+			_, _, err := ParsePipelineKey(key)
+			return err
 		}),
 	)
 }
