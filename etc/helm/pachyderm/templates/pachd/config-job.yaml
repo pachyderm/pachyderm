@@ -26,7 +26,7 @@ spec:
         - name: CONSOLE_OAUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: console-secret
+              name: pachyderm-console-secret
               key: OAUTH_CLIENT_SECRET
         {{- end}}
         {{- if .Values.enterpriseServer.enabled }}
