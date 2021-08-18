@@ -3545,10 +3545,6 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 }
 
 func TestPipelineThatSymlinks(t *testing.T) {
-	// TODO(2.0 required): this pipeline is failing because the datum upload code
-	// attempts to follow symlinks which do not point to valid files and this
-	// causes the worker to retry indefinitely.
-	t.Skip("hanging symlinks cause the job to error loop indefinitely")
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
@@ -3571,6 +3567,10 @@ func TestPipelineThatSymlinks(t *testing.T) {
 			// Symlinks to external files
 			"echo buzz > /tmp/buzz",
 			"ln -s /tmp/buzz /pfs/out/buzz",
+			"mkdir /tmp/dir3",
+			"mkdir /tmp/dir3/dir4",
+			"echo foobar > /tmp/dir3/dir4/foobar",
+			"ln -s /tmp/dir3 /pfs/out/dir3",
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
@@ -3608,6 +3608,9 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(outputCommit, "buzz", &buffer))
 	require.Equal(t, "buzz\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "dir3/dir4/foobar", &buffer))
+	require.Equal(t, "foobar\n", buffer.String())
 }
 
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/v2/issues/797
