@@ -5035,15 +5035,22 @@ func TestPFS(suite *testing.T) {
 				}
 				i := r.Intn(len(commits))
 				commit := commits[i]
-				commits = append(commits[:i], commits[i+1:]...)
 
 				err := env.PachClient.SquashCommitSet(commit.ID)
 				if pfsserver.IsSquashWithoutChildrenErr(err) {
 					err = env.PachClient.DropCommitSet(commit.ID)
+					if pfsserver.IsDropWithChildrenErr(err) {
+						// The commitset cannot be squashed or dropped as some commits have children and some commits don't
+						err = nil
+					} else {
+						commits = append(commits[:i], commits[i+1:]...)
+					}
 				} else if err != nil && strings.Contains(err.Error(), "cannot squash until child commit") {
 					// TODO: somehow unfinished commits are being created by SquashCommitSet.
 					// This causes future calls to SquashCommitSet to error.
 					err = nil
+				} else {
+					commits = append(commits[:i], commits[i+1:]...)
 				}
 				require.NoError(t, err)
 			case outputRepo:
