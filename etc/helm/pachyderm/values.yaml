@@ -211,6 +211,7 @@ pachd:
   enterpriseLicenseKey: ""
   rootToken: ""
   enterpriseSecret: ""
+  oauthClientSecret: ""
   serviceAccount:
     create: true
     additionalAnnotations: {}
@@ -371,11 +372,11 @@ pgbouncer:
     #  cpu: "1"
     #  memory: "2G"
 
-# Note: Postgres values control the Bitnami Postgresql Subchart 
+# Note: Postgres values control the Bitnami Postgresql Subchart
 postgresql:
   # enabled controls whether to install postgres or not.
   # If not using the built in Postgres, you must specify a Postgresql
-  # database server to connect to in global.postgresql 
+  # database server to connect to in global.postgresql
   # The enabled value is watched by the 'condition' set on the Postgresql
   # dependency in Chart.yaml
   enabled: true
@@ -392,13 +393,13 @@ postgresql:
   fullnameOverride: postgres
   persistence:
     # Specify the storage class for the postgresql Persistent Volume (PV)
-    # See notes in Bitnami chart values.yaml file for more information. 
+    # See notes in Bitnami chart values.yaml file for more information.
     # More info for setting up storage classes on various cloud providers:
     # AWS: https://docs.aws.amazon.com/eks/latest/userguide/storage-classes.html
     # GCP: https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/ssd-pd
     # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage
-    storageClass: "" 
-    
+    storageClass: ""
+
     # storageSize specifies the size of the volume to use for postgresql
     # Recommended Minimum Disk size for Microsoft/Azure: 256Gi  - 1,100 IOPS https://azure.microsoft.com/en-us/pricing/details/managed-disks/
     # Recommended Minimum Disk size for Google/GCP: 50Gi        - 1,500 IOPS https://cloud.google.com/compute/docs/disks/performance
