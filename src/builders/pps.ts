@@ -196,6 +196,7 @@ export type JobInfoObject = {
   startedAt?: JobInfo.AsObject['started'];
   finishedAt?: JobInfo.AsObject['finished'];
   state: JobState;
+  reason?: string;
   input?: InputObject;
   outputCommit?: CommitObject;
 };
@@ -596,12 +597,17 @@ export const jobInfoFromObject = ({
   startedAt,
   finishedAt,
   state,
+  reason,
   input,
   outputCommit,
 }: JobInfoObject) => {
   const jobInfo = new JobInfo()
     .setState(state)
     .setJob(new Job().setId(id).setPipeline(new Pipeline().setName(name)));
+
+  if (reason) {
+    jobInfo.setReason(reason);
+  }
 
   if (createdAt) {
     jobInfo.setCreated(

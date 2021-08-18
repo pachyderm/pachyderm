@@ -568,6 +568,7 @@ it('should create PipelineJob from an object', () => {
 it('should create JobInfo from an object', () => {
   const pipelineJob = jobInfoFromObject({
     state: 1,
+    reason: 'everything broke',
     job: {id: '1', pipeline: {name: 'montage'}},
     createdAt: {
       seconds: 564645,
@@ -593,6 +594,7 @@ it('should create JobInfo from an object', () => {
   });
 
   expect(pipelineJob.getState()).toBe(1);
+  expect(pipelineJob.getReason()).toBe('everything broke');
   expect(pipelineJob.getCreated()?.getSeconds()).toBe(564645);
   expect(pipelineJob.getStarted()?.getSeconds()).toBe(10000);
   expect(pipelineJob.getFinished()?.getSeconds()).toBe(20000);
