@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -57,6 +58,8 @@ func (a *apiServer) ServeSidecarS3G() {
 	}
 	if err := backoff.RetryNotify(func() error {
 		retryCtx, retryCancel := context.WithCancel(context.Background())
+		// authenticate just to fetch the pipeline info
+		retryCtx = auth.AsInternalUser(retryCtx, "s3-sidecar")
 		defer retryCancel()
 
 		if err := a.txnEnv.WithReadContext(retryCtx, func(txnCtx *txncontext.TransactionContext) error {
