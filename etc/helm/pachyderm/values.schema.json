@@ -593,19 +593,43 @@
                 "enabled": {
                     "type": "boolean"
                 },
-                "resources": {
-                    "type": "object"
+                "fullnameOverride": {
+                    "type": "string"
                 },
-                "service": {
+                "image": {
                     "type": "object",
                     "properties": {
-                        "type": {
+                        "tag": {
                             "type": "string"
                         }
                     }
                 },
-                "storageClass": {
-                    "type": "string"
+                "initdbScripts": {
+                    "type": "object",
+                    "properties": {
+                        "dex.sh": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "persistence": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {
+                            "type": "object",
+                            "properties": {
+                                "suite": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "size": {
+                            "type": "string"
+                        },
+                        "storageClass": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },

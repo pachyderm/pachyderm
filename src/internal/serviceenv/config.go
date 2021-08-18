@@ -24,9 +24,11 @@ type GlobalConfiguration struct {
 	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
 	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
 	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
-	PGBouncerHost                  string `env:"PG_BOUNCER_HOST"`
-	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT"`
+	PGBouncerHost                  string `env:"PG_BOUNCER_HOST,required"`
+	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT,required"`
 	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
+	PostgresHost                   string `env:"POSTGRES_HOST"`
+	PostgresPort                   int    `env:"POSTGRES_PORT"`
 	PostgresDBName                 string `env:"POSTGRES_DATABASE,required"`
 	PostgresUser                   string `env:"POSTGRES_USER,required"`
 	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
@@ -67,9 +69,6 @@ type GlobalConfiguration struct {
 	// the target project.  If set on a pachd pod, propagates to workers and sidecars (which
 	// also need permission).
 	GoogleCloudProfilerProject string `env:"GOOGLE_CLOUD_PROFILER_PROJECT"`
-
-	PostgresHost string `env:"POSTGRES_HOST"`
-	PostgresPort int    `env:"POSTGRES_PORT"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.
