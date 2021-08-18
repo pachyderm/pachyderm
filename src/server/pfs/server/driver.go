@@ -1336,16 +1336,10 @@ func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) 
 	})
 }
 
-func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
+func (d *driver) squashCommitSetInternal(txnCtx *txncontext.TransactionContext, commitInfos []*pfs.CommitInfo) error {
 	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
 
-	// 1) Look up the commits in the CommitSet
-	commitInfos, err := d.inspectCommitSetImmediate(txnCtx, commitset)
-	if err != nil {
-		return err
-	}
-
-	// 2) Delete each commit in the CommitSet
+	// 1) Delete each commit in the CommitSet
 	affectedBranches := []*pfs.Branch{}
 	for _, commitInfo := range commitInfos {
 		deleted[pfsdb.CommitKey(commitInfo.Commit)] = commitInfo
@@ -1403,7 +1397,7 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 		}
 	}
 
-	// 3) Rewrite ParentCommit of deleted commits' children, and
+	// 2) Rewrite ParentCommit of deleted commits' children, and
 	// ChildCommits of deleted commits' parents
 	visited := make(map[string]struct{}) // visited child/parent commits
 	for _, deletedInfo := range deleted {
@@ -1486,10 +1480,59 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 		}
 	}
 
-	// 5) notify PPS that this commitset has been squashed so it can clean up any
+	return nil
+}
+
+// dropCommitSet is only implemented for commits with no children, so if any
+// commits in the commitSet have children the operation will fail.
+func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
+	// Look up the commits in the CommitSet
+	commitInfos, err := d.inspectCommitSetImmediate(txnCtx, commitset)
+	if err != nil {
+		return err
+	}
+
+	for _, ci := range commitInfos {
+		if len(ci.ChildCommits) > 0 {
+			return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}
+		}
+	}
+
+	// While this is a 'drop' operation and not a 'squash', proper drop semantics
+	// aren't implemented at the moment.  Squashing the head of a branch is
+	// effectively a drop, though, because there is no child commit that contains
+	// the data from the given commits, which is why it is an error to drop any
+	// non-head commits (until generalized drop semantics are implemented).
+	if err := d.squashCommitSetInternal(txnCtx, commitInfos); err != nil {
+		return err
+	}
+
+	// notify PPS that this commitset has been dropped so it can clean up any
 	// jobs associated with it at the end of the transaction
 	txnCtx.StopJobs(commitset)
+	return nil
+}
 
+func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
+	// Look up the commits in the CommitSet
+	commitInfos, err := d.inspectCommitSetImmediate(txnCtx, commitset)
+	if err != nil {
+		return err
+	}
+
+	for _, ci := range commitInfos {
+		if len(ci.ChildCommits) == 0 {
+			return &pfsserver.ErrSquashWithoutChildren{Commit: ci.Commit}
+		}
+	}
+
+	if err := d.squashCommitSetInternal(txnCtx, commitInfos); err != nil {
+		return err
+	}
+
+	// notify PPS that this commitset has been squashed so it can clean up any
+	// jobs associated with it at the end of the transaction
+	txnCtx.StopJobs(commitset)
 	return nil
 }
 

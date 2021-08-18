@@ -276,6 +276,18 @@ func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashComm
 	return &types.Empty{}, nil
 }
 
+// DropCommitSet implements the protobuf pfs.DropCommitSet RPC
+func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSetRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return a.driver.dropCommitSet(txnCtx, request.CommitSet)
+	}); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
