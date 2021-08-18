@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -188,6 +187,7 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 			return errors.Wrap(err, "failed to watch kubernetes pods")
 		}
 		defer kubePipelineWatch.Stop()
+	WatchLoop:
 		for {
 			select {
 			case <-ctx.Done():
@@ -209,8 +209,7 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 				if pod.Status.Phase == v1.PodFailed {
 					log.Errorf("pod failed because: %s", pod.Status.Message)
 				}
-				var specCommit *pfs.Commit
-				if err := func() error {
+				crashPipeline := func(reason string) error {
 					pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
 					pipelineVersion, versionErr := strconv.Atoi(pod.ObjectMeta.Annotations["pipelineVersion"])
 					if versionErr != nil {
@@ -223,24 +222,23 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 						&pipelineInfo); err != nil {
 						return errors.Wrapf(err, "couldn't retrieve pipeline information")
 					}
-					specCommit = pipelineInfo.SpecCommit
-					return nil
-				}(); err != nil {
-					return errors.Wrapf(err, "error determining pipeline version")
+					return m.a.setPipelineCrashing(ctx, pipelineInfo.SpecCommit, reason)
 				}
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
-						if err := m.a.setPipelineCrashing(ctx, specCommit, status.State.Waiting.Message); err != nil {
+						if err := crashPipeline(status.State.Waiting.Message); err != nil {
 							return errors.Wrap(err, "error moving pipeline to CRASHING")
 						}
+						continue WatchLoop
 					}
 				}
 				for _, condition := range pod.Status.Conditions {
 					if condition.Type == v1.PodScheduled &&
 						condition.Status != v1.ConditionTrue && failures[condition.Reason] {
-						if err := m.a.setPipelineCrashing(ctx, specCommit, condition.Message); err != nil {
+						if err := crashPipeline(condition.Message); err != nil {
 							return errors.Wrap(err, "error moving pipeline to CRASHING")
 						}
+						continue WatchLoop
 					}
 				}
 			}
