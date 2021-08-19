@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"strconv"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/v2/src/client"
@@ -559,8 +560,11 @@ func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOpt
 	for _, secret := range transform.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: secret})
 	}
-	if a.imagePullSecret != "" {
-		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: a.imagePullSecret})
+	if a.imagePullSecrets != "" {
+		secrets := strings.Split(a.imagePullSecrets, ",")
+		for _, secret := range secrets {
+			imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: secret})
+		}
 	}
 
 	annotations := map[string]string{
