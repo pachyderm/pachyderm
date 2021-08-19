@@ -15,6 +15,9 @@ pachd:
     enabled: false
   clusterDeploymentID: dev
   enterpriseLicenseKey: ""
+  worker:
+    image:
+      tag: local
 
 console:
   enabled: false
@@ -30,10 +33,6 @@ console:
 
 enterpriseServer:
   enabled: false
-
-worker:
-  image:
-    tag: local
 
 etcd:
   service:

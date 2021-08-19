@@ -109,8 +109,8 @@ func TestAWS(t *testing.T) {
 
 	helmValues := map[string]string{
 		"deployTarget": "AMAZON",
-		`pachd.serviceAccount.additionalAnnotations.eks\.amazonaws\.com/role-arn`:  expectedServiceAccount,
-		`worker.serviceAccount.additionalAnnotations.eks\.amazonaws\.com/role-arn`: expectedServiceAccount,
+		`pachd.serviceAccount.additionalAnnotations.eks\.amazonaws\.com/role-arn`:        expectedServiceAccount,
+		`pachd.worker.serviceAccount.additionalAnnotations.eks\.amazonaws\.com/role-arn`: expectedServiceAccount,
 	}
 	for _, tc := range testCases {
 		helmValues[tc.helmKey] = tc.value

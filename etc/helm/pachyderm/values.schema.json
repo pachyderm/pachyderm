@@ -355,6 +355,9 @@
                         },
                         "repository": {
                             "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
                         }
                     }
                 },
@@ -570,7 +573,34 @@
                     }
                 },
                 "worker": {
-                    "type": "null"
+                    "type": "object",
+                    "properties": {
+                        "image": {
+                            "type": "object",
+                            "properties": {
+                                "pullPolicy": {
+                                    "type": "string"
+                                },
+                                "repository": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "serviceAccount": {
+                            "type": "object",
+                            "properties": {
+                                "additionalAnnotations": {
+                                    "type": "object"
+                                },
+                                "create": {
+                                    "type": "boolean"
+                                },
+                                "name": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },

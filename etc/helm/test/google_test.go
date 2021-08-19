@@ -40,8 +40,8 @@ func TestGoogle(t *testing.T) {
 	)
 	helmValues := map[string]string{
 		"deployTarget": expectedStorageBackend,
-		`pachd.serviceAccount.additionalAnnotations.iam\.gke\.io/gcp-service-account`:  expectedServiceAccount,
-		`worker.serviceAccount.additionalAnnotations.iam\.gke\.io/gcp-service-account`: expectedServiceAccount,
+		`pachd.serviceAccount.additionalAnnotations.iam\.gke\.io/gcp-service-account`:        expectedServiceAccount,
+		`pachd.worker.serviceAccount.additionalAnnotations.iam\.gke\.io/gcp-service-account`: expectedServiceAccount,
 	}
 	for _, tc := range testCases {
 		helmValues[tc.helmKey] = tc.value
