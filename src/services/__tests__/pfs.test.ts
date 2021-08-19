@@ -1,3 +1,5 @@
+import {CommitState} from '@pachyderm/proto/pb/pfs/pfs_pb';
+
 import client from 'client';
 
 describe('services/pfs', () => {
@@ -103,6 +105,12 @@ describe('services/pfs', () => {
         branch: {name: 'master', repo: {name: 'squashCommitSet'}},
       });
       await client.pfs().finishCommit({commit: commit2});
+      await client
+        .pfs()
+        .inspectCommit({commit: commit1, wait: CommitState.FINISHED});
+      await client
+        .pfs()
+        .inspectCommit({commit: commit2, wait: CommitState.FINISHED});
 
       const commits = await client
         .pfs()
