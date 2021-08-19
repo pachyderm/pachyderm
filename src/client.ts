@@ -3,6 +3,7 @@ import {Metadata} from '@grpc/grpc-js';
 import createCredentials from './createCredentials';
 import {GRPCPlugin, ServiceDefinition} from './lib/types';
 import auth from './services/auth';
+import {ModifyFile} from './services/ModifyFile';
 import pfs from './services/pfs';
 import pps from './services/pps';
 import projects from './services/projects';
@@ -69,6 +70,7 @@ const client = ({
   let ppsService: ReturnType<typeof pps> | undefined;
   let authService: ReturnType<typeof auth> | undefined;
   let projectsService: ReturnType<typeof projects> | undefined;
+  let modifyFile: ModifyFile | undefined;
 
   // NOTE: These service clients are singletons, as we
   // don't want to create a new instance of APIClient for
@@ -125,6 +127,18 @@ const client = ({
         plugins,
       );
       return projectsService;
+    },
+    modifyFile: () => {
+      if (modifyFile) return modifyFile;
+
+      modifyFile = new ModifyFile({
+        pachdAddress,
+        channelCredentials,
+        credentialMetadata,
+        plugins,
+      });
+
+      return modifyFile;
     },
   };
 
