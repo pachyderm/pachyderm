@@ -355,9 +355,6 @@
                         },
                         "repository": {
                             "type": "string"
-                        },
-                        "tag": {
-                            "type": "string"
                         }
                     }
                 },
@@ -571,6 +568,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "worker": {
+                    "type": "null"
                 }
             }
         },
@@ -644,36 +644,6 @@
                 },
                 "create": {
                     "type": "boolean"
-                }
-            }
-        },
-        "worker": {
-            "type": "object",
-            "properties": {
-                "image": {
-                    "type": "object",
-                    "properties": {
-                        "pullPolicy": {
-                            "type": "string"
-                        },
-                        "repository": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "serviceAccount": {
-                    "type": "object",
-                    "properties": {
-                        "additionalAnnotations": {
-                            "type": "object"
-                        },
-                        "create": {
-                            "type": "boolean"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    }
                 }
             }
         }
