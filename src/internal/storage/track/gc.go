@@ -49,11 +49,7 @@ func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 	ticker := time.NewTicker(gc.period)
 	defer ticker.Stop()
 	for {
-		if err := func() error {
-			ctx, cf := context.WithTimeout(ctx, gc.period/2)
-			defer cf()
-			return gc.RunUntilEmpty(ctx)
-		}(); err != nil {
+		if err := gc.RunUntilEmpty(ctx); err != nil {
 			logrus.Errorf("gc: %v", err)
 		}
 		select {
