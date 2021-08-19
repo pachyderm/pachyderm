@@ -27,7 +27,6 @@ func Pipelines(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollectio
 		listener,
 		&pps.PipelineInfo{},
 		nil,
-		nil,
 	)
 }
 
@@ -70,7 +69,6 @@ func Jobs(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 		listener,
 		&pps.JobInfo{},
 		jobsIndexes,
-		nil,
 	)
 }
 
@@ -79,7 +77,7 @@ func Jobs(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 // querying.
 func AllCollections() []col.PostgresCollection {
 	return []col.PostgresCollection{
-		col.NewPostgresCollection(pipelinesCollectionName, nil, nil, nil, pipelinesIndexes, nil),
-		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, jobsIndexes, nil),
+		col.NewPostgresCollection(pipelinesCollectionName, nil, nil, nil, pipelinesIndexes),
+		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, jobsIndexes),
 	}
 }

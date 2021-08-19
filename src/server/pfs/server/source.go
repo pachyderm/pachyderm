@@ -50,11 +50,11 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
 		file := s.commitInfo.Commit.NewFile(idx.Path)
-		file.Tag = idx.File.Tag
+		file.Datum = idx.File.Datum
 		fi := &pfs.FileInfo{
 			File:      file,
 			FileType:  pfs.FileType_FILE,
-			Committed: s.commitInfo.Finished,
+			Committed: s.commitInfo.Finishing,
 		}
 		if fileset.IsDir(idx.Path) {
 			fi.FileType = pfs.FileType_DIR
@@ -149,7 +149,7 @@ func (s *source) computeRegularFileInfo(ctx context.Context, f fileset.File) (*p
 		SizeBytes: index.SizeBytes(f.Index()),
 	}
 	var err error
-	fi.Hash, err = f.Hash()
+	fi.Hash, err = f.Hash(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -186,4 +186,22 @@ type emptySource struct{}
 
 func (emptySource) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	return nil
+}
+
+// checkSingleFile iterates through the source and returns errors for non-files, or multiple files.
+// If the source contains a directory, then singleFile errors.
+// If the source contains more than one file of any type, then singleFile errors
+// the not exist error should be provided by the Source
+func checkSingleFile(ctx context.Context, src Source) error {
+	var count int
+	return src.Iterate(ctx, func(finfo *pfs.FileInfo, fsFile fileset.File) error {
+		if finfo.FileType != pfs.FileType_FILE {
+			return errors.Errorf("cannot get non-regular file. Try GetFileTAR for directories")
+		}
+		if count == 0 {
+			count++
+			return nil
+		}
+		return errors.Errorf("matched multiple files. Try GetFileTAR")
+	})
 }

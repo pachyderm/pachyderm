@@ -27,7 +27,10 @@ type postgresCollection struct {
 	listener PostgresListener
 	template proto.Message
 	indexes  []*Index
+	keyGen   func(interface{}) (string, error)
 	keyCheck func(string) error
+	notFound func(interface{}) string
+	exists   func(interface{}) string
 }
 
 func indexFieldName(idx *Index) string {
@@ -42,16 +45,45 @@ type model struct {
 	Proto     []byte
 }
 
+type Option func(collection *postgresCollection)
+
+func WithKeyCheck(check func(string) error) Option {
+	return func(c *postgresCollection) {
+		c.keyCheck = check
+	}
+}
+
+func WithKeyGen(gen func(interface{}) (string, error)) Option {
+	return func(c *postgresCollection) {
+		c.keyGen = gen
+	}
+}
+
+func WithExistsMessage(format func(interface{}) string) Option {
+	return func(c *postgresCollection) {
+		c.exists = format
+	}
+}
+
+func WithNotFoundMessage(format func(interface{}) string) Option {
+	return func(c *postgresCollection) {
+		c.notFound = format
+	}
+}
+
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(name string, db *sqlx.DB, listener PostgresListener, template proto.Message, indexes []*Index, keyCheck func(string) error) PostgresCollection {
-	return &postgresCollection{
+func NewPostgresCollection(name string, db *sqlx.DB, listener PostgresListener, template proto.Message, indexes []*Index, opts ...Option) PostgresCollection {
+	col := &postgresCollection{
 		table:    name,
 		db:       db,
 		listener: listener,
 		template: template,
 		indexes:  indexes,
-		keyCheck: keyCheck,
 	}
+	for _, opt := range opts {
+		opt(col)
+	}
+	return col
 }
 
 // Indexes passed into queries are required to be the same object used at
@@ -88,20 +120,10 @@ func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection 
 	return &postgresReadWriteCollection{c, tx}
 }
 
-type ErrTransactionConflict = dbutil.ErrTransactionConflict
-
-// NewSQLTx starts a transaction on the given DB, passes it to the callback, and
-// finishes the transaction afterwards. If the callback was successful, the
-// transaction is committed. If any errors occur, the transaction is rolled
-// back.  This will reattempt the transaction forever.
-func NewSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	return dbutil.WithTx(ctx, db, apply)
-}
-
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
 // transaction instead of committing it.
 func NewDryrunSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	err := NewSQLTx(ctx, db, func(tx *sqlx.Tx) error {
+	err := dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
 		if err := apply(tx); err != nil {
 			return err
 		}
@@ -128,9 +150,9 @@ func isDuplicateKeyError(err error) bool {
 func (c *postgresCollection) mapSQLError(err error, key string) error {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.WithStack(ErrNotFound{c.table, key})
+			return errors.WithStack(ErrNotFound{Type: c.table, Key: key})
 		} else if isDuplicateKeyError(err) {
-			return errors.WithStack(ErrExists{c.table, key})
+			return errors.WithStack(ErrExists{Type: c.table, Key: key})
 		}
 		return errors.EnsureStack(err)
 	}
@@ -151,12 +173,42 @@ func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.Queryer
 	return result, nil
 }
 
-func (c *postgresReadOnlyCollection) Get(key string, val proto.Message) error {
-	result, err := c.get(c.ctx, key, c.db)
+func (c *postgresReadOnlyCollection) Get(key interface{}, val proto.Message) error {
+	var result *model
+	var err error
+	err = c.withKey(key, func(rawKey string) error {
+		result, err = c.get(c.ctx, rawKey, c.db)
+		return err
+	})
 	if err != nil {
 		return err
 	}
 	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
+}
+
+func (c *postgresCollection) withKey(key interface{}, query func(string) error) error {
+	if str, ok := key.(string); ok {
+		return query(str)
+	}
+	rawKey, err := c.keyGen(key)
+	if err != nil {
+		return err
+	}
+	err = query(rawKey)
+	if err != nil {
+		var notFound ErrNotFound
+		var exists ErrExists
+		if c.notFound != nil && errors.As(err, &notFound) {
+			notFound.customMessage = c.notFound(key)
+			return errors.EnsureStack(notFound)
+		}
+		if c.exists != nil && errors.As(err, &exists) {
+			exists.customMessage = c.exists(key)
+			return errors.EnsureStack(exists)
+		}
+		return err
+	}
+	return nil
 }
 
 func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message, opts *Options, greedy bool, f func(string) error) error {
@@ -191,7 +243,7 @@ func (c *postgresCollection) getUniqueByIndex(ctx context.Context, q sqlx.ExtCon
 		return err
 	}
 	if !found {
-		return ErrNotFound{c.table, indexVal}
+		return ErrNotFound{Type: c.table, Key: indexVal}
 	}
 	return nil
 }
@@ -236,12 +288,14 @@ func (c *postgresCollection) list(
 ) error {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
-	params := map[string]interface{}{}
+	var args []interface{}
 	if len(withFields) > 0 {
 		fields := []string{}
+		i := 1
 		for k, v := range withFields {
-			fields = append(fields, fmt.Sprintf("%s = :%s", k, k))
-			params[k] = v
+			fields = append(fields, fmt.Sprintf("%s = $%d", k, i))
+			args = append(args, v)
+			i++
 		}
 		query += " where " + strings.Join(fields, " and ")
 	}
@@ -255,8 +309,7 @@ func (c *postgresCollection) list(
 			query += fmt.Sprintf(" order by %s %s", target, order)
 		}
 	}
-
-	rows, err := sqlx.NamedQueryContext(ctx, q, query, params)
+	rows, err := q.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return c.mapSQLError(err, "")
 	}
@@ -431,7 +484,17 @@ func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...
 	return watchF(c.ctx, watcher, f)
 }
 
-func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
+func (c *postgresReadOnlyCollection) WatchOne(key interface{}, opts ...watch.Option) (watch.Watcher, error) {
+	var watcher watch.Watcher
+	var err error
+	err = c.withKey(key, func(rawKey string) error {
+		watcher, err = c.watchOne(rawKey, opts...)
+		return err
+	})
+	return watcher, err
+}
+
+func (c *postgresReadOnlyCollection) watchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
 
 	watcher, err := newPostgresWatcher(c.db, c.listener, c.indexWatchChannel("key", key), c.template, nil, nil, options)
@@ -467,7 +530,7 @@ func (c *postgresReadOnlyCollection) WatchOne(key string, opts ...watch.Option) 
 	return watcher, nil
 }
 
-func (c *postgresReadOnlyCollection) WatchOneF(key string, f func(*watch.Event) error, opts ...watch.Option) error {
+func (c *postgresReadOnlyCollection) WatchOneF(key interface{}, f func(*watch.Event) error, opts ...watch.Option) error {
 	watcher, err := c.WatchOne(key, opts...)
 	if err != nil {
 		return err
@@ -533,25 +596,28 @@ func (c *postgresReadOnlyCollection) WatchByIndexF(index *Index, indexVal string
 	return watchF(c.ctx, watcher, f)
 }
 
-func (c *postgresReadOnlyCollection) TTL(key string) (int64, error) {
-	return 0, errors.New("TTL is not supported in postgres collections")
-}
-
 type postgresReadWriteCollection struct {
 	*postgresCollection
 	tx *sqlx.Tx
 }
 
-func (c *postgresReadWriteCollection) Get(key string, val proto.Message) error {
-	result, err := c.get(context.Background(), key, c.tx)
+func (c *postgresReadWriteCollection) Get(key interface{}, val proto.Message) error {
+	var result *model
+	var err error
+	err = c.withKey(key, func(rawKey string) error {
+		result, err = c.get(context.Background(), rawKey, c.tx)
+		return err
+	})
 	if err != nil {
 		return err
 	}
 	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
 }
 
-func (c *postgresReadWriteCollection) Put(key string, val proto.Message) error {
-	return c.insert(key, val, true)
+func (c *postgresReadWriteCollection) Put(key interface{}, val proto.Message) error {
+	return c.withKey(key, func(rawKey string) error {
+		return c.insert(rawKey, val, true)
+	})
 }
 
 func (c *postgresReadWriteCollection) getWriteParams(key string, val proto.Message) (map[string]interface{}, error) {
@@ -573,7 +639,7 @@ func (c *postgresReadWriteCollection) getWriteParams(key string, val proto.Messa
 	return params, nil
 }
 
-func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f func() error) error {
+func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message, f func() error) error {
 	if err := c.Get(key, val); err != nil {
 		return err
 	}
@@ -581,20 +647,22 @@ func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f fu
 		return err
 	}
 
-	params, err := c.getWriteParams(key, val)
-	if err != nil {
-		return err
-	}
+	return c.withKey(key, func(rawKey string) error {
+		params, err := c.getWriteParams(rawKey, val)
+		if err != nil {
+			return err
+		}
 
-	updateFields := []string{}
-	for k := range params {
-		updateFields = append(updateFields, fmt.Sprintf("%s = :%s", k, k))
-	}
+		updateFields := []string{}
+		for k := range params {
+			updateFields = append(updateFields, fmt.Sprintf("%s = :%s", k, k))
+		}
 
-	query := fmt.Sprintf("update collections.%s set %s where key = :key", c.table, strings.Join(updateFields, ", "))
+		query := fmt.Sprintf("update collections.%s set %s where key = :key", c.table, strings.Join(updateFields, ", "))
 
-	_, err = c.tx.NamedExec(query, params)
-	return c.mapSQLError(err, key)
+		_, err = c.tx.NamedExec(query, params)
+		return c.mapSQLError(err, rawKey)
+	})
 }
 
 func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
@@ -641,13 +709,13 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 		}
 
 		if count != int64(1) {
-			return errors.WithStack(ErrExists{c.table, key})
+			return errors.WithStack(ErrExists{Type: c.table, Key: key})
 		}
 	}
 	return nil
 }
 
-func (c *postgresReadWriteCollection) Upsert(key string, val proto.Message, f func() error) error {
+func (c *postgresReadWriteCollection) Upsert(key interface{}, val proto.Message, f func() error) error {
 	if err := c.Get(key, val); err != nil && !IsErrNotFound(err) {
 		return err
 	}
@@ -657,11 +725,19 @@ func (c *postgresReadWriteCollection) Upsert(key string, val proto.Message, f fu
 	return c.Put(key, val)
 }
 
-func (c *postgresReadWriteCollection) Create(key string, val proto.Message) error {
-	return c.insert(key, val, false)
+func (c *postgresReadWriteCollection) Create(key interface{}, val proto.Message) error {
+	return c.withKey(key, func(rawKey string) error {
+		return c.insert(rawKey, val, false)
+	})
 }
 
-func (c *postgresReadWriteCollection) Delete(key string) error {
+func (c *postgresReadWriteCollection) Delete(key interface{}) error {
+	return c.withKey(key, func(rawKey string) error {
+		return c.delete(rawKey)
+	})
+}
+
+func (c *postgresReadWriteCollection) delete(key string) error {
 	query := fmt.Sprintf("delete from collections.%s where key = $1", c.table)
 	res, err := c.tx.Exec(query, key)
 	if err != nil {
@@ -671,7 +747,7 @@ func (c *postgresReadWriteCollection) Delete(key string) error {
 	if count, err := res.RowsAffected(); err != nil {
 		return c.mapSQLError(err, key)
 	} else if count == 0 {
-		return errors.WithStack(ErrNotFound{c.table, key})
+		return errors.WithStack(ErrNotFound{Type: c.table, Key: key})
 	}
 	return nil
 }
@@ -689,12 +765,4 @@ func (c *postgresReadWriteCollection) DeleteByIndex(index *Index, indexVal strin
 	query := fmt.Sprintf("delete from collections.%s where %s = $1", c.table, indexFieldName(index))
 	_, err := c.tx.Exec(query, indexVal)
 	return c.mapSQLError(err, "")
-}
-
-func (c *postgresReadWriteCollection) TTL(key string) (int64, error) {
-	return 0, errors.New("TTL is not supported in postgres collections")
-}
-
-func (c *postgresReadWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
-	return errors.New("PutTTL is not supported in postgres collections")
 }

@@ -12,16 +12,14 @@ func WithPipe(wcb func(w io.Writer) error, rcb func(r io.Reader) error) error {
 	pr, pw := io.Pipe()
 	eg := errgroup.Group{}
 	eg.Go(func() error {
-		if err := wcb(pw); err != nil {
-			return pw.CloseWithError(err)
-		}
-		return pw.Close()
+		err := wcb(pw)
+		pw.CloseWithError(err)
+		return err
 	})
 	eg.Go(func() error {
-		if err := rcb(pr); err != nil {
-			return pr.CloseWithError(err)
-		}
-		return pr.Close()
+		err := rcb(pr)
+		pr.CloseWithError(err)
+		return err
 	})
 	return eg.Wait()
 }

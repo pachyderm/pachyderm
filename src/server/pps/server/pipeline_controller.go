@@ -96,10 +96,7 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 		// Don't put the pipeline in a failing state if we're in the middle
 		// of activating auth, retry in a bit
 		if auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err) {
-			return stepError{
-				error:        errors.Wrap(err, "couldn't initialize pipeline op"),
-				failPipeline: false,
-			}
+			return newRetriableError(err, "couldn't initialize pipeline op")
 		}
 
 		// otherwise fail immediately without retry
@@ -122,7 +119,6 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipelineOp, error) {
 	op := &pipelineOp{
 		m:            m,
-		ctx:          ctx,
 		pipelineInfo: &pps.PipelineInfo{},
 	}
 	// get latest PipelineInfo (events can pile up, so that the current state
@@ -133,12 +129,17 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 	tracing.TagAnySpan(ctx,
 		"current-state", op.pipelineInfo.State.String(),
 		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
+
+	// add pipeline auth
+	pachClient := m.a.env.GetPachClient(ctx)
+	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
+	op.ctx = pachClient.Ctx()
+
 	// set op.pipelineInfo.Details
 
 	// this reads the pipelineInfo associated with 'op's pipeline, as most other
 	// methods (e.g.  getRC, though not failPipeline) assume that
 	// op.pipelineInfo.Details is set.
-	pachClient := op.m.a.env.GetPachClient(op.ctx)
 	if err := ppsutil.GetPipelineDetails(pachClient, op.pipelineInfo); err != nil {
 		return nil, newRetriableError(err, "error retrieving spec")
 	}

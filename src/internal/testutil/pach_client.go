@@ -10,6 +10,7 @@ import (
 
 var (
 	pachClient *client.APIClient
+	pachErr    error
 	clientOnce sync.Once
 )
 
@@ -18,15 +19,14 @@ var (
 // GetPachClient will return the same instance.
 func GetPachClient(t testing.TB) *client.APIClient {
 	clientOnce.Do(func() {
-		var err error
 		if _, ok := os.LookupEnv("PACHD_PORT_1650_TCP_ADDR"); ok {
-			pachClient, err = client.NewInCluster()
+			pachClient, pachErr = client.NewInCluster()
 		} else {
-			pachClient, err = client.NewForTest()
-		}
-		if err != nil {
-			t.Fatalf("error getting Pachyderm client: %s", err.Error())
+			pachClient, pachErr = client.NewForTest()
 		}
 	})
+	if pachErr != nil {
+		t.Fatalf("error getting Pachyderm client: %s", pachErr.Error())
+	}
 	return pachClient
 }

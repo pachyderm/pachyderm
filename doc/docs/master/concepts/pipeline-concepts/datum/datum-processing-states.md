@@ -12,7 +12,7 @@ of datums that can occur in Pachyderm:
 
 | State      | Description |
 | ---------- | ----------- |
-| Successful | The datum has been successfully processed in this job. |
+| Success    | The datum has been successfully processed in this job. |
 | Skipped    | The datum has been successfully processed in a previous job, has not changed since then, and therefore, it was skipped in the current job. |
 
 **Failure States**
@@ -23,7 +23,7 @@ of datums that can occur in Pachyderm:
 | Recovered  | The datum failed, but was recovered by the user's error handling code. Although the datum is marked as *recovered*, Pachyderm does not process it in the downstream pipelines. A recovered datum does not fail the whole job. Just like failed datums, recovered datums are retried on the next run of the pipeline. |
 
 You can view the information about datum processing states in the output of
-the `pachctl list job` command:
+the `pachctl list job <jobID>` command:
 
 ![datums in progress](../../../assets/images/datums_in_progress.svg)
 

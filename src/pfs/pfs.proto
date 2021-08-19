@@ -28,7 +28,7 @@ message Branch {
 message File {
   Commit commit = 1;
   string path = 2;
-  string tag = 3;
+  string datum = 3;
 }
 
 // RepoInfo is the main data structure representing a Repo in etcd
@@ -122,16 +122,17 @@ message CommitInfo {
   Commit parent_commit = 4;
   repeated Commit child_commits = 5;
   google.protobuf.Timestamp started = 6;
-  google.protobuf.Timestamp finished = 7;
-  repeated Branch direct_provenance = 8;
-  bool error = 9; 
+  google.protobuf.Timestamp finishing = 7;
+  google.protobuf.Timestamp finished = 8;
+  repeated Branch direct_provenance = 9;
+  string error = 10; 
   int64 size_bytes_upper_bound = 11;
 
   // Details are only provided when explicitly requested
   message Details {
     int64 size_bytes = 1;
   }
-  Details details = 10;
+  Details details = 12;
 }
 
 message CommitSet {
@@ -186,7 +187,8 @@ enum CommitState {
   COMMIT_STATE_UNKNOWN = 0;
   STARTED = 1; // The commit has been started, all commits satisfy this state.
   READY = 2; // The commit has been started, and all of its provenant commits have been finished.
-  FINISHED = 3; // The commit has been finished.
+  FINISHING = 3; // The commit is in the process of being finished.
+  FINISHED = 4; // The commit has been finished.
 }
 
 message StartCommitRequest {
@@ -203,7 +205,7 @@ message FinishCommitRequest {
   // description is a user-provided string describing this commit. Setting this
   // will overwrite the description set in StartCommit
   string description = 2;
-  bool error = 3;
+  string error = 3;
   bool force = 4;
 }
 
@@ -232,6 +234,10 @@ message ListCommitSetRequest {
 }
 
 message SquashCommitSetRequest {
+  CommitSet commit_set = 1;
+}
+
+message DropCommitSetRequest {
   CommitSet commit_set = 1;
 }
 
@@ -282,7 +288,7 @@ enum Delimiter {
 
 message AddFile {
   string path = 1;
-  string tag = 2;
+  string datum = 2;
 
   message URLSource {
     string URL = 1;
@@ -296,12 +302,12 @@ message AddFile {
 
 message DeleteFile {
   string path = 1; 
-  string tag = 2;
+  string datum = 2;
 }
 
 message CopyFile {
   string dst = 1;
-  string tag = 2;
+  string datum = 2;
   File src = 3;
   bool append = 4;
 }
@@ -318,8 +324,8 @@ message ModifyFileRequest {
 message GetFileRequest {
   File file = 1;
   string URL = 2;
+  int64 offset = 3;
 // TODO:
-//  int64 offset_bytes = 2;
 //  int64 size_bytes = 3;
 }
 
@@ -402,15 +408,16 @@ message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
 message RunLoadTestRequest {
-  bytes spec = 1;
+  string spec = 1;
   Branch branch = 2;
   int64 seed = 3; 
 }
 
 message RunLoadTestResponse {
-  Branch branch = 1;
-  int64 seed = 2;
-  string error = 3;
+  string spec = 1;
+  Branch branch = 2;
+  int64 seed = 3;
+  string error = 4;
 }
 
 service API {
@@ -442,6 +449,8 @@ service API {
   rpc ListCommitSet(ListCommitSetRequest) returns (stream CommitSetInfo) {}
   // SquashCommitSet squashes the commits of a CommitSet into their children.
   rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
+  // DropCommitSet drops the commits of a CommitSet and all data included in the commits.
+  rpc DropCommitSet(DropCommitSetRequest) returns (google.protobuf.Empty) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
@@ -454,6 +463,8 @@ service API {
 
   // ModifyFile performs modifications on a set of files.
   rpc ModifyFile(stream ModifyFileRequest) returns (google.protobuf.Empty) {}
+  // GetFile returns the contents of a single file
+  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
   // GetFileTAR returns a TAR stream of the contents matched by the request
   rpc GetFileTAR(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
   // InspectFile returns info about a file.
@@ -487,4 +498,6 @@ service API {
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
+  // RunLoadTestDefault runs the default load tests.
+  rpc RunLoadTestDefault(google.protobuf.Empty) returns (RunLoadTestResponse) {}
 }

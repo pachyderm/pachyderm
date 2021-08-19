@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -338,7 +340,7 @@ func (d *Datum) uploadMetaFile(mf client.ModifyFile) error {
 		return err
 	}
 	fullPath := path.Join(MetaPrefix, d.ID, MetaFileName)
-	return mf.PutFile(fullPath, buf, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
+	return mf.PutFile(fullPath, buf, client.WithAppendPutFile(), client.WithDatumPutFile(d.ID))
 }
 
 func (d *Datum) uploadOutput() error {
@@ -370,7 +372,7 @@ func (d *Datum) upload(mf client.ModifyFile, storageRoot string, cb ...func(*tar
 		}
 		return tarutil.Export(storageRoot, bufW, opts...)
 	}, func(r io.Reader) error {
-		return mf.PutFileTAR(r, client.WithAppendPutFile(), client.WithTagPutFile(d.ID))
+		return mf.PutFileTAR(r, client.WithAppendPutFile(), client.WithDatumPutFile(d.ID))
 	}); err != nil {
 		return err
 	}
@@ -404,19 +406,35 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 			return nil
 		}
 		if !strings.HasPrefix(file, d.PFSStorageRoot()) {
-			if fi.IsDir() {
-				return nil
-			}
-			f, err := os.Open(file)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := f.Close(); retErr == nil {
-					retErr = err
+			cb := func(dstPath, file string) (retErr error) {
+				f, err := os.Open(file)
+				if err != nil {
+					return err
 				}
-			}()
-			return mf.PutFile(dstPath, f, client.WithTagPutFile(d.ID))
+				defer func() {
+					if err := f.Close(); retErr == nil {
+						retErr = err
+					}
+				}()
+				return mf.PutFile(dstPath, f, client.WithDatumPutFile(d.ID))
+			}
+			if fi.IsDir() {
+				dir := file
+				return filepath.Walk(dir, func(file string, fi os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if fi.IsDir() {
+						return nil
+					}
+					dstSubpath, err := filepath.Rel(dir, file)
+					if err != nil {
+						return err
+					}
+					return cb(path.Join(dstPath, dstSubpath), file)
+				})
+			}
+			return cb(dstPath, file)
 		}
 		relPath, err := filepath.Rel(d.PFSStorageRoot(), file)
 		if err != nil {
@@ -429,9 +447,9 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 				input = i
 			}
 		}
-		srcFile := input.FileInfo.File
+		srcFile := proto.Clone(input.FileInfo.File).(*pfs.File)
 		srcFile.Path = path.Join(pathSplit[1:]...)
-		return mf.CopyFile(dstPath, srcFile, client.WithTagCopyFile(d.ID))
+		return mf.CopyFile(dstPath, srcFile, client.WithDatumCopyFile(d.ID))
 	})
 }
 
@@ -445,7 +463,7 @@ type Deleter func(*Meta) error
 func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient client.ModifyFile) Deleter {
 	return func(meta *Meta) error {
 		ID := common.DatumID(meta.Inputs)
-		tagOption := client.WithTagDeleteFile(ID)
+		tagOption := client.WithDatumDeleteFile(ID)
 		// Delete the datum directory in the meta output.
 		if err := metaOutputClient.DeleteFile(path.Join(MetaPrefix, ID)+"/", tagOption); err != nil {
 			return err

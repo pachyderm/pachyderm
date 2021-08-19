@@ -29,24 +29,24 @@ func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) err
 	if len(deletive) > 0 && deletive[0] {
 		if err := fs.Iterate(ctx, func(f File) error {
 			idx := f.Index()
-			return w.Delete(idx.Path, idx.File.Tag)
+			return w.Delete(idx.Path, idx.File.Datum)
 		}, deletive...); err != nil {
 			return err
 		}
 	}
 	return fs.Iterate(ctx, func(f File) error {
-		return w.Copy(f, f.Index().File.Tag)
+		return w.Copy(f, f.Index().File.Datum)
 	})
 }
 
 // WriteTarEntry writes an tar entry for f to w
-func WriteTarEntry(w io.Writer, f File) error {
+func WriteTarEntry(ctx context.Context, w io.Writer, f File) error {
 	idx := f.Index()
 	tw := tar.NewWriter(w)
 	if err := tw.WriteHeader(tarutil.NewHeader(idx.Path, index.SizeBytes(idx))); err != nil {
 		return err
 	}
-	if err := f.Content(tw); err != nil {
+	if err := f.Content(ctx, tw); err != nil {
 		return err
 	}
 	return tw.Flush()
@@ -56,7 +56,7 @@ func WriteTarEntry(w io.Writer, f File) error {
 // It will contain an entry for each File in fs
 func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 	if err := fs.Iterate(ctx, func(f File) error {
-		return WriteTarEntry(w, f)
+		return WriteTarEntry(ctx, w, f)
 	}); err != nil {
 		return err
 	}
@@ -155,4 +155,11 @@ func hashDataRefs(dataRefs []*chunk.DataRef) ([]byte, error) {
 		}
 	}
 	return h.Sum(nil), nil
+}
+
+func SizeFromIndex(idx *index.Index) (size int64) {
+	for _, dr := range idx.File.DataRefs {
+		size += dr.SizeBytes
+	}
+	return size
 }

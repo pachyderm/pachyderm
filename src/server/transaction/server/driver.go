@@ -9,6 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -79,7 +80,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 		Started:  now(),
 	}
 
-	if err := col.NewSQLTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
 		return d.transactions.ReadWrite(sqlTx).Put(
 			info.Transaction.ID,
 			info,
@@ -168,12 +169,8 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 			err = directTxn.DeleteBranch(request.DeleteBranch)
 		} else if request.UpdateJobState != nil {
 			err = directTxn.UpdateJobState(request.UpdateJobState)
-		} else if request.DeleteAll != nil {
-			// TODO: extend this to delete everything through PFS, PPS, Auth and
-			// update the client DeleteAll call to use only this, then remove unused
-			// RPCs.  This is not currently feasible because it does an orderly
-			// deletion that generates a very large transaction.
-			err = d.deleteAll(txnCtx.ClientContext, txnCtx.SqlTx, info.Transaction)
+		} else if request.StopJob != nil {
+			err = directTxn.StopJob(request.StopJob)
 		} else if request.CreatePipeline != nil {
 			if response.CreatePipelineResponse == nil {
 				response.CreatePipelineResponse = &transaction.CreatePipelineTransactionResponse{}
@@ -271,14 +268,18 @@ func (d *driver) updateTransaction(
 		return err
 	}
 
+	// prefetch transaction info and add data to refresher ahead of time
+	var prefetch transaction.TransactionInfo
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, &prefetch)
+	}); err != nil {
+		return nil, err
+	}
+	refresher := d.txnEnv.NewRefresher(&prefetch)
+
 	// Run this thing in a loop in case we get a conflict, time out after some tries
 	for i := 0; i < 10; i++ {
-		var err error
-		if writeTxn {
-			err = d.txnEnv.WithWriteContext(ctx, attempt)
-		} else {
-			err = d.txnEnv.WithReadContext(ctx, attempt)
-		}
+		err := d.txnEnv.WithRefresher(ctx, refresher, writeTxn, attempt)
 		if err == nil && gotBreak {
 			return localInfo, nil // no need to update
 		}
@@ -286,7 +287,7 @@ func (d *driver) updateTransaction(
 		if err == nil {
 			// only persist the transaction if we succeeded, otherwise just update localInfo
 			var storedInfo transaction.TransactionInfo
-			if err = col.NewSQLTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
+			if err = dbutil.WithTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
 				// Update the existing transaction with the new requests/responses
 				return d.transactions.ReadWrite(sqlTx).Update(txn.ID, &storedInfo, func() error {
 					if storedInfo.Version != localInfo.Version {

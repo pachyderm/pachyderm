@@ -5,6 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 {{- /* vim: set filetype=mustache: */ -}}
 
 {{- define "pachyderm.storageBackend" -}}
+{{- if eq .Values.deployTarget "" }}
+{{ fail "deployTarget must be set" }}
+{{- end }}
 {{- if .Values.pachd.storage.backend -}}
 {{ .Values.pachd.storage.backend }}
 {{- else if eq .Values.deployTarget "AMAZON" -}}
@@ -20,6 +23,6 @@ LOCAL
 {{- end -}}
 {{- end -}}
 
-{{- define "pachyderm.dashSecret" -}}
-{{ default (randAlphaNum 32) .Values.dash.config.oauthClientSecret }}
+{{- define "pachyderm.clusterDeploymentId" -}}
+{{ default (randAlphaNum 32) .Values.pachd.clusterDeploymentID }}
 {{- end -}}

@@ -86,6 +86,18 @@ func Open(path string) (*File, error) {
 	return newFile(file, path, fi.Size()), nil
 }
 
+func OpenAppend(path string, appendSize int64) (*File, error) {
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0222)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	return newFile(file, path, fi.Size()+appendSize), nil
+}
+
 // Stdin returns os.Stdin except that it's wrapped in a progress bar that
 // updates as you read from it.
 func Stdin() *File {

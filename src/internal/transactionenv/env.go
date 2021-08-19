@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -294,29 +293,34 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 	}
 }
 
+func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *sqlx.Tx, r txncontext.FilesetManager, cb func(*txncontext.TransactionContext) error) error {
+	txnCtx, err := txncontext.New(ctx, sqlTx, env.serviceEnv.AuthServer(), r)
+	if err != nil {
+		return err
+	}
+	if env.serviceEnv.PfsServer() != nil {
+		txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
+	}
+	if env.serviceEnv.PpsServer() != nil {
+		txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
+		txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
+		txnCtx.PpsJobFinisher = env.serviceEnv.PpsServer().NewJobFinisher(txnCtx)
+	}
+
+	err = cb(txnCtx)
+	if err != nil {
+		return err
+	}
+	return txnCtx.Finish()
+}
+
 // WithWriteContext will call the given callback with a txncontext.TransactionContext
 // which can be used to perform reads and writes on the current cluster state.
 func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
-	return col.NewSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		txnCtx := &txncontext.TransactionContext{
-			ClientContext: ctx,
-			SqlTx:         sqlTx,
-			CommitSetID:   uuid.NewWithoutDashes(),
-			Timestamp:     types.TimestampNow(),
-		}
-		if env.serviceEnv.PfsServer() != nil {
-			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
-		}
-		if env.serviceEnv.PpsServer() != nil {
-			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
-			txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
-		}
-
-		err := cb(txnCtx)
-		if err != nil {
-			return err
-		}
-		return txnCtx.Finish()
+	return env.withRefreshLoop(ctx, nil, func(r txncontext.FilesetManager) error {
+		return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+			return env.attemptTx(ctx, sqlTx, r, cb)
+		})
 	})
 }
 
@@ -324,25 +328,23 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
 func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
-	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		txnCtx := &txncontext.TransactionContext{
-			ClientContext: ctx,
-			SqlTx:         sqlTx,
-			CommitSetID:   uuid.NewWithoutDashes(),
-			Timestamp:     types.TimestampNow(),
-		}
-		if env.serviceEnv.PfsServer() != nil {
-			txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
-		}
-		if env.serviceEnv.PpsServer() != nil {
-			txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
-			txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
-		}
+	return env.withRefreshLoop(ctx, nil, func(r txncontext.FilesetManager) error {
+		return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+			return env.attemptTx(ctx, sqlTx, r, cb)
+		})
+	})
+}
 
-		err := cb(txnCtx)
-		if err != nil {
-			return err
+func (env *TransactionEnv) WithRefresher(ctx context.Context, r *refresher, write bool, cb func(*txncontext.TransactionContext) error) error {
+	return env.withRefreshLoop(ctx, r, func(r txncontext.FilesetManager) error {
+		if write {
+			return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+				return env.attemptTx(ctx, sqlTx, r, cb)
+			})
+		} else {
+			return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+				return env.attemptTx(ctx, sqlTx, r, cb)
+			})
 		}
-		return txnCtx.Finish()
 	})
 }

@@ -46,7 +46,7 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 }
 
 // Get calls getFunc to retrieve a chunk, then verifies, decrypts, and decompresses the data.
-// Uncompressed plaintext is written to w.
+// cb is called with the uncompressed plaintext
 func Get(ctx context.Context, client Client, cache kv.GetPut, ref *Ref, cb kv.ValueCallback) error {
 	if err := getFromCache(ctx, cache, ref, cb); err == nil {
 		return nil
@@ -190,7 +190,7 @@ func cryptoXOR(key, dst, src []byte) {
 func verifyData(id ID, x []byte) error {
 	actualHash := Hash(x)
 	if !bytes.Equal(actualHash[:], id) {
-		return errors.Errorf("bad chunk. HAVE: %x WANT: %x", actualHash, id)
+		return errors.Errorf("bad chunk. HAVE: %v WANT: %v", actualHash, id)
 	}
 	return nil
 }

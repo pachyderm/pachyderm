@@ -7,7 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/net/context"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -89,7 +89,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAl
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := col.NewSQLTx(ctx, a.driver.db, func(sqlTx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, a.driver.db, func(sqlTx *sqlx.Tx) error {
 		return a.driver.deleteAll(ctx, sqlTx, nil)
 	}); err != nil {
 		return nil, err

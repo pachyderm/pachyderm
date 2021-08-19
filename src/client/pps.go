@@ -65,6 +65,9 @@ const (
 	// OutputCommitIDEnv is an env var that is added to the environment of user
 	// pipelined code and indicates the id of the output commit.
 	OutputCommitIDEnv = "PACH_OUTPUT_COMMIT_ID"
+	// DatumIDEnv is an env var that is added to the environment of user
+	// pipelined code and indicates the id of the datum.
+	DatumIDEnv = "PACH_DATUM_ID"
 	// PeerPortEnv is the env var that sets a custom peer port
 	PeerPortEnv = "PEER_PORT"
 
@@ -238,8 +241,8 @@ func (c APIClient) inspectJobSet(id string, wait bool, details bool, cb func(*pp
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	req := &pps.InspectJobSetRequest{
-		JobSet: NewJobSet(id),
-		Wait:   wait,
+		JobSet:  NewJobSet(id),
+		Wait:    wait,
 		Details: details,
 	}
 	client, err := c.PpsAPIClient.InspectJobSet(ctx, req)

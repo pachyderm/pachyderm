@@ -181,14 +181,15 @@ func (c APIClient) StartCommitParent(repoName string, branchName string, parentB
 // FinishCommit ends the process of committing data to a Repo and persists the
 // Commit. Once a Commit is finished the data becomes immutable and future
 // attempts to write to it with PutFile will error.
-func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) error {
+func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) (retErr error) {
+	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	_, err := c.PfsAPIClient.FinishCommit(
 		c.Ctx(),
 		&pfs.FinishCommitRequest{
 			Commit: NewCommit(repoName, branchName, commitID),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // InspectCommit returns info about a specific Commit.
@@ -335,10 +336,14 @@ func (c APIClient) InspectBranch(repoName string, branchName string) (*pfs.Branc
 func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
+	var repo *pfs.Repo
+	if repoName != "" {
+		repo = NewRepo(repoName)
+	}
 	client, err := c.PfsAPIClient.ListBranch(
 		ctx,
 		&pfs.ListBranchRequest{
-			Repo: NewRepo(repoName),
+			Repo: repo,
 		},
 	)
 	if err != nil {
@@ -366,7 +371,9 @@ func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInf
 		CommitSet: NewCommitSet(id),
 		Wait:      wait,
 	}
-	client, err := c.PfsAPIClient.InspectCommitSet(c.Ctx(), req)
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	client, err := c.PfsAPIClient.InspectCommitSet(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -430,6 +437,17 @@ func (c APIClient) SquashCommitSet(id string) error {
 	_, err := c.PfsAPIClient.SquashCommitSet(
 		c.Ctx(),
 		&pfs.SquashCommitSetRequest{
+			CommitSet: NewCommitSet(id),
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// DropCommitSet drop the commits of a CommitSet and all data included in those commits.
+func (c APIClient) DropCommitSet(id string) error {
+	_, err := c.PfsAPIClient.DropCommitSet(
+		c.Ctx(),
+		&pfs.DropCommitSetRequest{
 			CommitSet: NewCommitSet(id),
 		},
 	)
@@ -533,17 +551,4 @@ func (c APIClient) FsckFastExit() error {
 			return errors.Errorf(resp.Error)
 		}
 	}
-}
-
-// RunPFSLoadTest runs a PFS load test.
-func (c APIClient) RunPFSLoadTest(spec []byte, branch *pfs.Branch, seed int64) (_ *pfs.RunLoadTestResponse, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	req := &pfs.RunLoadTestRequest{
-		Spec:   spec,
-		Branch: branch,
-		Seed:   seed,
-	}
-	return c.PfsAPIClient.RunLoadTest(c.Ctx(), req)
 }

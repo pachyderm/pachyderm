@@ -22,13 +22,13 @@ const (
 	// CommitHeader is the header for commits.
 	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tDESCRIPTION\n"
 	// CommitSetHeader is the header for commitsets.
-	CommitSetHeader = "ID\tCOMMITS\tPROGRESS\tCREATED\tMODIFIED\n"
+	CommitSetHeader = "ID\tSUBCOMMITS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// FileHeader is the header for files.
-	FileHeader = "NAME\tTAG\tTYPE\tSIZE\t\n"
+	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
-	FileHeaderWithCommit = "COMMIT\tNAME\tTAG\tTYPE\tCOMMITTED\tSIZE\t\n"
+	FileHeaderWithCommit = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
 	// DiffFileHeader is the header for files produced by diff file.
 	DiffFileHeader = "OP\t" + FileHeader
 )
@@ -42,7 +42,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(repoInfo.Created))
 	}
 	if repoInfo.Details == nil {
-		fmt.Fprintf(w, "<= %s\t", units.BytesSize(float64(repoInfo.SizeBytesUpperBound)))
+		fmt.Fprintf(w, "\u2264 %s\t", units.BytesSize(float64(repoInfo.SizeBytesUpperBound)))
 	} else {
 		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.Details.SizeBytes)))
 	}
@@ -73,8 +73,8 @@ func PrintDetailedRepoInfo(repoInfo *PrintableRepoInfo) error {
 		`Name: {{.Repo.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .FullTimestamps}}
 Created: {{.Created}}{{else}}
-Created: {{prettyAgo .Created}}{{end}}
-Size of HEAD on master: {{prettySize .Details.SizeBytes}}{{if .AuthInfo}}
+Created: {{prettyAgo .Created}}{{end}}{{if .Details}}
+Size of HEAD on master: {{prettySize .Details.SizeBytes}}{{end}}{{if .AuthInfo}}
 Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 `)
 	if err != nil {
@@ -156,7 +156,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 		}
 	}
 	if commitInfo.Details == nil {
-		fmt.Fprintf(w, "<= %s\t", units.BytesSize(float64(commitInfo.SizeBytesUpperBound)))
+		fmt.Fprintf(w, "\u2264 %s\t", units.BytesSize(float64(commitInfo.SizeBytesUpperBound)))
 	} else {
 		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.Details.SizeBytes)))
 	}
@@ -174,7 +174,7 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 	var modified *types.Timestamp
 	for _, commitInfo := range commitSetInfo.Commits {
 		if commitInfo.Finished != nil {
-			if commitInfo.Error {
+			if commitInfo.Error != "" {
 				failure++
 			} else {
 				success++
@@ -242,8 +242,8 @@ Parent: {{.ParentCommit.ID}}{{end}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}
-Finished: {{prettyAgo .Finished}}{{end}}{{end}}
-Size: {{prettySize .Details.SizeBytes}}
+Finished: {{prettyAgo .Finished}}{{end}}{{end}}{{if .Details}}
+Size: {{prettySize .Details.SizeBytes}}{{end}}
 `)
 	if err != nil {
 		return err
@@ -259,7 +259,6 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 		fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
 	}
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
-	fmt.Fprintf(w, "%s\t", fileInfo.File.Tag)
 	if fileInfo.FileType == pfs.FileType_FILE {
 		fmt.Fprint(w, "file\t")
 	} else {
@@ -292,7 +291,7 @@ func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTime
 func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
 		`Path: {{.File.Path}}
-Tag: {{.File.Tag}}
+Datum: {{.File.Datum}}
 Type: {{fileType .FileType}}
 Size: {{prettySize .SizeBytes}}
 `)

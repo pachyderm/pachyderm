@@ -3,10 +3,10 @@ package fileset
 import (
 	"time"
 
+	"golang.org/x/sync/semaphore"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
-	"golang.org/x/sync/semaphore"
 )
 
 // StorageOption configures a storage.
@@ -48,19 +48,19 @@ type UnorderedWriterOption func(*UnorderedWriter)
 
 // WithRenewal configures the UnorderedWriter to renew subfileset paths
 // with the provided renewer.
-func WithRenewal(ttl time.Duration, r *renew.StringSet) UnorderedWriterOption {
+func WithRenewal(ttl time.Duration, r *Renewer) UnorderedWriterOption {
 	return func(uw *UnorderedWriter) {
 		uw.ttl = ttl
 		uw.renewer = r
 	}
 }
 
-// WithParentID sets the parent fileset ID for the unordered writer.
+// WithParentID sets a factory for the parent fileset ID for the unordered writer.
 // This is used for converting directory deletions into a set of point
 // deletes for the files contained within the directory.
-func WithParentID(parentID *ID) UnorderedWriterOption {
+func WithParentID(getParentID func() (*ID, error)) UnorderedWriterOption {
 	return func(uw *UnorderedWriter) {
-		uw.parentID = parentID
+		uw.getParentID = getParentID
 	}
 }
 

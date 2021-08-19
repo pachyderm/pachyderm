@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -27,7 +26,6 @@ type pendingJob struct {
 	parentDit                  datum.Iterator
 	commitInfo, metaCommitInfo *pfs.CommitInfo
 	parentMetaCommit           *pfs.Commit
-	taskMaster                 *work.Master
 	hasher                     datum.Hasher
 	noSkip                     bool
 }
@@ -102,8 +100,8 @@ func (pj *pendingJob) load() error {
 		if err != nil {
 			return err
 		}
-		if !ci.Error {
-			if ci.Finished != nil {
+		if ci.Error == "" {
+			if ci.Finishing != nil {
 				pj.parentDit = datum.NewCommitIterator(pachClient, pj.parentMetaCommit)
 			} else {
 				parentJi, err := pachClient.InspectJob(pj.ji.Job.Pipeline.Name, pj.parentMetaCommit.ID, true)
@@ -119,6 +117,11 @@ func (pj *pendingJob) load() error {
 			break
 		}
 		pj.parentMetaCommit = ci.ParentCommit
+	}
+	// Load the job info.
+	pj.ji, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
+	if err != nil {
+		return err
 	}
 	pj.clearJobStats()
 	return nil
@@ -159,7 +162,8 @@ func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func(datum.De
 }
 
 // The datums that can be processed in parallel are the datums that exist in the current job and do not exist in the parent job.
-func (pj *pendingJob) withParallelDatums(pachClient *client.APIClient, cb func(context.Context, datum.Iterator) error) error {
+func (pj *pendingJob) withParallelDatums(ctx context.Context, cb func(context.Context, datum.Iterator) error) error {
+	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient = pachClient.WithCtx(ctx)
 		// Upload the datums from the current job into the datum file set format.
@@ -207,17 +211,18 @@ func (pj *pendingJob) withParallelDatums(pachClient *client.APIClient, cb func(c
 // The datums that must be processed serially (with respect to the parent job) are the datums that exist in both the current and parent job.
 // A datum is skipped if it exists in both jobs with the same hash and was successfully processed by the parent.
 // Deletion operations are created for the datums that need to be removed from the parent job output commits.
-func (pj *pendingJob) withSerialDatums(pachClient *client.APIClient, cb func(context.Context, datum.Iterator) error) error {
+func (pj *pendingJob) withSerialDatums(ctx context.Context, cb func(context.Context, datum.Iterator) error) error {
 	// There are no serial datums if no parent exists.
 	if pj.parentMetaCommit == nil {
 		return nil
 	}
+	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	// Wait for the parent job to finish.
 	ci, err := pachClient.WaitCommit(pj.parentMetaCommit.Branch.Repo.Name, pj.parentMetaCommit.Branch.Name, pj.parentMetaCommit.ID)
 	if err != nil {
 		return err
 	}
-	if ci.Error {
+	if ci.Error != "" {
 		return pfsserver.ErrCommitError{Commit: ci.Commit}
 	}
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {

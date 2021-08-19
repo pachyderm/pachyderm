@@ -1,0 +1,23 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pg-bouncer
+    suite: pachyderm
+  name: pg-bouncer
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: client-port
+    {{- if eq .Values.pgbouncer.service.type "NodePort" }}
+    nodePort: 32229
+    {{- end }}
+    port: 5432
+  selector:
+    app: pg-bouncer
+    suite: pachyderm
+  type: {{ .Values.pgbouncer.service.type }}

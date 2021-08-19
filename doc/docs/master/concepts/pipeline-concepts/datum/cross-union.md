@@ -4,14 +4,11 @@
 that I would say describes the things you can do with a cross or union pipeline
 but does not really have a good and clear explanation of what they are -->
 
-Pachyderm enables you to combine multiple
-input repositories in a single pipeline by using the `union` and
+Pachyderm enables you to combine multiple [PFS inputs](../#pfs-input-and-glob-pattern) by using the `union` and
 `cross` operators in the pipeline specification.
 
-If you are familiar with [Set theory](https://en.wikipedia.org/wiki/Set_theory),
-you can think of union as a *disjoint union binary operator* and cross as a
-*cartesian product binary operator*. However, if you are unfamiliar with these
-concepts, it is still easy to understand how cross and union work in Pachyderm.
+You can think of union as a *disjoint union binary operator* and cross as a
+*cartesian product binary operator*. 
 
 This section describes how to use `cross` and `union` in your pipelines and how you
 can optimize your code when you work with them.
@@ -189,8 +186,8 @@ Run 9: /pfs/A/3.txt
 
 !!! note "See Also:"
 
-- [Cross Input](../../../../reference/pipeline_spec/#cross-input)
-- [Union Input](../../../../reference/pipeline_spec/#union-input)
-- [Distributed hyperparameter tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter)
+- [Cross Input in a pipeline specification](../../../../reference/pipeline_spec/#cross-input)
+- [Union Input in a pipeline specification](../../../../reference/pipeline_spec/#union-input)
+- [Distributed hyperparameter tuning example](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter)
 
-<!-- Add a link to an interactive tutorial when it's ready-->
+

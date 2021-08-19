@@ -1,0 +1,54 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pg-bouncer
+    suite: pachyderm
+  name: pg-bouncer
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pg-bouncer
+      suite: pachyderm
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: pg-bouncer
+        suite: pachyderm
+      name: pg-bouncer
+      namespace: {{ .Release.Namespace }}
+    spec:
+      containers:
+      - env:
+        - name: DB_USER
+          value: {{ .Values.global.postgresql.postgresqlUsername }}
+        - name: DB_HOST
+          value: {{ .Values.global.postgresql.postgresqlHost }}
+        - name: AUTH_TYPE
+          value: md5
+        - name: MAX_CLIENT_CONN
+          value: "1000"
+        - name: POOL_MODE
+          value: "transaction"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres # Must match secret setup by postgres subchart, or postgres-secret.yaml 
+              key: postgresql-password
+        image: edoburu/pgbouncer:1.15.0
+        imagePullPolicy: IfNotPresent
+        name: pg-bouncer
+        ports:
+        - containerPort: 5432
+          name: client-port
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256M

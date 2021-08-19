@@ -17,9 +17,9 @@ package server
 // shouldn't call each other.
 
 import (
+	"bytes"
 	"context"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -32,7 +32,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -253,7 +252,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 						if !ok {
 							return nil // subscribeCommit exited, nothing left to do
 						}
-						if ci.Finished != nil {
+						if ci.Finishing != nil {
 							continue
 						}
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
@@ -412,6 +411,19 @@ func (m *ppsMaster) monitorCrashingPipeline(ctx context.Context, pipelineInfo *p
 	}
 }
 
+func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) error {
+	return pachClient.WithModifyFileClient(
+		client.NewRepo(cron.Repo).NewCommit("master", ""),
+		func(m client.ModifyFile) error {
+			if cron.Overwrite {
+				if err := m.DeleteFile("/"); err != nil {
+					return err
+				}
+			}
+			return m.PutFile(now.Format(time.RFC3339), bytes.NewReader(nil))
+		})
+}
+
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by monitorPipeline.
 func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
@@ -420,17 +432,6 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		return err // Shouldn't happen, as the input is validated in CreatePipeline
 	}
 	pachClient := m.a.env.GetPachClient(ctx)
-	// make sure there isn't an unfinished commit on the branch
-	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master", "")
-	if err != nil {
-		return err
-	} else if commitInfo != nil && commitInfo.Finished == nil {
-		// and if there is, delete it
-		if err = pachClient.SquashCommitSet(commitInfo.Commit.ID); err != nil {
-			return err
-		}
-	}
-
 	latestTime, err := m.getLatestCronTime(ctx, in)
 	if err != nil {
 		return err
@@ -445,33 +446,9 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		}
-		if err != nil {
+		if err := cronTick(pachClient, next, in.Cron); err != nil {
 			return err
 		}
-
-		// We need the DeleteFile and the PutFile to happen in the same commit
-		_, err = pachClient.StartCommit(in.Cron.Repo, "master")
-		if err != nil {
-			return err
-		}
-		if in.Cron.Overwrite {
-			// get rid of any files, so the new file "overwrites" previous runs
-			err = pachClient.DeleteFile(client.NewCommit(in.Cron.Repo, "master", ""), "/")
-			if err != nil && !errutil.IsNotFoundError(err) {
-				return errors.Wrapf(err, "delete error")
-			}
-		}
-
-		// Put in an empty file named by the timestamp
-		if err := pachClient.PutFile(client.NewCommit(in.Cron.Repo, "master", ""), next.Format(time.RFC3339), strings.NewReader("")); err != nil {
-			return errors.Wrapf(err, "put error")
-		}
-
-		err = pachClient.FinishCommit(in.Cron.Repo, "master", "")
-		if err != nil {
-			return err
-		}
-
 		// set latestTime to the next time
 		latestTime = next
 	}

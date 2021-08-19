@@ -7,7 +7,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 )
 
 // UnorderedWriter allows writing Files, unordered by path, into multiple ordered filesets.
@@ -19,9 +18,9 @@ type UnorderedWriter struct {
 	buffer                     *Buffer
 	subFileSet                 int64
 	ttl                        time.Duration
-	renewer                    *renew.StringSet
+	renewer                    *Renewer
 	ids                        []ID
-	parentID                   *ID
+	getParentID                func() (*ID, error)
 	validator                  func(string) error
 }
 
@@ -45,17 +44,17 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 	return uw, nil
 }
 
-func (uw *UnorderedWriter) Put(p, tag string, appendFile bool, r io.Reader) (retErr error) {
+func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (retErr error) {
 	if err := uw.validate(p); err != nil {
 		return err
 	}
-	if tag == "" {
-		tag = DefaultFileTag
+	if datum == "" {
+		datum = DefaultFileDatum
 	}
 	if !appendFile {
-		uw.buffer.Delete(p, tag)
+		uw.buffer.Delete(p, datum)
 	}
-	w := uw.buffer.Add(p, tag)
+	w := uw.buffer.Add(p, datum)
 	for {
 		n, err := io.CopyN(w, r, uw.memAvailable)
 		uw.memAvailable -= n
@@ -69,7 +68,7 @@ func (uw *UnorderedWriter) Put(p, tag string, appendFile bool, r io.Reader) (ret
 			if err := uw.serialize(); err != nil {
 				return err
 			}
-			w = uw.buffer.Add(p, tag)
+			w = uw.buffer.Add(p, datum)
 		}
 	}
 }
@@ -88,13 +87,13 @@ func (uw *UnorderedWriter) serialize() error {
 		return nil
 	}
 	return uw.withWriter(func(w *Writer) error {
-		if err := uw.buffer.WalkAdditive(func(path, tag string, r io.Reader) error {
-			return w.Add(path, tag, r)
+		if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
+			return w.Add(path, datum, r)
 		}); err != nil {
 			return err
 		}
-		return uw.buffer.WalkDeletive(func(path, tag string) error {
-			return w.Delete(path, tag)
+		return uw.buffer.WalkDeletive(func(path, datum string) error {
+			return w.Delete(path, datum)
 		})
 	})
 }
@@ -115,7 +114,7 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 	}
 	uw.ids = append(uw.ids, *id)
 	if uw.renewer != nil {
-		uw.renewer.Add(id.TrackerID())
+		uw.renewer.Add(*id)
 	}
 	// Reset fileset buffer.
 	uw.buffer = NewBuffer()
@@ -125,47 +124,51 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 }
 
 // Delete deletes a file from the file set.
-func (uw *UnorderedWriter) Delete(p, tag string) error {
+func (uw *UnorderedWriter) Delete(p, datum string) error {
 	if err := uw.validate(p); err != nil {
 		return err
 	}
-	if tag == "" {
-		tag = DefaultFileTag
+	if datum == "" {
+		datum = DefaultFileDatum
 	}
 	p = Clean(p, IsDir(p))
 	if IsDir(p) {
-		uw.buffer.Delete(p, tag)
+		uw.buffer.Delete(p, datum)
 		var ids []ID
-		if uw.parentID != nil {
-			ids = []ID{*uw.parentID}
+		if uw.getParentID != nil {
+			parentID, err := uw.getParentID()
+			if err != nil {
+				return err
+			}
+			ids = []ID{*parentID}
 		}
 		fs, err := uw.storage.Open(uw.ctx, append(ids, uw.ids...), index.WithPrefix(p))
 		if err != nil {
 			return err
 		}
 		return fs.Iterate(uw.ctx, func(f File) error {
-			return uw.Delete(f.Index().Path, tag)
+			return uw.Delete(f.Index().Path, datum)
 		})
 	}
-	uw.buffer.Delete(p, tag)
+	uw.buffer.Delete(p, datum)
 	return nil
 }
 
-func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, tag string, appendFile bool) error {
+func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, appendFile bool) error {
 	if err := uw.serialize(); err != nil {
 		return err
 	}
-	if tag == "" {
-		tag = DefaultFileTag
+	if datum == "" {
+		datum = DefaultFileDatum
 	}
 	return uw.withWriter(func(w *Writer) error {
 		return fs.Iterate(ctx, func(f File) error {
 			if !appendFile {
-				if err := w.Delete(f.Index().Path, tag); err != nil {
+				if err := w.Delete(f.Index().Path, datum); err != nil {
 					return err
 				}
 			}
-			return w.Copy(f, tag)
+			return w.Copy(f, datum)
 		})
 	})
 }

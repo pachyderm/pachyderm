@@ -76,7 +76,7 @@ release:
 	@make release-pachctl
 	@echo "Release $(VERSION) completed"
 
-release-helper: release-docker-images docker-push
+release-helper: release-docker-images docker-push-release
 
 release-docker-images:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
@@ -118,10 +118,12 @@ docker-tag:
 	docker tag pachyderm/pachctl pachyderm/pachctl:$(VERSION)
 
 docker-push: docker-tag
-	$(SKIP) docker push pachyderm/etcd:v3.3.5
 	$(SKIP) docker push pachyderm/pachd:$(VERSION)
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
+
+docker-push-release: docker-push
+	$(SKIP) docker push pachyderm/etcd:v3.3.5
 
 check-kubectl:
 	@# check that kubectl is installed
@@ -176,14 +178,14 @@ launch: install check-kubectl
 	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-launch-dev: check-kubectl check-kubectl-connection install
+launch-dev: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values.yaml
 	# wait for the pachyderm to come up
 	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-launch-enterprise: check-kubectl check-kubectl-connection install
+launch-enterprise: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
 	helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml
@@ -226,13 +228,10 @@ enterprise-code-checkin-test:
 	  false; \
 	fi
 
-test-postgres:
-	./etc/testing/start_postgres.sh
-
-test-pfs-server: test-postgres
+test-pfs-server:
 	./etc/testing/pfs_server.sh $(TIMEOUT) $(TESTFLAGS)
 
-test-pps: launch-stats docker-build-spout-test 
+test-pps: launch-stats docker-build-spout-test
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
@@ -268,7 +267,7 @@ test-s3gateway-integration:
 	fi
 	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
 
-test-s3gateway-unit: test-postgres
+test-s3gateway-unit:
 	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-fuse:
@@ -314,7 +313,7 @@ clean-launch-kafka:
 launch-kafka:
 	kubectl apply -f etc/kubernetes-kafka -R
 	kubectl wait --for=condition=ready pod -l app=kafka --timeout=5m
-	
+
 clean-launch-stats:
 	kubectl delete --filename etc/kubernetes-prometheus -R
 
@@ -414,6 +413,7 @@ check-buckets:
 	docker-build-test-entrypoint \
 	docker-tag \
 	docker-push \
+	docker-push-release \
 	check-buckets \
 	check-kubectl \
 	check-kubectl-connection \

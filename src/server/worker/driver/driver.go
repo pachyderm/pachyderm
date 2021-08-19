@@ -19,6 +19,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/exec"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
@@ -301,7 +302,7 @@ func (d *driver) PachClient() *client.APIClient {
 }
 
 func (d *driver) NewSQLTx(cb func(*sqlx.Tx) error) error {
-	return col.NewSQLTx(d.ctx, d.env.GetDBClient(), cb)
+	return dbutil.WithTx(d.ctx, d.env.GetDBClient(), cb)
 }
 
 func (d *driver) RunUserCode(
@@ -504,6 +505,7 @@ func (d *driver) UserCodeEnv(
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
 		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
 	}
+	result = append(result, fmt.Sprintf("%s=%s", client.DatumIDEnv, common.DatumID(inputs)))
 
 	if jobID != "" {
 		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))

@@ -4,7 +4,6 @@
 package helmtest
 
 import (
-	"log"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
@@ -19,7 +18,7 @@ func TestHub(t *testing.T) {
 		checks  = map[string]bool{
 			"ingress":                             false,
 			"metricsEndpoint":                     false,
-			"dash limits":                         false,
+			"console limits":                      false,
 			"etcd limits":                         false,
 			"loki logging":                        false,
 			"postgres host":                       false,
@@ -45,9 +44,8 @@ func TestHub(t *testing.T) {
 	for _, object := range objects {
 		switch object := object.(type) {
 		case *v1beta1.Ingress:
-			log.Println("ingress", object.String())
 			for _, rule := range object.Spec.Rules {
-				if rule.Host == "dash.test" {
+				if rule.Host == "console.test" {
 					checks["ingress"] = true
 				}
 			}
@@ -94,15 +92,15 @@ func TestHub(t *testing.T) {
 						}
 					}
 				}
-			case "dash":
+			case "console":
 				for _, cc := range object.Spec.Template.Spec.Containers {
-					if cc.Name != "dash" {
+					if cc.Name != "console" {
 						continue
 					}
 					if len(cc.Resources.Limits) > 0 {
-						t.Errorf("dash should have no resource limits")
+						t.Errorf("console should have no resource limits")
 					}
-					checks["dash limits"] = true
+					checks["console limits"] = true
 				}
 			}
 		case *v1.Secret:
@@ -115,10 +113,6 @@ func TestHub(t *testing.T) {
 					case "POSTGRES_PASSWORD":
 						if string(v) != "Example-Password" {
 							t.Errorf("Postgres Password value is wrong: %s", v)
-						}
-					case "IDENTITY_SERVER_PASSWORD":
-						if string(v) != "Example-Password" {
-							t.Errorf("Identity Server Password value is wrong: %s", v)
 						}
 					case "GOOGLE_BUCKET":
 						if string(v) != "test-bucket" {
@@ -168,10 +162,6 @@ func TestHub(t *testing.T) {
 				}{
 					"api-grpc-port": {
 						port:  31400,
-						found: false,
-					},
-					"api-http-port": {
-						port:  30652,
 						found: false,
 					},
 					"s3gateway-port": {

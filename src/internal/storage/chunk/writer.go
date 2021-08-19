@@ -393,7 +393,7 @@ func (w *Writer) flushBuffer() error {
 
 func (w *Writer) flushDataRef(dataRef *DataRef) error {
 	buf := &bytes.Buffer{}
-	r := newDataReader(w.ctx, w.client, w.memCache, dataRef)
+	r := newDataReader(w.ctx, w.client, w.memCache, dataRef, 0)
 	if err := r.Get(buf); err != nil {
 		return err
 	}

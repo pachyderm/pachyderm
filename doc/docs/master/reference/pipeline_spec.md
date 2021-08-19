@@ -365,9 +365,6 @@ accomplished with a `USER` directive in your `Dockerfile`.
 `transform.working_dir` sets the directory that your command runs from. You
 can also specify the `WORKDIR` directive in your `Dockerfile`.
 
-`transform.dockerfile` is the path to the `Dockerfile` used with the `--build`
-flag. This defaults to `./Dockerfile`.
-
 ### Parallelism Spec (optional)
 
 `parallelism_spec` describes how Pachyderm parallelizes your pipeline.
@@ -502,8 +499,7 @@ parameter is not set, the job will run indefinitely until it succeeds or fails.
 endpoint instead of the typical `pfs/out` directory. When this parameter
 is set to `true`, Pachyderm includes a sidecar S3 gateway instance
 container in the same pod as the pipeline container. The address of the
-output repository will be `s3://<output_repo>`. If you enable `s3_out`,
-verify that the `enable_stats` parameter is disabled.
+output repository will be `s3://<output_repo>`. 
 
 If you want to expose an input repository through an S3 gateway, see
 `input.pfs.s3` in [PFS Input](#pfs-input). 

@@ -24,15 +24,20 @@ $ pachctl get file foo@master^:XXX
 # get file "XXX" in the grandparent of the current head of branch "master"
 # in repo "foo"
 $ pachctl get file foo@master^2:XXX
+
+# get file "test[].txt" on branch "master" in repo "foo"
+# the path is interpreted as a glob pattern: quote and protect regex characters
+$ pachctl get file 'foo@master:/test\[\].txt'
 ```
 
 ### Options
 
 ```
-  -h, --help              help for file
-  -o, --output string     The path where data will be downloaded.
-  -p, --parallelism int   The maximum number of files that can be downloaded in parallel (default 10)
-  -r, --recursive         Recursively download a directory.
+  -h, --help            help for file
+      --offset int      The number of bytes in the file to skip ahead when reading.
+  -o, --output string   The path where data will be downloaded.
+      --progress        {true|false} Whether or not to print the progress bars. (default true)
+      --retry           {true|false} Whether to append the missing bytes to an existing file. No-op if the file doesn't exist.
 ```
 
 ### Options inherited from parent commands

@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	logrus "github.com/sirupsen/logrus"
 
 	dex_storage "github.com/dexidp/dex/storage"
@@ -22,7 +23,7 @@ import (
 
 func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
 	env := &serviceenv.TestServiceEnv{
-		DBClient: testutil.NewTestDB(t),
+		DBClient: dockertestenv.NewTestDB(t),
 		DexDB:    dex_memory.New(logrus.New()),
 		Log:      logrus.New(),
 	}
@@ -119,18 +120,19 @@ func TestUpdateIDP(t *testing.T) {
 	err := env.GetDexDB().CreateConnector(dex_storage.Connector{ID: "conn", Type: "github", Config: []byte(`{"clientID": "test1", "redirectURI": "/callback"}`)})
 	require.NoError(t, err)
 
-	// Create an auth request that hasn't done the flow
-	require.NoError(t, env.GetDexDB().CreateAuthRequest(dex_storage.AuthRequest{
-		ID:       "testreq",
-		ClientID: "testclient",
+	require.NoError(t, env.GetDexDB().CreateClient(dex_storage.Client{
+		ID:           "testclient",
+		RedirectURIs: []string{"http://example.com/callback"},
 	}))
 
 	// make a request to authenticate
 	recorder := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/auth/conn?req=testreq", nil)
+	req := httptest.NewRequest("GET", "/auth/conn?req=testreq&client_id=testclient&redirect_uri=http%3A%2F%2Fexample.com%2Fcallback&scope=openid&response_type=code", nil)
 	server.ServeHTTP(recorder, req)
 	require.Equal(t, http.StatusFound, recorder.Result().StatusCode)
-	require.Equal(t, "https://github.com/login/oauth/authorize?client_id=test1&redirect_uri=%2Fcallback&response_type=code&scope=user%3Aemail&state=testreq", recorder.Result().Header.Get("Location"))
+	redirect, err := url.Parse(recorder.Result().Header.Get("Location"))
+	require.NoError(t, err)
+	require.Equal(t, "test1", redirect.Query()["client_id"][0])
 
 	// update the connector config
 	_, err = api.UpdateIDPConnector(context.Background(), &identity.UpdateIDPConnectorRequest{
@@ -142,7 +144,9 @@ func TestUpdateIDP(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	server.ServeHTTP(recorder, req)
 	require.Equal(t, http.StatusFound, recorder.Result().StatusCode)
-	require.Equal(t, "https://github.com/login/oauth/authorize?client_id=test2&redirect_uri=%2Fcallback&response_type=code&scope=user%3Aemail&state=testreq", recorder.Result().Header.Get("Location"))
+	redirect, err = url.Parse(recorder.Result().Header.Get("Location"))
+	require.NoError(t, err)
+	require.Equal(t, "test2", redirect.Query()["client_id"][0])
 }
 
 // TestLogApprovedUsers tests that the web server intercepts approvals and records the email

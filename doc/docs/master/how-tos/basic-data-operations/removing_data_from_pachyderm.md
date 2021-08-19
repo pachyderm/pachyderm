@@ -13,9 +13,7 @@ the HEAD of the corrupted branch.
 - [Delete Old Commits](#delete-old-commits). If after
 committing the incorrect data, you have added more data to the same
 branch, follow the steps in this section to delete corrupted files.
-- [Delete sensitive data](#delete-sensitive-data). If the bad
-commit included sensitive data that you need immediately and completely
-erase from Pachyderm, follow the steps in this section to purge data.
+
 
 ## Delete the HEAD of a Branch
 
@@ -95,29 +93,4 @@ To delete a file in an older commit:
       However, deleting those commits cleans up your
       commit history and ensures that the errant data is not
       available when non-HEAD versions of the data is read.
-
-## Delete Sensitive Data
-
-When you delete data as described in [Delete Old Commits](#delete-old-commits),
-Pachyderm does not immediately delete it from the physical disk. Instead,
-Pachyderm deletes references to the underlying data and later
-performs **garbage collection**. That is when the data is truly erased from the
-disk.
-
-If you have accidentally committed sensitive data and you need to
-ensure that it is immediately erased and inaccessible:
-
-1. Delete all the references to data as described in
-[Delete Old Commits](#delete-old-commits).
-
-1. Run `garbage-collect`:
-
-   ```shell
-   pachctl garbage-collect
-   ```
-
-   To make garbage collection more comprehensive, increase the
-   amount of memory that is used during the garbage collection
-   operation by specifying the `--memory` flag. The default value
-   is 10 MB.
 

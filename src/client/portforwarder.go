@@ -168,6 +168,11 @@ func (f *PortForwarder) RunForEnterpriseServer(localPort, remotePort uint16) (ui
 	return f.Run("pach-enterprise", localPort, remotePort)
 }
 
+// RunForDash creates a port forwarder for dash
+func (f *PortForwarder) RunForDash(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("dash", localPort, remotePort)
+}
+
 // Close shuts down port forwarding.
 func (f *PortForwarder) Close() {
 	defer f.logger.Close()

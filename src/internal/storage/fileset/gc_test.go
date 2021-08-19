@@ -6,19 +6,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestGC(t *testing.T) {
 	ctx := context.Background()
-	db := testutil.NewTestDB(t)
+	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
 	s := NewTestStorage(t, db, tr)
 	gc := s.newGC()
 	w := s.NewWriter(ctx, WithTTL(time.Hour))
-	require.NoError(t, w.Add("a.txt", "tag1", strings.NewReader("test data")))
+	require.NoError(t, w.Add("a.txt", "datum1", strings.NewReader("test data")))
 	id, err := w.Close()
 	require.NoError(t, err)
 	// check that it's there

@@ -2,21 +2,21 @@ package fileset
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 var (
 	// ErrFileSetExists path already exists
-	ErrFileSetExists = errors.Errorf("path already exists")
+	ErrFileSetExists = fmt.Errorf("path already exists")
 	// ErrFileSetNotExists path does not exist
-	ErrFileSetNotExists = errors.Errorf("path does not exist")
+	ErrFileSetNotExists = fmt.Errorf("path does not exist")
 	// ErrNoTTLSet no ttl set on path
-	ErrNoTTLSet = errors.Errorf("no ttl set on path")
+	ErrNoTTLSet = fmt.Errorf("no ttl set on path")
 )
 
 // MetadataStore stores filesets. A fileset is a path -> index relationship
@@ -49,7 +49,7 @@ func StoreTestSuite(t *testing.T, newStore func(t testing.TB) MetadataStore) {
 		require.NoError(t, setMetadata(ctx, x, testID, md))
 		require.NoError(t, deleteMetadata(ctx, x, testID))
 		_, err := x.Get(ctx, testID)
-		require.Equal(t, ErrFileSetNotExists, err)
+		require.ErrorIs(t, err, ErrFileSetNotExists)
 	})
 }
 

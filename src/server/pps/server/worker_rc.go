@@ -98,17 +98,24 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "POSTGRES_USER",
 		Value: a.env.Config().PostgresUser,
 	}, {
-		Name:  "POSTGRES_PASSWORD",
-		Value: a.env.Config().PostgresPassword,
+		Name: "POSTGRES_PASSWORD",
+		ValueFrom: &v1.EnvVarSource{
+			SecretKeyRef: &v1.SecretKeySelector{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: client.PostgresSecretName,
+				},
+				Key: "postgresql-password",
+			},
+		},
 	}, {
-		Name:  "POSTGRES_DATABASE_NAME",
+		Name:  "POSTGRES_DATABASE",
 		Value: a.env.Config().PostgresDBName,
 	}, {
-		Name:  "POSTGRES_HOST",
-		Value: a.env.Config().PostgresHost,
+		Name:  "PG_BOUNCER_HOST",
+		Value: a.env.Config().PGBouncerHost,
 	}, {
-		Name:  "POSTGRES_PORT",
-		Value: strconv.FormatInt(int64(a.env.Config().PostgresPort), 10),
+		Name:  "PG_BOUNCER_PORT",
+		Value: strconv.FormatInt(int64(a.env.Config().PGBouncerPort), 10),
 	}, {
 		Name:  client.PeerPortEnv,
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
@@ -119,6 +126,14 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
 	},
+		// These are set explicitly below to prevent kubernetes from setting them to the service host and port.
+		{
+			Name:  "POSTGRES_PORT",
+			Value: "",
+		}, {
+			Name:  "POSTGRES_HOST",
+			Value: "",
+		},
 	}
 
 	// Set up sidecar env vars

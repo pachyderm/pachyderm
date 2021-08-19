@@ -19,6 +19,6 @@ message Range {
 }
 
 message File {
-  string tag = 1;
+  string datum = 1;
   repeated chunk.DataRef data_refs = 2;
 }

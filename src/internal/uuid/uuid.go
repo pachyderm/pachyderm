@@ -42,4 +42,4 @@ func IsUUIDWithoutDashes(s string) bool {
 // Because we use UUIDv4, the 13th character is a '4'.
 // Moreover, a UUID can only contain "hexadecimal" characters,
 // lowercase here.
-var uuidWithoutDashesRegexp = regexp.MustCompile("[0-9a-f]{12}4[0-9a-f]{19}")
+var uuidWithoutDashesRegexp = regexp.MustCompile("^[0-9a-f]{12}4[0-9a-f]{19}$")

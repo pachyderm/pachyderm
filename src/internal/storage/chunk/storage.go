@@ -48,10 +48,10 @@ func NewStorage(objC obj.Client, memCache kv.GetPut, db *sqlx.DB, tracker track.
 }
 
 // NewReader creates a new Reader.
-func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef) *Reader {
+func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	// using the empty string for the tmp id to disable the renewer
 	client := NewClient(s.store, s.db, s.tracker, "")
-	return newReader(ctx, client, s.memCache, dataRefs)
+	return newReader(ctx, client, s.memCache, dataRefs, opts...)
 }
 
 // NewWriter creates a new Writer for a stream of bytes to be chunked.

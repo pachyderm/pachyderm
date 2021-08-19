@@ -79,6 +79,11 @@ func (a *InactiveAPIServer) GetPermissions(context.Context, *auth.GetPermissions
 	return nil, auth.ErrNotActivated
 }
 
+// GetPermissions implements the GetPermissions RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetPermissionsInTransaction(*txncontext.TransactionContext, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // GetPermissionsForPrincipal implements the GetPermissions RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetPermissionsForPrincipal(context.Context, *auth.GetPermissionsForPrincipalRequest) (*auth.GetPermissionsResponse, error) {
 	return nil, auth.ErrNotActivated

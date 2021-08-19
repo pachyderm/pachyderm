@@ -1,6 +1,10 @@
-package backoff
+package backoff_test
 
-import "log"
+import (
+	"log"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+)
 
 func ExampleRetry() {
 	// An operation that may fail.
@@ -8,7 +12,7 @@ func ExampleRetry() {
 		return nil // or an error
 	}
 
-	err := Retry(operation, NewExponentialBackOff())
+	err := backoff.Retry(operation, backoff.NewExponentialBackOff())
 	if err != nil {
 		// Handle error.
 		return
@@ -23,7 +27,7 @@ func ExampleTicker() {
 		return nil // or an error
 	}
 
-	ticker := NewTicker(NewExponentialBackOff())
+	ticker := backoff.NewTicker(backoff.NewExponentialBackOff())
 
 	var err error
 
