@@ -104,6 +104,7 @@ jobs:
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
     steps:
+      - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       # Set CR_Token to GH Personal Access Token (Found in pachydermbuildbot GH Acount)
       # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
       - run: git config --global user.email buildbot@pachyderm.io
@@ -115,7 +116,8 @@ jobs:
           # the helmchart git repo hosts the helm repository (gh-pages) Chart releaser only supports https clone, not ssh
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
-      - run: cr package pachyderm/etc/helm/pachyderm
+      - run: mkdir -p .cr-release-packages
+      - run: helm package -d .cr-release-packages/ pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --package-path ../.cr-release-packages --push
   hub:
