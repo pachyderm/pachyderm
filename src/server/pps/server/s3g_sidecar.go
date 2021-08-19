@@ -14,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -40,7 +39,8 @@ type sidecarS3G struct {
 
 func (a *apiServer) ServeSidecarS3G() {
 	s := &sidecarS3G{
-		apiServer: a,
+		apiServer:  a,
+		pachClient: a.env.GetPachClient(context.Background()),
 	}
 	port := a.env.Config().S3GatewayPort
 	s.server = s3.Server(port, nil)
@@ -48,26 +48,14 @@ func (a *apiServer) ServeSidecarS3G() {
 	// Read spec commit for this sidecar's pipeline, and set auth token for pach
 	// client
 	specCommit := a.env.Config().PPSSpecCommitID
-	pipelineName := a.env.Config().PPSPipelineName
 	if specCommit == "" {
 		// This error is not recoverable
 		panic("cannot serve sidecar S3 gateway if no spec commit is set")
 	}
 	if err := backoff.RetryNotify(func() error {
-		retryCtx, retryCancel := context.WithCancel(context.Background())
-		// authenticate just to fetch the pipeline info
-		retryCtx = auth.AsInternalUser(retryCtx, "s3-sidecar")
-		defer retryCancel()
-
 		var err error
-		s.pipelineInfo, err = a.inspectPipeline(retryCtx, pipelineName, true)
-		if err != nil {
-			return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
-		}
-
-		// Set auth token for s.pachClient
-		s.pachClient, err = a.pipelineAuthorizedClient(context.Background(), s.pipelineInfo.SpecCommit)
-		return err
+		s.pipelineInfo, err = ppsutil.GetWorkerPipelineInfo(s.pachClient, a.env)
+		return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logrus.Errorf("error starting sidecar s3 gateway: %v; retrying in %d", err, d)
 		return nil

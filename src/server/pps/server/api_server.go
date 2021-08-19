@@ -38,7 +38,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
-	middleware_auth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
@@ -2159,20 +2158,6 @@ func (a *apiServer) findPipelineSpecCommit(ctx context.Context, pipeline string)
 		return nil, err
 	}
 	return commit, nil
-}
-
-func (a *apiServer) pipelineAuthorizedClient(ctx context.Context, specCommit *pfs.Commit) (*client.APIClient, error) {
-	info := &pps.PipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).Get(specCommit, info); err != nil {
-		return nil, err
-	}
-	// the provided context might already have been authorized,
-	// in which case the added pipeline auth token will be ignored.
-	// clear the cached WhoAmI identity just in case
-	ctx = middleware_auth.ClearWhoAmI(ctx)
-	client := a.env.GetPachClient(ctx)
-	client.SetAuthToken(info.AuthToken)
-	return client, nil
 }
 
 // findPipelineSpecCommitInTransaction finds the spec commit corresponding to the pipeline version present in the commit given

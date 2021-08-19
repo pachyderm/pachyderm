@@ -31,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -411,4 +412,25 @@ func ErrorState(s pps.PipelineState) bool {
 		pps.PipelineState_PIPELINE_CRASHING:   true,
 		pps.PipelineState_PIPELINE_RESTARTING: true,
 	}[s]
+}
+
+// GetWorkerPipelineInfo gets the PipelineInfo proto describing the pipeline that this
+// worker is part of.
+// getPipelineInfo has the side effect of adding auth to the passed pachClient
+func GetWorkerPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
+	pipelineInfo := &pps.PipelineInfo{}
+	// Notice we use the SpecCommitID from our env, not from postgres. This is
+	// because the value in postgres might get updated while the worker pod is
+	// being created and we don't want to run the transform of one version of
+	// the pipeline in the image of a different verison.
+	pipelineKey := fmt.Sprintf("%s@%s", env.Config().PPSPipelineName, env.Config().PPSSpecCommitID)
+	if err := pipelines.ReadOnly(ctx).Get(pipelineKey, pipelineInfo); err != nil {
+		return nil, err
+	}
+	pachClient.SetAuthToken(pipelineInfo.AuthToken)
+
+	return pipelineInfo, nil
 }

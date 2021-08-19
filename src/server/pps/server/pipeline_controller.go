@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	middleware_auth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -118,13 +119,16 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 
 func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipelineOp, error) {
 	op := &pipelineOp{
-		m: m,
+		m:            m,
+		pipelineInfo: &pps.PipelineInfo{},
 	}
 	// get latest PipelineInfo (events can pile up, so that the current state
 	// doesn't match the event being processed)
-	var err error
-	op.pipelineInfo, err = m.a.inspectPipeline(ctx, pipeline, true)
+	specCommit, err := m.a.findPipelineSpecCommit(ctx, pipeline)
 	if err != nil {
+		return nil, errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
+	}
+	if err := m.a.pipelines.ReadOnly(ctx).Get(specCommit, op.pipelineInfo); err != nil {
 		return nil, errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
 	}
 	tracing.TagAnySpan(ctx,
@@ -132,11 +136,11 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
 
 	// add pipeline auth
-	if pachClient, err := m.a.pipelineAuthorizedClient(ctx, op.pipelineInfo.SpecCommit); err != nil {
-		return nil, err
-	} else {
-		op.ctx = pachClient.Ctx()
-	}
+	// the provided context is authorized as pps master, but we want to switch to the pipeline itself
+	// so first clear the cached WhoAmI result from the context
+	pachClient := m.a.env.GetPachClient(middleware_auth.ClearWhoAmI(ctx))
+	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
+	op.ctx = pachClient.Ctx()
 	return op, nil
 }
 
