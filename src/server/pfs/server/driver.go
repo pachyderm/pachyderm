@@ -1521,6 +1521,9 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 	}
 
 	for _, ci := range commitInfos {
+		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
+			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
+		}
 		if len(ci.ChildCommits) == 0 {
 			return &pfsserver.ErrSquashWithoutChildren{Commit: ci.Commit}
 		}
