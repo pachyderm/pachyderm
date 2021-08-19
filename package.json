@@ -24,7 +24,7 @@
   "homepage": "https://github.com/pachyderm/node-pachyderm#readme",
   "dependencies": {
     "@grpc/grpc-js": "1.2.2",
-    "@pachyderm/proto": "2.0.0-beta.5.0",
+    "@pachyderm/proto": "2.0.0-beta.6.0",
     "tar-stream": "2.2.0"
   },
   "devDependencies": {
