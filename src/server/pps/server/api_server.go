@@ -17,7 +17,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/itchyny/gojq"
-	"github.com/jmoiron/sqlx"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
 	logrus "github.com/sirupsen/logrus"
@@ -31,7 +30,6 @@ import (
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -926,14 +924,18 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 		return nil, errors.New("job cannot be nil")
 	}
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		if err := a.stopJob(txnCtx, request.Job, "job deleted"); err != nil {
-			return err
-		}
-		return a.jobs.ReadWrite(txnCtx.SqlTx).Delete(ppsdb.JobKey(request.Job))
+		return a.deleteJobInTransaction(txnCtx, request)
 	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) deleteJobInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeleteJobRequest) error {
+	if err := a.stopJob(txnCtx, request.Job, "job deleted"); err != nil {
+		return err
+	}
+	return a.jobs.ReadWrite(txnCtx.SqlTx).Delete(ppsdb.JobKey(request.Job))
 }
 
 // StopJob implements the protobuf pps.StopJob RPC
@@ -1918,6 +1920,8 @@ func (a *apiServer) CreatePipelineInTransaction(
 				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
+		} else if errutil.IsAlreadyExistError(err) {
+			return errors.Errorf("pipeline %q cannot be created because a repo with the same name already exists")
 		}
 		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
@@ -2436,44 +2440,6 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) error {
 	pipelineName := request.Pipeline.Name
-	// make sure the pipeline exists
-	var unused pps.PipelineInfo
-	if err := a.pipelines.ReadOnly(ctx).GetByIndex(
-		ppsdb.PipelinesNameIndex,
-		pipelineName,
-		&unused,
-		col.DefaultOptions(),
-		func(_ string) error {
-			return nil
-		}); col.IsErrNotFound(err) {
-		return nil // nothing to delete
-	} else if err != nil {
-		return errors.Wrapf(err, "error checking if pipeline %s exists", pipelineName)
-	}
-
-	// Try to retrieve PipelineInfo for this pipeline. If not, we will still try to delete what we can
-	pipelineInfo, err := a.inspectPipeline(ctx, pipelineName, true)
-	if err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
-		// we know there is pipeline data, so not found errors shouldn't stop us from deleting
-		return err
-	} else if pipelineInfo == nil {
-		pipelineInfo = &pps.PipelineInfo{}
-	}
-	pachClient := a.env.GetPachClient(ctx)
-
-	var missingRepo bool
-	// check if the output repo exists--if not, the pipeline is non-functional and
-	// the rest of the delete operation continues without any auth checks
-	if _, err := pachClient.InspectRepo(pipelineName); err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
-		return err
-	} else if err == nil {
-		// Check if the caller is authorized to delete this pipeline
-		if err := a.authorizePipelineOp(ctx, pipelineOpDelete, pipelineInfo.GetDetails().GetInput(), pipelineName); err != nil {
-			return err
-		}
-	} else {
-		missingRepo = true
-	}
 
 	// stop the pipeline to avoid interference from new jobs
 	if _, err := a.StopPipeline(ctx,
@@ -2482,83 +2448,115 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	} else if err != nil {
 		return errors.Wrapf(err, "error stopping pipeline %s", pipelineName)
 	}
+	// perform the rest of the delete in a transaction
+	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return a.deletePipelineInTransaction(txnCtx, request)
+	})
+}
+
+func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeletePipelineRequest) error {
+	pipelineName := request.Pipeline.Name
+
+	// make sure the pipeline exists
+	var foundPipeline bool
+	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetByIndex(
+		ppsdb.PipelinesNameIndex,
+		pipelineName,
+		&pps.PipelineInfo{},
+		col.DefaultOptions(),
+		func(_ string) error {
+			foundPipeline = true
+			return nil
+		}); err != nil {
+		return errors.Wrapf(err, "error checking if pipeline %s exists", pipelineName)
+	}
+	if !foundPipeline {
+		// nothing to delete
+		return nil
+	}
+
+	pipelineInfo := &pps.PipelineInfo{}
+	// Try to retrieve PipelineInfo for this pipeline. If we see a not found error,
+	// we will still try to delete what we can because we know there is a pipeline
+	if specCommit, err := a.findPipelineSpecCommitInTransaction(txnCtx, pipelineName, ""); err == nil {
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(specCommit, pipelineInfo); err != nil && !col.IsErrNotFound(err) {
+			return err
+		}
+	} else if !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
+		return err
+	}
+	var missingRepo bool
+	// check if the output repo exists--if not, the pipeline is non-functional and
+	// the rest of the delete operation continues without any auth checks
+	if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
+		Repo: client.NewRepo(pipelineName)}); err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
+		return err
+	} else if err == nil {
+		// Check if the caller is authorized to delete this pipeline
+		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpDelete, pipelineInfo.GetDetails().GetInput(), pipelineName); err != nil {
+			return err
+		}
+	} else {
+		missingRepo = true
+	}
 
 	// If necessary, revoke the pipeline's auth token and remove it from its inputs' ACLs
 	// If auth is deactivated, don't bother doing either
-	if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err == nil {
+	if _, err := txnCtx.WhoAmI(); err == nil && pipelineInfo.AuthToken != "" {
 		// 'pipelineInfo' == nil => remove pipeline from all input repos
 		if pipelineInfo.Details != nil {
 			// need details for acls
-			if err := a.fixPipelineInputRepoACLs(ctx, nil, pipelineInfo); err != nil {
+			if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, nil, pipelineInfo); err != nil {
 				return errors.Wrapf(err, "error fixing repo ACLs for pipeline %q", pipelineName)
 			}
 		}
-		if pipelineInfo.SpecCommit != nil {
-			authInfo := &pps.PipelineInfo{}
-			if err := a.pipelines.ReadOnly(ctx).Get(pipelineInfo.SpecCommit, authInfo); err != nil && !col.IsErrNotFound(err) {
-				return err
-			} else if err == nil {
-				if _, err := pachClient.RevokeAuthToken(pachClient.Ctx(),
-					&auth.RevokeAuthTokenRequest{
-						Token: authInfo.AuthToken,
-					}); err != nil {
-					return grpcutil.ScrubGRPC(err)
-				}
-			}
+		if _, err := a.env.AuthServer().RevokeAuthTokenInTransaction(txnCtx,
+			&auth.RevokeAuthTokenRequest{
+				Token: pipelineInfo.AuthToken,
+			}); err != nil {
+			return err
 		}
 	}
 
 	// Delete all of the pipeline's jobs - we shouldn't need to worry about any
 	// new jobs since the pipeline has already been stopped.
-	var eg errgroup.Group
 	jobInfo := &pps.JobInfo{}
-	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, pipelineName, jobInfo, col.DefaultOptions(), func(string) error {
+	if err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, pipelineName, jobInfo, col.DefaultOptions(), func(string) error {
 		job := proto.Clone(jobInfo.Job).(*pps.Job)
-		eg.Go(func() error {
-			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: job})
-			if errutil.IsNotFoundError(err) || auth.IsErrNoRoleBinding(err) {
-				return nil
-			}
-			return err
-		})
-		return nil
-	}); err != nil {
+		err := a.deleteJobInTransaction(txnCtx, &pps.DeleteJobRequest{Job: job})
+		if errutil.IsNotFoundError(err) || auth.IsErrNoRoleBinding(err) {
+			return nil
+		}
 		return err
-	}
-	if err := eg.Wait(); err != nil {
+	}); err != nil {
 		return err
 	}
 
 	// only do this if we were able to read the spec file
 	if pipelineInfo.Details != nil {
-		eg = errgroup.Group{}
 		// Delete cron input repos
 		if !request.KeepRepo {
 			pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
 				if input.Cron != nil {
-					eg.Go(func() error {
-						return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
+					return a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
+						Repo:  client.NewRepo(input.Cron.Repo),
+						Force: request.Force,
 					})
 				}
 				return nil
 			})
 		}
-		if err := eg.Wait(); err != nil {
-			return err
-		}
 	}
 
 	// Delete all past PipelineInfos
-	if err := dbutil.WithTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-		return a.pipelines.ReadWrite(sqlTx).DeleteByIndex(ppsdb.PipelinesNameIndex, pipelineName)
-	}); err != nil {
+	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).DeleteByIndex(ppsdb.PipelinesNameIndex, pipelineName); err != nil {
 		return errors.Wrapf(err, "collection.Delete")
 	}
 
 	if !missingRepo {
 		if !request.KeepRepo {
 			// delete the pipeline's output repo
-			if _, err := a.env.PfsServer().DeleteRepo(ctx, &pfs.DeleteRepoRequest{
+			if err := a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
 				Repo:  client.NewRepo(pipelineName),
 				Force: request.Force,
 			}); err != nil && !errutil.IsNotFoundError(err) {
@@ -2567,28 +2565,25 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		} else {
 			// Remove branch provenance from output and then delete meta and spec repos
 			// this leaves the repo as a source repo, eliminating pipeline metadata
-			if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-				// need details for output branch, presumably if we don't have them the spec repo is gone, anyway
-				if pipelineInfo.Details != nil {
-					if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-						Branch: client.NewBranch(pipelineName, pipelineInfo.Details.OutputBranch),
-					}); err != nil {
-						return err
-					}
-				}
-				if err := a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
-					Repo: client.NewSystemRepo(pipelineName, pfs.SpecRepoType),
-				}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
+			// need details for output branch, presumably if we don't have them the spec repo is gone, anyway
+			if pipelineInfo.Details != nil {
+				if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+					Branch: client.NewBranch(pipelineName, pipelineInfo.Details.OutputBranch),
+				}); err != nil {
 					return err
 				}
-				if err := a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
-					Repo: client.NewSystemRepo(pipelineName, pfs.MetaRepoType),
-				}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
-					return err
-				}
-				return nil
-			}); err != nil {
-				return errors.Wrap(err, "error deleting pipeline metadata repos")
+			}
+			if err := a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
+				Repo:  client.NewSystemRepo(pipelineName, pfs.SpecRepoType),
+				Force: request.Force,
+			}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
+				return err
+			}
+			if err := a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
+				Repo:  client.NewSystemRepo(pipelineName, pfs.MetaRepoType),
+				Force: request.Force,
+			}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
+				return err
 			}
 			if pipelineInfo.Details == nil {
 				return errors.New("pipeline deletion incomplete, provenance may still be intact")

@@ -8714,11 +8714,23 @@ func TestKeepRepo(t *testing.T) {
 	_, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
 
+	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{
+		Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+	})
+	require.YesError(t, err)
+	require.True(t, errutil.IsNotFoundError(err))
+
+	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{
+		Repo: client.NewSystemRepo(pipeline, pfs.MetaRepoType),
+	})
+	require.YesError(t, err)
+	require.True(t, errutil.IsNotFoundError(err))
+
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineCommit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 
-	require.NoError(t, c.CreatePipeline(
+	require.YesError(t, c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -8732,21 +8744,6 @@ func TestKeepRepo(t *testing.T) {
 		"",
 		false,
 	))
-
-	require.NoError(t, c.PutFile(dataCommit, "file2", strings.NewReader("bar"), client.WithAppendPutFile()))
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
-	require.NoError(t, err)
-	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
-	require.NoError(t, err)
-
-	buf.Reset()
-	require.NoError(t, c.GetFile(pipelineCommit, "file", &buf))
-	require.Equal(t, "foo", buf.String())
-	buf.Reset()
-	require.NoError(t, c.GetFile(pipelineCommit, "file2", &buf))
-	require.Equal(t, "bar", buf.String())
-
-	require.NoError(t, c.DeletePipeline(pipeline, false))
 }
 
 // Regression test to make sure that pipeline creation doesn't crash pachd due to missing fields
