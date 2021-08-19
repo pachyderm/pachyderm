@@ -71,12 +71,11 @@ pachd:
     additionalAnnotations:
       # serviceAccountName is configured per workspace.
       iam.gke.io/gcp-service-account: "test-service-account"
-
-worker:
-  serviceAccount:
-    additionalAnnotations:
-      # serviceAccountName is configured per workspace.
-      iam.gke.io/gcp-service-account: "test-service-account"
+  worker:
+    serviceAccount:
+      additionalAnnotations:
+        # serviceAccountName is configured per workspace.
+        iam.gke.io/gcp-service-account: "test-service-account"
 
 postgresql:
   # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.

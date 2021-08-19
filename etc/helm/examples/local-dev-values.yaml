@@ -15,9 +15,6 @@ pachd:
     enabled: false
   clusterDeploymentID: dev
   enterpriseLicenseKey: ""
-  worker:
-    image:
-      tag: local
 
 console:
   enabled: false
