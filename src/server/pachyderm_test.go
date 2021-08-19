@@ -3552,7 +3552,7 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	// create pipeline
+	// create pipeline without empty files
 	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
@@ -3597,6 +3597,60 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	// Check that the output files are identical to the input files.
 	buffer := bytes.Buffer{}
 	outputCommit := client.NewCommit(pipelineName, "master", commitInfo.Commit.ID)
+	require.NoError(t, c.GetFile(outputCommit, "foo", &buffer))
+	require.Equal(t, "foo", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "bar", &buffer))
+	require.Equal(t, "bar", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "dir/dir2/foo", &buffer))
+	require.Equal(t, "foo", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "buzz", &buffer))
+	require.Equal(t, "buzz\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "dir3/dir4/foobar", &buffer))
+	require.Equal(t, "foobar\n", buffer.String())
+
+	// create pipeline with empty files
+	pipelineName = tu.UniqueString("pipeline")
+	input := client.NewPFSInput(dataRepo, "/")
+	input.Pfs.EmptyFiles = true
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			// Symlinks to input files
+			fmt.Sprintf("ln -s /pfs/%s/foo /pfs/out/foo", dataRepo),
+			fmt.Sprintf("ln -s /pfs/%s/dir1/bar /pfs/out/bar", dataRepo),
+			"mkdir /pfs/out/dir",
+			fmt.Sprintf("ln -s /pfs/%s/dir2 /pfs/out/dir/dir2", dataRepo),
+			// Symlinks to external files
+			"echo buzz > /tmp/buzz",
+			"ln -s /tmp/buzz /pfs/out/buzz",
+			"mkdir /tmp/dir3",
+			"mkdir /tmp/dir3/dir4",
+			"echo foobar > /tmp/dir3/dir4/foobar",
+			"ln -s /tmp/dir3 /pfs/out/dir3",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		input,
+		"",
+		false,
+	))
+
+	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
+	require.NoError(t, err)
+	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(commitInfos))
+
+	// Check that the output files are identical to the input files.
+	buffer.Reset()
+	outputCommit = client.NewCommit(pipelineName, "master", commitInfo.Commit.ID)
 	require.NoError(t, c.GetFile(outputCommit, "foo", &buffer))
 	require.Equal(t, "foo", buffer.String())
 	buffer.Reset()
@@ -9734,6 +9788,7 @@ func TestLoad(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
 	resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
