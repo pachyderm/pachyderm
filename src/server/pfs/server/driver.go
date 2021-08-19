@@ -1000,6 +1000,9 @@ func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.Com
 				}
 				return nil, err
 			}
+			if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
+				i--
+			}
 			commit = commitInfo.ParentCommit
 		}
 	} else {
