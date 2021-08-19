@@ -12,8 +12,7 @@ pachd:
   serviceAccount:
     additionalAnnotations:
       iam.gke.io/gcp-service-account: blah123
-
-worker:
-  serviceAccount:
-    additionalAnnotations:
-      iam.gke.io/gcp-service-account: blah123
+  worker:
+    serviceAccount:
+      additionalAnnotations:
+        iam.gke.io/gcp-service-account: blah123

@@ -168,6 +168,7 @@ pachd:
     repository: "pachyderm/pachd"
     pullPolicy: "IfNotPresent"
     # tag defaults to the chart’s specified appVersion.
+    # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
   logLevel: "info"
   # lokiLogging enables Loki logging if set.
@@ -339,6 +340,17 @@ pachd:
       create: false
       crt: ""
       key: ""
+  worker:
+    image:
+      repository: "pachyderm/worker"
+      pullPolicy: "IfNotPresent"
+      # Worker tag is set under pachd.image.tag (they should be kept in lock step)
+    serviceAccount:
+      create: true
+      additionalAnnotations: {}
+      # name sets the name of the worker service account.  Analogous to
+      # the --worker-service-account argument to pachctl deploy.
+      name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
 
 rbac:
   # create indicates whether RBAC resources should be created.
@@ -350,16 +362,7 @@ rbac:
   # of --local-roles passed to pachctl deploy.
   clusterRBAC: true
 
-worker:
-  image:
-    repository: "pachyderm/worker"
-    pullPolicy: "IfNotPresent"
-  serviceAccount:
-    create: true
-    additionalAnnotations: {}
-    # name sets the name of the worker service account.  Analogous to
-    # the --worker-service-account argument to pachctl deploy.
-    name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
+
 
 pgbouncer:
   service:

@@ -31,10 +31,6 @@ console:
 enterpriseServer:
   enabled: false
 
-worker:
-  image:
-    tag: local
-
 etcd:
   service:
     type: NodePort
