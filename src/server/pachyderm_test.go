@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -41,6 +42,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/testing/clustertest"
 
 	"github.com/gogo/protobuf/types"
 	globlib "github.com/pachyderm/ohmyglob"
@@ -77,6 +79,20 @@ func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
 		},
 		Input: client.NewPFSInput(input, "/*"),
 	}
+}
+
+func TestCluster(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	var mu sync.Mutex
+	clustertest.TestAPI(t, func(t testing.TB) *client.APIClient {
+		mu.Lock()
+		t.Cleanup(mu.Unlock)
+		c := tu.GetPachClient(t)
+		require.NoError(t, c.DeleteAll())
+		return c
+	})
 }
 
 func TestSimplePipeline(t *testing.T) {

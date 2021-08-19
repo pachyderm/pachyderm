@@ -11,12 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -31,11 +32,56 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"gopkg.in/yaml.v2"
-
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"gopkg.in/yaml.v2"
 )
+
+// Env is the dependencies needed to run the PFS API server
+type Env struct {
+	ObjectClient obj.Client
+	DB           *sqlx.DB
+	EtcdPrefix   string
+	EtcdClient   *etcd.Client
+	TxnEnv       *txnenv.TransactionEnv
+	Listener     col.PostgresListener
+
+	AuthServer authserver.APIServer
+	// TODO: a reasonable repo metadata solution would let us get rid of this circular dependency
+	// permissions might also work.
+	PPSServer ppsserver.APIServer
+
+	BackgroundContext context.Context
+	Logger            *logrus.Logger
+	StorageConfig     serviceenv.StorageConfiguration
+}
+
+func EnvFromServiceEnv(env serviceenv.ServiceEnv) (*Env, error) {
+	// Setup etcd, object storage, and database clients.
+	objClient, err := obj.NewClient(env.Config().StorageBackend, env.Config().StorageRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Env{
+		ObjectClient: objClient,
+		DB:           env.GetDBClient(),
+		TxnEnv:       nil, // Set by NewAPIServer
+		Listener:     env.GetPostgresListener(),
+		EtcdPrefix:   env.Config().PFSEtcdPrefix,
+		EtcdClient:   env.GetEtcdClient(),
+
+		AuthServer: env.AuthServer(),
+		PPSServer:  env.PpsServer(),
+
+		BackgroundContext: env.Context(),
+		StorageConfig:     env.Config().StorageConfiguration,
+		Logger:            logrus.StandardLogger(),
+	}, nil
+}
 
 // apiServer implements the public interface of the Pachyderm File System,
 // including all RPCs defined in the protobuf spec.  Implementation details
@@ -43,23 +89,21 @@ import (
 // request structures into normal function calls.
 type apiServer struct {
 	log.Logger
+	env    Env
 	driver *driver
 	txnEnv *txnenv.TransactionEnv
-
-	// env generates clients for pachyderm's downstream services
-	env serviceenv.ServiceEnv
 }
 
-func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*apiServer, error) {
-	d, err := newDriver(env, txnEnv, etcdPrefix)
+func newAPIServer(env Env) (*apiServer, error) {
+	d, err := newDriver(env)
 	if err != nil {
 		return nil, err
 	}
 	s := &apiServer{
-		Logger: log.NewLogger("pfs.API", env.Logger()),
-		driver: d,
+		Logger: log.NewLogger("pfs.API", env.Logger),
 		env:    env,
-		txnEnv: txnEnv,
+		driver: d,
+		txnEnv: env.TxnEnv,
 	}
 	return s, nil
 }
@@ -71,7 +115,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 	var repoInfo pfs.RepoInfo
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.repos.ReadOnly(ctx).List(&repoInfo, col.DefaultOptions(), func(string) error {
-			err := a.driver.env.AuthServer().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
+			err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
 				Type: auth.ResourceType_REPO,
 				Name: repoInfo.Repo.Name,
 			})
@@ -800,7 +844,8 @@ func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetReque
 func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
 	func() { a.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
+	//pachClient := a.env.GetPachClient(ctx)
+	var pachClient *client.APIClient = nil
 	repo := "load_test"
 	if req.Branch != nil {
 		repo = req.Branch.Repo.Name

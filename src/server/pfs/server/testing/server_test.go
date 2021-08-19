@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/testing/pfstest"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -93,6 +94,13 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 		paths = append(paths, finfo.File.Path)
 	}
 	return paths
+}
+
+func TestPFS2(t *testing.T) {
+	pfstest.TestAPI(t, func(t testing.TB) pfs.APIClient {
+		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		return env.PachClient.PfsAPIClient
+	})
 }
 
 func TestPFS(suite *testing.T) {
