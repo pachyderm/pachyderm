@@ -27,7 +27,7 @@ global:
   # https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
   # Example:
   # imagePullSecrets:
-  #   - name: regcred
+  #   - regcred
   imagePullSecrets: []
 
 console:

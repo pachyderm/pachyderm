@@ -32,10 +32,7 @@ spec:
       {{-  if .Values.enterpriseServer.affinity }}
       affinity: {{ toYaml .Values.enterpriseServer.affinity | nindent 8 }}
       {{- end }}
-      {{- with .Values.global.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - command:
         - /pachd
