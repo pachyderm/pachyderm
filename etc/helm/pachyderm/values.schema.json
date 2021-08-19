@@ -387,6 +387,17 @@
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
                 },
+                "rbac": {
+                    "type": "object",
+                    "properties": {
+                        "clusterRBAC": {
+                            "type": "boolean"
+                        },
+                        "create": {
+                            "type": "boolean"
+                        }
+                    }
+                },
                 "requireCriticalServersOnly": {
                     "type": "boolean"
                 },
@@ -663,17 +674,6 @@
                             "type": "string"
                         }
                     }
-                }
-            }
-        },
-        "rbac": {
-            "type": "object",
-            "properties": {
-                "clusterRBAC": {
-                    "type": "boolean"
-                },
-                "create": {
-                    "type": "boolean"
                 }
             }
         }

@@ -351,16 +351,15 @@ pachd:
       # name sets the name of the worker service account.  Analogous to
       # the --worker-service-account argument to pachctl deploy.
       name: "pachyderm-worker" #TODO Set default in helpers / Wire up in templates
-
-rbac:
-  # create indicates whether RBAC resources should be created.
-  # Setting it to false is analogous to passing --no-rbac to pachctl
-  # deploy.
-  create: true
-  # clusterRBAC indicates that ClusterRole and ClusterRoleBinding
-  # should be used rather than Role and RoleBinding; it is the inverse
-  # of --local-roles passed to pachctl deploy.
-  clusterRBAC: true
+  rbac:
+    # create indicates whether RBAC resources should be created.
+    # Setting it to false is analogous to passing --no-rbac to pachctl
+    # deploy.
+    create: true
+    # clusterRBAC indicates that ClusterRole and ClusterRoleBinding
+    # should be used rather than Role and RoleBinding; it is the inverse
+    # of --local-roles passed to pachctl deploy.
+    clusterRBAC: true
 
 
 
