@@ -237,6 +237,10 @@ message SquashCommitSetRequest {
   CommitSet commit_set = 1;
 }
 
+message DropCommitSetRequest {
+  CommitSet commit_set = 1;
+}
+
 message SubscribeCommitRequest {
   Repo repo = 1;
   string branch = 2;
@@ -320,8 +324,8 @@ message ModifyFileRequest {
 message GetFileRequest {
   File file = 1;
   string URL = 2;
+  int64 offset = 3;
 // TODO:
-//  int64 offset_bytes = 2;
 //  int64 size_bytes = 3;
 }
 
@@ -404,15 +408,16 @@ message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
 message RunLoadTestRequest {
-  bytes spec = 1;
+  string spec = 1;
   Branch branch = 2;
   int64 seed = 3; 
 }
 
 message RunLoadTestResponse {
-  Branch branch = 1;
-  int64 seed = 2;
-  string error = 3;
+  string spec = 1;
+  Branch branch = 2;
+  int64 seed = 3;
+  string error = 4;
 }
 
 service API {
@@ -444,6 +449,8 @@ service API {
   rpc ListCommitSet(ListCommitSetRequest) returns (stream CommitSetInfo) {}
   // SquashCommitSet squashes the commits of a CommitSet into their children.
   rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
+  // DropCommitSet drops the commits of a CommitSet and all data included in the commits.
+  rpc DropCommitSet(DropCommitSetRequest) returns (google.protobuf.Empty) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
@@ -491,4 +498,6 @@ service API {
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
+  // RunLoadTestDefault runs the default load tests.
+  rpc RunLoadTestDefault(google.protobuf.Empty) returns (RunLoadTestResponse) {}
 }

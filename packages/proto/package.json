@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/proto",
-  "version": "2.0.0-beta.5.0",
+  "version": "2.0.0-beta.6.0",
   "files": [
     "pb"
   ],

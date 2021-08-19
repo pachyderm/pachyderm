@@ -196,6 +196,17 @@ function deserialize_pfs_v2_DiffFileResponse(buffer_arg) {
   return pfs_pfs_pb.DiffFileResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_DropCommitSetRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.DropCommitSetRequest)) {
+    throw new Error('Expected argument of type pfs_v2.DropCommitSetRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_DropCommitSetRequest(buffer_arg) {
+  return pfs_pfs_pb.DropCommitSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_FileInfo(arg) {
   if (!(arg instanceof pfs_pfs_pb.FileInfo)) {
     throw new Error('Expected argument of type pfs_v2.FileInfo');
@@ -640,6 +651,18 @@ squashCommitSet: {
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
+  // DropCommitSet drops the commits of a CommitSet and all data included in the commits.
+dropCommitSet: {
+    path: '/pfs_v2.API/DropCommitSet',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.DropCommitSetRequest,
+    responseType: google_protobuf_empty_pb.Empty,
+    requestSerialize: serialize_pfs_v2_DropCommitSetRequest,
+    requestDeserialize: deserialize_pfs_v2_DropCommitSetRequest,
+    responseSerialize: serialize_google_protobuf_Empty,
+    responseDeserialize: deserialize_google_protobuf_Empty,
+  },
   // CreateBranch creates a new branch.
 createBranch: {
     path: '/pfs_v2.API/CreateBranch',
@@ -878,6 +901,18 @@ runLoadTest: {
     responseType: pfs_pfs_pb.RunLoadTestResponse,
     requestSerialize: serialize_pfs_v2_RunLoadTestRequest,
     requestDeserialize: deserialize_pfs_v2_RunLoadTestRequest,
+    responseSerialize: serialize_pfs_v2_RunLoadTestResponse,
+    responseDeserialize: deserialize_pfs_v2_RunLoadTestResponse,
+  },
+  // RunLoadTestDefault runs the default load tests.
+runLoadTestDefault: {
+    path: '/pfs_v2.API/RunLoadTestDefault',
+    requestStream: false,
+    responseStream: false,
+    requestType: google_protobuf_empty_pb.Empty,
+    responseType: pfs_pfs_pb.RunLoadTestResponse,
+    requestSerialize: serialize_google_protobuf_Empty,
+    requestDeserialize: deserialize_google_protobuf_Empty,
     responseSerialize: serialize_pfs_v2_RunLoadTestResponse,
     responseDeserialize: deserialize_pfs_v2_RunLoadTestResponse,
   },

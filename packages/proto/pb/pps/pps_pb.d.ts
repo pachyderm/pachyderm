@@ -321,8 +321,6 @@ export class CronInput extends jspb.Message {
     setName(value: string): CronInput;
     getRepo(): string;
     setRepo(value: string): CronInput;
-    getRepoType(): string;
-    setRepoType(value: string): CronInput;
     getCommit(): string;
     setCommit(value: string): CronInput;
     getSpec(): string;
@@ -349,7 +347,6 @@ export namespace CronInput {
     export type AsObject = {
         name: string,
         repo: string,
-        repoType: string,
         commit: string,
         spec: string,
         overwrite: boolean,

@@ -20,6 +20,17 @@ function deserialize_google_protobuf_Empty(buffer_arg) {
   return google_protobuf_empty_pb.Empty.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_RunLoadTestResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.RunLoadTestResponse)) {
+    throw new Error('Expected argument of type pfs_v2.RunLoadTestResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_RunLoadTestResponse(buffer_arg) {
+  return pfs_pfs_pb.RunLoadTestResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pps_v2_ActivateAuthRequest(arg) {
   if (!(arg instanceof pps_pps_pb.ActivateAuthRequest)) {
     throw new Error('Expected argument of type pps_v2.ActivateAuthRequest');
@@ -665,6 +676,18 @@ updateJobState: {
     requestDeserialize: deserialize_pps_v2_UpdateJobStateRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  // RunLoadTest runs the default load test.
+runLoadTestDefault: {
+    path: '/pps_v2.API/RunLoadTestDefault',
+    requestStream: false,
+    responseStream: false,
+    requestType: google_protobuf_empty_pb.Empty,
+    responseType: pfs_pfs_pb.RunLoadTestResponse,
+    requestSerialize: serialize_google_protobuf_Empty,
+    requestDeserialize: deserialize_google_protobuf_Empty,
+    responseSerialize: serialize_pfs_v2_RunLoadTestResponse,
+    responseDeserialize: deserialize_pfs_v2_RunLoadTestResponse,
   },
 };
 

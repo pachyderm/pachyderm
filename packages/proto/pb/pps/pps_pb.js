@@ -3798,7 +3798,6 @@ proto.pps_v2.CronInput.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
     repo: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    repoType: jspb.Message.getFieldWithDefault(msg, 13, ""),
     commit: jspb.Message.getFieldWithDefault(msg, 3, ""),
     spec: jspb.Message.getFieldWithDefault(msg, 4, ""),
     overwrite: jspb.Message.getBooleanFieldWithDefault(msg, 5, false),
@@ -3846,10 +3845,6 @@ proto.pps_v2.CronInput.deserializeBinaryFromReader = function(msg, reader) {
     case 2:
       var value = /** @type {string} */ (reader.readString());
       msg.setRepo(value);
-      break;
-    case 13:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setRepoType(value);
       break;
     case 3:
       var value = /** @type {string} */ (reader.readString());
@@ -3908,13 +3903,6 @@ proto.pps_v2.CronInput.serializeBinaryToWriter = function(message, writer) {
   if (f.length > 0) {
     writer.writeString(
       2,
-      f
-    );
-  }
-  f = message.getRepoType();
-  if (f.length > 0) {
-    writer.writeString(
-      13,
       f
     );
   }
@@ -3983,24 +3971,6 @@ proto.pps_v2.CronInput.prototype.getRepo = function() {
  */
 proto.pps_v2.CronInput.prototype.setRepo = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional string repo_type = 13;
- * @return {string}
- */
-proto.pps_v2.CronInput.prototype.getRepoType = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 13, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pps_v2.CronInput} returns this
- */
-proto.pps_v2.CronInput.prototype.setRepoType = function(value) {
-  return jspb.Message.setProto3StringField(this, 13, value);
 };
 
 

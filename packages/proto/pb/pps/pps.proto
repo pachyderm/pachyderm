@@ -110,7 +110,6 @@ message PFSInput {
 message CronInput {
   string name = 1;
   string repo = 2;
-  string repo_type = 13;
   string commit = 3;
   string spec = 4;
   // Overwrite, if true, will expose a single datum that gets overwritten each
@@ -757,4 +756,7 @@ service API {
 
   // An internal call used to move a job from one state to another
   rpc UpdateJobState(UpdateJobStateRequest) returns(google.protobuf.Empty) {}
+
+  // RunLoadTest runs the default load test.
+  rpc RunLoadTestDefault(google.protobuf.Empty) returns (pfs_v2.RunLoadTestResponse) {}
 }

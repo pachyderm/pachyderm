@@ -807,6 +807,29 @@ export namespace SquashCommitSetRequest {
     }
 }
 
+export class DropCommitSetRequest extends jspb.Message { 
+
+    hasCommitSet(): boolean;
+    clearCommitSet(): void;
+    getCommitSet(): CommitSet | undefined;
+    setCommitSet(value?: CommitSet): DropCommitSetRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DropCommitSetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DropCommitSetRequest): DropCommitSetRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DropCommitSetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DropCommitSetRequest;
+    static deserializeBinaryFromReader(message: DropCommitSetRequest, reader: jspb.BinaryReader): DropCommitSetRequest;
+}
+
+export namespace DropCommitSetRequest {
+    export type AsObject = {
+        commitSet?: CommitSet.AsObject,
+    }
+}
+
 export class SubscribeCommitRequest extends jspb.Message { 
 
     hasRepo(): boolean;
@@ -1173,6 +1196,8 @@ export class GetFileRequest extends jspb.Message {
     setFile(value?: File): GetFileRequest;
     getUrl(): string;
     setUrl(value: string): GetFileRequest;
+    getOffset(): number;
+    setOffset(value: number): GetFileRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetFileRequest.AsObject;
@@ -1188,6 +1213,7 @@ export namespace GetFileRequest {
     export type AsObject = {
         file?: File.AsObject,
         url: string,
+        offset: number,
     }
 }
 
@@ -1520,10 +1546,8 @@ export namespace ActivateAuthResponse {
 }
 
 export class RunLoadTestRequest extends jspb.Message { 
-    getSpec(): Uint8Array | string;
-    getSpec_asU8(): Uint8Array;
-    getSpec_asB64(): string;
-    setSpec(value: Uint8Array | string): RunLoadTestRequest;
+    getSpec(): string;
+    setSpec(value: string): RunLoadTestRequest;
 
     hasBranch(): boolean;
     clearBranch(): void;
@@ -1544,13 +1568,15 @@ export class RunLoadTestRequest extends jspb.Message {
 
 export namespace RunLoadTestRequest {
     export type AsObject = {
-        spec: Uint8Array | string,
+        spec: string,
         branch?: Branch.AsObject,
         seed: number,
     }
 }
 
 export class RunLoadTestResponse extends jspb.Message { 
+    getSpec(): string;
+    setSpec(value: string): RunLoadTestResponse;
 
     hasBranch(): boolean;
     clearBranch(): void;
@@ -1573,6 +1599,7 @@ export class RunLoadTestResponse extends jspb.Message {
 
 export namespace RunLoadTestResponse {
     export type AsObject = {
+        spec: string,
         branch?: Branch.AsObject,
         seed: number,
         error: string,
