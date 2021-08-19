@@ -117,7 +117,7 @@ jobs:
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: cr package pachyderm/etc/helm/pachyderm
       - run: cr upload -o pachyderm -r helmchart --skip-existing
-      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://pachyderm.github.io/helmchart --package-path ../.cr-release-packages --push
+      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../.cr-release-packages --push
   hub:
     resource_class: large
     machine:
