@@ -2564,23 +2564,35 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 			}); err != nil && !errutil.IsNotFoundError(err) {
 				return errors.Wrap(err, "error deleting pipeline repo")
 			}
-		} else if pipelineInfo.Details != nil {
-			// Remove branch provenance from output and meta
-			// we can only proceed if we have details
-			if _, err := a.env.PfsServer().CreateBranch(ctx, &pfs.CreateBranchRequest{
-				Branch: client.NewBranch(pipelineName, pipelineInfo.Details.OutputBranch),
-			}); err != nil && !errutil.IsNotFoundError(err) {
-				return err
-			}
-			if _, err := a.env.PfsServer().CreateBranch(ctx, &pfs.CreateBranchRequest{
-				Branch: client.
-					NewSystemRepo(pipelineName, pfs.MetaRepoType).
-					NewBranch(pipelineInfo.Details.OutputBranch),
-			}); err != nil && !errutil.IsNotFoundError(err) {
-				return err
-			}
 		} else {
-			return errors.New("pipeline deletion incomplete, provenance may still be intact")
+			// Remove branch provenance from output and then delete meta and spec repos
+			// this leaves the repo as a source repo, eliminating pipeline metadata
+			if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+				// need details for output branch, presumably if we don't have them the spec repo is gone, anyway
+				if pipelineInfo.Details != nil {
+					if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+						Branch: client.NewBranch(pipelineName, pipelineInfo.Details.OutputBranch),
+					}); err != nil {
+						return err
+					}
+				}
+				if err := a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
+					Repo: client.NewSystemRepo(pipelineName, pfs.SpecRepoType),
+				}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
+					return err
+				}
+				if err := a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
+					Repo: client.NewSystemRepo(pipelineName, pfs.MetaRepoType),
+				}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
+					return err
+				}
+				return nil
+			}); err != nil {
+				return errors.Wrap(err, "error deleting pipeline metadata repos")
+			}
+			if pipelineInfo.Details == nil {
+				return errors.New("pipeline deletion incomplete, provenance may still be intact")
+			}
 		}
 	}
 	return nil

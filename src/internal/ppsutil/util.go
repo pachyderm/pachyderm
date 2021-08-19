@@ -426,8 +426,9 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceE
 	// because the value in postgres might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	pipelineKey := fmt.Sprintf("%s@%s", env.Config().PPSPipelineName, env.Config().PPSSpecCommitID)
-	if err := pipelines.ReadOnly(ctx).Get(pipelineKey, pipelineInfo); err != nil {
+	specCommit := client.NewSystemRepo(env.Config().PPSPipelineName, pfs.SpecRepoType).
+		NewCommit("master", env.Config().PPSSpecCommitID)
+	if err := pipelines.ReadOnly(ctx).Get(specCommit, pipelineInfo); err != nil {
 		return nil, err
 	}
 	pachClient.SetAuthToken(pipelineInfo.AuthToken)
