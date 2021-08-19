@@ -81,16 +81,17 @@ func (s *postgresStore) DeleteTx(tx *sqlx.Tx, id ID) error {
 	return err
 }
 
-const schema = `
-	CREATE TABLE IF NOT EXISTS storage.filesets (
+// SetupPostgresStoreV0 sets up the tables for a Store
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
+	const schema = `
+	CREATE TABLE storage.filesets (
 		id UUID NOT NULL PRIMARY KEY,
 		metadata_pb BYTEA NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 `
-
-// SetupPostgresStoreV0 sets up the tables for a Store
-func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, schema)
 	return errors.EnsureStack(err)
 }

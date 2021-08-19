@@ -288,6 +288,8 @@ func removeDuplicates(xs []string) []string {
 }
 
 // SetupPostgresTrackerV0 sets up the table for the postgres tracker
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
 func SetupPostgresTrackerV0(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, schema)
 	return errors.EnsureStack(err)

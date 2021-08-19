@@ -29,7 +29,9 @@ func Transactions(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollec
 // AllCollections returns a list of all the Transaction API collections for
 // postgres-initialization purposes. These collections are not usable for
 // querying.
-func AllCollections() []col.PostgresCollection {
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func CollectionsV0() []col.PostgresCollection {
 	return []col.PostgresCollection{
 		col.NewPostgresCollection(transactionsCollectionName, nil, nil, nil, transactionsIndexes),
 	}

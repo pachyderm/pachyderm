@@ -72,10 +72,12 @@ func Jobs(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
 	)
 }
 
-// AllCollections returns a list of all the PPS API collections for
+// CollectionsV0 returns a list of all the PPS API collections for
 // postgres-initialization purposes. These collections are not usable for
 // querying.
-func AllCollections() []col.PostgresCollection {
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func CollectionsV0() []col.PostgresCollection {
 	return []col.PostgresCollection{
 		col.NewPostgresCollection(pipelinesCollectionName, nil, nil, nil, pipelinesIndexes),
 		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, jobsIndexes),
