@@ -28,10 +28,7 @@ spec:
       name: console
       namespace: {{ .Release.Namespace }}
     spec:
-      {{- if .Values.imagePullSecret }}
-      imagePullSecrets:
-        - name: {{ .Values.imagePullSecret | quote }}
-      {{- end }}
+{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - image: "{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"
         imagePullPolicy: {{ .Values.console.image.pullPolicy }}

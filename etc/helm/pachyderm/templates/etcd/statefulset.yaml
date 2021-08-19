@@ -34,10 +34,7 @@ spec:
       {{-  if .Values.etcd.affinity }}
       affinity: {{ toYaml .Values.etcd.affinity | nindent 8 }}
       {{- end }}
-      {{- if .Values.imagePullSecret }}
-      imagePullSecrets:
-        - name: {{ .Values.imagePullSecret | quote }}
-      {{- end }}
+{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - args:
         - '"/usr/local/bin/etcd" "--listen-client-urls=http://0.0.0.0:2379" "--advertise-client-urls=http://0.0.0.0:2379"

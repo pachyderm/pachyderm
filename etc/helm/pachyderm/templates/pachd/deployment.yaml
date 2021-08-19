@@ -35,10 +35,7 @@ spec:
       {{-  if .Values.pachd.affinity }}
       affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
       {{- end }}
-      {{- if .Values.imagePullSecret }}
-      imagePullSecrets:
-        - name: {{ .Values.imagePullSecret | quote }}
-      {{- end }}
+{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - command:
         - /pachd
@@ -82,8 +79,10 @@ spec:
         - name: WORKER_USES_ROOT
           value: "True"
         {{- end }}
-        - name: IMAGE_PULL_SECRET
-          value: {{ .Values.imagePullSecret | quote }}
+        {{- if .Values.global.imagePullSecrets }}
+        - name: IMAGE_PULL_SECRETS
+          value: "{{ join "," .Values.global.imagePullSecrets }}"
+        {{- end }}
         - name: WORKER_SIDECAR_IMAGE
           value: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         - name: WORKER_IMAGE_PULL_POLICY

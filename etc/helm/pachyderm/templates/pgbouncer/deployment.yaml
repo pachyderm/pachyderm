@@ -25,6 +25,7 @@ spec:
       name: pg-bouncer
       namespace: {{ .Release.Namespace }}
     spec:
+{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - env:
         - name: DB_USER

@@ -26,3 +26,12 @@ LOCAL
 {{- define "pachyderm.clusterDeploymentId" -}}
 {{ default (randAlphaNum 32) .Values.pachd.clusterDeploymentID }}
 {{- end -}}
+
+{{- define "pachyderm.imagePullSecrets" -}}
+{{- if .Values.global.imagePullSecrets }}
+imagePullSecrets:
+  {{- range .Values.global.imagePullSecrets }}
+  - name: {{ . }}
+  {{- end }}
+{{- end }}
+{{- end -}}

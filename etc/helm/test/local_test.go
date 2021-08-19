@@ -22,7 +22,7 @@ func TestLocal(t *testing.T) {
 				SetStrValues: map[string]string{
 					"deployTarget":                 "LOCAL",
 					"pachd.storage.local.hostPath": hostPath,
-					"imagePullSecret":              secret,
+					"global.imagePullSecrets[0]":   secret,
 					"pachd.enterpriseLicenseKey":   "licenseKey",
 				}},
 			"../pachyderm/", "release-name", nil))

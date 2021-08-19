@@ -102,7 +102,7 @@ type apiServer struct {
 	storageRoot           string
 	storageBackend        string
 	storageHostPath       string
-	imagePullSecret       string
+	imagePullSecrets      string
 	reporter              *metrics.Reporter
 	workerUsesRoot        bool
 	workerGrpcPort        uint16

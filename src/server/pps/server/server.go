@@ -30,7 +30,7 @@ func NewAPIServer(
 		storageRoot:           env.Config().StorageRoot,
 		storageBackend:        env.Config().StorageBackend,
 		storageHostPath:       env.Config().StorageHostPath,
-		imagePullSecret:       env.Config().ImagePullSecret,
+		imagePullSecrets:      env.Config().ImagePullSecrets,
 		reporter:              reporter,
 		workerUsesRoot:        env.Config().WorkerUsesRoot,
 		pipelines:             ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener()),
