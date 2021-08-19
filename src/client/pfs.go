@@ -443,6 +443,17 @@ func (c APIClient) SquashCommitSet(id string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
+// DropCommitSet drop the commits of a CommitSet and all data included in those commits.
+func (c APIClient) DropCommitSet(id string) error {
+	_, err := c.PfsAPIClient.DropCommitSet(
+		c.Ctx(),
+		&pfs.DropCommitSetRequest{
+			CommitSet: NewCommitSet(id),
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
 // SubscribeCommit is like ListCommit but it keeps listening for commits as
 // they come in.
 func (c APIClient) SubscribeCommit(repo *pfs.Repo, branchName string, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {

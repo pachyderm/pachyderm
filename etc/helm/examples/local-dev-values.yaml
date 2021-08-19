@@ -28,6 +28,9 @@ console:
     oauthPachdClientID: "pachd"
     pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
 
+enterpriseServer:
+  enabled: false
+
 worker:
   image:
     tag: local

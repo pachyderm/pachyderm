@@ -98,8 +98,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "POSTGRES_USER",
 		Value: a.env.Config().PostgresUser,
 	}, {
-		Name:  "POSTGRES_PASSWORD",
-		Value: a.env.Config().PostgresPassword,
+		Name: "POSTGRES_PASSWORD",
+		ValueFrom: &v1.EnvVarSource{
+			SecretKeyRef: &v1.SecretKeySelector{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: client.PostgresSecretName,
+				},
+				Key: "postgresql-password",
+			},
+		},
 	}, {
 		Name:  "POSTGRES_DATABASE",
 		Value: a.env.Config().PostgresDBName,

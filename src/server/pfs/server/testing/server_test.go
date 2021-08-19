@@ -767,7 +767,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, eg.Wait())
 	})
 
-	suite.Run("SquashCommitSet", func(t *testing.T) {
+	suite.Run("DropCommitSet", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
@@ -785,7 +785,12 @@ func TestPFS(suite *testing.T) {
 		commit2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
-		require.NoError(t, env.PachClient.SquashCommitSet(commit2.ID))
+		// Squashing should fail because the commit has no children
+		err = env.PachClient.SquashCommitSet(commit2.ID)
+		require.YesError(t, err)
+		require.True(t, pfsserver.IsSquashWithoutChildrenErr(err))
+
+		require.NoError(t, env.PachClient.DropCommitSet(commit2.ID))
 
 		_, err = env.PachClient.InspectCommit(repo, commit2.Branch.Name, commit2.ID)
 		require.YesError(t, err)
@@ -801,7 +806,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(branchInfos))
 	})
 
-	suite.Run("SquashCommitSetOnlyCommitInBranch", func(t *testing.T) {
+	suite.Run("DropCommitSetOnlyCommitInBranch", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
@@ -818,7 +823,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
 
-		require.NoError(t, env.PachClient.SquashCommitSet(commit.ID))
+		require.NoError(t, env.PachClient.DropCommitSet(commit.ID))
 
 		// The branch has not been deleted, though its head has been replaced with an empty commit
 		branchInfos, err := env.PachClient.ListBranch(repo)
@@ -839,7 +844,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, int64(0), repoInfo.Details.SizeBytes)
 	})
 
-	suite.Run("SquashCommitSetFinished", func(t *testing.T) {
+	suite.Run("DropCommitSetFinished", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
@@ -862,7 +867,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(4), commitInfo.Details.SizeBytes)
 
-		require.NoError(t, env.PachClient.SquashCommitSet(commit.ID))
+		require.NoError(t, env.PachClient.DropCommitSet(commit.ID))
 
 		// The branch has not been deleted, though it only has an empty commit
 		branchInfos, err := env.PachClient.ListBranch(repo)
@@ -1207,8 +1212,8 @@ func TestPFS(suite *testing.T) {
 		// We should be able to squash the parent commits of A and B Head
 		require.NoError(t, env.PachClient.SquashCommitSet(aHead.ParentCommit.ID))
 
-		// Now, squashing the head of A and B and C should leave each of them with just an empty head commit
-		require.NoError(t, env.PachClient.SquashCommitSet(aHead.Commit.ID))
+		// Now, dropping the head of A and B and C should leave each of them with just an empty head commit
+		require.NoError(t, env.PachClient.DropCommitSet(aHead.Commit.ID))
 
 		_, err = env.PachClient.InspectCommit("output", "C", "")
 		require.NoError(t, err)
@@ -3762,7 +3767,7 @@ func TestPFS(suite *testing.T) {
 		require.ImagesEqual(t, []*pfs.Commit{commit2}, commit1Info.ChildCommits, CommitToID)
 
 		// Delete commit 2 and make sure it's removed from commit1.ChildCommits
-		require.NoError(t, env.PachClient.SquashCommitSet(commit2.ID))
+		require.NoError(t, env.PachClient.DropCommitSet(commit2.ID))
 		commit1Info = inspect("A", commit1.Branch.Name, commit1.ID)
 		require.ElementsEqualUnderFn(t, nil, commit1Info.ChildCommits, CommitToID)
 
@@ -3780,7 +3785,7 @@ func TestPFS(suite *testing.T) {
 		require.ImagesEqual(t, []*pfs.Commit{commit2, commit3}, commit1Info.ChildCommits, CommitToID)
 
 		// Delete commit3 and make sure commit1 has the right children
-		require.NoError(t, env.PachClient.SquashCommitSet(commit3.ID))
+		require.NoError(t, env.PachClient.DropCommitSet(commit3.ID))
 		commit1Info = inspect("A", commit1.Branch.Name, commit1.ID)
 		require.ImagesEqual(t, []*pfs.Commit{commit2}, commit1Info.ChildCommits, CommitToID)
 
@@ -5030,12 +5035,22 @@ func TestPFS(suite *testing.T) {
 				}
 				i := r.Intn(len(commits))
 				commit := commits[i]
-				commits = append(commits[:i], commits[i+1:]...)
+
 				err := env.PachClient.SquashCommitSet(commit.ID)
-				// TODO: somehow unfinished commits are being created by SquashCommitSet.
-				// This causes future calls to SquashCommitSet to error.
-				if err != nil && strings.Contains(err.Error(), "cannot squash until child commit") {
+				if pfsserver.IsSquashWithoutChildrenErr(err) {
+					err = env.PachClient.DropCommitSet(commit.ID)
+					if pfsserver.IsDropWithChildrenErr(err) {
+						// The commitset cannot be squashed or dropped as some commits have children and some commits don't
+						err = nil
+					} else {
+						commits = append(commits[:i], commits[i+1:]...)
+					}
+				} else if err != nil && strings.Contains(err.Error(), "cannot squash until child commit") {
+					// TODO: somehow unfinished commits are being created by SquashCommitSet.
+					// This causes future calls to SquashCommitSet to error.
 					err = nil
+				} else {
+					commits = append(commits[:i], commits[i+1:]...)
 				}
 				require.NoError(t, err)
 			case outputRepo:
