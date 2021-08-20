@@ -125,13 +125,13 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 			return err
 		}
 	}
-	if err := pj.load(); err != nil {
-		return err
-	}
 	// Inputs must be ready before we can construct a datum iterator.
 	if err := pj.logger.LogStep("waiting for job inputs", func() error {
 		return reg.processJobStarting(pj)
 	}); err != nil {
+		return err
+	}
+	if err := pj.load(); err != nil {
 		return err
 	}
 	// TODO: This could probably be scoped to a callback.
