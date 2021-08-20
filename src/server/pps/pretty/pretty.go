@@ -25,7 +25,7 @@ const (
 	// PipelineHeader is the header for pipelines.
 	PipelineHeader = "NAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\tDESCRIPTION\t\n"
 	// JobHeader is the header for jobs
-	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
+	JobHeader = "PIPELINE\tID\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// JobSetHeader is the header for jobsets
 	JobSetHeader = "ID\tSUBJOBS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// DatumHeader is the header for datums
@@ -45,8 +45,8 @@ func safeTrim(s string, l int) string {
 
 // PrintJobInfo pretty-prints job info.
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.Pipeline.Name)
+	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	if jobInfo.Started != nil {
 		if fullTimestamps {
 			fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
