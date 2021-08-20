@@ -2580,10 +2580,12 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
 				return err
 			}
-			if pipelineInfo.Details == nil {
-				return errIncompleteDeletion
-			}
 		}
+	}
+
+	if request.KeepRepo && !missingRepo && pipelineInfo.Details == nil {
+		// warn about being unable to delete provenance, caller can ignore
+		return errIncompleteDeletion
 	}
 
 	return nil
