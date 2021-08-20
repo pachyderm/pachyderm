@@ -5965,6 +5965,9 @@ func TestCronPipeline(t *testing.T) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	t.Run("SimpleCron", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline1 := tu.UniqueString("cron1-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline1,
@@ -6013,6 +6016,9 @@ func TestCronPipeline(t *testing.T) {
 
 	// Test a CronInput with the overwrite flag set to true
 	t.Run("CronOverwrite", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 10s")
 		overwriteInput.Cron.Overwrite = true
@@ -6053,6 +6059,9 @@ func TestCronPipeline(t *testing.T) {
 	// Create a non-cron input repo, and test a pipeline with a cross of cron and
 	// non-cron inputs
 	t.Run("CronPFSCross", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		dataRepo := tu.UniqueString("TestCronPipeline_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		pipeline4 := tu.UniqueString("cron4-")
@@ -6092,6 +6101,9 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCron", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline5 := tu.UniqueString("cron5-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline5,
@@ -6137,6 +6149,9 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCronOverwrite", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline7 := tu.UniqueString("cron7-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline7,
@@ -6198,6 +6213,9 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCronCross", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline9 := tu.UniqueString("cron9-")
 		// schedule cron ticks so they definitely won't occur
 		futureMonth := int(time.Now().AddDate(0, 2, 0).Month())
