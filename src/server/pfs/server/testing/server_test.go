@@ -5197,11 +5197,11 @@ func TestPFS(suite *testing.T) {
 	// TODO: This test can be refactored to remove a lot of the boilerplate.
 	suite.Run("Trigger", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-		c := env.PachClient
 
 		t.Run("Simple", func(t *testing.T) {
 			t.Parallel()
+			env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			c := env.PachClient
 			require.NoError(t, c.CreateRepo("test"))
 			require.NoError(t, c.CreateBranchTrigger("test", "master", "", "", &pfs.Trigger{
 				Branch: "staging",
@@ -5212,6 +5212,8 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("SizeWithProvenance", func(t *testing.T) {
 			t.Parallel()
+			env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			c := env.PachClient
 			require.NoError(t, c.CreateRepo("in"))
 			require.NoError(t, c.CreateBranchTrigger("in", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
@@ -5280,6 +5282,8 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("Cron", func(t *testing.T) {
 			t.Parallel()
+			env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			c := env.PachClient
 			require.NoError(t, c.CreateRepo("cron"))
 			require.NoError(t, c.CreateBranchTrigger("cron", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
@@ -5316,6 +5320,8 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("Count", func(t *testing.T) {
 			t.Parallel()
+			env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			c := env.PachClient
 			require.NoError(t, c.CreateRepo("count"))
 			require.NoError(t, c.CreateBranchTrigger("count", "trigger", "", "", &pfs.Trigger{
 				Branch:  "master",
@@ -5374,6 +5380,8 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("Or", func(t *testing.T) {
 			t.Parallel()
+			env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			c := env.PachClient
 			require.NoError(t, c.CreateRepo("or"))
 			require.NoError(t, c.CreateBranchTrigger("or", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
@@ -5449,6 +5457,8 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("And", func(t *testing.T) {
 			t.Parallel()
+			env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			c := env.PachClient
 			require.NoError(t, c.CreateRepo("and"))
 			require.NoError(t, c.CreateBranchTrigger("and", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
@@ -5524,6 +5534,8 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("Chain", func(t *testing.T) {
 			t.Parallel()
+			env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			c := env.PachClient
 			// a triggers b which triggers c
 			require.NoError(t, c.CreateRepo("chain"))
 			require.NoError(t, c.CreateBranchTrigger("chain", "b", "", "", &pfs.Trigger{
@@ -5608,6 +5620,8 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("BranchMovement", func(t *testing.T) {
 			t.Parallel()
+			env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			c := env.PachClient
 			require.NoError(t, c.CreateRepo("branch-movement"))
 			require.NoError(t, c.CreateBranchTrigger("branch-movement", "c", "", "", &pfs.Trigger{
 				Branch: "b",
