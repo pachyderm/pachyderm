@@ -2,14 +2,15 @@ package txncontext
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 // TransactionContext is a helper type to encapsulate the state for a given
@@ -31,15 +32,13 @@ type TransactionContext struct {
 	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
 	PpsJobStopper  PpsJobStopper
 	PpsJobFinisher PpsJobFinisher
-
-	FilesetManager FilesetManager
 }
 
 type identifier interface {
 	WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 }
 
-func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier, m FilesetManager) (*TransactionContext, error) {
+func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier) (*TransactionContext, error) {
 	var username string
 	// check auth once now so that we can refer to it later
 	if authServer != nil {
@@ -49,12 +48,17 @@ func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier, m FilesetMa
 			username = me.Username
 		}
 	}
+	var currTime time.Time
+	sqlTx.GetContext(ctx, &currTime, "select CURRENT_TIMESTAMP as Timestamp")
+	ts, err := types.TimestampProto(currTime)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error getting transaction timestamp")
+	}
 	return &TransactionContext{
-		SqlTx:          sqlTx,
-		CommitSetID:    uuid.NewWithoutDashes(),
-		Timestamp:      types.TimestampNow(),
-		username:       username,
-		FilesetManager: m,
+		SqlTx:       sqlTx,
+		CommitSetID: uuid.NewWithoutDashes(),
+		Timestamp:   ts,
+		username:    username,
 	}, nil
 }
 
@@ -147,9 +151,4 @@ type PpsJobStopper interface {
 type PpsJobFinisher interface {
 	FinishJob(commitInfo *pfs.CommitInfo)
 	Run() error
-}
-
-type FilesetManager interface {
-	CreateFileset(path string, data []byte) (string, error)
-	LatestPipelineInfo(*TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
 }

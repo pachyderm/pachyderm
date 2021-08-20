@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -184,6 +186,7 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 			return errors.Wrap(err, "failed to watch kubernetes pods")
 		}
 		defer kubePipelineWatch.Stop()
+	WatchLoop:
 		for {
 			select {
 			case <-ctx.Done():
@@ -205,20 +208,36 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 				if pod.Status.Phase == v1.PodFailed {
 					log.Errorf("pod failed because: %s", pod.Status.Message)
 				}
-				pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
+				crashPipeline := func(reason string) error {
+					pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
+					pipelineVersion, versionErr := strconv.Atoi(pod.ObjectMeta.Annotations["pipelineVersion"])
+					if versionErr != nil {
+						return errors.Wrapf(err, "couldn't find pipeline rc version")
+					}
+					var pipelineInfo pps.PipelineInfo
+					if err := m.a.pipelines.ReadOnly(ctx).GetUniqueByIndex(
+						ppsdb.PipelinesVersionIndex,
+						ppsdb.VersionKey(pipelineName, uint64(pipelineVersion)),
+						&pipelineInfo); err != nil {
+						return errors.Wrapf(err, "couldn't retrieve pipeline information")
+					}
+					return m.a.setPipelineCrashing(ctx, pipelineInfo.SpecCommit, reason)
+				}
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
-						if err := m.a.setPipelineCrashing(ctx, pipelineName, status.State.Waiting.Message); err != nil {
+						if err := crashPipeline(status.State.Waiting.Message); err != nil {
 							return errors.Wrap(err, "error moving pipeline to CRASHING")
 						}
+						continue WatchLoop
 					}
 				}
 				for _, condition := range pod.Status.Conditions {
 					if condition.Type == v1.PodScheduled &&
 						condition.Status != v1.ConditionTrue && failures[condition.Reason] {
-						if err := m.a.setPipelineCrashing(ctx, pipelineName, condition.Message); err != nil {
+						if err := crashPipeline(condition.Message); err != nil {
 							return errors.Wrap(err, "error moving pipeline to CRASHING")
 						}
+						continue WatchLoop
 					}
 				}
 			}
@@ -258,18 +277,22 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 			if event.Err != nil {
 				return errors.Wrapf(event.Err, "event err")
 			}
+			pipelineName, _, err := ppsdb.ParsePipelineKey(string(event.Key))
+			if err != nil {
+				return errors.Wrap(err, "bad watch event key")
+			}
 			switch event.Type {
 			case watch.EventPut:
 				m.eventCh <- &pipelineEvent{
 					eventType: writeEv,
-					pipeline:  string(event.Key),
+					pipeline:  pipelineName,
 					etcdVer:   event.Ver,
 					etcdRev:   event.Rev,
 				}
 			case watch.EventDelete:
 				m.eventCh <- &pipelineEvent{
 					eventType: deleteEv,
-					pipeline:  string(event.Key),
+					pipeline:  pipelineName,
 					etcdVer:   event.Ver,
 					etcdRev:   event.Rev,
 				}

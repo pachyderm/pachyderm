@@ -236,7 +236,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 
 func (reg *registry) processJob(pj *pendingJob) error {
 	state := pj.ji.State
-	if ppsutil.IsTerminal(state) || state == pps.JobState_JOB_FINISHING {
+	if pps.IsTerminal(state) || state == pps.JobState_JOB_FINISHING {
 		return errutil.ErrBreak
 	}
 	switch state {

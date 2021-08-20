@@ -6,18 +6,15 @@ import (
 	"path"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
@@ -37,30 +34,6 @@ func main() {
 	cmdutil.Main(do, &serviceenv.WorkerFullConfiguration{})
 }
 
-// getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
-// worker is part of.
-// getPipelineInfo has the side effect of adding auth to the passed pachClient
-// which is necessary to get the PipelineInfo from pfs.
-func getPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
-	pipelineInfo := &pps.PipelineInfo{}
-	if err := pipelines.ReadOnly(ctx).Get(env.Config().PPSPipelineName, pipelineInfo); err != nil {
-		return nil, err
-	}
-	pachClient.SetAuthToken(pipelineInfo.AuthToken)
-	// Notice we use the SpecCommitID from our env, not from etcd. This is
-	// because the value in etcd might get updated while the worker pod is
-	// being created and we don't want to run the transform of one version of
-	// the pipeline in the image of a different verison.
-	pipelineInfo.SpecCommit.ID = env.Config().PPSSpecCommitID
-	if err := ppsutil.GetPipelineDetails(pachClient, pipelineInfo); err != nil {
-		return nil, err
-	}
-	return pipelineInfo, nil
-}
-
 func do(config interface{}) error {
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	tracing.InstallJaegerTracerFromEnv()
@@ -71,7 +44,7 @@ func do(config interface{}) error {
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())
-	pipelineInfo, err := getPipelineInfo(pachClient, env) // get pipeline creds for pachClient
+	pipelineInfo, err := ppsutil.GetWorkerPipelineInfo(pachClient, env) // get pipeline creds for pachClient
 	if err != nil {
 		return errors.Wrapf(err, "error getting pipelineInfo")
 	}

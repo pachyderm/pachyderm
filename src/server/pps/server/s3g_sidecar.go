@@ -39,9 +39,8 @@ type sidecarS3G struct {
 
 func (a *apiServer) ServeSidecarS3G() {
 	s := &sidecarS3G{
-		apiServer:    a,
-		pipelineInfo: &pps.PipelineInfo{}, // populate below
-		pachClient:   a.env.GetPachClient(context.Background()),
+		apiServer:  a,
+		pachClient: a.env.GetPachClient(context.Background()),
 	}
 	port := a.env.Config().S3GatewayPort
 	s.server = s3.Server(port, nil)
@@ -49,27 +48,14 @@ func (a *apiServer) ServeSidecarS3G() {
 	// Read spec commit for this sidecar's pipeline, and set auth token for pach
 	// client
 	specCommit := a.env.Config().PPSSpecCommitID
-	pipelineName := a.env.Config().PPSPipelineName
 	if specCommit == "" {
 		// This error is not recoverable
 		panic("cannot serve sidecar S3 gateway if no spec commit is set")
 	}
 	if err := backoff.RetryNotify(func() error {
-		retryCtx, retryCancel := context.WithCancel(context.Background())
-		defer retryCancel()
-
-		if err := a.pipelines.ReadOnly(retryCtx).Get(pipelineName, s.pipelineInfo); err != nil {
-			return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
-		}
-
-		// Set auth token for s.pachClient (pipelinePtr.AuthToken will be empty if
-		// auth is off)
-		s.pachClient.SetAuthToken(s.pipelineInfo.AuthToken)
-
-		if err := ppsutil.GetPipelineDetails(s.pachClient, s.pipelineInfo); err != nil {
-			return errors.Wrapf(err, "sidecar s3 gateway: could not get pipeline details")
-		}
-		return nil
+		var err error
+		s.pipelineInfo, err = ppsutil.GetWorkerPipelineInfo(s.pachClient, a.env)
+		return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logrus.Errorf("error starting sidecar s3 gateway: %v; retrying in %d", err, d)
 		return nil
@@ -369,7 +355,7 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 			jobInfo.PipelineVersion, h.s.pipelineInfo.Version)
 		return
 	}
-	if ppsutil.IsTerminal(jobInfo.State) {
+	if pps.IsTerminal(jobInfo.State) {
 		h.h.OnTerminate(jobCtx, job)
 		return
 	}

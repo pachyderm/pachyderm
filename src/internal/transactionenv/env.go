@@ -42,7 +42,7 @@ type PfsWrites interface {
 type PpsWrites interface {
 	StopJob(*pps.StopJobRequest) error
 	UpdateJobState(*pps.UpdateJobStateRequest) error
-	CreatePipeline(*pps.CreatePipelineRequest, *string, *uint64) error
+	CreatePipeline(*pps.CreatePipelineRequest) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -165,9 +165,9 @@ func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 	return t.txnEnv.serviceEnv.AuthServer().ModifyRoleBindingInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, filesetID *string, prevPipelineVersion *uint64) error {
+func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req, filesetID, prevPipelineVersion)
+	return t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
@@ -237,7 +237,7 @@ func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error
 	return err
 }
 
-func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ *string, _ *uint64) error {
+func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
 	return err
 }
@@ -293,8 +293,8 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 	}
 }
 
-func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *sqlx.Tx, r txncontext.FilesetManager, cb func(*txncontext.TransactionContext) error) error {
-	txnCtx, err := txncontext.New(ctx, sqlTx, env.serviceEnv.AuthServer(), r)
+func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *sqlx.Tx, cb func(*txncontext.TransactionContext) error) error {
+	txnCtx, err := txncontext.New(ctx, sqlTx, env.serviceEnv.AuthServer())
 	if err != nil {
 		return err
 	}
@@ -317,10 +317,8 @@ func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *sqlx.Tx, r txnc
 // WithWriteContext will call the given callback with a txncontext.TransactionContext
 // which can be used to perform reads and writes on the current cluster state.
 func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
-	return env.withRefreshLoop(ctx, nil, func(r txncontext.FilesetManager) error {
-		return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-			return env.attemptTx(ctx, sqlTx, r, cb)
-		})
+	return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		return env.attemptTx(ctx, sqlTx, cb)
 	})
 }
 
@@ -328,23 +326,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
 func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
-	return env.withRefreshLoop(ctx, nil, func(r txncontext.FilesetManager) error {
-		return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-			return env.attemptTx(ctx, sqlTx, r, cb)
-		})
-	})
-}
-
-func (env *TransactionEnv) WithRefresher(ctx context.Context, r *refresher, write bool, cb func(*txncontext.TransactionContext) error) error {
-	return env.withRefreshLoop(ctx, r, func(r txncontext.FilesetManager) error {
-		if write {
-			return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-				return env.attemptTx(ctx, sqlTx, r, cb)
-			})
-		} else {
-			return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
-				return env.attemptTx(ctx, sqlTx, r, cb)
-			})
-		}
+	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		return env.attemptTx(ctx, sqlTx, cb)
 	})
 }

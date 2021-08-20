@@ -63,6 +63,22 @@ func newCountBreakFunc(maxCount int) func(func() error) error {
 	}
 }
 
+func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
+	return &pps.CreatePipelineRequest{
+		Pipeline: client.NewPipeline(name),
+		Transform: &pps.Transform{
+			Cmd: []string{"bash"},
+			Stdin: []string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input),
+			},
+		},
+		ParallelismSpec: &pps.ParallelismSpec{
+			Constant: 1,
+		},
+		Input: client.NewPFSInput(input, "/*"),
+	}
+}
+
 func TestSimplePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -6035,6 +6051,9 @@ func TestCronPipeline(t *testing.T) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	t.Run("SimpleCron", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline1 := tu.UniqueString("cron1-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline1,
@@ -6083,6 +6102,9 @@ func TestCronPipeline(t *testing.T) {
 
 	// Test a CronInput with the overwrite flag set to true
 	t.Run("CronOverwrite", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 10s")
 		overwriteInput.Cron.Overwrite = true
@@ -6123,6 +6145,9 @@ func TestCronPipeline(t *testing.T) {
 	// Create a non-cron input repo, and test a pipeline with a cross of cron and
 	// non-cron inputs
 	t.Run("CronPFSCross", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		dataRepo := tu.UniqueString("TestCronPipeline_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		pipeline4 := tu.UniqueString("cron4-")
@@ -6162,6 +6187,9 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCron", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline5 := tu.UniqueString("cron5-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline5,
@@ -6207,6 +6235,9 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCronOverwrite", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline7 := tu.UniqueString("cron7-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline7,
@@ -6268,6 +6299,9 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCronCross", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline9 := tu.UniqueString("cron9-")
 		// schedule cron ticks so they definitely won't occur
 		futureMonth := int(time.Now().AddDate(0, 2, 0).Month())
@@ -8784,11 +8818,23 @@ func TestKeepRepo(t *testing.T) {
 	_, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
 
+	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{
+		Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+	})
+	require.YesError(t, err)
+	require.True(t, errutil.IsNotFoundError(err))
+
+	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{
+		Repo: client.NewSystemRepo(pipeline, pfs.MetaRepoType),
+	})
+	require.YesError(t, err)
+	require.True(t, errutil.IsNotFoundError(err))
+
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineCommit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 
-	require.NoError(t, c.CreatePipeline(
+	require.YesError(t, c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -8802,21 +8848,6 @@ func TestKeepRepo(t *testing.T) {
 		"",
 		false,
 	))
-
-	require.NoError(t, c.PutFile(dataCommit, "file2", strings.NewReader("bar"), client.WithAppendPutFile()))
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
-	require.NoError(t, err)
-	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
-	require.NoError(t, err)
-
-	buf.Reset()
-	require.NoError(t, c.GetFile(pipelineCommit, "file", &buf))
-	require.Equal(t, "foo", buf.String())
-	buf.Reset()
-	require.NoError(t, c.GetFile(pipelineCommit, "file2", &buf))
-	require.Equal(t, "bar", buf.String())
-
-	require.NoError(t, c.DeletePipeline(pipeline, false))
 }
 
 // Regression test to make sure that pipeline creation doesn't crash pachd due to missing fields
@@ -9688,7 +9719,7 @@ func TestMoveBranchTrigger(t *testing.T) {
 	require.Equal(t, "/foo", files[0].File.Path)
 }
 
-func TestExpiredFileset(t *testing.T) {
+func TestPipelineAncestry(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -9699,90 +9730,55 @@ func TestExpiredFileset(t *testing.T) {
 	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	// create a pipeline taking both master and the trigger branch as input
 	pipeline := tu.UniqueString("pipeline")
+	base := basicPipelineReq(pipeline, dataRepo)
+	base.Autoscaling = true
 
-	txn, err := c.StartTransaction()
-	require.NoError(t, err)
-
-	require.NoError(t, c.WithTransaction(txn).CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(dataRepo, "/*"),
-		"",
-		false,
-	))
-
-	info, err := c.InspectTransaction(txn)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(info.Responses))
-	require.NotNil(t, info.Responses[0].CreatePipelineResponse)
-	id := info.Responses[0].CreatePipelineResponse.FileSetId
-
-	// make sure the fileset is gone
-	// TODO: do this without a sleep (delete from database directly?)
-	require.NoError(t, c.RenewFileSet(id, time.Second))
-	time.Sleep(30 * time.Second)
-
-	// transaction should still finish and create the pipeline
-	_, err = c.FinishTransaction(txn)
-	require.NoError(t, err)
-	_, err = c.InspectPipeline(pipeline, true)
-	require.NoError(t, err)
-}
-
-func TestListPipelineError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
+	// create three versions of the pipeline differing only in the transform user field
+	for i := 1; i <= 3; i++ {
+		base.Transform.User = fmt.Sprintf("user:%d", i)
+		base.Update = i != 1
+		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), base)
+		require.NoError(t, err)
 	}
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	for i := 1; i <= 3; i++ {
+		info, err := c.InspectPipeline(fmt.Sprintf("%s^%d", pipeline, 3-i), true)
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("user:%d", i), info.Details.Transform.User)
+	}
 
-	dataRepo := tu.UniqueString(t.Name())
-	require.NoError(t, c.CreateRepo(dataRepo))
+	infos, err := c.ListPipeline(true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(infos))
+	require.Equal(t, pipeline, infos[0].Pipeline.Name)
+	require.Equal(t, fmt.Sprintf("user:%d", 3), infos[0].Details.Transform.User)
 
-	bad := tu.UniqueString("bad")
-	base := tu.UniqueString("pipeline")
-
-	for i := 0; i < 15; i++ {
-		name := fmt.Sprintf("%s-%d", base, i)
-		if i == 0 {
-			name = bad
+	checkInfos := func(infos []*pps.PipelineInfo) {
+		// make sure versions are sorted and have the correct details
+		for i, info := range infos {
+			require.Equal(t, 3-i, int(info.Version))
+			require.Equal(t, fmt.Sprintf("user:%d", 3-i), info.Details.Transform.User)
 		}
-		require.NoError(t, c.CreatePipeline(
-			name,
-			"",
-			[]string{"bash"},
-			[]string{"echo test"},
-			nil,
-			client.NewPFSInput(dataRepo, "/"),
-			"master",
-			false,
-		))
 	}
 
-	// delete the first pipeline's spec repo, which will cause getting details to error
-	require.NoError(t, c.DeleteRepo(bad, true))
-
-	_, err := c.InspectPipeline(bad, true)
-	require.YesError(t, err)
-
-	// listing without details should be fine
-	_, err = c.ListPipeline(false)
+	// get all pipelines
+	infos, err = c.ListPipelineHistory(pipeline, -1, true)
 	require.NoError(t, err)
+	require.Equal(t, 3, len(infos))
+	checkInfos(infos)
 
-	// but requesting details will fail, make sure it's due to the missing spec file
-	_, err = c.ListPipeline(true)
-	require.YesError(t, err)
-	require.Matches(t, "spec file", err.Error())
+	// get all pipelines by asking for too many
+	infos, err = c.ListPipelineHistory(pipeline, 3, true)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(infos))
+	checkInfos(infos)
+
+	// get only the later two pipelines
+	infos, err = c.ListPipelineHistory(pipeline, 1, true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(infos))
+	checkInfos(infos)
 }
 
 func monitorReplicas(t testing.TB, pipeline string, n int) {

@@ -14,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -222,7 +221,7 @@ func jobSetDesc(jsi *pps.JobSetInfo) string {
 	var created *types.Timestamp
 	var modified *types.Timestamp
 	for _, job := range jsi.Jobs {
-		if job.State != pps.JobState_JOB_SUCCESS && ppsutil.IsTerminal(job.State) {
+		if job.State != pps.JobState_JOB_SUCCESS && pps.IsTerminal(job.State) {
 			failure++
 		}
 

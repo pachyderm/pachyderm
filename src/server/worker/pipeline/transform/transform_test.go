@@ -186,7 +186,7 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 	})
 
 	updateJobState := func(request *pps.UpdateJobStateRequest) {
-		if ppsutil.IsTerminal(jobInfo.State) {
+		if pps.IsTerminal(jobInfo.State) {
 			return
 		}
 
@@ -194,7 +194,7 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		jobInfo.Reason = request.Reason
 
 		// If setting the job to a terminal state, we are done
-		if ppsutil.IsTerminal(request.State) {
+		if pps.IsTerminal(request.State) {
 			cancel()
 		}
 	}

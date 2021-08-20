@@ -31,12 +31,6 @@ message TransactionRequest {
 message TransactionResponse {
   // At most, one of these fields should be set (most responses are empty)
   pfs_v2.Commit commit = 1; // Only used for StartCommit - any way we can deterministically provide this before finishing the transaction?
-  CreatePipelineTransactionResponse create_pipeline_response = 2; // Only used for CreatePipeline
-}
-
-message CreatePipelineTransactionResponse {
-  string file_set_id = 1; // The fileset ID that the pipeline info was written to outside of the transaction
-  uint64 prev_pipeline_version = 2; // The version of the pipeline spec that the fileset was based off of
 }
 
 message Transaction {
