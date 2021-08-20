@@ -115,14 +115,14 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 			return false, errors.EnsureStack(err)
 		}
 		var oldTime, newTime time.Time
-		if oldHead != nil && oldHead.Finished != nil {
-			oldTime, err = types.TimestampFromProto(oldHead.Finished)
+		if oldHead != nil && oldHead.Finishing != nil {
+			oldTime, err = types.TimestampFromProto(oldHead.Finishing)
 			if err != nil {
 				return false, errors.EnsureStack(err)
 			}
 		}
-		if newHead.Finished != nil {
-			newTime, err = types.TimestampFromProto(newHead.Finished)
+		if newHead.Finishing != nil {
+			newTime, err = types.TimestampFromProto(newHead.Finishing)
 			if err != nil {
 				return false, errors.EnsureStack(err)
 			}
@@ -171,7 +171,7 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	}
 
 	biMaps := make(map[string]*pfs.BranchInfo)
-	if err := d.listBranch(txnCtx.ClientContext, branch.Repo, false, func(bi *pfs.BranchInfo) error {
+	if err := d.listBranchInTransaction(txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
 		biMaps[bi.Branch.Name] = bi
 		return nil
 	}); err != nil {

@@ -20,7 +20,7 @@ cmds=(
      echo;
    done'
   'pachctl list pipeline'
-  'pachctl list job'
+  'pachctl list job --no-pager'
   'kubectl version'
   'kubectl get all --all-namespaces'
   'kubectl describe pod -l suite=pachyderm,app=pachd'

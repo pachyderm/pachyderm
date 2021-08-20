@@ -14,9 +14,9 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -27,7 +27,7 @@ const (
 )
 
 func TestBasic(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
@@ -58,7 +58,7 @@ func TestBasic(t *testing.T) {
 }
 
 func TestChunkSize(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	err := env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "file", strings.NewReader(strings.Repeat("p", int(pfs.ChunkSize))))
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestChunkSize(t *testing.T) {
 }
 
 func TestLargeFile(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	random.SeedRand(123)
 	src := random.String(GB + 17)
@@ -84,7 +84,7 @@ func TestLargeFile(t *testing.T) {
 }
 
 func BenchmarkLargeFile(b *testing.B) {
-	env := testpachd.NewRealEnv(b, testutil.NewTestDBConfig(b))
+	env := testpachd.NewRealEnv(b, dockertestenv.NewTestDBConfig(b))
 	require.NoError(b, env.PachClient.CreateRepo("repo"))
 	random.SeedRand(123)
 	src := random.String(GB)
@@ -102,7 +102,7 @@ func BenchmarkLargeFile(b *testing.B) {
 }
 
 func TestSeek(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	data := strings.Repeat("foo", MB)
 	err := env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "file", strings.NewReader(data))
@@ -130,7 +130,7 @@ func TestSeek(t *testing.T) {
 }
 
 func TestHeadlessBranch(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	require.NoError(t, env.PachClient.CreateBranch("repo", "master", "", "", nil))
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -142,7 +142,7 @@ func TestHeadlessBranch(t *testing.T) {
 }
 
 func TestReadOnly(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	withMount(t, env.PachClient, &Options{
 		Fuse: &fs.Options{
@@ -156,7 +156,7 @@ func TestReadOnly(t *testing.T) {
 }
 
 func TestWrite(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
 	// First, create a file
@@ -266,7 +266,7 @@ func TestWrite(t *testing.T) {
 }
 
 func TestRepoOpts(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo1"))
 	require.NoError(t, env.PachClient.CreateRepo("repo2"))
 	require.NoError(t, env.PachClient.CreateRepo("repo3"))
@@ -337,7 +337,7 @@ func TestRepoOpts(t *testing.T) {
 }
 
 func TestOpenCommit(t *testing.T) {
-	env := testpachd.NewRealEnv(t, testutil.NewTestDBConfig(t))
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("in"))
 	require.NoError(t, env.PachClient.CreateRepo("out"))
 	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewBranch("in", "master")}))

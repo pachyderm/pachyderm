@@ -13,11 +13,10 @@ package ppsutil
 
 import (
 	"bytes"
+	"crypto/md5"
 	"fmt"
 	"strings"
 	"time"
-
-	"crypto/md5"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -30,19 +29,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 )
-
-// JobKey is the string representation of a Job suitable for use as an indexing key
-func JobKey(job *pps.Job) string {
-	return job.String()
-}
 
 // PipelineRepo creates a pfs repo for a given pipeline.
 func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
@@ -115,34 +109,15 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 	return getResourceListFromSpec(limits)
 }
 
-// GetPipelineDetails retrieves the pipeline spec for the given PipelineInfo from PFS,
-// then fills in the Details field in the given PipelineInfo from the spec.
-func GetPipelineDetails(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
-	// ensure we are authorized to read the pipeline's spec commit, but don't propagate that back out
-	pachClient = pachClient.WithCtx(pachClient.Ctx())
-	buf := bytes.Buffer{}
-	if err := pachClient.GetFile(pipelineInfo.SpecCommit, ppsconsts.SpecFile, &buf); err != nil {
-		return errors.Wrapf(err, "could not retrieve pipeline spec file from PFS for pipeline '%s'", pipelineInfo.Pipeline.Name)
-	}
-
-	loadedPipelineInfo := &pps.PipelineInfo{}
-	if err := loadedPipelineInfo.Unmarshal(buf.Bytes()); err != nil {
-		return errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
-	}
-	pipelineInfo.Version = loadedPipelineInfo.Version
-	pipelineInfo.Details = loadedPipelineInfo.Details
-	return nil
-}
-
 // FailPipeline updates the pipeline's state to failed and sets the failure reason
-func FailPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, pipelineName string, reason string) error {
-	return SetPipelineState(ctx, db, pipelinesCollection, pipelineName,
+func FailPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, reason string) error {
+	return SetPipelineState(ctx, db, pipelinesCollection, specCommit,
 		nil, pps.PipelineState_PIPELINE_FAILURE, reason)
 }
 
 // CrashingPipeline updates the pipeline's state to crashing and sets the reason
-func CrashingPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, pipelineName string, reason string) error {
-	return SetPipelineState(ctx, db, pipelinesCollection, pipelineName,
+func CrashingPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, reason string) error {
+	return SetPipelineState(ctx, db, pipelinesCollection, specCommit,
 		nil, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
 
@@ -200,12 +175,13 @@ func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.Pipel
 //
 // This function logs a lot for a library function, but it's mostly (maybe
 // exclusively?) called by the PPS master
-func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+	pipeline := specCommit.Branch.Repo.Name
 	logSetPipelineState(pipeline, from, to, reason)
 	err := dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
 		pipelineInfo := &pps.PipelineInfo{}
-		if err := pipelines.Get(pipeline, pipelineInfo); err != nil {
+		if err := pipelines.Get(specCommit, pipelineInfo); err != nil {
 			return err
 		}
 		tracing.TagAnySpan(ctx, "old-state", pipelineInfo.State)
@@ -249,7 +225,7 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 		log.Infof("SetPipelineState moving pipeline %s from %s to %s", pipeline, pipelineInfo.State, to)
 		pipelineInfo.State = to
 		pipelineInfo.Reason = reason
-		return pipelines.Put(pipeline, pipelineInfo)
+		return pipelines.Put(specCommit, pipelineInfo)
 	})
 	return err
 }
@@ -300,32 +276,21 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 	}
 }
 
-// IsTerminal returns 'true' if 'state' indicates that the job is done (i.e.
-// the state will not change later: SUCCESS, FAILURE, KILLED) and 'false'
-// otherwise.
-func IsTerminal(state pps.JobState) bool {
-	switch state {
-	case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE, pps.JobState_JOB_KILLED:
-		return true
-	case pps.JobState_JOB_CREATED, pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_EGRESSING, pps.JobState_JOB_FINISHING:
-		return false
-	default:
-		panic(fmt.Sprintf("unrecognized job state: %s", state))
-	}
-}
-
 // UpdateJobState performs the operations involved with a job state transition.
-func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
+func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWriteCollection, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
 	// Check if this is a new job
 	if jobInfo.State != pps.JobState_JOB_STATE_UNKNOWN {
-		if IsTerminal(jobInfo.State) {
+		if pps.IsTerminal(jobInfo.State) {
 			return ppsServer.ErrJobFinished{Job: jobInfo.Job}
 		}
 	}
 
 	// Update pipeline
 	pipelineInfo := &pps.PipelineInfo{}
-	if err := pipelines.Get(jobInfo.Job.Pipeline.Name, pipelineInfo); err != nil {
+	if err := pipelines.GetUniqueByIndex(
+		ppsdb.PipelinesVersionIndex,
+		ppsdb.VersionKey(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion),
+		pipelineInfo); err != nil {
 		return err
 	}
 	if pipelineInfo.JobCounts == nil {
@@ -339,18 +304,18 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 	}
 	pipelineInfo.JobCounts[int32(state)]++
 	pipelineInfo.LastJobState = state
-	if err := pipelines.Put(jobInfo.Job.Pipeline.Name, pipelineInfo); err != nil {
+	if err := pipelines.Put(pipelineInfo.SpecCommit, pipelineInfo); err != nil {
 		return err
 	}
 
 	// Update job info
 	var err error
-	if state == pps.JobState_JOB_STARTING {
+	if state == pps.JobState_JOB_RUNNING {
 		jobInfo.Started, err = types.TimestampProto(time.Now())
 		if err != nil {
 			return err
 		}
-	} else if IsTerminal(state) {
+	} else if pps.IsTerminal(state) {
 		if jobInfo.Started == nil {
 			jobInfo.Started, err = types.TimestampProto(time.Now())
 			if err != nil {
@@ -364,7 +329,7 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 	}
 	jobInfo.State = state
 	jobInfo.Reason = reason
-	return jobs.Put(JobKey(jobInfo.Job), jobInfo)
+	return jobs.Put(ppsdb.JobKey(jobInfo.Job), jobInfo)
 }
 
 func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
@@ -447,4 +412,26 @@ func ErrorState(s pps.PipelineState) bool {
 		pps.PipelineState_PIPELINE_CRASHING:   true,
 		pps.PipelineState_PIPELINE_RESTARTING: true,
 	}[s]
+}
+
+// GetWorkerPipelineInfo gets the PipelineInfo proto describing the pipeline that this
+// worker is part of.
+// getPipelineInfo has the side effect of adding auth to the passed pachClient
+func GetWorkerPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
+	pipelineInfo := &pps.PipelineInfo{}
+	// Notice we use the SpecCommitID from our env, not from postgres. This is
+	// because the value in postgres might get updated while the worker pod is
+	// being created and we don't want to run the transform of one version of
+	// the pipeline in the image of a different verison.
+	specCommit := client.NewSystemRepo(env.Config().PPSPipelineName, pfs.SpecRepoType).
+		NewCommit("master", env.Config().PPSSpecCommitID)
+	if err := pipelines.ReadOnly(ctx).Get(specCommit, pipelineInfo); err != nil {
+		return nil, err
+	}
+	pachClient.SetAuthToken(pipelineInfo.AuthToken)
+
+	return pipelineInfo, nil
 }

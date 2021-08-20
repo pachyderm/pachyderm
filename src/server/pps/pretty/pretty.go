@@ -14,9 +14,9 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 )
@@ -25,7 +25,7 @@ const (
 	// PipelineHeader is the header for pipelines.
 	PipelineHeader = "NAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\tDESCRIPTION\t\n"
 	// JobHeader is the header for jobs
-	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
+	JobHeader = "PIPELINE\tID\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// JobSetHeader is the header for jobsets
 	JobSetHeader = "ID\tSUBJOBS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// DatumHeader is the header for datums
@@ -45,8 +45,8 @@ func safeTrim(s string, l int) string {
 
 // PrintJobInfo pretty-prints job info.
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.Pipeline.Name)
+	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	if jobInfo.Started != nil {
 		if fullTimestamps {
 			fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
@@ -83,7 +83,7 @@ func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestam
 	for _, job := range jobSetInfo.Jobs {
 		if job.State == ppsclient.JobState_JOB_SUCCESS {
 			success++
-		} else if ppsutil.IsTerminal(job.State) {
+		} else if pps.IsTerminal(job.State) {
 			failure++
 		}
 

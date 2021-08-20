@@ -5,6 +5,7 @@ package helmtest
 
 import (
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
@@ -21,7 +22,8 @@ func TestLocal(t *testing.T) {
 				SetStrValues: map[string]string{
 					"deployTarget":                 "LOCAL",
 					"pachd.storage.local.hostPath": hostPath,
-					"imagePullSecret":              secret,
+					"global.imagePullSecrets[0]":   secret,
+					"pachd.enterpriseLicenseKey":   "licenseKey",
 				}},
 			"../pachyderm/", "release-name", nil))
 		checks = map[string]bool{
@@ -71,6 +73,17 @@ func TestLocal(t *testing.T) {
 				continue
 			}
 			checks["headless service"] = true
+
+		case *v1.Secret:
+			if object.Name == "pachyderm-bootstrap-config" {
+				enterpriseSecret := object.StringData["enterpriseSecret"]
+				if !strings.Contains(object.StringData["enterpriseClusters"], enterpriseSecret) {
+					t.Errorf("enterprise secret %s should be present in the enterpriseClusters config %v", enterpriseSecret, object.StringData["enterpriseClusters"])
+				}
+				if !strings.Contains(object.StringData["enterpriseConfig"], enterpriseSecret) {
+					t.Errorf("enterprise secret %s should be present in the enterpriseConfig %v", enterpriseSecret, object.StringData["enterpriseConfig"])
+				}
+			}
 		}
 	}
 	for check := range checks {

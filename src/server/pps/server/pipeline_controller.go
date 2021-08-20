@@ -8,11 +8,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	middleware_auth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -34,8 +33,6 @@ const (
 	noRCExpected
 	rcExpected
 )
-
-const controllerUsername = "pipeline-controller"
 
 func max(is ...int) int {
 	if len(is) == 0 {
@@ -123,25 +120,27 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipelineOp, error) {
 	op := &pipelineOp{
 		m:            m,
-		ctx:          internalauth.AsInternalUser(ctx, controllerUsername),
 		pipelineInfo: &pps.PipelineInfo{},
 	}
 	// get latest PipelineInfo (events can pile up, so that the current state
 	// doesn't match the event being processed)
-	if err := m.a.pipelines.ReadOnly(ctx).Get(pipeline, op.pipelineInfo); err != nil {
+	specCommit, err := m.a.findPipelineSpecCommit(ctx, pipeline)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
+	}
+	if err := m.a.pipelines.ReadOnly(ctx).Get(specCommit, op.pipelineInfo); err != nil {
 		return nil, errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
 	}
 	tracing.TagAnySpan(ctx,
 		"current-state", op.pipelineInfo.State.String(),
 		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
-	// set op.pipelineInfo.Details
 
-	// this reads the pipelineInfo associated with 'op's pipeline, as most other
-	// methods (e.g.  getRC, though not failPipeline) assume that
-	// op.pipelineInfo.Details is set.
-	if err := internal.GetPipelineDetails(op.ctx, op.m.a.env.PfsServer(), op.pipelineInfo); err != nil {
-		return nil, newRetriableError(err, "error retrieving spec")
-	}
+	// add pipeline auth
+	// the provided context is authorized as pps master, but we want to switch to the pipeline itself
+	// so first clear the cached WhoAmI result from the context
+	pachClient := m.a.env.GetPachClient(middleware_auth.ClearWhoAmI(ctx))
+	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
+	op.ctx = pachClient.Ctx()
 	return op, nil
 }
 
@@ -378,7 +377,7 @@ func (op *pipelineOp) rcIsFresh() bool {
 // collection watch event and cause step() to eventually run again.
 func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) error {
 	if err := op.m.a.setPipelineState(op.ctx,
-		op.pipelineInfo.Pipeline.Name, state, reason); err != nil {
+		op.pipelineInfo.SpecCommit, state, reason); err != nil {
 		// don't bother failing if we can't set the state
 		return stepError{
 			error: errors.Wrapf(err, "could not set pipeline state to %v"+

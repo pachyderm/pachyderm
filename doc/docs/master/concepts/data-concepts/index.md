@@ -25,22 +25,26 @@ run into a merge conflict with Pachyderm.
 The Pachyderm data versioning system has the following main concepts:
 
 **Repository**
-:   A Pachyderm repository is the highest level data object. Typically,
-    each dataset in Pachyderm is its own repository.
+:   A Pachyderm repository is the highest level data object,
+    an independent file system. Typically, each dataset in
+    Pachyderm is its own repository.
 
 **Commit**
-:   A commit is an immutable snapshot of a repo at a particular point
-    in time.
+:   A commit is an immutable snapshot of a data in Pachyderm corresponding
+    to a change in source data or transformations. Unlike in git, Pachyderm
+    commits record the state of branches in several repositories.
 
 **Branch**
-:   A branch is an alias to a specific commit, or a pointer, that
-    automatically moves as new data is submitted.
+:   A branch is the basic unit of provenance. At any given time it points
+    to the state of its repo at a particular commit, updating as new data
+    is added. Crucially, a branch also tells Pachyderm what input it depends on.
 
 **File**
 :   Files and directories are actual data in your repository. Pachyderm
     supports any type, size, and number of files.
 
 **Provenance**
-:   Provenance expresses the relationship between various
-    commits, branches, and repositories. It helps you to track the origin
-    of each commit.
+:   Provenance expresses the relationship between branches in different
+    repositories. It helps you understand the origin of all data in Pachyderm,
+    ensuring each commit contains enough information to reconstruct the past.
+

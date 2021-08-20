@@ -8,15 +8,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestGC(t *testing.T) {
 	ctx := context.Background()
-	db := testutil.NewTestDB(t)
+	db := dockertestenv.NewTestDB(t)
 	tracker := track.NewTestTracker(t, db)
 	oc, s := NewTestStorage(t, db, tracker)
 

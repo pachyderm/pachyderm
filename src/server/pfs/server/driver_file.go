@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -22,7 +21,7 @@ import (
 )
 
 func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
-	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
+	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		// Store the originally-requested parameters because they will be overwritten by inspectCommit
 		branch := proto.Clone(commit.Branch).(*pfs.Branch)
 		commitID := commit.ID
@@ -48,7 +47,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 				if err != nil {
 					return nil, err
 				}
-				renewer.Add(parentID.HexString())
+				renewer.Add(*parentID)
 				return parentID, nil
 			}))
 		}
@@ -56,7 +55,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 	})
 }
 
-func (d *driver) oneOffModifyFile(ctx context.Context, renewer *renew.StringSet, branch *pfs.Branch, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
+func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer, branch *pfs.Branch, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
 	id, err := d.withUnorderedWriter(ctx, renewer, false, cb, opts...)
 	if err != nil {
 		return err
@@ -74,13 +73,13 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *renew.StringSet,
 }
 
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
-func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *renew.StringSet, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
+func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	id, err := d.withUnorderedWriter(ctx, renewer, false, cb, fileset.WithParentID(func() (*fileset.ID, error) {
 		parentID, err := d.getFileSet(ctx, commit)
 		if err != nil {
 			return nil, err
 		}
-		renewer.Add(parentID.HexString())
+		renewer.Add(*parentID)
 		return parentID, nil
 	}))
 	if err != nil {
@@ -89,7 +88,7 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *renew.S
 	return d.commitStore.AddFileSet(ctx, commit, *id)
 }
 
-func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
+func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, compact bool, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
 	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(validate)}, opts...)
 	uw, err := d.storage.NewUnorderedWriter(ctx, opts...)
 	if err != nil {
@@ -103,14 +102,14 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringS
 		return nil, err
 	}
 	if !compact {
-		renewer.Add(id.HexString())
+		renewer.Add(*id)
 		return id, nil
 	}
 	compactedID, err := d.storage.Compact(ctx, []fileset.ID{*id}, defaultTTL)
 	if err != nil {
 		return nil, err
 	}
-	renewer.Add(compactedID.HexString())
+	renewer.Add(*compactedID)
 	return compactedID, nil
 }
 
@@ -397,7 +396,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 // createFileSet creates a new temporary fileset and returns it.
 func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWriter) error) (*fileset.ID, error) {
 	var id *fileset.ID
-	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var err error
 		id, err = d.withUnorderedWriter(ctx, renewer, false, cb)
 		return err

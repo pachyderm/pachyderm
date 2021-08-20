@@ -160,3 +160,17 @@ func PipelineStateFromName(name string) (PipelineState, error) {
 	}
 	return 0, fmt.Errorf(errInvalidPipelineStateName, name)
 }
+
+// IsTerminal returns 'true' if 'state' indicates that the job is done (i.e.
+// the state will not change later: SUCCESS, FAILURE, KILLED) and 'false'
+// otherwise.
+func IsTerminal(state JobState) bool {
+	switch state {
+	case JobState_JOB_SUCCESS, JobState_JOB_FAILURE, JobState_JOB_KILLED:
+		return true
+	case JobState_JOB_CREATED, JobState_JOB_STARTING, JobState_JOB_RUNNING, JobState_JOB_EGRESSING, JobState_JOB_FINISHING:
+		return false
+	default:
+		panic(fmt.Sprintf("unrecognized job state: %s", state))
+	}
+}

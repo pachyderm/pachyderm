@@ -13,12 +13,14 @@ pachctl port-forward [flags]
 ### Options
 
 ```
+      --dash-port uint16               The local port to bind the dash service to. (default 34000)
       --dex-port uint16                The local port to bind the identity service to. (default 30658)
   -h, --help                           help for port-forward
       --namespace string               Kubernetes namespace Pachyderm is deployed in.
       --oidc-port uint16               The local port to bind pachd's OIDC callback to. (default 30657)
   -p, --port uint16                    The local port to bind pachd to. (default 30650)
   -x, --proxy-port uint16              The local port to bind Pachyderm's dash proxy service to. (default 30081)
+      --remote-dash-port uint16        The remote port to bind the dash service to. (default 4000)
       --remote-dex-port uint16         The local port to bind the identity service to. (default 1658)
       --remote-oidc-port uint16        The remote port that OIDC callback is bound to in the cluster. (default 1657)
       --remote-port uint16             The remote port that pachd is bound to in the cluster. (default 1650)

@@ -63,6 +63,22 @@ func newCountBreakFunc(maxCount int) func(func() error) error {
 	}
 }
 
+func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
+	return &pps.CreatePipelineRequest{
+		Pipeline: client.NewPipeline(name),
+		Transform: &pps.Transform{
+			Cmd: []string{"bash"},
+			Stdin: []string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input),
+			},
+		},
+		ParallelismSpec: &pps.ParallelismSpec{
+			Constant: 1,
+		},
+		Input: client.NewPFSInput(input, "/*"),
+	}
+}
+
 func TestSimplePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -178,7 +194,7 @@ func TestRepoSize(t *testing.T) {
 	require.Equal(t, int64(6), repoInfo.Details.SizeBytes)
 
 	// ensure size is updated when we delete a commit
-	require.NoError(t, c.SquashCommitSet(commit1.ID))
+	require.NoError(t, c.DropCommitSet(commit1.ID))
 	repoInfo, err = c.InspectRepo(dataRepo)
 	require.NoError(t, err)
 	require.Equal(t, int64(3), repoInfo.Details.SizeBytes)
@@ -3545,10 +3561,6 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 }
 
 func TestPipelineThatSymlinks(t *testing.T) {
-	// TODO(2.0 required): this pipeline is failing because the datum upload code
-	// attempts to follow symlinks which do not point to valid files and this
-	// causes the worker to retry indefinitely.
-	t.Skip("hanging symlinks cause the job to error loop indefinitely")
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
@@ -3556,7 +3568,7 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	// create pipeline
+	// create pipeline without empty files
 	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
@@ -3571,6 +3583,10 @@ func TestPipelineThatSymlinks(t *testing.T) {
 			// Symlinks to external files
 			"echo buzz > /tmp/buzz",
 			"ln -s /tmp/buzz /pfs/out/buzz",
+			"mkdir /tmp/dir3",
+			"mkdir /tmp/dir3/dir4",
+			"echo foobar > /tmp/dir3/dir4/foobar",
+			"ln -s /tmp/dir3 /pfs/out/dir3",
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
@@ -3608,6 +3624,63 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(outputCommit, "buzz", &buffer))
 	require.Equal(t, "buzz\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "dir3/dir4/foobar", &buffer))
+	require.Equal(t, "foobar\n", buffer.String())
+
+	// create pipeline with empty files
+	pipelineName = tu.UniqueString("pipeline")
+	input := client.NewPFSInput(dataRepo, "/")
+	input.Pfs.EmptyFiles = true
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			// Symlinks to input files
+			fmt.Sprintf("ln -s /pfs/%s/foo /pfs/out/foo", dataRepo),
+			fmt.Sprintf("ln -s /pfs/%s/dir1/bar /pfs/out/bar", dataRepo),
+			"mkdir /pfs/out/dir",
+			fmt.Sprintf("ln -s /pfs/%s/dir2 /pfs/out/dir/dir2", dataRepo),
+			// Symlinks to external files
+			"echo buzz > /tmp/buzz",
+			"ln -s /tmp/buzz /pfs/out/buzz",
+			"mkdir /tmp/dir3",
+			"mkdir /tmp/dir3/dir4",
+			"echo foobar > /tmp/dir3/dir4/foobar",
+			"ln -s /tmp/dir3 /pfs/out/dir3",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		input,
+		"",
+		false,
+	))
+
+	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
+	require.NoError(t, err)
+	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(commitInfos))
+
+	// Check that the output files are identical to the input files.
+	buffer.Reset()
+	outputCommit = client.NewCommit(pipelineName, "master", commitInfo.Commit.ID)
+	require.NoError(t, c.GetFile(outputCommit, "foo", &buffer))
+	require.Equal(t, "foo", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "bar", &buffer))
+	require.Equal(t, "bar", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "dir/dir2/foo", &buffer))
+	require.Equal(t, "foo", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "buzz", &buffer))
+	require.Equal(t, "buzz\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outputCommit, "dir3/dir4/foobar", &buffer))
+	require.Equal(t, "foobar\n", buffer.String())
 }
 
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/v2/issues/797
@@ -5015,6 +5088,45 @@ func TestJoinInput(t *testing.T) {
 		// 1 byte per repo
 		require.Equal(t, expectedNames[i], fi.File.Path)
 	}
+
+	dataRepo0 := "TestJoinInputDirectory-0"
+	require.NoError(t, c.CreateRepo(dataRepo0))
+	masterCommit := client.NewCommit(dataRepo0, "master", "")
+	require.NoError(t, c.PutFile(masterCommit, "/dir-01/foo", strings.NewReader("foo")))
+	dataRepo1 := "TestJoinInputDirectory-1"
+	require.NoError(t, c.CreateRepo(dataRepo1))
+	masterCommit = client.NewCommit(dataRepo1, "master", "")
+	require.NoError(t, c.PutFile(masterCommit, "/dir-10/bar", strings.NewReader("bar")))
+
+	pipeline = tu.UniqueString("join-pipeline-directory")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp -r /pfs/%s/*/. /pfs/out", dataRepo0),
+			fmt.Sprintf("cp -r /pfs/%s/*/. /pfs/out", dataRepo1),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewJoinInput(
+			client.NewPFSInputOpts("", dataRepo0, "", "/dir-(?)(?)", "$2", "", false, false, nil),
+			client.NewPFSInputOpts("", dataRepo1, "", "/dir-(?)(?)", "$1", "", false, false, nil),
+		),
+		"",
+		false,
+	))
+
+	commitInfo, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	fileInfos, err = c.ListFileAll(commitInfo.Commit, "")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+	expectedNames = []string{"/bar", "/foo"}
+	for i, fi := range fileInfos {
+		require.Equal(t, expectedNames[i], fi.File.Path)
+	}
 }
 
 func TestGroupInput(t *testing.T) {
@@ -5453,6 +5565,38 @@ func TestUnionInput(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 8, len(fileInfos))
 		}
+	})
+
+	t.Run("union alias", func(t *testing.T) {
+		pipeline := tu.UniqueString("pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cp /pfs/in/* '/pfs/out/$RANDOM'",
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewUnionInput(
+				client.NewPFSInputOpts("in", repos[0], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[1], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[2], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[3], "", "/*", "", "", false, false, nil),
+			),
+			"",
+			false,
+		))
+
+		commitInfo, err := c.WaitCommit(pipeline, "master", "")
+		require.NoError(t, err)
+		fileInfos, err := c.ListFileAll(commitInfo.Commit, "")
+		require.NoError(t, err)
+		require.Equal(t, 8, len(fileInfos))
+		dis, err := c.ListDatumAll(pipeline, commitInfo.Commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, 8, len(dis))
 	})
 }
 
@@ -5904,10 +6048,12 @@ func TestCronPipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Skip("TODO: This tests passes when run in isolation, but is flaky and often hangs.")
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	t.Run("SimpleCron", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline1 := tu.UniqueString("cron1-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline1,
@@ -5956,6 +6102,9 @@ func TestCronPipeline(t *testing.T) {
 
 	// Test a CronInput with the overwrite flag set to true
 	t.Run("CronOverwrite", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 10s")
 		overwriteInput.Cron.Overwrite = true
@@ -5996,6 +6145,9 @@ func TestCronPipeline(t *testing.T) {
 	// Create a non-cron input repo, and test a pipeline with a cross of cron and
 	// non-cron inputs
 	t.Run("CronPFSCross", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		dataRepo := tu.UniqueString("TestCronPipeline_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		pipeline4 := tu.UniqueString("cron4-")
@@ -6035,6 +6187,9 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCron", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline5 := tu.UniqueString("cron5-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline5,
@@ -6080,6 +6235,9 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCronOverwrite", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline7 := tu.UniqueString("cron7-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline7,
@@ -6141,7 +6299,12 @@ func TestCronPipeline(t *testing.T) {
 		}))
 	})
 	t.Run("RunCronCross", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
 		pipeline9 := tu.UniqueString("cron9-")
+		// schedule cron ticks so they definitely won't occur
+		futureMonth := int(time.Now().AddDate(0, 2, 0).Month())
 		require.NoError(t, c.CreatePipeline(
 			pipeline9,
 			"",
@@ -6149,8 +6312,8 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"echo 'tick'"},
 			nil,
 			client.NewCrossInput(
-				client.NewCronInput("time1", "@every 3h"),
-				client.NewCronInput("time2", "@every 2h"),
+				client.NewCronInput("time1", fmt.Sprintf("0 0 1 %d *", futureMonth)),
+				client.NewCronInput("time2", fmt.Sprintf("0 0 15 %d *", futureMonth)),
 			),
 			"",
 			false,
@@ -6163,17 +6326,10 @@ func TestCronPipeline(t *testing.T) {
 		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
 		require.NoError(t, err)
 
-		// subscribe to the pipeline1 cron repo and wait for inputs
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
-		defer cancel() //cleanup resources
-		// We expect to see at least three commits, despite the schedules not ticking until three hours, and the timeout 120 seconds
-		repo := pipeline9
-		countBreakFunc := newCountBreakFunc(3)
-		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
-			return countBreakFunc(func() error {
-				return nil
-			})
-		}))
+		// We should see an initial empty commit, exactly six from our RunCron calls (two each), and nothing else
+		commits, err := c.ListCommit(client.NewRepo(pipeline9), nil, nil, 0)
+		require.NoError(t, err)
+		require.Equal(t, 7, len(commits))
 	})
 }
 
@@ -7415,108 +7571,6 @@ func TestSquashCommitSetPropagation(t *testing.T) {
 	// 			require.Equal(t, int64(0), jobInfo.DataSkipped)
 	// 			return nil
 	// 		})
-}
-
-// TestSquashCommitSetRunsJob creates an input repo, commits several times, and
-// then creates a pipeline. Creating the pipeline will spawn a job and while
-// that job is running, this test deletes the HEAD commit of the input branch,
-// which deletes the job's output commit and cancels the job. This should start
-// another job that processes the original input HEAD commit's parent.
-func TestSquashCommitSetRunsJob(t *testing.T) {
-	// TODO(required 2.0): this test depends on old squash commit behavior and may
-	// not be possible to make work with global ids.  If we change squashing
-	// commits to also squash aliased commitsets, this may make sense again.
-	t.Skip("Squashing commitsets does not make jobs like this with global IDs")
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	// Create an input repo
-	repo := tu.UniqueString("TestSquashCommitSetRunsJob")
-	require.NoError(t, c.CreateRepo(repo))
-
-	// Create two input commits. The input commit has two files: 'time' which
-	// determines how long the processing job runs for, and 'data' which
-	// determines the job's output. This ensures that the first job (processing
-	// the second commit) runs for a long time, making it easy to cancel, while
-	// the second job runs quickly, ensuring that the test finishes quickly
-	commit1, err := c.StartCommit(repo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "/time", strings.NewReader("1"), client.WithAppendPutFile()))
-	require.NoError(t, c.PutFile(commit1, "/data", strings.NewReader("commit 1 data"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(repo, commit1.Branch.Name, commit1.ID))
-
-	commit2, err := c.StartCommit(repo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.DeleteFile(commit2, "/time"))
-	require.NoError(t, c.PutFile(commit2, "/time", strings.NewReader("600"), client.WithAppendPutFile()))
-	require.NoError(t, c.DeleteFile(commit2, "/data"))
-	require.NoError(t, c.PutFile(commit2, "/data", strings.NewReader("commit 2 data"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(repo, commit2.Branch.Name, commit2.ID))
-
-	// Create sleep + copy pipeline
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			"sleep `cat /pfs/*/time`",
-			"cp /pfs/*/data /pfs/out/",
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(repo, "/"),
-		"",
-		false,
-	))
-
-	// Check that there are no jobs for commit1
-	jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit1}, -1, true)
-	require.NoError(t, err)
-	require.Equal(t, 0, len(jobInfos))
-
-	// Check that PPS has generated a job for commit2
-	jobInfos, err = c.ListJob(pipeline, []*pfs.Commit{commit2}, -1, true)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-
-	// Delete the second commit in the input repo
-	require.NoError(t, c.SquashCommitSet(commit2.ID))
-
-	// Check that PPS has generated a job for commit1
-	jobInfos, err = c.ListJob(pipeline, []*pfs.Commit{commit1}, -1, true)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-
-	commitInfo, err := c.WaitCommit(pipeline, "master", "")
-	require.NoError(t, err)
-
-	// Check that the job processed the right data
-	buf := bytes.Buffer{}
-	err = c.GetFile(commitInfo.Commit, "/data", &buf)
-	require.NoError(t, err)
-	require.Equal(t, "commit 1 data", buf.String())
-
-	// Create one more commit to make sure the pipeline can still process input
-	// commits
-	commit3, err := c.StartCommit(repo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.DeleteFile(commit3, "/data"))
-	require.NoError(t, c.PutFile(commit3, "/data", strings.NewReader("commit 3 data"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(repo, commit3.Branch.Name, commit3.ID))
-
-	// Flush commit3, and make sure the output is as expected
-	commitInfo, err = c.WaitCommit(pipeline, "master", commit3.ID)
-	require.NoError(t, err)
-
-	buf.Reset()
-	err = c.GetFile(commitInfo.Commit, "/data", &buf)
-	require.NoError(t, err)
-	require.Equal(t, "commit 3 data", buf.String())
 }
 
 func TestDeleteSpecRepo(t *testing.T) {
@@ -8764,11 +8818,23 @@ func TestKeepRepo(t *testing.T) {
 	_, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
 
+	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{
+		Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+	})
+	require.YesError(t, err)
+	require.True(t, errutil.IsNotFoundError(err))
+
+	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{
+		Repo: client.NewSystemRepo(pipeline, pfs.MetaRepoType),
+	})
+	require.YesError(t, err)
+	require.True(t, errutil.IsNotFoundError(err))
+
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineCommit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 
-	require.NoError(t, c.CreatePipeline(
+	require.YesError(t, c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -8782,21 +8848,6 @@ func TestKeepRepo(t *testing.T) {
 		"",
 		false,
 	))
-
-	require.NoError(t, c.PutFile(dataCommit, "file2", strings.NewReader("bar"), client.WithAppendPutFile()))
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
-	require.NoError(t, err)
-	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
-	require.NoError(t, err)
-
-	buf.Reset()
-	require.NoError(t, c.GetFile(pipelineCommit, "file", &buf))
-	require.Equal(t, "foo", buf.String())
-	buf.Reset()
-	require.NoError(t, c.GetFile(pipelineCommit, "file2", &buf))
-	require.Equal(t, "bar", buf.String())
-
-	require.NoError(t, c.DeletePipeline(pipeline, false))
 }
 
 // Regression test to make sure that pipeline creation doesn't crash pachd due to missing fields
@@ -9668,6 +9719,68 @@ func TestMoveBranchTrigger(t *testing.T) {
 	require.Equal(t, "/foo", files[0].File.Path)
 }
 
+func TestPipelineAncestry(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("pipeline")
+	base := basicPipelineReq(pipeline, dataRepo)
+	base.Autoscaling = true
+
+	// create three versions of the pipeline differing only in the transform user field
+	for i := 1; i <= 3; i++ {
+		base.Transform.User = fmt.Sprintf("user:%d", i)
+		base.Update = i != 1
+		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), base)
+		require.NoError(t, err)
+	}
+
+	for i := 1; i <= 3; i++ {
+		info, err := c.InspectPipeline(fmt.Sprintf("%s^%d", pipeline, 3-i), true)
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("user:%d", i), info.Details.Transform.User)
+	}
+
+	infos, err := c.ListPipeline(true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(infos))
+	require.Equal(t, pipeline, infos[0].Pipeline.Name)
+	require.Equal(t, fmt.Sprintf("user:%d", 3), infos[0].Details.Transform.User)
+
+	checkInfos := func(infos []*pps.PipelineInfo) {
+		// make sure versions are sorted and have the correct details
+		for i, info := range infos {
+			require.Equal(t, 3-i, int(info.Version))
+			require.Equal(t, fmt.Sprintf("user:%d", 3-i), info.Details.Transform.User)
+		}
+	}
+
+	// get all pipelines
+	infos, err = c.ListPipelineHistory(pipeline, -1, true)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(infos))
+	checkInfos(infos)
+
+	// get all pipelines by asking for too many
+	infos, err = c.ListPipelineHistory(pipeline, 3, true)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(infos))
+	checkInfos(infos)
+
+	// get only the later two pipelines
+	infos, err = c.ListPipelineHistory(pipeline, 1, true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(infos))
+	checkInfos(infos)
+}
+
 func monitorReplicas(t testing.TB, pipeline string, n int) {
 	c := tu.GetPachClient(t)
 	kc := tu.GetKubeClient(t)
@@ -9703,6 +9816,7 @@ func TestLoad(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
 	resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}

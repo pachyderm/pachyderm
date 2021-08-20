@@ -37,25 +37,29 @@ Pachyderm's repositories are divided into two categories:
     User repositories keep track of your data one commit at a time. 
     They further split into:
 
-    - **Input** repositories
+    - **Source** repositories
 
         Users or external applications outside of Pachyderm can add data to
-        the input repositories for further processing.
+        the source repositories for further processing.
 
     - **Output** repositories
 
         Pachyderm automatically creates an output repository at the end of a pipeline for
-        the pipeline to write the results of its transformations into.
+        the pipeline to write the results of its transformations into. An output repository
+        might serve as input for another pipeline.
 
 1. **System repositories**
 
-    System repositories hold certain auxiliary information about pipelines. 
-    Along with an output repo, the creation of a pipeline also creates one `SPEC` and one `META` repo.
+    System repositories hold certain auxiliary information about pipelines. They are hidden by default
+    in the output of most commands.
+    Along with an output repo, the creation of a pipeline also creates one `spec` and one `meta` repo.
 
-    - `SPEC` repositories hold pipeline specification files
-    - `META` repositories hold metadata related to datum processing (also called "stats" in this documentation)
-    
-    System repositories are accessed via the pipeline they are bound to.
+    - `spec` repositories hold pipeline specification files
+    - `meta` repositories hold metadata related to datum processing (also called "stats" in this documentation)
+
+    Pipelines generally manage their own system repos, but if necessary, the system repos
+    for a pipeline named `edges` can be referenced using `edges.meta` and `edges.spec` wherever
+    you would usually put a repo name.
     Deleting a user repo deletes any associated system repos.
 
 

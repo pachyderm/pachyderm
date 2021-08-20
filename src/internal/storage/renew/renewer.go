@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Func is a function called to renew something for ttl time.
@@ -34,9 +36,13 @@ func NewRenewer(ctx context.Context, ttl time.Duration, renewFunc Func) *Renewer
 		done:   make(chan struct{}),
 	}
 	go func() {
-		r.err = r.renewLoop(ctx)
-		r.cancel()
-		close(r.done)
+		defer close(r.done)
+		defer r.cancel()
+		err := r.renewLoop(ctx)
+		if errors.Is(ctx.Err(), context.Canceled) {
+			err = nil
+		}
+		r.err = err
 	}()
 	return r
 }
@@ -54,11 +60,6 @@ func (r *Renewer) Close() error {
 }
 
 func (r *Renewer) renewLoop(ctx context.Context) (retErr error) {
-	defer func() {
-		if errors.Is(ctx.Err(), context.Canceled) {
-			retErr = nil
-		}
-	}()
 	ticker := time.NewTicker(r.ttl / 3)
 	defer ticker.Stop()
 	for {
@@ -67,6 +68,7 @@ func (r *Renewer) renewLoop(ctx context.Context) (retErr error) {
 			defer cf()
 			return r.renewFunc(ctx, r.ttl)
 		}(); err != nil {
+			logrus.Errorf("error during renewal: %v", err)
 			return err
 		}
 		select {

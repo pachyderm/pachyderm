@@ -36,4 +36,6 @@ type APIServer interface {
 	// GetPipelineAuthTokenInTransaction is an internal API used by PPS to generate tokens for pipelines
 	GetPipelineAuthTokenInTransaction(*txncontext.TransactionContext, string) (string, error)
 	RevokeAuthTokenInTransaction(*txncontext.TransactionContext, *auth_client.RevokeAuthTokenRequest) (*auth_client.RevokeAuthTokenResponse, error)
+
+	GetPermissionsInTransaction(*txncontext.TransactionContext, *auth_client.GetPermissionsRequest) (*auth_client.GetPermissionsResponse, error)
 }

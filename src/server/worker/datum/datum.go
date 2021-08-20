@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -403,20 +405,9 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 		if fi.Mode()&os.ModeNamedPipe != 0 {
 			return nil
 		}
+		// Upload the local files if they are not from PFS.
 		if !strings.HasPrefix(file, d.PFSStorageRoot()) {
-			if fi.IsDir() {
-				return nil
-			}
-			f, err := os.Open(file)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := f.Close(); retErr == nil {
-					retErr = err
-				}
-			}()
-			return mf.PutFile(dstPath, f, client.WithDatumPutFile(d.ID))
+			return d.uploadSymlink(mf, dstPath, file, fi)
 		}
 		relPath, err := filepath.Rel(d.PFSStorageRoot(), file)
 		if err != nil {
@@ -429,10 +420,46 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 				input = i
 			}
 		}
-		srcFile := input.FileInfo.File
+		// Upload the local files if they are not using the empty files feature.
+		if !input.EmptyFiles {
+			return d.uploadSymlink(mf, dstPath, file, fi)
+		}
+		srcFile := proto.Clone(input.FileInfo.File).(*pfs.File)
 		srcFile.Path = path.Join(pathSplit[1:]...)
 		return mf.CopyFile(dstPath, srcFile, client.WithDatumCopyFile(d.ID))
 	})
+}
+
+func (d *Datum) uploadSymlink(mf client.ModifyFile, dstPath, file string, fi os.FileInfo) error {
+	cb := func(dstPath, file string) (retErr error) {
+		f, err := os.Open(file)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := f.Close(); retErr == nil {
+				retErr = err
+			}
+		}()
+		return mf.PutFile(dstPath, f, client.WithDatumPutFile(d.ID))
+	}
+	if fi.IsDir() {
+		dir := file
+		return filepath.Walk(dir, func(file string, fi os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if fi.IsDir() {
+				return nil
+			}
+			dstSubpath, err := filepath.Rel(dir, file)
+			if err != nil {
+				return err
+			}
+			return cb(path.Join(dstPath, dstSubpath), file)
+		})
+	}
+	return cb(dstPath, file)
 }
 
 // TODO: I think these types would be unecessary if the dependencies were shuffled around a bit.

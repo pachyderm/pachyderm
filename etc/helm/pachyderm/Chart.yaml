@@ -21,14 +21,14 @@ type: application
 # each time you make changes to the chart and its templates, including
 # the app version.  Versions are expected to follow Semantic
 # Versioning (https://semver.org/)
-version: 2.0.0-beta.5
+version: 2.0.0-beta.8
 
 # This is the version number of the application being deployed. This
 # version number should be incremented each time you make changes to
 # the application. Versions are not expected to follow Semantic
 # Versioning. They should reflect the version the application is
 # using.
-appVersion: 2.0.0-beta.5
+appVersion: 2.0.0-beta.8
 
 kubeVersion: ">= 1.16.0-0"
 
@@ -51,3 +51,12 @@ home: https://www.pachyderm.com/
 sources:
   - https://github.com/pachyderm/pachyderm
   - https://github.com/pachyderm/helmchart
+
+# Note this chart has one diverged change: 
+# Adding a label variable to the volumeClaimTemplate in the Postgres Stateful set
+# TODO: Upstream this change
+dependencies:
+- name: postgresql
+  version: "10.8.0"
+  repository: "file://../charts/postgresql"
+  condition: postgresql.enabled

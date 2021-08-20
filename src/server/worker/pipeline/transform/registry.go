@@ -37,12 +37,11 @@ const (
 )
 
 type hasher struct {
-	name string
 	salt string
 }
 
 func (h *hasher) Hash(inputs []*common.Input) string {
-	return common.HashDatum(h.name, h.salt, inputs)
+	return common.HashDatum(h.salt, inputs)
 }
 
 type registry struct {
@@ -116,7 +115,6 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 		logger: reg.logger.WithJob(jobInfo.Job.ID),
 		ji:     jobInfo,
 		hasher: &hasher{
-			name: pi.Pipeline.Name,
 			salt: pi.Details.Salt,
 		},
 		noSkip: pi.Details.ReprocessSpec == client.ReprocessSpecEveryJob || pi.Details.S3Out,
@@ -127,13 +125,13 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 			return err
 		}
 	}
-	if err := pj.load(); err != nil {
-		return err
-	}
 	// Inputs must be ready before we can construct a datum iterator.
 	if err := pj.logger.LogStep("waiting for job inputs", func() error {
 		return reg.processJobStarting(pj)
 	}); err != nil {
+		return err
+	}
+	if err := pj.load(); err != nil {
 		return err
 	}
 	// TODO: This could probably be scoped to a callback.
@@ -238,7 +236,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 
 func (reg *registry) processJob(pj *pendingJob) error {
 	state := pj.ji.State
-	if ppsutil.IsTerminal(state) || state == pps.JobState_JOB_FINISHING {
+	if pps.IsTerminal(state) || state == pps.JobState_JOB_FINISHING {
 		return errutil.ErrBreak
 	}
 	switch state {

@@ -15,8 +15,7 @@ pachd:
   serviceAccount:
     additionalAnnotations:
       eks.amazonaws.com/role-arn: blah123
-
-worker:
-  serviceAccount:
-    additionalAnnotations:
-      eks.amazonaws.com/role-arn: blah123
+  worker:
+    serviceAccount:
+      additionalAnnotations:
+        eks.amazonaws.com/role-arn: blah123

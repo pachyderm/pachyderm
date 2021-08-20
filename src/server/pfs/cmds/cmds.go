@@ -264,20 +264,18 @@ Commits can be created with another commit as a parent.`,
 
 	var parent string
 	startCommit := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit>",
+		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Start a new commit.",
-		Long:  "Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.",
-		Example: `# Start a new commit in repo "test" that's not on any branch
-$ {{alias}} test
-
+		Long:  "Start a new commit with parent-commit as the parent on the given branch; if the branch does not exist, it will be created.",
+		Example: `
 # Start a commit in repo "test" on branch "master"
 $ {{alias}} test@master
 
 # Start a commit with "master" as the parent in repo "test", on a new branch "patch"; essentially a fork.
 $ {{alias}} test@patch -p master
 
-# Start a commit with XXX as the parent in repo "test", not on any branch
-$ {{alias}} test -p XXX`,
+# Start a commit with XXX as the parent in repo "test" on the branch "fork"
+$ {{alias}} test@fork -p XXX`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
@@ -775,7 +773,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	var head string
 	trigger := &pfs.Trigger{}
 	createBranch := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit>",
+		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Create a new branch, or update an existing branch, on a repo.",
 		Long:  "Create a new branch, or update an existing branch, on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -828,7 +826,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			})
 		}),
 	}
-	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch. format: <repo>@<branch-or-commit>")
+	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch. format: <repo>@<branch>")
 	createBranch.MarkFlagCustom("provenance", "__pachctl_get_repo_commit")
 	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch. Either pass the commit with format: <branch-or-commit>, or fully-qualified as <repo>@<branch>=<id>")
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
@@ -915,7 +913,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	commands = append(commands, cmdutil.CreateAlias(listBranch, "list branch"))
 
 	deleteBranch := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit>",
+		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Delete a branch",
 		Long:  "Delete a branch, while leaving the commits intact",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -1268,7 +1266,6 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 	shell.RegisterCompletionFunc(inspectFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectFile, "inspect file"))
 
-	var history string
 	listFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
 		Short: "Return the files in a directory.",
@@ -1288,12 +1285,6 @@ $ {{alias}} foo@master^
 # in repo "foo"
 $ {{alias}} foo@master^2
 
-# list the last n versions of top-level files on branch "master" in repo "foo"
-$ {{alias}} foo@master --history n
-
-# list all versions of top-level files on branch "master" in repo "foo"
-$ {{alias}} foo@master --history all
-
 # list file under directory "dir[1]" on branch "master" in repo "foo"
 # the path is interpreted as a glob pattern: quote and protect regex characters
 $ {{alias}} 'foo@master:dir\[1\]'`,
@@ -1301,10 +1292,6 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
-			}
-			history, err := cmdutil.ParseHistory(history)
-			if err != nil {
-				return errors.Wrapf(err, "error parsing history flag")
 			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -1320,12 +1307,9 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 			header := pretty.FileHeader
-			if history != 0 {
-				header = pretty.FileHeaderWithCommit
-			}
 			writer := tabwriter.NewWriter(os.Stdout, header)
 			if err := c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
-				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
+				pretty.PrintFileInfo(writer, fi, fullTimestamps, false)
 				return nil
 			}); err != nil {
 				return err
@@ -1335,7 +1319,6 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 	}
 	listFile.Flags().AddFlagSet(outputFlags)
 	listFile.Flags().AddFlagSet(timestampFlags)
-	listFile.Flags().StringVar(&history, "history", "none", "Return revision history for files.")
 	shell.RegisterCompletionFunc(listFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
 

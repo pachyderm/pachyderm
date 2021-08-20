@@ -6,11 +6,13 @@ require (
 	cloud.google.com/go v0.84.0
 	cloud.google.com/go/storage v1.10.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
+	github.com/Microsoft/hcsshim v0.8.7 // indirect
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/aws/aws-sdk-go v1.27.0
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
+	github.com/containerd/continuity v0.0.0-20200107194136-26c1120b8d41 // indirect
 	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -19,6 +21,8 @@ require (
 	github.com/dexidp/dex/api/v2 v2.0.0
 	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/dlmiddlecote/sqlstats v1.0.2
+	github.com/dnaeon/go-vcr v1.0.1 // indirect
+	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
 	github.com/docker/go-units v0.4.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/elazarl/goproxy v0.0.0-20191011121108-aa519ddbe484 // indirect
@@ -26,6 +30,7 @@ require (
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/color v1.9.0
 	github.com/fsouza/go-dockerclient v1.4.1
+	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/gorilla/mux v1.8.0
@@ -57,6 +62,7 @@ require (
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.26.0
+	github.com/remyoudompheng/bigfft v0.0.0-20170806203942-52369c62f446 // indirect
 	github.com/robfig/cron v1.2.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/segmentio/analytics-go v0.0.0-20160426181448-2d840d861c32
@@ -80,14 +86,10 @@ require (
 	google.golang.org/grpc v1.38.0
 	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850
 	gopkg.in/yaml.v2 v2.4.0
-	helm.sh/helm/v3 v3.1.2
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
-	k8s.io/cli-runtime v0.17.4
 	k8s.io/client-go v12.0.0+incompatible
 	modernc.org/mathutil v1.0.0
-	rsc.io/letsencrypt v0.0.3 // indirect
-	sigs.k8s.io/yaml v1.2.0
 )
 
 replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
@@ -113,4 +115,4 @@ replace github.com/prometheus/common => github.com/prometheus/common v0.9.1
 
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20191115194625-c23dd37a84c9
 
-replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20210722202136-a3bf676b9e9e
+replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20210811182333-56fc504b721f

@@ -28,10 +28,7 @@ spec:
       name: console
       namespace: {{ .Release.Namespace }}
     spec:
-      {{- if .Values.imagePullSecret }}
-      imagePullSecrets:
-        - name: {{ .Values.imagePullSecret | quote }}
-      {{- end }}
+{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - image: "{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"
         imagePullPolicy: {{ .Values.console.image.pullPolicy }}
@@ -48,14 +45,17 @@ spec:
           value: {{ .Values.console.config.oauthRedirectURI | quote }}
         - name: OAUTH_CLIENT_ID
           value: {{ .Values.console.config.oauthClientID | quote }}
-        - name: OAUTH_CLIENT_SECRET
-          value: {{ include "pachyderm.consoleSecret" . | quote }}
         - name: GRAPHQL_PORT
           value: {{ .Values.console.config.graphqlPort | quote }}
         - name: OAUTH_PACHD_CLIENT_ID
           value: {{ .Values.console.config.oauthPachdClientID | quote }}
         - name: PACHD_ADDRESS
           value: {{ .Values.console.config.pachdAddress | quote }}
+        - name: OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: pachyderm-console-secret
+              key: OAUTH_CLIENT_SECRET
         {{- if .Values.console.resources }}
         resources: {{ toYaml .Values.console.resources | nindent 10 }}
         {{- end }}

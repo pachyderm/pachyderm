@@ -275,7 +275,7 @@ func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {
 	latestPipelineInfo := &pps.PipelineInfo{}
-	if err := d.Pipelines().ReadOnly(d.ctx).Get(d.PipelineInfo().Pipeline.Name, latestPipelineInfo); err != nil {
+	if err := d.Pipelines().ReadOnly(d.ctx).Get(d.PipelineInfo().SpecCommit, latestPipelineInfo); err != nil {
 		return 0, errors.EnsureStack(err)
 	}
 	numWorkers := latestPipelineInfo.Parallelism
@@ -464,7 +464,14 @@ func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string)
 // their output commit is deleted.
 func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobInfo *pps.JobInfo) error {
 	pipelineInfo := &pps.PipelineInfo{}
-	if err := d.Pipelines().ReadWrite(sqlTx).Update(jobInfo.Job.Pipeline.Name, pipelineInfo, func() error {
+	// fetch pipeline to find the spec commit, its actual collection key
+	if err := d.Pipelines().ReadWrite(sqlTx).GetUniqueByIndex(
+		ppsdb.PipelinesVersionIndex,
+		ppsdb.VersionKey(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion),
+		pipelineInfo); err != nil {
+		return err
+	}
+	if err := d.Pipelines().ReadWrite(sqlTx).Update(pipelineInfo.SpecCommit, pipelineInfo, func() error {
 		if pipelineInfo.JobCounts == nil {
 			pipelineInfo.JobCounts = make(map[int32]int32)
 		}

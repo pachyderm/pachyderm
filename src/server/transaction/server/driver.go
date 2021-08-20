@@ -171,24 +171,8 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 			err = directTxn.UpdateJobState(request.UpdateJobState)
 		} else if request.StopJob != nil {
 			err = directTxn.StopJob(request.StopJob)
-		} else if request.DeleteAll != nil {
-			// TODO: extend this to delete everything through PFS, PPS, Auth and
-			// update the client DeleteAll call to use only this, then remove unused
-			// RPCs.  This is not currently feasible because it does an orderly
-			// deletion that generates a very large transaction.
-			err = d.deleteAll(txnCtx.ClientContext, txnCtx.SqlTx, info.Transaction)
 		} else if request.CreatePipeline != nil {
-			if response.CreatePipelineResponse == nil {
-				response.CreatePipelineResponse = &transaction.CreatePipelineTransactionResponse{}
-			}
-			filesetID := &response.CreatePipelineResponse.FileSetId
-			prevPipelineVersion := &response.CreatePipelineResponse.PrevPipelineVersion
-
-			// CreatePipeline may update the fileset and prevPipelineVersion even if
-			// it fails (because these refer to things outside of the transaction) -
-			// we need to save them into the response so they can be seen the next
-			// time the transaction is attempted.
-			err = directTxn.CreatePipeline(request.CreatePipeline, filesetID, prevPipelineVersion)
+			err = directTxn.CreatePipeline(request.CreatePipeline)
 		} else {
 			err = errors.New("unrecognized transaction request type")
 		}
@@ -272,6 +256,14 @@ func (d *driver) updateTransaction(
 		}
 		gotBreak = false
 		return err
+	}
+
+	// prefetch transaction info and add data to refresher ahead of time
+	var prefetch transaction.TransactionInfo
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, &prefetch)
+	}); err != nil {
+		return nil, err
 	}
 
 	// Run this thing in a loop in case we get a conflict, time out after some tries

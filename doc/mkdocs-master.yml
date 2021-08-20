@@ -1,9 +1,9 @@
 site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
 site_author: Pachyderm
-site_url: https://docs.pachyderm.com/master/
+site_url: https://docs.pachyderm.com/2.0.x-beta/
 docs_dir: docs/master/
-site_dir: site/2.0.x-Beta/
+site_dir: site/2.0.x-beta/
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
@@ -13,9 +13,10 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '1.13.3'
-pach_latest_version: '2.0.0-beta.3'
+pach_featured_version: '1.13.4'
+pach_latest_version: '2.0.0-beta.7'
 pach_major_minor_version: '2.0'
+search_index_version: '2.0.x-beta'
 
 # Configuration
 theme:
@@ -166,7 +167,6 @@ nav:
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
             - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
-            - Monitor Job Progress: how-tos/pipeline-operations/monitor-job-progress.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
             - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md

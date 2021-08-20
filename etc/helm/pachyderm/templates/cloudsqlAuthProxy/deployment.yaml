@@ -29,6 +29,7 @@ spec:
       namespace: {{ .Release.Namespace }}
     spec:
       serviceAccountName: k8s-cloudsql-auth-proxy
+{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - name: cloud-sql-proxy
         image: {{ .Values.cloudsqlAuthProxy.image.repository }}:{{ .Values.cloudsqlAuthProxy.image.tag }}

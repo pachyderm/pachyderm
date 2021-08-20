@@ -35,10 +35,7 @@ spec:
       {{-  if .Values.pachd.affinity }}
       affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
       {{- end }}
-      {{- if .Values.imagePullSecret }}
-      imagePullSecrets:
-        - name: {{ .Values.imagePullSecret | quote }}
-      {{- end }}
+{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - command:
         - /pachd
@@ -55,6 +52,11 @@ spec:
         - name: POSTGRES_SSL
           value: {{ .Values.global.postgresql.ssl | quote }}
         {{- end }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres # Must match secret setup by postgres subchart or postgres-secret.yaml
+              key: postgresql-password
         - name: PG_BOUNCER_HOST
           value: pg-bouncer # Must match pgbouncer service name
         - name: PG_BOUNCER_PORT
@@ -72,19 +74,21 @@ spec:
           value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
           {{- end }}
         - name: WORKER_IMAGE
-          value: "{{ .Values.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+          value: "{{ .Values.pachd.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         {{- if and (eq ( include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
         - name: WORKER_USES_ROOT
           value: "True"
         {{- end }}
-        - name: IMAGE_PULL_SECRET
-          value: {{ .Values.imagePullSecret | quote }}
+        {{- if .Values.global.imagePullSecrets }}
+        - name: IMAGE_PULL_SECRETS
+          value: "{{ join "," .Values.global.imagePullSecrets }}"
+        {{- end }}
         - name: WORKER_SIDECAR_IMAGE
           value: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         - name: WORKER_IMAGE_PULL_POLICY
-          value: {{ .Values.worker.image.pullPolicy | quote }}
+          value: {{ .Values.pachd.worker.image.pullPolicy | quote }}
         - name: WORKER_SERVICE_ACCOUNT
-          value: {{ .Values.worker.serviceAccount.name | quote }}
+          value: {{ .Values.pachd.worker.serviceAccount.name | quote }}
         - name: METRICS
           value: {{ .Values.pachd.metrics.enabled | quote }}
         {{- if .Values.pachd.metricsEndpoint}}
@@ -110,8 +114,6 @@ spec:
               divisor: "0"
               resource: requests.memory
         {{- end }}
-        - name: CLUSTER_DEPLOYMENT_ID
-          value: {{ include "pachyderm.clusterDeploymentId" . | quote }}
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
         - name: PACHD_POD_NAME
@@ -128,6 +130,8 @@ spec:
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
+          - secretRef:
+              name: pachyderm-deployment-id-secret
         image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachd
@@ -189,4 +193,16 @@ spec:
         secret:
           secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
       {{- end }}
+      initContainers:
+      - name: init-etcd
+        image: busybox:1.28
+        command: ['sh', '-c', "until wget http://etcd:2379/version; do echo waiting for etcd; sleep 2; done"]
+      {{- if or .Values.postgresql.enabled }}
+      - name: init-postgres
+        image: postgres:13.0-alpine
+        command: ['sh', '-c', "until pg_isready -h postgres -p 5432; do echo waiting for postgres; sleep 2; done"]
+      {{- end }}
+      - name: init-pgbouncer
+        image: postgres:13.0-alpine
+        command: ['sh', '-c', "until pg_isready -h pg-bouncer -p 5432; do echo waiting for postgres; sleep 2; done"]
 {{- end }}

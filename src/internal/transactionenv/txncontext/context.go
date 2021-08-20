@@ -2,10 +2,14 @@ package txncontext
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -14,8 +18,7 @@ import (
 // transaction is started, a context will be created for it containing these
 // objects, which will be threaded through to every API call:
 type TransactionContext struct {
-	// ClientContext is the incoming context.Context for the request.
-	ClientContext context.Context
+	username string
 	// SqlTx is the ongoing database transaction.
 	SqlTx *sqlx.Tx
 	// CommitSetID is the ID of the CommitSet corresponding to PFS changes in this transaction.
@@ -29,6 +32,41 @@ type TransactionContext struct {
 	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
 	PpsJobStopper  PpsJobStopper
 	PpsJobFinisher PpsJobFinisher
+}
+
+type identifier interface {
+	WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
+}
+
+func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier) (*TransactionContext, error) {
+	var username string
+	// check auth once now so that we can refer to it later
+	if authServer != nil {
+		if me, err := authServer.WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil && !auth.IsErrNotActivated(err) {
+			return nil, err
+		} else if err == nil {
+			username = me.Username
+		}
+	}
+	var currTime time.Time
+	sqlTx.GetContext(ctx, &currTime, "select CURRENT_TIMESTAMP as Timestamp")
+	ts, err := types.TimestampProto(currTime)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error getting transaction timestamp")
+	}
+	return &TransactionContext{
+		SqlTx:       sqlTx,
+		CommitSetID: uuid.NewWithoutDashes(),
+		Timestamp:   ts,
+		username:    username,
+	}, nil
+}
+
+func (t *TransactionContext) WhoAmI() (*auth.WhoAmIResponse, error) {
+	if t.username == "" {
+		return nil, auth.ErrNotActivated
+	}
+	return &auth.WhoAmIResponse{Username: t.username}, nil
 }
 
 // PropagateJobs notifies PPS that there are new commits in the transaction's
@@ -53,6 +91,12 @@ func (t *TransactionContext) FinishJob(commitInfo *pfs.CommitInfo) {
 // propagations and dedupe downstream commits in PFS.
 func (t *TransactionContext) PropagateBranch(branch *pfs.Branch) error {
 	return t.PfsPropagater.PropagateBranch(branch)
+}
+
+// DeleteBranch removes a branch from the list of branches to propagate, if
+// it is present.
+func (t *TransactionContext) DeleteBranch(branch *pfs.Branch) {
+	t.PfsPropagater.DeleteBranch(branch)
 }
 
 // Finish applies the deferred logic in the pfsPropagator and ppsPropagator to
@@ -85,6 +129,7 @@ func (t *TransactionContext) Finish() error {
 // the end of a transaction.  It is defined here to avoid a circular dependency.
 type PfsPropagater interface {
 	PropagateBranch(branch *pfs.Branch) error
+	DeleteBranch(branch *pfs.Branch)
 	Run() error
 }
 

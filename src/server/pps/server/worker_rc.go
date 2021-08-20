@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"strconv"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/v2/src/client"
@@ -98,8 +99,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "POSTGRES_USER",
 		Value: a.env.Config().PostgresUser,
 	}, {
-		Name:  "POSTGRES_PASSWORD",
-		Value: a.env.Config().PostgresPassword,
+		Name: "POSTGRES_PASSWORD",
+		ValueFrom: &v1.EnvVarSource{
+			SecretKeyRef: &v1.SecretKeySelector{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: client.PostgresSecretName,
+				},
+				Key: "postgresql-password",
+			},
+		},
 	}, {
 		Name:  "POSTGRES_DATABASE",
 		Value: a.env.Config().PostgresDBName,
@@ -559,8 +567,11 @@ func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOpt
 	for _, secret := range transform.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: secret})
 	}
-	if a.imagePullSecret != "" {
-		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: a.imagePullSecret})
+	if a.imagePullSecrets != "" {
+		secrets := strings.Split(a.imagePullSecrets, ",")
+		for _, secret := range secrets {
+			imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: secret})
+		}
 	}
 
 	annotations := map[string]string{

@@ -101,7 +101,7 @@ func (pj *pendingJob) load() error {
 			return err
 		}
 		if ci.Error == "" {
-			if ci.Finished != nil {
+			if ci.Finishing != nil {
 				pj.parentDit = datum.NewCommitIterator(pachClient, pj.parentMetaCommit)
 			} else {
 				parentJi, err := pachClient.InspectJob(pj.ji.Job.Pipeline.Name, pj.parentMetaCommit.ID, true)

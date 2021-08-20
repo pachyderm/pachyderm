@@ -242,6 +242,9 @@
         "global": {
             "type": "object",
             "properties": {
+                "imagePullSecrets": {
+                    "type": "array"
+                },
                 "postgresql": {
                     "type": "object",
                     "properties": {
@@ -266,9 +269,6 @@
                     }
                 }
             }
-        },
-        "imagePullSecret": {
-            "type": "string"
         },
         "ingress": {
             "type": "object",
@@ -378,11 +378,25 @@
                         }
                     }
                 },
+                "oauthClientSecret": {
+                    "type": "string"
+                },
                 "podLabels": {
                     "type": "object"
                 },
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
+                },
+                "rbac": {
+                    "type": "object",
+                    "properties": {
+                        "clusterRBAC": {
+                            "type": "boolean"
+                        },
+                        "create": {
+                            "type": "boolean"
+                        }
+                    }
                 },
                 "requireCriticalServersOnly": {
                     "type": "boolean"
@@ -568,6 +582,36 @@
                             "type": "string"
                         }
                     }
+                },
+                "worker": {
+                    "type": "object",
+                    "properties": {
+                        "image": {
+                            "type": "object",
+                            "properties": {
+                                "pullPolicy": {
+                                    "type": "string"
+                                },
+                                "repository": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "serviceAccount": {
+                            "type": "object",
+                            "properties": {
+                                "additionalAnnotations": {
+                                    "type": "object"
+                                },
+                                "create": {
+                                    "type": "boolean"
+                                },
+                                "name": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -593,57 +637,40 @@
                 "enabled": {
                     "type": "boolean"
                 },
-                "resources": {
-                    "type": "object"
-                },
-                "service": {
-                    "type": "object",
-                    "properties": {
-                        "type": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "storageClass": {
+                "fullnameOverride": {
                     "type": "string"
-                }
-            }
-        },
-        "rbac": {
-            "type": "object",
-            "properties": {
-                "clusterRBAC": {
-                    "type": "boolean"
                 },
-                "create": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "worker": {
-            "type": "object",
-            "properties": {
                 "image": {
                     "type": "object",
                     "properties": {
-                        "pullPolicy": {
-                            "type": "string"
-                        },
-                        "repository": {
+                        "tag": {
                             "type": "string"
                         }
                     }
                 },
-                "serviceAccount": {
+                "initdbScripts": {
                     "type": "object",
                     "properties": {
-                        "additionalAnnotations": {
-                            "type": "object"
+                        "dex.sh": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "persistence": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {
+                            "type": "object",
+                            "properties": {
+                                "suite": {
+                                    "type": "string"
+                                }
+                            }
                         },
-                        "create": {
-                            "type": "boolean"
+                        "size": {
+                            "type": "string"
                         },
-                        "name": {
+                        "storageClass": {
                             "type": "string"
                         }
                     }

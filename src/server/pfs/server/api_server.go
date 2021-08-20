@@ -11,6 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -65,8 +68,18 @@ func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	var repoInfo pfs.RepoInfo
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.activateAuth(txnCtx)
+		return a.driver.repos.ReadOnly(ctx).List(&repoInfo, col.DefaultOptions(), func(string) error {
+			err := a.driver.env.AuthServer().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
+				Type: auth.ResourceType_REPO,
+				Name: repoInfo.Repo.Name,
+			})
+			if err != nil && !col.IsErrExists(err) {
+				return err
+			}
+			return nil
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -263,6 +276,18 @@ func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashComm
 	return &types.Empty{}, nil
 }
 
+// DropCommitSet implements the protobuf pfs.DropCommitSet RPC
+func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSetRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return a.driver.dropCommitSet(txnCtx, request.CommitSet)
+	}); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
@@ -337,7 +362,12 @@ func (a *apiServer) InspectBranchInTransaction(txnCtx *txncontext.TransactionCon
 func (a *apiServer) ListBranch(request *pfs.ListBranchRequest, srv pfs.API_ListBranchServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.listBranch(srv.Context(), request.Repo, request.Reverse, srv.Send)
+	if request.Repo == nil {
+		return a.driver.listBranch(srv.Context(), request.Reverse, srv.Send)
+	}
+	return a.txnEnv.WithReadContext(srv.Context(), func(txnCtx *txncontext.TransactionContext) error {
+		return a.driver.listBranchInTransaction(txnCtx, request.Repo, request.Reverse, srv.Send)
+	})
 }
 
 // DeleteBranchInTransaction is identical to DeleteBranch except that it can run
@@ -422,7 +452,11 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			}
 		case *pfs.ModifyFileRequest_CopyFile:
 			cf := mod.CopyFile
-			if err := a.driver.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Datum); err != nil {
+			if err := func() (retErr error) {
+				func() { a.Log(cf, nil, nil, 0) }()
+				defer func(start time.Time) { a.Log(cf, nil, retErr, time.Since(start)) }(time.Now())
+				return a.driver.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Datum)
+			}(); err != nil {
 				return bytesRead, err
 			}
 		case *pfs.ModifyFileRequest_SetCommit:
@@ -714,7 +748,9 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 	})
 }
 
-func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error) {
+func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	filesetID, err := a.driver.getFileSet(ctx, req.Commit)
 	if err != nil {
 		return nil, err
@@ -724,7 +760,9 @@ func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) 
 	}, nil
 }
 
-func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (*types.Empty, error) {
+func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *types.Empty, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.AddFileSetInTransaction(txnCtx, req)
 	}); err != nil {
@@ -745,7 +783,9 @@ func (a *apiServer) AddFileSetInTransaction(txnCtx *txncontext.TransactionContex
 }
 
 // RenewFileSet implements the pfs.RenewFileSet RPC
-func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest) (*types.Empty, error) {
+func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest) (_ *types.Empty, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
 	fsid, err := fileset.ParseID(req.FileSetId)
 	if err != nil {
 		return nil, err

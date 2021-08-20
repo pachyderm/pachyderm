@@ -5,8 +5,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
-	"strings"
 	"syscall"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -100,16 +98,7 @@ func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *do
 		if fi.FileType == pfs.FileType_DIR {
 			return nil
 		}
-		basePath := fi.File.Path
-		if file.Path != "/" {
-			// TODO: Remove right trim when PFS dirs are not encoded with a trailing slash.
-			var err error
-			basePath, err = filepath.Rel(path.Dir(strings.TrimRight(file.Path, "/")), fi.File.Path)
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-		}
-		fullPath := path.Join(storageRoot, basePath)
+		fullPath := path.Join(storageRoot, fi.File.Path)
 		if err := os.MkdirAll(path.Dir(fullPath), 0700); err != nil {
 			return errors.EnsureStack(err)
 		}
