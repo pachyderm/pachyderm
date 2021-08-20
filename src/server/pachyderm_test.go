@@ -5550,6 +5550,38 @@ func TestUnionInput(t *testing.T) {
 			require.Equal(t, 8, len(fileInfos))
 		}
 	})
+
+	t.Run("union alias", func(t *testing.T) {
+		pipeline := tu.UniqueString("pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cp /pfs/in/* '/pfs/out/$RANDOM'",
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewUnionInput(
+				client.NewPFSInputOpts("in", repos[0], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[1], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[2], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[3], "", "/*", "", "", false, false, nil),
+			),
+			"",
+			false,
+		))
+
+		commitInfo, err := c.WaitCommit(pipeline, "master", "")
+		require.NoError(t, err)
+		fileInfos, err := c.ListFileAll(commitInfo.Commit, "")
+		require.NoError(t, err)
+		require.Equal(t, 8, len(fileInfos))
+		dis, err := c.ListDatumAll(pipeline, commitInfo.Commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, 8, len(dis))
+	})
 }
 
 func TestPipelineWithStats(t *testing.T) {
