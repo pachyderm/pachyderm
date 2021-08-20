@@ -2543,20 +2543,6 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			}); err != nil && !errutil.IsNotFoundError(err) {
 				return errors.Wrap(err, "error deleting pipeline repo")
 			}
-
-			if pipelineInfo.Details != nil {
-				if err := pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
-					if input.Cron != nil {
-						return a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
-							Repo:  client.NewRepo(input.Cron.Repo),
-							Force: request.Force,
-						})
-					}
-					return nil
-				}); err != nil {
-					return err
-				}
-			}
 		} else {
 			// Remove branch provenance from output and then delete meta and spec repos
 			// this leaves the repo as a source repo, eliminating pipeline metadata
@@ -2580,6 +2566,22 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
 				return err
 			}
+		}
+	}
+	// delete cron after main repo is deleted or has provenance removed
+	// cron repos are only used to trigger jobs, so don't keep them even with KeepRepo
+	if pipelineInfo.Details != nil {
+		if err := pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
+			if input.Cron != nil {
+				println("QQQ deleting cron", input.Cron.Repo, input.Cron.Name)
+				return a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
+					Repo:  client.NewRepo(input.Cron.Repo),
+					Force: request.Force,
+				})
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
 	}
 
