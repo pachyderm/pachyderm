@@ -6118,7 +6118,6 @@ func TestCronPipeline(t *testing.T) {
 			"",
 			false,
 		))
-		repo := client.NewRepo(fmt.Sprintf("%s_time", pipeline3))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
 		// We'll look at four commits - with one created in each tick
@@ -6126,7 +6125,7 @@ func TestCronPipeline(t *testing.T) {
 		// except the first, which is the default branch head.
 		countBreakFunc := newCountBreakFunc(3)
 		count := 0
-		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(pipeline3), "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				commitInfos, err := c.WaitCommitSetAll(ci.Commit.ID)
 				require.NoError(t, err)
@@ -6172,11 +6171,10 @@ func TestCronPipeline(t *testing.T) {
 		require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file", strings.NewReader("file"), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishCommit(dataRepo, "master", ""))
 
-		repo := client.NewRepo(fmt.Sprintf("%s_time", pipeline4))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 		defer cancel() //cleanup resources
 		countBreakFunc := newCountBreakFunc(2)
-		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(pipeline4), "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				commitInfos, err := c.WaitCommitSetAll(ci.Commit.ID)
 				require.NoError(t, err)
@@ -6245,7 +6243,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
-			client.NewCronInputOpts("time", "", "*/1 * * * *", true), // every minute
+			client.NewCronInputOpts("time", "*/1 * * * *", true), // every minute
 			"",
 			false,
 		))
@@ -6262,11 +6260,11 @@ func TestCronPipeline(t *testing.T) {
 		))
 
 		// subscribe to the pipeline1 cron repo and wait for inputs
-		repo := fmt.Sprintf("%s_%s", pipeline7, "time")
+		repo := client.NewRepo(pipeline7)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
 		countBreakFunc := newCountBreakFunc(1)
-		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				// if the runcron is run too soon, it will have the same timestamp and we won't hit the weird bug
 				time.Sleep(2 * time.Second)
@@ -6284,9 +6282,9 @@ func TestCronPipeline(t *testing.T) {
 				// We expect each of the commits to have just a single file in this case
 				// We check four so that we can make sure the scheduled cron is not messed up by the run crons
 				countBreakFunc := newCountBreakFunc(4)
-				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(repo, "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
-						_, err := c.WaitCommit(repo, "", ci.Commit.ID)
+						_, err := c.WaitCommit(pipeline7, "", ci.Commit.ID)
 						require.NoError(t, err)
 						files, err := c.ListFileAll(ci.Commit, "/")
 						require.NoError(t, err)

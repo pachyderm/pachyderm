@@ -413,7 +413,7 @@ func (m *ppsMaster) monitorCrashingPipeline(ctx context.Context, pipelineInfo *p
 
 func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) error {
 	return pachClient.WithModifyFileClient(
-		client.NewRepo(cron.Repo).NewCommit("master", ""),
+		client.NewSystemRepo(cron.Repo, pfs.CronRepoType).NewCommit(cron.Name, ""),
 		func(m client.ModifyFile) error {
 			if cron.Overwrite {
 				if err := m.DeleteFile("/"); err != nil {
@@ -461,7 +461,7 @@ func (m *ppsMaster) makeCronCommits(ctx context.Context, in *pps.Input) error {
 func (m *ppsMaster) getLatestCronTime(ctx context.Context, in *pps.Input) (time.Time, error) {
 	var latestTime time.Time
 	pachClient := m.a.env.GetPachClient(ctx)
-	files, err := pachClient.ListFileAll(client.NewCommit(in.Cron.Repo, "master", ""), "")
+	files, err := pachClient.ListFileAll(client.NewSystemRepo(in.Cron.Repo, pfs.CronRepoType).NewCommit(in.Cron.Name, ""), "")
 	if err != nil {
 		return latestTime, err
 	} else if err != nil || len(files) == 0 {

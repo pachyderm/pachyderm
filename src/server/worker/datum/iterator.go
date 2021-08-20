@@ -47,11 +47,9 @@ func (pi *pfsIterator) Iterate(cb func(*Meta) error) error {
 	if pi.input == nil {
 		return nil
 	}
-	repo := pi.input.Repo
-	branch := pi.input.Branch
-	commit := pi.input.Commit
 	pattern := pi.input.Glob
-	return pi.pachClient.GlobFile(client.NewCommit(repo, branch, commit), pattern, func(fi *pfs.FileInfo) error {
+	commit := client.NewSystemRepo(pi.input.Repo, pi.input.RepoType).NewCommit(pi.input.Branch, pi.input.Commit)
+	return pi.pachClient.GlobFile(commit, pattern, func(fi *pfs.FileInfo) error {
 		g := glob.MustCompile(pi.input.Glob, '/')
 		// Remove the trailing slash to support glob replace on directory paths.
 		p := strings.TrimRight(fi.File.Path, "/")
@@ -135,11 +133,12 @@ func iterate(crossInputs []*common.Input, iterators []Iterator, cb func(*Meta) e
 
 func newCronIterator(pachClient *client.APIClient, input *pps.CronInput) Iterator {
 	return newPFSIterator(pachClient, &pps.PFSInput{
-		Name:   input.Name,
-		Repo:   input.Repo,
-		Branch: "master",
-		Commit: input.Commit,
-		Glob:   "/*",
+		Name:     input.Name,
+		Repo:     input.Repo,
+		RepoType: pfs.CronRepoType,
+		Branch:   input.Name,
+		Commit:   input.Commit,
+		Glob:     "/*",
 	})
 }
 

@@ -130,9 +130,9 @@ func InputBranches(input *Input) []*pfs.Branch {
 			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{
 					Name: input.Cron.Repo,
-					Type: pfs.UserRepoType,
+					Type: pfs.CronRepoType,
 				},
-				Name: "master",
+				Name: input.Cron.Name,
 			})
 		}
 		return nil

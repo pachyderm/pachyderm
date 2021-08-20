@@ -246,6 +246,9 @@ func (a *apiServer) validateInput(pipelineName string, input *pps.Input) error {
 			if len(input.Cron.Name) == 0 {
 				return errors.Errorf("input must specify a name")
 			}
+			if input.Cron.Repo != pipelineName {
+				return errors.Errorf("cannot use cron repo from other pipeline %s", input.Cron.Repo)
+			}
 			if _, err := cron.ParseStandard(input.Cron.Spec); err != nil {
 				return errors.Wrapf(err, "error parsing cron-spec")
 			}
@@ -1593,7 +1596,7 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 			result = append(result, client.NewBranch(input.Pfs.Repo, input.Pfs.Branch))
 		}
 		if input.Cron != nil {
-			result = append(result, client.NewBranch(input.Cron.Repo, "master"))
+			result = append(result, client.NewSystemRepo(input.Cron.Repo, pfs.CronRepoType).NewBranch(input.Cron.Name))
 		}
 		return nil
 	})
@@ -1618,8 +1621,6 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			switch {
 			case input.Pfs != nil:
 				repo = input.Pfs.Repo
-			case input.Cron != nil:
-				repo = input.Cron.Repo
 			default:
 				return nil // no scope to set: input is not a repo
 			}
@@ -1646,8 +1647,6 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			switch {
 			case input.Pfs != nil:
 				repo = input.Pfs.Repo
-			case input.Cron != nil:
-				repo = input.Cron.Repo
 			default:
 				return nil // no scope to set: input is not a repo
 			}
@@ -1846,60 +1845,8 @@ func (a *apiServer) CreatePipelineInTransaction(
 	if err != nil {
 		return err
 	}
-	// Verify that all input repos exist (create cron and git repos if necessary)
-	if visitErr := pps.VisitInput(newPipelineInfo.Details.Input, func(input *pps.Input) error {
-		if input.Pfs != nil {
-			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx,
-				&pfs.InspectRepoRequest{
-					Repo: client.NewSystemRepo(input.Pfs.Repo, input.Pfs.RepoType),
-				},
-			); err != nil {
-				return err
-			}
-		}
-		if input.Cron != nil {
-			if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
-				&pfs.CreateRepoRequest{
-					Repo:        client.NewRepo(input.Cron.Repo),
-					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
-				},
-			); err != nil && !errutil.IsAlreadyExistError(err) {
-				return err
-			}
-		}
-		return nil
-	}); visitErr != nil {
-		return visitErr
-	}
 
-	// Authorize pipeline creation
-	operation := pipelineOpCreate
-	if request.Update {
-		operation = pipelineOpUpdate
-	}
-	if err := a.authorizePipelineOpInTransaction(txnCtx, operation, newPipelineInfo.Details.Input, newPipelineInfo.Pipeline.Name); err != nil {
-		return err
-	}
 	update := request.Update && oldPipelineInfo != nil
-
-	var (
-		// provenance for the pipeline's output branch (includes the spec branch)
-		provenance = append(branchProvenance(newPipelineInfo.Details.Input),
-			client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"))
-		outputBranch = client.NewBranch(pipelineName, newPipelineInfo.Details.OutputBranch)
-		metaBranch   = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch(newPipelineInfo.Details.OutputBranch)
-	)
-
-	// Get the expected number of workers for this pipeline
-	if parallelism, err := getExpectedNumWorkers(newPipelineInfo); err != nil {
-		return err
-	} else {
-		newPipelineInfo.Parallelism = uint64(parallelism)
-	}
-
-	newPipelineInfo.State = pps.PipelineState_PIPELINE_STARTING
-	newPipelineInfo.Type = pipelineTypeFromInfo(newPipelineInfo)
-
 	if !update {
 		// Create output and spec repos
 		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
@@ -1920,6 +1867,66 @@ func (a *apiServer) CreatePipelineInTransaction(
 			return errors.Wrapf(err, "error creating spec repo for %s", pipelineName)
 		}
 	}
+
+	// Verify that all input repos exist (create cron repo and branches if necessary)
+	if visitErr := pps.VisitInput(newPipelineInfo.Details.Input, func(input *pps.Input) error {
+		if input.Pfs != nil {
+			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx,
+				&pfs.InspectRepoRequest{
+					Repo: client.NewSystemRepo(input.Pfs.Repo, input.Pfs.RepoType),
+				},
+			); err != nil {
+				return err
+			}
+		}
+		if input.Cron != nil {
+			if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
+				&pfs.CreateRepoRequest{
+					Repo:        client.NewSystemRepo(pipelineName, pfs.CronRepoType),
+					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
+				},
+			); err != nil && !errutil.IsAlreadyExistError(err) {
+				return err
+			}
+			if err := a.env.PfsServer().CreateBranchInTransaction(txnCtx,
+				&pfs.CreateBranchRequest{
+					Branch: client.NewSystemRepo(pipelineName, pfs.CronRepoType).NewBranch(input.Cron.Name),
+				},
+			); err != nil && !errutil.IsAlreadyExistError(err) {
+				return err
+			}
+		}
+		return nil
+	}); visitErr != nil {
+		return visitErr
+	}
+
+	// Authorize pipeline creation
+	operation := pipelineOpCreate
+	if request.Update {
+		operation = pipelineOpUpdate
+	}
+	if err := a.authorizePipelineOpInTransaction(txnCtx, operation, newPipelineInfo.Details.Input, newPipelineInfo.Pipeline.Name); err != nil {
+		return err
+	}
+
+	var (
+		// provenance for the pipeline's output branch (includes the spec branch)
+		provenance = append(branchProvenance(newPipelineInfo.Details.Input),
+			client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"))
+		outputBranch = client.NewBranch(pipelineName, newPipelineInfo.Details.OutputBranch)
+		metaBranch   = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch(newPipelineInfo.Details.OutputBranch)
+	)
+
+	// Get the expected number of workers for this pipeline
+	if parallelism, err := getExpectedNumWorkers(newPipelineInfo); err != nil {
+		return err
+	} else {
+		newPipelineInfo.Parallelism = uint64(parallelism)
+	}
+
+	newPipelineInfo.State = pps.PipelineState_PIPELINE_STARTING
+	newPipelineInfo.Type = pipelineTypeFromInfo(newPipelineInfo)
 
 	if request.SpecCommit != nil {
 		if update {
@@ -2121,7 +2128,7 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 				input.Cron.Start = start
 			}
 			if input.Cron.Repo == "" {
-				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineName, input.Cron.Name)
+				input.Cron.Repo = pipelineName
 			}
 		}
 		return nil
@@ -2566,22 +2573,12 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
 				return err
 			}
-		}
-	}
-	// delete cron after main repo is deleted or has provenance removed
-	// cron repos are only used to trigger jobs, so don't keep them even with KeepRepo
-	if pipelineInfo.Details != nil {
-		if err := pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
-			if input.Cron != nil {
-				println("QQQ deleting cron", input.Cron.Repo, input.Cron.Name)
-				return a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
-					Repo:  client.NewRepo(input.Cron.Repo),
-					Force: request.Force,
-				})
+			if err := a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
+				Repo:  client.NewSystemRepo(pipelineName, pfs.CronRepoType),
+				Force: request.Force,
+			}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
+				return err
 			}
-			return nil
-		}); err != nil {
-			return err
 		}
 	}
 

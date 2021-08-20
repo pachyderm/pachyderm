@@ -17,6 +17,7 @@ const (
 	UserRepoType = "user"
 	MetaRepoType = "meta"
 	SpecRepoType = "spec"
+	CronRepoType = "cron"
 )
 
 // NewHash returns a hash that PFS uses internally to compute checksums.
