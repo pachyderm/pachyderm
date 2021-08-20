@@ -3117,7 +3117,7 @@ func TestAutoscalingStandby(t *testing.T) {
 		// TODO(2.0 required): this test is flaky - it has been worked around by
 		// extending timeouts, but there should not be such a severe performance
 		// regression here.  Need to find out where the slowness is coming from.
-		t.Skip("flaky test")
+		// t.Skip("flaky test")
 		require.NoError(t, c.DeleteAll())
 
 		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
