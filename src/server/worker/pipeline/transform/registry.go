@@ -37,12 +37,11 @@ const (
 )
 
 type hasher struct {
-	name string
 	salt string
 }
 
 func (h *hasher) Hash(inputs []*common.Input) string {
-	return common.HashDatum(h.name, h.salt, inputs)
+	return common.HashDatum(h.salt, inputs)
 }
 
 type registry struct {
@@ -116,7 +115,6 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 		logger: reg.logger.WithJob(jobInfo.Job.ID),
 		ji:     jobInfo,
 		hasher: &hasher{
-			name: pi.Pipeline.Name,
 			salt: pi.Details.Salt,
 		},
 		noSkip: pi.Details.ReprocessSpec == client.ReprocessSpecEveryJob || pi.Details.S3Out,

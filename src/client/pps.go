@@ -2,8 +2,6 @@ package client
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"io"
 	"time"
 
@@ -83,17 +81,6 @@ func NewJob(pipelineName string, jobID string) *pps.Job {
 // NewJobSet creates a pps.JobSet.
 func NewJobSet(id string) *pps.JobSet {
 	return &pps.JobSet{ID: id}
-}
-
-// DatumTagPrefix hashes a pipeline salt to a string of a fixed size for use as
-// the prefix for datum output trees. This prefix allows us to do garbage
-// collection correctly.
-func DatumTagPrefix(salt string) string {
-	// We need to hash the salt because UUIDs are not necessarily
-	// random in every bit.
-	h := sha256.New()
-	h.Write([]byte(salt))
-	return hex.EncodeToString(h.Sum(nil))[:4]
 }
 
 // NewPFSInput returns a new PFS input. It only includes required options.
