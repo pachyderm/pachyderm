@@ -75,7 +75,8 @@ const (
 )
 
 var (
-	suite = "pachyderm"
+	suite                 = "pachyderm"
+	errIncompleteDeletion = fmt.Errorf("pipeline may not be fully deleted, provenance may still be intact")
 )
 
 // apiServer implements the public interface of the Pachyderm Pipeline System,
@@ -397,26 +398,13 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		}
 	}
 
-	// Check that the user is authorized to write to the output repo.
-	// Note: authorizePipelineOp is called before CreateRepo creates a
-	// PipelineInfo proto in etcd, so PipelineManager won't have created an output
-	// repo yet, and it's possible to check that the output repo doesn't exist
-	// (if it did exist, we'd have to check that the user has permission to write
-	// to it, and this is simpler)
+	// Check that the user is authorized to write to the output repo
 	if output != "" {
 		var required auth.Permission
 		switch operation {
 		case pipelineOpCreate:
-			if _, err := a.env.PfsServer().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-				Repo: client.NewRepo(output),
-			}); err == nil {
-				// the repo already exists, so we need the same permissions as update
-				required = auth.Permission_REPO_WRITE
-			} else if errutil.IsNotFoundError(err) {
-				return nil
-			} else {
-				return err
-			}
+			// no permissions needed, we will error later if the repo already exists
+			return nil
 		case pipelineOpListDatum, pipelineOpGetLogs:
 			required = auth.Permission_REPO_READ
 		case pipelineOpUpdate, pipelineOpStartStop:
@@ -1921,7 +1909,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
 		} else if errutil.IsAlreadyExistError(err) {
-			return errors.Errorf("pipeline %q cannot be created because a repo with the same name already exists")
+			return errors.Errorf("pipeline %q cannot be created because a repo with the same name already exists", pipelineName)
 		}
 		if err := a.env.PfsServer().CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
@@ -2448,10 +2436,19 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	} else if err != nil {
 		return errors.Wrapf(err, "error stopping pipeline %s", pipelineName)
 	}
-	// perform the rest of the delete in a transaction
-	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.deletePipelineInTransaction(txnCtx, request)
-	})
+	// perform the rest of the deletion in a transaction
+	var deleteErr error
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		deleteErr = a.deletePipelineInTransaction(txnCtx, request)
+		// we still want deletion to succeed if it was merely incomplete, but warn the caller
+		if errors.Is(deleteErr, errIncompleteDeletion) {
+			return nil
+		}
+		return deleteErr
+	}); err != nil {
+		return err
+	}
+	return deleteErr
 }
 
 func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeletePipelineRequest) error {
@@ -2532,22 +2529,6 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		return err
 	}
 
-	// only do this if we were able to read the spec file
-	if pipelineInfo.Details != nil {
-		// Delete cron input repos
-		if !request.KeepRepo {
-			pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
-				if input.Cron != nil {
-					return a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
-						Repo:  client.NewRepo(input.Cron.Repo),
-						Force: request.Force,
-					})
-				}
-				return nil
-			})
-		}
-	}
-
 	// Delete all past PipelineInfos
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).DeleteByIndex(ppsdb.PipelinesNameIndex, pipelineName); err != nil {
 		return errors.Wrapf(err, "collection.Delete")
@@ -2561,6 +2542,20 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 				Force: request.Force,
 			}); err != nil && !errutil.IsNotFoundError(err) {
 				return errors.Wrap(err, "error deleting pipeline repo")
+			}
+
+			if pipelineInfo.Details != nil {
+				if err := pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
+					if input.Cron != nil {
+						return a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
+							Repo:  client.NewRepo(input.Cron.Repo),
+							Force: request.Force,
+						})
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
 			}
 		} else {
 			// Remove branch provenance from output and then delete meta and spec repos
@@ -2586,10 +2581,11 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 				return err
 			}
 			if pipelineInfo.Details == nil {
-				return errors.New("pipeline deletion incomplete, provenance may still be intact")
+				return errIncompleteDeletion
 			}
 		}
 	}
+
 	return nil
 }
 

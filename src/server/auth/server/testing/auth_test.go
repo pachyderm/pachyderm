@@ -1364,11 +1364,8 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	require.Matches(t, "no authentication token", err.Error())
 }
 
-// Creating a pipeline when the output repo already exists gives is allowed
-// (assuming write permission)
-// this used to return a specific error regardless of permissions, in contrast
-// to the auth-disabled behavior
-func TestCreatePipelineRepoAlreadyExistsPermissions(t *testing.T) {
+// Creating a pipeline when the output repo already exists gives is not allowed
+func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1396,11 +1393,11 @@ func TestCreatePipelineRepoAlreadyExistsPermissions(t *testing.T) {
 		false, // Don't update -- we want an error
 	)
 	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
+	require.Matches(t, "already exists", err.Error())
 
-	// alice gives bob writer scope on pipeline output repo
+	// alice gives bob writer scope on pipeline output repo, but nothing changes
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoWriterRole}))
-	require.NoError(t, bobClient.CreatePipeline(
+	err = bobClient.CreatePipeline(
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1409,7 +1406,9 @@ func TestCreatePipelineRepoAlreadyExistsPermissions(t *testing.T) {
 		client.NewPFSInput(inputRepo, "/*"),
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
-	))
+	)
+	require.YesError(t, err)
+	require.Matches(t, "already exists", err.Error())
 }
 
 // TestAuthorizedEveryone tests that Authorized(user, repo, NONE) tests that the
