@@ -204,6 +204,9 @@ func ParseBranch(arg string) (*pfs.Branch, error) {
 	if err != nil {
 		return nil, err
 	}
+	if commit.ID != "" {
+		return nil, errors.Errorf("invalid branch \"%s\": cannot specify a commit or ancestry", arg)
+	}
 	return commit.Branch, nil
 }
 
