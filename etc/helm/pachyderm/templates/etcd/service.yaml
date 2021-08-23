@@ -1,0 +1,29 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: etcd
+    suite: pachyderm
+    {{- if .Values.etcd.service.labels }}
+    {{- toYaml .Values.etcd.service.labels | nindent 4 }}
+    {{- end }}
+  name: etcd
+  namespace: {{ .Release.Namespace }}
+  {{- if .Values.etcd.service.annotations }}
+  annotations: {{ toYaml .Values.etcd.service.annotations | nindent 3 }}
+  {{- end }}
+spec:
+  ports:
+  - name: client-port
+    {{- if eq .Values.etcd.service.type "NodePort" }}
+    nodePort: 32379
+    {{- end }}
+    port: 2379
+    targetPort: client-port
+  selector:
+    app: etcd
+  type: {{ .Values.etcd.service.type }}

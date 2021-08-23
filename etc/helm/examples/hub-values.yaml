@@ -1,0 +1,63 @@
+dash:
+  image:
+    tag: "0.5.58"
+  ingress:
+    enabled: true
+    tls:
+      enabled: true
+      secretName: "dash-tls"
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+    host: "dash.test"
+
+etcd:
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2G
+  service:
+    annotations:
+      prometheus.io/port: "2379"
+      prometheus.io/scrape: "true"
+  storageClass: "ssd-storage-class"
+  # storageSize is configured per workspace.
+  storageSize: "3Gi"
+
+pachd:
+  blockCacheBytes: "0G"
+  exposeDockerSocket: true
+  goMaxProcs: 3
+  image:
+    # tag is configured per workspace.
+    tag: "1.13.0"
+  lokiLogging: true
+  # metricsEndpoint is configured per Hub instance.
+  metricsEndpoint: "https://metrics.test/api/v1/metrics"
+  service:
+    type: "ClusterIP"
+  externalService:
+    enabled: true
+    loadBalancerIP: "192.168.1.1"
+    apiGRPCPort: 31400
+    apiHTTPPort: 30652
+    s3GatewayPort: 30600
+  storage:
+    backend: "GOOGLE"
+    google:
+      # bucket is configured per workspace.
+      bucket: "test-bucket"
+      cred: ""
+      # serviceAccountName is configured per workspace.
+      serviceAccountName: "test-service-account"
+    putFileConcurrencyLimit: 10
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2G
+    requests:
+      cpu: "1"
+      memory: 2G
+  tls:
+    enabled: true
+    secretName: "dash-tls"
+

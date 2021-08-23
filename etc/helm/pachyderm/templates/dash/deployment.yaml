@@ -1,0 +1,50 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.dash.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: dash
+    suite: pachyderm
+  name: dash
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: dash
+      suite: pachyderm
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: dash
+        suite: pachyderm
+        {{- if .Values.dash.podLabels }}
+        {{- toYaml .Values.dash.podLabels | nindent 8 }}
+        {{- end }}
+      name: dash
+      namespace: {{ .Release.Namespace }}
+    spec:
+      containers:
+      - image: "{{ .Values.dash.image.repository }}:{{ .Values.dash.image.tag }}"
+        imagePullPolicy: {{ .Values.dash.image.pullPolicy }}
+        {{- if .Values.imagePullSecret }}
+        imagePullSecret: {{ .Values.imagePullSecret | quote }}
+        {{- end }}
+        name: dash
+        ports:
+        - containerPort: 8080
+          name: dash-http
+        {{- if .Values.dash.resources }}
+        resources: {{ toYaml .Values.dash.resources | nindent 10 }}
+        {{- end }}
+      - image: pachyderm/grpc-proxy:0.4.10
+        imagePullPolicy: IfNotPresent
+        name: grpc-proxy
+        ports:
+        - containerPort: 8081
+          name: grpc-proxy-http
+{{ end -}}

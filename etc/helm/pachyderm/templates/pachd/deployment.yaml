@@ -1,0 +1,378 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- $randHostPath := printf "/var/pachyderm-%s/" (randAlphaNum 5) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pachd
+    suite: pachyderm
+  name: pachd
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pachd
+      suite: pachyderm
+  strategy: {}
+  template:
+    metadata:
+      {{- if .Values.pachd.storage.amazon.iamRole }}
+      annotations:
+        iam.amazonaws.com/role: {{ .Values.pachd.storage.amazon.iamRole }}
+      {{- end }}
+      labels:
+        app: pachd
+        suite: pachyderm
+        {{- if .Values.pachd.podLabels }}
+        {{- toYaml .Values.pachd.podLabels | nindent 8 }}
+        {{- end }}
+      name: pachd
+      namespace: {{ .Release.Namespace }}
+    spec:
+      {{-  if .Values.pachd.affinity }}
+      affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
+      {{- end }}
+      containers:
+      - command:
+        - /pachd
+        env:
+        - name: LOKI_LOGGING
+          value: {{ .Values.pachd.lokiLogging | quote}}
+        - name: PACH_ROOT
+          value: "/pach"
+        - name: ETCD_PREFIX
+          #value:
+        - name: NUM_SHARDS
+          value: {{ required ".Values.pachd.numShards is required." .Values.pachd.numShards | quote }}
+        - name: STORAGE_BACKEND
+          value: {{ required ".Values.pachd.storage.backend is required." .Values.pachd.storage.backend | quote }}
+          {{- if eq .Values.pachd.storage.backend "LOCAL" }}
+        - name: STORAGE_HOST_PATH
+          value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
+          {{- end }}
+        - name: WORKER_IMAGE
+          value: "{{ .Values.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        - name: IMAGE_PULL_SECRET
+          value: {{ .Values.imagePullSecret | quote }}
+        - name: WORKER_SIDECAR_IMAGE
+          value: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        - name: WORKER_IMAGE_PULL_POLICY
+          value: {{ .Values.worker.image.pullPolicy | quote }}
+        - name: WORKER_SERVICE_ACCOUNT
+          value: {{ .Values.worker.serviceAccount.name | quote }}
+        - name: PACHD_VERSION
+          value: "{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        - name: METRICS
+          value: {{ .Values.pachd.metrics.enabled | quote }}
+        {{- if and .Values.pachd.goMaxProcs (gt .Values.pachd.goMaxProcs 0.0)}}
+        - name: GOMAXPROCS
+          value: {{ .Values.pachd.goMaxProcs | quote }}
+        {{- end }}
+        {{- if .Values.pachd.metricsEndpoint}}
+        - name: METRICS_ENDPOINT
+          value: "{{ .Values.pachd.metricsEndpoint }}"
+        {{- end }}
+        - name: LOG_LEVEL
+          value: {{ .Values.pachd.logLevel }}
+        - name: BLOCK_CACHE_BYTES
+          value: {{ .Values.pachd.blockCacheBytes | quote }}
+          {{- if.Values.pachd.storage.amazon.iamRole }}
+        - name: IAM_ROLE
+          value: {{ .Values.pachd.storage.amazon.iamRole | quote }}
+          {{- end }}
+        - name: NO_EXPOSE_DOCKER_SOCKET
+          value: {{ .Values.pachd.exposeDockerSocket | not | quote }}
+        - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
+          value: {{ .Values.pachd.authenticationDisabledForTesting | quote }}
+        - name: PACH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        {{- if and .Values.pachd.resources .Values.pachd.resources.memory }}
+        - name: PACHD_MEMORY_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              containerName: pachd
+              divisor: "0"
+              resource: requests.memory
+        {{- end }}
+        - name: EXPOSE_OBJECT_API
+          value: {{ .Values.pachd.exposeObjectAPI | quote }}
+        {{- if .Values.pachd.clusterDeploymentID }}
+        - name: CLUSTER_DEPLOYMENT_ID
+          value: {{ .Values.pachd.clusterDeploymentID | quote }}
+        {{- end }}
+        - name: REQUIRE_CRITICAL_SERVERS_ONLY
+          value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
+        - name: PACHD_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: PPS_WORKER_GRPC_PORT
+          value: {{ .Values.pachd.ppsWorkerGRPCPort | quote }}
+        {{- if eq .Values.pachd.storage.backend "GOOGLE" }}
+        - name: GOOGLE_BUCKET
+          valueFrom:
+            secretKeyRef:
+              key: google-bucket
+              name: pachyderm-storage-secret
+              optional: true
+        - name: GOOGLE_CRED
+          valueFrom:
+            secretKeyRef:
+              key: google-cred
+              name: pachyderm-storage-secret
+              optional: true
+        {{- end }}
+        {{- if eq .Values.pachd.storage.backend "MICROSOFT" }}
+        - name: MICROSOFT_CONTAINER
+          valueFrom:
+            secretKeyRef:
+              key: microsoft-container
+              name: pachyderm-storage-secret
+              optional: true
+        - name: MICROSOFT_ID
+          valueFrom:
+            secretKeyRef:
+              key: microsoft-id
+              name: pachyderm-storage-secret
+              optional: true
+        - name: MICROSOFT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: microsoft-secret
+              name: pachyderm-storage-secret
+              optional: true
+        {{- end }}
+        {{- if eq .Values.pachd.storage.backend "MINIO" }}
+        - name: MINIO_BUCKET
+          valueFrom:
+            secretKeyRef:
+              key: minio-bucket
+              name: pachyderm-storage-secret
+              optional: true
+        - name: MINIO_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: minio-endpoint
+              name: pachyderm-storage-secret
+              optional: true
+        - name: MINIO_ID
+          valueFrom:
+            secretKeyRef:
+              key: minio-id
+              name: pachyderm-storage-secret
+              optional: true
+        - name: MINIO_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: minio-secret
+              name: pachyderm-storage-secret
+              optional: true
+        - name: MINIO_SECURE
+          valueFrom:
+            secretKeyRef:
+              key: minio-secure
+              name: pachyderm-storage-secret
+              optional: true
+        - name: MINIO_SIGNATURE
+          valueFrom:
+            secretKeyRef:
+              key: minio-signature
+              name: pachyderm-storage-secret
+              optional: true
+        {{- end }}
+        {{- if eq .Values.pachd.storage.backend "AMAZON" }}
+        - name: AMAZON_REGION
+          valueFrom:
+            secretKeyRef:
+              key: amazon-region
+              name: pachyderm-storage-secret
+              optional: true
+        - name: AMAZON_BUCKET
+          valueFrom:
+            secretKeyRef:
+              key: amazon-bucket
+              name: pachyderm-storage-secret
+              optional: true
+        - name: AMAZON_ID
+          valueFrom:
+            secretKeyRef:
+              key: amazon-id
+              name: pachyderm-storage-secret
+              optional: true
+        - name: AMAZON_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: amazon-secret
+              name: pachyderm-storage-secret
+              optional: true
+        - name: AMAZON_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: amazon-token
+              name: pachyderm-storage-secret
+              optional: true
+        - name: AMAZON_VAULT_ADDR
+          valueFrom:
+            secretKeyRef:
+              key: amazon-vault-addr
+              name: pachyderm-storage-secret
+              optional: true
+        - name: AMAZON_VAULT_ROLE
+          valueFrom:
+            secretKeyRef:
+              key: amazon-vault-role
+              name: pachyderm-storage-secret
+              optional: true
+        - name: AMAZON_VAULT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: amazon-vault-token
+              name: pachyderm-storage-secret
+              optional: true
+        - name: AMAZON_DISTRIBUTION
+          valueFrom:
+            secretKeyRef:
+              key: amazon-distribution
+              name: pachyderm-storage-secret
+              optional: true
+        - name: CUSTOM_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: custom-endpoint
+              name: pachyderm-storage-secret
+              optional: true
+        - name: RETRIES
+          valueFrom:
+            secretKeyRef:
+              key: retries
+              name: pachyderm-storage-secret
+              optional: true
+        - name: TIMEOUT
+          valueFrom:
+            secretKeyRef:
+              key: timeout
+              name: pachyderm-storage-secret
+              optional: true
+        - name: UPLOAD_ACL
+          valueFrom:
+            secretKeyRef:
+              key: upload-acl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: REVERSE
+          valueFrom:
+            secretKeyRef:
+              key: reverse
+              name: pachyderm-storage-secret
+              optional: true
+        - name: PART_SIZE
+          valueFrom:
+            secretKeyRef:
+              key: part-size
+              name: pachyderm-storage-secret
+              optional: true
+        - name: MAX_UPLOAD_PARTS
+          valueFrom:
+            secretKeyRef:
+              key: max-upload-parts
+              name: pachyderm-storage-secret
+              optional: true
+        - name: DISABLE_SSL
+          valueFrom:
+            secretKeyRef:
+              key: disable-ssl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: NO_VERIFY_SSL
+          valueFrom:
+            secretKeyRef:
+              key: no-verify-ssl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: OBJ_LOG_OPTS
+          valueFrom:
+            secretKeyRef:
+              key: log-options
+              name: pachyderm-storage-secret
+              optional: true
+        {{- end }}
+        - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
+          value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
+        - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
+          value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
+        - name: STORAGE_V2
+          value: "false"
+        image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
+        {{- if .Values.imagePullSecret }}
+        imagePullSecret: {{ .Values.imagePullSecret | quote }}
+        {{- end }}
+        name: pachd
+        ports:
+        - containerPort: 600
+          name: s3gateway-port
+          protocol: TCP
+        - containerPort: 650
+          name: api-grpc-port
+          protocol: TCP
+        - containerPort: 652
+          name: api-http-port
+          protocol: TCP
+        - containerPort: 653
+          name: peer-port
+          protocol: TCP
+        - containerPort: 655
+          name: api-git-port
+          protocol: TCP
+        - containerPort: 654
+          name: saml-port
+          protocol: TCP
+        - containerPort: 657
+          name: oidc-port
+          protocol: TCP
+        - containerPort: 656
+          name: prom-metrics
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
+        {{- if .Values.pachd.resources }}
+        resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /pach
+          name: pach-disk
+        - mountPath: /pachyderm-storage-secret
+          name: pachyderm-storage-secret
+        {{- if .Values.pachd.tls.enabled }}
+        - mountPath: /pachd-tls-cert
+          name: pachd-tls-cert
+        {{- end }}
+      {{- if .Values.pachd.serviceAccount.name }}
+      serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
+      {{- end }}
+      volumes:
+      - name: pach-disk
+        {{- if eq .Values.pachd.storage.backend "LOCAL" }}
+        hostPath:
+          path: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
+          type: DirectoryOrCreate
+        {{- end }}
+      - name: pachyderm-storage-secret
+        secret:
+          secretName: pachyderm-storage-secret
+      {{- if .Values.pachd.tls.enabled }}
+      - name: pachd-tls-cert
+        secret:
+          secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
+      {{- end }}
