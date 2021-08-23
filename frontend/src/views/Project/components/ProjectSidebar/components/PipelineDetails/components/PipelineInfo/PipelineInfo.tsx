@@ -6,6 +6,7 @@ import Description from '@dash-frontend/components/Description';
 import PipelineStateComponent from '@dash-frontend/components/PipelineState';
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import styles from './PipelineInfo.module.css';
@@ -19,6 +20,12 @@ const PipelineInfo = () => {
       <Description term="Pipeline Status" loading={loading}>
         {pipeline && <PipelineStateComponent state={pipeline.state} />}
       </Description>
+
+      {pipeline?.reason && (
+        <Description term="Status Reason" loading={loading}>
+          {extractAndShortenIds(pipeline.reason)}
+        </Description>
+      )}
 
       <Description term="Pipeline Type" loading={loading}>
         {capitalize(pipeline?.type)}

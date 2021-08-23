@@ -45,6 +45,8 @@ const tutorial = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_FAILURE,
+    reason:
+      'datum 64b95f0fe1a787b6c26ec7ede800be6f2b97616f3224592d91cbfe1cfccd00a1 failed',
     createdAt: {seconds: 1614126189, nanos: 0},
     startedAt: {seconds: 1614126191, nanos: 0},
     finishedAt: {seconds: 1614126194, nanos: 0},
@@ -54,6 +56,26 @@ const tutorial = [
         {pfs: {repo: 'edges', name: 'edges', branch: 'master'}},
         {pfs: {repo: 'images', name: 'images', branch: 'master'}},
       ],
+    },
+    pipelineVersion: 1,
+    dataTotal: 5,
+    dataFailed: 4,
+    datumTries: 3,
+    salt: 'd5631d7df40d4b1195bc46f1f146d6a5',
+    stats: {
+      downloadTime: {
+        nanos: 269391100,
+        seconds: 10,
+      },
+      processTime: {
+        seconds: 20,
+        nanos: 531186700,
+      },
+      uploadTime: {
+        seconds: 30,
+        nanos: 231186700,
+      },
+      downloadBytes: 2896,
     },
   }),
 ];

@@ -8,5 +8,6 @@ export const JobOverviewFragment = gql`
     startedAt
     finishedAt
     pipelineName
+    reason
   }
 `;

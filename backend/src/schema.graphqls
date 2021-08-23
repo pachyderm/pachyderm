@@ -116,6 +116,7 @@ type Pipeline {
   s3OutputRepo: String
   egress: Boolean!
   jsonSpec: String!
+  reason: String
 }
 
 type InputPipeline {
@@ -168,6 +169,8 @@ type Job {
   inputString: String
   inputBranch: String
   outputBranch: String
+  reason: String
+  jsonDetails: String!
 }
 
 enum NodeType {

@@ -153,6 +153,8 @@ export type Job = {
   inputString?: Maybe<Scalars['String']>;
   inputBranch?: Maybe<Scalars['String']>;
   outputBranch?: Maybe<Scalars['String']>;
+  reason?: Maybe<Scalars['String']>;
+  jsonDetails: Scalars['String'];
 };
 
 export type JobQueryArgs = {
@@ -302,6 +304,7 @@ export type Pipeline = {
   s3OutputRepo?: Maybe<Scalars['String']>;
   egress: Scalars['Boolean'];
   jsonSpec: Scalars['String'];
+  reason?: Maybe<Scalars['String']>;
 };
 
 export type PipelineQueryArgs = {
@@ -925,6 +928,8 @@ export type JobResolvers<
     ParentType,
     ContextType
   >;
+  reason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  jsonDetails?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1094,6 +1099,7 @@ export type PipelineResolvers<
   >;
   egress?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   jsonSpec?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  reason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1369,7 +1375,13 @@ export type IResolvers<ContextType = Context> = Resolvers<ContextType>;
 
 export type JobOverviewFragment = {__typename?: 'Job'} & Pick<
   Job,
-  'id' | 'state' | 'createdAt' | 'startedAt' | 'finishedAt' | 'pipelineName'
+  | 'id'
+  | 'state'
+  | 'createdAt'
+  | 'startedAt'
+  | 'finishedAt'
+  | 'pipelineName'
+  | 'reason'
 >;
 
 export type JobSetFieldsFragment = {__typename?: 'JobSet'} & Pick<
@@ -1529,7 +1541,7 @@ export type JobQueryVariables = Exact<{
 export type JobQuery = {__typename?: 'Query'} & {
   job: {__typename?: 'Job'} & Pick<
     Job,
-    'inputString' | 'inputBranch' | 'outputBranch'
+    'inputString' | 'inputBranch' | 'outputBranch' | 'reason' | 'jsonDetails'
   > & {
       transform?: Maybe<
         {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
@@ -1622,6 +1634,7 @@ export type PipelineQuery = {__typename?: 'Query'} & {
     | 's3OutputRepo'
     | 'egress'
     | 'jsonSpec'
+    | 'reason'
   >;
 };
 

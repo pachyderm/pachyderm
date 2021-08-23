@@ -37,7 +37,25 @@ const derivePipelineType = (pipelineInfo: PipelineInfo.AsObject) => {
   return PipelineType.STANDARD;
 };
 
-const deriveJSONSpec = (pipelineInfo: PipelineInfo.AsObject) => {
+const deriveJSONJobDetails = (jobInfo: JobInfo.AsObject) => {
+  const spec = {
+    pipelineVersion: jobInfo.pipelineVersion,
+    dataTotal: jobInfo.dataTotal,
+    dataFailed: jobInfo.dataFailed,
+    stats: jobInfo.stats,
+    salt: jobInfo.details?.salt,
+    datumTries: jobInfo.details?.datumTries,
+  };
+
+  const simplifiedSpec = omitByDeep(
+    spec,
+    (val, _) => !val || (typeof val === 'object' && isEmpty(val)),
+  );
+
+  return JSON.stringify(simplifiedSpec, null, 2);
+};
+
+const deriveJSONPipelineSpec = (pipelineInfo: PipelineInfo.AsObject) => {
   const spec = {
     metadata: pipelineInfo.details?.metadata,
     transform: pipelineInfo.details?.transform,
@@ -95,7 +113,8 @@ export const pipelineInfoToGQLPipeline = (
         ? `s3//${pipelineInfo.pipeline.name}`
         : undefined,
     egress: Boolean(pipelineInfo.details?.egress),
-    jsonSpec: deriveJSONSpec(pipelineInfo),
+    jsonSpec: deriveJSONPipelineSpec(pipelineInfo),
+    reason: pipelineInfo.reason,
   };
 };
 
@@ -103,6 +122,7 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
   return {
     id: jobInfo.job?.id || '',
     state: toGQLJobState(jobInfo.state),
+    reason: jobInfo.reason,
     createdAt: jobInfo.created?.seconds,
     startedAt: jobInfo.started?.seconds,
     finishedAt: jobInfo.finished?.seconds,
@@ -113,6 +133,7 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
       : undefined,
     inputBranch: jobInfo.details?.input?.pfs?.branch,
     outputBranch: jobInfo.outputCommit?.branch?.name,
+    jsonDetails: deriveJSONJobDetails(jobInfo),
   };
 };
 

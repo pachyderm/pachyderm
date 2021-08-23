@@ -1,0 +1,13 @@
+.base {
+  color: var(--pachyderm-plum);
+  margin-right: 0.25rem;
+}
+
+.icon.hide {
+  display: none;
+}
+  
+.icon {
+  transform: scale(0.75);
+  vertical-align: text-bottom;
+}

@@ -13,6 +13,7 @@ import JSONBlock from '@dash-frontend/components/JSONBlock';
 import JsonSpec from '@dash-frontend/components/JsonSpec';
 import {useJob} from '@dash-frontend/hooks/useJob';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {ProjectRouteParams} from '@dash-frontend/lib/types';
 import {
@@ -154,6 +155,17 @@ const InfoPanel = () => {
       >
         {job?.state ? readableJobState(job.state) : 'N/A'}
       </Description>
+
+      {job?.reason && (
+        <Description
+          term="Reason"
+          loading={loading}
+          data-testid="InfoPanel__reason"
+        >
+          {extractAndShortenIds(job.reason)}
+        </Description>
+      )}
+
       <Description
         term="Started"
         loading={loading}
@@ -161,6 +173,7 @@ const InfoPanel = () => {
       >
         {started}
       </Description>
+
       <Description
         term="Duration"
         loading={loading}
@@ -195,6 +208,19 @@ const InfoPanel = () => {
         data-testid="InfoPanel__transform"
       >
         {transformString}
+      </Description>
+
+      <Description
+        term="Details"
+        lines={9}
+        loading={loading}
+        data-testid="InfoPanel__details"
+      >
+        {job?.jsonDetails ? (
+          <JsonSpec jsonString={job.jsonDetails} projectId={projectId} />
+        ) : (
+          'N/A'
+        )}
       </Description>
     </dl>
   );

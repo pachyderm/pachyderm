@@ -15,6 +15,7 @@ export const GET_PIPELINE_QUERY = gql`
       s3OutputRepo
       egress
       jsonSpec
+      reason
     }
   }
 `;

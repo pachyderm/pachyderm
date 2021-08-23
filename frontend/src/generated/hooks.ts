@@ -12,6 +12,7 @@ export const JobOverviewFragmentDoc = gql`
     startedAt
     finishedAt
     pipelineName
+    reason
   }
 `;
 export const JobSetFieldsFragmentDoc = gql`
@@ -435,6 +436,8 @@ export const JobDocument = gql`
       inputString
       inputBranch
       outputBranch
+      reason
+      jsonDetails
       transform {
         cmdList
         image
@@ -924,6 +927,7 @@ export const PipelineDocument = gql`
       s3OutputRepo
       egress
       jsonSpec
+      reason
     }
   }
 `;

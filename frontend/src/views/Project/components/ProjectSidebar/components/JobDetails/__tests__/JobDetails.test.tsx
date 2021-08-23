@@ -148,6 +148,31 @@ describe('Job Details', () => {
     expect(pipelineName).toHaveTextContent('models');
   });
 
+  it('should correctly render extra details in JSON blob', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      jobRoute({
+        projectId: '3',
+        jobId: '33b9af7d5d4343219bc8e02ff44cd55a',
+        pipelineId: 'montage',
+      }),
+    );
+
+    const {queryByTestId} = render(<TestBed />);
+
+    await waitFor(() =>
+      expect(queryByTestId('JobDetails__loading')).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(
+        queryByTestId('Description__InputsSkeleton'),
+      ).not.toBeInTheDocument(),
+    );
+
+    expect(queryByTestId('InfoPanel__details')).toMatchSnapshot();
+  });
+
   it('should fallback to first job if pipeline job cannot be found', async () => {
     window.history.replaceState(
       '',
