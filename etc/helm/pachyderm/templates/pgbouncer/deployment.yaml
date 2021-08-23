@@ -38,6 +38,8 @@ spec:
           value: "1000"
         - name: POOL_MODE
           value: "transaction"
+        - name: IDLE_TRANSACTION_TIMEOUT
+          value: "300"
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
