@@ -7,8 +7,8 @@ import {
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 
-import {commitFromObject} from 'builders/pfs';
-import {GRPCPlugin, ServiceArgs} from 'lib/types';
+import {commitFromObject} from '../builders/pfs';
+import {GRPCPlugin, ServiceArgs} from '../lib/types';
 
 import {GRPC_MAX_MESSAGE_LENGTH} from './constants/pfs';
 

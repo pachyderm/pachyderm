@@ -21,6 +21,7 @@ import {
   Job,
   JobInfo,
   GetLogsRequest,
+  ProcessStats,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
 import {
@@ -196,9 +197,15 @@ export type JobInfoObject = {
   startedAt?: JobInfo.AsObject['started'];
   finishedAt?: JobInfo.AsObject['finished'];
   state: JobState;
-  reason?: string;
+  reason?: JobInfo.AsObject['reason'];
   input?: InputObject;
   outputCommit?: CommitObject;
+  pipelineVersion?: PipelineInfo.AsObject['version'];
+  dataTotal?: JobInfo.AsObject['dataTotal'];
+  dataFailed?: JobInfo.AsObject['dataFailed'];
+  stats?: ProcessStatsFromObject;
+  salt?: JobInfo.Details.AsObject['salt'];
+  datumTries?: JobInfo.Details.AsObject['datumTries'];
 };
 
 export type GetLogsRequestObject = {
@@ -206,6 +213,13 @@ export type GetLogsRequestObject = {
   jobId?: string;
   since?: number;
   follow?: boolean;
+};
+
+export type ProcessStatsFromObject = {
+  downloadTime: TimestampObject;
+  processTime: TimestampObject;
+  uploadTime: TimestampObject;
+  downloadBytes: DatumSetSpec.AsObject['sizeBytes'];
 };
 
 export const pipelineFromObject = ({name}: PipelineObject) => {
@@ -600,6 +614,12 @@ export const jobInfoFromObject = ({
   reason,
   input,
   outputCommit,
+  pipelineVersion,
+  dataTotal,
+  dataFailed,
+  stats,
+  salt = '',
+  datumTries = 0,
 }: JobInfoObject) => {
   const jobInfo = new JobInfo()
     .setState(state)
@@ -627,15 +647,53 @@ export const jobInfoFromObject = ({
     );
   }
 
-  if (input) {
-    jobInfo.setDetails(new JobInfo.Details().setInput(inputFromObject(input)));
+  if (input || salt || datumTries) {
+    const details = new JobInfo.Details();
+
+    if (input) details.setInput(inputFromObject(input));
+    if (salt) details.setSalt(salt);
+    if (datumTries) details.setDatumTries(datumTries);
+
+    jobInfo.setDetails(details);
   }
 
   if (outputCommit) {
     jobInfo.setOutputCommit(commitFromObject(outputCommit));
   }
 
+  if (pipelineVersion) {
+    jobInfo.setPipelineVersion(pipelineVersion);
+  }
+
+  if (dataTotal) {
+    jobInfo.setDataTotal(dataTotal);
+  }
+
+  if (dataFailed) {
+    jobInfo.setDataFailed(dataFailed);
+  }
+
+  if (stats) {
+    jobInfo.setStats(processStatsFromObject(stats));
+  }
+
   return jobInfo;
+};
+
+export const processStatsFromObject = ({
+  downloadTime,
+  processTime,
+  uploadTime,
+  downloadBytes,
+}: ProcessStatsFromObject) => {
+  const processStats = new ProcessStats();
+
+  processStats.setDownloadTime(timestampFromObject(downloadTime));
+  processStats.setProcessTime(timestampFromObject(processTime));
+  processStats.setUploadTime(timestampFromObject(uploadTime));
+  processStats.setDownloadBytes(downloadBytes);
+
+  return processStats;
 };
 
 export const getLogsRequestFromObject = ({

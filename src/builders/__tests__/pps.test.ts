@@ -591,6 +591,26 @@ it('should create JobInfo from an object', () => {
       },
       id: '123',
     },
+    pipelineVersion: 1,
+    dataTotal: 5,
+    dataFailed: 4,
+    datumTries: 3,
+    salt: 'd5631d7df40d4b1195bc46f1f146d6a5',
+    stats: {
+      downloadTime: {
+        nanos: 269391100,
+        seconds: 10,
+      },
+      processTime: {
+        seconds: 20,
+        nanos: 531186700,
+      },
+      uploadTime: {
+        seconds: 30,
+        nanos: 231186700,
+      },
+      downloadBytes: 2896,
+    },
   });
 
   expect(pipelineJob.getState()).toBe(1);
@@ -606,6 +626,20 @@ it('should create JobInfo from an object', () => {
     'test',
   );
   expect(pipelineJob.getOutputCommit()?.getId()).toBe('123');
+  expect(pipelineJob.getPipelineVersion()).toBe(1);
+  expect(pipelineJob.getDataTotal()).toBe(5);
+  expect(pipelineJob.getDataFailed()).toBe(4);
+  expect(pipelineJob.getDetails()?.getDatumTries()).toBe(3);
+  expect(pipelineJob.getDetails()?.getSalt()).toBe(
+    'd5631d7df40d4b1195bc46f1f146d6a5',
+  );
+  expect(pipelineJob.getStats()?.getDownloadTime()?.getNanos()).toBe(269391100);
+  expect(pipelineJob.getStats()?.getDownloadTime()?.getSeconds()).toBe(10);
+  expect(pipelineJob.getStats()?.getProcessTime()?.getNanos()).toBe(531186700);
+  expect(pipelineJob.getStats()?.getProcessTime()?.getSeconds()).toBe(20);
+  expect(pipelineJob.getStats()?.getUploadTime()?.getNanos()).toBe(231186700);
+  expect(pipelineJob.getStats()?.getUploadTime()?.getSeconds()).toBe(30);
+  expect(pipelineJob.getStats()?.getDownloadBytes()).toBe(2896);
 });
 
 it('should create GetLogsRequestObject from a pipeline request', () => {
