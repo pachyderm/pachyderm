@@ -861,11 +861,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
-		// TODO(2.0 required)?: ListCommit doesn't get the actual size of the
-		// commits (even if they're finished) - do an inspect commit instead.
-		commitInfo, err := env.PachClient.WaitCommit(repo, commit.Branch.Name, commit.ID)
-		require.NoError(t, err)
-		require.Equal(t, int64(4), commitInfo.Details.SizeBytes)
+		require.Equal(t, int64(4), commitInfos[0].Details.SizeBytes)
 
 		require.NoError(t, env.PachClient.DropCommitSet(commit.ID))
 
