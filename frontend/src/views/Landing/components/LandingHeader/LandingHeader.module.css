@@ -20,6 +20,7 @@ a.logo {
 }
 
 .support {
+  font-size: var(--font-size-body-small);
   text-decoration: underline;
   color: var(--white);
   font-weight: bold;

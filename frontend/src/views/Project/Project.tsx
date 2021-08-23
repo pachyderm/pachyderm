@@ -10,6 +10,7 @@ import {
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import View from '@dash-frontend/components/View';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
+import {useWorkspace} from 'hooks/useWorkspace';
 
 import FileBrowser from '../FileBrowser';
 import JobLogsViewer from '../LogsViewers/JobLogsViewer/JobLogsViewer';
@@ -51,6 +52,7 @@ const Project: React.FC = () => {
     isSidebarOpen,
     sidebarSize,
   } = useProjectView(NODE_WIDTH, NODE_HEIGHT);
+  const {pachdAddress, pachVersion} = useWorkspace();
 
   const noDags = dags?.length === 0;
 
@@ -119,7 +121,11 @@ const Project: React.FC = () => {
               </button>
             </div>
             {noDags && (
-              <EmptyState title={LETS_START_TITLE} message={NO_DAG_MESSAGE} />
+              <EmptyState
+                title={LETS_START_TITLE}
+                message={NO_DAG_MESSAGE}
+                connect={Boolean(pachdAddress && pachVersion)}
+              />
             )}
             <HoveredNodeProvider>
               <svg

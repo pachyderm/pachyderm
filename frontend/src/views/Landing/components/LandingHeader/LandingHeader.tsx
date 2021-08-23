@@ -1,6 +1,7 @@
-import {Group, Link} from '@pachyderm/components';
-import React from 'react';
+import {Group, ButtonLink, Link} from '@pachyderm/components';
+import React, {useState} from 'react';
 
+import ConnectModal from '@dash-frontend/components/ConnectModal';
 import Header from '@dash-frontend/components/Header';
 import {useWorkspace} from '@dash-frontend/hooks/useWorkspace';
 
@@ -9,7 +10,8 @@ import styles from './LandingHeader.module.css';
 import {ReactComponent as LogoElephant} from './LogoElephant.svg';
 
 const LandingHeader = () => {
-  const {workspaceName} = useWorkspace();
+  const {workspaceName, pachdAddress, pachVersion} = useWorkspace();
+  const [connectModalShow, showConnectModal] = useState(false);
 
   return (
     <Header>
@@ -30,6 +32,12 @@ const LandingHeader = () => {
         </Group>
 
         <Group spacing={24} align="center">
+          <ButtonLink
+            className={styles.support}
+            onClick={() => showConnectModal(true)}
+          >
+            Connect to Workspace
+          </ButtonLink>
           <Link
             className={styles.support}
             small
@@ -41,6 +49,13 @@ const LandingHeader = () => {
           <Account />
         </Group>
       </Group>
+      <ConnectModal
+        show={connectModalShow}
+        onHide={() => showConnectModal(false)}
+        workspaceName={workspaceName || ''}
+        pachdAddress={pachVersion || ''}
+        pachVersion={pachdAddress || ''}
+      />
     </Header>
   );
 };

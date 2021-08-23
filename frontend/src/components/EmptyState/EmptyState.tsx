@@ -1,13 +1,21 @@
-import React from 'react';
+import {ButtonLink} from '@pachyderm/components';
+import React, {useState} from 'react';
+
+import ConnectModal from '@dash-frontend/components/ConnectModal';
+import {useWorkspace} from '@dash-frontend/hooks/useWorkspace';
 
 import styles from './EmptyState.module.css';
 
 type EmptyStateProps = {
   title: string;
   message: string;
+  connect?: boolean;
 };
 
-const EmptyState: React.FC<EmptyStateProps> = ({title, message}) => {
+const EmptyState: React.FC<EmptyStateProps> = ({title, message, connect}) => {
+  const {workspaceName, pachdAddress, pachVersion} = useWorkspace();
+  const [connectModalShow, showConnectModal] = useState(false);
+
   return (
     <div className={styles.base}>
       <img
@@ -17,6 +25,21 @@ const EmptyState: React.FC<EmptyStateProps> = ({title, message}) => {
       />
       <span className={styles.title}>{title}</span>
       <span className={styles.message}>{message}</span>
+      {connect && (
+        <ButtonLink
+          onClick={() => showConnectModal(true)}
+          className={styles.message}
+        >
+          Connect to Pachctl
+        </ButtonLink>
+      )}
+      <ConnectModal
+        show={connectModalShow}
+        onHide={() => showConnectModal(false)}
+        workspaceName={workspaceName || ''}
+        pachdAddress={pachVersion || ''}
+        pachVersion={pachdAddress || ''}
+      />
     </div>
   );
 };

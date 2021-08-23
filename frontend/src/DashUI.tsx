@@ -1,3 +1,4 @@
+import {NotificationBannerProvider} from '@pachyderm/components';
 import React, {Suspense, lazy} from 'react';
 import {BrowserRouter, Redirect, Route, Switch} from 'react-router-dom';
 
@@ -16,24 +17,26 @@ const DashUI: React.FC = () => {
   return (
     <BrowserRouter>
       <ApolloProvider>
-        <main id="main">
-          <Suspense fallback={<LoadingSkeleton />}>
-            <Switch>
-              <Route path="/" exact component={AuthenticatedRoute(Landing)} />
+        <NotificationBannerProvider>
+          <main id="main">
+            <Suspense fallback={<LoadingSkeleton />}>
+              <Switch>
+                <Route path="/" exact component={AuthenticatedRoute(Landing)} />
 
-              <Route
-                path="/project/:projectId"
-                component={AuthenticatedRoute(Project)}
-              />
+                <Route
+                  path="/project/:projectId"
+                  component={AuthenticatedRoute(Project)}
+                />
 
-              <Route path="/not-found" exact component={ErrorView} />
-              <Route path="/unauthenticated" exact component={ErrorView} />
-              <Route path="/error" exact component={ErrorView} />
+                <Route path="/not-found" exact component={ErrorView} />
+                <Route path="/unauthenticated" exact component={ErrorView} />
+                <Route path="/error" exact component={ErrorView} />
 
-              <Redirect to={'/not-found'} />
-            </Switch>
-          </Suspense>
-        </main>
+                <Redirect to={'/not-found'} />
+              </Switch>
+            </Suspense>
+          </main>
+        </NotificationBannerProvider>
       </ApolloProvider>
     </BrowserRouter>
   );

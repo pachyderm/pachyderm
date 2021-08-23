@@ -76,11 +76,11 @@ describe('AuthenticatedRoute', () => {
     await waitFor(() => expect(window.location.pathname).toBe('/error'));
   });
 
-  it('should redirect users to landing and save workspace name from url', async () => {
+  it('should redirect users to landing and save workspace data from url', async () => {
     window.history.replaceState(
       '',
       '',
-      '/authenticated?workspaceName=Elegant%20Elephant',
+      '/authenticated?workspaceName=Elegant%20Elephant&pachVersion=2.0.0&pachdAddress=pachdaddress.pachyderm',
     );
 
     render(<TestBed />);
@@ -89,6 +89,10 @@ describe('AuthenticatedRoute', () => {
       expect(window.localStorage.getItem('workspaceName')).toEqual(
         'Elegant Elephant',
       ),
+    );
+    expect(window.localStorage.getItem('pachVersion')).toEqual('2.0.0');
+    expect(window.localStorage.getItem('pachdAddress')).toEqual(
+      'pachdaddress.pachyderm',
     );
     expect(window.location.pathname).toEqual('/');
   });

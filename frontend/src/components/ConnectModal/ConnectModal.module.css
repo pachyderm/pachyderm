@@ -1,0 +1,11 @@
+.descriptionList {
+  padding-left: 0;
+  margin-bottom: 3rem;
+  list-style-position: inside;
+  font-size: var(--font-size-body-medium);
+  font-weight: 600;
+}
+
+.modal [class$="modal-content"] {
+  padding-bottom: 0rem;
+}

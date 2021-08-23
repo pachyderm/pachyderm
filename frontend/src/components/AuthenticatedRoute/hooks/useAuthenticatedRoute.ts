@@ -22,8 +22,14 @@ const useAuthenticatedRoute = () => {
   const error = exchangeCodeError || loginWindowError || authConfigError;
 
   const workspaceParam = params.get('workspaceName');
-  if (workspaceParam) {
-    window.localStorage.setItem('workspaceName', workspaceParam);
+  const pachVersion = params.get('pachVersion');
+  const pachdAddress = params.get('pachdAddress');
+
+  if (workspaceParam || pachVersion || pachdAddress) {
+    workspaceParam &&
+      window.localStorage.setItem('workspaceName', workspaceParam);
+    pachVersion && window.localStorage.setItem('pachVersion', pachVersion);
+    pachdAddress && window.localStorage.setItem('pachdAddress', pachdAddress);
     routerHistory.push('/');
   }
 
