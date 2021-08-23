@@ -407,7 +407,7 @@ $ {{alias}} test@fork -p XXX`,
 	var originStr string
 	var expand bool
 	listCommit := &cobra.Command{
-		Use:   "{{alias}} [<repo>[@<branch>]]",
+		Use:   "{{alias}} [<repo>[@<branch-or-commit>]]",
 		Short: "Return all commits on a repo.",
 		Long:  "Return all commits on a repo.",
 		Example: `
@@ -550,19 +550,21 @@ $ {{alias}} foo@master --from XXX`,
 				})
 			} else {
 				// Outputting filtered commits
-				branch, err := cmdutil.ParseBranch(args[0])
+				toCommit, err := cmdutil.ParseCommit(args[0])
 				if err != nil {
 					return err
 				}
 
+				repo := toCommit.Branch.Repo
+
 				var fromCommit *pfs.Commit
 				if from != "" {
-					fromCommit = branch.Repo.NewCommit("", from)
+					fromCommit = repo.NewCommit("", from)
 				}
 
-				var toCommit *pfs.Commit
-				if branch.Name != "" {
-					toCommit = branch.NewCommit("")
+				if toCommit.ID == "" && toCommit.Branch.Name == "" {
+					// just a repo
+					toCommit = nil
 				}
 
 				origin, err := parseOriginKind(originStr)
@@ -571,7 +573,7 @@ $ {{alias}} foo@master --from XXX`,
 				}
 
 				listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
-					Repo:       branch.Repo,
+					Repo:       repo,
 					From:       fromCommit,
 					To:         toCommit,
 					Number:     number,
