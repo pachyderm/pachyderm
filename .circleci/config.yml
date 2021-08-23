@@ -1,6 +1,7 @@
 version: 2.1
 
 orbs:
+    codecov: codecov/codecov@1.1.0
     pagerduty: fredbi/pagerduty@0.3.0
 
 jobs:
@@ -12,7 +13,9 @@ jobs:
             - run: cd frontend && npm ci
             - run: cd backend && npm ci
             - run: cd backend && npm run lint
-            - run: cd backend && npm run test
+            - run: cd backend && npm run test -- --collect-coverage
+            - codecov/upload:
+                  file: backend/coverage/lcov.info
     frontend-test:
         resource_class: xlarge
         docker:
@@ -22,7 +25,9 @@ jobs:
             - run: cd backend && npm ci
             - run: cd frontend && npm ci
             - run: cd frontend && npm run lint
-            - run: cd frontend && npm run test
+            - run: cd frontend && npm run test -- --collect-coverage
+            - codecov/upload:
+                  file: frontend/coverage/lcov.info
     build:
         resource_class: xlarge
         docker:
