@@ -310,7 +310,7 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 
 	// Update job info
 	var err error
-	if state == pps.JobState_JOB_RUNNING {
+	if jobInfo.State == pps.JobState_JOB_STARTING && state == pps.JobState_JOB_RUNNING {
 		jobInfo.Started, err = types.TimestampProto(time.Now())
 		if err != nil {
 			return err
