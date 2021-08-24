@@ -62,7 +62,7 @@ for d in $all_versions; do
     mkdocs build --config-file "${mkdocs_file}" --site-dir "${out_dir}"
 done
 ## Temp preview of 2.0.x-beta out of master
-mkdocs build --config-file "mkdocs-master.yml" --site-dir "site/2.0.x-beta"
+mkdocs build --config-file "mkdocs-master.yml" --site-dir "site/2.0.x-rc"
 
 # Finally, copy latest version of the docs into 'latest'
 if [[ -z "${latest_version}" ]]; then
