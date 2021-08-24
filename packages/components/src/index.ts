@@ -3,10 +3,12 @@ import './index.module.css';
 
 export {default as generatePathWithSearch} from './lib/generatePathWithSearch';
 export {default as sentryLink} from './lib/sentryLink';
+export * from './lib/analytics';
 export {default as useLoginWindow} from './hooks/useLoginWindow';
 export {default as useOutsideClick} from './hooks/useOutsideClick';
 export {default as useClipboardCopy} from './hooks/useClipboardCopy';
 export {default as useDebounce} from './hooks/useDebounce';
+export {default as useAnalytics} from './hooks/useAnalytics';
 export * from './hooks/useSort';
 
 export * from './Button';

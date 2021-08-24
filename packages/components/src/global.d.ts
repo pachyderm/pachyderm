@@ -13,3 +13,8 @@ declare module '*.svg' {
 }
 
 declare module 'splitting';
+
+declare interface Window {
+  analyticsInitialized?: boolean;
+  analyticsIdentified?: boolean;
+}
