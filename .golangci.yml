@@ -3,5 +3,19 @@ run:
   skip-dirs:
     - cached-deps
 linters:
+  enable:
+    - wrapcheck
   disable:
     - errcheck
+linters-settings:
+  wrapcheck:
+    # An array of strings that specify substrings of signatures to ignore.
+    # If this set, it will override the default set of ignored signatures.
+    # See https://github.com/tomarrell/wrapcheck#configuration for more information.
+    ignoreSigs:
+      - .Errorf(
+      - errors.New(
+      - .Wrap(
+      - .Wrapf(
+      - .WithStack(
+      - .EnsureStack(
