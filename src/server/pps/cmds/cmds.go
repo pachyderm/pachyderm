@@ -699,46 +699,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
-	runPipeline := &cobra.Command{
-		Use:   "{{alias}} <pipeline> [--job=<job>] [<repo>@[<branch>|<commit>|<branch>=<commit>]...]",
-		Short: "Run an existing Pachyderm pipeline on the specified commits-branch pairs.",
-		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If you only specify a branch, Pachyderm uses the HEAD commit to complete the pair. Similarly, if you only specify a commit, Pachyderm will try to use the branch the commit originated on. Note: Pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data.",
-		Example: `
-		# Rerun the latest job for the "filter" pipeline
-		$ {{alias}} filter
-
-		# Process the pipeline "filter" on the data from commit-branch pairs "repo1@A=a23e4" and "repo2@B=bf363"
-		$ {{alias}} filter repo1@A=a23e4 repo2@B=bf363
-
-		# Run the pipeline "filter" on the data from commit "167af5" on the "staging" branch on repo "repo1"
-		$ {{alias}} filter repo1@staging=167af5
-
-		# Run the pipeline "filter" on the HEAD commit of the "testing" branch on repo "repo1"
-		$ {{alias}} filter repo1@testing
-
-		# Run the pipeline "filter" on the commit "af159e which originated on the "master" branch on repo "repo1"
-		$ {{alias}} filter repo1@af159`,
-
-		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			prov, err := cmdutil.ParseCommits(args[1:])
-			if err != nil {
-				return err
-			}
-			err = client.RunPipeline(args[0], prov, jobStr)
-			if err != nil {
-				return err
-			}
-			return nil
-		}),
-	}
-	runPipeline.Flags().StringVar(&jobStr, "job", "", "rerun the given job")
-	commands = append(commands, cmdutil.CreateAlias(runPipeline, "run pipeline"))
-
 	runCron := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Run an existing Pachyderm cron pipeline now",
