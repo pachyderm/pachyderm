@@ -434,9 +434,6 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	if err != nil {
 		return nil, err
 	}
-	if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
-		return d.getFileSet(ctx, commitInfo.ParentCommit)
-	}
 	// Get the total file set if the commit has been finished.
 	if commitInfo.Finished != nil {
 		id, err := d.commitStore.GetTotalFileSet(ctx, commitInfo.Commit)
