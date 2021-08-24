@@ -25,8 +25,12 @@ type commitStore interface {
 	AddFileSetTx(tx *sqlx.Tx, commit *pfs.Commit, filesetID fileset.ID) error
 	// SetTotalFileSet sets the total fileset for the commit, overwriting whatever is there.
 	SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
+	// SetTotalFileSetTx is like SetTotalFileSet, but in a transaction
+	SetTotalFileSetTx(tx *sqlx.Tx, commit *pfs.Commit, id fileset.ID) error
 	// GetTotalFileSet returns the total fileset for a commit.
 	GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
+	// GetTotalFileSetTx is like GetTotalFileSet, but in a transaction
+	GetTotalFileSetTx(tx *sqlx.Tx, commit *pfs.Commit) (*fileset.ID, error)
 	// GetDiffFileSet returns the diff fileset for a commit
 	GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
 	// DropFileSets clears the diff and total filesets for the commit.
@@ -86,19 +90,23 @@ func (cs *postgresCommitStore) GetTotalFileSet(ctx context.Context, commit *pfs.
 	var id *fileset.ID
 	if err := dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
 		var err error
-		id, err = getTotal(tx, commit)
-		if err != nil && err != sql.ErrNoRows {
-			return err
-		}
-		if id == nil {
-			return errNoTotalFileSet
-		}
-		id, err = cs.s.CloneTx(tx, *id, defaultTTL)
+		id, err = cs.GetTotalFileSetTx(tx, commit)
 		return err
 	}); err != nil {
 		return nil, err
 	}
 	return id, nil
+}
+
+func (cs *postgresCommitStore) GetTotalFileSetTx(tx *sqlx.Tx, commit *pfs.Commit) (*fileset.ID, error) {
+	id, err := getTotal(tx, commit)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if id == nil {
+		return nil, errNoTotalFileSet
+	}
+	return cs.s.CloneTx(tx, *id, defaultTTL)
 }
 
 func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
@@ -118,11 +126,15 @@ func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.C
 
 func (cs *postgresCommitStore) SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
 	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
-		if err := dropTotal(tx, cs.tr, commit); err != nil {
-			return err
-		}
-		return setTotal(tx, cs.tr, commit, id)
+		return cs.SetTotalFileSetTx(tx, commit, id)
 	})
+}
+
+func (cs *postgresCommitStore) SetTotalFileSetTx(tx *sqlx.Tx, commit *pfs.Commit, id fileset.ID) error {
+	if err := dropTotal(tx, cs.tr, commit); err != nil {
+		return err
+	}
+	return setTotal(tx, cs.tr, commit, id)
 }
 
 func (cs *postgresCommitStore) DropFileSets(ctx context.Context, commit *pfs.Commit) error {
