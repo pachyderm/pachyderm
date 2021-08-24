@@ -1,3 +1,5 @@
+import {JobInfo} from '@pachyderm/proto/pb/pps/pps_pb';
+
 import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';
 import {PachClient} from '@dash-backend/lib/types';
@@ -30,8 +32,15 @@ const repoResolver: RepoResolver = {
   },
   Repo: {
     commits: async (repo, _args, {pachClient}) => {
+      let jobs: JobInfo.AsObject[] = [];
+
       try {
-        const jobs = await getJobs(repo.id, pachClient);
+        jobs = await getJobs(repo.id, pachClient);
+      } catch (err) {
+        jobs = [];
+      }
+
+      try {
         return (
           await pachClient.pfs().listCommit({
             repo: {name: repo.id},
