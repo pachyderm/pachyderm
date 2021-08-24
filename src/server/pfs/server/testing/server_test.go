@@ -5037,18 +5037,25 @@ func TestPFS(suite *testing.T) {
 					err = env.PachClient.DropCommitSet(commit.ID)
 					if pfsserver.IsDropWithChildrenErr(err) {
 						// The commitset cannot be squashed or dropped as some commits have children and some commits don't
-						err = nil
-					} else {
-						commits = append(commits[:i], commits[i+1:]...)
+						continue
 					}
-				} else if err != nil && strings.Contains(err.Error(), "cannot squash until child commit") {
-					// TODO: somehow unfinished commits are being created by SquashCommitSet.
-					// This causes future calls to SquashCommitSet to error.
-					err = nil
-				} else {
-					commits = append(commits[:i], commits[i+1:]...)
 				}
 				require.NoError(t, err)
+				commits = append(commits[:i], commits[i+1:]...)
+				ris, err := env.PachClient.ListRepo()
+				require.NoError(t, err)
+				for _, ri := range ris {
+					bis, err := env.PachClient.ListBranch(ri.Repo.Name)
+					require.NoError(t, err)
+					for _, bi := range bis {
+						branch := bi.Branch
+						info, err := env.PachClient.InspectCommit(branch.Repo.Name, branch.Name, "")
+						require.NoError(t, err)
+						if info.Finishing == nil {
+							require.NoError(t, finishCommit(env.PachClient, branch.Repo.Name, branch.Name, ""))
+						}
+					}
+				}
 			case outputRepo:
 				if len(inputBranches) == 0 {
 					continue OpLoop
