@@ -3,7 +3,7 @@ site_description: A Pachyderm documentation website that provides information on
 site_author: Pachyderm
 site_url: https://docs.pachyderm.com/2.0.x-beta/
 docs_dir: docs/master/
-site_dir: site/2.0.x-beta/
+site_dir: site/2.0.x-rc/
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
@@ -14,9 +14,9 @@ edit_uri: ""
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
 pach_featured_version: '1.13.4'
-pach_latest_version: '2.0.0-beta.8'
+pach_latest_version: '2.0.0-rc.1'
 pach_major_minor_version: '2.0'
-search_index_version: '2.0.x-beta'
+search_index_version: '2.0.x-rc'
 
 # Configuration
 theme:
@@ -378,7 +378,6 @@ nav:
             - reference/pachctl/pachctl_run.md
             - reference/pachctl/pachctl_run_cron.md
             - reference/pachctl/pachctl_run_pfs-load-test.md
-            - reference/pachctl/pachctl_run_pipeline.md
             - reference/pachctl/pachctl_shell.md
             - reference/pachctl/pachctl_squash.md
             - reference/pachctl/pachctl_squash_commit.md
