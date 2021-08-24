@@ -1,6 +1,7 @@
 import {LoadingDots, Tooltip} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
+import {Helmet} from 'react-helmet';
 import {Route} from 'react-router';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
@@ -65,6 +66,9 @@ const Project: React.FC = () => {
 
   return (
     <>
+      <Helmet>
+        <title>Project - Pachyderm Console</title>
+      </Helmet>
       <ProjectHeader />
       <View className={styles.view}>
         {loading ? (

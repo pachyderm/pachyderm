@@ -1,4 +1,5 @@
 import React, {useCallback} from 'react';
+import {Helmet} from 'react-helmet';
 import {useHistory} from 'react-router';
 
 import {useJob} from '@dash-frontend/hooks/useJob';
@@ -28,13 +29,18 @@ const JobLogsViewer: React.FC = () => {
   const headerText = `${pipelineId}:${jobId}`;
 
   return (
-    <LogsViewer
-      headerText={headerText}
-      startTime={job?.createdAt}
-      onCloseCallback={onCloseCallback}
-      loading={loading}
-      dropdownLabel={JOB_START_TIME_OPTION}
-    />
+    <>
+      <Helmet>
+        <title>Job Logs - Pachyderm Console</title>
+      </Helmet>
+      <LogsViewer
+        headerText={headerText}
+        startTime={job?.createdAt}
+        onCloseCallback={onCloseCallback}
+        loading={loading}
+        dropdownLabel={JOB_START_TIME_OPTION}
+      />
+    </>
   );
 };
 

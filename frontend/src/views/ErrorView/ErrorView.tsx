@@ -5,6 +5,7 @@ import {
   Group,
 } from '@pachyderm/components';
 import React from 'react';
+import {Helmet} from 'react-helmet';
 
 import View from '@dash-frontend/components/View';
 
@@ -16,6 +17,9 @@ const ErrorView = () => {
 
   return (
     <View>
+      <Helmet>
+        <title>Error - Pachyderm Console</title>
+      </Helmet>
       <GenericError>
         <h1 className={styles.heading}>
           {errorType === ErrorViewType.NOT_FOUND ? (

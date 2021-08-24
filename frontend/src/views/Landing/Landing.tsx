@@ -1,5 +1,6 @@
 import {Group, TableView, DefaultDropdown} from '@pachyderm/components';
 import React from 'react';
+import {Helmet} from 'react-helmet';
 
 import Sidebar from '@dash-frontend/components/Sidebar';
 import View from '@dash-frontend/components/View';
@@ -31,6 +32,9 @@ const Landing: React.FC = () => {
 
   return (
     <>
+      <Helmet>
+        <title>Landing - Pachyderm Console</title>
+      </Helmet>
       <LandingHeader />
       <div className={styles.base}>
         <View>

@@ -4,8 +4,10 @@ import {BrowserRouter, Redirect, Route, Switch} from 'react-router-dom';
 
 import AuthenticatedRoute from '@dash-frontend/components/AuthenticatedRoute';
 import LoadingSkeleton from '@dash-frontend/components/LoadingSkeleton';
+import AnalyticsProvider from '@dash-frontend/providers/AnalyticsProvier';
 import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 import ErrorView from '@dash-frontend/views/ErrorView';
+
 const Landing = lazy(
   () => import(/* webpackPrefetch: true */ '@dash-frontend/views/Landing'),
 );
@@ -17,26 +19,32 @@ const DashUI: React.FC = () => {
   return (
     <BrowserRouter>
       <ApolloProvider>
-        <NotificationBannerProvider>
-          <main id="main">
-            <Suspense fallback={<LoadingSkeleton />}>
-              <Switch>
-                <Route path="/" exact component={AuthenticatedRoute(Landing)} />
+        <AnalyticsProvider>
+          <NotificationBannerProvider>
+            <main id="main">
+              <Suspense fallback={<LoadingSkeleton />}>
+                <Switch>
+                  <Route
+                    path="/"
+                    exact
+                    component={AuthenticatedRoute(Landing)}
+                  />
 
-                <Route
-                  path="/project/:projectId"
-                  component={AuthenticatedRoute(Project)}
-                />
+                  <Route
+                    path="/project/:projectId"
+                    component={AuthenticatedRoute(Project)}
+                  />
 
-                <Route path="/not-found" exact component={ErrorView} />
-                <Route path="/unauthenticated" exact component={ErrorView} />
-                <Route path="/error" exact component={ErrorView} />
+                  <Route path="/not-found" exact component={ErrorView} />
+                  <Route path="/unauthenticated" exact component={ErrorView} />
+                  <Route path="/error" exact component={ErrorView} />
 
-                <Redirect to={'/not-found'} />
-              </Switch>
-            </Suspense>
-          </main>
-        </NotificationBannerProvider>
+                  <Redirect to={'/not-found'} />
+                </Switch>
+              </Suspense>
+            </main>
+          </NotificationBannerProvider>
+        </AnalyticsProvider>
       </ApolloProvider>
     </BrowserRouter>
   );
