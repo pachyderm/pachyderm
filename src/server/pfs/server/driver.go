@@ -2026,6 +2026,13 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchIn
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(commit, commitInfo); err != nil {
 		return nil, err
 	}
+	total, err := d.storage.ComposeTx(txnCtx.SqlTx, nil, defaultTTL)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commit, *total); err != nil {
+		return nil, err
+	}
 	return commit, nil
 }
 
