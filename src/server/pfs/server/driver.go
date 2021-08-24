@@ -650,7 +650,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 				commitInfo.Finished = txnCtx.Timestamp
 				commitInfo.Details = parentCommitInfo.Details
 				// if the parent is already finished we can just use its total fileset.
-				total, err := d.commitStore.GetTotalFileSetTx(txnCtx.SqlTx, parentCommitInfo.ParentCommit)
+				total, err := d.commitStore.GetTotalFileSetTx(txnCtx.SqlTx, parentCommitInfo.Commit)
 				if err != nil {
 					return nil, err
 				}
