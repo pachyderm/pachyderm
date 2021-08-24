@@ -218,6 +218,8 @@ func commitTotalTrackerID(commit *pfs.Commit, fs fileset.ID) string {
 }
 
 // SetupPostgresCommitStoreV0 runs SQL to setup the commit store.
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
 func SetupPostgresCommitStoreV0(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 		CREATE TABLE pfs.commit_diffs (

@@ -15,6 +15,8 @@ func CreatePostgresSchema(ctx context.Context, sqlTx *sqlx.Tx) error {
 	return err
 }
 
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
 func SetupPostgresV0(ctx context.Context, sqlTx *sqlx.Tx) error {
 	updatedAtFunction := `
 create or replace function collections.updatedat_trigger_fn() returns trigger as $$
@@ -126,7 +128,7 @@ $$ language 'plpgsql';
 	}
 
 	notificationTable := `
-create table if not exists collections.large_notifications (
+create table collections.large_notifications (
 	id serial,
 	createdat timestamp with time zone default current_timestamp,
 	proto bytea
@@ -187,7 +189,7 @@ func SetupPostgresCollections(ctx context.Context, sqlTx *sqlx.Tx, collections .
 			indexFields = append(indexFields, "'"+name+"'")
 		}
 
-		createTable := fmt.Sprintf("create table if not exists collections.%s (%s);", col.table, strings.Join(columns, ", "))
+		createTable := fmt.Sprintf("create table collections.%s (%s);", col.table, strings.Join(columns, ", "))
 		if _, err := sqlTx.Exec(createTable); err != nil {
 			return errors.EnsureStack(err)
 		}

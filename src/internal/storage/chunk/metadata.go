@@ -66,6 +66,8 @@ type Entry struct {
 }
 
 // SetupPostgresStoreV0 sets up tables in db
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
 func SetupPostgresStoreV0(tx *sqlx.Tx) error {
 	_, err := tx.Exec(`
 	CREATE TABLE storage.chunk_objects (

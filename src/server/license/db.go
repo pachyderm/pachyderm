@@ -8,9 +8,11 @@ import (
 )
 
 // CreateClustersTable sets up the postgres table which tracks active clusters
-func CreateClustersTable(ctx context.Context, tx *sqlx.Tx) error {
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func CreateClustersTableV0(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, `
-CREATE TABLE IF NOT EXISTS license.clusters (
+CREATE TABLE license.clusters (
 	id VARCHAR(4096) PRIMARY KEY,
 	address VARCHAR(4096) NOT NULL,
 	secret VARCHAR(64) NOT NULL,
@@ -23,6 +25,8 @@ CREATE TABLE IF NOT EXISTS license.clusters (
 	return errors.EnsureStack(err)
 }
 
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
 func AddUserContextsToClustersTable(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 	ALTER TABLE license.clusters
@@ -33,6 +37,8 @@ func AddUserContextsToClustersTable(ctx context.Context, tx *sqlx.Tx) error {
 	return err
 }
 
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
 func AddClusterClientIdColumn(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 	ALTER TABLE license.clusters

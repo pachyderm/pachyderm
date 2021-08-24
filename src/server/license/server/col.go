@@ -23,7 +23,9 @@ func licenseCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresC
 	)
 }
 
-func AllCollections() []col.PostgresCollection {
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func CollectionsV0() []col.PostgresCollection {
 	return []col.PostgresCollection{
 		licenseCollection(nil, nil),
 	}
