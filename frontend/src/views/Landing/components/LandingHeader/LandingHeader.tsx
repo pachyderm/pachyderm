@@ -53,8 +53,8 @@ const LandingHeader = () => {
         show={connectModalShow}
         onHide={() => showConnectModal(false)}
         workspaceName={workspaceName || ''}
-        pachdAddress={pachVersion || ''}
-        pachVersion={pachdAddress || ''}
+        pachdAddress={pachdAddress || ''}
+        pachVersion={pachVersion || ''}
       />
     </Header>
   );

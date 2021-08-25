@@ -37,8 +37,8 @@ const EmptyState: React.FC<EmptyStateProps> = ({title, message, connect}) => {
         show={connectModalShow}
         onHide={() => showConnectModal(false)}
         workspaceName={workspaceName || ''}
-        pachdAddress={pachVersion || ''}
-        pachVersion={pachdAddress || ''}
+        pachdAddress={pachdAddress || ''}
+        pachVersion={pachVersion || ''}
       />
     </div>
   );

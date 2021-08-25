@@ -35,11 +35,11 @@ const ConnectModal: React.FC<ConnectModalProps> = ({
           <Verify>
             <tr>
               <td>pachctl</td>
-              <td>{pachVersion}</td>
+              <td data-testid="ConnectModal__pachctlVersion">{pachVersion}</td>
             </tr>
             <tr>
               <td>pachd</td>
-              <td>{pachVersion}</td>
+              <td data-testid="ConnectModal__pachdVersion">{pachVersion}</td>
             </tr>
           </Verify>
         </Group>
