@@ -70,7 +70,7 @@ var (
 // 2. makes whatever changes are needed to bring the RC in line with the (new) spec
 // 3. updates 'pipelineInfo', if needed, to reflect the action it just took
 func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
-	log.Infof("PPS master: processing event for %q", pipeline)
+	log.Debugf("PPS master: processing event for %q", pipeline)
 
 	// Initialize op ctx (cancelled at the end of step(), to avoid leaking
 	// resources), whereas masterClient is passed by the
@@ -495,7 +495,7 @@ func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error 
 // scaleUpPipeline edits the RC associated with op's pipeline & spins up the
 // configured number of workers.
 func (op *pipelineOp) scaleUpPipeline() (retErr error) {
-	log.Infof("PPS master: scaling up workers for %q", op.pipelineInfo.Pipeline.Name)
+	log.Debugf("PPS master: ensuring correct k8s resources for %q", op.pipelineInfo.Pipeline.Name)
 	span, _ := tracing.AddSpanToAnyExisting(op.ctx,
 		"/pps.Master/ScaleUpPipeline", "pipeline", op.pipelineInfo.Pipeline.Name)
 	defer func() {
