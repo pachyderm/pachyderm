@@ -9794,7 +9794,6 @@ func TestStandbyTransitions(t *testing.T) {
 
 	data := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(data))
-
 	pipeline := tu.UniqueString(t.Name())
 	req := basicPipelineReq(pipeline, data)
 	req.Autoscaling = true
@@ -9803,7 +9802,7 @@ func TestStandbyTransitions(t *testing.T) {
 
 	// just for making guarantees about pipeline processing
 	auxData := tu.UniqueString("aux_data")
-	require.NoError(t, c.CreateRepo(data))
+	require.NoError(t, c.CreateRepo(auxData))
 	auxPipeline := tu.UniqueString("aux")
 	req = basicPipelineReq(auxPipeline, auxData)
 	req.Autoscaling = true

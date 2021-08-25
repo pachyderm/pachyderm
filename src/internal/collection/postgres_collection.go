@@ -460,7 +460,7 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 				Value:    m.Proto,
 				Type:     watch.EventPut,
 				Template: c.template,
-				Rev:      m.UpdatedAt.UnixNano(),
+				Rev:      m.UpdatedAt.Unix(),
 			})
 		}); err != nil {
 			// Ignore any additional error here - we're already attempting to send an error to the user

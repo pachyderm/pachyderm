@@ -160,10 +160,11 @@ func (op *pipelineOp) run() error {
 		if op.pipelineInfo.Stopped {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
-		// trigger another event
 		op.stopCrashingPipelineMonitor()
+		// trigger another event
 		target := pps.PipelineState_PIPELINE_RUNNING
-		if op.pipelineInfo.Details.Autoscaling {
+		if op.pipelineInfo.Details.Autoscaling && op.pipelineInfo.State == pps.PipelineState_PIPELINE_STARTING {
+			// start in standby
 			target = pps.PipelineState_PIPELINE_STANDBY
 		}
 		return op.setPipelineState(target, "")
