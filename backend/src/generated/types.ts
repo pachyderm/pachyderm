@@ -189,6 +189,7 @@ export enum JobState {
   JOB_SUCCESS = 'JOB_SUCCESS',
   JOB_KILLED = 'JOB_KILLED',
   JOB_EGRESSING = 'JOB_EGRESSING',
+  JOB_FINISHING = 'JOB_FINISHING',
 }
 
 export type JobsQueryArgs = {

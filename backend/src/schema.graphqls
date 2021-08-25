@@ -54,6 +54,7 @@ enum JobState {
   JOB_SUCCESS
   JOB_KILLED
   JOB_EGRESSING
+  JOB_FINISHING
 }
 
 enum NodeState {

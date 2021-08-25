@@ -1,8 +1,14 @@
+import {JobState} from '@graphqlTypes';
 import {render} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
-import {click, withContextProviders} from '@dash-frontend/testHelpers';
+import {JobFilters} from '@dash-frontend/components/JobList/hooks/useJobFilters';
+import {
+  click,
+  getUrlState,
+  withContextProviders,
+} from '@dash-frontend/testHelpers';
 
 import Search from '../Search';
 
@@ -161,7 +167,7 @@ describe('Search', () => {
     );
   });
 
-  it('should route to jobs view when chips are clicled', async () => {
+  it('should route to jobs view when chips are clicked', async () => {
     const {findByRole, assertDropdown} = renderTestBed();
 
     const searchBar = await findByRole('searchbox');
@@ -171,9 +177,17 @@ describe('Search', () => {
     assertDropdown().toBeShown();
     click(await findByRole('button', {name: 'All (2)'}));
     expect(window.location.pathname).toBe('/project/1/jobs');
-    expect(window.location.search).toBe(
-      '?view=eyJqb2JGaWx0ZXJzIjpbIkpPQl9TVEFURV9VTktOT1dOIiwiSk9CX0NSRUFURUQiLCJKT0JfU1RBUlRJTkciLCJKT0JfUlVOTklORyIsIkpPQl9GQUlMVVJFIiwiSk9CX1NVQ0NFU1MiLCJKT0JfS0lMTEVEIiwiSk9CX0VHUkVTU0lORyJdfQ%3D%3D',
-    );
+    expect(getUrlState().jobFilters).toEqual([
+      JobState.JOB_STATE_UNKNOWN,
+      JobState.JOB_CREATED,
+      JobState.JOB_STARTING,
+      JobState.JOB_RUNNING,
+      JobState.JOB_FAILURE,
+      JobState.JOB_SUCCESS,
+      JobState.JOB_KILLED,
+      JobState.JOB_EGRESSING,
+      JobState.JOB_FINISHING,
+    ]);
     assertDropdown().toBeHidden();
   });
 });

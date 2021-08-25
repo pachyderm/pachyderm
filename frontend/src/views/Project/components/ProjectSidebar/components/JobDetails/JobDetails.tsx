@@ -25,6 +25,7 @@ const getVisualJobState = (state: JobState): JobVisualState => {
     case JobState.JOB_EGRESSING:
     case JobState.JOB_RUNNING:
     case JobState.JOB_STARTING:
+    case JobState.JOB_FINISHING:
       return 'BUSY';
     case JobState.JOB_FAILURE:
     case JobState.JOB_KILLED:
