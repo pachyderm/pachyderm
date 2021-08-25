@@ -10,7 +10,8 @@ import styles from './LandingHeader.module.css';
 import {ReactComponent as LogoElephant} from './LogoElephant.svg';
 
 const LandingHeader = () => {
-  const {workspaceName, pachdAddress, pachVersion} = useWorkspace();
+  const {workspaceName, pachdAddress, pachVersion, hasConnectInfo} =
+    useWorkspace();
   const [connectModalShow, showConnectModal] = useState(false);
 
   return (
@@ -32,12 +33,14 @@ const LandingHeader = () => {
         </Group>
 
         <Group spacing={24} align="center">
-          <ButtonLink
-            className={styles.support}
-            onClick={() => showConnectModal(true)}
-          >
-            Connect to Workspace
-          </ButtonLink>
+          {hasConnectInfo && (
+            <ButtonLink
+              className={styles.support}
+              onClick={() => showConnectModal(true)}
+            >
+              Connect to Workspace
+            </ButtonLink>
+          )}
           <Link
             className={styles.support}
             small
@@ -49,13 +52,15 @@ const LandingHeader = () => {
           <Account />
         </Group>
       </Group>
-      <ConnectModal
-        show={connectModalShow}
-        onHide={() => showConnectModal(false)}
-        workspaceName={workspaceName || ''}
-        pachdAddress={pachdAddress || ''}
-        pachVersion={pachVersion || ''}
-      />
+      {hasConnectInfo && (
+        <ConnectModal
+          show={connectModalShow}
+          onHide={() => showConnectModal(false)}
+          workspaceName={workspaceName || ''}
+          pachdAddress={pachdAddress || ''}
+          pachVersion={pachVersion || ''}
+        />
+      )}
     </Header>
   );
 };

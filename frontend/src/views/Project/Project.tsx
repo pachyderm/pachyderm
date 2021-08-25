@@ -53,7 +53,7 @@ const Project: React.FC = () => {
     isSidebarOpen,
     sidebarSize,
   } = useProjectView(NODE_WIDTH, NODE_HEIGHT);
-  const {pachdAddress, pachVersion} = useWorkspace();
+  const {hasConnectInfo} = useWorkspace();
 
   const noDags = dags?.length === 0;
 
@@ -128,7 +128,7 @@ const Project: React.FC = () => {
               <EmptyState
                 title={LETS_START_TITLE}
                 message={NO_DAG_MESSAGE}
-                connect={Boolean(pachdAddress && pachVersion)}
+                connect={hasConnectInfo}
               />
             )}
             <HoveredNodeProvider>
