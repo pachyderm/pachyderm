@@ -178,24 +178,35 @@ func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.Pipel
 func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	pipeline := specCommit.Branch.Repo.Name
 	logSetPipelineState(pipeline, from, to, reason)
+	var resultMessage string
+	var warn bool
 	err := dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
+		resultMessage = ""
+		warn = false
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
 		pipelineInfo := &pps.PipelineInfo{}
 		if err := pipelines.Get(specCommit, pipelineInfo); err != nil {
 			return err
 		}
 		tracing.TagAnySpan(ctx, "old-state", pipelineInfo.State)
+		if pipelineInfo.State == to {
+			// nothing to do
+			return nil
+		}
+
 		// Only UpdatePipeline can bring a pipeline out of failure
 		// TODO(msteffen): apply the same logic for CRASHING?
 		if pipelineInfo.State == pps.PipelineState_PIPELINE_FAILURE {
 			if to != pps.PipelineState_PIPELINE_FAILURE {
-				log.Warningf("cannot move pipeline %q to %s when it is already in FAILURE", pipeline, to)
+				resultMessage = fmt.Sprintf("cannot move pipeline %q to %s when it is already in FAILURE", pipeline, to)
+				warn = true
 			}
 			return nil
 		}
 		// Don't allow a transition from STANDBY to CRASHING if we receive events out of order
 		if pipelineInfo.State == pps.PipelineState_PIPELINE_STANDBY && to == pps.PipelineState_PIPELINE_CRASHING {
-			log.Warningf("cannot move pipeline %q to CRASHING when it is in STANDBY", pipeline)
+			resultMessage = fmt.Sprintf("cannot move pipeline %q to CRASHING when it is in STANDBY", pipeline)
+			warn = true
 			return nil
 		}
 
@@ -222,11 +233,18 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 				}
 			}
 		}
-		log.Infof("SetPipelineState moving pipeline %s from %s to %s", pipeline, pipelineInfo.State, to)
+		resultMessage = fmt.Sprintf("SetPipelineState moved pipeline %s from %s to %s", pipeline, pipelineInfo.State, to)
 		pipelineInfo.State = to
 		pipelineInfo.Reason = reason
 		return pipelines.Put(specCommit, pipelineInfo)
 	})
+	if resultMessage != "" {
+		if warn {
+			log.Warn(resultMessage)
+		} else {
+			log.Info(resultMessage)
+		}
+	}
 	return err
 }
 
@@ -283,29 +301,6 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 		if pps.IsTerminal(jobInfo.State) {
 			return ppsServer.ErrJobFinished{Job: jobInfo.Job}
 		}
-	}
-
-	// Update pipeline
-	pipelineInfo := &pps.PipelineInfo{}
-	if err := pipelines.GetUniqueByIndex(
-		ppsdb.PipelinesVersionIndex,
-		ppsdb.VersionKey(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion),
-		pipelineInfo); err != nil {
-		return err
-	}
-	if pipelineInfo.JobCounts == nil {
-		pipelineInfo.JobCounts = make(map[int32]int32)
-	}
-	// If the old state is UNKNOWN, this is a new job, don't decrement the count
-	if jobInfo.State != pps.JobState_JOB_STATE_UNKNOWN {
-		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
-			pipelineInfo.JobCounts[int32(jobInfo.State)]--
-		}
-	}
-	pipelineInfo.JobCounts[int32(state)]++
-	pipelineInfo.LastJobState = state
-	if err := pipelines.Put(pipelineInfo.SpecCommit, pipelineInfo); err != nil {
-		return err
 	}
 
 	// Update job info

@@ -162,7 +162,11 @@ func (op *pipelineOp) run() error {
 		}
 		// trigger another event
 		op.stopCrashingPipelineMonitor()
-		return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
+		target := pps.PipelineState_PIPELINE_RUNNING
+		if op.pipelineInfo.Details.Autoscaling {
+			target = pps.PipelineState_PIPELINE_STANDBY
+		}
+		return op.setPipelineState(target, "")
 	case pps.PipelineState_PIPELINE_RUNNING:
 		if !op.rcIsFresh() {
 			return op.restartPipeline("stale RC") // step() will be called again after collection write
@@ -196,10 +200,11 @@ func (op *pipelineOp) run() error {
 		if !op.pipelineInfo.Stopped {
 			// StartPipeline has been called (so spec commit is updated), but new spec
 			// commit hasn't been propagated to PipelineInfo or RC yet
-			if err := op.scaleUpPipeline(); err != nil {
-				return err
+			target := pps.PipelineState_PIPELINE_RUNNING
+			if op.pipelineInfo.Details.Autoscaling {
+				target = pps.PipelineState_PIPELINE_STANDBY
 			}
-			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
+			return op.setPipelineState(target, "")
 		}
 		// don't want cron commits or STANDBY state changes while pipeline is
 		// stopped

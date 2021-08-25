@@ -95,7 +95,8 @@ type ppsMaster struct {
 	watchCancel     func() // protected by pollPipelinesMu
 
 	// channel through which pipeline events are passed
-	eventCh chan *pipelineEvent
+	eventCh     chan *pipelineEvent
+	lastUpdates map[string]int64
 }
 
 // The master process is responsible for creating/deleting workers as
@@ -105,6 +106,7 @@ func (a *apiServer) master() {
 		a:                      a,
 		monitorCancels:         make(map[string]func()),
 		crashingMonitorCancels: make(map[string]func()),
+		lastUpdates:            make(map[string]int64),
 	}
 
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
@@ -160,10 +162,16 @@ eventLoop:
 		case e := <-m.eventCh:
 			switch e.eventType {
 			case writeEv:
+				if e.etcdRev != 0 && e.etcdRev < m.lastUpdates[e.pipeline] {
+					// we've stepped the pipeline since this event occurred
+					// NOTE: this will ignore updates before 1970
+					continue
+				}
 				if err := m.attemptStep(m.masterCtx, e); err != nil {
 					log.Errorf("PPS master: %v", err)
 				}
 			case deleteEv:
+				delete(m.lastUpdates, e.pipeline)
 				// TODO(msteffen) trace this call
 				if err := m.deletePipelineResources(e.pipeline); err != nil {
 					log.Errorf("PPS master: could not delete resources for pipeline %q: %v",
@@ -186,7 +194,9 @@ eventLoop:
 func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 	var errCount int
 	var stepErr stepError
+	var startTimeSeconds int64
 	err := backoff.RetryNotify(func() error {
+		startTimeSeconds = time.Now().Unix()
 		// Create/Modify/Delete pipeline resources as needed per new state
 		return m.step(e.pipeline, e.etcdVer, e.etcdRev)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
@@ -200,6 +210,13 @@ func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 		}
 		return errors.Wrapf(err, "could not update resource for pipeline %q", e.pipeline)
 	})
+	if err == nil && startTimeSeconds != 0 {
+		// can write to the map as pps master does not use concurrency
+
+		// add a little grace period for clock disagreements
+		m.lastUpdates[e.pipeline] = startTimeSeconds - 2
+	}
+
 	// we've given up on the step, check if the error indicated that the pipeline should fail
 	if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
 		specCommit, specErr := m.a.findPipelineSpecCommit(ctx, e.pipeline)

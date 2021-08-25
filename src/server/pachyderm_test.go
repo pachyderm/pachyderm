@@ -2188,7 +2188,7 @@ func TestJobCounts(t *testing.T) {
 	// check that the job has been accounted for
 	pipelineInfo, err := c.InspectPipeline(pipeline, false)
 	require.NoError(t, err)
-	require.Equal(t, int32(2), pipelineInfo.JobCounts[int32(pps.JobState_JOB_SUCCESS)])
+	require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineInfo.LastJobState)
 }
 
 // TestUpdatePipelineThatHasNoOutput tracks #1637
@@ -3141,7 +3141,12 @@ func TestAutoscalingStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinTRetry(t, time.Second*120, func() error {
+		require.NoErrorWithinT(t, time.Second*60, func() error {
+			_, err := c.WaitCommit(pipelines[9], "master", "")
+			return err
+		})
+
+		require.NoErrorWithinTRetry(t, time.Second*15, func() error {
 			pis, err := c.ListPipeline(false)
 			require.NoError(t, err)
 			var standby int
@@ -9775,6 +9780,79 @@ func TestPipelineAncestry(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(infos))
 	checkInfos(infos)
+}
+
+func TestStandbyTransitions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	kc := tu.GetKubeClient(t)
+
+	data := tu.UniqueString(t.Name() + "_data")
+	require.NoError(t, c.CreateRepo(data))
+
+	pipeline := tu.UniqueString(t.Name())
+	req := basicPipelineReq(pipeline, data)
+	req.Autoscaling = true
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	// just for making guarantees about pipeline processing
+	auxData := tu.UniqueString("aux_data")
+	require.NoError(t, c.CreateRepo(data))
+	auxPipeline := tu.UniqueString("aux")
+	req = basicPipelineReq(auxPipeline, auxData)
+	req.Autoscaling = true
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// wait for pipeline to go into standby
+	require.NoErrorWithinTRetry(t, 10*time.Second, func() error {
+		info, err := c.InspectPipeline(pipeline, false)
+		if err != nil {
+			return err
+		}
+		if info.State != pps.PipelineState_PIPELINE_STANDBY {
+			return errors.Errorf("expected pipeline to be in standby, not %v", info.State)
+		}
+		return nil
+	})
+
+	// get the initial state of the pipeline's RC
+	rcName := ppsutil.PipelineRcName(pipeline, 1)
+	initialRC, err := kc.CoreV1().ReplicationControllers("default").Get(rcName, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	// stop the pipeline, then verify the RC wasn't modified
+	require.NoError(t, c.StopPipeline(pipeline))
+
+	// push data to the other pipeline to make sure the stop was processed
+	require.NoError(t, c.PutFile(client.NewCommit(auxData, "master", ""), "foo", strings.NewReader("bar")))
+	_, err = c.WaitCommit(auxPipeline, "master", "")
+	require.NoError(t, err)
+
+	// make sure main pipeline RC has not changed, which it would have if it passed through running
+	rc, err := kc.CoreV1().ReplicationControllers("default").Get(rcName, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, initialRC.ResourceVersion, rc.ResourceVersion)
+
+	// now do the same check with start
+	require.NoError(t, c.StartPipeline(pipeline))
+
+	require.NoError(t, c.PutFile(client.NewCommit(auxData, "master", ""), "foo2", strings.NewReader("bar")))
+	_, err = c.WaitCommit(auxPipeline, "master", "")
+	require.NoError(t, err)
+
+	rc, err = kc.CoreV1().ReplicationControllers("default").Get(rcName, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, initialRC.ResourceVersion, rc.ResourceVersion)
 }
 
 func monitorReplicas(t testing.TB, pipeline string, n int) {

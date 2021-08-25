@@ -227,6 +227,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 					[]pps.PipelineState{
 						pps.PipelineState_PIPELINE_RUNNING,
 						pps.PipelineState_PIPELINE_CRASHING,
+						pps.PipelineState_PIPELINE_STANDBY,
 					}, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 
 					pte := &ppsutil.PipelineTransitionError{}
