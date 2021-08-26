@@ -149,12 +149,6 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 		if isTransactionError(err) {
 			return nil
 		}
-		// we should maybe switch away from lib/pq.  The reason why this works is not totally clear
-		// it seems like the introduction of pg_bouncer causes the library to misinterpret already rolled back errors
-		// as user cancelling errors.
-		if strings.Contains(err.Error(), "pq: canceling statement due to user request") {
-			return nil
-		}
 		return err
 	})
 	if err != nil {
@@ -189,7 +183,6 @@ func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) error {
 }
 
 func isTransactionError(err error) bool {
-	// TODO: remove the pq error once collections no longer needs that driver.
 	pgxErr := &pgconn.PgError{}
 	return errors.As(err, &pgxErr) && strings.HasPrefix(pgxErr.Code, "40")
 }
