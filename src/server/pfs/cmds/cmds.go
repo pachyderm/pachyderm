@@ -1437,7 +1437,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 						return nil
 					}
 					nPath, oPath := "/dev/null", "/dev/null"
-					if nFI != nil {
+					if nFI != nil && nFI.FileType == pfs.FileType_FILE {
 						nPath, err = dlFile(c, nFI.File)
 						if err != nil {
 							return err
@@ -1448,7 +1448,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 							}
 						}()
 					}
-					if oFI != nil {
+					if oFI != nil && oFI.FileType == pfs.FileType_FILE {
 						oPath, err = dlFile(c, oFI.File)
 						defer func() {
 							if err := os.RemoveAll(oPath); err != nil && retErr == nil {
