@@ -519,6 +519,7 @@ func (c *postgresReadOnlyCollection) watchOne(key string, opts ...watch.Option) 
 				Value:    m.Proto,
 				Type:     watch.EventPut,
 				Template: c.template,
+				Rev:      m.UpdatedAt.Unix(),
 			}); err != nil {
 				watcher.listener.Unregister(watcher)
 				return
@@ -573,6 +574,7 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 				Value:    m.Proto,
 				Type:     watch.EventPut,
 				Template: c.template,
+				Rev:      m.UpdatedAt.Unix(),
 			})
 		}); err != nil {
 			// Ignore any additional error here - we're already attempting to send an error to the user

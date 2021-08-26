@@ -2146,51 +2146,6 @@ func TestPipelineState(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestJobCounts(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-	repo := tu.UniqueString("data")
-	require.NoError(t, c.CreateRepo(repo))
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
-		nil,
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(repo, "/*"),
-		"",
-		false,
-	))
-
-	// Trigger a job by creating a commit
-	commit, err := c.StartCommit(repo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(repo, commit.Branch.Name, commit.ID))
-	_, err = c.WaitCommitSetAll(commit.ID)
-	require.NoError(t, err)
-	jobInfos, err := c.ListJob(pipeline, nil, -1, true)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
-	require.Equal(t, commit.ID, jobInfos[0].Job.ID)
-	ctx, cancel := context.WithTimeout(c.Ctx(), time.Second*30)
-	defer cancel() //cleanup resources
-	_, err = c.WithCtx(ctx).WaitJob(pipeline, jobInfos[0].Job.ID, false)
-	require.NoError(t, err)
-
-	// check that the job has been accounted for
-	pipelineInfo, err := c.InspectPipeline(pipeline, false)
-	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_SUCCESS, pipelineInfo.LastJobState)
-}
-
 // TestUpdatePipelineThatHasNoOutput tracks #1637
 func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	if testing.Short() {

@@ -2210,7 +2210,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 		return nil, err
 	}
 
-	if err := a.latestJobState(ctx, info); err != nil {
+	if err := a.getLatestJobState(ctx, info); err != nil {
 		return nil, err
 	}
 	if !details {
@@ -2298,17 +2298,14 @@ func (a *apiServer) ListPipeline(request *pps.ListPipelineRequest, srv pps.API_L
 	return a.listPipeline(srv.Context(), request, srv.Send)
 }
 
-func (a *apiServer) latestJobState(ctx context.Context, info *pps.PipelineInfo) error {
-	// most recently updated first
-	jobSortOptions := &col.Options{Order: col.SortDescend, Target: col.SortByModRevision}
-
-	// fill in most recent job state
+func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInfo) error {
+	// fill in state of most-recently-created job (the first shown in list job)
 	var job pps.JobInfo
 	return a.jobs.ReadOnly(ctx).GetByIndex(
 		ppsdb.JobsPipelineIndex,
 		info.Pipeline.Name,
 		&job,
-		jobSortOptions, func(_ string) error {
+		col.DefaultOptions(), func(_ string) error {
 			info.LastJobState = job.State
 			return errutil.ErrBreak
 		})
@@ -2358,7 +2355,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 
 	for i := range infos {
 		if filterPipeline(infos[i]) {
-			if err := a.latestJobState(ctx, infos[i]); err != nil {
+			if err := a.getLatestJobState(ctx, infos[i]); err != nil {
 				return err
 			}
 			if err := f(infos[i]); err != nil {
