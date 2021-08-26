@@ -47,10 +47,24 @@
   --chart-hover-light-blue: #59d1f2;
 
   /* NEW COLORS */
+  --cyan-2: #E5F7FF;
+  --cyan-6: #6FB3C3;
+  --cyan-7: #5BA3B1;
+
+  --dropshadow: rgba(28, 6, 48, 0.3);
+
+  --grey-1: #F9F9FA;
   --grey-2: #FAFAFA;
   --grey-3: #f1f1f1;
-  --grey-4: #e0e0e0;
+  --grey-4: #A4A8AE;
+  --grey-7: #747475;
   --grey-9: #414142;
+  --grey-10: #0E0E0F;
+
+  --plum-1: #F8F3F9;
+  --plum-2: #e1cfe5;
+  --plum-5: #926AA1;
+  --plum-7: #582F6B;
   
   /* sizes */
   --border-radius-bottom-level: 5px;
