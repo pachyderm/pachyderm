@@ -75,7 +75,9 @@
   --font-size-body-small: 0.6875rem;
   --font-size-header: 1rem;
   --font-size-page-heading: 1.375rem;
-  --height-marketing-header: 4.688rem;
+  --height-marketing-header: 7.5rem;
+  --height-marketing-header-compact: 4.688rem;
+  --height-marketing-banner: 3rem;
   --padding-gutter-x: 15px;
   --padding-view-x: 1.5rem;
   --padding-view-x-sm: 1rem;
