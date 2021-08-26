@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"golang.org/x/sync/errgroup"
 )
 
 // PutFile puts a file into PFS from a reader.
@@ -21,6 +22,29 @@ func (c APIClient) PutFile(commit *pfs.Commit, path string, r io.Reader, opts ..
 	return c.WithModifyFileClient(commit, func(mf ModifyFile) error {
 		return mf.PutFile(path, r, opts...)
 	})
+}
+
+type putFileWriter struct {
+	wc io.WriteCloser
+	eg errgroup.Group
+}
+
+func (w putFileWriter) Write(p []byte) (int, error) {
+	return w.wc.Write(p)
+}
+
+func (w putFileWriter) Close() error {
+	if err := w.wc.Close(); err != nil {
+		return err
+	}
+	return w.eg.Wait()
+}
+
+func (c APIClient) PutFileWriter(commit *pfs.Commit, path string, opts ...PutFileOption) io.WriteCloser {
+	r, w := io.Pipe()
+	result := putFileWriter{wc: w}
+	result.eg.Go(func() error { return c.PutFile(commit, path, r, opts...) })
+	return result
 }
 
 // PutFileTAR puts a set of files into PFS from a tar stream.

@@ -14,7 +14,6 @@ import (
 	"github.com/araddon/gou"
 	"github.com/gogo/protobuf/types"
 	"github.com/lytics/cloudstorage"
-	"github.com/lytics/cloudstorage/csbufio"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -164,30 +163,7 @@ func (l *PFSStore) NewWriter(o string, metadata map[string]string) (io.WriteClos
 }
 func (l *PFSStore) NewWriterWithContext(ctx context.Context, o string, metadata map[string]string, opts ...cloudstorage.Opts) (io.WriteCloser, error) {
 	repo, commit, path := l.parsePath(o)
-
-	err := cloudstorage.EnsureDir(fo)
-	if err != nil {
-		return nil, err
-	}
-
-	if metadata != nil && len(metadata) > 0 {
-		metadata = make(map[string]string)
-	}
-
-	fmd := fo + ".metadata"
-	if err := writemeta(fmd, metadata); err != nil {
-		return nil, err
-	}
-
-	flag := os.O_RDWR | os.O_CREATE | os.O_TRUNC
-	if len(opts) > 0 && opts[0].IfNotExists {
-		flag = flag | os.O_EXCL
-	}
-	f, err := os.OpenFile(fo, flag, 0665)
-	if err != nil {
-		return nil, err
-	}
-	return csbufio.NewWriter(f), nil
+	return l.pachClient.PutFileWriter(client.NewCommit(repo, "master", commit), path), nil
 }
 
 func (l *PFSStore) Get(ctx context.Context, o string) (cloudstorage.Object, error) {
