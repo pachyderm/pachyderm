@@ -824,9 +824,11 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 		Branch: client.NewBranch(repo, branch),
 		Seed:   seed,
 	}
+	start := time.Now()
 	if err := a.runLoadTest(pachClient, resp.Branch, req.Spec, seed); err != nil {
 		resp.Error = err.Error()
 	}
+	resp.Duration = types.DurationProto(time.Since(start))
 	return resp, nil
 }
 

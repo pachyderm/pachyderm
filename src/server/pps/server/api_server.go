@@ -2966,6 +2966,47 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	return &pps.ActivateAuthResponse{}, nil
 }
 
+// RunLoadTest implements the pps.RunLoadTest RPC
+// TODO: It could be useful to make the glob and number of pipelines configurable.
+func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
+	func() { a.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.env.GetPachClient(ctx)
+	repo := "load_test"
+	if err := pachClient.CreateRepo(repo); err != nil && !pfsServer.IsRepoExistsErr(err) {
+		return nil, err
+	}
+	branch := uuid.New()
+	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
+		return nil, err
+	}
+	pipeline := tu.UniqueString("TestLoadPipeline")
+	if err := pachClient.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		&pps.Input{
+			Pfs: &pps.PFSInput{
+				Repo:   repo,
+				Branch: branch,
+				Glob:   "/*",
+			},
+		},
+		"",
+		false,
+	); err != nil {
+		return nil, err
+	}
+	req.Branch = client.NewBranch(repo, branch)
+	return pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), req)
+}
+
 // RunLoadTestDefault implements the pps.RunLoadTestDefault RPC
 // TODO: It could be useful to make the glob and number of pipelines configurable.
 func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *pfs.RunLoadTestResponse, retErr error) {

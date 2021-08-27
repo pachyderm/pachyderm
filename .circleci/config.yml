@@ -129,6 +129,17 @@ jobs:
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run: etc/testing/circle/run_hub_tests.sh
+  load:
+    resource_class: large
+    machine:
+      image: ubuntu-2004:202101-01
+    environment:
+      BUCKET: << parameters.bucket >>
+    steps:
+      - checkout
+      - run: |
+          echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run: etc/testing/circle/run_hub_load_tests.sh
 workflows:
   circleci:
     jobs:
@@ -168,3 +179,13 @@ workflows:
   hub_live_tests:
     jobs:
       - hub
+  hub_load_tests:
+    triggers:
+      - schedule:
+          cron: "0 * * * *"
+    jobs:
+      - load:
+          matrix:
+            parameters:
+              bucket:
+                - LOAD1
