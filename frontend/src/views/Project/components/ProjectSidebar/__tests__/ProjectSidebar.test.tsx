@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, waitFor} from '@testing-library/react';
 import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
@@ -104,7 +104,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/2/repo/samples/branch/master',
+        '/project/2/repo/training/branch/develop',
       );
 
       const {findByText} = render(<Project />);

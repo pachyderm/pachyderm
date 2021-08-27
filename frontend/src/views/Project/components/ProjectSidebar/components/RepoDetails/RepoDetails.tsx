@@ -54,7 +54,7 @@ const RepoDetails = () => {
         </Description>
       </dl>
       <div className={styles.divider} />
-      <CommitBrowser repo={repo} repoBaseRef={repoBaseRef} />
+      <CommitBrowser repo={repo} repoBaseRef={repoBaseRef} loading={loading} />
     </div>
   );
 };

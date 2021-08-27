@@ -1,5 +1,5 @@
 import {RepoQuery} from '@graphqlTypes';
-import {Link} from '@pachyderm/components';
+import {Link, LoadingDots} from '@pachyderm/components';
 import formatDistanceToNow from 'date-fns/formatDistanceToNow';
 import React, {useMemo} from 'react';
 
@@ -19,9 +19,14 @@ const emptyRepoMessage = 'Commit your first file on this repo!';
 type CommitBrowserProps = {
   repo?: RepoQuery['repo'];
   repoBaseRef: React.RefObject<HTMLDivElement>;
+  loading: boolean;
 };
 
-const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
+const CommitBrowser: React.FC<CommitBrowserProps> = ({
+  loading,
+  repo,
+  repoBaseRef,
+}) => {
   const {branchId, projectId, repoId} = useUrlState();
   const currentCommits = useMemo(
     () =>
@@ -30,6 +35,14 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
       ),
     [branchId, repo],
   );
+
+  if (loading) {
+    return (
+      <div data-testid="CommitBrowser__loadingdots">
+        <LoadingDots />
+      </div>
+    );
+  }
 
   if (repo?.commits.length === 0) {
     return <EmptyState title={LETS_START_TITLE} message={emptyRepoMessage} />;
