@@ -130,6 +130,9 @@ jobs:
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run: etc/testing/circle/run_hub_tests.sh
   load:
+    parameters:
+      bucket:
+        type: string
     resource_class: large
     machine:
       image: ubuntu-2004:202101-01
