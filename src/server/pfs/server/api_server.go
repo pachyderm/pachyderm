@@ -879,7 +879,9 @@ fileSources:
   - name: "random"
     random:
       directory:
-        depth: 3
+        depth: 
+          min: 0
+          max: 3
         run: 3
       size:
         - min: 1000

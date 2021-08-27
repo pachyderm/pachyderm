@@ -1,4 +1,4 @@
-count: 5
+count: 5 
 operations:
   - count: 5
     operation:
@@ -6,15 +6,19 @@ operations:
           files:
             count: 10000 
             file:
-              - file:
-                  source: "random"
+              - source: "random"
                 prob: 100
         prob: 100
 validator: {}
 fileSources:
   - name: "random"
     random:
-      - size:
-          min: 100
+      directory:
+        depth:
+          min: 1
+          max: 3
+        run: 5000
+      size:
+        - min: 100
           max: 1000
-        prob: 100
+          prob: 100

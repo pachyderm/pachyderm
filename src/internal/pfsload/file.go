@@ -99,8 +99,8 @@ func (rfs *randomFileSource) nextPath() string {
 }
 
 type RandomDirectorySpec struct {
-	Depth int   `yaml:"depth,omitempty"`
-	Run   int64 `yaml:"run,omitempty"`
+	Depth *SizeSpec `yaml:"depth,omitempty"`
+	Run   int64     `yaml:"run,omitempty"`
 }
 
 type randomDirectorySource struct {
@@ -112,7 +112,11 @@ type randomDirectorySource struct {
 
 func (rds *randomDirectorySource) nextPath() string {
 	if rds.next == "" {
-		depth := rds.random.Intn(rds.spec.Depth)
+		min, max := rds.spec.Depth.Min, rds.spec.Depth.Max
+		depth := min
+		if max > min {
+			depth += rds.random.Intn(max - min)
+		}
 		for i := 0; i < depth; i++ {
 			rds.next = path.Join(rds.next, string(randutil.Bytes(rds.random, pathSize)))
 		}
