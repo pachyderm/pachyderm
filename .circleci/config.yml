@@ -185,10 +185,10 @@ workflows:
   hub_load_tests:
     triggers:
       - schedule:
-          cron: "0,15,30,45 * * * *"
+          cron: "0 6 * * *"
           filters:
             branches:
-              only: periodic-load-tests 
+              only: master
     jobs:
       - load:
           matrix:
