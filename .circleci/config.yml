@@ -195,3 +195,5 @@ workflows:
             parameters:
               bucket:
                 - LOAD1
+                - LOAD2
+                - LOAD3
