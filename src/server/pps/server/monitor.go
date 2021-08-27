@@ -227,19 +227,24 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 					[]pps.PipelineState{
 						pps.PipelineState_PIPELINE_RUNNING,
 						pps.PipelineState_PIPELINE_CRASHING,
-						pps.PipelineState_PIPELINE_STANDBY,
 					}, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 
 					pte := &ppsutil.PipelineTransitionError{}
-					if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_PAUSED {
-						// pipeline is stopped, exit monitorPipeline (which pausing the
-						// pipeline should also do). monitorPipeline will be called when
-						// it transitions back to running
-						// TODO(msteffen): this should happen in the pipeline
-						// controller
-						return nil
+					if errors.As(err, &pte) {
+						if pte.Current == pps.PipelineState_PIPELINE_PAUSED {
+							// pipeline is stopped, exit monitorPipeline (which pausing the
+							// pipeline should also do). monitorPipeline will be called when
+							// it transitions back to running
+							// TODO(msteffen): this should happen in the pipeline
+							// controller
+							return nil
+						} else if pte.Current != pps.PipelineState_PIPELINE_STANDBY {
+							// it's fine if we were already in standby
+							return err
+						}
+					} else {
+						return err
 					}
-					return err
 				}
 				for {
 					// finish span from previous loops

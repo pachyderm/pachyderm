@@ -189,11 +189,6 @@ func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.
 			return err
 		}
 		tracing.TagAnySpan(ctx, "old-state", pipelineInfo.State)
-		if pipelineInfo.State == to {
-			// nothing to do
-			return nil
-		}
-
 		// Only UpdatePipeline can bring a pipeline out of failure
 		// TODO(msteffen): apply the same logic for CRASHING?
 		if pipelineInfo.State == pps.PipelineState_PIPELINE_FAILURE {

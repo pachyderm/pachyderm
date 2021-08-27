@@ -32,12 +32,14 @@ type SortOrder = etcd.SortOrder
 type Options struct {
 	Target SortTarget
 	Order  SortOrder
+	// Limit is only implemented for postgres collections
+	Limit int
 }
 
 // DefaultOptions are the default sort options when iterating through etcd
 // key/values.
 func DefaultOptions() *Options {
-	return &Options{SortByCreateRevision, SortDescend}
+	return &Options{SortByCreateRevision, SortDescend, 0}
 }
 
 func listFuncs(opts *Options) (func(*mvccpb.KeyValue) etcd.OpOption, func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int) {

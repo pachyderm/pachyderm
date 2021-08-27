@@ -9754,8 +9754,16 @@ func TestStandbyTransitions(t *testing.T) {
 	req.Autoscaling = true
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
 	require.NoError(t, err)
+	rcName := ppsutil.PipelineRcName(pipeline, 1)
 
-	// just for making guarantees about pipeline processing
+	// create an unrelated pipeline to guarantee event processing
+	// the high level structure of this test is:
+	// 1. Perform some operation on "pipeline" (start or stop)
+	// 2. Put data in "auxData" and wait for the output commit to be finished
+	//		As auxPipeline is also autoscaling, this requires bringing it out of standby,
+	//		ensuring the event from "pipeline" we actually care about was also processed
+	// 3. Verify that the resource version of the main pipeline's RC is unchanged,
+	// 		meaning the operation did not scale up the pipeline, even temporarily
 	auxData := tu.UniqueString("aux_data")
 	require.NoError(t, c.CreateRepo(auxData))
 	auxPipeline := tu.UniqueString("aux")
@@ -9763,6 +9771,20 @@ func TestStandbyTransitions(t *testing.T) {
 	req.Autoscaling = true
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
 	require.NoError(t, err)
+
+	flushEventsAndCheckRC := func(initialVersion string) {
+		// push data to the other pipeline to make sure the stop was processed
+		require.NoError(t, c.PutFile(
+			client.NewCommit(auxData, "master", ""),
+			tu.UniqueString("foo"), strings.NewReader("bar")))
+		_, err = c.WaitCommit(auxPipeline, "master", "")
+		require.NoError(t, err)
+
+		// make sure main pipeline RC has not changed, which it would have if it passed through running
+		rc, err := kc.CoreV1().ReplicationControllers("default").Get(rcName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Equal(t, initialVersion, rc.ResourceVersion)
+	}
 
 	_, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
@@ -9780,33 +9802,16 @@ func TestStandbyTransitions(t *testing.T) {
 	})
 
 	// get the initial state of the pipeline's RC
-	rcName := ppsutil.PipelineRcName(pipeline, 1)
 	initialRC, err := kc.CoreV1().ReplicationControllers("default").Get(rcName, metav1.GetOptions{})
 	require.NoError(t, err)
 
 	// stop the pipeline, then verify the RC wasn't modified
 	require.NoError(t, c.StopPipeline(pipeline))
-
-	// push data to the other pipeline to make sure the stop was processed
-	require.NoError(t, c.PutFile(client.NewCommit(auxData, "master", ""), "foo", strings.NewReader("bar")))
-	_, err = c.WaitCommit(auxPipeline, "master", "")
-	require.NoError(t, err)
-
-	// make sure main pipeline RC has not changed, which it would have if it passed through running
-	rc, err := kc.CoreV1().ReplicationControllers("default").Get(rcName, metav1.GetOptions{})
-	require.NoError(t, err)
-	require.Equal(t, initialRC.ResourceVersion, rc.ResourceVersion)
+	flushEventsAndCheckRC(initialRC.ResourceVersion)
 
 	// now do the same check with start
 	require.NoError(t, c.StartPipeline(pipeline))
-
-	require.NoError(t, c.PutFile(client.NewCommit(auxData, "master", ""), "foo2", strings.NewReader("bar")))
-	_, err = c.WaitCommit(auxPipeline, "master", "")
-	require.NoError(t, err)
-
-	rc, err = kc.CoreV1().ReplicationControllers("default").Get(rcName, metav1.GetOptions{})
-	require.NoError(t, err)
-	require.Equal(t, initialRC.ResourceVersion, rc.ResourceVersion)
+	flushEventsAndCheckRC(initialRC.ResourceVersion)
 }
 
 func monitorReplicas(t testing.TB, pipeline string, n int) {

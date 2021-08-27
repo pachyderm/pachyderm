@@ -309,6 +309,11 @@ func (c *postgresCollection) list(
 			query += fmt.Sprintf(" order by %s %s", target, order)
 		}
 	}
+
+	if opts.Limit > 0 {
+		query += fmt.Sprintf(" limit %d", opts.Limit)
+	}
+
 	rows, err := q.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return c.mapSQLError(err, "")

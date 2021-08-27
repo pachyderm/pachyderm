@@ -2300,14 +2300,16 @@ func (a *apiServer) ListPipeline(request *pps.ListPipelineRequest, srv pps.API_L
 
 func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInfo) error {
 	// fill in state of most-recently-created job (the first shown in list job)
+	opts := col.DefaultOptions()
+	opts.Limit = 1
 	var job pps.JobInfo
 	return a.jobs.ReadOnly(ctx).GetByIndex(
 		ppsdb.JobsPipelineIndex,
 		info.Pipeline.Name,
 		&job,
-		col.DefaultOptions(), func(_ string) error {
+		opts, func(_ string) error {
 			info.LastJobState = job.State
-			return errutil.ErrBreak
+			return errutil.ErrBreak // not strictly necessary because we are limiting to 1 already
 		})
 }
 

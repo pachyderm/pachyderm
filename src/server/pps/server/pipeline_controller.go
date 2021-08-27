@@ -69,7 +69,7 @@ var (
 // 1. retrieves its full pipeline spec and RC into the 'Details' field
 // 2. makes whatever changes are needed to bring the RC in line with the (new) spec
 // 3. updates 'pipelineInfo', if needed, to reflect the action it just took
-func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
+func (m *ppsMaster) step(pipeline string, timestamp time.Time) (retErr error) {
 	log.Debugf("PPS master: processing event for %q", pipeline)
 
 	// Initialize op ctx (cancelled at the end of step(), to avoid leaking
@@ -82,8 +82,8 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 	// Handle tracing
 	span, opCtx := extended.AddSpanToAnyPipelineTrace(opCtx,
 		m.a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate")
-	if keyVer != 0 || keyRev != 0 {
-		tracing.TagAnySpan(span, "key-version", keyVer, "mod-revision", keyRev)
+	if !timestamp.IsZero() {
+		tracing.TagAnySpan(span, "update-time", timestamp)
 	} else {
 		tracing.TagAnySpan(span, "pollpipelines-event", "true")
 	}

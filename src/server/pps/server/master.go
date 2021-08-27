@@ -46,15 +46,8 @@ const (
 
 type pipelineEvent struct {
 	eventType
-	pipeline string
-
-	// etcdVer and etcdRev record the etcd version and key revision at which a
-	// write/delete was observed. These are recorded in traces and are useful for
-	// debugging (e.g. if two consecutive spans have non-consecutive versions,
-	// that would indicate a concurrent write). These will not be set for events
-	// created by pollPipelines.
-	etcdVer int64
-	etcdRev int64
+	pipeline  string
+	timestamp time.Time
 }
 
 type stepError struct {
@@ -96,7 +89,7 @@ type ppsMaster struct {
 
 	// channel through which pipeline events are passed
 	eventCh     chan *pipelineEvent
-	lastUpdates map[string]int64
+	lastUpdates map[string]time.Time
 }
 
 // The master process is responsible for creating/deleting workers as
@@ -106,7 +99,7 @@ func (a *apiServer) master() {
 		a:                      a,
 		monitorCancels:         make(map[string]func()),
 		crashingMonitorCancels: make(map[string]func()),
-		lastUpdates:            make(map[string]int64),
+		lastUpdates:            make(map[string]time.Time),
 	}
 
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
@@ -162,7 +155,7 @@ eventLoop:
 		case e := <-m.eventCh:
 			switch e.eventType {
 			case writeEv:
-				if e.etcdRev != 0 && e.etcdRev < m.lastUpdates[e.pipeline] {
+				if !e.timestamp.IsZero() && e.timestamp.Before(m.lastUpdates[e.pipeline]) {
 					// we've stepped the pipeline since this event occurred
 					// NOTE: this will ignore updates before 1970
 					continue
@@ -194,11 +187,11 @@ eventLoop:
 func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 	var errCount int
 	var stepErr stepError
-	var startTimeSeconds int64
+	var startTime time.Time
 	err := backoff.RetryNotify(func() error {
-		startTimeSeconds = time.Now().Unix()
+		startTime = time.Now()
 		// Create/Modify/Delete pipeline resources as needed per new state
-		return m.step(e.pipeline, e.etcdVer, e.etcdRev)
+		return m.step(e.pipeline, e.timestamp)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		errCount++
 		if errors.As(err, &stepErr) {
@@ -210,11 +203,11 @@ func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 		}
 		return errors.Wrapf(err, "could not update resource for pipeline %q", e.pipeline)
 	})
-	if err == nil && startTimeSeconds != 0 {
+	if err == nil && !startTime.IsZero() {
 		// can write to the map as pps master does not use concurrency
 
 		// add a little grace period for clock disagreements
-		m.lastUpdates[e.pipeline] = startTimeSeconds - 2
+		m.lastUpdates[e.pipeline] = startTime.Add(-2 * time.Second)
 	}
 
 	// we've given up on the step, check if the error indicated that the pipeline should fail
