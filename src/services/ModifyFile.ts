@@ -1,3 +1,5 @@
+import fs from 'fs';
+
 import {APIClient} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
 import {
   AddFile,
@@ -67,10 +69,16 @@ export class ModifyFile {
   }
 
   putFileFromBytes(path: string, bytes: Buffer) {
-    const addFile = new AddFile()
-      .setPath(path)
-      .setRaw(new BytesValue().setValue(bytes));
-    this.stream.write(new ModifyFileRequest().setAddFile(addFile));
+    let end = GRPC_MAX_MESSAGE_LENGTH;
+    let chunk = bytes.slice(0, end);
+    while (chunk.length > 0) {
+      const addFile = new AddFile()
+        .setPath(path)
+        .setRaw(new BytesValue().setValue(chunk));
+      this.stream.write(new ModifyFileRequest().setAddFile(addFile));
+      chunk = bytes.slice(end, end + GRPC_MAX_MESSAGE_LENGTH);
+      end += GRPC_MAX_MESSAGE_LENGTH;
+    }
     return this;
   }
 
@@ -80,6 +88,11 @@ export class ModifyFile {
       .setUrl(new AddFile.URLSource().setUrl(url));
     this.stream.write(new ModifyFileRequest().setAddFile(addFile));
     return this;
+  }
+
+  putFileFromFilepath(sourcePath: string, destPath: string) {
+    const data = fs.readFileSync(sourcePath, {});
+    return this.putFileFromBytes(destPath, data);
   }
 
   end() {

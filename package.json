@@ -12,7 +12,8 @@
     "build:src": "tsc -p tsconfig.json",
     "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run lint && npm run test && npm run build"
+    "prepublishOnly": "npm run lint && npm run test && npm run build",
+    "opencv": "npm run build && tsc examples/opencv/index.ts && node examples/opencv/index.js"
   },
   "repository": {
     "type": "git",

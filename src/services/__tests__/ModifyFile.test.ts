@@ -1,3 +1,5 @@
+import path from 'path';
+
 import client from 'client';
 
 describe('ModifyFile', () => {
@@ -69,6 +71,38 @@ describe('ModifyFile', () => {
       const files = await client.pfs().listFile({
         commitId: commit.id,
         branch: {name: 'master', repo: {name: 'putFileFromBytes'}},
+      });
+      expect(files).toHaveLength(1);
+    });
+  });
+
+  describe('putFileFromFilePath', () => {
+    it('should add a file from a local path to the repo', async () => {
+      const client = await createSandbox('putFileFromFilePath');
+      const commit = await client.pfs().startCommit({
+        branch: {name: 'master', repo: {name: 'putFileFromFilePath'}},
+      });
+
+      const initialFiles = await client.pfs().listFile({
+        commitId: commit.id,
+        branch: {name: 'master', repo: {name: 'putFileFromFilePath'}},
+      });
+      expect(initialFiles).toHaveLength(0);
+
+      await client
+        .modifyFile()
+        .setCommit(commit)
+        .putFileFromFilepath(
+          path.join(__dirname, '../../../examples/opencv/images/8MN9Kg0.jpg'),
+          '/8MN9Kg0.jpg',
+        )
+        .end();
+
+      await client.pfs().finishCommit({commit});
+
+      const files = await client.pfs().listFile({
+        commitId: commit.id,
+        branch: {name: 'master', repo: {name: 'putFileFromFilePath'}},
       });
       expect(files).toHaveLength(1);
     });

@@ -14,12 +14,10 @@ import {
   ListJobSetRequest,
   JobSetInfo,
   CreatePipelineRequest,
-  Transform,
-  Input,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 
-import {commitFromObject} from '../builders/pfs';
+import {commitFromObject, CommitObject} from '../builders/pfs';
 import {
   jobFromObject,
   pipelineFromObject,
@@ -34,8 +32,19 @@ import {
   serviceFromObject,
   spoutFromObject,
   transformFromObject,
+  InputObject,
+  PipelineObject,
+  TransformObject,
+  SchedulingSpecObject,
+  SpoutObject,
+  ServiceObject,
+  TFJobObject,
+  ParallelismSpecObject,
+  EgressObject,
+  ResourceSpecObject,
+  DatumSetSpecObject,
 } from '../builders/pps';
-import {durationFromObject} from '../builders/protobuf';
+import {durationFromObject, DurationObject} from '../builders/protobuf';
 import {JobSetQueryArgs, JobQueryArgs, ServiceArgs} from '../lib/types';
 import {DEFAULT_JOBS_LIMIT} from '../services/constants/pps';
 import streamToObjectArray from '../utils/streamToObjectArray';
@@ -50,8 +59,8 @@ export interface ListJobArgs extends ListArgs {
 export interface CreatePipelineRequestOptions
   extends Omit<
     CreatePipelineRequest.AsObject,
-    | 'autoscaling'
     | 'pipeline'
+    | 'autoscaling'
     | 'description'
     | 'transform'
     | 'podPatch'
@@ -65,12 +74,26 @@ export interface CreatePipelineRequestOptions
     | 'salt'
     | 's3Out'
     | 'datumTries'
+    | 'input'
+    | 'schedulingSpec'
+    | 'datumTimeout'
+    | 'jobTimeout'
+    | 'spout'
+    | 'service'
+    | 'parallismSpec'
+    | 'egress'
+    | 'resourceRequests'
+    | 'resourceLimits'
+    | 'sidecarResourceLimits'
+    | 'datumSetSpec'
+    | 'specCommit'
   > {
+  schedulingSpec?: SchedulingSpecObject;
+  pipeline: PipelineObject;
   autoscaling?: CreatePipelineRequest.AsObject['autoscaling'];
-  name: string;
-  transform: Transform.AsObject;
+  transform: TransformObject;
   description?: CreatePipelineRequest.AsObject['description'];
-  input: Input.AsObject;
+  input: InputObject;
   podPatch?: CreatePipelineRequest.AsObject['podPatch'];
   podSpec?: CreatePipelineRequest.AsObject['podSpec'];
   outputBranch?: CreatePipelineRequest.AsObject['outputBranch'];
@@ -79,7 +102,19 @@ export interface CreatePipelineRequestOptions
   update?: CreatePipelineRequest.AsObject['update'];
   salt?: CreatePipelineRequest.AsObject['salt'];
   s3Out?: CreatePipelineRequest.AsObject['s3Out'];
+  tfjob?: TFJobObject;
   datumTries?: CreatePipelineRequest.AsObject['datumTries'];
+  datumTimeout?: DurationObject;
+  jobTimeout?: DurationObject;
+  spout?: SpoutObject;
+  service?: ServiceObject;
+  parallelismSpec?: ParallelismSpecObject;
+  egress?: EgressObject;
+  resourceRequests?: ResourceSpecObject;
+  resourceLimits?: ResourceSpecObject;
+  sidecarResourceLimits?: ResourceSpecObject;
+  datumSetSpec?: DatumSetSpecObject;
+  specCommit?: CommitObject;
 }
 
 const pps = ({
@@ -109,7 +144,7 @@ const pps = ({
         request.setParallelismSpec(
           parallelismSpecFromObject(options.parallelismSpec),
         );
-      request.setPipeline(pipelineFromObject({name: options.name}));
+      request.setPipeline(pipelineFromObject(options.pipeline));
       if (options.podPatch) request.setPodPatch(options.podPatch);
       if (options.podSpec) request.setPodSpec(options.podSpec);
       if (options.s3Out) request.setS3Out(options.s3Out);
@@ -140,6 +175,11 @@ const pps = ({
       if (options.salt) request.setSalt(options.salt);
       if (options.specCommit)
         request.setSpecCommit(commitFromObject(options.specCommit));
+      if (options.datumTimeout)
+        request.setDatumTimeout(durationFromObject(options.datumTimeout));
+      if (options.jobTimeout)
+        request.setJobTimeout(durationFromObject(options.jobTimeout));
+      if (options.spout) request.setSpout(spoutFromObject(options.spout));
 
       return new Promise<Empty.AsObject>((resolve, reject) => {
         client.createPipeline(request, (error) => {

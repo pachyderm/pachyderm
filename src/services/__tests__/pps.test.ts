@@ -33,7 +33,7 @@ describe('services/pps', () => {
     input.setPfs(pfsInput);
 
     await pps.createPipeline({
-      name,
+      pipeline: {name},
       transform: transform.toObject(),
       input: input.toObject(),
     });
@@ -136,7 +136,7 @@ describe('services/pps', () => {
       input.setPfs(pfsInput);
 
       await pachClient.pps().createPipeline({
-        name: 'createPipeline2',
+        pipeline: {name: 'createPipeline2'},
         transform: transform.toObject(),
         input: input.toObject(),
       });

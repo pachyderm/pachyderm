@@ -63,6 +63,29 @@ describe('services/pfs', () => {
     });
   });
 
+  describe('getFile', () => {
+    it('should return a file from a repo', async () => {
+      const client = await createSandbox('getFile');
+      const commit = await client.pfs().startCommit({
+        branch: {name: 'master', repo: {name: 'getFile'}},
+      });
+
+      await client
+        .modifyFile()
+        .setCommit(commit)
+        .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
+        .end();
+
+      await client.pfs().finishCommit({commit});
+      const file = await client.pfs().getFile({
+        commitId: commit.id,
+        path: '/at-at.png',
+        branch: {name: 'master', repo: {name: 'getFile'}},
+      });
+      expect(file.byteLength).toEqual(80588);
+    });
+  });
+
   describe('inspectFile', () => {
     it('should return details about the specified file', async () => {
       const client = await createSandbox('inspectRepo');

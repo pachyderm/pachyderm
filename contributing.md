@@ -12,6 +12,8 @@ npm install
 
 ```
 .
+├── examples
+|   ├── opencv/ - The canonical OpenCV demo rewritten to use node-pachyderm
 ├── src
 │   ├── builders/ - Functions for translating json objects to protobuf types
 │   ├── lib/ - Contains types defined by developers
@@ -58,6 +60,13 @@ These tests do not require you to deploy pachyderm locally to run against. Tests
 ### Service
 Tests should be in the `__tests__` directory inside the `services` folder. These tests should use the `pachClient` to hit pachyderm and test that the expected behavior of each service call is satisfied.
 
+## Examples
+
+### OpenCV
+To run the openCV example run the following command
+```base
+npm run opencv
+```
 ## Contributing to the library
 
 1. Code your change on a feature branch

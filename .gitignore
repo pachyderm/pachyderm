@@ -1,6 +1,7 @@
 node_modules/
 .jestcache/
 dist
+/examples/opencv/index.js
 .DS_Store
 .vscode/*
 !.vscode/settings.json
