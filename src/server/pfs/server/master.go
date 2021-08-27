@@ -78,15 +78,15 @@ func (d *driver) finishCommits(ctx context.Context) error {
 				return err
 			}
 			// Compact the commit.
-			compactedId, err := d.compactor.Compact(ctx, []fileset.ID{*id}, defaultTTL)
+			totalId, err := d.compactor.Compact(ctx, []fileset.ID{*id}, defaultTTL)
 			if err != nil {
 				return err
 			}
-			if err := d.commitStore.SetTotalFileSet(ctx, commit, *compactedId); err != nil {
+			if err := d.commitStore.SetTotalFileSet(ctx, commit, *totalId); err != nil {
 				return err
 			}
 			// Validate the commit.
-			size, validationError, err := d.validate(ctx, compactedId)
+			size, validationError, err := d.validate(ctx, totalId)
 			if err != nil {
 				return err
 			}
@@ -110,7 +110,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 				if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
 					txnCtx.FinishJob(commitInfo)
 				}
-				if err := d.finishAliasDescendents(txnCtx, commitInfo); err != nil {
+				if err := d.finishAliasDescendents(txnCtx, commitInfo, *totalId); err != nil {
 					return err
 				}
 				// TODO(2.0 optional): This is a hack to ensure that commits created by triggers have the same ID as the finished commit.
@@ -156,7 +156,7 @@ func (d *driver) validate(ctx context.Context, id *fileset.ID) (int64, string, e
 
 // finishAliasDescendents will traverse the given commit's descendents, finding all
 // contiguous aliases and finishing them.
-func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo) error {
+func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo, id fileset.ID) error {
 	// Build the starting set of commits to consider
 	descendents := append([]*pfs.Commit{}, parentCommitInfo.ChildCommits...)
 
@@ -177,6 +177,9 @@ func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, p
 			commitInfo.Details = parentCommitInfo.Details
 			commitInfo.Error = parentCommitInfo.Error
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
+				return err
+			}
+			if err := d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commitInfo.Commit, id); err != nil {
 				return err
 			}
 
