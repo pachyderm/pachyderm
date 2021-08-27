@@ -204,7 +204,7 @@ nav:
                 - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
                 - Configure Ingress:
                     - Overview: deploy-manage/deploy/ingress/index.md
-                    - Pachyderm UI (Dash) Ingress: deploy-manage/deploy/ingress/pach-ui-ingress.md            
+                    - Console Ingress: deploy-manage/deploy/ingress/pach-ui-ingress.md            
                 - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
                 - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
                 - Monitor cluster metrics with Prometheus: 
