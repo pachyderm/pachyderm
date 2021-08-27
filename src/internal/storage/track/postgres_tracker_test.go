@@ -3,7 +3,6 @@ package track
 import (
 	"testing"
 
-	_ "github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 )
 

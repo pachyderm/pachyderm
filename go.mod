@@ -39,7 +39,9 @@ require (
 	github.com/hanwen/go-fuse/v2 v2.0.3
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/itchyny/gojq v0.11.2
+	github.com/jackc/pgconn v1.10.0
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
+	github.com/jackc/pgx/v4 v4.13.0
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/jonboulle/clockwork v0.2.2 // indirect
@@ -76,7 +78,7 @@ require (
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	go.uber.org/automaxprocs v1.4.0
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
 	golang.org/x/oauth2 v0.0.0-20210615190721-d04028783cf1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c

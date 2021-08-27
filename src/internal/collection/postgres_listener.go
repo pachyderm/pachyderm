@@ -31,13 +31,15 @@ type PostgresListener interface {
 	Close() error
 }
 
+type Notification = pq.Notification
+
 type Notifier interface {
 	// ID is a unique identifier for the notifier.
 	ID() string
 	// Channel is the channel that this notifier should receive notifications for.
 	Channel() string
 	// Notify sends a notification to the notifier.
-	Notify(*pq.Notification)
+	Notify(*Notification)
 	// Error sends an error to the notifier.
 	Error(error)
 }
@@ -302,7 +304,6 @@ func (pe *postgresEvent) WatchEvent(ctx context.Context, db *sqlx.DB, template p
 			// If the row is gone, this watcher is lagging too much, error it out
 			return &watch.Event{Err: errors.Wrap(err, "failed to read notification data from large_notifications table, watcher latency may be too high"), Type: watch.EventError}
 		}
-
 	}
 	return &watch.Event{
 		Key:      []byte(pe.key),
@@ -325,6 +326,8 @@ type postgresListener struct {
 }
 
 func NewPostgresListener(dsn string) PostgresListener {
+	// Apparently this is very important for lib/pq to work
+	dsn = strings.Replace(dsn, "statement_cache_mode=describe", "", -1)
 	eg, _ := errgroup.WithContext(context.Background())
 
 	l := &postgresListener{

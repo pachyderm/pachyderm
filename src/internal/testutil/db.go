@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
