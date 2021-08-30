@@ -572,15 +572,15 @@ it('should create JobInfo from an object', () => {
     job: {id: '1', pipeline: {name: 'montage'}},
     createdAt: {
       seconds: 564645,
-      nanos: 0,
+      nanos: 564645000000000,
     },
     startedAt: {
       seconds: 10000,
-      nanos: 0,
+      nanos: 10000000000000,
     },
     finishedAt: {
       seconds: 20000,
-      nanos: 0,
+      nanos: 20000000000000,
     },
     outputCommit: {
       branch: {
@@ -616,8 +616,11 @@ it('should create JobInfo from an object', () => {
   expect(pipelineJob.getState()).toBe(1);
   expect(pipelineJob.getReason()).toBe('everything broke');
   expect(pipelineJob.getCreated()?.getSeconds()).toBe(564645);
+  expect(pipelineJob.getCreated()?.getNanos()).toBe(564645000000000);
   expect(pipelineJob.getStarted()?.getSeconds()).toBe(10000);
+  expect(pipelineJob.getStarted()?.getNanos()).toBe(10000000000000);
   expect(pipelineJob.getFinished()?.getSeconds()).toBe(20000);
+  expect(pipelineJob.getFinished()?.getNanos()).toBe(20000000000000);
   expect(pipelineJob.getJob()?.getId()).toBe('1');
   expect(pipelineJob.getOutputCommit()?.getBranch()?.getName()).toBe(
     'development',

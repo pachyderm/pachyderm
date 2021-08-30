@@ -631,19 +631,28 @@ export const jobInfoFromObject = ({
 
   if (createdAt) {
     jobInfo.setCreated(
-      timestampFromObject({seconds: createdAt?.seconds || 0, nanos: 0}),
+      timestampFromObject({
+        seconds: createdAt?.seconds || 0,
+        nanos: createdAt?.nanos || 0,
+      }),
     );
   }
 
   if (startedAt) {
     jobInfo.setStarted(
-      timestampFromObject({seconds: startedAt?.seconds || 0, nanos: 0}),
+      timestampFromObject({
+        seconds: startedAt?.seconds || 0,
+        nanos: startedAt?.nanos || 0,
+      }),
     );
   }
 
   if (finishedAt) {
     jobInfo.setFinished(
-      timestampFromObject({seconds: finishedAt?.seconds || 0, nanos: 0}),
+      timestampFromObject({
+        seconds: finishedAt?.seconds || 0,
+        nanos: finishedAt?.nanos || 0,
+      }),
     );
   }
 
