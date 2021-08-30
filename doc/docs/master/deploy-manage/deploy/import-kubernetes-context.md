@@ -1,12 +1,12 @@
 # Import a Kubernetes Context
 
-After you've deployed Pachyderm with helm, the Pachyderm context is not created.
-Therefore, you need to manually create a new Pachyderm context with
-the embedded current Kubernetes context and activate that context.
+After you've deployed Pachyderm with Helm, the Pachyderm context is not created.
+Therefore, **you need to manually create a new Pachyderm context with
+the embedded current Kubernetes context and activate that context**.
 
 To import a Kubernetes context, complete the following steps:
 
-1. Deploy a Pachyderm cluster using the helm installation commands.
+1. Deploy a Pachyderm cluster using the [Helm installation commands](../helm_install/).
 
 1. Verify that the cluster was successfully deployed:
 
@@ -17,13 +17,14 @@ To import a Kubernetes context, complete the following steps:
    **System Response:**
 
    ```shell
-   NAME                     READY   STATUS    RESTARTS   AGE
-   dash-64c868cc8b-j79d6    2/2     Running   0          20h
-   etcd-6865455568-tm5tf    1/1     Running   0          20h
-   pachd-6464d985c7-dqgzg   1/1     Running   0          70s
+   NAME                                    READY   STATUS    RESTARTS   AGE
+   console-6c989c8d56-ftxk7                1/1     Running   0          3d18h
+   etcd-0                                  1/1     Running   0          3d18h
+   pachd-f9fd5b6fc-8d774                   1/1     Running   0          3d18h
+   pg-bouncer-794d8f68f-sjbbh              1/1     Running   0          3d18h
    ```
 
-   You must see all the `dash`, `etcd`, and `pachd` pods running.
+   You must see all the `console`, `etcd`, and `pachd` and postgreSQL pods running.
 
 1. Create a new Pachyderm context with the embedded Kubernetes context:
 

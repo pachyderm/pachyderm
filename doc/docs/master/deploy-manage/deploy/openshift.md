@@ -8,7 +8,7 @@ Please see [known issues](#known-issues) below for currently issues with OpenShi
 
 Pachyderm needs a few things to install and run successfully in any Kubernetes environment
 
-1. A persistent volume, used by Pachyderm's `etcd` for storage of system metatada. 
+1. Two persistent volumes, used by Pachyderm's `etcd` and `postgreSQL` for storage of system metatada. 
    The kind of PV you provision will be dependent on your infrastructure. 
    For example, many on-premises deployments use Network File System (NFS) access to some kind of enterprise storage.
 1. An object store, used by Pachyderm's `pachd` for storing all your data. 
@@ -19,12 +19,12 @@ Pachyderm needs a few things to install and run successfully in any Kubernetes e
 	- or a storage provider like Minio, EMC's ECS or Swift providing S3-compatible access to enterprise storage for on-premises deployment.
 1. Access to particular TCP/IP ports for communication.
 
-### Persistent volume
+### Persistent volumes
 
-You will need to create a persistent volume with enough space for the metadata associated with the data you plan to store Pachyderm. 
+You will need to create two persistent volumes with enough space for the metadata associated with the data you plan to store Pachyderm. 
 The helm chart when configured for AWS, GCP and Azure creates persistent storage for you, when you follow the instructions below.
 A custom deploy can also create storage.  
-We will show you below how to take out the PV that is automatically created, in case you want to create it outside of the Pachyderm deployment and just consume it.
+We will show you below how to take out the PVs that are automatically created, in case you want to create it outside of the Pachyderm deployment and just consume it.
 
 !!! Warning
     The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your cloud provider, and disk generation, you may need to oversize the volume significantly to ensure enough IOPS.
@@ -49,7 +49,7 @@ documentation](https://kubernetes.io/docs/concepts/services-networking/service/)
 #### Incoming ports (port)
 
 These are the ports internal to the containers, 
-You'll find these on both the pachd and dash containers.
+You'll find these on both the pachd and console containers.
 OpenShift runs containers and pods as unprivileged users which don't have access to port numbers below 1024.
 Pachyderm's default manifests use ports below 1024, so you'll have to modify the manifests to use other port numbers.
 It's usually as easy as adding a "1" in front of the port numbers we use.
@@ -85,7 +85,7 @@ We highly encourage you to apply the best practices used in developing software 
 
 Things you'll need:
 
-1. Your PV.  It can be created separately.
+1. Your PVs.  They can be created separately.
 
 1. Your object store information.
 
@@ -436,7 +436,7 @@ Instead, we'll show you the modified version.
 	```shell
 		oc get pods
 		NAME                     READY     STATUS    RESTARTS   AGE
-		dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
+		console-6c9dc97d9c-89dv9    2/2       Running   0          1m
 		etcd-0                   1/1       Running   0          4m
 		pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
 	```

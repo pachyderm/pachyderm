@@ -47,7 +47,7 @@ documentation](https://kubernetes.io/docs/concepts/services-networking/service/)
 #### Incoming ports (port)
 
 These are the ports internal to the containers. 
-You'll find these on both the pachd and dash containers.
+You'll find these on both the pachd and console containers.
 OpenShift runs containers and pods as unprivileged users which don't have access to port numbers below 1024.
 Pachyderm's default manifests use ports below 1024, so you'll have to modify the manifests to use other port numbers.
 It's usually as easy as adding a "1" in front of the port numbers we use.
@@ -511,7 +511,7 @@ You can see the cluster status by using `oc get pods` as in upstream OpenShift:
 ```shell
     oc get pods
     NAME                     READY     STATUS    RESTARTS   AGE
-    dash-78c4b487dc-sm56p    2/2       Running   0          1m
+    console-78c4b487dc-sm56p    2/2       Running   0          1m
     etcd-0                   1/1       Running   0          3m
     etcd-1                   1/1       Running   0          3m
     pachd-5655cffbf7-57w4p   1/1       Running   0          3m

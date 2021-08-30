@@ -1,6 +1,6 @@
 # Deploy Pachyderm with TLS
 
-You can deploy your Pachyderm cluster with Transport Layer Security(TLS)
+You can deploy your Pachyderm cluster with Transport Layer Security (TLS)
 enabled to ensure your cluster communications are protected from external
 attackers, and all the communication parties are verified by means of a
 trusted certificate and a private key. For many organizations, TLS is a
@@ -19,8 +19,6 @@ pachd:
       crt: ""
       key: ""
 ```
-
-
 
 After you deploy Pachyderm, to connect through `pachctl` by using a
 trusted certificate, you need to configure the `pachd_address` in the
