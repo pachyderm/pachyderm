@@ -1,7 +1,7 @@
 # Overview
 In the simplest case, such as running a Pachyderm cluster locally, implicit and
 explicit port-forwarding enables you to communicate with `pachd`, the Pachyderm
-daemon pod, and `dash`, the Pachyderm UI. Port-forwarding can be used in
+daemon pod, and `console`, the Pachyderm UI. Port-forwarding can be used in
 cloud environments as well, but a production environment might require you to
 define more sophisticated inbound connection rules.
 
@@ -29,7 +29,7 @@ including:
   all your services to the load balancer type and have a separate load
   balancer for each service. This can become difficult to manage long-term.
   This option works on most cloud platforms (AWS, GKE...), 
-  as well as in minikube, and majorly used for internal use.
+  as well as in minikube, and internal use.
 
 * `Ingress` resource. An ingress resource is
   independent of the services that you deploy.
@@ -37,11 +37,11 @@ including:
   it is the recommended option to use with Pachyderm. 
 
 !!! Warning
-    Kubernetes supports multiple ingress controller options, and you are free to
+    Kubernetes supports multiple ingress controller options. You are free to
     pick the one that works best for your environment. 
     However, not all of them
     might be fully compatible with Pachyderm. 
-    In particular, it must support gRPC protocol (for `pachd`) and WebSockets (for `dash`)
+    In particular, it must support gRPC protocol (for `pachd`).
 
 !!! Info
     No ingress controller is deployed by default with the default helm chart.
@@ -68,7 +68,7 @@ we recommend that you:
 
     Make sure that you have Transport
     Layer Security (TLS) enabled for Ingress connections.
-    You can deploy `pachd` and `dash` with different certificates
+    You can deploy `pachd` and `console` with different certificates
     if required. Self-signed certificates might require additional configuration.
     For instructions on deployment with TLS, 
     see [Deploy Pachyderm with TLS](https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy_w_tls/).

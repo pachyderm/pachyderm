@@ -7,8 +7,6 @@ using the **ingress controller** Traefik.
  
 However, we recommend you choose the ingress controller
 implementation that best fits your cluster.
-For Pachyderm UI (`console`) service in particular,
-make sure that it supports WebSockets (Traefik, Nginx, Ambassador...).
 
 Pachyderm UI requires a single (HTTP) port to be open.
 
@@ -59,12 +57,12 @@ Here is a quick high-level view of the various components at play.
          annotations:
             kubernetes.io/ingress.class: traefik
             traefik.frontend.rule.type: PathPrefixStrip
-         host: "dash.localhost"
+         host: "console.localhost"
       ```
 
          At a minimum, you will need to specify the following fields:
 
-         - `host` — match the hostname header of the http request (domain).  In the example above,  **dash.localhost** 
+         - `host` — match the hostname header of the http request (domain).  In the example above,  **console.localhost** 
 
    - Install Pachyderm using the Helm Chart
       ```shell
@@ -82,7 +80,7 @@ Here is a quick high-level view of the various components at play.
       Default backend:  default-http-backend:80 
       Rules:
       Host            Path  Backends
-      dash.localhost
+      console.localhost
                         /     console:console-http (10.1.0.7:4000)
       Annotations:      kubernetes.io/ingress.class: traefik
                         /dex     pachd:identity-port (10.1.0.8:1658)
@@ -105,7 +103,7 @@ Here is a quick high-level view of the various components at play.
 
 
 ## Browse
-Connect to your Pachyderm UI: http://dash.localhost/app/. You are all set!
+Connect to your Pachyderm UI: http://console.localhost/app/. You are all set!
 
 ## References
 * [Traefik](https://doc.traefik.io/traefik/v1.7/user-guide/kubernetes/) documentation.
