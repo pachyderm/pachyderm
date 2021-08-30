@@ -1,21 +1,14 @@
-# Set up Ingress with Traefik to access Pachyderm UI (`dash`) service in your cluster 
+# Set up Ingress with Traefik to access Pachyderm UI (`console`) service in your cluster 
 Before completing the following steps, read the [Overview](../index).
 This section provides an example of how to route
 cluster-external requests (URLs - hostname and path) to cluster-internal services
-(here Pachyderm UI (`dash`) service) 
+(here Pachyderm UI (`console`) service 
 using the **ingress controller** Traefik.
  
 However, we recommend you choose the ingress controller
 implementation that best fits your cluster.
-For Pachyderm UI (`dash`) service in particular,
-make sure that it supports WebSockets (Traefik, Nginx, Ambassador...).
 
-Pachyderm UI requires two ports to be open:
-
-- An HTTP port used to serve static assets 
-(HTML, CSS, JS, images, etc; port 30080 by default routes to the dash container within the dash pod)
-- A WebSocket port, used to connect to the GRPC proxy 
-(which in turn connects to pachd; port 30081 by default routes to the grpc-proxy container within the dash pod)  
+Pachyderm UI requires a single (HTTP) port to be open.
 
 ## Traefik ingress controller on Pachyderm UI's cluster in one diagram
 Here is a quick high-level view of the various components at play.
@@ -54,142 +47,63 @@ Here is a quick high-level view of the various components at play.
     $ kubectl port-forward $(kubectl get pods --selector "app.kubernetes.io/name=traefik" --output=name) 9000:9000
     ```
 
-1. Create your Ingress route rules (Ingress Ressource):
+1. Configure the Ingress in the helm chart.
+   You will need to configure any specific annotations your ingress controller requires. 
 
-    The ingress rules expose the private services
-    (here Pachyderm UI - `dash` - service) 
-    from your cluster to the ingress controller.
-
-    - Create a mypachydermUICRDs.yaml
+    - my_pachyderm_values.yaml
       ```yaml
-      apiVersion: extensions/v1beta1
-      kind: Ingress
-      metadata:
-        name: pachyderm
-        annotations:
-          kubernetes.io/ingress.class: traefik
-          traefik.frontend.rule.type: PathPrefixStrip
-      spec:
-        rules:
-          - host: dash.localhost
-            http:
-              paths:
-                - path: /
-                  backend:
-                    serviceName: dash
-                    servicePort: dash-http
-                - path: /ws
-                  backend:
-                    serviceName: dash
-                    servicePort: grpc-proxy-http
-
+      ingress:
+         enabled: false
+         annotations:
+            kubernetes.io/ingress.class: traefik
+            traefik.frontend.rule.type: PathPrefixStrip
+         host: "console.localhost"
       ```
 
          At a minimum, you will need to specify the following fields:
 
-         - `host` — match the hostname header of the http request (domain).  In the file above,  **dash.localhost** 
-         - `path` - mapped to the service port `servicePort` of the `serviceName`. 
+         - `host` — match the hostname header of the http request (domain).  In the example above,  **console.localhost** 
 
-   - Create/apply your ressource
+   - Install Pachyderm using the Helm Chart
       ```shell
-      $ kubectl create -f mypachydermUICRDs.yaml
+      $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm
       ```
       
-   - Check your new rules by running `kubectl describe ingress <name-field-value-in-rules-yaml>`:
+   - Check your new rules by running `kubectl describe ingress console`:
       ```shell
-      $ kubectl describe ingress pachyderm
+      $ kubectl describe ingress console
       ```
       ```
-      Name:             pachyderm
+      Name:             console
       Namespace:        default
       Address:
       Default backend:  default-http-backend:80 
       Rules:
       Host            Path  Backends
-      dash.localhost
-                        /     dash:dash-http (10.1.0.7:8080)
-                        /ws   dash:grpc-proxy-http (10.1.0.7:8081)
+      console.localhost
+                        /     console:console-http (10.1.0.7:4000)
       Annotations:      kubernetes.io/ingress.class: traefik
-                        traefik.frontend.rule.type: PathPrefixStrip
+                        /dex     pachd:identity-port (10.1.0.8:1658)
+      Annotations:      kubernetes.io/ingress.class: traefik
+                        /     pachd:oidc-port (10.1.0.8:1657)
+      Annotations:      kubernetes.io/ingress.class: traefik
       Events:           <none>
       ```
        
    - Check the Traefik Dashboard again (http://127.0.0.1:9000/dashboard/), your new set of rules should now be visible.
 
-!!! Info
-       You can deploy your `Ingress` resource (Ingress Route) in any namespace.
 
-!!! Note
-       The `servicePort`(s) on which your `serviceName`(s) listens,
-       are defined in your Pachyderm deployment manifest (`pachctl deploy local --dry-run > pachd.json`).
-       Take a look at the service declaration of `dash` from our manifest below
-       and the 2 ports `dash-http` and `grpc-proxy-http` it listens to.
-      ```yaml
-         "kind": "Service",
-         "apiVersion": "v1",
-         "metadata": {
-            "name": "dash",
-            "namespace": "default",
-            "creationTimestamp": null,
-            "labels": {
-               "app": "dash",
-               "suite": "pachyderm"
-            }
-         },
-         "spec": {
-            "ports": [
-               {
-               "name": "dash-http",
-               "port": 8080,
-               "targetPort": 0,
-               "nodePort": 30080
-               },
-               {
-               "name": "grpc-proxy-http",
-               "port": 8081,
-               "targetPort": 0,
-               "nodePort": 30081
-               }
-            ],
-      ```      
-
- 
 !!! Warning
       - You need to have administrative access to the hostname that you
       specify in the `host` field.
       - Do not create routes (`paths`) with `pachd` or S3 services
       in the `Ingress` resource `.yaml`.
-      - Do not create routes (`paths`) with `dash`.
+      - Do not create routes (`paths`) with `console`.
       Pachyderm UI will not load.
 
 
 ## Browse
-Connect to your Pachyderm UI: http://dash.localhost/app/. You are all set!
-
-!!! Info
-      If you choose to run your WebSocket server on a different host/port, adjust your rules accordingly.
-      ```shell
-      rules:
-      - host: dash.localhost
-         http:
-            paths:
-            - path: /
-            backend:
-               serviceName: dash
-               servicePort: dash-http
-      - host: dashws.localhost
-         http:
-            paths:
-            - path: /ws
-            backend:
-               serviceName: dash
-               servicePort: grpc-proxy-http
-      ``` 
-       You can then access Pachyderm UI by specifying the path, host, and port for the WebSocket proxy
-       using GET parameters in the url: http://dash.localhost/app?host=dashws.localhost&path=ws&port=80
-       If you’re using the same hostname on your ingress to map both the WebSocket port and the UI port,
-       you can omit those parameters.
-
+Connect to your Pachyderm UI: http://console.localhost/app/. You are all set!
 
 ## References
 * [Traefik](https://doc.traefik.io/traefik/v1.7/user-guide/kubernetes/) documentation.
