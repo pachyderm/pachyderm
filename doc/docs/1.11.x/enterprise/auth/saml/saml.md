@@ -22,7 +22,7 @@ mistakes in this configuration could lock you out of your cluster.
 To activate Pachyderm enterprise and Pachyderm auth:
 
 ```
-pachctl enterprise activate <enterprise code>
+echo <your-activation-token> | pachctl enterprise activate
 pachctl auth activate --initial-admin=robot:admin
 ```
 

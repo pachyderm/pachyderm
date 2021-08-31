@@ -62,7 +62,7 @@ Deploying a stand-alone enterprise server requires using the `--enterprise-serve
 
 - Use your enterprise key to activate your enterprise server: 
 	```shell
-	$ pachctl license activate
+	$ echo <your-activation-token> | pachctl license activate
 	```
 - Then enable Authentication at the Enterprise Server level:
 	```shell

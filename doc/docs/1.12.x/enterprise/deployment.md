@@ -61,7 +61,7 @@ To activate the Pachyderm Enterprise Edition, complete the following steps::
 1. Activate the Enterprise Edition by running:
 
    ```shell
-   pachctl enterprise activate <activation-code>
+   echo <your-activation-token> | pachctl enterprise activate
    ```
 
    If this command does not return any error, then the activation was
