@@ -12,8 +12,8 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
-	loki "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/jmoiron/sqlx"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/client-go/kubernetes"
