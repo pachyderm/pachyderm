@@ -670,7 +670,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, pipelineInfo 
 	s.SetLabels(labels)
 
 	// send RPC to k8s to create the secret there
-	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(ctx, &s, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
@@ -733,7 +733,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 			},
 		},
 	}
-	if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
@@ -767,7 +767,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 			},
 		},
 	}
-	if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
@@ -801,7 +801,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 				Ports:    servicePort,
 			},
 		}
-		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
+		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 			if !errutil.IsAlreadyExistError(err) {
 				return err
 			}

@@ -239,7 +239,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	}
 
 	err := backoff.RetryNotify(func() error {
-		_, err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Create(service)
+		_, err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Create(ctx, service, metav1.CreateOptions{})
 		if err != nil && strings.Contains(err.Error(), "already exists") {
 			return nil // service already created
 		}
@@ -253,14 +253,14 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	}
 }
 
-func (s *k8sServiceCreatingJobHandler) OnTerminate(_ context.Context, job *pps.Job) {
+func (s *k8sServiceCreatingJobHandler) OnTerminate(ctx context.Context, job *pps.Job) {
 	if !ppsutil.ContainsS3Inputs(s.s.pipelineInfo.Details.Input) && !s.s.pipelineInfo.Details.S3Out {
 		return // Nothing to delete; this isn't an s3 pipeline (shouldn't happen)
 	}
 	if err := backoff.RetryNotify(func() error {
-		err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Delete(
+		err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Delete(ctx,
 			ppsutil.SidecarS3GatewayService(job.Pipeline.Name, job.ID),
-			&metav1.DeleteOptions{OrphanDependents: new(bool) /* false */})
+			metav1.DeleteOptions{OrphanDependents: new(bool) /* false */})
 		if err != nil && errutil.IsNotFoundError(err) {
 			return nil // service already deleted
 		}
