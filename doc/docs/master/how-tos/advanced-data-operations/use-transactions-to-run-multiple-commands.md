@@ -108,7 +108,7 @@ delete repo
 update repo
 start commit
 finish commit
-squash commitset
+squash commit
 create branch
 delete branch
 create pipeline
