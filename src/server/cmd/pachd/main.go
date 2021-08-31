@@ -83,6 +83,8 @@ func main() {
 		cmdutil.Main(doEnterpriseMode, &serviceenv.GlobalConfiguration{})
 	case mode == "sidecar":
 		cmdutil.Main(doSidecarMode, &serviceenv.PachdFullConfiguration{})
+	case mode == "controller":
+		pps_server.StartController()
 	default:
 		fmt.Printf("unrecognized mode: %s\n", mode)
 	}

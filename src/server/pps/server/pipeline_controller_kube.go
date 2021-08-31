@@ -2,11 +2,12 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"os"
 	"time"
 
-	crd "github.com/pachyderm/pachyderm/v2/src/server/pps/server/crd"
+	crd "github.com/pachyderm/pachyderm/v2/src/server/pps/server/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,6 +15,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
@@ -26,12 +28,14 @@ type reconciler struct {
 }
 
 func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	//fmt.Errorf("Started reconcile!")
 	log := log.FromContext(ctx).WithValues("chaospod", req.NamespacedName)
 	log.V(1).Info("reconciling chaos pod")
 
 	var chaospod crd.ChaosPod
 	if err := r.Get(ctx, req.NamespacedName, &chaospod); err != nil {
 		log.Error(err, "unable to get chaosctl")
+		fmt.Errorf("unable to get chaosctl: %w", err)
 		return ctrl.Result{}, err
 	}
 
@@ -40,6 +44,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if err := r.Get(ctx, req.NamespacedName, &pod); err != nil {
 		if !apierrors.IsNotFound(err) {
 			log.Error(err, "unable to get pod")
+			fmt.Errorf("unable to get pod %w", err)
 			return ctrl.Result{}, err
 		}
 		podFound = false
@@ -85,18 +90,24 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 func StartController() {
-	//ctrl.SetLogger(zap.New())
+	opts := zap.Options{
+		Development: true,
+	}
+
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
+		fmt.Errorf("Err, %w", err)
+		//os.Exit(1)
 	}
 
 	// in a real controller, we'd create a new scheme for this
 	err = crd.AddToScheme(mgr.GetScheme())
 	if err != nil {
 		setupLog.Error(err, "unable to add scheme")
+		fmt.Errorf("Err, %w", err)
 		os.Exit(1)
 	}
 
@@ -109,16 +120,18 @@ func StartController() {
 		})
 	if err != nil {
 		setupLog.Error(err, "unable to create controller")
+		fmt.Errorf("Err, %w", err)
 		os.Exit(1)
 	}
 
-	err = ctrl.NewWebhookManagedBy(mgr).
+	/*err = ctrl.NewWebhookManagedBy(mgr).
 		For(&crd.ChaosPod{}).
 		Complete()
 	if err != nil {
 		setupLog.Error(err, "unable to create webhook")
+		fmt.Errorf("Err, %w", err)
 		os.Exit(1)
-	}
+	}*/
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

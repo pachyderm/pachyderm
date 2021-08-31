@@ -16,7 +16,7 @@ limitations under the License.
 
 // +kubebuilder:object:generate=true
 // +groupName=chaosapps.metamagical.io
-package crd
+package v1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"

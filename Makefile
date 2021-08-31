@@ -32,6 +32,17 @@ GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 # You can specify your own, but this is what CI uses
 TIMEOUT ?= 3600s
 
+CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
+CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+controller-gen: ## Download controller-gen locally if necessary.
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
+
+manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./src/server/pps/server/..." output:crd:artifacts:config=src/server/pps/server/bases
+
+generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	$(CONTROLLER_GEN) object paths="./src/server/pps/server/..."
+
 install:
 	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
 	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
