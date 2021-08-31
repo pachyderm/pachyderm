@@ -5,9 +5,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	loki "github.com/pachyderm/pachyderm/src/server/pkg/lokiutil/client"
 )
 
 const (
