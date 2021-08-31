@@ -15,7 +15,7 @@ To deploy Pachyderm to AKS, you need to:
 Before you can deploy Pachyderm on Azure, you need to configure a few
 prerequisites on your client machine. If not explicitly specified, use the
 latest available version of the components listed below.
-Install the following prerequisites:
+Install the following:
 
 * [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 * [jq](https://stedolan.github.io/jq/download/)
@@ -210,6 +210,9 @@ resources:
 |STORAGE_ACCOUNT|The name of the storage account where you store your data, unique in the Azure location.|
 |CONTAINER_NAME|The name of the Azure blob container where you store your data.|
 |STORAGE_SIZE|The size of the persistent volume to create in GBs. Allocate at least 10 GB.|
+
+!!! Warning
+    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your disk choice, you may need to oversize the volume significantly to ensure enough IOPS.
 
 To create these resources, follow these steps:
 
