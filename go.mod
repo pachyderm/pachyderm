@@ -13,6 +13,7 @@ require (
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
+	github.com/cpuguy83/go-md2man v1.0.10 // indirect
 	github.com/dexidp/dex v0.0.0-20210629090108-0780edbcbe43
 	github.com/dexidp/dex/api/v2 v2.0.0
 	github.com/dlmiddlecote/sqlstats v1.0.2
