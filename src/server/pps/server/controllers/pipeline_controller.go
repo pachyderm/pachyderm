@@ -126,70 +126,61 @@ func newDeployment(pipeline *ppsv1.Pipeline, specCommitID string) *appsv1.Deploy
 	//Worker Env
 	//TODO Add transform.Env
 
-	userEnvVars := []corev1.EnvVar{{
-		Name:  "STORAGE_BACKEND",
-		Value: "LOCAL",
-	}, {
-		Name:  "PACH_ROOT",
-		Value: "/pach",
-	}, {
-		Name:  "PEER_PORT",
-		Value: "653",
-	}, {
-		Name:  "PPS_PIPELINE_NAME",
-		Value: pipeline.GetObjectMeta().GetName(),
-	}, {
-		Name:  "PPS_WORKER_GRPC_PORT",
-		Value: "80",
-	}, {
-		Name: "PPS_WORKER_IP",
-		ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{
-				APIVersion: "v1",
-				FieldPath:  "status.podIP",
-			},
-		},
-	}, {
-		Name: "PPS_POD_NAME",
-		ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{
-				APIVersion: "v1",
-				FieldPath:  "metadata.name",
-			},
-		},
-	}, {
-		Name:  "PPS_SPEC_COMMIT",
-		Value: specCommitID,
-	},
-	}
-
-	sidecarEnvVars := []corev1.EnvVar{{
+	commonEnv := []v1.EnvVar{{
 		Name:  "PACH_ROOT",
 		Value: "/pach",
 	}, {
 		Name:  "PACH_NAMESPACE",
 		Value: "default",
 	}, {
-		Name:  "BLOCK_CACHE_BYTES",
-		Value: "64M",
-	}, {
-		Name:  "PFS_CACHE_SIZE",
-		Value: "16",
-	}, {
 		Name:  "STORAGE_BACKEND",
-		Value: "Local",
+		Value: "LOCAL",
 	}, {
-		Name:  "PPS_WOKER_GRPC_PORT",
-		Value: "80",
+		Name:  "POSTGRES_USER",
+		Value: "pachyderm",
 	}, {
-		Name:  "PORT",
-		Value: "650",
+		Name: "POSTGRES_PASSWORD",
+		ValueFrom: &v1.EnvVarSource{
+			SecretKeyRef: &v1.SecretKeySelector{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: "postgres",
+				},
+				Key: "postgresql-password",
+			},
+		},
 	}, {
-		Name:  "HTTP_PORT",
-		Value: "652",
+		Name:  "POSTGRES_DATABASE",
+		Value: "pachyderm",
+	}, {
+		Name:  "PG_BOUNCER_HOST",
+		Value: "pg-bouncer",
+	}, {
+		Name:  "PG_BOUNCER_PORT",
+		Value: "5432",
 	}, {
 		Name:  "PEER_PORT",
-		Value: "653",
+		Value: "1653",
+	}, {
+		Name:  "PPS_SPEC_COMMIT",
+		Value: specCommitID,
+	}, {
+		Name:  "PPS_PIPELINE_NAME",
+		Value: pipeline.Name,
+	},
+		// These are set explicitly below to prevent kubernetes from setting them to the service host and port.
+		{
+			Name:  "POSTGRES_PORT",
+			Value: "",
+		}, {
+			Name:  "POSTGRES_HOST",
+			Value: "",
+		},
+	}
+
+	// Set up sidecar env vars
+	sidecarEnv := []v1.EnvVar{{
+		Name:  "PORT",
+		Value: "1650",
 	}, {
 		Name: "PACHD_POD_NAME",
 		ValueFrom: &v1.EnvVarSource{
@@ -198,7 +189,64 @@ func newDeployment(pipeline *ppsv1.Pipeline, specCommitID string) *appsv1.Deploy
 				FieldPath:  "metadata.name",
 			},
 		},
+	}, {
+		Name:  "GC_PERCENT",
+		Value: "50",
+	}, {
+		Name:  "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
+		Value: "100",
 	},
+	}
+	sidecarEnv = append(sidecarEnv, commonEnv...)
+
+	// Set up worker env vars
+	workerEnv := []v1.EnvVar{
+		// Set core pach env vars
+		{
+			Name:  "PACH_IN_WORKER",
+			Value: "true",
+		},
+		// We use Kubernetes' "Downward API" so the workers know their IP
+		// addresses, which they will then post on etcd so the job managers
+		// can discover the workers.
+		{
+			Name: "PPS_WORKER_IP",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "status.podIP",
+				},
+			},
+		},
+		// Set the PPS env vars
+		{
+			Name:  "PPS_ETCD_PREFIX",
+			Value: "pachyderm/1.7.0/pachyderm_pps",
+		},
+		{
+			Name: "PPS_POD_NAME",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "metadata.name",
+				},
+			},
+		},
+		{
+			Name:  "PPS_WORKER_GRPC_PORT",
+			Value: "1080",
+		},
+	}
+	workerEnv = append(workerEnv, commonEnv...)
+
+	envFrom := []v1.EnvFromSource{
+		{
+			SecretRef: &v1.SecretEnvSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: "pachyderm-storage-secret",
+				},
+			},
+		},
 	}
 
 	initVolumeMounts := []corev1.VolumeMount{{
@@ -229,11 +277,12 @@ func newDeployment(pipeline *ppsv1.Pipeline, specCommitID string) *appsv1.Deploy
 		"app":        "pachd",
 		"controller": pipeline.Name,
 	}
+	zeroVal := int64(0)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("pipeline-%s-v1", pipeline.Name), //TODO Dry up with reconcile loop Deployment name
 			Namespace: pipeline.Namespace,
-			/*OwnerReferences: []metav1.OwnerReference{
+			/*OwnerReferences: []metav1.OwnerReference{ //Added using SetControllerReference above
 				*metav1.NewControllerRef(pipeline, ppsv1.SchemeGroupVersion.WithKind("Pipeline")),
 			},*/
 		},
@@ -281,7 +330,8 @@ func newDeployment(pipeline *ppsv1.Pipeline, specCommitID string) *appsv1.Deploy
 								},
 							*/
 							//ImagePullPolicy: v1.PullPolicy(pullPolicy),
-							Env: userEnvVars,
+							EnvFrom: envFrom,
+							Env:     workerEnv,
 							/*Resources: v1.ResourceRequirements{
 								Requests: v1.ResourceList{
 									v1.ResourceCPU:    cpuZeroQuantity,
@@ -296,7 +346,8 @@ func newDeployment(pipeline *ppsv1.Pipeline, specCommitID string) *appsv1.Deploy
 							//Command: []string{"/app/pachd", "--mode", "sidecar"},
 							Command: []string{"/pachd", "--mode", "sidecar"},
 							//ImagePullPolicy: v1.PullPolicy(pullPolicy),
-							Env:          sidecarEnvVars,
+							Env:          sidecarEnv,
+							EnvFrom:      envFrom,
 							VolumeMounts: storageVolumeMounts,
 							/*Resources: v1.ResourceRequirements{
 								Requests: v1.ResourceList{
@@ -307,6 +358,7 @@ func newDeployment(pipeline *ppsv1.Pipeline, specCommitID string) *appsv1.Deploy
 							//Ports: sidecarPorts,
 						},
 					},
+					SecurityContext:    &v1.PodSecurityContext{RunAsUser: &zeroVal},
 					ServiceAccountName: "pachyderm-worker",
 					//RestartPolicy: "Always",
 					Volumes: []corev1.Volume{{
