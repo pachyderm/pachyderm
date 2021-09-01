@@ -1,92 +1,28 @@
 package server
 
 import (
-	"context"
-	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
-	crd "github.com/pachyderm/pachyderm/v2/src/server/pps/server/api/v1"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	ppsv1 "github.com/pachyderm/pachyderm/v2/src/server/pps/server/api/v1"
+	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/controllers"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
+	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
-type reconciler struct {
-	client.Client
-	scheme *runtime.Scheme
-}
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	//fmt.Errorf("Started reconcile!")
-	log := log.FromContext(ctx).WithValues("chaospod", req.NamespacedName)
-	log.V(1).Info("reconciling chaos pod")
-
-	var chaospod crd.ChaosPod
-	if err := r.Get(ctx, req.NamespacedName, &chaospod); err != nil {
-		log.Error(err, "unable to get chaosctl")
-		fmt.Errorf("unable to get chaosctl: %w", err)
-		return ctrl.Result{}, err
-	}
-
-	var pod corev1.Pod
-	podFound := true
-	if err := r.Get(ctx, req.NamespacedName, &pod); err != nil {
-		if !apierrors.IsNotFound(err) {
-			log.Error(err, "unable to get pod")
-			fmt.Errorf("unable to get pod %w", err)
-			return ctrl.Result{}, err
-		}
-		podFound = false
-	}
-
-	if podFound {
-		shouldStop := chaospod.Spec.NextStop.Time.Before(time.Now())
-		if !shouldStop {
-			return ctrl.Result{RequeueAfter: chaospod.Spec.NextStop.Sub(time.Now()) + 1*time.Second}, nil
-		}
-
-		if err := r.Delete(ctx, &pod); err != nil {
-			log.Error(err, "unable to delete pod")
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	templ := chaospod.Spec.Template.DeepCopy()
-	pod.ObjectMeta = templ.ObjectMeta
-	pod.Name = req.Name
-	pod.Namespace = req.Namespace
-	pod.Spec = templ.Spec
-
-	if err := ctrl.SetControllerReference(&chaospod, &pod, r.scheme); err != nil {
-		log.Error(err, "unable to set pod's owner reference")
-		return ctrl.Result{}, err
-	}
-
-	if err := r.Create(ctx, &pod); err != nil {
-		log.Error(err, "unable to create pod")
-		return ctrl.Result{}, err
-	}
-
-	chaospod.Spec.NextStop.Time = time.Now().Add(time.Duration(10*(rand.Int63n(2)+1)) * time.Second)
-	chaospod.Status.LastRun = pod.CreationTimestamp
-	if err := r.Update(ctx, &chaospod); err != nil {
-		log.Error(err, "unable to update chaosctl status")
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
+	utilruntime.Must(ppsv1.AddToScheme(scheme))
+	//+kubebuilder:scaffold:scheme
 }
 
 func StartController() {
@@ -96,42 +32,32 @@ func StartController() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{})
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:                 scheme,
+		MetricsBindAddress:     ":8080",
+		Port:                   9443,
+		HealthProbeBindAddress: ":8081",
+		LeaderElection:         false,
+		LeaderElectionID:       "ecaf1259.my.domain",
+	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
-		fmt.Errorf("Err, %w", err)
-		//os.Exit(1)
-	}
-
-	// in a real controller, we'd create a new scheme for this
-	err = crd.AddToScheme(mgr.GetScheme())
-	if err != nil {
-		setupLog.Error(err, "unable to add scheme")
-		fmt.Errorf("Err, %w", err)
 		os.Exit(1)
 	}
 
-	err = ctrl.NewControllerManagedBy(mgr).
-		For(&crd.ChaosPod{}).
-		Owns(&corev1.Pod{}).
-		Complete(&reconciler{
-			Client: mgr.GetClient(),
-			scheme: mgr.GetScheme(),
-		})
 	if err != nil {
-		setupLog.Error(err, "unable to create controller")
-		fmt.Errorf("Err, %w", err)
+		setupLog.Error(err, "unable to connect to Pachd")
 		os.Exit(1)
 	}
 
-	/*err = ctrl.NewWebhookManagedBy(mgr).
-		For(&crd.ChaosPod{}).
-		Complete()
-	if err != nil {
-		setupLog.Error(err, "unable to create webhook")
-		fmt.Errorf("Err, %w", err)
+	if err = (&controllers.PipelineReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Pipeline")
 		os.Exit(1)
-	}*/
+	}
+	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

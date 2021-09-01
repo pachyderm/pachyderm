@@ -1,0 +1,15 @@
+apiVersion: pps.pachyderm.io/v1
+kind: Pipeline
+metadata:
+  name: edges
+spec:
+  description: "A pipeline that performs image edge detection by using the OpenCV library."
+  transform:
+    image: pachyderm/opencv
+    cmd:
+    - "python3"
+    - "/edges.py"
+  input:
+    pfs:
+      repo: images
+      glob: "/*"

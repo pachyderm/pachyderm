@@ -1,0 +1,110 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: pipelines.pps.pachyderm.io
+spec:
+  group: pps.pachyderm.io
+  names:
+    kind: Pipeline
+    listKind: PipelineList
+    plural: pipelines
+    singular: pipeline
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.input.pfs.repo
+      name: Input
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Created
+      type: string
+    - jsonPath: .status.state
+      name: State
+      type: string
+    - jsonPath: .spec.description
+      name: Description
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: 'Pach pipeline printer columns: NAME VERSION INPUT CREATED STATE
+          / LAST JOB DESCRIPTION Pipeline is the Schema for the pipelines API'
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PipelineSpec defines the desired state of Pipeline
+            properties:
+              description:
+                description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                  Important: Run "make" to regenerate code after modifying this file'
+                type: string
+              input:
+                properties:
+                  pfs:
+                    properties:
+                      glob:
+                        type: string
+                      repo:
+                        type: string
+                    required:
+                    - glob
+                    - repo
+                    type: object
+                required:
+                - pfs
+                type: object
+              transform:
+                properties:
+                  cmd:
+                    items:
+                      type: string
+                    type: array
+                  image:
+                    type: string
+                required:
+                - cmd
+                - image
+                type: object
+            required:
+            - description
+            - input
+            - transform
+            type: object
+          status:
+            description: PipelineStatus defines the observed state of Pipeline
+            properties:
+              state:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: string
+            required:
+            - state
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
