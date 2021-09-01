@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -160,10 +161,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
 		// Set core pach env vars
-		{
-			Name:  "PACH_IN_WORKER",
-			Value: "true",
-		},
 		// We use Kubernetes' "Downward API" so the workers know their IP
 		// addresses, which they will then post on etcd so the job managers
 		// can discover the workers.
@@ -646,7 +643,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, pipelineInfo 
 		return errors.Wrapf(err, "error getting the active context")
 	}
 	context.SessionToken = pipelineInfo.AuthToken
-	context.PachdAddress = "localhost:1653"
+	context.PachdAddress = fmt.Sprintf("localhost:%d", a.peerPort)
 
 	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -695,11 +692,9 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 		tracing.FinishAnySpan(span)
 	}()
 
-	// create pachctl secret used in spouts
-	if pipelineInfo.Details.Spout != nil {
-		if err := a.createWorkerPachctlSecret(ctx, pipelineInfo); err != nil {
-			return err
-		}
+	// create secret for using pachctl in worker code, mainly for spouts
+	if err := a.createWorkerPachctlSecret(ctx, pipelineInfo); err != nil {
+		return err
 	}
 
 	options, err := a.getWorkerOptions(pipelineInfo)

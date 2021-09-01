@@ -645,31 +645,6 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 	return NewFromURI(fmt.Sprintf("%s:%s", host, port), options...)
 }
 
-// NewInWorker constructs a new APIClient intended to be used from a worker
-// to talk to the sidecar pachd container
-func NewInWorker(options ...Option) (*APIClient, error) {
-	cfg, err := config.Read(false, true)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not read config")
-	}
-	_, context, err := cfg.ActiveContext(true)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get active context")
-	}
-
-	if localPort, ok := os.LookupEnv("PEER_PORT"); ok {
-		client, err := NewFromURI(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not create client")
-		}
-		if context.SessionToken != "" {
-			client.authenticationToken = context.SessionToken
-		}
-		return client, nil
-	}
-	return nil, errors.New("PEER_PORT not set")
-}
-
 // Close the connection to gRPC
 func (c *APIClient) Close() error {
 	if err := c.clientConn.Close(); err != nil {
