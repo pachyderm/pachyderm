@@ -6,6 +6,7 @@ import styles from './Head.module.css';
 export interface HeadProps extends HTMLAttributes<HTMLTableSectionElement> {
   sticky?: boolean;
   screenReaderOnly?: boolean;
+  relativeShadow?: boolean;
 }
 
 const Head: React.FC<HeadProps> = ({
@@ -13,6 +14,7 @@ const Head: React.FC<HeadProps> = ({
   className,
   sticky,
   screenReaderOnly = false,
+  relativeShadow = false,
   ...rest
 }) => {
   const [isStuck, setIsStuck] = useState(false);
@@ -41,6 +43,7 @@ const Head: React.FC<HeadProps> = ({
   const classes = classNames(className, {
     [styles.sticky]: sticky,
     [styles.stuck]: isStuck,
+    [styles.absoluteTop]: !relativeShadow,
   });
 
   return (
