@@ -227,6 +227,12 @@ export {
   CreateSecretRequest,
   CronInput,
   Metadata,
+  Job,
+  JobInfo,
+  JobInput,
+  JobSet,
+  JobSetInfo,
+  JobState,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 export {
   APIClient as ProjectsAPIClient,
