@@ -9,7 +9,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"gopkg.in/pachyderm/yaml.v3"
+	"gopkg.in/yaml.v3"
 )
 
 // YAMLEncoder is an implementation of serde.Encoder that operates on YAML data

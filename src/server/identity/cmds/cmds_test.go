@@ -60,7 +60,7 @@ func TestClientCRUD(t *testing.T) {
 		  | match '  - https://localhost:1234' \
                   | match '  - https://localhost:5678' \
 		  | match '  - x' \
-		  | match '  - y' \
+		  | match '  - "?y"?' \
 		  | match '  - z' 
 		pachctl idp delete-client {{.id}}
 		`,
