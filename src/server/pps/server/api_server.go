@@ -54,6 +54,7 @@ import (
 	enterprisetext "github.com/pachyderm/pachyderm/v2/src/server/enterprise/text"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	ppsv1 "github.com/pachyderm/pachyderm/v2/src/server/pps/server/api/v1"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -2050,6 +2051,35 @@ func (a *apiServer) CreatePipelineInTransaction(
 			return errors.Wrapf(err, "could not create/update meta branch")
 		}
 	}
+
+	// Create Pipeline CRD object
+	kubeClient := a.env.GetCRDClient()
+
+	crdPipeline := ppsv1.Pipeline{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      request.Pipeline.Name,
+			Namespace: "default",
+		},
+		Spec: ppsv1.PipelineSpec{
+			Description: request.Description,
+			Transform: ppsv1.TransformSpec{
+				Image: request.Transform.Image,
+				Cmd:   request.Transform.Cmd,
+			},
+			Input: ppsv1.InputSpec{
+				Pfs: ppsv1.PfsSpec{
+					Repo: request.Input.Pfs.Repo,
+					Glob: request.Input.Pfs.Glob,
+				},
+			},
+		},
+	}
+	cClient := *kubeClient
+	err = cClient.Create(context.TODO(), &crdPipeline)
+	if err != nil {
+		return errors.Wrapf(err, "could not create CRD instance")
+	}
+
 	return nil
 }
 

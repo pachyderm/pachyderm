@@ -18,6 +18,7 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/runtime"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -34,6 +35,10 @@ import (
 	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	ppsv1 "github.com/pachyderm/pachyderm/v2/src/server/pps/server/api/v1"
+	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+	crdClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const clusterIDKey = "cluster-id"
@@ -55,6 +60,7 @@ type ServiceEnv interface {
 	GetPachClient(ctx context.Context) *client.APIClient
 	GetEtcdClient() *etcd.Client
 	GetKubeClient() *kube.Clientset
+	GetCRDClient() *crdClient.Client
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *pachsql.DB
 	GetDirectDBClient() *pachsql.DB
@@ -95,6 +101,13 @@ type NonblockingServiceEnv struct {
 	// kubeClient is a kubernetes client that, if initialized, is shared by all
 	// users of this environment
 	kubeClient *kube.Clientset
+
+	// crdClient is a special version of the kubernetes cluster which adds the pipeline CRD scheme
+	// TODO: Move all kubernetes calls under this client?
+	crdClient *crdClient.Client
+
+	kubeCRDEG errgroup.Group
+
 	// kubeEg coordinates the initialization of kubeClient (see pachdEg)
 	kubeEg errgroup.Group
 
@@ -174,6 +187,7 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 func InitWithKube(config *Configuration) *NonblockingServiceEnv {
 	env := InitServiceEnv(config)
 	env.kubeEg.Go(env.initKubeClient)
+	env.kubeCRDEG.Go(env.initCRDClient)
 	return env // env is not ready yet
 }
 
@@ -253,6 +267,21 @@ func (env *NonblockingServiceEnv) initEtcdClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
+func (env *NonblockingServiceEnv) initCRDClient() error {
+	return backoff.Retry(func() error {
+		scheme := runtime.NewScheme()
+		ppsv1.AddToScheme(scheme)
+		kubeconfig := ctrl.GetConfigOrDie()
+		controllerClient, err := crdClient.New(kubeconfig, crdClient.Options{Scheme: scheme})
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		env.crdClient = &controllerClient
+		return nil
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+}
+
 func (env *NonblockingServiceEnv) initKubeClient() error {
 	return backoff.Retry(func() error {
 		// Get secure in-cluster config
@@ -283,6 +312,8 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 			return promutil.InstrumentRoundTripper("kubernetes", rt)
 		}
 		env.kubeClient, err = kube.NewForConfig(cfg)
+		_ = ppsv1.AddToScheme(clientsetscheme.Scheme)
+
 		if err != nil {
 			return errors.Wrapf(err, "could not initialize kube client")
 		}
@@ -413,6 +444,18 @@ func (env *NonblockingServiceEnv) GetKubeClient() *kube.Clientset {
 		panic("service env never connected to kubernetes")
 	}
 	return env.kubeClient
+}
+
+// GetCRDClient returns the already connected Kubernetes API client without
+// modification.
+func (env *NonblockingServiceEnv) GetCRDClient() *crdClient.Client {
+	if err := env.kubeCRDEG.Wait(); err != nil {
+		panic(err) // If env can't connect, there's no sensible way to recover
+	}
+	if env.kubeClient == nil {
+		panic("service env never connected to kubernetes")
+	}
+	return env.crdClient
 }
 
 // GetLokiClient returns the loki client, it doesn't require blocking on a

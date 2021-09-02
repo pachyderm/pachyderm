@@ -109,7 +109,7 @@ func (a *apiServer) master() {
 
 		log.Infof("PPS master: launching master process")
 		m.masterCtx = ctx
-		m.run()
+		//m.run()
 		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		log.Errorf("PPS master: error running the master process: %v; retrying in %v", err, d)

@@ -91,7 +91,7 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		gcPercent:             config.GCPercent,
 	}
 	apiServer.validateKube(apiServer.env.BackgroundContext)
-	go apiServer.master()
+	//go apiServer.master()
 	return apiServer, nil
 }
 
