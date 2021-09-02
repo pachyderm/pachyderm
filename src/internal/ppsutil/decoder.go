@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"unicode"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
@@ -18,7 +17,7 @@ import (
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON.
 // It's used by 'create pipeline' and 'update pipeline'
 type PipelineManifestReader struct {
-	decoder serde.Decoder
+	decoder *serde.YAMLDecoder
 }
 
 // NewPipelineManifestReader creates a new manifest reader from a path.
@@ -51,16 +50,6 @@ func NewPipelineManifestReader(path string) (result *PipelineManifestReader, ret
 		if err != nil {
 			return nil, err
 		}
-	}
-	// TODO(msteffen): if we can get the yaml decoder to handle leading tabs, as
-	// in pps/cmds/cmds_test.go, then we can get rid of this
-	idx := bytes.IndexFunc(pipelineBytes, func(r rune) bool {
-		return !unicode.IsSpace(r)
-	})
-	if idx >= 0 && pipelineBytes[idx] == '{' {
-		return &PipelineManifestReader{
-			decoder: serde.NewJSONDecoder(bytes.NewReader(pipelineBytes)),
-		}, nil
 	}
 	return &PipelineManifestReader{
 		decoder: serde.NewYAMLDecoder(bytes.NewReader(pipelineBytes)),
