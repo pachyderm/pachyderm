@@ -227,6 +227,7 @@ clean-launch: check-kubectl
 	kubectl delete statefulset -l app=minio -n default
 	kubectl delete service -l app=minio -n default
 	kubectl delete pvc -l app=minio -n default
+	kubectl delete pipelines --all
 
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."

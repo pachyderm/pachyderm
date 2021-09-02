@@ -2061,7 +2061,8 @@ func (a *apiServer) CreatePipelineInTransaction(
 			Namespace: "default",
 		},
 		Spec: ppsv1.PipelineSpec{
-			Description: request.Description,
+			SpecCommitID: newPipelineInfo.SpecCommit.ID,
+			Description:  request.Description,
 			Transform: ppsv1.TransformSpec{
 				Image: request.Transform.Image,
 				Cmd:   request.Transform.Cmd,

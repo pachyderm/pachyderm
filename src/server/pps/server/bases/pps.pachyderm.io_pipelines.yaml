@@ -69,6 +69,8 @@ spec:
                 required:
                 - pfs
                 type: object
+              specCommitId:
+                type: string
               transform:
                 properties:
                   cmd:
@@ -84,6 +86,7 @@ spec:
             required:
             - description
             - input
+            - specCommitId
             - transform
             type: object
           status:

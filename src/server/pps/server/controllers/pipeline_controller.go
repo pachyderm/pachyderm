@@ -15,7 +15,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 type PipelineReconciler struct {
@@ -103,6 +105,7 @@ func (r *PipelineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&ppsv1.Pipeline{}).
 		Owns(&appsv1.Deployment{}).
+		Watches(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
 
@@ -162,7 +165,7 @@ func newDeployment(pipeline *ppsv1.Pipeline, specCommitID string) *appsv1.Deploy
 		Value: "1653",
 	}, {
 		Name:  "PPS_SPEC_COMMIT",
-		Value: specCommitID,
+		Value: pipeline.Spec.SpecCommitID,
 	}, {
 		Name:  "PPS_PIPELINE_NAME",
 		Value: pipeline.Name,
