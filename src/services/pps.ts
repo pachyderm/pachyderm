@@ -182,7 +182,7 @@ const pps = ({
       if (options.spout) request.setSpout(spoutFromObject(options.spout));
 
       return new Promise<Empty.AsObject>((resolve, reject) => {
-        client.createPipeline(request, (error) => {
+        client.createPipeline(request, credentialMetadata, (error) => {
           if (error) return reject(error);
           return resolve({});
         });
