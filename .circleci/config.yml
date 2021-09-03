@@ -129,6 +129,9 @@ jobs:
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run: etc/testing/circle/run_hub_tests.sh
+      - store_artifacts:
+          path: /tmp/debug-dump
+          destination: debug-dump
   load:
     parameters:
       bucket:
@@ -143,9 +146,7 @@ jobs:
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run: 
-          command: |
-            etc/testing/circle/run_hub_load_tests.sh || {pachctl debug dump /tmp/debug-dump; return 1;}
-            pachctl debug dump /tmp/debug-dump
+          command: etc/testing/circle/run_hub_load_tests.sh
           no_output_timeout: 1h 
       - store_artifacts:
           path: /tmp/debug-dump

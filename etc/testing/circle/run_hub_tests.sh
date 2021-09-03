@@ -41,8 +41,19 @@ hubcli --endpoint https://hub.pachyderm.com/api/graphql --apikey $HUB_API_KEY --
 pachctl version
 
 # Run load tests.
+set +e
 pachctl run pfs-load-test "$@"
+if [ $? -ne 0 ]; then
+	pachctl debug dump /tmp/debug-dump
+	exit 1
+fi
 pachctl run pps-load-test "$@"
+if [ $? -ne 0 ]; then
+	pachctl debug dump /tmp/debug-dump
+	exit 1
+fi
+set -e
+pachctl debug dump /tmp/debug-dump
 
 # Delete the workspace.  We don't do this in a "trap ... exit" statement so that you can log into
 # the workspace and debug it if the load tests fail.  Hub will automatically clean up the workspace
