@@ -404,7 +404,7 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 	}
 	if err := collectDebugFile(tw, "commits", func(w io.Writer) error {
 		return pachClient.ListCommitF(repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
-			if ci.CompactingTime != nil {
+			if ci.CompactingTime != nil && ci.ValidatingTime != nil && ci.Finished != nil {
 				compactingDuration, err := types.DurationFromProto(ci.CompactingTime)
 				if err != nil {
 					return err
@@ -587,7 +587,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 				return errutil.ErrBreak
 			}
 			count++
-			if ji.Stats.DownloadTime != nil {
+			if ji.Stats.DownloadTime != nil && ji.Stats.ProcessTime != nil && ji.Stats.UploadTime != nil {
 				downloadDuration, err := types.DurationFromProto(ji.Stats.DownloadTime)
 				if err != nil {
 					return err
