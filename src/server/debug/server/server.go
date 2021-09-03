@@ -3,6 +3,7 @@ package server
 import (
 	"archive/tar"
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"github.com/wcharczuk/go-chart"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -369,17 +371,123 @@ func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APICl
 	for _, repoInfo := range repoInfos {
 		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
-				repoPrefix := join("input-repos", repoInfo.Repo.Name)
-				return collectDebugFile(tw, "commits", func(w io.Writer) error {
-					return pachClient.ListCommitF(repoInfo.Repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
-						return s.marshaller.Marshal(w, ci)
-					})
-				}, repoPrefix)
+				repoPrefix := join("source-repos", repoInfo.Repo.Name)
+				return s.collectCommits(tw, pachClient, repoInfo.Repo, limit, repoPrefix)
 			}
 			return err
 		}
 	}
 	return nil
+}
+
+func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClient, repo *pfs.Repo, limit int64, prefix ...string) error {
+	compacting := chart.ContinuousSeries{
+		Name: "compacting",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(0).WithAlpha(255),
+		},
+	}
+	validating := chart.ContinuousSeries{
+		Name: "validating",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(1).WithAlpha(255),
+		},
+	}
+	finishing := chart.ContinuousSeries{
+		Name: "finishing",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
+		},
+	}
+	if err := collectDebugFile(tw, "commits", func(w io.Writer) error {
+		return pachClient.ListCommitF(repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
+			if ci.CompactingTime != nil {
+				compactingDuration, err := types.DurationFromProto(ci.CompactingTime)
+				if err != nil {
+					return err
+				}
+				compacting.XValues = append(compacting.XValues, float64(len(compacting.XValues)+1))
+				compacting.YValues = append(compacting.YValues, float64(compactingDuration))
+				validatingDuration, err := types.DurationFromProto(ci.ValidatingTime)
+				if err != nil {
+					return err
+				}
+				validating.XValues = append(validating.XValues, float64(len(validating.XValues)+1))
+				validating.YValues = append(validating.YValues, float64(validatingDuration))
+				finishingTime, err := types.TimestampFromProto(ci.Finishing)
+				if err != nil {
+					return err
+				}
+				finishedTime, err := types.TimestampFromProto(ci.Finished)
+				if err != nil {
+					return err
+				}
+				finishingDuration := finishedTime.Sub(finishingTime)
+				finishing.XValues = append(finishing.XValues, float64(len(finishing.XValues)+1))
+				finishing.YValues = append(finishing.YValues, float64(finishingDuration))
+			}
+			return s.marshaller.Marshal(w, ci)
+		})
+	}, prefix...); err != nil {
+		return err
+	}
+	// Reverse the x values since we collect them from newest to oldest.
+	// TODO: It would probably be better to support listing jobs in reverse order.
+	reverseContinuousSeries(compacting, validating, finishing)
+	return collectGraph(tw, "commits-chart", "number of commits", []chart.Series{compacting, validating, finishing}, prefix...)
+}
+
+func reverseContinuousSeries(series ...chart.ContinuousSeries) {
+	for _, s := range series {
+		for i := 0; i < len(s.XValues)/2; i++ {
+			s.XValues[i], s.XValues[len(s.XValues)-1-i] = s.XValues[len(s.XValues)-1-i], s.XValues[i]
+		}
+	}
+}
+
+func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series, prefix ...string) error {
+	return collectDebugFile(tw, name, func(w io.Writer) error {
+		graph := chart.Chart{
+			Title: name,
+			TitleStyle: chart.Style{
+				Show: true,
+			},
+			XAxis: chart.XAxis{
+				Name: XAxisName,
+				NameStyle: chart.Style{
+					Show: true,
+				},
+				Style: chart.Style{
+					Show: true,
+				},
+				ValueFormatter: func(v interface{}) string {
+					return fmt.Sprintf("%.0f", v.(float64))
+				},
+			},
+			YAxis: chart.YAxis{
+				Name: "time (seconds)",
+				NameStyle: chart.Style{
+					Show: true,
+				},
+				Style: chart.Style{
+					Show:                true,
+					TextHorizontalAlign: chart.TextHorizontalAlignLeft,
+				},
+				ValueFormatter: func(v interface{}) string {
+					seconds := v.(float64) / float64(time.Second)
+					return fmt.Sprintf("%.3f", seconds)
+				},
+			},
+			Series: series,
+		}
+		graph.Elements = []chart.Renderable{
+			chart.Legend(&graph),
+		}
+		return graph.Render(chart.PNG, w)
+	}, prefix...)
 }
 
 func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
@@ -442,25 +550,72 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 		}, prefix...); err != nil {
 			return err
 		}
-		if err := collectDebugFile(tw, "commits", func(w io.Writer) error {
-			return pachClient.ListCommitF(client.NewRepo(pipelineInfo.Pipeline.Name), nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
-				return s.marshaller.Marshal(w, ci)
-			})
-		}, prefix...); err != nil {
+		if err := s.collectCommits(tw, pachClient, client.NewRepo(pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			return err
 		}
-		return collectDebugFile(tw, "jobs", func(w io.Writer) error {
-			// TODO: The limiting should eventually be a feature of list job.
-			var count int64
-			return pachClient.ListJobF(pipelineInfo.Pipeline.Name, nil, 0, false, func(ji *pps.JobInfo) error {
-				if count >= limit {
-					return errutil.ErrBreak
-				}
-				count++
-				return s.marshaller.Marshal(w, ji)
-			})
-		}, prefix...)
+		return s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...)
 	}
+}
+
+func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, pipelineName string, limit int64, prefix ...string) error {
+	download := chart.ContinuousSeries{
+		Name: "download",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(0).WithAlpha(255),
+		},
+	}
+	process := chart.ContinuousSeries{
+		Name: "process",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(1).WithAlpha(255),
+		},
+	}
+	upload := chart.ContinuousSeries{
+		Name: "upload",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
+		},
+	}
+	if err := collectDebugFile(tw, "jobs", func(w io.Writer) error {
+		// TODO: The limiting should eventually be a feature of list job.
+		var count int64
+		return pachClient.ListJobF(pipelineName, nil, 0, false, func(ji *pps.JobInfo) error {
+			if count >= limit {
+				return errutil.ErrBreak
+			}
+			count++
+			if ji.Stats.DownloadTime != nil {
+				downloadDuration, err := types.DurationFromProto(ji.Stats.DownloadTime)
+				if err != nil {
+					return err
+				}
+				processDuration, err := types.DurationFromProto(ji.Stats.ProcessTime)
+				if err != nil {
+					return err
+				}
+				uploadDuration, err := types.DurationFromProto(ji.Stats.UploadTime)
+				if err != nil {
+					return err
+				}
+				download.XValues = append(download.XValues, float64(len(download.XValues)+1))
+				download.YValues = append(download.YValues, float64(downloadDuration))
+				process.XValues = append(process.XValues, float64(len(process.XValues)+1))
+				process.YValues = append(process.YValues, float64(processDuration))
+				upload.XValues = append(upload.XValues, float64(len(upload.XValues)+1))
+				upload.YValues = append(upload.YValues, float64(uploadDuration))
+			}
+			return s.marshaller.Marshal(w, ji)
+		})
+	}, prefix...); err != nil {
+		return err
+	}
+	// Reverse the x values since we collect them from newest to oldest.
+	// TODO: It would probably be better to support listing jobs in reverse order.
+	reverseContinuousSeries(download, process, upload)
+	return collectGraph(tw, "jobs-chart", "number of jobs", []chart.Series{download, process, upload}, prefix...)
 }
 
 func (s *debugServer) collectWorkerDump(tw *tar.Writer, pod *v1.Pod, prefix ...string) error {

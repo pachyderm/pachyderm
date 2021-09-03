@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
+	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -78,6 +79,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 				return err
 			}
 			// Compact the commit.
+			start := time.Now()
 			totalId, err := d.compactor.Compact(ctx, []fileset.ID{*id}, defaultTTL)
 			if err != nil {
 				return err
@@ -85,11 +87,14 @@ func (d *driver) finishCommits(ctx context.Context) error {
 			if err := d.commitStore.SetTotalFileSet(ctx, commit, *totalId); err != nil {
 				return err
 			}
+			compactingDuration := time.Since(start)
 			// Validate the commit.
+			start = time.Now()
 			size, validationError, err := d.validate(ctx, totalId)
 			if err != nil {
 				return err
 			}
+			validatingDuration := time.Since(start)
 			// Finish the commit.
 			return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 				commitInfo := &pfs.CommitInfo{}
@@ -103,6 +108,8 @@ func (d *driver) finishCommits(ctx context.Context) error {
 					if commitInfo.Error == "" {
 						commitInfo.Error = validationError
 					}
+					commitInfo.CompactingTime = types.DurationProto(compactingDuration)
+					commitInfo.ValidatingTime = types.DurationProto(validatingDuration)
 					return nil
 				}); err != nil {
 					return err

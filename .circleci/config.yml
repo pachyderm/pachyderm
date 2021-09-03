@@ -142,7 +142,14 @@ jobs:
       - checkout
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run: etc/testing/circle/run_hub_load_tests.sh
+      - run: 
+          no_output_timeout: 1h 
+          command: |
+            etc/testing/circle/run_hub_load_tests.sh
+            pachctl debug dump /tmp/debug-dump
+      - store_artifacts:
+          path: /tmp/debug-dump
+          destination: debug-dump
 workflows:
   circleci:
     jobs:
@@ -185,10 +192,10 @@ workflows:
   hub_load_tests:
     triggers:
       - schedule:
-          cron: "0 6 * * *"
+          cron: "0,30 * * * *"
           filters:
             branches:
-              only: master
+              only: periodic-load-tests 
     jobs:
       - load:
           matrix:

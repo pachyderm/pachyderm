@@ -134,6 +134,8 @@ message CommitInfo {
     int64 size_bytes = 1;
   }
   Details details = 12;
+  google.protobuf.Duration compacting_time = 13;
+  google.protobuf.Duration validating_time = 14;
 }
 
 message CommitSet {

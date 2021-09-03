@@ -1,7 +1,7 @@
-# This workload tests many small files.
-count: 10
+# This workload tests a lot of small files in a large number of directories.
+count: 5 
 operations:
-  - count: 5 
+  - count: 5
     operation:
       - putFile:
           files:
@@ -9,17 +9,17 @@ operations:
             file:
               - source: "random"
                 prob: 100
-        prob: 100
+        prob: 100 
 validator: {}
 fileSources:
   - name: "random"
     random:
       directory:
-        depth:
-          min: 1
-          max: 1 
-        run: 5000
+        depth: 
+          min: 1 
+          max: 3
+        run: 100
       size:
-        - min: 100
-          max: 1000
-          prob: 100
+        - min: 1000
+          max: 10000
+          prob: 100 

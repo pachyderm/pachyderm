@@ -32,6 +32,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.4.1
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/protobuf v1.5.2
 	github.com/gorilla/mux v1.8.0
 	github.com/grafana/loki v1.5.0
@@ -73,10 +74,12 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
 	github.com/vbauerster/mpb/v6 v6.0.2
+	github.com/wcharczuk/go-chart v2.0.1+incompatible // indirect
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/image v0.0.0-20210628002857-a66eb6448b8d // indirect
 	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
 	golang.org/x/oauth2 v0.0.0-20210615190721-d04028783cf1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c

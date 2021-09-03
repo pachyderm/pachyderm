@@ -1,20 +1,23 @@
-# This workload tests a medium number of medium size files.
-count: 10 
+# This workload tests many small files with the majority / all deleted over time.
+count: 5 
 operations:
   - count: 5
     operation:
       - putFile:
           files:
-            count: 100 
+            count: 10000
             file:
               - source: "random"
                 prob: 100
-        prob: 100
+        prob: 20 
+      - deleteFile:
+          count: 10000 
+        prob: 80 
 validator: {}
 fileSources:
   - name: "random"
     random:
       size:
-        - min: 1000000
-          max: 10000000
+        - min: 1000
+          max: 10000
           prob: 100 

@@ -1,10 +1,11 @@
-count: 5
+# This workload tests a small number of large files.
+count: 10 
 operations:
-  - count: 5
+  - count: 1 
     operation:
       - putFile:
           files:
-            count: 1
+            count: 1 
             file:
               - source: "random"
                 prob: 100
@@ -14,6 +15,6 @@ fileSources:
   - name: "random"
     random:
       size:
-        - min: 10000000
-          max: 100000000
+        - min: 1000000000
+          max: 10000000000
           prob: 100 
