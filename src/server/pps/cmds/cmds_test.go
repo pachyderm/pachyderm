@@ -123,10 +123,7 @@ func TestRawFullPipelineInfo(t *testing.T) {
 }
 
 // TestJSONMultiplePipelines tests that pipeline specs with multiple pipelines
-// in them continue to be accepted by 'pachctl create pipeline'. We may want to
-// stop supporting this behavior eventually, but Pachyderm has supported it
-// historically, so we should continue to support it until we formally deprecate
-// it.
+// are accepted, as long as they're separated by a YAML document separator
 func TestJSONMultiplePipelines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -152,6 +149,7 @@ func TestJSONMultiplePipelines(t *testing.T) {
 		    ]
 		  }
 		}
+		---
 		{
 		  "pipeline": {
 		    "name": "second"
@@ -230,59 +228,6 @@ func TestJSONStringifiedNumbers(t *testing.T) {
 		`,
 	).Run())
 	require.NoError(t, tu.BashCmd(`pachctl list pipeline`).Run())
-}
-
-// TestJSONMultiplePipelinesError tests that when creating multiple pipelines
-// (which only the encoding/json parser can parse) you get an error indicating
-// the problem in the JSON, rather than an error complaining about multiple
-// documents.
-func TestJSONMultiplePipelinesError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	// pipeline spec has no quotes around "name" in first pipeline
-	require.NoError(t, tu.BashCmd(`
-		yes | pachctl delete all
-		pachctl create repo input
-		( pachctl create pipeline -f - 2>&1 <<EOF || true
-		{
-		  "pipeline": {
-		    name: "first"
-		  },
-		  "input": {
-		    "pfs": {
-		      "glob": "/*",
-		      "repo": "input"
-		    }
-		  },
-		  "transform": {
-		    "cmd": [ "/bin/bash" ],
-		    "stdin": [
-		      "cp /pfs/input/* /pfs/out"
-		    ]
-		  }
-		}
-		{
-		  "pipeline": {
-		    "name": "second"
-		  },
-		  "input": {
-		    "pfs": {
-		      "glob": "/*",
-		      "repo": "first"
-		    }
-		  },
-		  "transform": {
-		    "cmd": [ "/bin/bash" ],
-		    "stdin": [
-		      "cp /pfs/first/* /pfs/out"
-		    ]
-		  }
-		}
-		EOF
-		) | match "invalid character 'n' looking for beginning of object key string"
-		`,
-	).Run())
 }
 
 func TestRunPipeline(t *testing.T) {
