@@ -30,6 +30,18 @@ global:
   #   - regcred
   imagePullSecrets: []
 
+# Use an external database instead of the containerized one.
+# NOTE: You should disable pg_bouncer when this is enabled!
+externalDatabase:
+  enabled: false
+  host: ""
+  port: ""
+  database: ""
+  # Secret name used to supply the password to the pachd deployment
+  existingSecretName: ""
+  # Key of the above secret used to supply the password to the pachd deployment
+  existingSecretKey: ""
+
 console:
   # enabled controls whether the console manifests are created or not.
   enabled: false
@@ -364,6 +376,7 @@ pachd:
 
 
 pgbouncer:
+  enabled: true
   service:
     type: ClusterIP
   resources: {}

@@ -41,13 +41,13 @@ spec:
         - /pachd
         env:
         - name: POSTGRES_HOST
-          value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
+          value: {{ required "postgresql host required" .Values.externalDatabase.host | default .Values.global.postgresql.postgresqlHost | quote }}
         - name: POSTGRES_PORT
-          value:  {{ required "postgresql port required" .Values.global.postgresql.postgresqlPort | quote }}
+          value:  {{ required "postgresql port required" .Values.externalDatabase.port | default .Values.global.postgresql.postgresqlPort | quote }}
         - name: POSTGRES_USER
-          value: {{ required "postgresql username required" .Values.global.postgresql.postgresqlUsername | quote }}
+          value: {{ required "postgresql username required" .Values.externalDatabase.user | default .Values.global.postgresql.postgresqlUsername | quote }}
         - name: POSTGRES_DATABASE
-          value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
+          value: {{ required "postgresql database name required" .Values.externalDatabase.database | default .Values.global.postgresql.postgresqlDatabase | quote }}
         {{- if .Values.global.postgresql.ssl }}
         - name: POSTGRES_SSL
           value: {{ .Values.global.postgresql.ssl | quote }}
@@ -55,12 +55,15 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres # Must match secret setup by postgres subchart or postgres-secret.yaml
-              key: postgresql-password
+              # Must match secret setup by postgres subchart or postgres-secret.yaml
+              name: {{ .Values.externalDatabase.existingSecretName | default "postgres" }} 
+              key: {{ .Values.externalDatabase.existingSecretKey | default "postgres-password" }}
+        {{- if .Values.pgbouncer.enabled }}
         - name: PG_BOUNCER_HOST
           value: pg-bouncer # Must match pgbouncer service name
         - name: PG_BOUNCER_PORT
           value: "5432" # Must match pbouncer service port
+        {{- end }}
         - name: LOKI_LOGGING
           value: {{ .Values.pachd.lokiLogging | quote}}
         - name: PACH_ROOT
