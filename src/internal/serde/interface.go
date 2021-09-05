@@ -79,9 +79,6 @@ func WithIndent(numSpaces int) func(d Encoder) {
 //     ...options to use if yaml...,
 // )
 // enc.Encode(obj)
-//
-// Note: There is currently no corresponding GetDecoder, because the only
-// implementation of the Decoder interface is YAMLDecoder
 func GetEncoder(encoding string, w io.Writer, opts ...EncoderOption) (Encoder, error) {
 	switch encoding {
 	case "yaml":
