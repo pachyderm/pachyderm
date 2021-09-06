@@ -34,7 +34,7 @@ gcloud compute disks create --size=${STORAGE_SIZE}GB ${STORAGE_NAME}
 Then we can deploy Pachyderm:
 
 ```shell
-$ helm repo add pachyderm https://pachyderm.github.io/helmchart
+$ helm repo add pachyderm https://helm.pachyderm.com
 $ helm repo update
 $ helm install pachyderm --set deployTarget=CUSTOM pachyderm/pachyderm --version <version-of-the-chart>
 ```

@@ -46,7 +46,7 @@ See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob
 ###  Install the Pachyderm Helm Chart
 1. Get your Helm Repo Info
     ```shell
-    $ helm repo add pachyderm https://pachyderm.github.io/helmchart
+    $ helm repo add pachyderm https://helm.pachyderm.com
     $ helm repo update
     ```
 
