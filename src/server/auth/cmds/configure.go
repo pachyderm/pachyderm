@@ -101,7 +101,7 @@ func SetConfigCmd() *cobra.Command {
 
 			// parse config
 			var config auth.OIDCConfig
-			if err := serde.DecodeYAML(rawConfigBytes, &config); err != nil {
+			if err := serde.Decode(rawConfigBytes, &config); err != nil {
 				return errors.Wrapf(err, "could not parse config")
 			}
 			// TODO(msteffen): try to handle empty config?

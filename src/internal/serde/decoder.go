@@ -1,96 +1,65 @@
-// yaml_decoder.go implements the structfmt.Decoder interfaces for the yaml text
-// format
+// decoder.go implements general-purpose decoding for hand-written Pachyderm
+// data (e.g. pipeline specs, identity/auth configs, pachctl configs, etc). We
+// use YAML as our markup language for all such data; yaml is a superset of
+// json, so this allows users to write these configs using, effectively, either
+// of two common markup languages.
+//
+// In general, the way Pachyderm decodes a struct from YAML is to:
+// 1) Parse YAML to a generic interface{}
+// 2) Serialize that interface{} to JSON
+// 3) Parse the JSON using encoding/json or, in the case of protobufs, using
+//    Google's 'jsonpb' library.
+//
+// This approach works around a lot of Go's inherent deserialization quirks
+// (e.g. generated protobuf structs including 'json' struct tags but not 'yaml'
+// struct tags; see https://web.archive.org/web/20190722213934/http://ghodss.com/2014/the-right-way-to-handle-yaml-in-golang/).
+// Using jsonpb for step 3 also allows this library to correctly handle complex
+// protobuf corner cases, such as parsing timestamps.
 
 package serde
 
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"gopkg.in/yaml.v3"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-// DecodeYAML is a convenience function that decodes yaml data using a
-// YAMLDecoder, but can be called inline
-func DecodeYAML(yamlData []byte, v interface{}) error {
-	d := NewYAMLDecoder(bytes.NewReader(yamlData))
-	return d.Decode(v)
-}
-
-// YAMLDecoder is an implementation of serde.Decoder that operates on yaml data
-type YAMLDecoder struct {
-	d *yaml.Decoder
-}
-
-// NewYAMLDecoder returns a new YAMLDecoder that reads from 'r'
-func NewYAMLDecoder(r io.Reader) *YAMLDecoder {
-	return &YAMLDecoder{d: yaml.NewDecoder(r)}
-}
-
-// Decode implements the corresponding method of serde.Decoder
-func (d *YAMLDecoder) Decode(v interface{}) error {
-	return d.DecodeTransform(v, nil)
-}
-
-// DecodeTransform implements the corresponding method of serde.Decoder
-func (d *YAMLDecoder) DecodeTransform(v interface{}, f func(map[string]interface{}) error) error {
-	jsonData, err := d.yamlToJSONTransform(f)
+// Decode is a convenience function that decodes the serialized YAML in
+// 'yamlData' into the non-proto object 'v'
+func Decode(yamlData []byte, v interface{}) error {
+	var holder interface{}
+	err := yaml.Unmarshal(yamlData, &holder)
 	if err != nil {
 		return err
 	}
+	return RoundTrip(holder, v)
+}
 
-	// parse transformed JSON into 'v'
-	if err := json.Unmarshal(jsonData, v); err != nil {
-		return errors.Wrapf(err, "parse error while canonicalizing yaml")
+// RoundTrip is a helper function used by Decode(), as well as
+// PipelineManifestReader in src/internal/ppsutil/decoder.go. It factors steps 2
+// and 3 (described up top) out of Decode(), as step 1 may be done in different
+// ways. In particular, PipelineManifestReader may call RoundTrip repeatedly, if
+// multiple PipelineSpecs are present in the same YAML doc.
+func RoundTrip(holder interface{}, dest interface{}) error {
+	requestJSON, err := json.Marshal(holder)
+	if err != nil {
+		return errors.Wrapf(err,
+			"could not serialize to intermediate JSON for final parse: %v",
+			holder)
+	}
+	if pb, ok := dest.(proto.Message); ok {
+		if err := jsonpb.UnmarshalNext(json.NewDecoder(bytes.NewReader(requestJSON)), pb); err != nil {
+			return errors.Wrapf(err, "could not parse intermediate JSON to protobuf")
+		}
+		return nil
+	}
+	if err := json.Unmarshal(requestJSON, dest); err != nil {
+		return errors.Wrapf(err, "could not parse intermediate JSON")
 	}
 	return nil
-}
-
-// DecodeProto implements the corresponding method of serde.Decoder
-func (d *YAMLDecoder) DecodeProto(v proto.Message) error {
-	return d.DecodeProtoTransform(v, nil)
-}
-
-// DecodeProtoTransform implements the corresponding method of serde.Decoder
-func (d *YAMLDecoder) DecodeProtoTransform(v proto.Message, f func(map[string]interface{}) error) error {
-	jsonData, err := d.yamlToJSONTransform(f)
-	if err != nil {
-		return err
-	}
-
-	// parse transformed JSON into 'v'
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	if err := jsonpb.UnmarshalNext(decoder, v); err != nil {
-		return errors.Wrapf(err, "error canonicalizing yaml while parsing to proto")
-	}
-	return nil
-}
-
-func (d *YAMLDecoder) yamlToJSONTransform(f func(map[string]interface{}) error) ([]byte, error) {
-	// deserialize yaml into 'holder'
-	holder := map[string]interface{}{}
-	if err := d.d.Decode(&holder); err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil, err
-		}
-		return nil, errors.Wrapf(err, "could not parse yaml")
-	}
-
-	// transform 'holder' (e.g. stringifying TFJob)
-	if f != nil {
-		if err := f(holder); err != nil {
-			return nil, err
-		}
-	}
-
-	// serialize 'holder' to json
-	jsonData, err := json.Marshal(holder)
-	if err != nil {
-		return nil, errors.Wrapf(err, "serialization error while canonicalizing yaml")
-	}
-	return jsonData, nil
 }

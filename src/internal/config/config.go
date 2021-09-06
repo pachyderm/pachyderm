@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -106,8 +105,7 @@ func (c *Config) ActiveEnterpriseContext(errorOnNoActive bool) (string, *Context
 func fetchCachedConfig(p string) error {
 	cachedConfig = &Config{}
 	if raw, err := ioutil.ReadFile(p); err == nil {
-		d := serde.NewYAMLDecoder(bytes.NewReader(raw))
-		err = d.DecodeProto(cachedConfig)
+		err = serde.Decode(raw, cachedConfig)
 		if err != nil {
 			return errors.Wrapf(err, "could not parse config json at %q", p)
 		}

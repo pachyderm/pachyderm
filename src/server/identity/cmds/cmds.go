@@ -79,7 +79,7 @@ func deserializeYAML(file string, target interface{}) error {
 		return errors.New("must set input file (use \"-\" to read from stdin)")
 	}
 
-	return serde.DecodeYAML(rawConfigBytes, target)
+	return serde.Decode(rawConfigBytes, target)
 }
 
 // SetIdentityServerConfigCmd returns a cobra.Command to configure the identity server
