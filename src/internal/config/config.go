@@ -25,7 +25,7 @@ var defaultConfigPath = filepath.Join(defaultConfigDir, "config.json")
 var pachctlConfigPath = filepath.Join("/pachctl", "config.json")
 
 var configMu sync.Mutex
-var value *Config
+var cachedConfig *Config
 
 func configPath() string {
 	if env, ok := os.LookupEnv(configEnvVar); ok {
@@ -106,40 +106,40 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 	configMu.Lock()
 	defer configMu.Unlock()
 
-	if value == nil || ignoreCache {
+	if cachedConfig == nil || ignoreCache {
 		// Read json file
 		p := configPath()
 		if raw, err := ioutil.ReadFile(p); err == nil {
-			err = json.Unmarshal(raw, &value)
+			err = json.Unmarshal(raw, &cachedConfig)
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not parse config json at %q", p)
 			}
 		} else if errors.Is(err, os.ErrNotExist) {
 			// File doesn't exist, so create a new config
 			log.Debugf("No config detected at %q. Generating new config...", p)
-			value = &Config{}
+			cachedConfig = &Config{}
 		} else {
 			return nil, errors.Wrapf(err, "could not read config at %q", p)
 		}
 
 		updated := false
 
-		if value.UserID == "" {
+		if cachedConfig.UserID == "" {
 			updated = true
 			log.Debugln("No UserID present in config - generating new one.")
 			uuid := uuid.NewV4()
-			value.UserID = uuid.String()
+			cachedConfig.UserID = uuid.String()
 		}
 
-		if value.V2 == nil {
+		if cachedConfig.V2 == nil {
 			updated = true
 			log.Debugln("No config V2 present in config - generating a new one.")
-			if err := value.InitV2(); err != nil {
+			if err := cachedConfig.InitV2(); err != nil {
 				return nil, err
 			}
 		}
 
-		for contextName, context := range value.V2.Contexts {
+		for contextName, context := range cachedConfig.V2.Contexts {
 			pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
 			if err != nil {
 				if !errors.Is(err, grpcutil.ErrNoPachdAddress) {
@@ -157,13 +157,13 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 		if updated && !readOnly {
 			log.Debugf("Rewriting config at %q.", p)
 
-			if err := value.Write(); err != nil {
+			if err := cachedConfig.Write(); err != nil {
 				return nil, errors.Wrapf(err, "could not rewrite config at %q", p)
 			}
 		}
 	}
 
-	cloned := proto.Clone(value).(*Config)
+	cloned := proto.Clone(cachedConfig).(*Config)
 	// in the case of an empty map, `proto.Clone` incorrectly clones
 	// `Contexts` as nil. This fixes the issue.
 	if cloned.V2.Contexts == nil {
@@ -255,7 +255,7 @@ func (c *Config) Write() error {
 	}
 
 	// essentially short-cuts reading the new config back from disk
-	value = proto.Clone(c).(*Config)
+	cachedConfig = proto.Clone(c).(*Config)
 	return nil
 }
 
