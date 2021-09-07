@@ -99,6 +99,62 @@ func (c *Config) ActiveEnterpriseContext(errorOnNoActive bool) (string, *Context
 	return c.V2.ActiveEnterpriseContext, context, nil
 }
 
+// fetchCachedConfig is a helper (for Read()) that fetches the pachctl config
+// from one of several possible places on disk (see configPath()) and stores it
+// in cachedConfig.
+func fetchCachedConfig(p string) error {
+	if raw, err := ioutil.ReadFile(p); err == nil {
+		err = serde.DecodeYAML(raw, &cachedConfig)
+		if err != nil {
+			return errors.Wrapf(err, "could not parse config json at %q", p)
+		}
+	} else if errors.Is(err, os.ErrNotExist) {
+		// File doesn't exist, so create a new config
+		log.Debugf("No config detected at %q. Generating new config...", p)
+		cachedConfig = &Config{}
+	} else {
+		return errors.Wrapf(err, "could not read config at %q", p)
+	}
+	return nil
+}
+
+// validateCachedConfig is a helper (for Read()) that validates 'cachedConfig'
+// after parsing. This error should be returned to the caller (typically, of
+// pachctl), indicating that their on-disk config is invalid.
+func validateCachedConfig() (bool, error) {
+	var updated bool
+	if cachedConfig.UserID == "" {
+		updated = true
+		log.Debugln("No UserID present in config - generating new one.")
+		uuid := uuid.NewV4()
+		cachedConfig.UserID = uuid.String()
+	}
+
+	if cachedConfig.V2 == nil {
+		updated = true
+		log.Debugln("No config V2 present in config - generating a new one.")
+		if err := cachedConfig.InitV2(); err != nil {
+			return updated, err
+		}
+	}
+
+	for contextName, context := range cachedConfig.V2.Contexts {
+		pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
+		if err != nil {
+			if !errors.Is(err, grpcutil.ErrNoPachdAddress) {
+				return updated, errors.Wrapf(err, "could not parse pachd address for context '%s'", contextName)
+			}
+		} else {
+			if qualifiedPachdAddress := pachdAddress.Qualified(); qualifiedPachdAddress != context.PachdAddress {
+				updated = true
+				log.Debugf("Non-qualified pachd address set for context '%s' - fixing", contextName)
+				context.PachdAddress = qualifiedPachdAddress
+			}
+		}
+	}
+	return updated, nil
+}
+
 // Read loads the Pachyderm config on this machine.
 // If an existing configuration cannot be found, it sets up the defaults. Read
 // returns a nil Config if and only if it returns a non-nil error.
@@ -109,52 +165,12 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 	if cachedConfig == nil || ignoreCache {
 		// Read json file
 		p := configPath()
-		if raw, err := ioutil.ReadFile(p); err == nil {
-			err = serde.DecodeYAML(raw, &cachedConfig)
-			if err != nil {
-				return nil, errors.Wrapf(err, "could not parse config json at %q", p)
-			}
-		} else if errors.Is(err, os.ErrNotExist) {
-			// File doesn't exist, so create a new config
-			log.Debugf("No config detected at %q. Generating new config...", p)
-			cachedConfig = &Config{}
-		} else {
-			return nil, errors.Wrapf(err, "could not read config at %q", p)
+		if err := fetchCachedConfig(p); err != nil {
+			return nil, err
 		}
-
-		updated := false
-
-		if cachedConfig.UserID == "" {
-			updated = true
-			log.Debugln("No UserID present in config - generating new one.")
-			uuid := uuid.NewV4()
-			cachedConfig.UserID = uuid.String()
-		}
-
-		if cachedConfig.V2 == nil {
-			updated = true
-			log.Debugln("No config V2 present in config - generating a new one.")
-			if err := cachedConfig.InitV2(); err != nil {
-				return nil, err
-			}
-		}
-
-		for contextName, context := range cachedConfig.V2.Contexts {
-			pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
-			if err != nil {
-				if !errors.Is(err, grpcutil.ErrNoPachdAddress) {
-					return nil, errors.Wrapf(err, "could not parse pachd address for context '%s'", contextName)
-				}
-			} else {
-				if qualifiedPachdAddress := pachdAddress.Qualified(); qualifiedPachdAddress != context.PachdAddress {
-					log.Debugf("Non-qualified pachd address set for context '%s' - fixing", contextName)
-					context.PachdAddress = qualifiedPachdAddress
-					updated = true
-				}
-			}
-		}
-
-		if updated && !readOnly {
+		if updated, err := validateCachedConfig(); err != nil {
+			return nil, err
+		} else if updated && !readOnly {
 			log.Debugf("Rewriting config at %q.", p)
 
 			if err := cachedConfig.Write(); err != nil {
