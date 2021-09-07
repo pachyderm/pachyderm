@@ -180,8 +180,8 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 	}
 
 	cloned := proto.Clone(cachedConfig).(*Config)
-	// in the case of an empty map, `proto.Clone` incorrectly clones
-	// `Contexts` as nil. This fixes the issue.
+	// In the case of an empty map, `proto.Clone` clones `Contexts` as nil. This
+	// fixes the issue.
 	if cloned.V2.Contexts == nil {
 		cloned.V2.Contexts = map[string]*Context{}
 	}
