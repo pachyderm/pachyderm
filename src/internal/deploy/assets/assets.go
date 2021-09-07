@@ -737,7 +737,7 @@ func PachdService(opts *AssetOpts) *v1.Service {
 				},
 				{
 					Port:       1656,
-					Name:       "prometheus-metrics",
+					Name:       "prom-metrics",
 					NodePort:   30656,
 					Protocol:   v1.ProtocolTCP,
 					TargetPort: intstr.FromInt(1656),
