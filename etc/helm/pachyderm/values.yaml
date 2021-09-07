@@ -61,6 +61,9 @@ etcd:
     repository: "pachyderm/etcd"
     tag: "v3.3.5"
     pullPolicy: "IfNotPresent"
+  # maxTxnOps sets the --max-txn-ops in the container args
+  maxTxnOps: 10000
+  nodeSelector: {}
   # podLabels specifies labels to add to the etcd pod.
   podLabels: {}
   # resources specifies the resource request and limits
@@ -85,6 +88,7 @@ etcd:
     labels: {}
     # type specifies the Kubernetes type of the etcd service.
     type: ClusterIP
+  tolerations: {}
 
 imageCredentials: {}
   #registry: ""
@@ -121,6 +125,7 @@ pachd:
     enabled: true
     # endpoint should be the URL of the metrics endpoint.
     endpoint: ""
+  nodeSelector: {}
   # numShards sets the maximum number of pachd nodes allowed in the
   # cluster; increasing this number blindly can result in degraded
   # performance.  It is analogous to the --shards argument to pachctl
@@ -128,6 +133,8 @@ pachd:
   numShards: 16
   # podLabels specifies labels to add to the pachd pod.
   podLabels: {}
+  # replicas sets the number of pachd running pods
+  replicas: 1  
   # resources specifies the resource requests and limits
   resources: {}
     #limits:
@@ -294,7 +301,8 @@ pachd:
       create: false
       crt: ""
       key: ""
-
+  tolerations: {}
+  
 rbac:
   # create indicates whether RBAC resources should be created.
   # Setting it to false is analogous to passing --no-rbac to pachctl

@@ -103,6 +103,12 @@
                         }
                     }
                 },
+                "maxTxnOps": {
+                    "type": "integer"
+                },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "podLabels": {
                     "type": "object"
                 },
@@ -128,6 +134,9 @@
                 },
                 "storageSize": {
                     "type": "string"
+                },
+                "tolerations": {
+                    "type": "object"
                 }
             }
         },
@@ -212,6 +221,9 @@
                         }
                     }
                 },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "numShards": {
                     "type": "integer"
                 },
@@ -219,6 +231,9 @@
                     "type": "object"
                 },
                 "ppsWorkerGRPCPort": {
+                    "type": "integer"
+                },
+                "replicas": {
                     "type": "integer"
                 },
                 "requireCriticalServersOnly": {
@@ -419,6 +434,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "tolerations": {
+                    "type": "object"
                 }
             }
         },
