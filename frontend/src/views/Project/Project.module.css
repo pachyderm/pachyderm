@@ -95,3 +95,10 @@
 .tooltip {
   white-space: pre-line;
 }
+
+.dagError {
+  color: var(--error-red);
+  font-size: var(--font-size-body-medium);
+  font-weight: 600;
+  margin-left: 1rem;
+}

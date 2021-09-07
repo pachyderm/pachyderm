@@ -56,14 +56,6 @@ const Project: React.FC = () => {
   const {hasConnectInfo} = useWorkspace();
 
   const noDags = dags?.length === 0;
-
-  if (error)
-    return (
-      <View>
-        <h1>{JSON.stringify(error)}</h1>
-      </View>
-    );
-
   return (
     <>
       <Helmet>
@@ -123,6 +115,11 @@ const Project: React.FC = () => {
                   className={classnames(styles.svgControl, styles.rotateSvg)}
                 />
               </button>
+              {error && (
+                <span className={styles.dagError}>
+                  Connection error: data may not be up to date.
+                </span>
+              )}
             </div>
             {noDags && (
               <EmptyState

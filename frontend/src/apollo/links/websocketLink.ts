@@ -1,4 +1,10 @@
-import {ApolloLink, Operation, FetchResult, Observable} from '@apollo/client';
+import {
+  ApolloLink,
+  Operation,
+  FetchResult,
+  Observable,
+  ApolloError,
+} from '@apollo/client';
 import {print} from 'graphql';
 import {createClient, ClientOptions, Client} from 'graphql-ws';
 import noop from 'lodash/noop';
@@ -67,9 +73,11 @@ export class WebSocketLink extends ApolloLink {
             if (err instanceof CloseEvent) {
               return sink.error(
                 // reason will be available on clean closes
-                new Error(
-                  `Socket closed with event ${err.code} ${err.reason || ''}`,
-                ),
+                new ApolloError({
+                  networkError: new Error(
+                    `Socket closed with event ${err.code} ${err.reason || ''}`,
+                  ),
+                }),
               );
             }
 

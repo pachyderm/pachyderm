@@ -1,4 +1,4 @@
-import {DagQueryArgs, NodeType} from '@graphqlTypes';
+import {DagQueryArgs, GetDagsSubscription, NodeType} from '@graphqlTypes';
 import {useEffect, useState} from 'react';
 import {useHistory} from 'react-router';
 
@@ -18,6 +18,7 @@ export const useProjectDagsData = ({
   const {repoId, pipelineId, projectId: routeProjectId} = useUrlState();
   const browserHistory = useHistory();
   const [isLoading, setIsLoading] = useState(true);
+  const [prevData, setPrevData] = useState<GetDagsSubscription | undefined>();
 
   useEffect(() => {
     setIsLoading(true);
@@ -54,9 +55,15 @@ export const useProjectDagsData = ({
     skip: !routeProjectId,
   });
 
+  useEffect(() => {
+    if (!error) {
+      setPrevData(data);
+    }
+  }, [error, data]);
+
   return {
     error,
-    dags: data?.dags,
+    dags: error ? prevData?.dags : data?.dags,
     loading: isLoading || isSubscribing,
   };
 };
