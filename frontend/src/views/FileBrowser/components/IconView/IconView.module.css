@@ -21,7 +21,6 @@
 }
 
 .fileName {
-  text-transform: capitalize;
   font-size: var(--font-size-body-large);
   overflow: hidden;
   text-overflow: ellipsis;

@@ -6,7 +6,7 @@
 
 .subHeader {
     width: calc(100% - 4rem);
-    margin: 0.6125rem 2rem 0rem 2rem;
+    margin: 0.6125rem 2rem;
     display: inline-flex;
     align-items: center;
 }
