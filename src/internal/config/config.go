@@ -215,7 +215,9 @@ func (c *Config) Write() error {
 
 	// Because we're writing the config back to disk, we'll also need to make sure
 	// that the directory we're writing the config into exists. The approach we
-	// use for doing this depends on whether PACH_CONFIG is set.
+	// use for doing this depends on whether PACH_CONFIG is being used (if it is,
+	// error rather than create new parent dir, in case PACH_CONFIG was
+	// simply mistyped).
 	if _, ok := os.LookupEnv(configEnvVar); ok {
 		// using overridden config path: check that the parent dir exists, but don't
 		// create any new directories
@@ -248,9 +250,12 @@ func (c *Config) Write() error {
 	if err = os.Rename(tmpfile.Name(), p); err != nil {
 		// A rename could fail if the temporary directory is mounted on a
 		// different device than the config path. If the rename failed, try to
-		// just copy the bytes instead.
+		// just copy the bytes instead. Note that a destructive disk error could
+		// leave cachedConfig out of date.
+		// TODO(msteffen) attempt to backup the config if it exists & restore on
+		// failure.
 		if err = ioutil.WriteFile(p, rawConfig, 0644); err != nil {
-			return errors.Wrapf(err, "failed to write config file")
+			return errors.Wrapf(err, "failed to copy updated config file from %s to %s", tmpfile.Name(), p)
 		}
 	}
 
