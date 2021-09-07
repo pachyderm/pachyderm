@@ -17,10 +17,10 @@ import (
 const enterpriseRootToken = "iamenterprise"
 
 func resetClusterState(t *testing.T) {
-	ec, err := client.NewEnterpriseClientForTest()
+	ec, err := client.NewEnterpriseClientForTest(t)
 	require.NoError(t, err)
 
-	c, err := client.NewForTest()
+	c, err := client.NewForTest(t)
 	require.NoError(t, err)
 
 	// Set the root token, in case a previous test failed
@@ -161,7 +161,7 @@ func TestLoginEnterprise(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
 
-	ec, err := client.NewEnterpriseClientForTest()
+	ec, err := client.NewEnterpriseClientForTest(t)
 	require.NoError(t, err)
 
 	require.NoError(t, tu.BashCmd(`
@@ -203,10 +203,10 @@ func TestLoginPachd(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
 
-	c, err := client.NewForTest()
+	c, err := client.NewForTest(t)
 	require.NoError(t, err)
 
-	ec, err := client.NewEnterpriseClientForTest()
+	ec, err := client.NewEnterpriseClientForTest(t)
 	require.NoError(t, err)
 
 	require.NoError(t, tu.BashCmd(`
@@ -323,7 +323,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
 
-	c, err := client.NewForTest()
+	c, err := client.NewForTest(t)
 	require.NoError(t, err)
 
 	id := tu.UniqueString("cluster")

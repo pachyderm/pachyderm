@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"golang.org/x/net/context"
@@ -149,16 +150,6 @@ const DefaultMaxConcurrentStreams = 100
 // for a connection to be established unless overridden by WithDialTimeout()
 const DefaultDialTimeout = 30 * time.Second
 
-type clientSettings struct {
-	pachdAddress         *grpcutil.PachdAddress
-	maxConcurrentStreams int
-	gzipCompress         bool
-	dialTimeout          time.Duration
-	caCerts              *x509.CertPool
-	unaryInterceptors    []grpc.UnaryClientInterceptor
-	streamInterceptors   []grpc.StreamClientInterceptor
-}
-
 // New constructs a client using options
 func New(options ...Option) (*APIClient, error) {
 	// default options
@@ -229,7 +220,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 
 // NewForTest constructs a new APIClient for tests.
 // TODO(actgardner): this should probably live in testutils and accept a testing.TB
-func NewForTest() (*APIClient, error) {
+func NewForTest(t testing.TB) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
@@ -258,7 +249,7 @@ func NewForTest() (*APIClient, error) {
 
 // NewEnterpriseClientForTest constructs a new APIClient for tests.
 // TODO(actgardner): this should probably live in testutils and accept a testing.TB
-func NewEnterpriseClientForTest() (*APIClient, error) {
+func NewEnterpriseClientForTest(t testing.TB) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
@@ -287,9 +278,7 @@ func NewEnterpriseClientForTest() (*APIClient, error) {
 
 // NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
 // if it exists. This is intended to be used in the pachctl binary.
-// DEPRECATED: Use New and WithUserMachineDefaults
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
-	options = prepend(options, WithUserMachineDefaults())
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")

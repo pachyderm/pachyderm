@@ -161,8 +161,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
 		// Set core pach env vars
 		{
-			Name:  "PACH_IN_WORKER",
-			Value: "true",
+			Name:  "PACHD_ADDRESS",
+			Value: a.env.Config().KubeAddress,
 		},
 		// We use Kubernetes' "Downward API" so the workers know their IP
 		// addresses, which they will then post on etcd so the job managers

@@ -19,6 +19,18 @@ import (
 	"google.golang.org/grpc"
 )
 
+type clientSettings struct {
+	pachdAddress         *grpcutil.PachdAddress
+	maxConcurrentStreams int
+	gzipCompress         bool
+	dialTimeout          time.Duration
+	caCerts              *x509.CertPool
+	unaryInterceptors    []grpc.UnaryClientInterceptor
+	streamInterceptors   []grpc.StreamClientInterceptor
+	contextName          string
+	portForwarder        *PortForwarder
+}
+
 // Option is a client creation option that may be passed to NewOnUserMachine(), or NewInCluster()
 type Option func(*clientSettings) error
 
@@ -160,7 +172,7 @@ func WithAddrFromURI(uri string) Option {
 // WithAddrFromEnv will configure the client using the options from the env
 func WithAddrFromEnv() Option {
 	return func(s *clientSettings) error {
-		pachURI, ok := os.LookupEnv("PACHYDERM_API")
+		pachURI, ok := os.LookupEnv("PACHD_ADDRESS")
 		if !ok {
 			return nil
 		}
@@ -216,6 +228,50 @@ func WithPachdAddress(pachdAddress *grpcutil.PachdAddress) Option {
 // if it exists. This is intended to be used in the pachctl binary.
 func WithUserMachineDefaults() Option {
 	return func(s *clientSettings) error {
+		cfg, err := config.Read(false, false)
+		if err != nil {
+			return errors.Wrap(err, "could not read config")
+		}
+		name, context, err := cfg.ActiveContext(true)
+		if err != nil {
+			return errors.Wrap(err, "could not get active context")
+		}
+		pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
+		if err != nil {
+			return err
+		}
+		var fw *PortForwarder
+		if pachdAddress == nil && context.PortForwarders != nil {
+			pachdLocalPort, ok := context.PortForwarders["pachd"]
+			if ok {
+				log.Debugf("Connecting to explicitly port forwarded pachd instance on port %d", pachdLocalPort)
+				pachdAddress = &grpcutil.PachdAddress{
+					Secured: false,
+					Host:    "localhost",
+					Port:    uint16(pachdLocalPort),
+				}
+			}
+		}
+		if pachdAddress == nil {
+			var pachdLocalPort uint16
+			fw, pachdLocalPort, err = portForwarder(context)
+			if err != nil {
+				return err
+			}
+			pachdAddress = &grpcutil.PachdAddress{
+				Secured: false,
+				Host:    "localhost",
+				Port:    pachdLocalPort,
+			}
+		}
+		s.pachdAddress = pachdAddress
+		s.contextName = name
+		s.portForwarder = fw
+		for _, o := range cfgOptions {
+			if err := o(s); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 }
