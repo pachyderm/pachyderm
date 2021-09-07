@@ -6,8 +6,6 @@ ENV STORAGE_DRIVER=vfs
 
 FROM jupyter/base-notebook as notebook 
 USER root
-ENV CAP_SETUID=1000
-ENV CAP_SETGID=100 
 RUN apt-get update && apt-get install -y gnupg
 RUN . /etc/os-release && sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/x${ID^}_${VERSION_ID}/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
 RUN . /etc/os-release && wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/x${ID^}_${VERSION_ID}/Release.key -O Release.key
@@ -16,8 +14,7 @@ RUN apt-get update
 RUN apt-get -y install buildah
 COPY . /home/jovyan/work/
 ENV STORAGE_DRIVER=vfs 
-ENV CAP_SETUID=1000
-ENV CAP_SETGID=100
+
 
 
 
