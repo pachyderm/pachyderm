@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
@@ -110,7 +110,7 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 		// Read json file
 		p := configPath()
 		if raw, err := ioutil.ReadFile(p); err == nil {
-			err = json.Unmarshal(raw, &cachedConfig)
+			err = serde.DecodeYAML(raw, &cachedConfig)
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not parse config json at %q", p)
 			}
@@ -206,7 +206,7 @@ func (c *Config) Write() error {
 		panic("config V1 included (this is a bug)")
 	}
 
-	rawConfig, err := json.MarshalIndent(c, "", "  ")
+	rawConfig, err := serde.EncodeJSON(c)
 	if err != nil {
 		return err
 	}
