@@ -206,13 +206,18 @@ func (c *Config) Write() error {
 		panic("config V1 included (this is a bug)")
 	}
 
+	// Write() overwrites both the on-disk config and the cachedConfig; configMu
+	// ensures that Write() calls are serialized so that these two representations
+	// stay in sync.
+	configMu.Lock()
+	defer configMu.Unlock()
+
 	rawConfig, err := serde.EncodeJSON(c)
 	if err != nil {
 		return err
 	}
 
 	p := configPath()
-
 	// Because we're writing the config back to disk, we'll also need to make sure
 	// that the directory we're writing the config into exists. The approach we
 	// use for doing this depends on whether PACH_CONFIG is being used (if it is,
