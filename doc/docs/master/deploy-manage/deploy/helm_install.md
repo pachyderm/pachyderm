@@ -30,7 +30,7 @@ See the reference [values.yaml](https://github.com/pachyderm/pachyderm/blob/mast
 ###  Install the Pachyderm Helm Chart
 1. Get your Helm Repo Info
     ```shell
-    $ helm repo add pachyderm https://helm.pachyderm.com
+    $ helm repo add pach https://helm.pachyderm.com
     $ helm repo update
     ```
 
@@ -52,6 +52,9 @@ See the reference [values.yaml](https://github.com/pachyderm/pachyderm/blob/mast
     $ kubectl get pods
     ```
 
+    Once the pods are up, you should see a pod for `pachd` running 
+    (alongside etcd, pg-bouncer or postgres, console, depending on your installation). 
+    
     **System Response:**
 
     ```

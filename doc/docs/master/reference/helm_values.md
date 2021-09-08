@@ -335,7 +335,7 @@ This section is to configure the etcd cluster in the deployment.
 
 - `etcd.service.labels` specifies labels to add to the console service.
 - `etcd.service.annotations` specifies annotations to add to the etcd service.
-- `etcd.service.type` specifies the Kubernetes type of the console service. The default is `ClusterIP`.
+- `etcd.service.type` specifies the Kubernetes type of the etcd service. The default is `ClusterIP`.
 
 ### enterpriseServer
 
@@ -476,7 +476,7 @@ If you're using Google Storage Buckets as your storage backend, configure it her
 - `storage.google.cred` is a string containing a GCP service account private key, in object (JSON or YAML) form.  A simple way to pass this on the command line is with the set-file flag, e.g.:
 
   ```shell
-  helm install pachd -f my-values.yaml --set-file storage.google.cred=creds.json pachyderm/pachyderm
+  helm install pachd -f my-values.yaml --set-file storage.google.cred=creds.json pach/pachyderm
   ```
 
   Example:
@@ -537,7 +537,7 @@ There are three options for configuring TLS on pachd under `pachd.tls`.
 
 This section is to configure the PGBouncer Postgres connection pooler.
 
-- `service.type` specifies the Kubernetes type of the console service. The default is `ClusterIP`.
+- `service.type` specifies the Kubernetes type of the pgbouncer service. The default is `ClusterIP`.
 
 - `resources` specifies resources and limits in standard kubernetes format. It is left unset by default.
 

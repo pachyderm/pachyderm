@@ -79,8 +79,8 @@ of Pachyderm:
       service "etcd" created
       service "pachd" created
       deployment "pachd" created
-      service "dash" created
-      deployment "dash" created
+      service "console" created
+      deployment "console" created
       secret "pachyderm-storage-secret" created
 
       Pachyderm is launching. Check its status with "kubectl get all"
@@ -95,14 +95,15 @@ of Pachyderm:
       ```shell
       kubectl get pods
       ```
+      Once the pods are up, you should see a pod for `pachd` running 
+      (alongside etcd, pg-bouncer or postgres, console, depending on your installation). 
 
       **System response:**
 
       ```shell
       NAME                     READY     STATUS    RESTARTS   AGE
-      dash-482120938-np8cc     2/2       Running   0          4m
-      etcd-0                   1/1       Running   0          4m
       pachd-3677268306-9sqm0   1/1       Running   0          4m
+      ...
       ```
 
 1. Verify that the new version has been deployed:

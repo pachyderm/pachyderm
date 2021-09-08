@@ -359,9 +359,9 @@ you might accidentally deploy your cluster on Minikube.
 1. Run the following command:
 
     ```shell
-    $ helm repo add pachyderm https://helm.pachyderm.com
+    $ helm repo add pach https://helm.pachyderm.com
     $ helm repo update
-    $ helm install pachyderm -f my_values.yaml pachyderm/pachyderm --version <version-of-the-chart>
+    $ helm install pachd -f my_values.yaml pach/pachyderm --version <version-of-the-chart>
     ```
 
     **System Response:**
@@ -384,13 +384,15 @@ you might accidentally deploy your cluster on Minikube.
     kubectl get pods
     ```
 
+    Once the pods are up, you should see a pod for `pachd` running 
+    (alongside etcd, pg-bouncer or postgres, console, depending on your installation). 
+     
     **System Response:**
 
     ```shell
     NAME                      READY     STATUS    RESTARTS   AGE
-    dash-482120938-vdlg9      2/2       Running   0          54m
-    etcd-0                    1/1       Running   0          54m
     pachd-1971105989-mjn61    1/1       Running   0          54m
+    ...
     ```
 
     **Note:** Sometimes Kubernetes tries to start `pachd` nodes before
