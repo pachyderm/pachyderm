@@ -1,11 +1,11 @@
 # This workload tests a medium number of medium size files.
-count: 10 
+count: 5 
 operations:
   - count: 5
     operation:
       - putFile:
           files:
-            count: 100 
+            count: 100
             file:
               - source: "random"
                 prob: 100

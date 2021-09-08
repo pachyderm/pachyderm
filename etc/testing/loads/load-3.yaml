@@ -1,5 +1,5 @@
 # This workload tests a small number of large files.
-count: 10 
+count: 5 
 operations:
   - count: 1 
     operation:
