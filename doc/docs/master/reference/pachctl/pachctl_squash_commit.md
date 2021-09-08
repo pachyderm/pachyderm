@@ -4,7 +4,8 @@ Squash the sub-commits of a commit.
 
 ### Synopsis
 
-Squash the sub-commits of a commit.  The data in the sub-commits will remain in their child commits unless there are no children.
+Squash the sub-commits of a commit.  The data in the sub-commits will remain in their child commits.
+The squash will fail if it includes a commit with no children.
 
 ```
 pachctl squash commit <commit-id> [flags]
