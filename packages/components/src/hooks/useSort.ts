@@ -5,6 +5,7 @@ export type SortableItem<T> = {
   accessor: (a: T) => string | number | T;
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   func: (a: any, b: any) => number;
+  reverse?: boolean;
 };
 type useSortProps<T> = {
   data: T[];
@@ -34,7 +35,7 @@ export const useSort = <T>({
   const handleSetComparator = useCallback(
     (newComparator: SortableItem<T>) => {
       setComparator((oldComparator) => {
-        if (newComparator.name === oldComparator.name)
+        if (newComparator.name === oldComparator.name || newComparator.reverse)
           setDirection(-1 * direction);
         else setDirection(1);
         return newComparator;
