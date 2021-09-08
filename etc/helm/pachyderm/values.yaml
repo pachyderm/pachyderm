@@ -157,6 +157,12 @@ ingress:
       crt: ""
       key: ""
 
+jaeger:
+  enabled: false
+  query:
+    service: 
+      type: ClusterIP
+
 pachd:
   enabled: true
   affinity: {}

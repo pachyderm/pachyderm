@@ -38,3 +38,9 @@ etcd:
 postgresql:
   service:
     type: NodePort
+
+jaeger:
+  enabled: true
+  query:
+    service:
+      type: ClusterIP
