@@ -173,7 +173,7 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 		} else if updated && !readOnly {
 			log.Debugf("Rewriting config at %q.", p)
 
-			if err := cachedConfig.Write(); err != nil {
+			if err := cachedConfig.write(); err != nil {
 				return nil, errors.Wrapf(err, "could not rewrite config at %q", p)
 			}
 		}
@@ -215,18 +215,21 @@ func (c *Config) InitV2() error {
 	return nil
 }
 
+func (c *Config) Write() error {
+	configMu.Lock()
+	defer configMu.Unlock()
+	return c.write()
+}
+
 // Write writes the configuration in 'c' to this machine's Pachyderm config
 // file.
-func (c *Config) Write() error {
+// Note: Write() overwrites both the on-disk config and the cachedConfig;
+// configMu must be locked by the caller to ensure that Write() calls are
+// serialized and that these two representations stay in sync.
+func (c *Config) write() error {
 	if c.V1 != nil {
 		panic("config V1 included (this is a bug)")
 	}
-
-	// Write() overwrites both the on-disk config and the cachedConfig; configMu
-	// ensures that Write() calls are serialized so that these two representations
-	// stay in sync.
-	configMu.Lock()
-	defer configMu.Unlock()
 
 	rawConfig, err := serde.EncodeJSON(c)
 	if err != nil {
