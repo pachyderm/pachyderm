@@ -41,10 +41,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/gogo/protobuf/types"
 	globlib "github.com/pachyderm/ohmyglob"
-	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -3111,7 +3111,6 @@ func TestAutoscalingStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	c := tu.GetPachClient(t)
 	t.Run("ChainOf10", func(t *testing.T) {
 		require.NoError(t, c.DeleteAll())
@@ -3123,12 +3122,12 @@ func TestAutoscalingStandby(t *testing.T) {
 		numPipelines := 10
 		pipelines := make([]string, numPipelines)
 		for i := 0; i < numPipelines; i++ {
-			pipelines[i] = tu.UniqueString("TestAutoscalingStandby")
+			pipelines[i] = tu.UniqueString(fmt.Sprintf("TestAutoscalingStandby-%d-", i))
 			input := dataRepo
 			if i > 0 {
 				input = pipelines[i-1]
 			}
-			_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(),
 				&pps.CreatePipelineRequest{
 					Pipeline: client.NewPipeline(pipelines[i]),
 					Transform: &pps.Transform{
@@ -3141,7 +3140,7 @@ func TestAutoscalingStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinTRetry(t, time.Second*120, func() error {
+		require.NoErrorWithinTRetry(t, time.Second*90, func() error {
 			pis, err := c.ListPipeline(false)
 			require.NoError(t, err)
 			var standby int
