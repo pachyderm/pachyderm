@@ -155,7 +155,7 @@ deploy Pachyderm on your local cluster by following these steps:
 
 * Get the Repo Info:
    ```shell
-   $ helm repo add pachyderm https://pachyderm.github.io/helmchart
+   $ helm repo add pach https://pachyderm.github.io/helmchart
    ```
    ```shell
    $ helm repo update
@@ -163,7 +163,7 @@ deploy Pachyderm on your local cluster by following these steps:
 
 * Install Pachyderm's latest helm chart ([helm v3](https://helm.sh/docs/intro/)):
    ```shell
-   $ helm install pachd pachyderm/pachyderm --set deployTarget=LOCAL
+   $ helm install pachd pach/pachyderm --set deployTarget=LOCAL
    ```
 
 !!! Info "See Also"
@@ -198,8 +198,7 @@ release-name-traefik-5659968869-v58j9   1/1     Running   0          6h
 
 If you see a few restarts on the `pachd` nodes, that means that
 Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
-Kubernetes restarted those pods. Re-run ```shell
-kubectl`
+Kubernetes restarted those pods. Re-run `kubectl get pods`
 
 1. Run `pachctl version` to verify that `pachd` has been deployed.
 

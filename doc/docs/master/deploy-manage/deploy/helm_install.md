@@ -30,7 +30,7 @@ See the reference [values.yaml](https://github.com/pachyderm/pachyderm/blob/mast
 ###  Install the Pachyderm Helm Chart
 1. Get your Helm Repo Info
     ```shell
-    $ helm repo add pachyderm https://pachyderm.github.io/helmchart
+    $ helm repo add pach https://pachyderm.github.io/helmchart
     $ helm repo update
     ```
 

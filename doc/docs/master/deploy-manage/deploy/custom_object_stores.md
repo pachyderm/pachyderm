@@ -34,9 +34,9 @@ gcloud compute disks create --size=${STORAGE_SIZE}GB ${STORAGE_NAME}
 Then we can deploy Pachyderm:
 
 ```shell
-$ helm repo add pachyderm https://pachyderm.github.io/helmchart
+$ helm repo add pach https://pachyderm.github.io/helmchart
 $ helm repo update
-$ helm install pachyderm --set deployTarget=CUSTOM pachyderm/pachyderm --version <version-of-the-chart>
+$ helm install pachd --set deployTarget=CUSTOM pach/pachyderm --version <version-of-the-chart>
 ```
 
 ## AWS + Custom Object Store
