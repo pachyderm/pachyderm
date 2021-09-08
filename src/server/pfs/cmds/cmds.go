@@ -161,7 +161,7 @@ or type (e.g. csv, binary, images, etc).`,
 	var repoType string
 	listRepo := &cobra.Command{
 		Short: "Return a list of repos.",
-		Long:  "Return a list of repos. By default, only show user repos",
+		Long:  "Return a list of repos. By default, hide system repos like pipeline metadata",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			if all && repoType != "" {
 				return errors.Errorf("cannot set a repo type with --all")
@@ -409,12 +409,18 @@ $ {{alias}} test@fork -p XXX`,
 	var originStr string
 	var expand bool
 	listCommit := &cobra.Command{
-		Use:   "{{alias}} [<repo>[@<branch-or-commit>]]",
-		Short: "Return all commits on a repo.",
-		Long:  "Return all commits on a repo.",
+		Use:   "{{alias}} [<commit-id>|<repo>[@<branch-or-commit>]]",
+		Short: "Return a list of commits.",
+		Long:  "Return a list of commits, either across the entire pachyderm cluster or restricted to a single repo.",
 		Example: `
+# return all commits
+$ {{alias}}
+
 # return commits in repo "foo"
 $ {{alias}} foo
+
+# return all sub-commits in a commit
+$ {{alias}} <commit-id>
 
 # return commits in repo "foo" on branch "master"
 $ {{alias}} foo@master
@@ -422,7 +428,7 @@ $ {{alias}} foo@master
 # return the last 20 commits in repo "foo" on branch "master"
 $ {{alias}} foo@master -n 20
 
-# return commits in repo "foo" since commit XXX
+# return commits in repo "foo" on branch "master" since commit XXX
 $ {{alias}} foo@master --from XXX`,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine("user")
@@ -745,7 +751,9 @@ $ {{alias}} test@master --new`,
 	squashCommit := &cobra.Command{
 		Use:   "{{alias}} <commit-id>",
 		Short: "Squash the sub-commits of a commit.",
-		Long:  "Squash the sub-commits of a commit.  The data in the sub-commits will remain in their child commits unless there are no children.",
+		Long: `Squash the sub-commits of a commit.  The data in the sub-commits will remain in their child commits.
+The squash will fail if it includes a commit with no children`,
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -763,13 +771,13 @@ $ {{alias}} test@master --new`,
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
-		Long: `A branch in Pachyderm is an alias for a Commit ID.
+		Long: `A branch in Pachyderm records provenance relationships between data in different repos,
+as well as being as an alias for a commit in its repo.
 
 The branch reference will "float" to always refer to the latest commit on the
-branch, known as the HEAD commit. Not all commits must be on a branch and
-multiple branches can refer to the same commit.
+branch, known as the HEAD commit. All commits are on exactly one branch.
 
-Any pachctl command that can take a Commit ID, can take a branch name instead.`,
+Any pachctl command that can take a commit, can take a branch name instead.`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAlias(branchDocs, "branch", " branch$"))
 
