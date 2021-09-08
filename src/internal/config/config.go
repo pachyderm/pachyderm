@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -103,15 +104,16 @@ func (c *Config) ActiveEnterpriseContext(errorOnNoActive bool) (string, *Context
 // from one of several possible places on disk (see configPath()) and stores it
 // in cachedConfig.
 func fetchCachedConfig(p string) error {
+	cachedConfig = &Config{}
 	if raw, err := ioutil.ReadFile(p); err == nil {
-		err = serde.DecodeYAML(raw, &cachedConfig)
+		d := serde.NewYAMLDecoder(bytes.NewReader(raw))
+		err = d.DecodeProto(cachedConfig)
 		if err != nil {
 			return errors.Wrapf(err, "could not parse config json at %q", p)
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		// File doesn't exist, so create a new config
 		log.Debugf("No config detected at %q. Generating new config...", p)
-		cachedConfig = &Config{}
 	} else {
 		return errors.Wrapf(err, "could not read config at %q", p)
 	}
