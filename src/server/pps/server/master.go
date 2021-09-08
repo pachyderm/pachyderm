@@ -96,6 +96,10 @@ type ppsMaster struct {
 
 	// channel through which pipeline events are passed
 	eventCh chan *pipelineEvent
+
+	// maps each pipeline to an event channel whos event can be independently processed
+	pipelineChans   map[string]chan *pipelineEvent
+	pipelineChansMu sync.RWMutex
 }
 
 // The master process is responsible for creating/deleting workers as
@@ -142,6 +146,7 @@ func (m *ppsMaster) run() {
 	// close m.eventCh after all cancels have returned and therefore all pollers
 	// (which are what write to m.eventCh) have exited
 	m.eventCh = make(chan *pipelineEvent, 1)
+	m.pipelineChans = make(map[string]chan *pipelineEvent)
 	defer close(m.eventCh)
 	defer m.cancelAllMonitorsAndCrashingMonitors()
 	// start pollers in the background--cancel functions ensure poll/monitor
@@ -158,16 +163,26 @@ eventLoop:
 	for {
 		select {
 		case e := <-m.eventCh:
+			var chanExists bool
+			var pipelineChan chan *pipelineEvent
+			func() {
+				m.pipelineChansMu.RLock()
+				defer m.pipelineChansMu.RUnlock()
+				pipelineChan, chanExists = m.pipelineChans[e.pipeline]
+			}()
+
 			switch e.eventType {
 			case writeEv:
-				if err := m.attemptStep(m.masterCtx, e); err != nil {
-					log.Errorf("PPS master: %v", err)
+				if !chanExists {
+					pipelineChan = m.setupPipelineChan(context.Background(), e.pipeline)
 				}
+				pipelineChan <- e
 			case deleteEv:
-				// TODO(msteffen) trace this call
-				if err := m.deletePipelineResources(e.pipeline); err != nil {
-					log.Errorf("PPS master: could not delete resources for pipeline %q: %v",
-						e.pipeline, err)
+				if chanExists {
+					pipelineChan <- e
+				} else {
+					log.Errorf("PPS master: dropping a delete event for a pipeline who's processor was shut down: %q",
+						e.pipeline)
 				}
 			}
 		case <-m.masterCtx.Done():
@@ -305,4 +320,52 @@ func (a *apiServer) transitionPipelineState(ctx context.Context, specCommit *pfs
 	}()
 	return ppsutil.SetPipelineState(ctx, a.env.GetDBClient(), a.pipelines,
 		specCommit, from, to, reason)
+}
+
+func (m *ppsMaster) setupPipelineChan(ctx context.Context, pipeline string) chan *pipelineEvent {
+	m.pipelineChansMu.Lock()
+	defer m.pipelineChansMu.Unlock()
+
+	// is this protective condition block necessary?
+	if ch, ok := m.pipelineChans[pipeline]; ok {
+		return ch
+	}
+
+	m.pipelineChans[pipeline] = make(chan *pipelineEvent, 1)
+
+	go m.pipelineProcessorRoutine(ctx, pipeline, m.pipelineChans[pipeline])
+
+	return m.pipelineChans[pipeline]
+}
+
+// this method is responsible for cleaning up it's own
+func (m *ppsMaster) pipelineProcessorRoutine(ctx context.Context, pipeline string, eventChan <-chan *pipelineEvent) {
+	defer func() {
+		m.pipelineChansMu.Lock()
+		defer m.pipelineChansMu.Unlock()
+		delete(m.pipelineChans, pipeline)
+	}()
+
+	for {
+		select {
+		case e := <-eventChan:
+			switch e.eventType {
+			case writeEv:
+				if err := m.attemptStep(m.masterCtx, e); err != nil {
+					log.Errorf("PPS master: %v", err)
+				}
+			case deleteEv:
+				// TODO(msteffen) trace this call
+				if err := m.deletePipelineResources(e.pipeline); err != nil {
+					log.Errorf("PPS master: could not delete resources for pipeline %q: %v",
+						e.pipeline, err)
+				}
+				return
+			}
+		case <-ctx.Done():
+			return
+		case <-m.masterCtx.Done():
+			return
+		}
+	}
 }
