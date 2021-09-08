@@ -260,7 +260,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	userVolumeMounts = append(userVolumeMounts, secretMount)
 
 	// mount secret for using pachctl
-	pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount("pachctl-secret-" + pipelineInfo.Pipeline.Name)
+	pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount(makeWorkerPachctlSecretName(pipelineInfo))
 	options.volumes = append(options.volumes, pachctlSecretVolume)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
 	userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
@@ -628,6 +628,12 @@ func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOpt
 	}, nil
 }
 
+func makeWorkerPachctlSecretName(pipelineInfo *pps.PipelineInfo) string {
+	x := "pachctl-secret-" + pipelineInfo.Pipeline.Name
+	x = strings.ToLower(x)
+	return x
+}
+
 func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	var cfg config.Config
 	err := cfg.InitV2()
@@ -651,7 +657,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, pipelineInfo 
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "pachctl-secret-" + pipelineInfo.Pipeline.Name,
+			Name:   makeWorkerPachctlSecretName(pipelineInfo),
 			Labels: labels(pipelineInfo.Pipeline.Name),
 		},
 		Data: map[string][]byte{
