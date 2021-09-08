@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/opentracing/opentracing-go"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -116,6 +117,10 @@ func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason st
 }
 func (td *testDriver) NewSQLTx(cb func(*sqlx.Tx) error) error {
 	return td.inner.NewSQLTx(cb)
+}
+
+func (td *testDriver) AddSpanToAnyPipelineTrace(operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
+	return td.inner.AddSpanToAnyPipelineTrace(operation, kvs...)
 }
 
 // newTestEnv provides a test env with etcd and pachd instances and connected
