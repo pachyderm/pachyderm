@@ -1,7 +1,7 @@
 # This workload tests a large number of commits with small / medium size files.
 count: 100
 operations:
-  - count: 5
+  - count: 1 
     operation:
       - putFile:
           files:
