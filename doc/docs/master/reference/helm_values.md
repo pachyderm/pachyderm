@@ -335,7 +335,7 @@ This section is to configure the etcd cluster in the deployment.
 
 - `etcd.service.labels` specifies labels to add to the console service.
 - `etcd.service.annotations` specifies annotations to add to the etcd service.
-- `etcd.service.type` specifies the Kubernetes type of the console service. The default is `ClusterIP`.
+- `etcd.service.type` specifies the Kubernetes type of the etcd service. The default is `ClusterIP`.
 
 ### enterpriseServer
 
@@ -537,7 +537,7 @@ There are three options for configuring TLS on pachd under `pachd.tls`.
 
 This section is to configure the PGBouncer Postgres connection pooler.
 
-- `service.type` specifies the Kubernetes type of the console service. The default is `ClusterIP`.
+- `service.type` specifies the Kubernetes type of the pgbouncer service. The default is `ClusterIP`.
 
 - `resources` specifies resources and limits in standard kubernetes format. It is left unset by default.
 

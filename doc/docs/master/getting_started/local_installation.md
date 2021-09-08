@@ -187,7 +187,7 @@ kubectl get pods
 
 ```shell
 NAME                                    READY   STATUS    RESTARTS   AGE
-dash-7f4b749444-78kzz                   1/1     Running   0          6h
+console-7f4b749444-78kzz                1/1     Running   0          6h
 etcd-0                                  1/1     Running   0          6h
 loki-0                                  1/1     Running   0          6h
 loki-promtail-zz8ch                     1/1     Running   0          6h

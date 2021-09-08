@@ -52,6 +52,9 @@ See the reference [values.yaml](https://github.com/pachyderm/pachyderm/blob/mast
     $ kubectl get pods
     ```
 
+    Once the pods are up, you should see a pod for `pachd` running 
+    (alongside etcd, pg-bouncer or postgres, console, depending on your installation). 
+    
     **System Response:**
 
     ```

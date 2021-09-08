@@ -89,6 +89,8 @@ Kubernetes uses the CloudFront credentials:
    ```shell
    kubectl get pod
    ```
+   Once the pods are up, you should see a pod for `pachd` running 
+   (alongside etcd, pg-bouncer or postgres, console, depending on your installation). 
 
    **System Response:**
 
@@ -98,7 +100,9 @@ Kubernetes uses the CloudFront credentials:
    etcd-1                   1/1       Running            0          19h
    etcd-2                   1/1       Running            0          19h
    pachd-2796595787-9x0qf   1/1       Running            0          16h
-
+   ...
+   ```
+   ```
    kubectl logs pachd-2796595787-9x0qf | grep cloudfront
    2017-06-09T22:56:27Z INFO  AWS deployed with cloudfront distribution at d3j9kenawdv8p0
    2017-06-09T22:56:27Z INFO  Using cloudfront security credentials - keypair ID (APKAXXXXXXXXX) - to sign cloudfront URLs
