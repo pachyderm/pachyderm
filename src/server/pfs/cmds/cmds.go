@@ -280,7 +280,7 @@ $ {{alias}} test@fork -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
