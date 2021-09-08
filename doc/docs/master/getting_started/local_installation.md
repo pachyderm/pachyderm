@@ -155,7 +155,7 @@ deploy Pachyderm on your local cluster by following these steps:
 
 * Get the Repo Info:
    ```shell
-   $ helm repo add pach https://pachyderm.github.io/helmchart
+   $ helm repo add pach https://helm.pachyderm.com
    ```
    ```shell
    $ helm repo update

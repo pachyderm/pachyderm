@@ -174,7 +174,7 @@ Refer to our generic ["Helm Install"](./helm_install.md) page for more informati
 Now you can deploy a Pachyderm cluster by running this command:
 
 ```shell
-$ helm repo add pach https://pachyderm.github.io/helmchart
+$ helm repo add pach https://helm.pachyderm.com
 $ helm repo update
 $ helm install pachd -f my_values.yaml pach/pachyderm --set-file storage.google.cred=<my-key>.json.
 ```

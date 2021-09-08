@@ -359,7 +359,7 @@ you might accidentally deploy your cluster on Minikube.
 1. Run the following command:
 
     ```shell
-    $ helm repo add pach https://pachyderm.github.io/helmchart
+    $ helm repo add pach https://helm.pachyderm.com
     $ helm repo update
     $ helm install pachd -f my_values.yaml pach/pachyderm --version <version-of-the-chart>
     ```
