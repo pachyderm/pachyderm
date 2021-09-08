@@ -688,13 +688,9 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 		tracing.FinishAnySpan(span)
 	}()
 
-	// create pachctl secret used in spouts
-	if pipelineInfo.Details.Spout != nil {
-		if err := a.createWorkerPachctlSecret(ctx, pipelineInfo); err != nil {
-			return err
-		}
+	if err := a.createWorkerPachctlSecret(ctx, pipelineInfo); err != nil {
+		return err
 	}
-
 	options, err := a.getWorkerOptions(pipelineInfo)
 	if err != nil {
 		return noValidOptionsErr{err}
