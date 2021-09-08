@@ -2603,10 +2603,13 @@ func TestDebug(t *testing.T) {
 		require.NoError(t, err)
 		expectedFiles[pattern] = g
 	}
-	pattern := path.Join("input-repos", dataRepo, "commits")
-	g, err := globlib.Compile(pattern, '/')
-	require.NoError(t, err)
-	expectedFiles[pattern] = g
+	// Record glob patterns for expected source repo files.
+	for _, file := range []string{"commits", "commits-chart**"} {
+		pattern := path.Join("source-repos", dataRepo, file)
+		g, err := globlib.Compile(pattern, '/')
+		require.NoError(t, err)
+		expectedFiles[pattern] = g
+	}
 	for i := 0; i < 3; i++ {
 		pipeline := tu.UniqueString("TestDebug")
 		require.NoError(t, aliceClient.CreatePipeline(
@@ -2632,7 +2635,7 @@ func TestDebug(t *testing.T) {
 				expectedFiles[pattern] = g
 			}
 		}
-		for _, file := range []string{"spec", "commits", "jobs"} {
+		for _, file := range []string{"spec", "commits", "jobs", "commits-chart**", "jobs-chart**"} {
 			pattern := path.Join("pipelines", pipeline, file)
 			g, err := globlib.Compile(pattern, '/')
 			require.NoError(t, err)
