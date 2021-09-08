@@ -159,11 +159,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
-		// Set core pach env vars
-		{
-			Name:  "PACHD_ADDRESS",
-			Value: a.env.Config().KubeAddress,
-		},
 		// We use Kubernetes' "Downward API" so the workers know their IP
 		// addresses, which they will then post on etcd so the job managers
 		// can discover the workers.
@@ -264,13 +259,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
 
-	// mount secret for spouts using pachctl
-	if pipelineInfo.Details.Spout != nil {
-		pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount("spout-pachctl-secret-" + pipelineInfo.Pipeline.Name)
-		options.volumes = append(options.volumes, pachctlSecretVolume)
-		sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
-		userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
-	}
+	// mount secret for using pachctl
+	pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount("pachctl-secret-" + pipelineInfo.Pipeline.Name)
+	options.volumes = append(options.volumes, pachctlSecretVolume)
+	sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
+	userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
 
 	// Explicitly set CPU requests to zero because some cloud providers set their
 	// own defaults which are usually not what we want. Mem request defaults to
@@ -658,7 +651,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, pipelineInfo 
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "spout-pachctl-secret-" + pipelineInfo.Pipeline.Name,
+			Name:   "pachctl-secret-" + pipelineInfo.Pipeline.Name,
 			Labels: labels(pipelineInfo.Pipeline.Name),
 		},
 		Data: map[string][]byte{

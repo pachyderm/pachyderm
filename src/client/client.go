@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"golang.org/x/net/context"
@@ -457,7 +458,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 
 // NewForTest constructs a new APIClient for tests.
 // TODO(actgardner): this should probably live in testutils and accept a testing.TB
-func NewForTest() (*APIClient, error) {
+func NewForTest(t testing.TB) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
@@ -486,7 +487,7 @@ func NewForTest() (*APIClient, error) {
 
 // NewEnterpriseClientForTest constructs a new APIClient for tests.
 // TODO(actgardner): this should probably live in testutils and accept a testing.TB
-func NewEnterpriseClientForTest() (*APIClient, error) {
+func NewEnterpriseClientForTest(t testing.TB) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
