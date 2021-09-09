@@ -28,24 +28,26 @@ spec:
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - env:
-        - name: DB_USER
+        - name: POSTGRESQL_USERNAME
           value: {{ .Values.global.postgresql.postgresqlUsername }}
-        - name: DB_HOST
-          value: {{ .Values.global.postgresql.postgresqlHost }}
-        - name: AUTH_TYPE
-          value: md5
-        - name: MAX_CLIENT_CONN
+        - name: POSTGRESQL_HOST
+          value: {{ .Values.global.postgresql.postgresqlHost }}      
+        - name: PGBOUNCER_PORT
+          value: "5432"
+        - name: PGBOUNCER_MAX_CLIENT_CONN
           value: "1000"
-        - name: POOL_MODE
+        - name: PGBOUNCER_POOL_MODE
           value: "transaction"
-        - name: IDLE_TRANSACTION_TIMEOUT
+        - name: PGBOUNCER_IDLE_TRANSACTION_TIMEOUT
           value: "300"
-        - name: DB_PASSWORD
+        - name: PGBOUNCER_IGNORE_STARTUP_PARAMETERS
+          value: "extra_float_digits"
+        - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
               name: postgres # Must match secret setup by postgres subchart, or postgres-secret.yaml 
               key: postgresql-password
-        image: edoburu/pgbouncer:1.15.0
+        image: bitnami/pgbouncer:1.16.0
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
         ports:
