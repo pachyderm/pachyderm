@@ -8,7 +8,9 @@ import {Account} from '@graphqlTypes';
 export const getTokenIssuer = () => {
   const {ISSUER_URI: issuerUri = ''} = process.env;
 
-  return Issuer.discover(issuerUri);
+  // we need to add well-known to the uri to prevent the openid-client library from trying
+  // additional uris on failed requests
+  return Issuer.discover(`${issuerUri}/.well-known/openid-configuration`);
 };
 
 export const getOIDCClient = async () => {
