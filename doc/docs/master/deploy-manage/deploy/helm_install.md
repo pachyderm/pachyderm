@@ -20,9 +20,10 @@ This page gives you a high level view of the steps to follow to install Pachyder
     * Additionally, those instructions will also help you configure the various elements (object store, credentials...) that relate to your deployment needs. Those parameters values will **be specified in a YAML configuration file** as follows.
 
 ### Edit a values.yaml file
-Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/examples). Pick the example that fits your target deployment and update the relevant fields according to the parameters gathered in the previous step.   
+Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/examples). Pick the example that fits your target deployment and update the relevant values according to the parameters gathered in the previous step.   
 
-See the reference [values.yaml](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml) for an exhaustive list of all parameters.
+See the reference [values.yaml](../../../reference/helm_values/) for the list of all available helm values at your disposal.
+
 !!! Warning
     **No default k8s CPU and memory requests and limits** are created for pachd.  If you don't provide values in the values.yaml file, then those requests and limits are simply not set. 
     

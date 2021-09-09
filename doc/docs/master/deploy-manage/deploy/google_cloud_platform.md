@@ -167,6 +167,8 @@ Update your values.yaml with your bucket name.
 
 Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml)) or use `--set-file storage.google.cred=<my-key>.json` when running the following helm install. 
 
+!!! Note
+    Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation.
 ### Deploy Pachyderm on the Kubernetes cluster
 
 Refer to our generic ["Helm Install"](./helm_install.md) page for more information on the required installations and modus operandi of an installation using `Helm`.

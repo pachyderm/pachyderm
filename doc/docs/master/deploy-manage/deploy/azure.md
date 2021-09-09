@@ -351,10 +351,12 @@ you might accidentally deploy your cluster on Minikube.
     **NOTE:** It is strongly recommended to configure SSL when exposing Pachyderm publicly
 
     ```yaml
-    #pachd:
+    pachd:
       service:
         type: LoadBalancer
     ```
+    !!! Note
+        Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation.
 
 1. Run the following command:
 

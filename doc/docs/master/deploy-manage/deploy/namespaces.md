@@ -2,27 +2,26 @@
 
 Often, production deploys of Pachyderm involve deploying Pachyderm to a non-default namespace. This helps administrators of the cluster more easily manage Pachyderm components alongside other things that might be running inside of Kubernetes (DataDog, TensorFlow Serving, etc.).
 
-To deploy Pachyderm to a non-default namespace, you just need to create that namespace with `kubectl` and then add the `--namespace` flag to your deploy command:
+* To deploy Pachyderm to a non-default namespace, 
+you need to add the `-n` or `--namespace` flag when deploying. 
+    If the namespace does not already exist, 
+    you can have [Helm](../helm_install/) create it with `--create-namespace`.
 
-```
-kubectl create namespace pachyderm
-kubectl config set-context $(kubectl config current-context) --namespace=pachyderm
-pachctl deploy <args> --namespace pachyderm
-```
 
-After the Pachyderm pods are up and running, you should see something similar to:
+    ```shell
+    $ helm install <args> --namespace pachyderm --create-namespace
+    ```
 
-```shell
-kubectl get pods
-```
+* To talk to your Pachyderm cluster:
 
-Once the pods are up, you should see a pod for `pachd` running 
-(alongside etcd, pg-bouncer or postgres, console, depending on your installation). 
+    - You can either modify an existing pachctl context
+        ```shell
+        $ pachctl config update context --namespace pachyderm
+        ```
 
-**System Response:**
+    - or [import one from Kubernetes](../import-kubernetes-context/):
+    
 
-```
-NAME                     READY     STATUS    RESTARTS   AGE
-pachd-784bdf7cd7-7dzxr   1/1       Running   0          3m
-...
-```
+!!! Note
+    If you want to use RBAC for multiple Pachyderm clusters in different namespaces within the same cluster,
+    you should disable cluster-level roles by setting the value of `pachd.rbac.clusterRBAC` to `false` in your [values.yaml](../../../reference/helm_values/) or passing `--set pachd.rbac.clusterRBAC=false` when deploying.
