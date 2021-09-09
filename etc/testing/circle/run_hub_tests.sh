@@ -35,7 +35,9 @@ make docker-build
 make docker-push
 
 # Create a workspace running the image we just built.
-hubcli --endpoint https://hub.pachyderm.com/api/graphql --apikey $HUB_API_KEY --op create-workspace-and-wait --orgid 2193 --loglevel trace --infofile workspace.json --version $VERSION --expiration 2h --description $CIRCLE_BUILD_URL --prefix "ci-"
+for i in {1..3}; do
+	hubcli --endpoint https://hub.pachyderm.com/api/graphql --apikey $HUB_API_KEY --op create-workspace-and-wait --orgid 2193 --loglevel trace --infofile workspace.json --version $VERSION --expiration 2h --description $CIRCLE_BUILD_URL --prefix "ci-" && break
+done
 
 # Print client and server versions, for debugging.
 pachctl version
