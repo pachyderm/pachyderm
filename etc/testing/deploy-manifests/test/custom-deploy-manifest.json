@@ -344,6 +344,176 @@
   }
 }
 {
+  "allowVolumeExpansion": true,
+  "apiVersion": "storage.k8s.io/v1",
+  "kind": "StorageClass",
+  "metadata": {
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    },
+    "name": "postgres-storage-class",
+    "namespace": "pachyderm"
+  },
+  "parameters": {
+    "type": "gp2"
+  },
+  "provisioner": "kubernetes.io/aws-ebs"
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "postgres-headless",
+    "namespace": "pachyderm",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "client-port",
+        "port": 5432,
+        "targetPort": 0
+      }
+    ],
+    "selector": {
+      "app": "postgres"
+    },
+    "clusterIP": "None"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "apiVersion": "apps/v1",
+  "kind": "StatefulSet",
+  "metadata": {
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    },
+    "name": "postgres",
+    "namespace": "pachyderm"
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "postgres",
+        "suite": "pachyderm"
+      }
+    },
+    "serviceName": "postgres-headless",
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "postgres",
+          "suite": "pachyderm"
+        },
+        "name": "postgres",
+        "namespace": "pachyderm"
+      },
+      "spec": {
+        "containers": [
+          {
+            "env": [
+              {
+                "name": "POSTGRES_DB",
+                "value": "pgc"
+              },
+              {
+                "name": "POSTGRES_HOST_AUTH_METHOD",
+                "value": "trust"
+              }
+            ],
+            "image": "postgres:13.0-alpine",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "postgres",
+            "ports": [
+              {
+                "containerPort": 5432,
+                "name": "client-port"
+              }
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "1",
+                "memory": "2G"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/var/lib/postgresql/data",
+                "name": "postgres-storage"
+              }
+            ]
+          }
+        ],
+        "imagePullSecrets": null
+      }
+    },
+    "volumeClaimTemplates": [
+      {
+        "metadata": {
+          "annotations": {
+            "volume.beta.kubernetes.io/storage-class": "postgres-storage-class"
+          },
+          "labels": {
+            "app": "postgres",
+            "suite": "pachyderm"
+          },
+          "name": "postgres-storage",
+          "namespace": "pachyderm"
+        },
+        "spec": {
+          "accessModes": [
+            "ReadWriteOnce"
+          ],
+          "resources": {
+            "requests": {
+              "storage": "50Gi"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "postgres",
+    "namespace": "pachyderm",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "client-port",
+        "port": 5432,
+        "targetPort": 0
+      }
+    ],
+    "selector": {
+      "app": "postgres"
+    },
+    "type": "NodePort"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
   "kind": "Service",
   "apiVersion": "v1",
   "metadata": {
@@ -946,10 +1116,6 @@
               {
                 "name": "STORAGE_PUT_FILE_CONCURRENCY_LIMIT",
                 "value": "100"
-              },
-              {
-                "name": "STORAGE_V2",
-                "value": "false"
               }
             ],
             "resources": {

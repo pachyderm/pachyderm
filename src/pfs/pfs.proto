@@ -337,12 +337,13 @@ message InspectFileRequest {
 }
 
 message ListFileRequest {
+  reserved 2;
+
   // File is the parent directory of the files we want to list. This sets the
   // repo, the commit/branch, and path prefix of files we're interested in
   // If the "path" field is omitted, a list of files at the top level of the repo
   // is returned
   File file = 1;
-  bool details = 2;
 // TODO:
 //  // History indicates how many historical versions you want returned. Its
 //  // semantics are:

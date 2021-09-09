@@ -45,12 +45,15 @@ func (id ID) TrackerID() string {
 
 // Scan implements sql.Scanner
 func (id *ID) Scan(src interface{}) error {
-	x, ok := src.([]byte)
-	if !ok {
+	var err error
+	switch x := src.(type) {
+	case []byte:
+		*id, err = parseID(x)
+	case string:
+		*id, err = parseID([]byte(x))
+	default:
 		return errors.Errorf("scanning fileset.ID: can't turn %T into fileset.ID", src)
 	}
-	var err error
-	*id, err = parseID(x)
 	return err
 }
 

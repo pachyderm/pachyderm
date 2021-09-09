@@ -7,7 +7,7 @@ The repo contains the pachyderm helm chart.
 Create a `values.yaml` file with your storage provider of choice, and other options, then run
 
 ```shell
-$ helm repo add pach https://pachyderm.github.io/helmchart
+$ helm repo add pach https://helm.pachyderm.com
 $ helm install pachd pach/pachyderm -f values.yaml
 ```
 

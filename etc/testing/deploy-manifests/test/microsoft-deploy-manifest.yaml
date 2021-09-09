@@ -6,7 +6,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm
-  namespace: pachyderm
+  namespace: default
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -16,7 +16,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm-worker
-  namespace: pachyderm
+  namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -26,7 +26,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm
-  namespace: pachyderm
+  namespace: default
 rules:
 - apiGroups:
   - ""
@@ -72,7 +72,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm
-  namespace: pachyderm
+  namespace: default
 roleRef:
   apiGroup: ""
   kind: ClusterRole
@@ -80,7 +80,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: pachyderm
-  namespace: pachyderm
+  namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -90,7 +90,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm-worker
-  namespace: pachyderm
+  namespace: default
 rules:
 - apiGroups:
   - ""
@@ -111,7 +111,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm-worker
-  namespace: pachyderm
+  namespace: default
 roleRef:
   apiGroup: ""
   kind: Role
@@ -119,7 +119,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: pachyderm-worker
-  namespace: pachyderm
+  namespace: default
 ---
 apiVersion: v1
 kind: Service
@@ -129,7 +129,7 @@ metadata:
     app: etcd
     suite: pachyderm
   name: etcd-headless
-  namespace: pachyderm
+  namespace: default
 spec:
   clusterIP: None
   ports:
@@ -148,7 +148,7 @@ metadata:
     app: etcd
     suite: pachyderm
   name: etcd
-  namespace: pachyderm
+  namespace: default
 spec:
   replicas: 3
   selector:
@@ -162,7 +162,7 @@ spec:
         app: etcd
         suite: pachyderm
       name: etcd
-      namespace: pachyderm
+      namespace: default
     spec:
       containers:
       - args:
@@ -203,13 +203,11 @@ spec:
       imagePullSecrets: null
   volumeClaimTemplates:
   - metadata:
-      annotations:
-        volume.beta.kubernetes.io/storage-class: storage-class
       labels:
         app: etcd
         suite: pachyderm
       name: etcd-storage
-      namespace: pachyderm
+      namespace: default
     spec:
       accessModes:
       - ReadWriteOnce
@@ -225,7 +223,7 @@ metadata:
     app: etcd
     suite: pachyderm
   name: etcd
-  namespace: pachyderm
+  namespace: default
 spec:
   ports:
   - name: client-port
@@ -233,6 +231,103 @@ spec:
     targetPort: 0
   selector:
     app: etcd
+  type: NodePort
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres-headless
+  namespace: default
+spec:
+  clusterIP: None
+  ports:
+  - name: client-port
+    port: 5432
+    targetPort: 0
+  selector:
+    app: postgres
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      suite: pachyderm
+  serviceName: postgres-headless
+  template:
+    metadata:
+      labels:
+        app: postgres
+        suite: pachyderm
+      name: postgres
+      namespace: default
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: pgc
+        - name: POSTGRES_HOST_AUTH_METHOD
+          value: trust
+        image: postgres:13.0-alpine
+        imagePullPolicy: IfNotPresent
+        name: postgres
+        ports:
+        - containerPort: 5432
+          name: client-port
+        resources:
+          requests:
+            cpu: "1"
+            memory: 2G
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: postgres-storage
+      imagePullSecrets: null
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        app: postgres
+        suite: pachyderm
+      name: postgres-storage
+      namespace: default
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres
+  namespace: default
+spec:
+  ports:
+  - name: client-port
+    port: 5432
+    targetPort: 0
+  selector:
+    app: postgres
   type: NodePort
 status:
   loadBalancer: {}
@@ -248,7 +343,7 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd
-  namespace: pachyderm
+  namespace: default
 spec:
   ports:
   - name: api-grpc-port
@@ -293,7 +388,7 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd-peer
-  namespace: pachyderm
+  namespace: default
 spec:
   ports:
   - name: api-grpc-peer-port
@@ -313,7 +408,7 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd
-  namespace: pachyderm
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -330,7 +425,7 @@ spec:
         app: pachd
         suite: pachyderm
       name: pachd
-      namespace: pachyderm
+      namespace: default
     spec:
       containers:
       - command:
@@ -342,7 +437,7 @@ spec:
         - name: NUM_SHARDS
           value: "16"
         - name: STORAGE_BACKEND
-          value: AMAZON
+          value: MICROSOFT
         - name: STORAGE_HOST_PATH
         - name: WORKER_IMAGE
           value: pachyderm/worker:2.0.0
@@ -363,7 +458,7 @@ spec:
           value: 1G
         - name: IAM_ROLE
         - name: NO_EXPOSE_DOCKER_SOCKET
-          value: "true"
+          value: "false"
         - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
           value: "false"
         - name: PACH_NAMESPACE
@@ -574,8 +669,6 @@ spec:
           value: "100"
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: "100"
-        - name: STORAGE_V2
-          value: "false"
         image: pachyderm/pachd:2.0.0
         imagePullPolicy: IfNotPresent
         name: pachd
@@ -633,7 +726,7 @@ metadata:
     app: dash
     suite: pachyderm
   name: dash
-  namespace: pachyderm
+  namespace: default
 spec:
   ports:
   - name: dash-http
@@ -659,7 +752,7 @@ metadata:
     app: dash
     suite: pachyderm
   name: dash
-  namespace: pachyderm
+  namespace: default
 spec:
   selector:
     matchLabels:
@@ -673,7 +766,7 @@ spec:
         app: dash
         suite: pachyderm
       name: dash
-      namespace: pachyderm
+      namespace: default
     spec:
       containers:
       - image: pachyderm/dash:0.5.57
@@ -694,22 +787,9 @@ status: {}
 ---
 apiVersion: v1
 data:
-  amazon-bucket: cGFjaC1idWNrZXQ=
-  amazon-distribution: ""
-  amazon-id: c3RvcmFnZS1pZA==
-  amazon-region: dXMtZWFzdC0x
-  amazon-secret: c3RvcmFnZS1zZWNyZXQ=
-  amazon-token: ""
-  custom-endpoint: c3RvcmFnZS5lbmRwb2ludA==
-  disable-ssl: ZmFsc2U=
-  log-options: ""
-  max-upload-parts: MTAwMDA=
-  no-verify-ssl: ZmFsc2U=
-  part-size: NTI0Mjg4MA==
-  retries: MTA=
-  reverse: dHJ1ZQ==
-  timeout: NW0=
-  upload-acl: YnVja2V0LW93bmVyLWZ1bGwtY29udHJvbA==
+  microsoft-container: cGFjaC1jb250YWluZXI=
+  microsoft-id: cGFjaC1hY2NvdW50
+  microsoft-secret: Y0dGamFDMWhZMk52ZFc1MExXdGxlUT09
 kind: Secret
 metadata:
   creationTimestamp: null
@@ -717,4 +797,4 @@ metadata:
     app: pachyderm-storage-secret
     suite: pachyderm
   name: pachyderm-storage-secret
-  namespace: pachyderm
+  namespace: default

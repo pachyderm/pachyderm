@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
@@ -100,7 +99,7 @@ func (t *postgresTracker) addReferences(tx *sqlx.Tx, intID int, pointsTo []strin
 		`INSERT INTO storage.tracker_refs (from_id, to_id)
 			SELECT $1, int_id FROM storage.tracker_objects WHERE str_id = ANY($2)
 		RETURNING to_id`,
-		intID, pq.StringArray(pointsTo)); err != nil {
+		intID, pointsTo); err != nil {
 		return err
 	}
 	if len(pointsToInts) != len(pointsTo) {

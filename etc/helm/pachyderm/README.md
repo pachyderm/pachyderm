@@ -24,7 +24,7 @@ for a way to "productionize" them, Pachyderm can make this easy for you.
 Running on Minikube: (or similar)
 
 ```
-$ helm repo add pachyderm https://pachyderm.github.io/helmchart
+$ helm repo add pachyderm https://helm.pachyderm.com
 $ helm install --set deployTarget=LOCAL pachd pachyderm/pachyderm
 ```
 

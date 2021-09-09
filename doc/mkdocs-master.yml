@@ -205,7 +205,7 @@ nav:
                 - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
                 - Configure Ingress:
                     - Overview: deploy-manage/deploy/ingress/index.md
-                    - Pachyderm UI (Dash) Ingress: deploy-manage/deploy/ingress/pach-ui-ingress.md            
+                    - Console Ingress: deploy-manage/deploy/ingress/pach-ui-ingress.md            
                 - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
                 - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
                 - Monitor cluster metrics with Prometheus: 
@@ -237,6 +237,7 @@ nav:
         - Community Edition Limits: reference/scaling_limits.md
         - Pipeline Specification: reference/pipeline_spec.md
         - Pachyderm Config Specification: reference/config_spec.md
+        - Pachyderm Helm Chart Values Specification: reference/helm_values.md
         - Pachyderm Language Clients: reference/clients.md
         - S3 Gateway API Reference: reference/s3gateway_api.md
         - Pachctl Reference:

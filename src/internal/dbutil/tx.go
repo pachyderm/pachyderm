@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -134,7 +134,9 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 	}()
 
 	txStartedMetric.Inc()
-	if err := backoff.RetryUntilCancel(ctx, func() error {
+	err := backoff.RetryUntilCancel(ctx, func() error {
+		ctx, cf := context.WithCancel(context.Background())
+		defer cf()
 		underlyingTxStartedMetric.Inc()
 		attempts++
 		tx, err := db.BeginTxx(ctx, &c.TxOptions)
@@ -147,14 +149,9 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 		if isTransactionError(err) {
 			return nil
 		}
-		// we should maybe switch away from lib/pq.  The reason why this works is not totally clear
-		// it seems like the introduction of pg_bouncer causes the library to misinterpret already rolled back errors
-		// as user cancelling errors.
-		if strings.Contains(err.Error(), "pq: canceling statement due to user request") {
-			return nil
-		}
 		return err
-	}); err != nil {
+	})
+	if err != nil {
 		// Inspecting err could yield a better outcome type than "error", but some care is
 		// needed.  For example, `cb` could return "context deadline exceeded" because it
 		// created a sub-context that expires, and that's a different error than 'commit'
@@ -186,6 +183,6 @@ func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) error {
 }
 
 func isTransactionError(err error) bool {
-	pqerr := &pq.Error{}
-	return errors.As(err, &pqerr) && pqerr.Code.Class() == "40"
+	pgxErr := &pgconn.PgError{}
+	return errors.As(err, &pgxErr) && strings.HasPrefix(pgxErr.Code, "40")
 }

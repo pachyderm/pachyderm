@@ -6,7 +6,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm
-  namespace: default
+  namespace: pachyderm
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -16,7 +16,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm-worker
-  namespace: default
+  namespace: pachyderm
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -26,7 +26,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm
-  namespace: default
+  namespace: pachyderm
 rules:
 - apiGroups:
   - ""
@@ -72,7 +72,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm
-  namespace: default
+  namespace: pachyderm
 roleRef:
   apiGroup: ""
   kind: ClusterRole
@@ -80,7 +80,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: pachyderm
-  namespace: default
+  namespace: pachyderm
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -90,7 +90,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm-worker
-  namespace: default
+  namespace: pachyderm
 rules:
 - apiGroups:
   - ""
@@ -111,7 +111,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm-worker
-  namespace: default
+  namespace: pachyderm
 roleRef:
   apiGroup: ""
   kind: Role
@@ -119,20 +119,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: pachyderm-worker
-  namespace: default
----
-allowVolumeExpansion: true
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  labels:
-    app: etcd
-    suite: pachyderm
-  name: etcd-storage-class
-  namespace: default
-parameters:
-  type: pd-ssd
-provisioner: kubernetes.io/gce-pd
+  namespace: pachyderm
 ---
 apiVersion: v1
 kind: Service
@@ -142,7 +129,7 @@ metadata:
     app: etcd
     suite: pachyderm
   name: etcd-headless
-  namespace: default
+  namespace: pachyderm
 spec:
   clusterIP: None
   ports:
@@ -161,7 +148,7 @@ metadata:
     app: etcd
     suite: pachyderm
   name: etcd
-  namespace: default
+  namespace: pachyderm
 spec:
   replicas: 3
   selector:
@@ -175,7 +162,7 @@ spec:
         app: etcd
         suite: pachyderm
       name: etcd
-      namespace: default
+      namespace: pachyderm
     spec:
       containers:
       - args:
@@ -217,12 +204,12 @@ spec:
   volumeClaimTemplates:
   - metadata:
       annotations:
-        volume.beta.kubernetes.io/storage-class: etcd-storage-class
+        volume.beta.kubernetes.io/storage-class: storage-class
       labels:
         app: etcd
         suite: pachyderm
       name: etcd-storage
-      namespace: default
+      namespace: pachyderm
     spec:
       accessModes:
       - ReadWriteOnce
@@ -238,7 +225,7 @@ metadata:
     app: etcd
     suite: pachyderm
   name: etcd
-  namespace: default
+  namespace: pachyderm
 spec:
   ports:
   - name: client-port
@@ -246,6 +233,118 @@ spec:
     targetPort: 0
   selector:
     app: etcd
+  type: NodePort
+status:
+  loadBalancer: {}
+---
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres-storage-class
+  namespace: pachyderm
+parameters:
+  type: gp2
+provisioner: kubernetes.io/aws-ebs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres-headless
+  namespace: pachyderm
+spec:
+  clusterIP: None
+  ports:
+  - name: client-port
+    port: 5432
+    targetPort: 0
+  selector:
+    app: postgres
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres
+  namespace: pachyderm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      suite: pachyderm
+  serviceName: postgres-headless
+  template:
+    metadata:
+      labels:
+        app: postgres
+        suite: pachyderm
+      name: postgres
+      namespace: pachyderm
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: pgc
+        - name: POSTGRES_HOST_AUTH_METHOD
+          value: trust
+        image: postgres:13.0-alpine
+        imagePullPolicy: IfNotPresent
+        name: postgres
+        ports:
+        - containerPort: 5432
+          name: client-port
+        resources:
+          requests:
+            cpu: "1"
+            memory: 2G
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: postgres-storage
+      imagePullSecrets: null
+  volumeClaimTemplates:
+  - metadata:
+      annotations:
+        volume.beta.kubernetes.io/storage-class: postgres-storage-class
+      labels:
+        app: postgres
+        suite: pachyderm
+      name: postgres-storage
+      namespace: pachyderm
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: postgres
+    suite: pachyderm
+  name: postgres
+  namespace: pachyderm
+spec:
+  ports:
+  - name: client-port
+    port: 5432
+    targetPort: 0
+  selector:
+    app: postgres
   type: NodePort
 status:
   loadBalancer: {}
@@ -261,7 +360,7 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd
-  namespace: default
+  namespace: pachyderm
 spec:
   ports:
   - name: api-grpc-port
@@ -306,7 +405,7 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd-peer
-  namespace: default
+  namespace: pachyderm
 spec:
   ports:
   - name: api-grpc-peer-port
@@ -326,7 +425,7 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd
-  namespace: default
+  namespace: pachyderm
 spec:
   replicas: 1
   selector:
@@ -343,7 +442,7 @@ spec:
         app: pachd
         suite: pachyderm
       name: pachd
-      namespace: default
+      namespace: pachyderm
     spec:
       containers:
       - command:
@@ -355,7 +454,7 @@ spec:
         - name: NUM_SHARDS
           value: "16"
         - name: STORAGE_BACKEND
-          value: GOOGLE
+          value: AMAZON
         - name: STORAGE_HOST_PATH
         - name: WORKER_IMAGE
           value: pachyderm/worker:2.0.0
@@ -373,10 +472,10 @@ spec:
         - name: LOG_LEVEL
           value: info
         - name: BLOCK_CACHE_BYTES
-          value: 0G
+          value: 1G
         - name: IAM_ROLE
         - name: NO_EXPOSE_DOCKER_SOCKET
-          value: "false"
+          value: "true"
         - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
           value: "false"
         - name: PACH_NAMESPACE
@@ -587,8 +686,6 @@ spec:
           value: "100"
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: "100"
-        - name: STORAGE_V2
-          value: "false"
         image: pachyderm/pachd:2.0.0
         imagePullPolicy: IfNotPresent
         name: pachd
@@ -621,10 +718,10 @@ spec:
         resources:
           limits:
             cpu: "1"
-            memory: 2G
+            memory: 3G
           requests:
             cpu: "1"
-            memory: 2G
+            memory: 3G
         volumeMounts:
         - mountPath: /pach
           name: pach-disk
@@ -646,7 +743,7 @@ metadata:
     app: dash
     suite: pachyderm
   name: dash
-  namespace: default
+  namespace: pachyderm
 spec:
   ports:
   - name: dash-http
@@ -672,7 +769,7 @@ metadata:
     app: dash
     suite: pachyderm
   name: dash
-  namespace: default
+  namespace: pachyderm
 spec:
   selector:
     matchLabels:
@@ -686,7 +783,7 @@ spec:
         app: dash
         suite: pachyderm
       name: dash
-      namespace: default
+      namespace: pachyderm
     spec:
       containers:
       - image: pachyderm/dash:0.5.57
@@ -707,8 +804,22 @@ status: {}
 ---
 apiVersion: v1
 data:
-  google-bucket: cGFjaC1idWNrZXQ=
-  google-cred: ""
+  amazon-bucket: cGFjaC1idWNrZXQ=
+  amazon-distribution: ""
+  amazon-id: c3RvcmFnZS1pZA==
+  amazon-region: dXMtZWFzdC0x
+  amazon-secret: c3RvcmFnZS1zZWNyZXQ=
+  amazon-token: ""
+  custom-endpoint: c3RvcmFnZS5lbmRwb2ludA==
+  disable-ssl: ZmFsc2U=
+  log-options: ""
+  max-upload-parts: MTAwMDA=
+  no-verify-ssl: ZmFsc2U=
+  part-size: NTI0Mjg4MA==
+  retries: MTA=
+  reverse: dHJ1ZQ==
+  timeout: NW0=
+  upload-acl: YnVja2V0LW93bmVyLWZ1bGwtY29udHJvbA==
 kind: Secret
 metadata:
   creationTimestamp: null
@@ -716,4 +827,4 @@ metadata:
     app: pachyderm-storage-secret
     suite: pachyderm
   name: pachyderm-storage-secret
-  namespace: default
+  namespace: pachyderm

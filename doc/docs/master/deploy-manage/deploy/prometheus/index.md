@@ -46,7 +46,7 @@ Prometheus' **Kubernetes cluster monitoring** using the Prometheus Operator:
                 matchNames:
                 - default
             endpoints:
-            - port: prometheus-metrics
+            - port: prom-metrics
               interval: 30s
         ```
     - Create a ServiceMonitor looking to scrape metrics from `suite: pachyderm`:

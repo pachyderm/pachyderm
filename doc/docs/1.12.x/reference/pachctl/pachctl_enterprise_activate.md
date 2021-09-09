@@ -7,7 +7,7 @@ Activate the enterprise features of Pachyderm with an activation code
 Activate the enterprise features of Pachyderm with an activation code
 
 ```
-pachctl enterprise activate [flags]
+echo <your-activation-token> | pachctl enterprise activate
 ```
 
 ### Options

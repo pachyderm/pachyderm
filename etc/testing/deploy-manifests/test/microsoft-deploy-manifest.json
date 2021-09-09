@@ -170,23 +170,6 @@
   }
 }
 {
-  "allowVolumeExpansion": true,
-  "apiVersion": "storage.k8s.io/v1",
-  "kind": "StorageClass",
-  "metadata": {
-    "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
-    },
-    "name": "etcd-storage-class",
-    "namespace": "default"
-  },
-  "parameters": {
-    "type": "pd-ssd"
-  },
-  "provisioner": "kubernetes.io/gce-pd"
-}
-{
   "kind": "Service",
   "apiVersion": "v1",
   "metadata": {
@@ -307,9 +290,6 @@
     "volumeClaimTemplates": [
       {
         "metadata": {
-          "annotations": {
-            "volume.beta.kubernetes.io/storage-class": "etcd-storage-class"
-          },
           "labels": {
             "app": "etcd",
             "suite": "pachyderm"
@@ -353,6 +333,156 @@
     ],
     "selector": {
       "app": "etcd"
+    },
+    "type": "NodePort"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "postgres-headless",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "client-port",
+        "port": 5432,
+        "targetPort": 0
+      }
+    ],
+    "selector": {
+      "app": "postgres"
+    },
+    "clusterIP": "None"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "apiVersion": "apps/v1",
+  "kind": "StatefulSet",
+  "metadata": {
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    },
+    "name": "postgres",
+    "namespace": "default"
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "postgres",
+        "suite": "pachyderm"
+      }
+    },
+    "serviceName": "postgres-headless",
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "postgres",
+          "suite": "pachyderm"
+        },
+        "name": "postgres",
+        "namespace": "default"
+      },
+      "spec": {
+        "containers": [
+          {
+            "env": [
+              {
+                "name": "POSTGRES_DB",
+                "value": "pgc"
+              },
+              {
+                "name": "POSTGRES_HOST_AUTH_METHOD",
+                "value": "trust"
+              }
+            ],
+            "image": "postgres:13.0-alpine",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "postgres",
+            "ports": [
+              {
+                "containerPort": 5432,
+                "name": "client-port"
+              }
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "1",
+                "memory": "2G"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/var/lib/postgresql/data",
+                "name": "postgres-storage"
+              }
+            ]
+          }
+        ],
+        "imagePullSecrets": null
+      }
+    },
+    "volumeClaimTemplates": [
+      {
+        "metadata": {
+          "labels": {
+            "app": "postgres",
+            "suite": "pachyderm"
+          },
+          "name": "postgres-storage",
+          "namespace": "default"
+        },
+        "spec": {
+          "accessModes": [
+            "ReadWriteOnce"
+          ],
+          "resources": {
+            "requests": {
+              "storage": "50Gi"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "postgres",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "postgres",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "client-port",
+        "port": 5432,
+        "targetPort": 0
+      }
+    ],
+    "selector": {
+      "app": "postgres"
     },
     "type": "NodePort"
   },
@@ -561,7 +691,7 @@
               },
               {
                 "name": "STORAGE_BACKEND",
-                "value": "GOOGLE"
+                "value": "MICROSOFT"
               },
               {
                 "name": "STORAGE_HOST_PATH"
@@ -599,7 +729,7 @@
               },
               {
                 "name": "BLOCK_CACHE_BYTES",
-                "value": "0G"
+                "value": "1G"
               },
               {
                 "name": "IAM_ROLE"
@@ -963,20 +1093,16 @@
               {
                 "name": "STORAGE_PUT_FILE_CONCURRENCY_LIMIT",
                 "value": "100"
-              },
-              {
-                "name": "STORAGE_V2",
-                "value": "false"
               }
             ],
             "resources": {
               "limits": {
                 "cpu": "1",
-                "memory": "2G"
+                "memory": "3G"
               },
               "requests": {
                 "cpu": "1",
-                "memory": "2G"
+                "memory": "3G"
               }
             },
             "volumeMounts": [
@@ -1119,7 +1245,8 @@
     }
   },
   "data": {
-    "google-bucket": "cGFjaC1idWNrZXQ=",
-    "google-cred": ""
+    "microsoft-container": "cGFjaC1jb250YWluZXI=",
+    "microsoft-id": "cGFjaC1hY2NvdW50",
+    "microsoft-secret": "Y0dGamFDMWhZMk52ZFc1MExXdGxlUT09"
   }
 }

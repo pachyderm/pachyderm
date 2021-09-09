@@ -199,5 +199,8 @@ Change `commit` in `job` to list the jobs related to your global job as they fin
 **combines all the file changes in the commits of a global commit
 into their children** and then removes the global commit.
 This behavior is inspired by the squash option in git rebase.
-No data stored in PFS is removed.
+No data stored in PFS is removed since they remain in the child commits.
+
+!!! Warning "Important"
+    Squashing a global commit on the head of a branch (no children) will fail.
 

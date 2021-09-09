@@ -11,7 +11,7 @@ identity provider using the following steps.
 Before you can configure Pachyderm to work with Okta, you need:
 
 * Pachyderm Enterprise 1.11.x or later. The enterprise token must be
-  activated by running `pachctl enterprise activate`.
+  activated by running `echo <your-activation-token> | pachctl enterprise activate`.
   Check the status of your license by running:
 
       ```shell

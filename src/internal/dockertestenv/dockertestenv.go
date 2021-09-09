@@ -115,6 +115,8 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "bash", "-c", `
 set -ve
 
+docker container prune -f
+
 if ! docker ps | grep -q pach_test_postgres
 then
     echo "starting postgres..."
