@@ -179,9 +179,7 @@ eventLoop:
 func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 	var errCount int
 	var stepErr stepError
-	var startTime time.Time
 	err := backoff.RetryNotify(func() error {
-		startTime = time.Now()
 		// Create/Modify/Delete pipeline resources as needed per new state
 		return m.step(e.pipeline, e.timestamp)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {

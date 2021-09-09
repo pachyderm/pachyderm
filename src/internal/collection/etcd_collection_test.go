@@ -421,7 +421,7 @@ func TestIteration(t *testing.T) {
 		require.Equal(t, numVals, len(vals), "didn't receive every value")
 		vals = make(map[string]bool)
 		valsOrder = []string{}
-		require.NoError(t, ro.List(val, &col.Options{col.SortByCreateRevision, col.SortAscend}, func(string) error {
+		require.NoError(t, ro.List(val, &col.Options{Target: col.SortByCreateRevision, Order: col.SortAscend}, func(string) error {
 			require.False(t, vals[val.ID], "saw value %s twice", val.ID)
 			vals[val.ID] = true
 			valsOrder = append(valsOrder, val.ID)
