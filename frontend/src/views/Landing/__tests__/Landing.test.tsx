@@ -126,7 +126,7 @@ describe('Landing', () => {
     expect(projectNames[6].textContent).toEqual('Solar Panel Data Sorting');
 
     const sortDropdown = await findByRole('button', {
-      name: 'Sort by: Created On',
+      name: 'Sort by: Newest',
     });
     userEvent.click(sortDropdown);
     const nameSort = await findByRole('menuitem', {name: 'Name A-Z'});

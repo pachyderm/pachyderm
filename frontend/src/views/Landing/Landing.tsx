@@ -26,6 +26,7 @@ const Landing: React.FC = () => {
     sortButtonText,
     selectedProject,
     setSelectedProject,
+    sortDropdown,
   } = useLandingView();
 
   if (loading) return <LandingSkeleton />;
@@ -73,13 +74,10 @@ const Landing: React.FC = () => {
                 <Group spacing={32}>
                   <DefaultDropdown
                     storeSelected
-                    initialSelectId="Created On"
+                    initialSelectId="Newest"
                     onSelect={handleSortSelect}
                     buttonOpts={{disabled: !multiProject}}
-                    items={[
-                      {id: 'Created On', content: 'Created On'},
-                      {id: 'Name A-Z', content: 'Name A-Z'},
-                    ]}
+                    items={sortDropdown}
                   >
                     Sort by: {sortButtonText}
                   </DefaultDropdown>

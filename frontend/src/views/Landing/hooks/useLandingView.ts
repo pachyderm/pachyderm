@@ -1,5 +1,10 @@
 import {Project} from '@graphqlTypes';
-import {SortableItem, stringComparator, useSort} from '@pachyderm/components';
+import {
+  SortableItem,
+  useSort,
+  stringComparator,
+  numberComparator,
+} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import every from 'lodash/every';
 import reduce from 'lodash/reduce';
@@ -16,41 +21,65 @@ type statusFormType = {
   [key: string]: boolean;
 };
 
-const nameComparator = {
-  name: 'Name',
-  func: stringComparator,
-  accessor: (project: Project) => project.name,
-};
-
-const dateComparator = {
-  name: 'Created On',
-  func: (a: number, b: number) => b - a,
-  accessor: (project: Project) => project.createdAt,
-};
-
 const sortOptions: sortOptions = {
-  'Created On': dateComparator,
-  'Name A-Z': nameComparator,
+  Newest: {
+    name: 'Newest',
+    reverse: true,
+    func: numberComparator,
+    accessor: (project: Project) => project.createdAt,
+  },
+  Oldest: {
+    name: 'Oldest',
+    func: numberComparator,
+    accessor: (project: Project) => project.createdAt,
+  },
+  'Name A-Z': {
+    name: 'Name A-Z',
+    func: stringComparator,
+    accessor: (project: Project) => project.name,
+  },
+  'Name Z-A': {
+    name: 'Name Z-A',
+    reverse: true,
+    func: stringComparator,
+    accessor: (project: Project) => project.name,
+  },
 };
 
 export const useLandingView = () => {
   const {projects, loading} = useProjects();
-  const {sortedData: sortedProjects, setComparator} = useSort({
+  const {
+    sortedData: sortedProjects,
+    setComparator,
+    comparatorName,
+  } = useSort({
     data: projects,
-    initialSort: dateComparator,
+    initialSort: sortOptions.Newest,
+    initialDirection: -1,
   });
 
   const [searchValue, setSearchValue] = useState('');
-  const [sortButtonText, setSortButtonText] = useState('Created On');
+  const [sortButtonText, setSortButtonText] = useState('Newest');
   const [selectedProject, setSelectedProject] = useState<Project>();
   const [projectsLoaded, setProjectsLoaded] = useState(false);
 
   const handleSortSelect = useCallback(
     (id: string) => {
-      setComparator(sortOptions[id]);
-      setSortButtonText(id);
+      if (id !== comparatorName) {
+        setComparator(sortOptions[id]);
+        setSortButtonText(id);
+      }
     },
-    [setComparator, setSortButtonText],
+    [comparatorName, setComparator],
+  );
+
+  const sortDropdown = useMemo(
+    () =>
+      Object.values(sortOptions).map((option) => ({
+        id: option.name,
+        content: option.name,
+      })),
+    [],
   );
 
   const filterFormCtx = useForm<statusFormType>({
@@ -118,5 +147,6 @@ export const useLandingView = () => {
     sortButtonText,
     selectedProject,
     setSelectedProject,
+    sortDropdown,
   };
 };
