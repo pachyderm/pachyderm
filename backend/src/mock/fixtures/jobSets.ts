@@ -1,4 +1,4 @@
-import {JobInfo} from '@pachyderm/proto/pb/pps/pps_pb';
+import {JobInfo} from '@pachyderm/node-pachyderm';
 
 import jobs from './jobs';
 

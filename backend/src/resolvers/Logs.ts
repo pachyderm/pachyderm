@@ -1,4 +1,4 @@
-import {LogMessage} from '@pachyderm/proto/pb/pps/pps_pb';
+import {LogMessage} from '@pachyderm/node-pachyderm';
 import {default as reverseArray} from 'lodash/reverse';
 import {v4 as uuid} from 'uuid';
 

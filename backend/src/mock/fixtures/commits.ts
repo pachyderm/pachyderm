@@ -1,5 +1,5 @@
+import {CommitInfo} from '@pachyderm/node-pachyderm';
 import {commitInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pfs';
-import {CommitInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 
 import repos from './repos';
 

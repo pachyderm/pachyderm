@@ -1,6 +1,6 @@
 import {ServiceError} from '@grpc/grpc-js';
 import {Status} from '@grpc/grpc-js/build/src/constants';
-import {IAPIServer} from '@pachyderm/proto/pb/projects/projects_grpc_pb';
+import {ProjectsIAPIServer} from '@pachyderm/node-pachyderm';
 
 import {
   default as projectFixtures,
@@ -15,7 +15,10 @@ const projects = () => {
   let state = {...defaultState};
 
   return {
-    getService: (): Pick<IAPIServer, 'inspectProject' | 'listProject'> => {
+    getService: (): Pick<
+      ProjectsIAPIServer,
+      'inspectProject' | 'listProject'
+    > => {
       return {
         inspectProject: (call, callback) => {
           if (state.error) {

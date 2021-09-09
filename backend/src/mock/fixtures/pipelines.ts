@@ -2,14 +2,14 @@ import {
   CronInput,
   Egress,
   Input,
-  JobState,
   PFSInput,
   Pipeline,
   PipelineInfo,
   PipelineState,
   SchedulingSpec,
   Transform,
-} from '@pachyderm/proto/pb/pps/pps_pb';
+  JobState,
+} from '@pachyderm/node-pachyderm';
 
 // Need to define this up here, as the node selector
 // map is a mutable set that can't be initialized with

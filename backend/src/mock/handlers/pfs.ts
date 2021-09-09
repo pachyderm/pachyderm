@@ -1,7 +1,10 @@
 import {Status} from '@grpc/grpc-js/build/src/constants';
-import {Permission} from '@pachyderm/proto/pb/auth/auth_pb';
-import {IAPIServer} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
-import {RepoAuthInfo, RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
+import {
+  Permission,
+  PfsIAPIServer,
+  RepoAuthInfo,
+  RepoInfo,
+} from '@pachyderm/node-pachyderm';
 
 import {REPO_READER_PERMISSIONS} from '@dash-backend/constants/permissions';
 import commits from '@dash-backend/mock/fixtures/commits';
@@ -33,7 +36,7 @@ const setAuthInfoForRepos = (repos: RepoInfo[], accountId = '') => {
 };
 
 const pfs: Pick<
-  IAPIServer,
+  PfsIAPIServer,
   'listRepo' | 'inspectRepo' | 'listCommit' | 'listFile'
 > = {
   listRepo: (call) => {

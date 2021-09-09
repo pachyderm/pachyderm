@@ -1,6 +1,5 @@
 import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
-import {pachydermClient} from '@pachyderm/node-pachyderm';
-import {CronInput, PFSInput} from '@pachyderm/proto/pb/pps/pps_pb';
+import {pachydermClient, CronInput, PFSInput} from '@pachyderm/node-pachyderm';
 import {ApolloError} from 'apollo-server-errors';
 import Logger from 'bunyan';
 import {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';

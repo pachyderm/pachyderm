@@ -1,4 +1,4 @@
-import {FileInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
+import {FileInfo} from '@pachyderm/node-pachyderm';
 
 import {QueryResolvers} from '@dash-backend/generated/types';
 import {FILE_DOWNLOAD_LIMIT} from '@dash-backend/lib/constants';

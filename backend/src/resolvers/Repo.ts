@@ -1,4 +1,4 @@
-import {JobInfo} from '@pachyderm/proto/pb/pps/pps_pb';
+import {JobInfo} from '@pachyderm/node-pachyderm';
 
 import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';

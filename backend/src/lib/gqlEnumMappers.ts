@@ -1,6 +1,9 @@
-import {FileType} from '@pachyderm/proto/pb/pfs/pfs_pb';
-import {JobState, PipelineState} from '@pachyderm/proto/pb/pps/pps_pb';
-import {ProjectStatus} from '@pachyderm/proto/pb/projects/projects_pb';
+import {
+  FileType,
+  JobState,
+  PipelineState,
+  ProjectStatus,
+} from '@pachyderm/node-pachyderm';
 import {ApolloError} from 'apollo-server-errors';
 
 import {

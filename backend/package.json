@@ -16,8 +16,7 @@
   },
   "dependencies": {
     "@grpc/grpc-js": "1.2.2",
-    "@pachyderm/node-pachyderm": "0.10.0",
-    "@pachyderm/proto": "2.0.0-rc.1.0",
+    "@pachyderm/node-pachyderm": "0.10.2",
     "@sentry/node": "6.8.0",
     "@sentry/tracing": "6.8.0",
     "apollo-server-express": "2.19.0",

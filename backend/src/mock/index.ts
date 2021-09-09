@@ -4,10 +4,12 @@ import {AddressInfo} from 'net';
 import {URL} from 'url';
 
 import {Server, ServerCredentials} from '@grpc/grpc-js';
-import {APIService as AuthService} from '@pachyderm/proto/pb/auth/auth_grpc_pb';
-import {APIService as PFSService} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
-import {APIService as PPSService} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
-import {APIService as ProjectsService} from '@pachyderm/proto/pb/projects/projects_grpc_pb';
+import {
+  AuthAPIService,
+  PfsAPIService,
+  PpsAPIService,
+  ProjectsAPIService,
+} from '@pachyderm/node-pachyderm';
 import cors from 'cors';
 import express from 'express';
 import cloneDeep from 'lodash/cloneDeep';
@@ -36,10 +38,10 @@ const createServer = () => {
   let authServer: http.Server;
   const state = cloneDeep(defaultState);
 
-  grpcServer.addService(PPSService, pps);
-  grpcServer.addService(PFSService, pfs);
-  grpcServer.addService(AuthService, auth.getService());
-  grpcServer.addService(ProjectsService, projects.getService());
+  grpcServer.addService(PpsAPIService, pps);
+  grpcServer.addService(PfsAPIService, pfs);
+  grpcServer.addService(AuthAPIService, auth.getService());
+  grpcServer.addService(ProjectsAPIService, projects.getService());
 
   // allow cors request to dev auth server
   // for devtools

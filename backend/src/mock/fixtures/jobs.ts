@@ -1,5 +1,5 @@
+import {JobState, JobInfo} from '@pachyderm/node-pachyderm';
 import {jobInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pps';
-import {JobInfo, JobState} from '@pachyderm/proto/pb/pps/pps_pb';
 
 const tutorial = [
   jobInfoFromObject({

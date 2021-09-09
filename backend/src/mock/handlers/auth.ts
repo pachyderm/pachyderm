@@ -1,6 +1,5 @@
 import {ServiceError, status} from '@grpc/grpc-js';
-import {IAPIServer} from '@pachyderm/proto/pb/auth/auth_grpc_pb';
-import {AuthenticateResponse} from '@pachyderm/proto/pb/auth/auth_pb';
+import {AuthIAPIServer, AuthenticateResponse} from '@pachyderm/node-pachyderm';
 
 import {getAccountFromIdToken} from '@dash-backend/lib/auth';
 
@@ -12,7 +11,7 @@ const auth = () => {
   let state = {...defaultState};
 
   return {
-    getService: (): Pick<IAPIServer, 'authenticate'> => {
+    getService: (): Pick<AuthIAPIServer, 'authenticate'> => {
       return {
         authenticate: async ({request}, callback) => {
           if (state.error?.code === status.UNAUTHENTICATED) {

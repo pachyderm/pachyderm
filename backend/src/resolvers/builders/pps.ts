@@ -1,11 +1,12 @@
-import {Branch, RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {
-  JobInfo,
-  JobState,
+  Branch,
+  RepoInfo,
   PipelineInfo,
   LogMessage,
+  JobInfo,
+  JobState,
   JobSetInfo,
-} from '@pachyderm/proto/pb/pps/pps_pb';
+} from '@pachyderm/node-pachyderm';
 import {Timestamp} from 'google-protobuf/google/protobuf/timestamp_pb';
 import fromPairs from 'lodash/fromPairs';
 import isEmpty from 'lodash/isEmpty';

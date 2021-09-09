@@ -1,5 +1,5 @@
+import {Branch, Repo, RepoInfo} from '@pachyderm/node-pachyderm';
 import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
-import {Branch, Repo, RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 
 const tutorial = [
   new RepoInfo()

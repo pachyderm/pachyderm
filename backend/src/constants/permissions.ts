@@ -1,4 +1,4 @@
-import {Permission} from '@pachyderm/proto/pb/auth/auth_pb';
+import {Permission} from '@pachyderm/node-pachyderm';
 
 export const REPO_READER_PERMISSIONS = [
   Permission.REPO_READ,

@@ -1,4 +1,4 @@
-import {Permission} from '@pachyderm/proto/pb/auth/auth_pb';
+import {Permission} from '@pachyderm/node-pachyderm';
 import difference from 'lodash/difference';
 
 import {REPO_READER_PERMISSIONS} from '@dash-backend/constants/permissions';

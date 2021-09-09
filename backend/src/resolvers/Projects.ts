@@ -1,5 +1,4 @@
-import {PipelineState} from '@pachyderm/proto/pb/pps/pps_pb';
-import {Project} from '@pachyderm/proto/pb/projects/projects_pb';
+import {PipelineState, Project} from '@pachyderm/node-pachyderm';
 import Logger from 'bunyan';
 
 import formatBytes from '@dash-backend/lib/formatBytes';

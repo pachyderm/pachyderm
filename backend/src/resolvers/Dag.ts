@@ -1,10 +1,10 @@
-import {RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {
+  RepoInfo,
   CronInput,
   Input,
   PFSInput,
   PipelineInfo,
-} from '@pachyderm/proto/pb/pps/pps_pb';
+} from '@pachyderm/node-pachyderm';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import flatMap from 'lodash/flatMap';
 import flatten from 'lodash/flatten';
