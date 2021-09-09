@@ -116,12 +116,12 @@ You migh want to [expose your cluster(s) to the internet](#3-register-your-clust
 
 !!! Tip "How to expose a Cluster or the Enterprise Server to the Internet via load balancer?"
 	1. To get an external IP address for a Cluster or the Enterprise Server:
-	
+
 		- Add the following config under `pachd` to your [`values.yaml`](../../../reference/helm_values.md)
 
 			```yaml
 			pachd:
-			service:
+			 service:
 				type: LoadBalancer
 			```
 		or
