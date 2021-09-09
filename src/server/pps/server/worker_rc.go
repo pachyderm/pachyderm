@@ -631,6 +631,7 @@ func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOpt
 func makeWorkerPachctlSecretName(pipelineInfo *pps.PipelineInfo) string {
 	x := "pachctl-secret-" + pipelineInfo.Pipeline.Name
 	x = strings.ToLower(x)
+	x = strings.ReplaceAll(x, "_", "-")
 	return x
 }
 
