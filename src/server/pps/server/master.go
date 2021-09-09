@@ -46,15 +46,8 @@ const (
 
 type pipelineEvent struct {
 	eventType
-	pipeline string
-
-	// etcdVer and etcdRev record the etcd version and key revision at which a
-	// write/delete was observed. These are recorded in traces and are useful for
-	// debugging (e.g. if two consecutive spans have non-consecutive versions,
-	// that would indicate a concurrent write). These will not be set for events
-	// created by pollPipelines.
-	etcdVer int64
-	etcdRev int64
+	pipeline  string
+	timestamp time.Time
 }
 
 type stepError struct {
@@ -188,7 +181,7 @@ func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 	var stepErr stepError
 	err := backoff.RetryNotify(func() error {
 		// Create/Modify/Delete pipeline resources as needed per new state
-		return m.step(e.pipeline, e.etcdVer, e.etcdRev)
+		return m.step(e.pipeline, e.timestamp)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		errCount++
 		if errors.As(err, &stepErr) {
@@ -200,6 +193,7 @@ func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 		}
 		return errors.Wrapf(err, "could not update resource for pipeline %q", e.pipeline)
 	})
+
 	// we've given up on the step, check if the error indicated that the pipeline should fail
 	if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
 		specCommit, specErr := m.a.findPipelineSpecCommit(ctx, e.pipeline)

@@ -2210,6 +2210,9 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 		return nil, err
 	}
 
+	if err := a.getLatestJobState(ctx, info); err != nil {
+		return nil, err
+	}
 	if !details {
 		info.Details = nil // preserve old behavior
 	} else {
@@ -2226,7 +2229,6 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 			}
 		}
 
-		// TODO: move this into ppsutil.GetPipelineDetails?
 		workerPoolID := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
 		workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
@@ -2296,6 +2298,21 @@ func (a *apiServer) ListPipeline(request *pps.ListPipelineRequest, srv pps.API_L
 	return a.listPipeline(srv.Context(), request, srv.Send)
 }
 
+func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInfo) error {
+	// fill in state of most-recently-created job (the first shown in list job)
+	opts := col.DefaultOptions()
+	opts.Limit = 1
+	var job pps.JobInfo
+	return a.jobs.ReadOnly(ctx).GetByIndex(
+		ppsdb.JobsPipelineIndex,
+		info.Pipeline.Name,
+		&job,
+		opts, func(_ string) error {
+			info.LastJobState = job.State
+			return errutil.ErrBreak // not strictly necessary because we are limiting to 1 already
+		})
+}
+
 func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
 	var jqCode *gojq.Code
 	var enc serde.Encoder
@@ -2340,6 +2357,9 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 
 	for i := range infos {
 		if filterPipeline(infos[i]) {
+			if err := a.getLatestJobState(ctx, infos[i]); err != nil {
+				return err
+			}
 			if err := f(infos[i]); err != nil {
 				return err
 			}
@@ -2573,7 +2593,6 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	if pipelineInfo.Details != nil {
 		if err := pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
 			if input.Cron != nil {
-				println("QQQ deleting cron", input.Cron.Repo, input.Cron.Name)
 				return a.env.PfsServer().DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
 					Repo:  client.NewRepo(input.Cron.Repo),
 					Force: request.Force,
