@@ -46,8 +46,6 @@ spec:
           value: "300"
         - name: PGBOUNCER_IGNORE_STARTUP_PARAMETERS
           value: "extra_float_digits"
-        - name: PGBOUNCER_UNIX_SOCKET_DIR
-          value: " "
         - name: PGBOUNCER_EXTRA_ARGS
           value: "--with-udns"
         PGBOUNCER_EXTRA_ARGS
