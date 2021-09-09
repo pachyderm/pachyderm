@@ -30,10 +30,14 @@ spec:
       - env:
         - name: POSTGRESQL_USERNAME
           value: {{ .Values.global.postgresql.postgresqlUsername }}
+        - name: PGBOUNCER_SET_USER
+          value: "True"
         - name: POSTGRESQL_HOST
           value: {{ .Values.global.postgresql.postgresqlHost }}      
         - name: PGBOUNCER_PORT
           value: "5432"
+        - name: PGBOUNCER_DATABASE
+          value: "*"
         - name: PGBOUNCER_MAX_CLIENT_CONN
           value: "1000"
         - name: PGBOUNCER_POOL_MODE
@@ -47,7 +51,7 @@ spec:
             secretKeyRef:
               name: postgres # Must match secret setup by postgres subchart, or postgres-secret.yaml 
               key: postgresql-password
-        image: bitnami/pgbouncer:1.16.0
+        image: vmtyler/pgbouncer:v1.1
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
         ports:
