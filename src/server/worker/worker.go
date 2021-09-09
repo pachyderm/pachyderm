@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -73,6 +74,9 @@ func NewWorker(
 	}
 
 	worker.APIServer = server.NewAPIServer(driver, worker.status, env.Config().PodName)
+
+	span, _ := driver.AddSpanToAnyPipelineTrace("/worker.Master/Startup")
+	tracing.FinishAnySpan(span)
 
 	go worker.master(env)
 	go worker.worker()

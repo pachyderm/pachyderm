@@ -37,6 +37,8 @@ func main() {
 func do(config interface{}) error {
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	tracing.InstallJaegerTracerFromEnv()
+	defer tracing.CloseAndReportTraces()
+
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
 
 	// Enable cloud profilers if the configuration allows.

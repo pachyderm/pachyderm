@@ -1,0 +1,57 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.jaeger.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  labels:
+    app: jaeger
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/component: all-in-one
+    suite: pachyderm
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: jaeger
+      app.kubernetes.io/name: jaeger
+      app.kubernetes.io/component: all-in-one
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        app.kubernetes.io/name: jaeger
+        app.kubernetes.io/component: all-in-one
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "16686"
+    spec:
+        containers:
+        -   env:
+            - name: COLLECTOR_ZIPKIN_HTTP_PORT
+              value: "9411"
+            image: jaegertracing/all-in-one:1.15.1
+            name: jaeger
+            ports:
+              - containerPort: 16686
+                protocol: TCP
+              - containerPort: 9411
+                protocol: TCP
+              # These ports are referenced by the jaeger-collector service but
+              # aren't in the original manifest
+              - containerPort: 14267
+                protocol: TCP
+              - containerPort: 14268
+                protocol: TCP
+            readinessProbe:
+              httpGet:
+                path: "/"
+                port: 14269
+              initialDelaySeconds: 5
+{{- end }}

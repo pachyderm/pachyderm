@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
@@ -51,6 +52,19 @@ func PagerFlags(noPager *bool) *pflag.FlagSet {
 	pagerFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
 	pagerFlags.BoolVar(noPager, "no-pager", false, "Don't pipe output into a pager (i.e. less).")
 	return pagerFlags
+}
+
+func TraceFlags(opentrace *bool) *pflag.FlagSet {
+	traceFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	traceFlags.BoolVarP(opentrace, "trace", "t", false, "To tag the request as traced to the backend")
+	return traceFlags
+}
+
+func SetupTrace(opentrace bool) {
+	os.Setenv("PACH_TRACE", strconv.FormatBool(opentrace))
+	if _, ok := os.LookupEnv("PACH_TRACE_DURATION"); !ok {
+		os.Setenv("PACH_TRACE_DURATION", "5m")
+	}
 }
 
 func readLine(r io.Reader) (string, error) {

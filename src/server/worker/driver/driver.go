@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/opentracing/opentracing-go"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -25,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -97,6 +99,8 @@ type Driver interface {
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
 	NewSQLTx(func(*sqlx.Tx) error) error
+
+	AddSpanToAnyPipelineTrace(operation string, kvs ...interface{}) (opentracing.Span, context.Context)
 }
 
 type driver struct {
@@ -541,4 +545,8 @@ func (d *driver) UserCodeEnv(
 	}
 
 	return result
+}
+
+func (d *driver) AddSpanToAnyPipelineTrace(operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
+	return extended.AddSpanToAnyPipelineTrace(d.pachClient.Ctx(), d.env.GetEtcdClient(), d.PipelineInfo().Pipeline.Name, operation, kvs...)
 }

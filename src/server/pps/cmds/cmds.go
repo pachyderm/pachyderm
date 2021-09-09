@@ -52,6 +52,9 @@ func Cmds() []*cobra.Command {
 	var fullTimestamps bool
 	timestampFlags := cmdutil.TimestampFlags(&fullTimestamps)
 
+	var trace bool
+	traceFlags := cmdutil.TraceFlags(&trace)
+
 	var noPager bool
 	pagerFlags := cmdutil.PagerFlags(&noPager)
 
@@ -675,13 +678,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(false, pushImages, registry, username, pipelinePath, false)
+			return pipelineHelper(false, pushImages, registry, username, pipelinePath, false, trace)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
+	createPipeline.Flags().AddFlagSet(traceFlags)
 	commands = append(commands, cmdutil.CreateAlias(createPipeline, "create pipeline"))
 
 	var reprocess bool
@@ -689,7 +693,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(reprocess, pushImages, registry, username, pipelinePath, true)
+			return pipelineHelper(reprocess, pushImages, registry, username, pipelinePath, true, trace)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
@@ -697,6 +701,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
+	updatePipeline.Flags().AddFlagSet(traceFlags)
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
 	runCron := &cobra.Command{
@@ -1122,7 +1127,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	return commands
 }
 
-func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelinePath string, update bool) error {
+func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelinePath string, update, trace bool) error {
+	cmdutil.SetupTrace(trace)
+
 	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
 	if err != nil {
 		return err

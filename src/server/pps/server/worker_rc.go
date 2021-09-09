@@ -126,6 +126,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
+	}, {
+		Name:  "JAEGER_ENDPOINT",
+		Value: os.Getenv("JAEGER_ENDPOINT"),
 	},
 		// These are set explicitly below to prevent kubernetes from setting them to the service host and port.
 		{
