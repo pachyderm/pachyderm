@@ -114,10 +114,18 @@ You migh want to [expose your cluster(s) to the internet](#3-register-your-clust
 	---
 	```
 
-!!! Tip "How to expose a Cluster or the Enterprise Server to the Internet?"
+!!! Tip "How to expose a Cluster or the Enterprise Server to the Internet via load balancer?"
 	1. To get an external IP address for a Cluster or the Enterprise Server:
-		- Specify `LoadBalancer` in the `values.yaml` file
+	
+		- Add the following config under `pachd` to your [`values.yaml`](../../../reference/helm_values.md)
+
+			```yaml
+			pachd:
+			service:
+				type: LoadBalancer
+			```
 		or
+
 		- Edit its k8s service (`kubectl edit service pachd` for the cluster you are pointing to or `kubectl edit service pach-enterprise -n enterprise` for the enterprise server) and change its `spec.type` value from `NodePort` to `LoadBalancer`. 
 	1. Retrieve the external IP address of the edited services.
 	When listing your services again (`kubectl get service` or `kubectl get service -n enterprise`), you should see an external IP address allocated to the service you just edited. 
