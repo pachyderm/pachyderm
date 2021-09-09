@@ -6,8 +6,10 @@ import {
   LogMessage,
   JobSetInfo,
 } from '@pachyderm/proto/pb/pps/pps_pb';
+import {Timestamp} from 'google-protobuf/google/protobuf/timestamp_pb';
 import fromPairs from 'lodash/fromPairs';
 import isEmpty from 'lodash/isEmpty';
+import sortBy from 'lodash/sortBy';
 
 import formatBytes from '@dash-backend/lib/formatBytes';
 import {
@@ -168,10 +170,17 @@ const getAggregateJobState = (jobs: Job[]) => {
   return GQLJobState.JOB_SUCCESS;
 };
 
+const timestampToNanos = (timestamp: Timestamp.AsObject) => {
+  return timestamp.seconds * 1e9 + timestamp.nanos;
+};
+
 export const jobInfosToGQLJobSet = (jobInfos: JobInfo.AsObject[]): JobSet => {
-  const jobs = jobInfos
-    .map(jobInfoToGQLJob)
-    .sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
+  const sortedJobInfos = sortBy(jobInfos, [
+    (jobInfo) => (jobInfo.started ? timestampToNanos(jobInfo.started) : 0),
+    (jobInfo) => jobInfo.job?.pipeline?.name || '',
+  ]);
+
+  const jobs = sortedJobInfos.map(jobInfoToGQLJob);
 
   return {
     id: jobs[0].id,
