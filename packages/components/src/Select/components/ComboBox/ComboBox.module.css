@@ -13,6 +13,8 @@
 }
 
 .icon {
+  display: flex;
+  align-items: center;
   margin-left: auto;
   transition: transform .2s;
   width: 0.875rem;
