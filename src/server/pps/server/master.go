@@ -88,8 +88,7 @@ type ppsMaster struct {
 	watchCancel     func() // protected by pollPipelinesMu
 
 	// channel through which pipeline events are passed
-	eventCh     chan *pipelineEvent
-	lastUpdates map[string]time.Time
+	eventCh chan *pipelineEvent
 }
 
 // The master process is responsible for creating/deleting workers as
@@ -99,7 +98,6 @@ func (a *apiServer) master() {
 		a:                      a,
 		monitorCancels:         make(map[string]func()),
 		crashingMonitorCancels: make(map[string]func()),
-		lastUpdates:            make(map[string]time.Time),
 	}
 
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
@@ -155,16 +153,10 @@ eventLoop:
 		case e := <-m.eventCh:
 			switch e.eventType {
 			case writeEv:
-				if !e.timestamp.IsZero() && e.timestamp.Before(m.lastUpdates[e.pipeline]) {
-					// we've stepped the pipeline since this event occurred
-					// NOTE: this will ignore updates before 1970
-					continue
-				}
 				if err := m.attemptStep(m.masterCtx, e); err != nil {
 					log.Errorf("PPS master: %v", err)
 				}
 			case deleteEv:
-				delete(m.lastUpdates, e.pipeline)
 				// TODO(msteffen) trace this call
 				if err := m.deletePipelineResources(e.pipeline); err != nil {
 					log.Errorf("PPS master: could not delete resources for pipeline %q: %v",
@@ -203,12 +195,6 @@ func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 		}
 		return errors.Wrapf(err, "could not update resource for pipeline %q", e.pipeline)
 	})
-	if err == nil && !startTime.IsZero() {
-		// can write to the map as pps master does not use concurrency
-
-		// add a little grace period for clock disagreements
-		m.lastUpdates[e.pipeline] = startTime.Add(-2 * time.Second)
-	}
 
 	// we've given up on the step, check if the error indicated that the pipeline should fail
 	if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
