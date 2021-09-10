@@ -391,7 +391,7 @@ func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) e
 // createPipelineResources creates the RC and any services for op's pipeline.
 func (op *pipelineOp) createPipelineResources() error {
 	log.Infof("PPS master: creating resources for pipeline %q", op.pipelineInfo.Pipeline.Name)
-	if err := op.m.a.createWorkerSvcAndRc(op.ctx, op.pipelineInfo); err != nil {
+	if err := op.m.a.createWorkerSvcAndRc(op.ctx, op.m.a.peerPort, op.pipelineInfo); err != nil {
 		if errors.As(err, &noValidOptionsErr{}) {
 			// these errors indicate invalid pipelineInfo, don't retry
 			return stepError{
