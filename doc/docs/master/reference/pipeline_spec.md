@@ -744,7 +744,7 @@ You can set 0 to many PFS input to `"outer_join": true` within your `join`.
 You can specify the following parameters for the `join` input.
 
 * `input.pfs.name` — the name of the PFS input that appears in the
-`INPUT` field when you run the `pachctl list job` command.
+`INPUT` field when you run the `pachctl list pipeline` command.
 If an input name is not specified, it defaults to the name of the repo.
 
 * `input.pfs.repo` — see the description in [PFS Input](#pfs-input).
@@ -793,7 +793,7 @@ to work properly. A group can combine multiple inputs, as long as all the base i
 You can specify the following parameters for the `group` input.
 
 * `input.pfs.name` — the name of the PFS input that appears in the
-`INPUT` field when you run the `pachctl list job` command.
+`INPUT` field when you run the `pachctl list pipeline` command.
 If an input name is not specified, it defaults to the name of the repo.
 
 * `input.pfs.repo` — see the description in [PFS Input](#pfs-input).

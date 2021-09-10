@@ -194,7 +194,6 @@ nav:
                 - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
                 - Deploy on OpenShift: deploy-manage/deploy/openshift.md
                 - Deploy On-Premises: deploy-manage/deploy/on_premises.md
-            - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
                 - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md

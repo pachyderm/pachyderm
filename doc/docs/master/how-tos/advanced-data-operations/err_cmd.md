@@ -44,7 +44,7 @@ Here is what is happening in the diagram above:
 the `cmd` field against your datums.
 1. If a datum is processed without errors, Pachyderm marks it as
 `processed`.
-1. If a datum fails, Pachyderm marks executes your
+1. If a datum fails, Pachyderm executes your
 error code (`err_cmd`) on that datum.
 1. If the code in `err_cmd` successfully runs on the *skipped* datum,
 Pachyderm marks the skipped datum as `recovered`. The datum is in a
@@ -54,9 +54,9 @@ repository, but successful datums continue onto the next step in your DAG.
 as failed, and, consequently, the job is marked as failed.
 
 You can view the processed, skipped, and recovered datums in the `PROGRESS`
-field in the output of the `pachctl list job` command:
+field in the output of the `pachctl list job -p <pipeline name>` command:
 
-![Datums in progress](../../assets/images/datums_in_progress.svg)
+![Datums in progress](../images/datums_in_progress.png)
 
 Pachyderm writes only processed datums of successful jobs to the output
 commit so that these datums can be processed by downstream pipelines.

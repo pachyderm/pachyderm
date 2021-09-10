@@ -22,7 +22,7 @@ At the bottom of the document, we'll provide specific troubleshooting steps for 
 
 ### Determining the kind of failure
 
-First off, you can see the status of Pachyderm's jobs with `pachctl list job`, which will show you the status of all jobs.  For a failed job, use `pachctl inspect job <job-id>` to find out more about the failure.  The different categories of failures are addressed below.
+First off, you can see the status of Pachyderm's jobs with `pachctl list job --expand`, which will show you the status of all jobs.  For a failed job, use `pachctl inspect job <job-id>` to find out more about the failure.  The different categories of failures are addressed below.
 
 ### Community Edition Scaling Limits
 
@@ -157,9 +157,9 @@ rescheduled to a different node, where the same thing will happen.
 
 #### Symptom
 
-You can see the pipeline via `pachctl list pipeline`, but if you look at the job via `pachctl list job`,
+You can see the pipeline via `pachctl list pipeline`, but if you look at the job via `pachctl list job --expand`,
 it's marked as running with `0/0` datums having been processed.  
-If you inspect the job via `pachctl inspect job`, you don't see any worker set. 
+If you inspect the job via `pachctl inspect job <pipeline_name>@<jobID>`, you don't see any worker set. 
 
 E.g:
 ```
@@ -178,7 +178,7 @@ But it's state is `Pending` or `CrashLoopBackoff`.
 
 #### Recourse
 
-First make sure that there is no parent job still running. Do `pachctl list job | grep yourPipelineName` to see if there are pending jobs on this pipeline that were kicked off prior to your job. A parent job is the job that corresponds to the parent output commit of this pipeline. A job will block until all parent jobs complete.
+First make sure that there is no parent job still running. Do `pachctl list job --expand| grep yourPipelineName` to see if there are pending jobs on this pipeline that were kicked off prior to your job. A parent job is the job that corresponds to the parent output commit of this pipeline. A job will block until all parent jobs complete.
 
 If there are no parent jobs that are still running, then continue debugging:
 

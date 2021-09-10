@@ -19,8 +19,8 @@ repos should be included in each commit.
 
 Each branch has a `HEAD` which references the latest commit in the
 branch. Pachyderm pipelines look at the `HEAD` of the branch
-for changes and, if they detect new changes, trigger a job. When you
-commit a new change, the `HEAD` of the branch moves to the latest commit.
+for changes and, if they detect new changes, trigger a job. **When you
+commit a new change, the `HEAD` of the branch moves to the latest commit.**
 
 To view a list of branches in a repo, run the `pachctl list branch` command.
 
