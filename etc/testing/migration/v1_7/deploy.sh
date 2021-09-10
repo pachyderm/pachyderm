@@ -2,6 +2,7 @@
 # deploy.sh deploys a pachyderm 1.7 cluster
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# shellcheck disable=SC1090
 source "${SCRIPT_DIR}/../../../govars.sh"
 
 set -x

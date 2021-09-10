@@ -3,6 +3,7 @@
 set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# shellcheck disable=SC1090
 source "${SCRIPT_DIR}/../govars.sh"
 
 version="$("${PACHCTL}" version --client-only)"

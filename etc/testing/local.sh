@@ -18,19 +18,19 @@ set -xeuo pipefail
 forward() {
   NAME=$1
   PORT=$2
-  if [ -f /tmp/pach/port-forwards/$NAME.pid ]; then
-    kill $(cat /tmp/pach/port-forwards/$NAME.pid) || true
+  if [ -f "/tmp/pach/port-forwards/${NAME}.pid" ]; then
+    kill "$(cat "/tmp/pach/port-forwards/${NAME}.pid")" || true
   fi
 
-  kubectl port-forward service/$NAME $PORT --address 127.0.0.1 >/dev/null 2>&1 &
+  kubectl port-forward "service/${NAME}" "${PORT}" --address 127.0.0.1 >/dev/null 2>&1 &
   PID=$!
 
   mkdir -p /tmp/pach/port-forwards
-  echo $PID > /tmp/pach/port-forwards/$NAME.pid
+  echo "${PID}" > "/tmp/pach/port-forwards/${NAME}.pid"
 }
 
 # make sure we're testing against minikube
-kubectl config use-context ${LOCAL_PACH_CONTEXT:-'minikube'}
+kubectl config use-context "${LOCAL_PACH_CONTEXT:-'minikube'}"
 
 # TODO(jonathan): We should be able to make the helm chart generate this for us.
 # add rbac rules
@@ -138,6 +138,10 @@ export KUBERNETES_PORT=${LOCAL_PACH_APISERVER_PORT:-'8443'}
 
 # mount the bearer token for the default k8s service account
 export KUBERNETES_BEARER_TOKEN_FILE=/tmp/pach/kubernetes-default-token
-kubectl get -n default -o json secret $(kubectl -n default get secrets  | grep 'pachyderm-token' | awk '{print $1}') | jq -r '.data.token | @base64d' > $KUBERNETES_BEARER_TOKEN_FILE
+kubectl get -n default -o json secret "$(
+    kubectl -n default get secrets \
+    | grep 'pachyderm-token' \
+    | awk '{print $1}' \
+  )" | jq -r '.data.token | @base64d' > "${KUBERNETES_BEARER_TOKEN_FILE}"
 
-$@
+"${@}"
