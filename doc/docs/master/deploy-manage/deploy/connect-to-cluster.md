@@ -1,7 +1,7 @@
 # Connect to a Pachyderm cluster
 
 After you deploy a Pachyderm cluster, you can continue to use
-the command-line interface, connect to the Pachyderm dashboard, or
+the command-line interface, connect to the Pachyderm console, or
 configure third-party applications to access your cluster programmatically.
 Often all you need to do is just continue to use the command-line
 interface to create repositories, pipelines, and upload your data.
@@ -10,7 +10,7 @@ and need to switch between them to perform management operations.
 
 You do not need to configure anything specific to start using the
 Pachyderm CLI right after deployment. However, the Pachyderm
-dashboard and the S3 gateway require
+console and the S3 gateway require
 explicit port-forwarding or direct access through an externally
 exposed IP address and port.
 
@@ -20,21 +20,19 @@ to your Pachyderm cluster.
 ## Connect to a Local Cluster
 
 If you are just exploring Pachyderm, use port-forwarding to
-access both `pachd` and the Pachyderm dashboard.
+access both `pachd` and the Pachyderm console.
 
 By default, Pachyderm enables port-forwarding from `pachctl` to `pachd`.
 If you do not want to use port-forwarding for `pachctl` operations,
 configure a `pachd_address` as described in
 [Connect by using a Pachyderm context](#connect-by-using-a-pachyderm-context).
 
-To connect to the Pachyderm dashboard, you can either use port-forwarding,
+To connect to the Pachyderm console, you can either use port-forwarding,
 or the IP address of the virtual machine on which your Kubernetes cluster
 is running.
 
-The following example shows how to access a Pachyderm cluster
+The following example shows how to access Pachyderm console
 that runs in `minikube`.
-
-To connect to a Pachyderm dashboard, complete the following steps:
 
 * To use port-forwarding, run:
 
@@ -64,7 +62,7 @@ This means that, if you are connected to the cluster so
 that `kubectl` works, `pachctl` can communicate with `pachd`
 without any additional configuration.
 Other services still need explicit port forwarding.
-For example, to access the Pachyderm dashboard,
+For example, to access Pachyderm console,
 you need to run pachctl port-forward.
 Since a Pachyderm cluster
 deployed on a cloud platform is more likely to become
@@ -87,10 +85,9 @@ a firewall set up between the Pachyderm cluster deployed in the cloud
 and the client machine.
 Defining a dedicated `pachd` IP address and host is a more reliable
 way that might also result in better performance compared to
-port-forwarding. Therefore, Pachyderm
-recommends that you use contexts in all production environments.
+port-forwarding. 
 
-This configuration requires that you deploy an ingress controller
+This configuration, recommended in production environments, requires that you deploy an ingress controller
 and a reliable security method to protect the traffic between the
 Pachyderm pods and your client machine. Remember that exposing your
 traffic through a public ingress might

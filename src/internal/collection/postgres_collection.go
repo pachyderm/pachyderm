@@ -309,6 +309,11 @@ func (c *postgresCollection) list(
 			query += fmt.Sprintf(" order by %s %s", target, order)
 		}
 	}
+
+	if opts.Limit > 0 {
+		query += fmt.Sprintf(" limit %d", opts.Limit)
+	}
+
 	rows, err := q.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return c.mapSQLError(err, "")
@@ -460,6 +465,7 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 				Value:    m.Proto,
 				Type:     watch.EventPut,
 				Template: c.template,
+				Rev:      m.UpdatedAt.Unix(),
 			})
 		}); err != nil {
 			// Ignore any additional error here - we're already attempting to send an error to the user
@@ -518,6 +524,7 @@ func (c *postgresReadOnlyCollection) watchOne(key string, opts ...watch.Option) 
 				Value:    m.Proto,
 				Type:     watch.EventPut,
 				Template: c.template,
+				Rev:      m.UpdatedAt.Unix(),
 			}); err != nil {
 				watcher.listener.Unregister(watcher)
 				return
@@ -572,6 +579,7 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 				Value:    m.Proto,
 				Type:     watch.EventPut,
 				Template: c.template,
+				Rev:      m.UpdatedAt.Unix(),
 			})
 		}); err != nil {
 			// Ignore any additional error here - we're already attempting to send an error to the user

@@ -69,7 +69,7 @@ var (
 // 1. retrieves its full pipeline spec and RC into the 'Details' field
 // 2. makes whatever changes are needed to bring the RC in line with the (new) spec
 // 3. updates 'pipelineInfo', if needed, to reflect the action it just took
-func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
+func (m *ppsMaster) step(pipeline string, timestamp time.Time) (retErr error) {
 	log.Debugf("PPS master: processing event for %q", pipeline)
 
 	// Initialize op ctx (cancelled at the end of step(), to avoid leaking
@@ -82,8 +82,8 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 	// Handle tracing
 	span, opCtx := extended.AddSpanToAnyPipelineTrace(opCtx,
 		m.a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate")
-	if keyVer != 0 || keyRev != 0 {
-		tracing.TagAnySpan(span, "key-version", keyVer, "mod-revision", keyRev)
+	if !timestamp.IsZero() {
+		tracing.TagAnySpan(span, "update-time", timestamp)
 	} else {
 		tracing.TagAnySpan(span, "pollpipelines-event", "true")
 	}
@@ -160,9 +160,14 @@ func (op *pipelineOp) run() error {
 		if op.pipelineInfo.Stopped {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
-		// trigger another event
 		op.stopCrashingPipelineMonitor()
-		return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
+		// trigger another event
+		target := pps.PipelineState_PIPELINE_RUNNING
+		if op.pipelineInfo.Details.Autoscaling && op.pipelineInfo.State == pps.PipelineState_PIPELINE_STARTING {
+			// start in standby
+			target = pps.PipelineState_PIPELINE_STANDBY
+		}
+		return op.setPipelineState(target, "")
 	case pps.PipelineState_PIPELINE_RUNNING:
 		if !op.rcIsFresh() {
 			return op.restartPipeline("stale RC") // step() will be called again after collection write
@@ -196,10 +201,11 @@ func (op *pipelineOp) run() error {
 		if !op.pipelineInfo.Stopped {
 			// StartPipeline has been called (so spec commit is updated), but new spec
 			// commit hasn't been propagated to PipelineInfo or RC yet
-			if err := op.scaleUpPipeline(); err != nil {
-				return err
+			target := pps.PipelineState_PIPELINE_RUNNING
+			if op.pipelineInfo.Details.Autoscaling {
+				target = pps.PipelineState_PIPELINE_STANDBY
 			}
-			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
+			return op.setPipelineState(target, "")
 		}
 		// don't want cron commits or STANDBY state changes while pipeline is
 		// stopped

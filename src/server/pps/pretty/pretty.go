@@ -282,8 +282,6 @@ Transform:
 {{prettyTransform .Details.Transform}}
 {{ if .Details.Egress }}Egress: {{.Details.Egress.URL}} {{end}}
 {{if .Details.RecentError}} Recent Error: {{.Details.RecentError}} {{end}}
-Job Counts:
-{{jobCounts .JobCounts}}
 `)
 	if err != nil {
 		return err
@@ -488,14 +486,6 @@ func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
 	return string(input) + "\n"
 }
 
-func jobCounts(counts map[int32]int32) string {
-	var buffer bytes.Buffer
-	for i := int32(ppsclient.JobState_JOB_STARTING); i <= int32(ppsclient.JobState_JOB_SUCCESS); i++ {
-		fmt.Fprintf(&buffer, "%s: %d\t", JobState(ppsclient.JobState(i)), counts[i])
-	}
-	return buffer.String()
-}
-
 func prettyTransform(transform *ppsclient.Transform) (string, error) {
 	result, err := json.MarshalIndent(transform, "", "  ")
 	if err != nil {
@@ -552,6 +542,5 @@ var funcMap = template.FuncMap{
 	"prettyTimeDifference": pretty.TimeDifference,
 	"prettyDuration":       pretty.Duration,
 	"prettySize":           pretty.Size,
-	"jobCounts":            jobCounts,
 	"prettyTransform":      prettyTransform,
 }

@@ -271,14 +271,15 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	} else {
 		for _, pi := range infos {
 			metrics.Pipelines += 1
-			if pi.JobCounts != nil {
-				var cnt int64 = 0
-				for _, c := range pi.JobCounts {
-					cnt += int64(c)
-				}
-				if metrics.Jobs < cnt {
-					metrics.Jobs = cnt
-				}
+			// count total jobs
+			var cnt int64
+			// just ignore error
+			_ = pachClient.ListJobF(pi.Pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
+				cnt++
+				return nil
+			})
+			if metrics.Jobs < cnt {
+				metrics.Jobs = cnt
 			}
 			if details := pi.Details; details != nil {
 				if details.ParallelismSpec != nil {

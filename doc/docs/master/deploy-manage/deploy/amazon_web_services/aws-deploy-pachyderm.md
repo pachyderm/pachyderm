@@ -180,6 +180,8 @@ Update your values.yaml with your bucket name ([see example of values.yaml here]
             secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
             region: us-east-2
       ```
+      
+Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
 
 !!! Note
     - The **worker nodes on which Pachyderm is deployed must be associated with the IAM role that is assigned to the Kubernetes cluster**. 
@@ -206,13 +208,12 @@ Update your values.yaml with your bucket name ([see example of values.yaml here]
 !!! Important "Load Balancer Setup" 
       If you would like to expose your pachd instance to the internet via load balancer, add the following config under `pachd` to your `values.yaml`
       ```yaml
-      #pachd:
-      service:
-      type: LoadBalancer
+       pachd:
+        service:
+         type: LoadBalancer
       ```
 
       **NOTE: It is strongly recommended to configure SSL when exposing Pachyderm publicly.**
-
 
 ### Deploy Pachyderm on the Kubernetes cluster
 
@@ -221,9 +222,9 @@ Refer to our generic ["Helm Install"](./helm_install.md) page for more informati
 - Now you can deploy a Pachyderm cluster by running this command:
 
   ```shell
-  $ helm repo add pachyderm https://helm.pachyderm.com
+  $ helm repo add pach https://helm.pachyderm.com
   $ helm repo update
-  $ helm install pachyderm -f my_values.yaml pachyderm/pachyderm --version <version-of-the-chart>
+  $ helm install pachd -f my_values.yaml pach/pachyderm --version <version-of-the-chart>
   ```
 
   **System Response:**

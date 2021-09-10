@@ -64,6 +64,9 @@ Here is a quick high-level view of the various components at play.
 
          - `host` — match the hostname header of the http request (domain).  In the example above,  **console.localhost** 
 
+!!! Note
+      Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
+
    - Install Pachyderm using the Helm Chart
       ```shell
       $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm
