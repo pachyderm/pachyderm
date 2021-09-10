@@ -108,8 +108,8 @@ func (d *driver) finishCommits(ctx context.Context) error {
 					if commitInfo.Error == "" {
 						commitInfo.Error = validationError
 					}
-					commitInfo.CompactingTime = types.DurationProto(compactingDuration)
-					commitInfo.ValidatingTime = types.DurationProto(validatingDuration)
+					commitInfo.Details.CompactingTime = types.DurationProto(compactingDuration)
+					commitInfo.Details.ValidatingTime = types.DurationProto(validatingDuration)
 					return nil
 				}); err != nil {
 					return err

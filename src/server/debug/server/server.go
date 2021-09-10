@@ -404,14 +404,14 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 	}
 	if err := collectDebugFile(tw, "commits", func(w io.Writer) error {
 		return pachClient.ListCommitF(repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
-			if ci.CompactingTime != nil && ci.ValidatingTime != nil && ci.Finished != nil {
-				compactingDuration, err := types.DurationFromProto(ci.CompactingTime)
+			if ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil && ci.Finished != nil {
+				compactingDuration, err := types.DurationFromProto(ci.Details.CompactingTime)
 				if err != nil {
 					return err
 				}
 				compacting.XValues = append(compacting.XValues, float64(len(compacting.XValues)+1))
 				compacting.YValues = append(compacting.YValues, float64(compactingDuration))
-				validatingDuration, err := types.DurationFromProto(ci.ValidatingTime)
+				validatingDuration, err := types.DurationFromProto(ci.Details.ValidatingTime)
 				if err != nil {
 					return err
 				}

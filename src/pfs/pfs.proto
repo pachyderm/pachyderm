@@ -132,10 +132,10 @@ message CommitInfo {
   // Details are only provided when explicitly requested
   message Details {
     int64 size_bytes = 1;
+    google.protobuf.Duration compacting_time = 2;
+    google.protobuf.Duration validating_time = 3;
   }
   Details details = 12;
-  google.protobuf.Duration compacting_time = 13;
-  google.protobuf.Duration validating_time = 14;
 }
 
 message CommitSet {

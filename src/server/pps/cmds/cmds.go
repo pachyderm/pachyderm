@@ -1097,7 +1097,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 
 	var seed int64
 	runLoadTest := &cobra.Command{
-		Use:   "{{alias}} <spec> ",
+		Use:   "{{alias}} <spec-file> ",
 		Short: "Run a PPS load test.",
 		Long:  "Run a PPS load test.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {

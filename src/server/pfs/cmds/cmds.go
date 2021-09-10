@@ -1554,7 +1554,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	var branchStr string
 	var seed int64
 	runLoadTest := &cobra.Command{
-		Use:     "{{alias}} <spec>",
+		Use:     "{{alias}} <spec-file>",
 		Short:   "Run a PFS load test.",
 		Long:    "Run a PFS load test.",
 		Example: pfsload.LoadSpecification,
