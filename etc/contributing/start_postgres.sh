@@ -12,13 +12,13 @@ then
     -p 30228:5432 \
     postgres:13.0-alpine)
 
-    postgres_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $postgres_id)
+    postgres_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' "${postgres_id}")
 
     docker run -d \
     -e AUTH_TYPE=any \
     -e DB_USER="pachyderm" \
     -e DB_PASS="password" \
-    -e DB_HOST=$postgres_ip \
+    -e DB_HOST="${postgres_ip}" \
     -e DB_PORT=5432 \
     -e POOL_MODE=transaction \
     -p 30229:5432 \

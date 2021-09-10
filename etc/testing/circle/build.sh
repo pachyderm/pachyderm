@@ -2,9 +2,10 @@
 
 set -ex
 
+# shellcheck disable=SC1090
 source "$(dirname "$0")/env.sh"
 
-eval $(minikube docker-env)
+eval "$(minikube docker-env)"
 
 go version
 

@@ -2,6 +2,7 @@
 
 echo "=== TEST FAILED OR TIMED OUT, DUMPING DEBUG INFO ==="
 
+# shellcheck disable=SC1090
 source "$(dirname "$0")/env.sh"
 
 # TODO: Extend this to show kubectl describe output for failed pods, this will

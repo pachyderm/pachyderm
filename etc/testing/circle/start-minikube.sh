@@ -2,7 +2,7 @@
 
 set -Eex
 
-export PATH=$(pwd):$(pwd)/cached-deps:$GOPATH/bin:$PATH
+export PATH="${PWD}:${PWD}/cached-deps:${GOPATH}/bin:${PATH}"
 
 # Parse flags
 VERSION=v1.19.0

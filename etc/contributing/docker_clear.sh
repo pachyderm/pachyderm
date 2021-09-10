@@ -1,3 +1,3 @@
 #!/bin/sh
 
-docker kill $(docker container ls -q)
+docker kill "$(docker container ls -q)"

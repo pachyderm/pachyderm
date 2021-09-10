@@ -2,6 +2,7 @@
 
 set -ex
 
+# shellcheck disable=SC1090
 source "$(dirname "$0")/env.sh"
 
 # Deploy Loki but don't block until it's deployed - we'll check later
