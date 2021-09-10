@@ -635,7 +635,7 @@ func makeWorkerPachctlSecretName(pipelineInfo *pps.PipelineInfo) string {
 	return x
 }
 
-func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, peerPort uint16, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	var cfg config.Config
 	err := cfg.InitV2()
 	if err != nil {
@@ -646,7 +646,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, peerPort uint
 		return errors.Wrapf(err, "error getting the active context")
 	}
 	context.SessionToken = pipelineInfo.AuthToken
-	context.PachdAddress = "localhost:" + strconv.Itoa(int(peerPort))
+	context.PachdAddress = "localhost:" + strconv.Itoa(int(a.peerPort))
 
 	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -686,7 +686,7 @@ type noValidOptionsErr struct {
 	error
 }
 
-func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, peerPort uint16, pipelineInfo *pps.PipelineInfo) (retErr error) {
+func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", // ctx never used, but we want the right one in scope for future uses
 		"pipeline", pipelineInfo.Pipeline.Name)
@@ -695,7 +695,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, peerPort uint16, p
 		tracing.FinishAnySpan(span)
 	}()
 
-	if err := a.createWorkerPachctlSecret(ctx, peerPort, pipelineInfo); err != nil {
+	if err := a.createWorkerPachctlSecret(ctx, pipelineInfo); err != nil {
 		return err
 	}
 	options, err := a.getWorkerOptions(pipelineInfo)
