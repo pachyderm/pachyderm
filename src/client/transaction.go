@@ -486,6 +486,9 @@ func (c *ppsBuilderClient) InspectSecret(ctx context.Context, req *pps.InspectSe
 func (c *ppsBuilderClient) ListSecret(ctx context.Context, in *types.Empty, opt ...grpc.CallOption) (*pps.SecretInfos, error) {
 	return nil, unsupportedError("ListSecret")
 }
+func (c *ppsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
+	return nil, unsupportedError("RunLoadTest")
+}
 func (c *ppsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTestDefault")
 }

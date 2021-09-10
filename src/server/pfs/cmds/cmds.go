@@ -1554,7 +1554,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	var branchStr string
 	var seed int64
 	runLoadTest := &cobra.Command{
-		Use:     "{{alias}} <spec>",
+		Use:     "{{alias}} <spec-file>",
 		Short:   "Run a PFS load test.",
 		Long:    "Run a PFS load test.",
 		Example: pfsload.LoadSpecification,
@@ -1575,30 +1575,46 @@ Objects are a low-level resource and should not be accessed directly by most use
 				}
 				fmt.Println(resp.Spec)
 				resp.Spec = ""
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
+				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
+					return err
+				}
+				fmt.Println()
+				return nil
 			}
-			spec, err := ioutil.ReadFile(args[0])
-			if err != nil {
-				return err
-			}
-			var branch *pfs.Branch
-			if branchStr != "" {
-				branch, err = cmdutil.ParseBranch(branchStr)
+			return filepath.Walk(args[0], func(file string, fi os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
-			}
-			resp, err := c.PfsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
-				Spec:   string(spec),
-				Branch: branch,
-				Seed:   seed,
+				if fi.IsDir() {
+					return nil
+				}
+				spec, err := ioutil.ReadFile(file)
+				if err != nil {
+					return err
+				}
+				var branch *pfs.Branch
+				if branchStr != "" {
+					branch, err = cmdutil.ParseBranch(branchStr)
+					if err != nil {
+						return err
+					}
+				}
+				resp, err := c.PfsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
+					Spec:   string(spec),
+					Branch: branch,
+					Seed:   seed,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Println(resp.Spec)
+				resp.Spec = ""
+				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
+					return err
+				}
+				fmt.Println()
+				return nil
 			})
-			if err != nil {
-				return err
-			}
-			fmt.Println(resp.Spec)
-			resp.Spec = ""
-			return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
 		}),
 	}
 	runLoadTest.Flags().StringVarP(&branchStr, "branch", "b", "", "The branch to use for generating the load.")

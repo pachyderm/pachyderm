@@ -29,6 +29,7 @@ type Validator struct {
 	spec   *ValidatorSpec
 	buffer *fileset.Buffer
 	random *rand.Rand
+	files  []string
 }
 
 func NewValidator(client Client, spec *ValidatorSpec, random *rand.Rand) (Client, *Validator, error) {
@@ -48,17 +49,24 @@ func NewValidator(client Client, spec *ValidatorSpec, random *rand.Rand) (Client
 	}, v, nil
 }
 
-// TODO: The performance of this is bad.
+// TODO: The performance is better than it was, but long sequences of alternating add / delete can still be bad.
 func (v *Validator) RandomFile() (string, error) {
-	var files []string
-	if err := v.buffer.WalkAdditive(func(p, _ string, r io.Reader) error {
-		files = append(files, p)
-		return nil
-	}); err != nil {
-		return "", err
+	if v.files == nil {
+		v.files = []string{}
+		if err := v.buffer.WalkAdditive(func(p, _ string, r io.Reader) error {
+			v.files = append(v.files, p)
+			return nil
+		}); err != nil {
+			return "", err
+		}
+		v.random.Shuffle(len(v.files), func(i, j int) {
+			v.files[i], v.files[j] = v.files[j], v.files[i]
+		})
 	}
-	if len(files) > 0 {
-		return files[v.random.Intn(len(files))], nil
+	if len(v.files) > 0 {
+		file := v.files[0]
+		v.files = v.files[1:]
+		return file, nil
 	}
 	return "no-op-delete", nil
 }
@@ -138,7 +146,7 @@ func validate(client Client, commit *pfs.Commit, files []*file) (retErr error) {
 		}
 		files = files[1:]
 		return nil
-	})
+	}, true)
 	if pfsserver.IsFileNotFoundErr(err) && len(files) == 0 {
 		return nil
 	}
@@ -163,6 +171,7 @@ func (vc *validatorClient) WithModifyFileClient(ctx context.Context, commit *pfs
 			vc.validator.buffer.Delete(p, fileset.DefaultFileDatum)
 		}
 		return vmfc.buffer.WalkAdditive(func(p, tag string, r io.Reader) error {
+			vc.validator.files = nil
 			w := vc.validator.buffer.Add(p, tag)
 			_, err := io.Copy(w, r)
 			return err

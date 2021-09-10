@@ -1,29 +1,25 @@
-count: 5
+# This workload tests a lot of small files in a small number of directories.
+count: 5 
 operations:
-  - count: 100
+  - count: 5
     operation:
       - putFile:
           files:
-            count: 5
+            count: 10000 
             file:
               - source: "random"
                 prob: 100
-        prob: 70 
-      - deleteFile:
-          count: 5
-          directoryProb: 20 
-        prob: 30 
+        prob: 100 
 validator: {}
 fileSources:
   - name: "random"
     random:
       directory:
-        depth: 3
-        run: 3
+        depth: 
+          min: 1 
+          max: 3
+        run: 1000 
       size:
         - min: 1000
           max: 10000
-          prob: 70 
-        - min: 10000
-          max: 100000
-          prob: 30 
+          prob: 100 
