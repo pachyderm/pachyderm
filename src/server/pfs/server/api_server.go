@@ -11,11 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"golang.org/x/net/context"
+	"gopkg.in/yaml.v3"
+
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -32,9 +34,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"gopkg.in/yaml.v3"
-
-	"golang.org/x/net/context"
 )
 
 // apiServer implements the public interface of the Pachyderm File System,
