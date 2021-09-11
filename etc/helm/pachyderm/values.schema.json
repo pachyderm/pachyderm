@@ -378,8 +378,45 @@
                         }
                     }
                 },
-                "oauthClientSecret": {
-                    "type": "string"
+                "oidc": {
+                    "type": "object",
+                    "properties": {
+                        "clientId": {
+                            "type": "string"
+                        },
+                        "clientSecret": {
+                            "type": "string"
+                        },
+                        "connector": {
+                            "type": "object",
+                            "properties": {
+                                "clientID": {
+                                    "type": "string"
+                                },
+                                "clientSecret": {
+                                    "type": "string"
+                                },
+                                "id": {
+                                    "type": "string"
+                                },
+                                "issuer": {
+                                    "type": "string"
+                                },
+                                "redirectURI": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "issuer": {
+                            "type": "string"
+                        },
+                        "mockIDP": {
+                            "type": "boolean"
+                        },
+                        "redirectURI": {
+                            "type": "string"
+                        }
+                    }
                 },
                 "podLabels": {
                     "type": "object"

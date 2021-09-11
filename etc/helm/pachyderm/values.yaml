@@ -212,7 +212,18 @@ pachd:
   enterpriseLicenseKey: ""
   rootToken: ""
   enterpriseSecret: ""
-  oauthClientSecret: ""
+  oidc:
+    mockIDP: false
+    clientId: ""
+    clientSecret: ""
+    issuer: ""
+    redirectURI: ""
+    connector:
+        id: ""
+        issuer: ""
+        clientID: ""
+        clientSecret: ""
+        redirectURI: ""
   serviceAccount:
     create: true
     additionalAnnotations: {}
