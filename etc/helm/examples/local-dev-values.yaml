@@ -47,6 +47,18 @@ pachd:
   #     name: idpConnector
   #     type: oidc
 
+  oidc:
+    mockIDP: false
+    clientId: "pachd"
+    issuer: "http://pachd:1658/"
+    redirectURI: "http://localhost:30657/authorization-code/callback"
+    connector:
+      id: "idp"
+      issuer: ""
+      clientID: ""
+      clientSecret: ""
+      redirectURI: "http://localhost:30658/callback"
+
 console:
   enabled: false
   config:
