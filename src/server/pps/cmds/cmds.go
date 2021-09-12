@@ -1252,8 +1252,7 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 			if request.Transform == nil {
 				return errors.New("must specify a pipeline `transform`")
 			}
-			pipelineParentPath, _ := filepath.Split(pipelinePath)
-			if err := dockerBuildHelper(request, registry, username, pipelineParentPath); err != nil {
+			if err := dockerPushHelper(request, registry, username); err != nil {
 				return err
 			}
 		}
@@ -1285,7 +1284,7 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 	return nil
 }
 
-func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, registry, username, pipelineParentPath string) error {
+func dockerPushHelper(request *ppsclient.CreatePipelineRequest, registry, username string) error {
 	// create docker client
 	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {
