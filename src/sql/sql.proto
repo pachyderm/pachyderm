@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package sql_v2;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/sql";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+message Query {
+  string query = 1;
+}
+
+message Row {
+  message Value {
+    oneof value {
+      int64 int = 1;
+      double float = 2;
+      bool bool = 3;
+      google.protobuf.BytesValue bytes = 4;
+      string string = 5;
+      google.protobuf.Timestamp time = 6;
+    }
+  }
+  map<string, Value> row = 1;
+}
+
+service SQL {
+  rpc RunQuery(Query) returns (stream Row) {}
+}
