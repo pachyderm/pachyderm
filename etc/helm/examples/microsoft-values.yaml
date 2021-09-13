@@ -9,3 +9,6 @@ pachd:
       container: "foo"
       id: "bar"
       secret: "baz"
+etcd:
+  storageClass: "default"
+
