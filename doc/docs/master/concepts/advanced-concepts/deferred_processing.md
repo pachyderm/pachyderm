@@ -131,7 +131,7 @@ a staging branch:
 1. Verify that the pipeline has new jobs:
 
       ```shell
-      $ pachctl list job f3506f0fab6e483e8338754081109e69
+      $ pachctl list job test@f3506f0fab6e483e8338754081109e69
 
       ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL   UL  STATE
       f3506f0fab6e483e8338754081109e69 test     32 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
@@ -165,7 +165,7 @@ $ pachctl create branch data@master --head staging
 When you run the commands above, Pachyderm creates a job for each
 of the commands one after another. Therefore, when one job is completed,
 Pachyderm starts the next one. To verify
-that Pachyderm created jobs for these commands, run `pachctl list job`.
+that Pachyderm created jobs for these commands, run `pachctl list job -p <pipeline_name> --history all`.
 
 ### Change the HEAD of your Branch
 

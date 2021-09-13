@@ -13,11 +13,11 @@ When you commit data to Pachyderm, your new commit has an ID associated with it 
 
 This ability to track down related commits and jobs with one global identifier brought the need to introduce a new scope to our original concepts of [job](./job.md) and [commit](./commit.md):
 
-- A commit with a `global` scope (**global commit**), referred to in our CLI as `pachctl list commit <commitID>` represents "the set of all provenance-dependent commits sharing the same ID". The same term of `commit`, applied to the more focused scope of a repo (`pachctl list commit <repo>@<commitID>` or `pachctl list commit <repo>@, branch>=<commitID>`), represents "a Git-like record of the state of a single repository's file system".
-Similarly, the same nuances in the scope of a job give the term two possible meanings:
-- A job with a `global` scope (**global job**),  referred to in our CLI as `pachctl list job <commitID>`, is "the set of jobs created due to commits in a global commit". Narrowing down the scope to a single pipeline (`pachctl list job <pipeline>@<commitID>`) shifts the meaning to "an execution of a given pipeline of your DAG".
+- A commit with a `global` scope (**global commit**), referred to in our CLI as `pachctl list commit <commitID>` represents "the set of all provenance-dependent commits sharing the same ID". The same term of `commit`, applied to the more focused scope of a repo (`pachctl list commit <repo>@<commitID>` or `pachctl list commit <repo>@<branch>=<commitID>`), represents "a Git-like record of the state of a single repository's file system".
 
-Using this global identifier you can:
+Similarly, the same nuances in the scope of a job give the term two possible meanings:
+
+- A job with a `global` scope (**global job**),  referred to in our CLI as `pachctl list job <commitID>`, is "the set of jobs created due to commits in a global commit". Narrowing down the scope to a single pipeline (`pachctl list job <pipeline>@<commitID>`) shifts the meaning to "an execution of a given pipeline of your DAG".
 
 ## List All Global Commits And Global Jobs
 You can list all global commits by running the following command:
@@ -79,19 +79,23 @@ ID                               PIPELINE STARTED       DURATION  RESTART PROGRE
 1035715e796f45caae7a1d3ffd1f93ca montage  5 minutes ago 4 seconds 0       1 + 0 / 1 79.49KiB 381.1KiB success
 1035715e796f45caae7a1d3ffd1f93ca edges    5 minutes ago 2 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
 ```
-For each pipeline execution (sub job) within this global job, Pachyderm shows the time since each sub job started and its duration, the number of datums in the **PROGRESS** section,  and other information.
+For each pipeline execution (sub job) within this global job, Pachyderm shows the time since each sub job started and its duration, the number of datums in the PROGRESS section,  and other information.
 The format of the progress column is `DATUMS PROCESSED + DATUMS SKIPPED / TOTAL DATUMS`.
 
 For more information, see [Datum Processing States](../../../concepts/pipeline-concepts/datum/datum-processing-states/).
 
 !!! Note
-     The global commit and global job above have been created after
-     a `pachctl put file images@master -i images.txt` in the images repo of the open cv example.
+     The global commit and global job above are the result of
+     a `pachctl put file images@master -i images.txt` in the images repo of [the open cv example](../../../getting_started/beginner_tutorial/).
 
 The following diagram illustrates the global commit and its various components:
     ![global_commit_after_putfile](../images/global_commit_after_putfile.png)
 
-Let's explain the origin of each commit.
+Let's take a look at the origin of each commit.
+
+!!! Note
+        Check the list of [all commit origins](../data-concepts/commit.md) in the `Commit` page.
+
 
 1. Inspect the commit ID 1035715e796f45caae7a1d3ffd1f93ca in the `images` repo,  the repo in which our change (`put file`) has originated:
 
@@ -99,9 +103,6 @@ Let's explain the origin of each commit.
     $ pachctl inspect commit images@1035715e796f45caae7a1d3ffd1f93ca --raw
     ```
     Note that this original commit is of `USER` origin (i.e., the result of a user change).
-
-    !!! Note
-        The list of all commit types is detailed in the [`Commit` page](../data-concepts/commit.md) of this section.
 
     ```json
     "origin": {
@@ -171,23 +172,23 @@ Let's explain the origin of each commit.
 
     The same origin (`AUTO` ) applies to the commits sharing that same ID in the `montage` output repo as well as `edges.meta` and `montage.meta` system repos. 
     !!! Note
-        The list of all types of repos is detailed in the [`Repo` page](../data-concepts/repo.md) of this section.
+        Check the list of [all types of repos](../data-concepts/repo.md) in the `Repo` page.
 
 - Besides  the `USER` and `AUTO` commits, notice a set of `ALIAS` commits in `edges.spec` and `montage.spec`:
 ```shell
-    $ pachctl inspect commit edges.spec@336f02bdbbbb446e91ba27d2d2b516c6 --raw
+$ pachctl inspect commit edges.spec@336f02bdbbbb446e91ba27d2d2b516c6 --raw
 ```
 The version of each pipeline within their respective `.spec` repos are neither the result of a user change, nor of an automatic change.
 They have, however, contributed to the creation of the previous `AUTO` commits. 
 To make sure that we have a complete view of all the data and pipeline versions involved in all the commits resulting from the initial 
 `put file`, their version is kept as `ALIAS` commits under the same global ID.
 
-For a fuller view of GlobalID in action, take a look at our [GlobalID illustration](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID).
+For a full view of GlobalID in action, take a look at our [GlobalID illustration](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID).
 
 ## Track Provenance Downstream
 
 Pachyderm provides the `wait commit <commitID>` command that enables you
-to track your commits downstream as they are produced. 
+to **track your commits downstream as they are produced**. 
 
 Unlike the `list commit <commitID>`, each line is printed as soon as a new (sub) commit of your global commit finishes.
 
@@ -195,7 +196,7 @@ Change `commit` in `job` to list the jobs related to your global job as they fin
 
 ## Squash A Global Commit
 
-`pachctl squash commit 1035715e796f45caae7a1d3ffd1f93ca`
+`pachctl squash commit <commitID>`
 **combines all the file changes in the commits of a global commit
 into their children** and then removes the global commit.
 This behavior is inspired by the squash option in git rebase.
