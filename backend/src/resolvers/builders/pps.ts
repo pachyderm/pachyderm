@@ -7,10 +7,8 @@ import {
   JobState,
   JobSetInfo,
 } from '@pachyderm/node-pachyderm';
-import {Timestamp} from 'google-protobuf/google/protobuf/timestamp_pb';
 import fromPairs from 'lodash/fromPairs';
 import isEmpty from 'lodash/isEmpty';
-import sortBy from 'lodash/sortBy';
 
 import formatBytes from '@dash-backend/lib/formatBytes';
 import {
@@ -18,6 +16,7 @@ import {
   toGQLPipelineState,
 } from '@dash-backend/lib/gqlEnumMappers';
 import omitByDeep from '@dash-backend/lib/omitByDeep';
+import sortJobInfos from '@dash-backend/lib/sortJobInfos';
 import {
   Job,
   Pipeline,
@@ -171,15 +170,8 @@ const getAggregateJobState = (jobs: Job[]) => {
   return GQLJobState.JOB_SUCCESS;
 };
 
-const timestampToNanos = (timestamp: Timestamp.AsObject) => {
-  return timestamp.seconds * 1e9 + timestamp.nanos;
-};
-
 export const jobInfosToGQLJobSet = (jobInfos: JobInfo.AsObject[]): JobSet => {
-  const sortedJobInfos = sortBy(jobInfos, [
-    (jobInfo) => (jobInfo.started ? timestampToNanos(jobInfo.started) : 0),
-    (jobInfo) => jobInfo.job?.pipeline?.name || '',
-  ]);
+  const sortedJobInfos = sortJobInfos(jobInfos);
 
   const jobs = sortedJobInfos.map(jobInfoToGQLJob);
 

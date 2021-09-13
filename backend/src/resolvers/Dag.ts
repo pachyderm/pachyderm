@@ -24,6 +24,7 @@ import {
   gqlJobStateToNodeState,
   gqlPipelineStateToNodeState,
 } from '@dash-backend/lib/nodeStateMappers';
+import sortJobInfos from '@dash-backend/lib/sortJobInfos';
 import {
   EgressVertex,
   LinkInputData,
@@ -254,6 +255,8 @@ const normalizeDAGData = async (
         // the default value of '0' picks a psuedo random seed based
         // on system time, which makes the algorithm non-deterministic
         // https://www.eclipse.org/elk/reference/options/org-eclipse-elk-randomSeed.html
+        // Elk doesn't, however, ignore order. Input nodes and edges need to be
+        // based off stabalized (ordered) data (i.e. listRepo, listPipeline)
         'org.eclipse.elk.randomSeed': '1',
         'org.eclipse.elk.algorithm': 'disco',
         'org.eclipse.elk.aspectRatio': horizontal ? '0.2' : '10',
@@ -408,12 +411,17 @@ const dagResolver: DagResolver = {
               .pps()
               .inspectJobSet({projectId, id: jobSetId});
 
+            // stabalize elkjs inputs.
+            // listRepo and listPipeline are both stabalized on 'name',
+            // but jobsets come back in a stream with random order.
+            const sortedJobSet = sortJobInfos(jobSet);
+
             const pipelineMap = keyBy(
-              jobSet.map((job) => job.job?.pipeline),
+              sortedJobSet.map((job) => job.job?.pipeline),
               (p) => p?.name || '',
             );
 
-            const vertices = jobSet.reduce<
+            const vertices = sortedJobSet.reduce<
               (EgressVertex | PipelineVertex | RepoVertex)[]
             >((acc, job) => {
               const inputs = job.details?.input
