@@ -17,7 +17,7 @@ pachd:
   enterpriseLicenseKey: ""
 
   oidc:
-    mockIDP: false
+    mockIDP: true
     clientId: "pachd"
     issuer: "http://pachd:1658/"
     redirectURI: "http://localhost:30657/authorization-code/callback"

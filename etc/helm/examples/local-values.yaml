@@ -8,7 +8,7 @@ pachd:
   enterpriseLicenseKey: "license"
   # if an enterpriseLicenseKey is set, the following variables are used
   oidc:
-    mockPasswordIDP: false
+    mockIDP: true
     clientId: "pachd"
     issuer: "http://pachd:1658/"
     redirectURI: "http://localhost:30657/authorization-code/callback"
