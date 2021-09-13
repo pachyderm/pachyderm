@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/storage v1.10.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
 	github.com/Microsoft/hcsshim v0.8.7 // indirect
+	github.com/araddon/qlbridge v0.0.2 // indirect
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/aws/aws-sdk-go v1.27.0
 	github.com/c-bata/go-prompt v0.2.3
