@@ -9,4 +9,17 @@ enterpriseServer:
     tag: local
 pachd:
   enabled: false
-
+  activateEnterprise: false
+  enterpriseLicenseKey: ""
+  oidc:
+    clientId: "enterprise-pach"
+    issuer: "http://pach-enterprise.enterprise.svc.cluster.local:1658/"
+    redirectURI: "http://localhost:31657/authorization-code/callback"
+    setupConnector: true
+    mockIDP: true
+    connector:
+      id: "idp"
+      issuer: ""
+      clientID: ""
+      clientSecret: ""
+      redirectURI: "http://localhost:31658/callback"

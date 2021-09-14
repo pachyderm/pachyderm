@@ -214,6 +214,9 @@ pachd:
     #  expose: true
     #  port: 30650
   enterpriseLicenseKey: ""
+  enterpriseRootToken: ""
+  enterpriseServerAddress: ""
+  enterpriseCallbackAddress: ""
   rootToken: ""
   enterpriseSecret: ""
   oauthClientId: "pachd"
