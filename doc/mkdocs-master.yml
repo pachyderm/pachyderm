@@ -1,7 +1,7 @@
 site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
 site_author: Pachyderm
-site_url: https://docs.pachyderm.com/
+site_url: https://docs.pachyderm.com/2.0.x-beta/
 docs_dir: docs/master/
 site_dir: site/2.0.x-rc/
 
@@ -108,7 +108,6 @@ nav:
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting_started/index.md
-        - WHAT'S NEW?: getting_started/whats_new.md
         - Quick Start - Get started on Hub: hub/hub_getting_started.md
         - Local Installation: getting_started/local_installation.md
         - Beginner Tutorial: getting_started/beginner_tutorial.md
@@ -195,6 +194,7 @@ nav:
                 - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
                 - Deploy on OpenShift: deploy-manage/deploy/openshift.md
                 - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+            - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
                 - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
