@@ -1,7 +1,24 @@
+# SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
 deployTarget: LOCAL
+
 console:
   enabled: false
 enterpriseServer:
   enabled: true
 pachd:
   enabled: false
+  activateEnterprise: true
+  enterpriseLicenseKey: "<ENTEPRRISE-LICENSE-KEY>"
+  oidc:
+    clientId: "enterprise-pach"
+    issuer: "http://<ENTERPRISE-SERVER-IP>:31658/"
+    redirectURI: "http://<ENTERPRISE-SERVER-IP>:31657/authorization-code/callback"
+    setupConnector: true
+    mockIDP: false
+    connector:
+      id: "idp"
+      issuer: "<UPSTREAM-ISSUER>"
+      clientID: "<UPSTREAM-CLIENT-ID>"
+      clientSecret: "<UPSTREAM-CLIENT-SECRET>"
+      redirectURI: "http://<ENTERPRISE-SERVER-IP>:31658/callback"
