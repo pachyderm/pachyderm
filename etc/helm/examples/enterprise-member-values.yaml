@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
+deployTarget: LOCAL
+
+pachd:
+  metrics:
+    enabled: false
+  clusterDeploymentID: dev
+  activateEnterprise: true
+  enterpriseLicenseKey: "<ENTERPRISE-LICENSE-KEY>"
+  enterpriseServerAddress: "grpc://<ENTERPRISE-SERVER-IP>:1650"
+  enterpriseCallbackAddress: "grpc://<PACHD-IP>:1650"
+  enterpriseRootToken: "<ENTERPRISE-ROOT-TOKEN>"
+  oidc:
+    clientId: "pachd"
+    issuer: "http://<ENTERPRISE-SERVER-IP>:1658/"
+    redirectURI: "http://<PACHD-IP>:30657/authorization-code/callback"
+    setupConnector: false
+
+console:
+  enabled: true
+  config:
+    issuerURI: "http://<ENTERPRISE-SERVER-IP>:1658/"
+    oauthRedirectURI: "http://<CONSOLE-IP>:4000/oauth/callback/?inline=true"
+    reactAppRuntimeIssuerURI: "http://<ENTERPRISE-SERVER-IP>:31658/"
+    oauthClientID: "dash"
+    oauthClientSecret: "<CONSOLE-CLIENT-SECRET>"
+    graphqlPort: 4000
+    oauthPachdClientID: "pachd"
+    pachdAddress: "pachd-peer:30653"
+
+enterpriseServer:
+  enabled: false
