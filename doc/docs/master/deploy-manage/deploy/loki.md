@@ -1,14 +1,7 @@
 !!! note 
     To deploy and configure a Pachyderm cluster
-    to ship logs to Loki, 
+    to read logs from Loki,
     a ***Pachyderm Enterprise License*** is required. 
-
-# Enabling Loki
-
-Enabling Loki logging will require to set the following [environment variables](https://docs.pachyderm.com/latest/deploy-manage/deploy/environment-variables/) on the pachd container:
-
-- `LOKI_LOGGING` to `true`  to ship the logs to Loki
-- `LOKI_SERVICE_HOST` and `LOKI_SERVICE_PORT` to fetch the logs from Loki
 
 ## Shipping logs to Loki
 
@@ -28,40 +21,21 @@ then you will need to install and configure Promtail
 
 ## Fetching logs
 
-While enabling Loki will enable the collection of logs, commands such as `pachctl logs` will not fetch logs directly from Loki until the `LOKI_SERVICE_HOST` and `LOKI_SERVICE_PORT` environment variables are set on the `pachd` container.
+While installing Loki will enable the collection of logs, commands such as `pachctl logs` will not fetch logs directly
+from Loki until the `LOKI_LOGGING` environment variable on the `pachd` container is **true**.
 
-For example, a `deployment.json` generated with 
-```shell
-    pachctl deploy local --dry-run > deployment.json`     
-```
-can be modified to make logs available for Loki as follows:
+This is controlled by the helm value `pachd.lokiLogging`, which can be set by adding the following to your [values.yaml](../../../reference/helm_values/) file:
 
-```json
-{
-    "containers": [{
-        "name": "pachd",
-        "image": "pachyderm/pachd:local",
-        "command": ["/pachd"],
-        "ports": [],
-        "env": [
-            {
-                "name": "LOKI_LOGGING",
-                "value": "true"
-            },
-            {
-                "name": "LOKI_SERVICE_HOST",
-                "value": "10.107.254.102"
-            },
-            {
-                "name": "LOKI_SERVICE_PORT",
-                "value": "3100"
-            }
-        ]
-    }]
-}
+```yaml
+    pachd:
+        lokiLogging: true
 ```
 
-Pachyderm reads logs from the Loki API Server with a particular set of tags. The URI at which Pachyderm reads from the Loki API Server is set by the `LOKI_SERVICE_HOST` and `LOKI_SERVICE_PORT` values.
+Pachyderm reads logs from the Loki API Server with a particular set of tags. 
+The URI at which Pachyderm reads from the Loki API Server is determined by the `LOKI_SERVICE_HOST` and `LOKI_SERVICE_PORT` environment values **automatically added by Loki Kubernetes service**. 
+
+If Loki is deployed after the `pachd` container,
+the `pachd` container will need to be redeployed to receive these connection parameters.
 
 !!! note 
     If you are not running Promtail on the node 
