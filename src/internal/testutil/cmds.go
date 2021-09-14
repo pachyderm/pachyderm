@@ -3,6 +3,7 @@ package testutil
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -50,6 +51,7 @@ func dedent(cmd string) string {
 			dedentedCmd.WriteString(s.Text()[len(prefix):]) // remove prefix
 			dedentedCmd.WriteRune('\n')
 		} else {
+			fmt.Fprintf(os.Stderr, "\nWARNING: the line\n  %q\ncannot be dedented as missing the prefix %q\n", s.Text(), prefix)
 			return cmd // no common prefix--break early
 		}
 	}
