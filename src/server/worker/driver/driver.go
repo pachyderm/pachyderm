@@ -548,5 +548,6 @@ func (d *driver) UserCodeEnv(
 }
 
 func (d *driver) AddSpanToAnyPipelineTrace(operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
+	kvs = append(kvs, "workerIP", d.env.Config().PPSWorkerIP)
 	return extended.AddSpanToAnyPipelineTrace(d.pachClient.Ctx(), d.env.GetEtcdClient(), d.PipelineInfo().Pipeline.Name, operation, kvs...)
 }

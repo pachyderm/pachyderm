@@ -67,10 +67,6 @@ spec:
           value: "/pach"
         - name: ETCD_PREFIX
           #value:
-        {{- if .Values.jaeger.enabled }}
-        - name: JAEGER_ENDPOINT
-          value: jaeger-collector:14268
-        {{- end }}
         - name: STORAGE_BACKEND
           value: {{ include "pachyderm.storageBackend" . | quote }}
           {{- if eq (include "pachyderm.storageBackend" . ) "LOCAL" }}
