@@ -20,8 +20,37 @@ The setup of an Enterprise Server requires to:
 ## 1 - Deploy An Enterprise Server
 
 ### Single-cluster deployment
-Deploying a Pachyderm cluster with the embedded enterprise server does not require any specific action.
-Proceed as usual:
+To deploying a Pachyderm cluster with the embedded enterprise server, an additional set of helm parameter values should be populated. 
+
+#### Create your values.yaml 
+Update your values.yaml with your enterprise license key, and auth configurations ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-values.yaml)) or use our minimal example below.
+
+=== "values.yaml with activation of an enterprise license and authentication"
+
+	```yaml
+	pachd:
+	  	activateEnterprise: true
+		enterpriseLicenseKey: "<ENTEPRRISE-LICENSE-KEY>"
+		rootToken: "<OPTIONAL-TOKEN>"
+		oidc:
+			clientId: "pachd"
+			issuer: "http://<PACHD-IP>:30658/"
+			redirectURI: "http://<PACHD-IP>:30657/authorization-code/callback"
+			setupConnector: true
+			mockIDP: false
+			connector:
+			id: "idp"
+			issuer: "<UPSTREAM-ISSUER>"
+			clientID: "<UPSTREAM-CLIENT-ID>"
+			clientSecret: "<UPSTREAM-CLIENT-SECRET>"
+			redirectURI: "http://<PACHD-IP>:30658/callback"
+	```
+
+This results in a single pachd pod, with authentication enabled, and an IDP integration configured. The cluster's root token can be found in the kubernetes secret called `pachyderm-bootstrap-config`.
+
+Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
+
+Alternatively, the Pachyderm cluster can be deployed as usual, and the enterprise license can later be activated with `pachctl`:
 
 1. [Install your favorite version of `pachctl`](../../../../getting_started/local_installation/#install-pachctl).
 1. [Deploy Pachyderm](../../../../deploy-manage/deploy/helm_install/): `helm install ...`.
@@ -33,13 +62,39 @@ This results in a single pachd pod, with authentication enabled. Proceed to [con
 
 ### Multi-cluster deployment
 
-Deploying a stand-alone enterprise server requires using the `--enterprise-server` flag for `pachctl deploy`. 
+Deploying a stand-alone enterprise server requires populating a specific set of parameter values in the helm deployment.
+
+#### Create your values.yaml 
+Update your values.yaml with your enterprise server settings, and an enterprise license key ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/enterprise-values.yaml)) or use our minimal example below.
+
+=== "values.yaml with activation of an enterprise license and authentication"
+
+	```yaml
+	enterpriseServer:
+		enabled: true
+	pachd:
+		enabled: false
+		activateEnterprise: true
+		enterpriseLicenseKey: "<ENTEPRRISE-LICENSE-KEY>"
+		oidc:
+			clientId: "enterprise-pach"
+			issuer: "http://<ENTERPRISE-SERVER-IP>:31658/"
+			redirectURI: "http://<ENTERPRISE-SERVER-IP>:31657/authorization-code/callback"
+			setupConnector: true
+			mockIDP: false
+			connector:
+			id: "idp"
+			issuer: "<UPSTREAM-ISSUER>"
+			clientID: "<UPSTREAM-CLIENT-ID>"
+			clientSecret: "<UPSTREAM-CLIENT-SECRET>"
+			redirectURI: "http://<ENTERPRISE-SERVER-IP>:31658/callback"
+	```
 
 - If a pachyderm cluster will also be installed in the same kubernetes cluster, they should be installed in **different namespaces**:
 
 	```shell
 	$ kubectl create namespace enterprise
-	$ pachctl deploy <local, google, microsoft...> --enterprise-server --namespace enterprise <disk-size> --dynamic-etcd-nodes=1 <bucket-name> 
+	$ helm install ... --namespace enterprise
 	```
 
 	This command deploys postgres, etcd and a deployment and service called `pach-enterprise`. 
@@ -60,6 +115,9 @@ Deploying a stand-alone enterprise server requires using the `--enterprise-serve
 
 ## 2- Activate enterprise licensing and enable auth
 
+If a helm parameter values of `pachd.activateEnterprise` == true and `pachd.enterpriseLicenseKey` were already provided, license and auth activation is already complete. Go to the next step to [register Pachyderm clusters with this Enterprise Server](#3-register-your-clusters).
+
+To activate an enterprise license key, and set up auth using `pachctl`:
 - Use your enterprise key to activate your enterprise server: 
 	```shell
 	$ echo <your-activation-token> | pachctl license activate
@@ -75,9 +133,29 @@ Deploying a stand-alone enterprise server requires using the `--enterprise-serve
 		They should all be stored securely.
 
 Once the enterprise server is deployed, 
-deploy your cluster(s) (`pachctl deploy <local, google...>`) and register it/them with the enterprise server.
+deploy your cluster(s) (`helm install ...`) and register it/them with the enterprise server.
 You migh want to [expose your cluster(s) to the internet](#3-register-your-clusters).
 ## 3-  Register your clusters
+If you would like to register your cluster and enable its authentication using helm, specify configuration values in your helm deployment ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/enterprise-member-values.yaml)) or use our minimal example below.
+
+=== "values.yaml with activation of an enterprise license and authentication"
+
+	```yaml
+	pachd:
+		enabled: true
+		activateEnterprise: true
+		enterpriseLicenseKey: ""
+		enterpriseServerAddress: "grpc://<ENTERPRISE-SERVER-IP>:1650"
+		enterpriseCallbackAddress: "grpc://<PACHD-IP>:1650"
+		enterpriseRootToken: "<ENTERPRISE-ROOT-TOKEN>"
+		oidc:
+			clientId: "pachd"
+			issuer: "http://<ENTERPRISE-SERVER-IP>:1658/"
+			redirectURI: "http://<PACHD-IP>:30657/authorization-code/callback"
+			setupConnector: false
+	```
+
+Alternatively, to register each cluster using `pachctl`:
 - Run this command for each of the clusters you wish to register:
 
 	```shell
@@ -135,9 +213,12 @@ You migh want to [expose your cluster(s) to the internet](#3-register-your-clust
 
 
 ## 4- Enable Auth on each cluster
-Finally, activate auth on  each cluster. 
 This is an optional step as clusters can be registered with the enterprise server without authentication being enabled.
 
+If a helm parameter values of `pachd.activateEnterprise = true` was provided when the Pachyderm cluster was deployed as [specified in the previous step](#3-register-your-clusters), the cluster should already have Authentication enabled. You're all done!
+
+
+To enable auth manually with `pachctl`:
 - Before enabling authentication, set up the issuer in the idp config between the enterprise server and your cluster:
 	```shell
 	$ echo "issuer: http://<enterprise-server-IP>:658" | pachctl idp set-config --config -
