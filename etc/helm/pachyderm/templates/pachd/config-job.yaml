@@ -2,7 +2,7 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{ if .Values.pachd.enterpriseLicenseKey }}
+{{ if .Values.pachd.activateEnterprise }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -11,6 +11,9 @@ metadata:
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+    app: pachd
+    suite: pachyderm
 spec:
   template:
     spec:
