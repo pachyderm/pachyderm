@@ -22,18 +22,19 @@ then you will need to install and configure Promtail
 ## Fetching logs
 
 While installing Loki will enable the collection of logs, commands such as `pachctl logs` will not fetch logs directly
-from Loki until the `LOKI_LOGGING` environment variable on the `pachd` container is true.
+from Loki until the `LOKI_LOGGING` environment variable on the `pachd` container is **true**.
+
 This is controlled by the helm value `pachd.lokiLogging`, which can be set by adding the following to your [values.yaml](../../../reference/helm_values/) file:
 
 ```yaml
-pachd:
-    ...
-    lokiLogging: true
+    pachd:
+        lokiLogging: true
 ```
 
-Pachyderm reads logs from the Loki API Server with a particular set of tags. The URI at which Pachyderm reads
-from the Loki API Server is determined by the `LOKI_SERVICE_HOST` and `LOKI_SERVICE_PORT` environment values
-automatically added by Loki Kubernetes service. If Loki is deployed after the `pachd` container,
+Pachyderm reads logs from the Loki API Server with a particular set of tags. 
+The URI at which Pachyderm reads from the Loki API Server is determined by the `LOKI_SERVICE_HOST` and `LOKI_SERVICE_PORT` environment values **automatically added by Loki Kubernetes service**. 
+
+If Loki is deployed after the `pachd` container,
 the `pachd` container will need to be redeployed to receive these connection parameters.
 
 !!! note 
