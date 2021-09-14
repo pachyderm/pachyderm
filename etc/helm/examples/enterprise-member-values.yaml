@@ -7,7 +7,7 @@ pachd:
     enabled: false
   clusterDeploymentID: dev
   activateEnterprise: true
-  enterpriseLicenseKey: "<ENTERPRISE-LICENSE-KEY>"
+  enterpriseLicenseKey: ""
   enterpriseServerAddress: "grpc://<ENTERPRISE-SERVER-IP>:1650"
   enterpriseCallbackAddress: "grpc://<PACHD-IP>:1650"
   enterpriseRootToken: "<ENTERPRISE-ROOT-TOKEN>"
