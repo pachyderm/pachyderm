@@ -40,7 +40,7 @@ postgresql:
     type: NodePort
 
 jaeger:
-  enabled: true
+  enabled: false
   query:
     service:
       type: ClusterIP
