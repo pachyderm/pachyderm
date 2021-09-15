@@ -17,9 +17,6 @@ if your code writes data to an external system and you want
 to know the current job ID, you can use the `PACH_JOB_ID`
 environment variable to refer to the current job ID.
 
-!!! note "See Also:"
-    [Deploy Pachyderm](../../../getting_started/local_installation/#deploy-pachyderm)
-
 ## `pachd` Environment Variables
 
 You can find the list of `pachd` environment variables in the

@@ -6,7 +6,7 @@ you are ready to deploy Pachyderm.
 Complete the following steps:
 
 1. [Deploy Amazon EBS CSI driver to your cluster](#1-deploy-amazon-ebs-csi-driver-to-your-cluster)
-1. [Create an S3 bucket](#2.1-create-an-S3-object-store-bucket-for-data) for Pachyderm
+1. [Create an S3 bucket](#2-create-an-s3-bucket) for Pachyderm
 1. [Deploy Pachyderm ](#3-deploy-pachyderm)
 1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster](#4-have-pachctl-and-your-cluster-communicate)).
 

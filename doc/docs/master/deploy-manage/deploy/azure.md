@@ -6,9 +6,10 @@ workloads.
 To deploy Pachyderm to AKS, you need to:
 
 1. [Install Prerequisites](#install-prerequisites)
-2. [Deploy Kubernetes](#deploy-kubernetes)
-3. [Deploy Pachyderm](#deploy-pachyderm)
-4. [Point your CLI `pachctl` to your cluster](#have-pachctl-and-your-cluster-communicate)
+1. [Deploy Kubernetes](#deploy-kubernetes)
+1. [Add Storage Resources](#add-storage-resources)
+1. [Deploy Pachyderm](#deploy-pachyderm)
+1. [Point your CLI `pachctl` to your cluster](#have-pachctl-and-your-cluster-communicate)
 
 ## Install Prerequisites
 
@@ -195,7 +196,7 @@ To deploy Kubernetes on Azure, complete the following steps:
     - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general)
 
 
-## Add storage resources
+## Add Storage Resources
 
 Pachyderm requires you to deploy an object store and two persistent
 volumes in your cloud environment to function correctly. For best
@@ -401,7 +402,7 @@ you might accidentally deploy your cluster on Minikube.
     the `etcd` nodes are ready which might result in the `pachd` nodes
     restarting. You can safely ignore those restarts.
 
-Have 'pachctl' and your Cluster Communicate
+## Have 'pachctl' and your Cluster Communicate
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 

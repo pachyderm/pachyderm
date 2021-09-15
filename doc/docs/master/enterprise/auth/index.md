@@ -13,8 +13,8 @@ As a result, users can authenticate **using their existing credentials from vari
 Setting up Pachyderm's User Access Management (also referred to as "Authentication and Authorization" or "Auth" in this documentation) requires to follow those 3 simple steps:
 
 1. [Activate the feature](#activate-user-access-management).
-1. Create a connector and [connect the IdP of your choice to Pachyderm (Dex)](./authentication/idp-dex.md). 
-1. Optional: Manage your Authorization. i.e.,[assign specific Roles to IdP users](./authorization/role-binding.md) on given Pachyderm Ressources. 
+1. Create a connector and [connect the IdP of your choice to Pachyderm (Dex)](../authentication/idp-dex.md). 
+1. Optional: Manage your Authorization. i.e.,[assign specific Roles to IdP users](../authorization/role-binding.md) on given Pachyderm Ressources. 
 
 Any registered IdP user will then be able to log into their IdP and access Pachyderm ressources according to the privileges they were granted.
 

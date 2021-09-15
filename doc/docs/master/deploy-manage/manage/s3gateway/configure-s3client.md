@@ -98,6 +98,6 @@ retrieve your session token in your active context:
       Search for your session token: `"session_token": "your-session-token-value"`.
       **Make sure to fill both fields `Access Key ID` and `Secret Access Key` with that same value.**
 
-      Depending on your use case, it might make sense to pass the credentials of a robot-user or another type of user altogether. Refer to the [authentication section of the documentation](../../../../enterprise/auth/#user-account-types) for more RBAC information.
+      Depending on your use case, it might make sense to pass the credentials of a robot-user or another type of user altogether. Refer to the [authorization section of the documentation](../../../../enterprise/auth/authorization/#users-types) for more RBAC information.
 
 - If the authentication feature is not activated, make sure that whether you fill in those fields or not, their content always matches. (i.e., both empty or both set to the same value)
