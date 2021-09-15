@@ -34,7 +34,7 @@ jobs:
          keys:
          - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
          - pach-build-dependencies-v2-
-      - run: etc/testing/circle/install.sh
+      - run: sudo etc/testing/circle/install.sh
       - save_cache:
          key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
          paths:

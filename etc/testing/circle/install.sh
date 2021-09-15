@@ -1,12 +1,13 @@
 #!/bin/bash
+# This script assumes it is running as root.
 
 set -ex
 
 mkdir -p cached-deps
 
 # Install deps
-sudo apt update -y
-sudo apt-get install -y -qq \
+apt update -y
+apt-get install -y -qq \
   silversearcher-ag \
   python3 \
   python3-pip \
@@ -19,10 +20,10 @@ sudo apt-get install -y -qq \
   docker-ce-cli
 
 # Install fuse
-sudo modprobe fuse
-sudo chmod 666 /dev/fuse
-sudo cp etc/build/fuse.conf /etc/fuse.conf
-sudo chown root:root /etc/fuse.conf
+modprobe fuse
+chmod 666 /dev/fuse
+cp etc/build/fuse.conf /etc/fuse.conf
+chown root:root /etc/fuse.conf
 
 # Install aws CLI (for TLS test)
 pip3 install --upgrade --user wheel
@@ -88,9 +89,9 @@ if [ ! -f cached-deps/jq ]; then
 fi
 
 # Install Go
-sudo rm -rf /usr/local/go
-curl -L https://golang.org/dl/go1.16.6.linux-amd64.tar.gz | sudo tar xzf - -C /usr/local/
+rm -rf /usr/local/go
+curl -L https://golang.org/dl/go1.16.6.linux-amd64.tar.gz | tar xzf - -C /usr/local/
 
 # Add a DNS server to fix issues with ares resolver in pgbouncer
-sudo echo "nameserver 1.1.1.1" >> /etc/systemd/resolv.conf
-sudo systemctl restart systemd-resolved
+echo "nameserver 1.1.1.1" >> /etc/systemd/resolv.conf
+systemctl restart systemd-resolved
