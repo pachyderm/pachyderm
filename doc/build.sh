@@ -48,7 +48,7 @@ done
 EOF
 
 # Rebuild all docs versions
-rm -rf site/*
+#rm -rf site/*
 for d in $all_versions; do
     out_dir="site/${d}"
 
