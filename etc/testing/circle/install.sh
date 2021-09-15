@@ -91,7 +91,3 @@ fi
 # Install Go
 rm -rf /usr/local/go
 curl -L https://golang.org/dl/go1.16.6.linux-amd64.tar.gz | tar xzf - -C /usr/local/
-
-# Add a DNS server to fix issues with ares resolver in pgbouncer
-echo "nameserver 1.1.1.1" >> /etc/systemd/resolv.conf
-systemctl restart systemd-resolved
