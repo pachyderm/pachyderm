@@ -57,7 +57,7 @@ To back up your cluster, complete the following steps:
 1. In your cloud provider, create a new S3 bucket with the same Permissions
 policy that you assigned to the original cluster bucket. For example,
 if your cluster is on EKS, create the same Permissions policy as described
-in [Deploy Pachyderm with an IAM Role](../../deploy/amazon_web_services/aws-deploy-pachyderm/#deploy-pachyderm-with-an-iam-role).
+in [Deploy Pachyderm with an IAM Role](../../deploy/amazon_web_services/aws-deploy-pachyderm/#3-deploy-pachyderm).
 
 1. Clone your S3 bucket that you used for the olf cluster to this new bucket.
    Follow the instructions for your cloud provider:

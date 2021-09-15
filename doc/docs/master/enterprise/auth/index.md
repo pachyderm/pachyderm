@@ -13,8 +13,8 @@ As a result, users can authenticate **using their existing credentials from vari
 Setting up Pachyderm's User Access Management (also referred to as "Authentication and Authorization" or "Auth" in this documentation) requires to follow those 3 simple steps:
 
 1. [Activate the feature](#activate-user-access-management).
-1. Create a connector and [connect the IdP of your choice to Pachyderm (Dex)](../authentication/idp-dex.md). 
-1. Optional: Manage your Authorization. i.e.,[assign specific Roles to IdP users](../authorization/role-binding.md) on given Pachyderm Ressources. 
+1. Create a connector and [connect the IdP of your choice to Pachyderm (Dex)](../auth/authentication/idp-dex/). 
+1. Optional: Manage your Authorization. i.e., [assign specific Roles to IdP users](../auth/authorization/role-binding/) on given Pachyderm Ressources. 
 
 Any registered IdP user will then be able to log into their IdP and access Pachyderm ressources according to the privileges they were granted.
 
@@ -37,7 +37,7 @@ $ pachctl auth activate
 The enablement of the User Access Management **creates
 an initial `Root user` and returns a `Root token`**.
 This `Root user` (or initial admin) has irrevokable `clusterAdmin` privileges on
-Pachyderm's cluster. More on the various types of Users, Roles, and Ressources [here](./authorization/role-binding/#users-types).
+Pachyderm's cluster. More on the various types of Users, Roles, and Ressources [here](../auth/authorization/role-binding/#users-types).
 
 **System Response**
 ```
@@ -58,7 +58,7 @@ As a *Root User* (or initial admin),
 you can now configure Pachyderm to work with
 the identity management provider (IdP) of your choice.
 
-Next: [Connect the IdP of your choice to Pachyderm (Dex)](./authentication/idp-dex.md)
+Next: [Connect the IdP of your choice to Pachyderm (Dex)](../auth/authentication/idp-dex/)
 
 ## Deactivating User Access Management
 The deactivation of the User Access Management on a Pachyderm cluster

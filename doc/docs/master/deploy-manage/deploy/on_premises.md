@@ -22,8 +22,8 @@ Before you can deploy Pachyderm, you or your Kubernetes administrator will need 
 1. [Deploy Kubernetes](#deploying-kubernetes) on-premises.
 1. [Deploy a Kubernetes persistent volume](#deploying-a-persistent-volume) that Pachyderm will use to store administrative data.
 1. [Deploy an on-premises object store](#deploying-an-object-store) using a storage provider like [MinIO](https://min.io), [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) to provide S3-compatible access to your on-premises storage.
-1. [Create a Pachyderm manifest](deploy_custom/deploy_custom_pachyderm_deployment_manifest.md) by running the `pachctl deploy custom` command with appropriate arguments and the `--dry-run` flag to create a Kubernetes manifest for the Pachyderm deployment.
-1. [Edit the Pachyderm manifest](deploy_custom/deploy_custom_pachyderm_deployment_manifest.md) for your particular Kubernetes deployment
+1. [Create a Pachyderm manifest]() by running the `pachctl deploy custom` command with appropriate arguments and the `--dry-run` flag to create a Kubernetes manifest for the Pachyderm deployment.
+1. [Edit the Pachyderm manifest]() for your particular Kubernetes deployment
 
 In this series of documents, we'll take you through the steps unique to Pachyderm.
 We assume you have some Kubernetes knowledge.

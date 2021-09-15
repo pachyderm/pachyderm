@@ -52,7 +52,7 @@ provider.
           Install pachctl Autocompletion
           </a>
           </li>
-          <li><a href="../../deploy-manage/manage/pachctl_shell/" class="md-typeset md-link">
+          <li><a href="../deploy-manage/manage/pachctl_shell/" class="md-typeset md-link">
           Use pachctl Shell
           </a>
           </li>
