@@ -87,5 +87,10 @@ if [ ! -f cached-deps/jq ]; then
   curl -L https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-linux64 > cached-deps/jq
 fi
 
+# Install Go
 sudo rm -rf /usr/local/go
 curl -L https://golang.org/dl/go1.16.6.linux-amd64.tar.gz | sudo tar xzf - -C /usr/local/
+
+# Add a DNS server to fix issues with ares resolver in pgbouncer
+sudo echo "nameserver 1.1.1.1" >> /etc/systemd/resolv.conf
+sudo systemctl restart systemd-resolved
