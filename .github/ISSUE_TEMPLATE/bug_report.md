@@ -1,7 +1,12 @@
 ---
 name: Bug report
 about: Create a report to help us improve
+title: ''
+labels: bug
+assignees: ''
+
 ---
+
 <!-- This form is for bug reports ONLY! 
 
 If you're looking for help, please check:
