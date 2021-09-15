@@ -69,7 +69,7 @@ In a typical enterprise Kubernetes deployment, the administrators have configure
 
 You can deploy PV's to Pachyderm using our command-line arguments in three ways: using a static PV, with StatefulSets, or with StatefulSets using a StorageClass.
 
-If your administrators are using [selectors](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#selector), or you want to use StorageClasses in a different way, you'll need to [edit the Pachyderm manifest](../deploy_custom/deploy_custom_pachyderm_deployment_manifest) appropriately before applying it.
+If your administrators are using [selectors](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#selector), or you want to use StorageClasses in a different way, you'll need to [edit the Pachyderm manifest]() appropriately before applying it.
 
 ##### Static PV
 
