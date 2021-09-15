@@ -88,7 +88,7 @@ will run once all the input commits have been finished**.
 
       We have used the [inner join pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/joins) in our joins example to illustrate the difference between no transaction and the use a transaction, all other things being equal. Make sure to follow the example README if you want to run those pachctl commands yourself.
 
-      ![Tx vs no Tx](../../images/flow-control-with-and-without-tx.png)
+      ![Tx vs no Tx](../../images/flow-control-with-and-without-trx.png)
         
     !!! Note "Important"
           Note that in the case with the transaction, the `put file` and following `finish commit` are happening **after** the `finish transaction` instruction.
