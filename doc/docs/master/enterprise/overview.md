@@ -11,12 +11,12 @@ Pachyderm Enterprise Edition can be deployed easily on top of an existing or new
 
 ## Pipeline Visualization and Data Exploration
 
-![alt tag](dashboard.png)
+![alt tag]()
 
 Pachyderm Enterprise Edition includes a full UI for visualizing pipelines and exploring data.  Pachyderm Enterprise will automatically infer the structure of data scientists' DAG pipelines and display them visually.  Data scientists and cluster admins can even click on individual segments of the pipelines to see what data is being processed, how many jobs have run, what images and commands are being run, and much more!  Data scientists can also explore the versioned data in Pachyderm data repositories and see how the state of data has changed over time.  
 
 ## Access Controls
 
-![alt tag](auth/auth_dash5.png)
+![alt tag]()
 
 Enterprise-scale deployments require access controls and multitenancy.  Pachyderm Enterprise Edition gives teams the ability to control access to production pipelines, data, and configuration.  Administrators can silo data, prevent unintended modifications to production pipelines, and support multiple data scientists or even multiple data science groups.

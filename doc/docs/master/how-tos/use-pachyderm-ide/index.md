@@ -8,7 +8,7 @@ client from within the Pachyderm IDE.
 
 !!! Note
     You need to have Pachyderm IDE installed as described in
-    [Deploy the Pachyderm IDE](../../deploy-manage/deploy/deploy-pachyderm-ide.md).
+    [Deploy the Pachyderm IDE](../../deploy-manage/deploy/).
 
 ## Overview
 

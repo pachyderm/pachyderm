@@ -1,7 +1,7 @@
 # Deploy Enterprise Edition
 
 To deploy and use Pachyderm's Enterprise Edition, follow
-[the deployment instructions](../deploy-manage/deploy/) for your platform
+[the deployment instructions](../../deploy-manage/deploy/) for your platform
 and then [activate the Enterprise Edition](#activate-pachyderm-enterprise-edition).
 
 

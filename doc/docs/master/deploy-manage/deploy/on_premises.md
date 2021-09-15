@@ -3,7 +3,7 @@
 This document is broken down into the following sections, available at the links below
 
 - [Introduction to on-premises deployments](#introduction) takes you through what you need to know about Kubernetes, persistent volumes, object stores and best practices.  That's this page.
-- [Customizing your Pachyderm deployment for on-premises use](deploy_custom/index.md) details the various options of the `pachctl deploy custom ...` command for an on-premises deployment.
+- [Customizing your Pachyderm deployment for on-premises use]() details the various options of the `pachctl deploy custom ...` command for an on-premises deployment.
 - [Single-node Pachyderm deployment](./single-node.md) is the document you should read when deploying Pachyderm for personal, low-volume usage.
 - [Registries](./docker_registries.md) takes you through on-premises, private Docker registry configuration.
 - [Ingress](https://docs.pachyderm.com/latest/deploy-manage/deploy/ingress/) details the Kubernetes ingress configuration you'd need for using `pachctl` and the dashboard outside of the Kubernetes cluster
@@ -107,7 +107,7 @@ You or your Kubernetes administrators will be responsible for configuring the PV
 
 #### What you'll need for Pachyderm configuration of PV storage
 
-Keep the information below at hand for when you [run `pachctl deploy custom` further on](deploy_custom/index.md)
+Keep the information below at hand for when you [run `pachctl deploy custom` further on]()
 
 ##### Configuring with static volumes
 
@@ -175,7 +175,7 @@ We're prefixing each item with how we'll refer to it further on.
 Keep this information handy.
 
 ### Next step: creating a custom deploy manifest for Pachyderm
-Once you have Kubernetes deployed, your persistent volume created, and your object store configured, it's time to [create the Pachyderm manifest for deploying to Kubernetes](./deploy_custom/index.md).
+Once you have Kubernetes deployed, your persistent volume created, and your object store configured, it's time to deploy Pachyderm.
 
 ## See Also
 ### Kubernetes variants

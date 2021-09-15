@@ -82,7 +82,7 @@ ID                               PIPELINE STARTED       DURATION  RESTART PROGRE
 For each pipeline execution (sub job) within this global job, Pachyderm shows the time since each sub job started and its duration, the number of datums in the PROGRESS section,  and other information.
 The format of the progress column is `DATUMS PROCESSED + DATUMS SKIPPED / TOTAL DATUMS`.
 
-For more information, see [Datum Processing States](../pipeline-concepts/datum/datum-processing-states/).
+For more information, see [Datum Processing States](../../pipeline-concepts/datum/datum-processing-states/).
 
 !!! Note
      The global commit and global job above are the result of

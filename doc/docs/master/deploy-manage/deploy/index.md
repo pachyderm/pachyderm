@@ -83,10 +83,6 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="deploy_custom/" class="md-typeset md-link">
-           Create a Custom Deployment
-           </a>
-           </li>
            <li><a href="import-kubernetes-context/" class="md-typeset md-link">
            Import a Kubernetes Context
            </a>
