@@ -9,6 +9,7 @@ VERSION=v1.19.0
 minikube_args=(
   "--vm-driver=docker"
   "--kubernetes-version=${VERSION}"
+  "--extra-config=kubelet.resolv-conf=/run/systemd/resolve/resolv.conf"
 )
 while getopts ":v" opt; do
   case "${opt}" in
