@@ -45,7 +45,7 @@ and do not take much space when empty so do not worry about making
 tons of them.
 
 !!! Info
-    More about the concepts of [`Repository`](../concepts/data-concepts/repo/#repository) and [`Branch`](../concepts/data-concepts/branch/#branch) in Pachyderm.
+    More about the concepts of [`Repository`](../../concepts/data-concepts/repo/#repository) and [`Branch`](../../concepts/data-concepts/branch/#branch) in Pachyderm.
 
 For this demo, we create a repo called `images` to hold the
 data we want to process:
@@ -79,7 +79,7 @@ snapshots of your data which give Pachyderm its version control properties.
 You can add, remove, or update `files` in a given commit.
 
 !!! Info
-    More about the concept of [`Commit`](../concepts/data-concepts/commit/#commit) in Pachyderm.
+    More about the concept of [`Commit`](../../concepts/data-concepts/commit/#commit) in Pachyderm.
 
 Let's start by just adding a file, in this case an image, to a new
 commit. We have provided some sample images for you that we host on
@@ -177,7 +177,7 @@ more advanced options. Options include building your own code into a
 container. In this tutorial, we are using a pre-built Docker image.
 
 !!! Info
-    More about the concept of [`Pipeline`](../concepts/pipeline-concepts/pipeline/) in Pachyderm.
+    More about the concept of [`Pipeline`](../../concepts/pipeline-concepts/pipeline/) in Pachyderm.
 
 For now, we are going to create a single pipeline spec that takes in images
 and does some simple edge detection.
@@ -222,8 +222,8 @@ processed individually, which makes sense for images. Glob patterns are
 one of the most powerful features in Pachyderm.
 
 !!! Info
-    More about the concept of [`Glob Pattern`](../concepts/pipeline-concepts/datum/glob-pattern/#glob-pattern) 
-    in Pachyderm and the fundamental notion of [`Datums`](../concepts/pipeline-concepts/datum/relationship-between-datums/).
+    More about the concept of [`Glob Pattern`](../../concepts/pipeline-concepts/datum/glob-pattern/#glob-pattern) 
+    in Pachyderm and the fundamental notion of [`Datums`](../../concepts/pipeline-concepts/datum/relationship-between-datums/).
 
 
 The following text is the Python code run in this pipeline:
@@ -273,7 +273,7 @@ occur after the pipeline is created. Our repo already had a commit, so
 Pachyderm automatically launched a `job` to process that data.
 
 !!! Info
-    More about the concept of [`Job`](../concepts/pipeline-concepts/job/#job) in Pachyderm.
+    More about the concept of [`Job`](../../concepts/pipeline-concepts/job/#job) in Pachyderm.
 
 
 The first time Pachyderm runs a pipeline job, it needs to download the
@@ -504,7 +504,7 @@ explore your pipelines, your data, debug jobs, read logs etc...
 - If you a **running this example on Hub, you have readily access to The Pachyderm Console**.
  Click the **...** link on your workspace name in the Hub UI, then **Console**.
 
-![Console Access](./images/hub_console_access.png)
+![Console Access](../images/hub_console_access.png)
 
 - If you deployed locally, the Pachyderm Enterprise console
 is also deployed by default.  To access it, visit

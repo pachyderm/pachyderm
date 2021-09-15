@@ -1,7 +1,7 @@
 # Authentication and Authorization
 
 !!! Note
-    User Access Management is an [enterprise feature](https://docs.pachyderm.com/latest/enterprise/) that requires
+    User Access Management is an [enterprise feature](../../enterprise/) that requires
     an active enterprise token.
 
 Pachyderm delegates its authentication to third party Identity Providers.

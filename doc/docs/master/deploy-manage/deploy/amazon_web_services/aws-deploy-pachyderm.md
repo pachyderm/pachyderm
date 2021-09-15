@@ -5,10 +5,10 @@ you are ready to deploy Pachyderm.
 
 Complete the following steps:
 
-1. [Deploy Amazon EBS CSI driver to your cluster](1-deploy-amazon-EBS-CSI-driver-to-your-cluster)
+1. [Deploy Amazon EBS CSI driver to your cluster](#1-deploy-amazon-ebs-csi-driver-to-your-cluster)
 1. [Create an S3 bucket](#2.1-create-an-S3-object-store-bucket-for-data) for Pachyderm
 1. [Deploy Pachyderm ](#3-deploy-pachyderm)
-1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster]((#have-pachctl-and-your-cluster-communicate)).
+1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster](#4-have-pachctl-and-your-cluster-communicate)).
 
 ## 1- Deploy Amazon EBS CSI driver to your cluster
 
@@ -217,7 +217,7 @@ Check the [list of all available helm values](../../../../reference/helm_values/
 
 ### Deploy Pachyderm on the Kubernetes cluster
 
-Refer to our generic ["Helm Install"](./helm_install.md) page for more information on the required installations and modus operandi of an installation using `Helm`.
+Refer to our generic ["Helm Install"](../helm_install.md) page for more information on the required installations and modus operandi of an installation using `Helm`.
 
 - Now you can deploy a Pachyderm cluster by running this command:
 

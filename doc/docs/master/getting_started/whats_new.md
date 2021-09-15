@@ -45,7 +45,7 @@ One identifier (`Global ID`) is all that is needed to determine the provenance o
 
 Check this simple, didactical, example to grasp how [one single ID lets you track all provenance-dependent commits and jobs](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID) in one command.  
 
-Or visit the [Global ID](../../concepts/advanced-concepts/globalid/) page.
+Or visit the [Global ID](../../concepts/advanced-concepts/globalID/) page.
 
 !!! Info
     [Transactions](../../how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands/#use-transactions) also use a single identifier.

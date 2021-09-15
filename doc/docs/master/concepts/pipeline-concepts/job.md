@@ -1,7 +1,7 @@
 # Job
 
 !!! Note "Attention"
-         Note that Pachyderm uses the term `job` at two different levels. A global level (check [GlobalID](../globalID) for more details) and jobs that are an execution of a particular pipeline. The following page details the latter.
+         Note that Pachyderm uses the term `job` at two different levels. A global level (check [GlobalID](../../advanced-concepts/globalID) for more details) and jobs that are an execution of a particular pipeline. The following page details the latter.
 
 ## Definition
 
@@ -31,9 +31,9 @@ Each job has the following stages:
 
 ## List Jobs
 
-- The `pachctl list job` command returns list of all global jobs. This command is detailed in [this section of Global ID](../globalID/#list-all-global-commits-and-global-jobs).
+- The `pachctl list job` command returns list of all global jobs. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-global-commits-and-global-jobs).
 
-- The `pachctl list job <jobID>` commands returns the list of all jobs sharing the same `<jobID>`. This command is detailed in [this section of Global ID](../globalID/#list-all-commits-and-jobs-with-a-global-id). 
+- The `pachctl list job <jobID>` commands returns the list of all jobs sharing the same `<jobID>`. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-commits-and-jobs-with-a-global-id). 
 
 - Note that you can also track your jobs downstream as they complete by running `pachctl wait job <jobID>`. 
 
@@ -57,7 +57,7 @@ Each job has the following stages:
     The format of the progress column is `DATUMS PROCESSED + DATUMS SKIPPED / TOTAL DATUMS`.
 
 
-    For more information, see [Datum Processing States](../../../concepts/pipeline-concepts/datum/datum-processing-states/).
+    For more information, see [Datum Processing States](../datum/datum-processing-states/).
 
 ## Inspect Job
 The `pachctl inspect job <pipeline>@<jobID>` command enables you to view detailed

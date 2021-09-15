@@ -11,7 +11,7 @@ When you commit data to Pachyderm, your new commit has an ID associated with it 
     The ID of a commit is also the ID of any commits created along with it due to provenance relationships, 
     as well as the ID of any jobs that were triggered because of the creation of those commits. 
 
-This ability to track down related commits and jobs with one global identifier brought the need to introduce a new scope to our original concepts of [job](./job.md) and [commit](./commit.md):
+This ability to track down related commits and jobs with one global identifier brought the need to introduce a new scope to our original concepts of [job](../pipeline-concepts/job.md) and [commit](../data-concepts/commit.md):
 
 - A commit with a `global` scope (**global commit**), referred to in our CLI as `pachctl list commit <commitID>` represents "the set of all provenance-dependent commits sharing the same ID". The same term of `commit`, applied to the more focused scope of a repo (`pachctl list commit <repo>@<commitID>` or `pachctl list commit <repo>@<branch>=<commitID>`), represents "a Git-like record of the state of a single repository's file system".
 
@@ -82,7 +82,7 @@ ID                               PIPELINE STARTED       DURATION  RESTART PROGRE
 For each pipeline execution (sub job) within this global job, Pachyderm shows the time since each sub job started and its duration, the number of datums in the PROGRESS section,  and other information.
 The format of the progress column is `DATUMS PROCESSED + DATUMS SKIPPED / TOTAL DATUMS`.
 
-For more information, see [Datum Processing States](../../../concepts/pipeline-concepts/datum/datum-processing-states/).
+For more information, see [Datum Processing States](../pipeline-concepts/datum/datum-processing-states/).
 
 !!! Note
      The global commit and global job above are the result of
