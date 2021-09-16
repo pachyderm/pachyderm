@@ -196,6 +196,9 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File) (Source, error) {
 				return mf(idx.Path)
 			}, true)
 		}),
+		WithPrefetch(func(fs fileset.FileSet) fileset.FileSet {
+			return d.storage.NewPrefetcher(fs)
+		}),
 	}
 	s := NewSource(commitInfo, fs, opts...)
 	return NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file}), nil

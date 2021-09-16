@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 )
 
@@ -14,6 +15,7 @@ type Reader struct {
 	ctx         context.Context
 	client      Client
 	memCache    kv.GetPut
+	deduper     *miscutil.WorkDeduper
 	dataRefs    []*DataRef
 	offsetBytes int64
 }
@@ -26,11 +28,12 @@ func WithOffsetBytes(offsetBytes int64) ReaderOption {
 	}
 }
 
-func newReader(ctx context.Context, client Client, memCache kv.GetPut, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
+func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	r := &Reader{
 		ctx:      ctx,
 		client:   client,
 		memCache: memCache,
+		deduper:  deduper,
 		dataRefs: dataRefs,
 	}
 	for _, opt := range opts {
@@ -47,7 +50,7 @@ func (r *Reader) Iterate(cb func(*DataReader) error) error {
 			offset -= dataRef.SizeBytes
 			continue
 		}
-		dr := newDataReader(r.ctx, r.client, r.memCache, dataRef, offset)
+		dr := newDataReader(r.ctx, r.client, r.memCache, r.deduper, dataRef, offset)
 		offset = 0
 		if err := cb(dr); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -71,15 +74,17 @@ type DataReader struct {
 	ctx      context.Context
 	client   Client
 	memCache kv.GetPut
+	deduper  *miscutil.WorkDeduper
 	dataRef  *DataRef
 	offset   int64
 }
 
-func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, dataRef *DataRef, offset int64) *DataReader {
+func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper, dataRef *DataRef, offset int64) *DataReader {
 	return &DataReader{
 		ctx:      ctx,
 		client:   client,
 		memCache: memCache,
+		deduper:  deduper,
 		dataRef:  dataRef,
 		offset:   offset,
 	}
@@ -92,7 +97,7 @@ func (dr *DataReader) DataRef() *DataRef {
 
 // Get writes the data referenced by the data reference.
 func (dr *DataReader) Get(w io.Writer) error {
-	return Get(dr.ctx, dr.client, dr.memCache, dr.dataRef.Ref, func(chunk []byte) error {
+	return Get(dr.ctx, dr.client, dr.memCache, dr.deduper, dr.dataRef.Ref, func(chunk []byte) error {
 		if dr.offset > dr.dataRef.SizeBytes {
 			return errors.Errorf("DataReader.offset cannot be greater than the dataRef size. offset size: %v, dataRef size: %v.", dr.offset, dr.dataRef.SizeBytes)
 		}

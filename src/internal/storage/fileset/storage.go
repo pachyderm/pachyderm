@@ -30,6 +30,7 @@ const (
 	DefaultCompactionFixedDelay = 1
 	// DefaultCompactionLevelFactor is the default factor that level sizes increase by in a compacted fileset.
 	DefaultCompactionLevelFactor = 10
+	DefaultPrefetchLimit         = 10
 
 	// TrackerPrefix is used for creating tracker objects for filesets
 	TrackerPrefix = "fileset/"
@@ -51,6 +52,7 @@ type Storage struct {
 	memThreshold, shardThreshold int64
 	compactionConfig             *CompactionConfig
 	filesetSem                   *semaphore.Weighted
+	prefetchLimit                int
 }
 
 type CompactionConfig struct {
@@ -69,7 +71,8 @@ func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts
 			FixedDelay:  DefaultCompactionFixedDelay,
 			LevelFactor: DefaultCompactionLevelFactor,
 		},
-		filesetSem: semaphore.NewWeighted(math.MaxInt64),
+		filesetSem:    semaphore.NewWeighted(math.MaxInt64),
+		prefetchLimit: DefaultPrefetchLimit,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -99,8 +102,6 @@ func (s *Storage) newWriter(ctx context.Context, opts ...WriterOption) *Writer {
 	return newWriter(ctx, s, s.tracker, s.chunks, opts...)
 }
 
-// TODO: Expose some notion of read ahead (read a certain number of chunks in parallel).
-// this will be necessary to speed up reading large files.
 func (s *Storage) newReader(fileSet ID, opts ...index.Option) *Reader {
 	return newReader(s.store, s.chunks, fileSet, opts...)
 }

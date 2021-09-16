@@ -6,12 +6,19 @@ import "github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 type SourceOption func(*sourceConfig)
 
 type sourceConfig struct {
-	filter func(fileset.FileSet) fileset.FileSet
+	filter   func(fileset.FileSet) fileset.FileSet
+	prefetch func(fileset.FileSet) fileset.FileSet
 }
 
 // WithFilter applies a filter to the fileset after it has been set up by the source.
 func WithFilter(filter func(fileset.FileSet) fileset.FileSet) SourceOption {
 	return func(sc *sourceConfig) {
 		sc.filter = filter
+	}
+}
+
+func WithPrefetch(prefetch func(fileset.FileSet) fileset.FileSet) SourceOption {
+	return func(sc *sourceConfig) {
+		sc.prefetch = prefetch
 	}
 }
