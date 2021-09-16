@@ -154,31 +154,33 @@ Update your values.yaml with your bucket name ([see example of values.yaml here]
 
       pachd:
         storage:
-        amazon:
-              bucket: blah
-              region: us-east-2
+          amazon:
+            bucket: blah
+            region: us-east-2
         serviceAccount:
-        additionalAnnotations:
-              eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+          additionalAnnotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
 
         worker:
-        serviceAccount:
-        additionalAnnotations:
+          serviceAccount:
+            additionalAnnotations:
               eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
       ```
+
 === "values.yaml passing AWS credentials (account ID and KEY)"
+
       ```yaml
       deployTarget: AMAZON
 
       pachd:
         storage:
-        amazon:
-              bucket: blah
-              # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-              id: AKIAIOSFODNN7EXAMPLE
-              # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-              secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-              region: us-east-2
+          amazon:
+            bucket: blah
+          # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+          id: AKIAIOSFODNN7EXAMPLE
+          # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+          secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+          region: us-east-2
       ```
       
 Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
