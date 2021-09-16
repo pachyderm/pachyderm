@@ -359,6 +359,13 @@ input LogsArgs {
   reverse: Boolean
 }
 
+input CreateRepoArgs {
+  name: String!
+  description: String
+  update: Boolean
+  projectId: String!
+}
+
 type Log {
   message: String!
   timestamp: Timestamp
@@ -392,4 +399,5 @@ type Subscription {
 
 type Mutation {
   exchangeCode(code: String!): Tokens!
+  createRepo(args: CreateRepoArgs!): Repo!
 }

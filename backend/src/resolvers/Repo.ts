@@ -3,7 +3,7 @@ import {JobInfo} from '@pachyderm/node-pachyderm';
 import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';
 import {PachClient} from '@dash-backend/lib/types';
-import {QueryResolvers, RepoResolvers} from '@graphqlTypes';
+import {MutationResolvers, QueryResolvers, RepoResolvers} from '@graphqlTypes';
 
 import {pipelineInfoToGQLPipeline, repoInfoToGQLRepo} from './builders/pps';
 
@@ -12,6 +12,9 @@ interface RepoResolver {
     repo: QueryResolvers['repo'];
   };
   Repo: RepoResolvers;
+  Mutation: {
+    createRepo: MutationResolvers['createRepo'];
+  };
 }
 
 const NUM_COMMITS = 100;
@@ -75,6 +78,22 @@ const repoResolver: RepoResolver = {
       } catch (err) {
         return null;
       }
+    },
+  },
+  Mutation: {
+    createRepo: async (
+      _parent,
+      {args: {name, description, update}},
+      {pachClient},
+    ) => {
+      await pachClient.pfs().createRepo({
+        repo: {name},
+        description: description || undefined,
+        update: update || false,
+      });
+      const repo = await pachClient.pfs().inspectRepo(name);
+
+      return repoInfoToGQLRepo(repo);
     },
   },
 };

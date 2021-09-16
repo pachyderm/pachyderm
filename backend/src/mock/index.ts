@@ -39,7 +39,7 @@ const createServer = () => {
   const state = cloneDeep(defaultState);
 
   grpcServer.addService(PpsAPIService, pps);
-  grpcServer.addService(PfsAPIService, pfs);
+  grpcServer.addService(PfsAPIService, pfs.getService());
   grpcServer.addService(AuthAPIService, auth.getService());
   grpcServer.addService(ProjectsAPIService, projects.getService());
 
@@ -152,6 +152,7 @@ const createServer = () => {
     resetState: () => {
       auth.resetState();
       projects.resetState();
+      pfs.resetState();
       // Add additional handler resets here
 
       mockServer.state = {

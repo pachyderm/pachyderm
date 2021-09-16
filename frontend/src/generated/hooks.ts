@@ -42,6 +42,60 @@ export const LogFieldsFragmentDoc = gql`
     message
   }
 `;
+export const CreateRepoDocument = gql`
+  mutation createRepo($args: CreateRepoArgs!) {
+    createRepo(args: $args) {
+      createdAt
+      description
+      id
+      name
+      sizeDisplay
+    }
+  }
+`;
+export type CreateRepoMutationFn = Apollo.MutationFunction<
+  Types.CreateRepoMutation,
+  Types.CreateRepoMutationVariables
+>;
+
+/**
+ * __useCreateRepoMutation__
+ *
+ * To run a mutation, you first call `useCreateRepoMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useCreateRepoMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [createRepoMutation, { data, loading, error }] = useCreateRepoMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useCreateRepoMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.CreateRepoMutation,
+    Types.CreateRepoMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.CreateRepoMutation,
+    Types.CreateRepoMutationVariables
+  >(CreateRepoDocument, options);
+}
+export type CreateRepoMutationHookResult = ReturnType<
+  typeof useCreateRepoMutation
+>;
+export type CreateRepoMutationResult =
+  Apollo.MutationResult<Types.CreateRepoMutation>;
+export type CreateRepoMutationOptions = Apollo.BaseMutationOptions<
+  Types.CreateRepoMutation,
+  Types.CreateRepoMutationVariables
+>;
 export const ExchangeCodeDocument = gql`
   mutation exchangeCode($code: String!) {
     exchangeCode(code: $code) {

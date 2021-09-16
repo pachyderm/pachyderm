@@ -58,6 +58,13 @@ export type Commit = {
   sizeDisplay: Scalars['String'];
 };
 
+export type CreateRepoArgs = {
+  name: Scalars['String'];
+  description?: Maybe<Scalars['String']>;
+  update?: Maybe<Scalars['Boolean']>;
+  projectId: Scalars['String'];
+};
+
 export type CronInput = {
   __typename?: 'CronInput';
   name: Scalars['String'];
@@ -230,10 +237,15 @@ export type LogsArgs = {
 export type Mutation = {
   __typename?: 'Mutation';
   exchangeCode: Tokens;
+  createRepo: Repo;
 };
 
 export type MutationExchangeCodeArgs = {
   code: Scalars['String'];
+};
+
+export type MutationCreateRepoArgs = {
+  args: CreateRepoArgs;
 };
 
 export type Node = {
@@ -642,6 +654,7 @@ export type ResolversTypes = ResolversObject<{
   Commit: ResolverTypeWrapper<Commit>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
+  CreateRepoArgs: CreateRepoArgs;
   CronInput: ResolverTypeWrapper<CronInput>;
   Dag: ResolverTypeWrapper<Dag>;
   DagDirection: DagDirection;
@@ -703,6 +716,7 @@ export type ResolversParentTypes = ResolversObject<{
   Commit: Commit;
   Boolean: Scalars['Boolean'];
   Int: Scalars['Int'];
+  CreateRepoArgs: CreateRepoArgs;
   CronInput: CronInput;
   Dag: Dag;
   DagQueryArgs: DagQueryArgs;
@@ -1005,6 +1019,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationExchangeCodeArgs, 'code'>
+  >;
+  createRepo?: Resolver<
+    ResolversTypes['Repo'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreateRepoArgs, 'args'>
   >;
 }>;
 
@@ -1406,6 +1426,17 @@ export type LogFieldsFragment = {__typename?: 'Log'} & Pick<
       {__typename?: 'Timestamp'} & Pick<Timestamp, 'seconds' | 'nanos'>
     >;
   };
+
+export type CreateRepoMutationVariables = Exact<{
+  args: CreateRepoArgs;
+}>;
+
+export type CreateRepoMutation = {__typename?: 'Mutation'} & {
+  createRepo: {__typename?: 'Repo'} & Pick<
+    Repo,
+    'createdAt' | 'description' | 'id' | 'name' | 'sizeDisplay'
+  >;
+};
 
 export type ExchangeCodeMutationVariables = Exact<{
   code: Scalars['String'];
