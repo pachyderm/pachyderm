@@ -21,7 +21,7 @@ const JSONRow: React.FC<JSONRowProps> = ({
   handleMinimize,
   handleExpand,
 }) => {
-  const {keyString, valueString, depth, isOpen, isObject} = itemData;
+  const {keyString, valueString, depth, isOpen, isObject, id} = itemData;
 
   return (
     <li
@@ -37,7 +37,7 @@ const JSONRow: React.FC<JSONRowProps> = ({
       {times(depth + (isObject ? 0 : 1), (index) => (
         <span key={index} className={styles.depthTab} />
       ))}
-      {isObject && (
+      {isObject && id && (
         <span
           className={classNames(
             styles.value,
@@ -47,8 +47,8 @@ const JSONRow: React.FC<JSONRowProps> = ({
           ▼
         </span>
       )}
-      {keyString}
-      <span className={styles.value}>{valueString}</span>
+      {keyString.toString()}
+      <span className={styles.value}>{valueString.toString()}</span>
     </li>
   );
 };

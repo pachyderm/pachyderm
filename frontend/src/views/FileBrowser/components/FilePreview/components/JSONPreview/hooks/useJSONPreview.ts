@@ -21,54 +21,56 @@ const normalizeJSON = (
   minimizedRows: string[],
   childOf: string[] = [],
 ): ListItemArray[] => {
-  if (typeof obj !== 'object' || Array.isArray(obj)) return [];
+  if (typeof obj !== 'object') return [];
 
-  const values = Object.values(obj || {});
+  const values = !Array.isArray(obj) ? Object.values(obj || {}) : obj;
 
-  return Object.keys(obj || {}).map((key, index) => {
-    const value = values[index];
-    const isObject = typeof value === 'object';
-    const isArray = Array.isArray(value);
-    const identifier = `${childOf.join('')}${depth}${index}`;
-    const isOpen = isObject && !minimizedRows.includes(identifier);
+  return (!Array.isArray(obj) ? Object.keys(obj || {}) : obj).map(
+    (key, index) => {
+      const value = values[index];
+      const dataIsArray = Array.isArray(obj);
+      const valueIsArray = Array.isArray(value);
+      const valueIsObject = typeof value === 'object';
 
-    return [
-      {
-        keyString: key,
-        valueString: isObject
-          ? `: ${isArray ? '[' : '{'}${
-              !isOpen ? `...${isArray ? ']' : '}'}` : ''
+      const identifier = `${childOf.join('')}${depth}${index}`;
+      const isOpen = valueIsObject && !minimizedRows.includes(identifier);
+
+      const openingItem = {
+        keyString: dataIsArray ? '' : key,
+        valueString: valueIsObject
+          ? `${!dataIsArray ? ': ' : ''}${valueIsArray ? '[' : '{'}${
+              !isOpen ? `...${valueIsArray ? ']' : '}'}` : ''
             }`
-          : `: ${JSON.stringify(value)}`,
+          : `${key && !dataIsArray ? ': ' : ''}${JSON.stringify(value)}`,
         isOpen,
-        isObject,
+        isObject: valueIsObject,
         childOf,
         depth,
         id: identifier,
-      },
-      ...(isOpen
-        ? normalizeJSON(
-            isArray ? {...value} : value,
-            depth + 1,
-            minimizedRows,
-            [...childOf, identifier],
-          )
-        : []),
-      ...(isOpen
-        ? [
-            {
-              keyString: '',
-              valueString: isArray ? `]` : '}',
-              isOpen: false,
-              isObject: false,
-              childOf,
-              depth,
-              id: identifier,
-            },
-          ]
-        : []),
-    ];
-  });
+      };
+
+      const closingItem = {
+        keyString: '',
+        valueString: valueIsArray ? `]` : '}',
+        isOpen: false,
+        isObject: false,
+        childOf,
+        depth,
+        id: identifier,
+      };
+
+      return [
+        openingItem,
+        ...(isOpen
+          ? normalizeJSON(value, depth + 1, minimizedRows, [
+              ...childOf,
+              identifier,
+            ])
+          : []),
+        ...(isOpen ? [closingItem] : []),
+      ];
+    },
+  );
 };
 
 const useJSONPreview = (downloadLink: string) => {
@@ -83,7 +85,28 @@ const useJSONPreview = (downloadLink: string) => {
   const [minimizedRows, setMinimizedRows] = useState<string[]>([]);
 
   const flatData = useMemo(() => {
-    return flattenDeep(normalizeJSON(data, 0, minimizedRows));
+    let flattenedData = flattenDeep(normalizeJSON(data, 0, minimizedRows));
+    const outsideBracketMetadata = {
+      keyString: '',
+      isOpen: false,
+      isObject: true,
+      childOf: [],
+      depth: 0,
+      id: '',
+    };
+
+    flattenedData = [
+      {
+        ...outsideBracketMetadata,
+        valueString: Array.isArray(data) ? `[` : '{',
+      },
+      ...flattenedData,
+      {
+        ...outsideBracketMetadata,
+        valueString: Array.isArray(data) ? `]` : '}',
+      },
+    ];
+    return flattenedData;
   }, [data, minimizedRows]);
 
   return {

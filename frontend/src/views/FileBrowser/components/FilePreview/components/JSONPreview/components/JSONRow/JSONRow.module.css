@@ -2,6 +2,7 @@
   display: block;
   padding-left: 2rem;
   width: 100%;
+  white-space: nowrap;
 }
 
 .base.clickable:hover {
@@ -38,7 +39,9 @@
 
 .arrowDown, .arrowRight {
   display: inline-block;
+  user-select: none;
   margin-right: 0.5rem;
+  margin-left: 1rem;
   font-size: 0.6rem;
 }
 
