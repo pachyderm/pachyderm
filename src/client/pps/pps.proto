@@ -699,6 +699,8 @@ message CreatePipelineRequest {
   bool s3_out = 36;
   ResourceSpec resource_requests = 12;
   ResourceSpec resource_limits = 22;
+  ResourceSpec master_requests = 60;
+  ResourceSpec master_limits = 61;
   ResourceSpec sidecar_resource_limits = 47;
   Input input = 13;
   string description = 14;

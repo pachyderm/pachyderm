@@ -103,6 +103,8 @@ type WorkerSpecificConfiguration struct {
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME,required"`
 	// The name of this pod
 	PodName string `env:"PPS_POD_NAME,required"`
+
+	WorkerOnly bool `env:"WORKER_ONLY,default=false"`
 }
 
 // FeatureFlags contains the configuration for feature flags.  XXX: if you're

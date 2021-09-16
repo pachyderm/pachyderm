@@ -58,6 +58,12 @@ func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.Re
 	return getResourceListFromSpec(pipelineInfo.ResourceRequests)
 }
 
+// GetMasterRequestsResourceListFromPipeline returns a list of resources that the worker master,
+// minimally requires.
+func GetMasterRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
+	return getResourceListFromSpec(pipelineInfo.MasterRequests)
+}
+
 func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, error) {
 	result := make(v1.ResourceList)
 

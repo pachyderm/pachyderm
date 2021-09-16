@@ -44,13 +44,17 @@ type workerOptions struct {
 	specCommit    string // Pipeline spec commit ID (needed for s3 inputs)
 	s3GatewayPort int32  // s3 gateway port (if any s3 pipeline inputs)
 
-	userImage             string              // The user's pipeline/job image
-	labels                map[string]string   // k8s labels attached to the RC and workers
-	annotations           map[string]string   // k8s annotations attached to the RC and workers
-	parallelism           int32               // Number of replicas the RC maintains
-	cacheSize             string              // Size of cache that sidecar uses
-	resourceRequests      *v1.ResourceList    // Resources requested by pipeline/job pods
-	resourceLimits        *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the user and init containers
+	userImage        string            // The user's pipeline/job image
+	labels           map[string]string // k8s labels attached to the RC and workers
+	annotations      map[string]string // k8s annotations attached to the RC and workers
+	parallelism      int32             // Number of replicas the RC maintains
+	cacheSize        string            // Size of cache that sidecar uses
+	resourceRequests *v1.ResourceList  // Resources requested by pipeline/job pods
+	resourceLimits   *v1.ResourceList  // Resources requested by pipeline/job pods, applied to the user and init containers
+
+	masterResourceRequests *v1.ResourceList // Resources requested by pipeline/job pods
+	masterResourceLimits   *v1.ResourceList // Resources requested by pipeline/job pods, applied to the user and init containers
+
 	sidecarResourceLimits *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the sidecar container
 	workerEnv             []v1.EnvVar         // Environment vars set in the user container
 	volumes               []v1.Volume         // Volumes that we expose to the user container
@@ -58,6 +62,8 @@ type workerOptions struct {
 	schedulingSpec        *pps.SchedulingSpec // the SchedulingSpec for the pipeline
 	podSpec               string
 	podPatch              string
+
+	splitMaster bool
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -81,7 +87,7 @@ func getPachctlSecretVolumeAndMount(secret string) (v1.Volume, v1.VolumeMount) {
 		}
 }
 
-func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.PipelineInfo) (v1.PodSpec, error) {
+func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.PipelineInfo, forSplitMaster bool) (v1.PodSpec, error) {
 	pullPolicy := a.workerImagePullPolicy
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
@@ -200,6 +206,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		{
 			Name:  "METRICS",
 			Value: strconv.FormatBool(a.env.Metrics),
+		},
+		{
+			Name:  "WORKER_ONLY",
+			Value: strconv.FormatBool(options.splitMaster && !forSplitMaster),
 		},
 	}...)
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
@@ -384,9 +394,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
 		podSpec.PriorityClassName = options.schedulingSpec.PriorityClassName
 	}
-
-	if options.resourceRequests != nil {
-		for k, v := range *options.resourceRequests {
+	workerReqs := options.resourceRequests
+	if forSplitMaster && options.masterResourceRequests != nil {
+		workerReqs = options.masterResourceRequests
+	}
+	if workerReqs != nil {
+		for k, v := range *workerReqs {
 			podSpec.Containers[0].Resources.Requests[k] = v
 		}
 	}
@@ -400,10 +413,14 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		}
 	}
 
-	if options.resourceLimits != nil {
+	workerLim := options.resourceLimits
+	if forSplitMaster && options.masterResourceLimits != nil {
+		workerLim = options.masterResourceLimits
+	}
+	if forSplitMaster && options.masterResourceLimits != nil {
 		podSpec.InitContainers[0].Resources.Limits = make(v1.ResourceList)
 		podSpec.Containers[0].Resources.Limits = make(v1.ResourceList)
-		for k, v := range *options.resourceLimits {
+		for k, v := range *workerLim {
 			podSpec.InitContainers[0].Resources.Limits[k] = v
 			podSpec.Containers[0].Resources.Limits[k] = v
 		}
@@ -481,6 +498,8 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	pipelineVersion := pipelineInfo.Version
 	var resourceRequests *v1.ResourceList
 	var resourceLimits *v1.ResourceList
+	var masterRequests *v1.ResourceList
+	var masterLimits *v1.ResourceList
 	var sidecarResourceLimits *v1.ResourceList
 	if pipelineInfo.ResourceRequests != nil {
 		var err error
@@ -492,6 +511,20 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	if pipelineInfo.ResourceLimits != nil {
 		var err error
 		resourceLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.ResourceLimits)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not determine resource limit")
+		}
+	}
+	if pipelineInfo.MasterRequests != nil {
+		var err error
+		masterRequests, err = ppsutil.GetMasterRequestsResourceListFromPipeline(pipelineInfo)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not determine resource request")
+		}
+	}
+	if pipelineInfo.MasterLimits != nil {
+		var err error
+		masterLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.MasterLimits)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not determine resource limit")
 		}
@@ -641,25 +674,28 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 
 	// Generate options for new RC
 	return &workerOptions{
-		rcName:                rcName,
-		s3GatewayPort:         s3GatewayPort,
-		specCommit:            ptr.SpecCommit.ID,
-		labels:                labels,
-		annotations:           annotations,
-		parallelism:           int32(0), // pipelines start w/ 0 workers & are scaled up
-		resourceRequests:      resourceRequests,
-		resourceLimits:        resourceLimits,
-		sidecarResourceLimits: sidecarResourceLimits,
-		userImage:             userImage,
-		workerEnv:             workerEnv,
-		volumes:               volumes,
-		volumeMounts:          volumeMounts,
-		imagePullSecrets:      imagePullSecrets,
-		cacheSize:             pipelineInfo.CacheSize,
-		service:               service,
-		schedulingSpec:        pipelineInfo.SchedulingSpec,
-		podSpec:               pipelineInfo.PodSpec,
-		podPatch:              pipelineInfo.PodPatch,
+		rcName:                 rcName,
+		s3GatewayPort:          s3GatewayPort,
+		specCommit:             ptr.SpecCommit.ID,
+		labels:                 labels,
+		annotations:            annotations,
+		parallelism:            int32(0), // pipelines start w/ 0 workers & are scaled up
+		resourceRequests:       resourceRequests,
+		resourceLimits:         resourceLimits,
+		masterResourceRequests: masterRequests,
+		masterResourceLimits:   masterLimits,
+		splitMaster:            masterRequests != nil || masterLimits != nil,
+		sidecarResourceLimits:  sidecarResourceLimits,
+		userImage:              userImage,
+		workerEnv:              workerEnv,
+		volumes:                volumes,
+		volumeMounts:           volumeMounts,
+		imagePullSecrets:       imagePullSecrets,
+		cacheSize:              pipelineInfo.CacheSize,
+		service:                service,
+		schedulingSpec:         pipelineInfo.SchedulingSpec,
+		podSpec:                pipelineInfo.PodSpec,
+		podPatch:               pipelineInfo.PodPatch,
 	}, nil
 }
 
@@ -734,7 +770,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 	if err != nil {
 		return noValidOptionsErr{err}
 	}
-	podSpec, err := a.workerPodSpec(options, pipelineInfo)
+	podSpec, err := a.workerPodSpec(options, pipelineInfo, false)
 	if err != nil {
 		return err
 	}
@@ -766,6 +802,23 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 			return err
 		}
 	}
+
+	if options.splitMaster {
+		var one int32 = 1
+		masterSpec, err := a.workerPodSpec(options, pipelineInfo, true)
+		if err != nil {
+			return err
+		}
+		rc.ObjectMeta.Name = options.rcName + "-master"
+		rc.Spec.Replicas = &one
+		rc.Spec.Template.Spec = masterSpec
+		if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
+			if !isAlreadyExistsErr(err) {
+				return err
+			}
+		}
+	}
+
 	serviceAnnotations := map[string]string{
 		"prometheus.io/scrape": "true",
 		"prometheus.io/port":   strconv.Itoa(workerstats.PrometheusPort),

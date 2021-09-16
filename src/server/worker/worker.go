@@ -54,6 +54,7 @@ func NewWorker(
 	namespace string,
 	hashtreePath string,
 	rootPath string,
+	workerOnly bool,
 ) (*Worker, error) {
 	stats.InitPrometheus()
 
@@ -107,7 +108,9 @@ func NewWorker(
 
 	worker.APIServer = server.NewAPIServer(driver, worker.status, workerName)
 
-	go worker.master(etcdClient, etcdPrefix)
+	if !workerOnly {
+		go worker.master(etcdClient, etcdPrefix)
+	}
 	go worker.worker()
 	return worker, nil
 }
