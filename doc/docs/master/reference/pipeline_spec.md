@@ -843,19 +843,11 @@ successful.
 
 For more information, see [Exporting Data by using egress](../how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md)
 
-### Standby (optional)
-
-`standby` indicates that the pipeline should be put into "standby" when there's
-no data for it to process. A pipeline in standby will have no pods running and
-thus will consume no resources. The pipeline's state will be displayed as "standby".
-
 ### Autoscaling (optional)
 `autoscaling` indicates that the pipeline should automatically scale the worker
 pool based on the datums it has to process. A pipeline with no outstanding jobs
-will go into `standby` and have no workers.
-
-`autoscaling` is a more sophisticated version of `standby` that was introduced
-in 1.13.0.
+will go into *standby*. A pipeline in a *standby* state will have no pods running and
+thus will consume no resources. 
 
 ### Cache Size (optional)
 

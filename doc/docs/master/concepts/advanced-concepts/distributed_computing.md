@@ -15,7 +15,7 @@ across the various workers and makes that data available for your code.
 
 When you create a pipeline, Pachyderm spins up worker pods that
 continuously run in the cluster waiting for new data to be available
-for processing. You can change this behavior by setting `"standby" :true`.
+for processing. You can change this behavior by setting `"autoscaling" :true`.
 Therefore, you do not need to recreate and
 schedule workers for every new job.
 
@@ -83,9 +83,9 @@ that it spawns one worker per Kubernetes node for this pipeline.
 
 Pipelines that will not have a constant flow of data to process should use the `autoscaling` feature by setting `"autoscaling": true` in the pipeline spec. 
 
-Doing so will cause the pipeline **to go into standby when there is nothing for the workers to do**. In `standby` a pipeline will have no workers and will consume no resources; it will just wait for data to come in for it to process.
+Doing so will cause the pipeline **to go into standby when there is nothing for the workers to do**. In standby a pipeline will have no workers and will consume no resources; it will just wait for data to come in for it to process.
 
-When data does come in, the pipeline will exit `standby` and spin up workers to process the new data. Initially, a single worker will spin up and layout a distributed processing plan for the job. Then it will start working on the job, and if there is more work that could happen in parallel, it will spin up more workers to run in parallel, up to the limit defined by the `parallelism_spec`.
+When data does come in, the pipeline will exit its standby status and spin up workers to process the new data. Initially, a single worker will spin up and layout a distributed processing plan for the job. Then it will start working on the job, and if there is more work that could happen in parallel, it will spin up more workers to run in parallel, up to the limit defined by the `parallelism_spec`.
 
 Multiple jobs can run in parallel and cause new workers to spin up. For example, if a job comes in with a single datum, it will cause a single worker to spin up. If another job with a single datum comes in while the first job is still running, another worker will spin up to work on the second job. Again this is bounded by the limit defined in the `parallelism_spec`.
 
