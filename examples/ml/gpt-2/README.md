@@ -182,7 +182,7 @@ scraping tweets:
         "memory": "10G",
         "cpu": 1
     },
-    "standby": true
+    "autoscaling": true
 }
 ```
 
@@ -191,7 +191,7 @@ A few things have changed from the `tweets` pipeline. First we're taking the
 script in our transform. We've also added a `resource_limits` section, because
 this is a much more computationally intensive task than we did in the tweets
 pipeline, so it makes sense to give it a gpu and a large chunk of memory to
-train on. We also enable `standby`, which prevents the pipeline from holding
+train on. We also enable `autoscaling`, which prevents the pipeline from holding
 onto those resources when it's not processing data. You can create this
 pipeline with:
 
@@ -272,7 +272,7 @@ The pipeline spec to run this on Pachyderm should look familiar by now:
         "memory": "10G",
         "cpu": 1
     },
-    "standby": true
+    "autoscaling": true
 }
 ```
 
