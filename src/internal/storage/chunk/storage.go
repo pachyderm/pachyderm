@@ -13,19 +13,21 @@ import (
 
 const (
 	// TrackerPrefix is the prefix used when creating tracker objects for chunks
-	TrackerPrefix   = "chunk/"
-	prefix          = "chunk"
-	defaultChunkTTL = 30 * time.Minute
+	TrackerPrefix        = "chunk/"
+	prefix               = "chunk"
+	defaultChunkTTL      = 30 * time.Minute
+	defaultPrefetchLimit = 10
 )
 
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
-	objClient obj.Client
-	db        *sqlx.DB
-	tracker   track.Tracker
-	store     kv.Store
-	memCache  kv.GetPut
-	deduper   *miscutil.WorkDeduper
+	objClient     obj.Client
+	db            *sqlx.DB
+	tracker       track.Tracker
+	store         kv.Store
+	memCache      kv.GetPut
+	deduper       *miscutil.WorkDeduper
+	prefetchLimit int
 
 	createOpts CreateOptions
 }
@@ -33,11 +35,12 @@ type Storage struct {
 // NewStorage creates a new Storage.
 func NewStorage(objC obj.Client, memCache kv.GetPut, db *sqlx.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
-		objClient: objC,
-		db:        db,
-		tracker:   tracker,
-		memCache:  memCache,
-		deduper:   &miscutil.WorkDeduper{},
+		objClient:     objC,
+		db:            db,
+		tracker:       tracker,
+		memCache:      memCache,
+		deduper:       &miscutil.WorkDeduper{},
+		prefetchLimit: defaultPrefetchLimit,
 		createOpts: CreateOptions{
 			Compression: CompressionAlgo_GZIP_BEST_SPEED,
 		},
@@ -54,7 +57,7 @@ func NewStorage(objC obj.Client, memCache kv.GetPut, db *sqlx.DB, tracker track.
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	// using the empty string for the tmp id to disable the renewer
 	client := NewClient(s.store, s.db, s.tracker, "")
-	return newReader(ctx, client, s.memCache, s.deduper, dataRefs, opts...)
+	return newReader(ctx, client, s.memCache, s.deduper, s.prefetchLimit, dataRefs, opts...)
 }
 
 // NewWriter creates a new Writer for a stream of bytes to be chunked.
