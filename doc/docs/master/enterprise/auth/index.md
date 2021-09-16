@@ -25,7 +25,7 @@ See the Identity Provider High Level Diagram below:
 ## Activate User Access Management
 !!! Note
     Verify the status of your **Enterprise License** before activating the User Access Management feature
-    by running `pachctl enterprise get-status`. The command should return an `ACTIVE`
+    by running `pachctl enterprise get-state`. The command should return an `ACTIVE`
     status along with the expiration date of the Enterprise License.   
 
 To activate Pachyderm's authentication and authorization features,
