@@ -4498,12 +4498,13 @@ func TestPFS(suite *testing.T) {
 		for _, path := range paths {
 			writeObj(t, objC, path, path)
 		}
-		for _, path := range paths {
-			url := fmt.Sprintf("local://%s/%s", objC.BucketURL(), path)
-			require.NoError(t, env.PachClient.PutFileURL(commit, path, url, false))
+		bucketURL := objC.BucketURL()
+		for _, p := range paths {
+			objURL := bucketURL + "/" + p
+			require.NoError(t, env.PachClient.PutFileURL(commit, p, objURL, false))
 		}
-		url := fmt.Sprintf("local://%s/files", objC.BucketURL())
-		require.NoError(t, env.PachClient.PutFileURL(commit, "recursive", url, true))
+		srcURL := bucketURL + "/files"
+		require.NoError(t, env.PachClient.PutFileURL(commit, "recursive", srcURL, true))
 		check := func() {
 			cis, err := env.PachClient.ListCommit(client.NewRepo(repo), nil, nil, 0)
 			require.NoError(t, err)
