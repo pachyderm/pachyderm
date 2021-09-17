@@ -77,6 +77,7 @@ func ensureMinio(ctx context.Context, dclient docker.APIClient) error {
 		Cmd:   []string{"server", "/data", `--console-address=:9001`},
 		PortMap: map[uint16]uint16{
 			9000: 9000,
+			9001: 9001,
 		},
 	})
 }
