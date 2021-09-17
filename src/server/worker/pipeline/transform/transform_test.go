@@ -23,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
@@ -270,7 +269,7 @@ func TestTransformPipeline(suite *testing.T) {
 
 	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
 		t.Parallel()
-		objC, bucket := testutil.NewObjectClient(t)
+		objC, bucket := obj.NewTestClient(t)
 		pi := defaultPipelineInfo()
 		pi.Details.Egress = &pps.Egress{URL: fmt.Sprintf("local://%s/", bucket)}
 		env := newWorkerSpawnerPair(t, dockertestenv.NewTestDBConfig(t), pi)
@@ -297,7 +296,7 @@ func TestTransformPipeline(suite *testing.T) {
 
 	suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
 		t.Parallel()
-		_, bucket := testutil.NewObjectClient(t)
+		_, bucket := obj.NewTestClient(t)
 		pi := defaultPipelineInfo()
 		pi.Details.Input.Pfs.Glob = "/"
 		pi.Details.Egress = &pps.Egress{URL: fmt.Sprintf("local://%s/", bucket)}

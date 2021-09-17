@@ -4535,7 +4535,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(commit, path, strings.NewReader(path)))
 		}
 		check := func() {
-			objC, bucketURL := tu.NewObjectClient(t)
+			objC, bucketURL := obj.NewTestClient(t)
 			for _, path := range paths {
 				require.NoError(t, env.PachClient.GetFileURL(commit, path, bucketURL))
 			}
