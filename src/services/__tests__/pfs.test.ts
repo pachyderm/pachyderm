@@ -61,10 +61,8 @@ describe('services/pfs', () => {
       });
       expect(file.byteLength).toEqual(80588);
     });
-  });
 
-  describe('getFile', () => {
-    it('should return a file from a repo', async () => {
+    it('should return a file TAR from a repo', async () => {
       const client = await createSandbox('getFile');
       const commit = await client.pfs().startCommit({
         branch: {name: 'master', repo: {name: 'getFile'}},
@@ -77,12 +75,12 @@ describe('services/pfs', () => {
         .end();
 
       await client.pfs().finishCommit({commit});
-      const file = await client.pfs().getFile({
+      const file = await client.pfs().getFileTAR({
         commitId: commit.id,
         path: '/at-at.png',
         branch: {name: 'master', repo: {name: 'getFile'}},
       });
-      expect(file.byteLength).toEqual(80588);
+      expect(file.byteLength).toEqual(82432);
     });
   });
 

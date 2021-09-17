@@ -18,7 +18,6 @@ import {
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
-import {extract} from 'tar-stream';
 
 import {
   commitSetFromObject,
@@ -71,7 +70,7 @@ const pfs = ({
     /* eslint-enable @typescript-eslint/naming-convention */
   });
 
-  return {
+  const pfsService = {
     listFile: (params: FileObject) => {
       const listFileRequest = new ListFileRequest();
       const file = fileFromObject(params);
@@ -83,40 +82,34 @@ const pfs = ({
 
       return streamToObjectArray<FileInfo, FileInfo.AsObject>(stream);
     },
-    getFile: (params: FileObject) => {
+    getFile: (params: FileObject, tar = false) => {
       const getFileRequest = new GetFileRequest();
       const file = fileFromObject(params);
 
       getFileRequest.setFile(file);
 
-      const stream = client.getFileTAR(getFileRequest, credentialMetadata);
+      const stream = tar
+        ? client.getFileTAR(getFileRequest, credentialMetadata)
+        : client.getFile(getFileRequest, credentialMetadata);
 
       return new Promise<Buffer>((resolve, reject) => {
-        // The GetFile request returns a tar stream.
-        // We have to untar it before we can read it.
         const buffers: Buffer[] = [];
-        const extractor = extract();
 
-        extractor.on('entry', (_, estream, next) => {
-          estream.on('data', (buffer: Buffer) => buffers.push(buffer));
-          estream.on('end', () => next());
-          estream.resume();
-        });
-
-        extractor.on('finish', () => {
+        stream.on('data', (chunk: BytesValue) =>
+          buffers.push(Buffer.from(chunk.getValue())),
+        );
+        stream.on('end', () => {
           if (buffers.length) {
             return resolve(Buffer.concat(buffers));
           } else {
             return reject(new Error('File does not exist.'));
           }
         });
-
-        stream.on('data', (chunk: BytesValue) =>
-          extractor.write(chunk.getValue()),
-        );
-        stream.on('end', () => extractor.end());
         stream.on('error', (err) => reject(err));
       });
+    },
+    getFileTAR: (params: FileObject) => {
+      return pfsService.getFile(params, true);
     },
     inspectFile: (params: FileObject) => {
       return new Promise<FileInfo.AsObject>((resolve, reject) => {
@@ -370,6 +363,8 @@ const pfs = ({
       });
     },
   };
+
+  return pfsService;
 };
 
 export default pfs;
