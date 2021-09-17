@@ -53,6 +53,7 @@ func (c *fsClient) Put(ctx context.Context, name string, r io.Reader) (retErr er
 		return err
 	}
 	defer c.closeFile(&retErr, f)
+	defer c.removeFile(&retErr, staging)
 	if _, err := io.Copy(f, r); err != nil {
 		return err
 	}
@@ -83,9 +84,10 @@ func (c *fsClient) Delete(ctx context.Context, name string) error {
 
 func (c *fsClient) Exists(ctx context.Context, name string) (bool, error) {
 	_, err := os.Stat(c.finalPathFor(name))
-	if os.IsNotExist(err) {
-		return false, nil
-	} else if err != nil {
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
 		return false, err
 	}
 	return true, nil
@@ -131,10 +133,10 @@ func (c *fsClient) init() error {
 	if err := os.RemoveAll(filepath.Join(c.rootDir, "staging")); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(c.rootDir, "staging"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(c.rootDir, "staging"), 0755); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(c.rootDir, "objects"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(c.rootDir, "objects"), 0755); err != nil {
 		return err
 	}
 	logrus.Infof("successfully initialized fs-backed object store at %s", c.rootDir)
@@ -157,7 +159,21 @@ func (c *fsClient) closeFile(retErr *error, f *os.File) {
 		if retErr == nil {
 			*retErr = err
 		} else {
-			logrus.Errorf("error closing file %v", err)
+			logrus.Errorf("error closing file: %v", err)
+		}
+	}
+}
+
+func (c *fsClient) removeFile(retErr *error, p string) {
+	err := os.Remove(p)
+	if os.IsNotExist(err) {
+		err = nil
+	}
+	if err != nil {
+		if retErr == nil {
+			*retErr = err
+		} else {
+			logrus.Errorf("error deleting file: %v", err)
 		}
 	}
 }
