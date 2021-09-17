@@ -10,7 +10,7 @@
   [plugins.inputs]
 
   entryPoints = [
-    "latest/index.html",
+    "2.0.x-rc/index.html",
   ]
  
   recursive = true
