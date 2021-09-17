@@ -10,7 +10,8 @@ MAINTAINER jdoliner@pachyerm.io
 LABEL name="Pachyderm" \
       vendor="Pachyderm"
 
-COPY LICENSE /licenses
+COPY LICENSE /LICENSE
+COPY licenses /licenses
 COPY pachd /pachd
 COPY dex-assets /dex-assets
 COPY --from=pachyderm_build /tmp/to-copy /
