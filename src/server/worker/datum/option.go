@@ -3,7 +3,6 @@ package datum
 import (
 	"context"
 	"fmt"
-	"path"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -60,6 +59,6 @@ func WithTimeout(timeout time.Duration) Option {
 // WithPrefixIndex prefixes the datum directory name (both locally and in PFS) with its index value.
 func WithPrefixIndex() Option {
 	return func(d *Datum) {
-		d.storageRoot = path.Join(d.set.storageRoot, fmt.Sprintf("%016d", d.meta.Index)+"-"+d.ID)
+		d.IDPrefix = fmt.Sprintf("%016d", d.meta.Index) + "-"
 	}
 }

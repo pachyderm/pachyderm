@@ -4,23 +4,34 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 )
 
 var _ MetadataStore = &postgresStore{}
 
 type postgresStore struct {
-	db *sqlx.DB
+	db      *sqlx.DB
+	cache   kv.GetPut
+	deduper *miscutil.WorkDeduper
 }
 
 // NewPostgresStore returns a Store backed by db
 func NewPostgresStore(db *sqlx.DB) MetadataStore {
-	return &postgresStore{db: db}
+	return &postgresStore{
+		db:      db,
+		cache:   kv.NewMemCache(100),
+		deduper: &miscutil.WorkDeduper{},
+	}
 }
 
 func (s *postgresStore) DB() *sqlx.DB {
@@ -69,7 +80,55 @@ func (s *postgresStore) get(ctx context.Context, q sqlx.QueryerContext, id ID) (
 }
 
 func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
-	return s.get(ctx, s.db, id)
+	md, err := s.getFromCache(ctx, id)
+	if err == nil {
+		return md, err
+	}
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		if err := s.deduper.Do(ctx, id, func() error {
+			md, err := s.get(ctx, s.db, id)
+			if err != nil {
+				return err
+			}
+			return s.putInCache(ctx, id, md)
+		}); err != nil {
+			return err
+		}
+		var err error
+		md, err = s.getFromCache(ctx, id)
+		return err
+	}, backoff.NewExponentialBackOff(), func(err error, _ time.Duration) error {
+		if pacherr.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return md, nil
+}
+
+func (s *postgresStore) getFromCache(ctx context.Context, id ID) (*Metadata, error) {
+	var mdData []byte
+	if err := s.cache.Get(ctx, id[:], func(data []byte) error {
+		mdData = data
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	md := &Metadata{}
+	if err := proto.Unmarshal(mdData, md); err != nil {
+		return nil, err
+	}
+	return md, nil
+}
+
+func (s *postgresStore) putInCache(ctx context.Context, id ID, md *Metadata) error {
+	mdData, err := proto.Marshal(md)
+	if err != nil {
+		return err
+	}
+	return s.cache.Put(ctx, id[:], mdData)
 }
 
 func (s *postgresStore) GetTx(tx *sqlx.Tx, id ID) (*Metadata, error) {

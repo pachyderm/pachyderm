@@ -180,6 +180,7 @@ type Datum struct {
 	numRetries       int
 	recoveryCallback func(context.Context) error
 	timeout          time.Duration
+	IDPrefix         string
 }
 
 func newDatum(set *Set, meta *Meta, opts ...Option) *Datum {
@@ -339,7 +340,7 @@ func (d *Datum) uploadMetaFile(mf client.ModifyFile) error {
 	if err := marshaler.Marshal(buf, d.meta); err != nil {
 		return err
 	}
-	fullPath := path.Join(MetaPrefix, d.ID, MetaFileName)
+	fullPath := path.Join(MetaPrefix, d.IDPrefix+d.ID, MetaFileName)
 	return mf.PutFile(fullPath, buf, client.WithAppendPutFile(), client.WithDatumPutFile(d.ID))
 }
 
