@@ -198,7 +198,6 @@ nav:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
                 - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
-                - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md
             - Post-Deployment:    
                 - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
