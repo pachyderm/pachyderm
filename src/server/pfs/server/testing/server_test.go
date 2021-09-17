@@ -39,7 +39,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -4539,7 +4538,6 @@ func TestPFS(suite *testing.T) {
 		check := func() {
 			objC := dockertestenv.NewTestObjClient(t)
 			for _, path := range paths {
-				logrus.Println(objC.BucketURL())
 				require.NoError(t, env.PachClient.GetFileURL(commit, path, objC.BucketURL()))
 			}
 			for _, path := range paths {
