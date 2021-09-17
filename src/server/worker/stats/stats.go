@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 const (
@@ -16,12 +16,27 @@ const (
 	PrometheusPort = 9090
 )
 
+func JobLabels(job *pps.Job) prometheus.Labels {
+	return prometheus.Labels{
+		"pipeline": job.Pipeline.Name,
+		"job":      job.ID,
+	}
+}
+
+func DatumLabels(job *pps.Job, state pps.DatumState) prometheus.Labels {
+	return prometheus.Labels{
+		"pipeline": job.Pipeline.Name,
+		"job":      job.ID,
+		"state":    state.String(),
+	}
+}
+
 var (
 	bucketFactor = 2.0
 	bucketCount  = 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
 
 	// DatumCount is a counter tracking the number of datums processed by a pipeline
-	DatumCount = prometheus.NewCounterVec(
+	DatumCount = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -36,7 +51,7 @@ var (
 	)
 
 	// DatumProcTime is a histogram tracking the time spent in user code for datums processed by a pipeline
-	DatumProcTime = prometheus.NewHistogramVec(
+	DatumProcTime = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -52,7 +67,7 @@ var (
 	)
 
 	// DatumProcSecondsCount is a counter tracking the total time spent in user code by a pipeline
-	DatumProcSecondsCount = prometheus.NewCounterVec(
+	DatumProcSecondsCount = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -66,7 +81,7 @@ var (
 	)
 
 	// DatumDownloadTime is a histogram tracking the time spent downloading input data by a pipeline
-	DatumDownloadTime = prometheus.NewHistogramVec(
+	DatumDownloadTime = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -81,7 +96,7 @@ var (
 	)
 
 	// DatumDownloadSecondsCount is a counter tracking the total time spent downloading input data by a pipeline
-	DatumDownloadSecondsCount = prometheus.NewCounterVec(
+	DatumDownloadSecondsCount = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -95,7 +110,7 @@ var (
 	)
 
 	// DatumUploadTime is a histogram tracking the time spent uploading output data by a pipeline
-	DatumUploadTime = prometheus.NewHistogramVec(
+	DatumUploadTime = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -110,7 +125,7 @@ var (
 	)
 
 	// DatumUploadSecondsCount is a counter tracking the total time spent uploading output data by a pipeline
-	DatumUploadSecondsCount = prometheus.NewCounterVec(
+	DatumUploadSecondsCount = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -124,7 +139,7 @@ var (
 	)
 
 	// DatumDownloadSize is a histogram tracking the size of input data downloaded by a pipeline
-	DatumDownloadSize = prometheus.NewHistogramVec(
+	DatumDownloadSize = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -139,7 +154,7 @@ var (
 	)
 
 	// DatumDownloadBytesCount is a counter tracking the total size of input data downloaded by a pipeline
-	DatumDownloadBytesCount = prometheus.NewCounterVec(
+	DatumDownloadBytesCount = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -153,7 +168,7 @@ var (
 	)
 
 	// DatumUploadSize is a histogram tracking the size of output data uploaded by a pipeline
-	DatumUploadSize = prometheus.NewHistogramVec(
+	DatumUploadSize = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -168,7 +183,7 @@ var (
 	)
 
 	// DatumUploadBytesCount is a counter tracking the total size of output data uploaded by a pipeline
-	DatumUploadBytesCount = prometheus.NewCounterVec(
+	DatumUploadBytesCount = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -185,27 +200,30 @@ var (
 // InitPrometheus sets up the default datum stats collectors for use by worker
 // code, and exposes the stats on an http endpoint.
 func InitPrometheus() {
-	metrics := []prometheus.Collector{
-		DatumCount,
-		DatumProcTime,
-		DatumProcSecondsCount,
-		DatumDownloadTime,
-		DatumDownloadSecondsCount,
-		DatumUploadTime,
-		DatumUploadSecondsCount,
-		DatumDownloadSize,
-		DatumDownloadBytesCount,
-		DatumUploadSize,
-		DatumUploadBytesCount,
-	}
-	for _, metric := range metrics {
-		if err := prometheus.Register(metric); err != nil {
-			// metrics may be redundantly registered; ignore these errors
-			if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
-				logrus.Errorf("error registering prometheus metric: %v", err)
+	logrus.Infof("registering prometheus collectors")
+	/*
+		metrics := []prometheus.Collector{
+			DatumCount,
+			DatumProcTime,
+			DatumProcSecondsCount,
+			DatumDownloadTime,
+			DatumDownloadSecondsCount,
+			DatumUploadTime,
+			DatumUploadSecondsCount,
+			DatumDownloadSize,
+			DatumDownloadBytesCount,
+			DatumUploadSize,
+			DatumUploadBytesCount,
+		}
+		for _, metric := range metrics {
+			if err := prometheus.Register(metric); err != nil {
+				// metrics may be redundantly registered; ignore these errors
+				if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
+					logrus.Errorf("error registering prometheus metric: %v", err)
+				}
 			}
 		}
-	}
+	*/
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
 		if err := http.ListenAndServe(fmt.Sprintf(":%v", PrometheusPort), nil); err != nil {
