@@ -107,6 +107,10 @@ func (c *googleClient) Delete(ctx context.Context, name string) (retErr error) {
 	return c.bucket.Object(name).Delete(ctx)
 }
 
+func (c *googleClient) BucketURL() string {
+	panic("not implemented")
+}
+
 func (c *googleClient) transformError(err error, objectPath string) error {
 	const minWait = 250 * time.Millisecond
 	if err == nil {

@@ -28,4 +28,7 @@ type Client interface {
 
 	// Exists checks if a given object already exists
 	Exists(ctx context.Context, name string) (bool, error)
+
+	// BucketURL returns the URL of the bucket this client uses.
+	BucketURL() string
 }

@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -4492,16 +4493,16 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		masterCommit := client.NewCommit(repo, "master", "")
 		require.NoError(t, err)
-		objC, bucket := obj.NewTestClient(t)
+		objC := dockertestenv.NewTestObjClient(t)
 		paths := []string{"files/foo", "files/bar", "files/fizz"}
 		for _, path := range paths {
 			writeObj(t, objC, path, path)
 		}
 		for _, path := range paths {
-			url := fmt.Sprintf("local://%s/%s", bucket, path)
+			url := fmt.Sprintf("local://%s/%s", objC.BucketURL(), path)
 			require.NoError(t, env.PachClient.PutFileURL(commit, path, url, false))
 		}
-		url := fmt.Sprintf("local://%s/files", bucket)
+		url := fmt.Sprintf("local://%s/files", objC.BucketURL())
 		require.NoError(t, env.PachClient.PutFileURL(commit, "recursive", url, true))
 		check := func() {
 			cis, err := env.PachClient.ListCommit(client.NewRepo(repo), nil, nil, 0)
@@ -4535,9 +4536,10 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(commit, path, strings.NewReader(path)))
 		}
 		check := func() {
-			objC, bucketURL := obj.NewTestClient(t)
+			objC := dockertestenv.NewTestObjClient(t)
 			for _, path := range paths {
-				require.NoError(t, env.PachClient.GetFileURL(commit, path, bucketURL))
+				logrus.Println(objC.BucketURL())
+				require.NoError(t, env.PachClient.GetFileURL(commit, path, objC.BucketURL()))
 			}
 			for _, path := range paths {
 				buf := &bytes.Buffer{}

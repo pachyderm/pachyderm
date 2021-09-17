@@ -429,6 +429,17 @@ func NewClientFromURLAndSecret(url *ObjectStoreURL, reverse ...bool) (c Client, 
 	case "wasb":
 		// In Azure, the first part of the path is the container name.
 		c, err = NewMicrosoftClientFromSecret(url.Bucket)
+	case "minio":
+		// TODO(brendon): This is kind of janky
+		// This is to get the PFS tests working without the filesystem object store
+		// The alternative was writing to environment variables in dockertestenv.
+		if !strings.HasSuffix(os.Args[0], ".test") {
+			err = errors.Errorf("minio urls only supported in tests")
+			break
+		}
+		parts := strings.SplitN(url.Bucket, "/", 2)
+		log.Println(parts)
+		c, err = NewMinioClient(parts[0], parts[1], "minioadmin", "minioadmin", false, false)
 	case "local":
 		root := strings.ReplaceAll(url.Bucket, ".", "/")
 		c, err = NewLocalClient("/" + root)
@@ -476,6 +487,17 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			Store:  url.Scheme,
 			Bucket: parts[0],
 			Object: strings.Trim(path.Join(parts[1:]...), "/"),
+		}, nil
+	case "minio":
+		parts := strings.SplitN(strings.Trim(url.Path, "/"), "/", 2)
+		var key string
+		if len(parts) == 2 {
+			key = parts[1]
+		}
+		return &ObjectStoreURL{
+			Store:  url.Scheme,
+			Bucket: url.Host + "/" + parts[0],
+			Object: key,
 		}, nil
 	}
 	return nil, errors.Errorf("unrecognized object store: %s", url.Scheme)

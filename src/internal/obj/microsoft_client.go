@@ -112,6 +112,10 @@ func (c *microsoftClient) Exists(ctx context.Context, name string) (bool, error)
 	return exists, nil
 }
 
+func (c *microsoftClient) BucketURL() string {
+	panic("not implemented")
+}
+
 func (c *microsoftClient) transformError(err error, name string) error {
 	const minWait = 250 * time.Millisecond
 	microsoftErr := &storage.AzureStorageServiceError{}

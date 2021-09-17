@@ -98,6 +98,10 @@ func (c *cacheClient) Walk(ctx context.Context, p string, cb func(p string) erro
 	return c.slow.Walk(ctx, p, cb)
 }
 
+func (c *cacheClient) BucketURL() string {
+	return c.slow.BucketURL()
+}
+
 func (c *cacheClient) deleteFromCache(ctx context.Context, p string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

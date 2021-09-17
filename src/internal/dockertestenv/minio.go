@@ -42,6 +42,7 @@ func NewTestObjClient(t testing.TB) obj.Client {
 func newTestMinioBucket(t testing.TB, client *minio.Client) string {
 	ctx := context.Background()
 	bucketName := testBucketName(t)
+	t.Log("bucket:", bucketName)
 	err := client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -60,7 +61,10 @@ func testBucketName(t testing.TB) string {
 	buf := make([]byte, 8)
 	_, err := rand.Read(buf[:])
 	require.NoError(t, err)
-	return fmt.Sprintf("%s-%x", strings.ToLower(t.Name()), buf[:])
+	tname := t.Name()
+	tname = strings.ToLower(tname)
+	tname = strings.ReplaceAll(tname, "/", "-")
+	return fmt.Sprintf("%s-%x", tname, buf[:])
 }
 
 var minioLock sync.Mutex

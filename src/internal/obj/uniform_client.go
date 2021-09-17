@@ -70,5 +70,5 @@ func (uc *uniformClient) Exists(ctx context.Context, p string) (_ bool, retErr e
 }
 
 func (uc *uniformClient) BucketURL() string {
-	return uc.c.(interface{ BucketURL() string }).BucketURL()
+	return uc.c.BucketURL()
 }
