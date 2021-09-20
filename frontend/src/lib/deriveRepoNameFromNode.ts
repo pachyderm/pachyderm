@@ -1,4 +1,6 @@
-import {Node, NodeType} from '@graphqlTypes';
+import {NodeType, Vertex} from '@graphqlTypes';
+
+import {Node} from './types';
 
 export const deriveNameFromNodeNameAndType = (name: string, type: NodeType) => {
   if (type === NodeType.OUTPUT_REPO || type === NodeType.INPUT_REPO) {
@@ -7,7 +9,7 @@ export const deriveNameFromNodeNameAndType = (name: string, type: NodeType) => {
   return name;
 };
 
-const deriveRepoNameFromNode = (n: Node) => {
+const deriveRepoNameFromNode = (n: Vertex | Node) => {
   return deriveNameFromNodeNameAndType(n.name, n.type);
 };
 

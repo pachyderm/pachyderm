@@ -1,7 +1,9 @@
-import {Node as GraphQLNode, NodeState, NodeType} from '@graphqlTypes';
+import {NodeState, NodeType} from '@graphqlTypes';
 import {SuccessCheckmark} from '@pachyderm/components';
 import classNames from 'classnames';
 import React from 'react';
+
+import {Node as GraphQLNode} from '@dash-frontend/lib/types';
 
 import LeaveJobButton from './components/LeaveJobButton';
 import useNode from './hooks/useNode';

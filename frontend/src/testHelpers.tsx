@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
-import {Account, Dag} from '@graphqlTypes';
+import {Account} from '@graphqlTypes';
 import {act} from '@testing-library/react';
 import userEvent, {ITypeOpts, TargetElement} from '@testing-library/user-event';
 import React, {ReactElement} from 'react';
@@ -10,6 +10,7 @@ import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 
 import useRouteController from './hooks/useRouteController';
 import {UrlState} from './hooks/useUrlQueryState';
+import {Dag} from './lib/types';
 import {PROJECT_PATHS} from './views/Project/constants/projectPaths';
 
 export {default as server} from '@dash-backend/index';

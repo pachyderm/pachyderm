@@ -1,7 +1,7 @@
-import {DagDirection, Link, PointCoordinates} from '@graphqlTypes';
 import {line} from 'd3';
 import {useMemo} from 'react';
 
+import {DagDirection, Link, PointCoordinates} from '@dash-frontend/lib/types';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import useRouteController from 'hooks/useRouteController';
 

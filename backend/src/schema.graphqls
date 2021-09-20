@@ -181,51 +181,19 @@ enum NodeType {
   EGRESS
 }
 
-type Node {
-  id: ID!
+type Vertex {
   name: String!
-  type: NodeType!
-  x: Float!
-  y: Float!
   state: NodeState
   access: Boolean!
-}
-
-type PointCoordinates {
-  x: Float!
-  y: Float!
-}
-
-type Link {
-  id: ID!
-  source: String!
-  sourceState: NodeState
-  targetState: NodeState
-  target: String!
-  state: JobState
-  bendPoints: [PointCoordinates!]!
-  startPoint: PointCoordinates!
-  endPoint: PointCoordinates!
-  transferring: Boolean!
-}
-
-type Dag {
-  id: String!
-  nodes: [Node!]!
-  links: [Link!]!
+  parents: [String!]!
+  type: NodeType!
+  jobState: JobState
+  createdAt: Int
 }
 
 input DagQueryArgs {
   projectId: ID!
-  nodeWidth: Int!
-  nodeHeight: Int!
-  direction: DagDirection!
   jobSetId: ID
-}
-
-enum DagDirection {
-  DOWN
-  RIGHT
 }
 
 input JobsQueryArgs {
@@ -380,7 +348,7 @@ type Query {
   projectDetails(args: ProjectDetailsQueryArgs!): ProjectDetails!
   jobs(args: JobsQueryArgs!): [Job!]!
   job(args: JobQueryArgs!): Job!
-  dag(args: DagQueryArgs!): Dag!
+  dag(args: DagQueryArgs!): [Vertex!]!
   files(args: FileQueryArgs!): [File!]!
   account: Account!
   searchResults(args: SearchResultQueryArgs!): SearchResults!
@@ -392,7 +360,7 @@ type Query {
 }
 
 type Subscription {
-  dags(args: DagQueryArgs!): [Dag!]!
+  dags(args: DagQueryArgs!): [Vertex!]!
   workspaceLogs(args: WorkspaceLogsArgs!): Log!
   logs(args: LogsArgs!): Log!
 }

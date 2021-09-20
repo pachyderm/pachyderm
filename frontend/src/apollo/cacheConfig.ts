@@ -1,26 +1,12 @@
 import {InMemoryCacheConfig} from '@apollo/client';
-import {Dag, Link} from '@graphqlTypes';
+import {Vertex} from '@graphqlTypes';
 
 const cacheConfig: InMemoryCacheConfig = {
   typePolicies: {
     Subscription: {
       fields: {
         dags: {
-          merge(_existing: Dag[], incoming: Dag[]) {
-            return incoming;
-          },
-        },
-      },
-    },
-    Dag: {
-      fields: {
-        nodes: {
-          merge(_existing: Node[], incoming: Node[]) {
-            return incoming;
-          },
-        },
-        links: {
-          merge(_existing: Link[], incoming: Link[]) {
+          merge(_existing: Vertex[], incoming: Vertex[]) {
             return incoming;
           },
         },

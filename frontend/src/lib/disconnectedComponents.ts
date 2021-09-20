@@ -1,7 +1,7 @@
 import keyBy from 'lodash/keyBy';
 import mapValues from 'lodash/mapValues';
 
-import {Link, Node} from '@graphqlTypes';
+import {Link, Node} from './types';
 
 const disconnectedComponents = (nodes: Node[], links: Link[]) => {
   const nodeByName = keyBy(nodes, (n) => n.name);

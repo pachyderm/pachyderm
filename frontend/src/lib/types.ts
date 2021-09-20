@@ -1,3 +1,5 @@
+import {JobState, NodeState, NodeType} from '@graphqlTypes';
+import {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 import {CSSProperties} from 'react';
 
 export interface ProjectRouteParams {
@@ -32,3 +34,48 @@ export type FixedGridRowProps = {
   rowIndex: number;
   style: CSSProperties;
 };
+
+export enum DagDirection {
+  DOWN = 'DOWN',
+  RIGHT = 'RIGHT',
+}
+
+export type Node = {
+  id: string;
+  name: string;
+  type: NodeType;
+  x: number;
+  y: number;
+  state?: NodeState;
+  access: boolean;
+};
+
+export type Link = {
+  id: string;
+  source: string;
+  sourceState?: NodeState;
+  targetState?: NodeState;
+  target: string;
+  state?: JobState;
+  bendPoints: Array<PointCoordinates>;
+  startPoint: PointCoordinates;
+  endPoint: PointCoordinates;
+  transferring: boolean;
+};
+
+export type PointCoordinates = {
+  x: number;
+  y: number;
+};
+
+export type Dag = {
+  nodes: Node[];
+  links: Link[];
+  id: string;
+};
+
+export interface LinkInputData
+  extends ElkExtendedEdge,
+    Pick<Link, 'state' | 'targetState' | 'sourceState' | 'transferring'> {}
+
+export interface NodeInputData extends ElkNode, Omit<Node, 'x' | 'y'> {}

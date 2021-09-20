@@ -1,10 +1,11 @@
-import {Node, NodeState, NodeType} from '@graphqlTypes';
+import {NodeState, NodeType} from '@graphqlTypes';
 import {useClipboardCopy} from '@pachyderm/components';
 import {select} from 'd3-selection';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useRouteMatch} from 'react-router';
 
 import useIsViewingJob from '@dash-frontend/hooks/useIsViewingJob';
+import {Node} from '@dash-frontend/lib/types';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import {NODE_HEIGHT} from '@dash-frontend/views/Project/constants/nodeSizes';
 import {PIPELINE_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';

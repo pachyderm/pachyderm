@@ -1,7 +1,9 @@
-import {DagDirection, JobState} from '@graphqlTypes';
+import {JobState} from '@graphqlTypes';
 import isEqual from 'lodash/isEqual';
 import {useCallback, useMemo} from 'react';
 import {useHistory, useLocation} from 'react-router';
+
+import {DagDirection} from '@dash-frontend/lib/types';
 
 export interface UrlState {
   dagDirection?: DagDirection;

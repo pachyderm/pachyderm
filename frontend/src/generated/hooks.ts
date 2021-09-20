@@ -264,36 +264,13 @@ export type AuthConfigQueryResult = Apollo.QueryResult<
 export const GetDagDocument = gql`
   query getDag($args: DagQueryArgs!) {
     dag(args: $args) {
-      nodes {
-        id
-        name
-        type
-        access
-        state
-        x
-        y
-      }
-      links {
-        id
-        source
-        target
-        sourceState
-        targetState
-        state
-        bendPoints {
-          x
-          y
-        }
-        startPoint {
-          x
-          y
-        }
-        endPoint {
-          x
-          y
-        }
-      }
-      id
+      name
+      state
+      access
+      parents
+      type
+      jobState
+      createdAt
     }
   }
 `;
@@ -347,37 +324,13 @@ export type GetDagQueryResult = Apollo.QueryResult<
 export const GetDagsDocument = gql`
   subscription getDags($args: DagQueryArgs!) {
     dags(args: $args) {
-      nodes {
-        id
-        name
-        type
-        access
-        state
-        x
-        y
-      }
-      links {
-        id
-        source
-        target
-        sourceState
-        targetState
-        state
-        transferring
-        bendPoints {
-          x
-          y
-        }
-        startPoint {
-          x
-          y
-        }
-        endPoint {
-          x
-          y
-        }
-      }
-      id
+      name
+      state
+      access
+      parents
+      type
+      jobState
+      createdAt
     }
   }
 `;

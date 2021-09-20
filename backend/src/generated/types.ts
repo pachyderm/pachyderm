@@ -71,23 +71,8 @@ export type CronInput = {
   repo: Repo;
 };
 
-export type Dag = {
-  __typename?: 'Dag';
-  id: Scalars['String'];
-  nodes: Array<Node>;
-  links: Array<Link>;
-};
-
-export enum DagDirection {
-  DOWN = 'DOWN',
-  RIGHT = 'RIGHT',
-}
-
 export type DagQueryArgs = {
   projectId: Scalars['ID'];
-  nodeWidth: Scalars['Int'];
-  nodeHeight: Scalars['Int'];
-  direction: DagDirection;
   jobSetId?: Maybe<Scalars['ID']>;
 };
 
@@ -205,20 +190,6 @@ export type JobsQueryArgs = {
   pipelineId?: Maybe<Scalars['String']>;
 };
 
-export type Link = {
-  __typename?: 'Link';
-  id: Scalars['ID'];
-  source: Scalars['String'];
-  sourceState?: Maybe<NodeState>;
-  targetState?: Maybe<NodeState>;
-  target: Scalars['String'];
-  state?: Maybe<JobState>;
-  bendPoints: Array<PointCoordinates>;
-  startPoint: PointCoordinates;
-  endPoint: PointCoordinates;
-  transferring: Scalars['Boolean'];
-};
-
 export type Log = {
   __typename?: 'Log';
   message: Scalars['String'];
@@ -246,17 +217,6 @@ export type MutationExchangeCodeArgs = {
 
 export type MutationCreateRepoArgs = {
   args: CreateRepoArgs;
-};
-
-export type Node = {
-  __typename?: 'Node';
-  id: Scalars['ID'];
-  name: Scalars['String'];
-  type: NodeType;
-  x: Scalars['Float'];
-  y: Scalars['Float'];
-  state?: Maybe<NodeState>;
-  access: Scalars['Boolean'];
 };
 
 export type NodeSelector = {
@@ -342,12 +302,6 @@ export enum PipelineType {
   SERVICE = 'SERVICE',
 }
 
-export type PointCoordinates = {
-  __typename?: 'PointCoordinates';
-  x: Scalars['Float'];
-  y: Scalars['Float'];
-};
-
 export type Project = {
   __typename?: 'Project';
   id: Scalars['ID'];
@@ -380,7 +334,7 @@ export type Query = {
   __typename?: 'Query';
   account: Account;
   authConfig: AuthConfig;
-  dag: Dag;
+  dag: Array<Vertex>;
   files: Array<File>;
   job: Job;
   jobSet: JobSet;
@@ -488,7 +442,7 @@ export type SearchResults = {
 
 export type Subscription = {
   __typename?: 'Subscription';
-  dags: Array<Dag>;
+  dags: Array<Vertex>;
   workspaceLogs: Log;
   logs: Log;
 };
@@ -521,6 +475,17 @@ export type Transform = {
   __typename?: 'Transform';
   cmdList: Array<Scalars['String']>;
   image: Scalars['String'];
+};
+
+export type Vertex = {
+  __typename?: 'Vertex';
+  name: Scalars['String'];
+  state?: Maybe<NodeState>;
+  access: Scalars['Boolean'];
+  parents: Array<Scalars['String']>;
+  type: NodeType;
+  jobState?: Maybe<JobState>;
+  createdAt?: Maybe<Scalars['Int']>;
 };
 
 export type WorkspaceLogsArgs = {
@@ -656,8 +621,6 @@ export type ResolversTypes = ResolversObject<{
   Int: ResolverTypeWrapper<Scalars['Int']>;
   CreateRepoArgs: CreateRepoArgs;
   CronInput: ResolverTypeWrapper<CronInput>;
-  Dag: ResolverTypeWrapper<Dag>;
-  DagDirection: DagDirection;
   DagQueryArgs: DagQueryArgs;
   File: ResolverTypeWrapper<File>;
   Float: ResolverTypeWrapper<Scalars['Float']>;
@@ -674,11 +637,9 @@ export type ResolversTypes = ResolversObject<{
   JobSetsQueryArgs: JobSetsQueryArgs;
   JobState: JobState;
   JobsQueryArgs: JobsQueryArgs;
-  Link: ResolverTypeWrapper<Link>;
   Log: ResolverTypeWrapper<Log>;
   LogsArgs: LogsArgs;
   Mutation: ResolverTypeWrapper<{}>;
-  Node: ResolverTypeWrapper<Node>;
   NodeSelector: ResolverTypeWrapper<NodeSelector>;
   NodeState: NodeState;
   NodeType: NodeType;
@@ -688,7 +649,6 @@ export type ResolversTypes = ResolversObject<{
   PipelineQueryArgs: PipelineQueryArgs;
   PipelineState: PipelineState;
   PipelineType: PipelineType;
-  PointCoordinates: ResolverTypeWrapper<PointCoordinates>;
   Project: ResolverTypeWrapper<Project>;
   ProjectDetails: ResolverTypeWrapper<ProjectDetails>;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
@@ -703,6 +663,7 @@ export type ResolversTypes = ResolversObject<{
   Timestamp: ResolverTypeWrapper<Timestamp>;
   Tokens: ResolverTypeWrapper<Tokens>;
   Transform: ResolverTypeWrapper<Transform>;
+  Vertex: ResolverTypeWrapper<Vertex>;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
 
@@ -718,7 +679,6 @@ export type ResolversParentTypes = ResolversObject<{
   Int: Scalars['Int'];
   CreateRepoArgs: CreateRepoArgs;
   CronInput: CronInput;
-  Dag: Dag;
   DagQueryArgs: DagQueryArgs;
   File: File;
   Float: Scalars['Float'];
@@ -732,17 +692,14 @@ export type ResolversParentTypes = ResolversObject<{
   JobSetQueryArgs: JobSetQueryArgs;
   JobSetsQueryArgs: JobSetsQueryArgs;
   JobsQueryArgs: JobsQueryArgs;
-  Link: Link;
   Log: Log;
   LogsArgs: LogsArgs;
   Mutation: {};
-  Node: Node;
   NodeSelector: NodeSelector;
   PFSInput: PfsInput;
   Pach: Pach;
   Pipeline: Pipeline;
   PipelineQueryArgs: PipelineQueryArgs;
-  PointCoordinates: PointCoordinates;
   Project: Project;
   ProjectDetails: ProjectDetails;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
@@ -756,6 +713,7 @@ export type ResolversParentTypes = ResolversObject<{
   Timestamp: Timestamp;
   Tokens: Tokens;
   Transform: Transform;
+  Vertex: Vertex;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
 
@@ -814,16 +772,6 @@ export type CronInputResolvers<
 > = ResolversObject<{
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   repo?: Resolver<ResolversTypes['Repo'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type DagResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Dag'] = ResolversParentTypes['Dag'],
-> = ResolversObject<{
-  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  nodes?: Resolver<Array<ResolversTypes['Node']>, ParentType, ContextType>;
-  links?: Resolver<Array<ResolversTypes['Link']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -959,43 +907,6 @@ export type JobSetResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
-export type LinkResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Link'] = ResolversParentTypes['Link'],
-> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  source?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  sourceState?: Resolver<
-    Maybe<ResolversTypes['NodeState']>,
-    ParentType,
-    ContextType
-  >;
-  targetState?: Resolver<
-    Maybe<ResolversTypes['NodeState']>,
-    ParentType,
-    ContextType
-  >;
-  target?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  state?: Resolver<Maybe<ResolversTypes['JobState']>, ParentType, ContextType>;
-  bendPoints?: Resolver<
-    Array<ResolversTypes['PointCoordinates']>,
-    ParentType,
-    ContextType
-  >;
-  startPoint?: Resolver<
-    ResolversTypes['PointCoordinates'],
-    ParentType,
-    ContextType
-  >;
-  endPoint?: Resolver<
-    ResolversTypes['PointCoordinates'],
-    ParentType,
-    ContextType
-  >;
-  transferring?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
 export type LogResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Log'] = ResolversParentTypes['Log'],
@@ -1026,20 +937,6 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationCreateRepoArgs, 'args'>
   >;
-}>;
-
-export type NodeResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['Node'] = ResolversParentTypes['Node'],
-> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  type?: Resolver<ResolversTypes['NodeType'], ParentType, ContextType>;
-  x?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  y?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  state?: Resolver<Maybe<ResolversTypes['NodeState']>, ParentType, ContextType>;
-  access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type NodeSelectorResolvers<
@@ -1124,15 +1021,6 @@ export type PipelineResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
-export type PointCoordinatesResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['PointCoordinates'] = ResolversParentTypes['PointCoordinates'],
-> = ResolversObject<{
-  x?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  y?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
 export type ProjectResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Project'] = ResolversParentTypes['Project'],
@@ -1164,7 +1052,7 @@ export type QueryResolvers<
   account?: Resolver<ResolversTypes['Account'], ParentType, ContextType>;
   authConfig?: Resolver<ResolversTypes['AuthConfig'], ParentType, ContextType>;
   dag?: Resolver<
-    ResolversTypes['Dag'],
+    Array<ResolversTypes['Vertex']>,
     ParentType,
     ContextType,
     RequireFields<QueryDagArgs, 'args'>
@@ -1305,7 +1193,7 @@ export type SubscriptionResolvers<
   ParentType extends ResolversParentTypes['Subscription'] = ResolversParentTypes['Subscription'],
 > = ResolversObject<{
   dags?: SubscriptionResolver<
-    Array<ResolversTypes['Dag']>,
+    Array<ResolversTypes['Vertex']>,
     'dags',
     ParentType,
     ContextType,
@@ -1354,28 +1242,42 @@ export type TransformResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type VertexResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Vertex'] = ResolversParentTypes['Vertex'],
+> = ResolversObject<{
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  state?: Resolver<Maybe<ResolversTypes['NodeState']>, ParentType, ContextType>;
+  access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  parents?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['NodeType'], ParentType, ContextType>;
+  jobState?: Resolver<
+    Maybe<ResolversTypes['JobState']>,
+    ParentType,
+    ContextType
+  >;
+  createdAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type Resolvers<ContextType = Context> = ResolversObject<{
   Account?: AccountResolvers<ContextType>;
   AuthConfig?: AuthConfigResolvers<ContextType>;
   Branch?: BranchResolvers<ContextType>;
   Commit?: CommitResolvers<ContextType>;
   CronInput?: CronInputResolvers<ContextType>;
-  Dag?: DagResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
   GitInput?: GitInputResolvers<ContextType>;
   Input?: InputResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
   Job?: JobResolvers<ContextType>;
   JobSet?: JobSetResolvers<ContextType>;
-  Link?: LinkResolvers<ContextType>;
   Log?: LogResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
-  Node?: NodeResolvers<ContextType>;
   NodeSelector?: NodeSelectorResolvers<ContextType>;
   PFSInput?: PfsInputResolvers<ContextType>;
   Pach?: PachResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
-  PointCoordinates?: PointCoordinatesResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
   ProjectDetails?: ProjectDetailsResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
@@ -1386,6 +1288,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Timestamp?: TimestampResolvers<ContextType>;
   Tokens?: TokensResolvers<ContextType>;
   Transform?: TransformResolvers<ContextType>;
+  Vertex?: VertexResolvers<ContextType>;
 }>;
 
 /**
@@ -1466,35 +1369,18 @@ export type GetDagQueryVariables = Exact<{
 }>;
 
 export type GetDagQuery = {__typename?: 'Query'} & {
-  dag: {__typename?: 'Dag'} & Pick<Dag, 'id'> & {
-      nodes: Array<
-        {__typename?: 'Node'} & Pick<
-          Node,
-          'id' | 'name' | 'type' | 'access' | 'state' | 'x' | 'y'
-        >
-      >;
-      links: Array<
-        {__typename?: 'Link'} & Pick<
-          Link,
-          'id' | 'source' | 'target' | 'sourceState' | 'targetState' | 'state'
-        > & {
-            bendPoints: Array<
-              {__typename?: 'PointCoordinates'} & Pick<
-                PointCoordinates,
-                'x' | 'y'
-              >
-            >;
-            startPoint: {__typename?: 'PointCoordinates'} & Pick<
-              PointCoordinates,
-              'x' | 'y'
-            >;
-            endPoint: {__typename?: 'PointCoordinates'} & Pick<
-              PointCoordinates,
-              'x' | 'y'
-            >;
-          }
-      >;
-    };
+  dag: Array<
+    {__typename?: 'Vertex'} & Pick<
+      Vertex,
+      | 'name'
+      | 'state'
+      | 'access'
+      | 'parents'
+      | 'type'
+      | 'jobState'
+      | 'createdAt'
+    >
+  >;
 };
 
 export type GetDagsSubscriptionVariables = Exact<{
@@ -1503,41 +1389,16 @@ export type GetDagsSubscriptionVariables = Exact<{
 
 export type GetDagsSubscription = {__typename?: 'Subscription'} & {
   dags: Array<
-    {__typename?: 'Dag'} & Pick<Dag, 'id'> & {
-        nodes: Array<
-          {__typename?: 'Node'} & Pick<
-            Node,
-            'id' | 'name' | 'type' | 'access' | 'state' | 'x' | 'y'
-          >
-        >;
-        links: Array<
-          {__typename?: 'Link'} & Pick<
-            Link,
-            | 'id'
-            | 'source'
-            | 'target'
-            | 'sourceState'
-            | 'targetState'
-            | 'state'
-            | 'transferring'
-          > & {
-              bendPoints: Array<
-                {__typename?: 'PointCoordinates'} & Pick<
-                  PointCoordinates,
-                  'x' | 'y'
-                >
-              >;
-              startPoint: {__typename?: 'PointCoordinates'} & Pick<
-                PointCoordinates,
-                'x' | 'y'
-              >;
-              endPoint: {__typename?: 'PointCoordinates'} & Pick<
-                PointCoordinates,
-                'x' | 'y'
-              >;
-            }
-        >;
-      }
+    {__typename?: 'Vertex'} & Pick<
+      Vertex,
+      | 'name'
+      | 'state'
+      | 'access'
+      | 'parents'
+      | 'type'
+      | 'jobState'
+      | 'createdAt'
+    >
   >;
 };
 

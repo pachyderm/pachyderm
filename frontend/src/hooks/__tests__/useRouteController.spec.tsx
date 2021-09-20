@@ -1,9 +1,9 @@
-import {DagDirection} from '@graphqlTypes';
 import {render, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import {useProjectDagsData} from '@dash-frontend/hooks/useProjectDAGsData';
+import {DagDirection} from '@dash-frontend/lib/types';
 import {MockDAG, withContextProviders} from '@dash-frontend/testHelpers';
 import {
   NODE_HEIGHT,

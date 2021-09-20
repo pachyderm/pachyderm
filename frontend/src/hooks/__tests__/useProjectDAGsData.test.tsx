@@ -1,18 +1,21 @@
-import {DagDirection} from '@graphqlTypes';
 import {render, waitForElementToBeRemoved} from '@testing-library/react';
 import React from 'react';
 import {Route} from 'react-router';
 
+import {DagDirection} from '@dash-frontend/lib/types';
 import {withContextProviders} from '@dash-frontend/testHelpers';
 
 import {useProjectDagsData} from '../useProjectDAGsData';
+import useUrlState from '../useUrlState';
 
 const ProjectsComponent = () => {
+  const {projectId, jobId} = useUrlState();
   const {dags, loading} = useProjectDagsData({
-    projectId: '1',
+    projectId,
     nodeHeight: 60,
     nodeWidth: 120,
     direction: DagDirection.RIGHT,
+    jobSetId: jobId,
   });
 
   if (loading) return <span>Loading</span>;
@@ -22,6 +25,9 @@ const ProjectsComponent = () => {
       {(dags || []).map((dag, i) => {
         return (
           <div key={i}>
+            <div>
+              {i} id: {dag.id}
+            </div>
             {dag.nodes.map((node, i) => {
               return (
                 <div key={node.id}>
@@ -131,5 +137,57 @@ describe('useProjects', () => {
 
     expect(link0state).toBeInTheDocument();
     expect(link1state).toBeInTheDocument();
+  });
+
+  it('should correctly render cron inputs', async () => {
+    window.history.replaceState('', '', '/project/3');
+
+    const {findByText} = render(<TestBed />);
+
+    await waitForElementToBeRemoved(await findByText('Loading'), {
+      timeout: 10000,
+    });
+
+    const cronLinkSource = await findByText('0 link source: cron_repo');
+    const cronLinkTarget = await findByText('0 link target: processor');
+    const processorLinkSource = await findByText('1 link source: processor');
+    const processorLinkTarget = await findByText(
+      '1 link target: processor_repo',
+    );
+
+    expect(cronLinkSource).toBeInTheDocument();
+    expect(cronLinkTarget).toBeInTheDocument();
+    expect(processorLinkSource).toBeInTheDocument();
+    expect(processorLinkTarget).toBeInTheDocument();
+  });
+
+  it('should send dag id as name of oldest repo', async () => {
+    window.history.replaceState('', '', '/project/2');
+
+    const {findByText} = render(<TestBed />);
+
+    await waitForElementToBeRemoved(await findByText('Loading'), {
+      timeout: 10000,
+    });
+
+    const id = await findByText('0 id: samples_repo');
+    expect(id).toBeInTheDocument();
+  });
+
+  it('should send dag id as jobset id for job sub-dags', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      '/project/1/jobs/33b9af7d5d4343219bc8e02ff44cd55a',
+    );
+
+    const {findByText} = render(<TestBed />);
+
+    await waitForElementToBeRemoved(await findByText('Loading'), {
+      timeout: 10000,
+    });
+
+    const id = await findByText('0 id: 33b9af7d5d4343219bc8e02ff44cd55a');
+    expect(id).toBeInTheDocument();
   });
 });

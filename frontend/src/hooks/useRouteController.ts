@@ -1,8 +1,9 @@
-import {Node, NodeType} from '@graphqlTypes';
+import {NodeType} from '@graphqlTypes';
 import {useCallback, useMemo} from 'react';
 import {useHistory} from 'react-router';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {Node} from '@dash-frontend/lib/types';
 import {
   jobRoute,
   pipelineRoute,
