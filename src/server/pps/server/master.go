@@ -84,6 +84,15 @@ type ppsMaster struct {
 	pollPodsCancel  func() // protected by pollPipelinesMu
 	watchCancel     func() // protected by pollPipelinesMu
 
+	opsInProcessMu sync.Mutex
+	opsInProcess   map[string]*pipelineOp
+
+	startMonitorPipelineCh chan *pps.PipelineInfo
+	stopMonitorPipelineCh  chan *pps.PipelineInfo
+
+	startMonitorCrashingPipelineCh chan *pps.PipelineInfo
+	stopMonitorCrashingPipelineCh  chan *pps.PipelineInfo
+
 	// channel through which pipeline events are passed
 	eventCh chan *pipelineEvent
 }
@@ -92,9 +101,14 @@ type ppsMaster struct {
 // pipelines are created/removed.
 func (a *apiServer) master() {
 	m := &ppsMaster{
-		a:                      a,
-		monitorCancels:         make(map[string]func()),
-		crashingMonitorCancels: make(map[string]func()),
+		a:                              a,
+		monitorCancels:                 make(map[string]func()),
+		crashingMonitorCancels:         make(map[string]func()),
+		opsInProcess:                   make(map[string]*pipelineOp),
+		startMonitorPipelineCh:         make(chan *pps.PipelineInfo),
+		stopMonitorPipelineCh:          make(chan *pps.PipelineInfo),
+		startMonitorCrashingPipelineCh: make(chan *pps.PipelineInfo),
+		stopMonitorCrashingPipelineCh:  make(chan *pps.PipelineInfo),
 	}
 
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
@@ -111,6 +125,7 @@ func (a *apiServer) master() {
 
 		log.Infof("PPS master: launching master process")
 		m.masterCtx = ctx
+		go m.processMonitorUpdates()
 		m.run()
 		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -120,12 +135,23 @@ func (a *apiServer) master() {
 	panic("internal error: PPS master has somehow exited. Restarting pod...")
 }
 
-func (a *apiServer) setPipelineFailure(ctx context.Context, specCommit *pfs.Commit, reason string) error {
-	return a.setPipelineState(ctx, specCommit, pps.PipelineState_PIPELINE_FAILURE, reason)
-}
-
 func (a *apiServer) setPipelineCrashing(ctx context.Context, specCommit *pfs.Commit, reason string) error {
 	return a.setPipelineState(ctx, specCommit, pps.PipelineState_PIPELINE_CRASHING, reason)
+}
+
+func (m *ppsMaster) processMonitorUpdates() {
+	for {
+		select {
+		case pi := <-m.startMonitorPipelineCh:
+			m.startMonitor(pi)
+		case pi := <-m.stopMonitorPipelineCh:
+			m.cancelMonitor(pi.Pipeline.Name)
+		case pi := <-m.startMonitorCrashingPipelineCh:
+			m.startCrashingMonitor(pi)
+		case pi := <-m.stopMonitorCrashingPipelineCh:
+			m.cancelCrashingMonitor(pi.Pipeline.Name)
+		}
+	}
 }
 
 func (m *ppsMaster) run() {
@@ -148,18 +174,41 @@ eventLoop:
 	for {
 		select {
 		case e := <-m.eventCh:
-			switch e.eventType {
-			case writeEv:
-				if err := m.attemptStep(m.masterCtx, e); err != nil {
-					log.Errorf("PPS master: %v", err)
+			func(e *pipelineEvent) {
+				m.opsInProcessMu.Lock()
+				defer m.opsInProcessMu.Unlock()
+
+				var ot opType
+				switch e.eventType {
+				case writeEv:
+					ot = writeOp // raises flag in pipelineOp to run again whenever it finishes (doesn't block)
+				case deleteEv:
+					ot = deleteOp
 				}
-			case deleteEv:
-				// TODO(msteffen) trace this call
-				if err := m.deletePipelineResources(e.pipeline); err != nil {
-					log.Errorf("PPS master: could not delete resources for pipeline %q: %v",
-						e.pipeline, err)
+
+				if pipelineOp, ok := m.opsInProcess[e.pipeline]; ok {
+					pipelineOp.Bump(ot) // acquires lock: pipelineOp.bumpLock
+				} else {
+					// Initialize op ctx (cancelled at the end of pipelineOp.Start(), to avoid leaking
+					// resources), whereas masterClient is passed by the
+					// PPS master and used in case a monitor needs to be spawned for 'pipeline',
+					// whose lifetime is tied to the master rather than this op.
+					opCtx, opCancel := context.WithCancel(m.masterCtx)
+					pipelineOp, err := m.newPipelineOp(opCtx, e.pipeline)
+					if err != nil {
+						log.Errorf("PPS master: error creating a pipelineOp for pipeline '%s': %v", e.pipeline, err)
+					}
+					m.opsInProcess[e.pipeline] = pipelineOp
+					go pipelineOp.Start(ot, e.timestamp, func(f func()) {
+						m.opsInProcessMu.Lock()
+						defer m.opsInProcessMu.Unlock()
+						f()
+					}, func() {
+						opCancel()
+						delete(m.opsInProcess, e.pipeline)
+					})
 				}
-			}
+			}(e)
 		case <-m.masterCtx.Done():
 			break eventLoop
 		}
