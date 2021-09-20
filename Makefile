@@ -43,6 +43,9 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object paths="./src/server/pps/server/..."
 
+run-controller:
+	go run ./src/server/cmd/pachd/main.go --mode controller
+
 install:
 	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
 	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
@@ -195,6 +198,7 @@ launch-dev: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl apply -f etc/testing/minio.yaml --namespace=default
 	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values.yaml
+	kubectl apply -f src/server/pps/server/bases/pps.pachyderm.io_pipelines.yaml
 	# wait for the pachyderm to come up
 	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
