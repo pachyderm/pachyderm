@@ -378,7 +378,7 @@
                         }
                     }
                 },
-                "oidc": {
+                "pachOAuth": {
                     "type": "object",
                     "properties": {
                         "clientId": {
@@ -387,31 +387,8 @@
                         "clientSecret": {
                             "type": "string"
                         },
-                        "connector": {
-                            "type": "object",
-                            "properties": {
-                                "clientID": {
-                                    "type": "string"
-                                },
-                                "clientSecret": {
-                                    "type": "string"
-                                },
-                                "id": {
-                                    "type": "string"
-                                },
-                                "issuer": {
-                                    "type": "string"
-                                },
-                                "redirectURI": {
-                                    "type": "string"
-                                }
-                            }
-                        },
                         "issuer": {
                             "type": "string"
-                        },
-                        "mockIDP": {
-                            "type": "boolean"
                         },
                         "redirectURI": {
                             "type": "string"
@@ -616,6 +593,29 @@
                             }
                         },
                         "secretName": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "upstreamIDP": {
+                    "type": "object",
+                    "properties": {
+                        "clientID": {
+                            "type": "string"
+                        },
+                        "clientSecret": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "issuer": {
+                            "type": "string"
+                        },
+                        "mockIDP": {
+                            "type": "boolean"
+                        },
+                        "redirectURI": {
                             "type": "string"
                         }
                     }

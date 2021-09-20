@@ -212,18 +212,18 @@ pachd:
   enterpriseLicenseKey: ""
   rootToken: ""
   enterpriseSecret: ""
-  oidc:
-    mockIDP: false
-    clientId: ""
+  pachOAuth:
+    clientId: "pachd"
     clientSecret: ""
     issuer: ""
     redirectURI: ""
-    connector:
-        id: ""
-        issuer: ""
-        clientID: ""
-        clientSecret: ""
-        redirectURI: ""
+  upstreamIDP:
+    mockIDP: false
+    id: "idp"
+    issuer: ""
+    clientID: ""
+    clientSecret: ""
+    redirectURI: ""
   serviceAccount:
     create: true
     additionalAnnotations: {}

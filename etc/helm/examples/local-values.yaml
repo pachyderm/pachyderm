@@ -4,20 +4,18 @@
 deployTarget: LOCAL
 
 pachd:
-  # registerWithEnterpriseOnly: false
   enterpriseLicenseKey: "license"
   # if an enterpriseLicenseKey is set, the following variables are used
-  oidc:
-    mockIDP: true
+  pachOAuth:
     clientId: "pachd"
     issuer: "http://pachd:1658/"
     redirectURI: "http://localhost:30657/authorization-code/callback"
-    connector:
-      id: "idp"
-      issuer: ""
-      clientID: ""
-      clientSecret: ""
-      redirectURI: "http://localhost:30658/callback"
+  upstreamIDP:
+    mockIDP: true
+    issuer: ""
+    clientID: ""
+    clientSecret: ""
+    redirectURI: "http://localhost:30658/callback"
 
 console:
   config:
