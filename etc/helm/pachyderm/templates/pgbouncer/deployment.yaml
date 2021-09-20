@@ -33,7 +33,11 @@ spec:
         - name: PGBOUNCER_SET_USER
           value: "True"
         - name: POSTGRESQL_HOST
-          value: {{ .Values.global.postgresql.postgresqlHost }}      
+         {{- if .Values.postgresql.enabled }}
+          value: {{ .Values.global.postgresql.postgresqlHost }}.{{ .Release.Namespace }}.svc.cluster.local  
+         {{ else }}
+          value: {{ .Values.global.postgresql.postgresqlHost }}
+         {{- end }}
         - name: PGBOUNCER_PORT
           value: "5432"
         - name: PGBOUNCER_DATABASE
