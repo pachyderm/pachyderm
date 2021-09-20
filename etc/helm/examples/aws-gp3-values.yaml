@@ -1,7 +1,16 @@
 # SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 # SPDX-License-Identifier: Apache-2.0
 
+# Uses GP3 Storage
+
 deployTarget: AMAZON
+
+# This uses GP3 which requires the CSI Driver https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
+# And a storageclass configured named gp3
+
+etcd:
+  storageClass: gp3
+
 
 pachd:
   storage:
@@ -19,3 +28,7 @@ pachd:
     serviceAccount:
       additionalAnnotations:
         eks.amazonaws.com/role-arn: blah123
+
+postgresql:
+  persistence:
+    storageClass: gp3
