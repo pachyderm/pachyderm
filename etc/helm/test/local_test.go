@@ -15,18 +15,16 @@ import (
 
 func TestLocal(t *testing.T) {
 	var (
-		hostPath     = "/this/is/a/host/path/"
-		secret       = "secret-name"
-		objects, err = manifestToObjects(helm.RenderTemplate(t,
+		expectedStorageBackend = "LOCAL"
+		hostPath               = "/this/is/a/host/path/"
+		secret                 = "secret-name"
+		objects, err           = manifestToObjects(helm.RenderTemplate(t,
 			&helm.Options{
 				SetStrValues: map[string]string{
-					"deployTarget":                 "LOCAL",
+					"deployTarget":                 expectedStorageBackend,
 					"pachd.storage.local.hostPath": hostPath,
 					"global.imagePullSecrets[0]":   secret,
 					"pachd.enterpriseLicenseKey":   "licenseKey",
-					"pachd.oauthClientId":          "pachd",
-					"pachd.oauthIssuer":            "http://issuer-ip:1658",
-					"pachd.oauthRedirectURI":       "http://localhost:30657/authorization/callback",
 				},
 				SetValues: map[string]string{
 					"pachd.mockIDP": "true",
@@ -64,7 +62,7 @@ func TestLocal(t *testing.T) {
 					switch e.Name {
 					case "STORAGE_BACKEND":
 						if e.Value != "LOCAL" {
-							t.Errorf("expected STORAGE_BACKEND to be %q, not %q", "GOOGLE", e.Value)
+							t.Errorf("expected STORAGE_BACKEND to be %q, not %q", expectedStorageBackend, e.Value)
 						}
 						checks["STORAGE_BACKEND"] = true
 					case "STORAGE_HOST_PATH":

@@ -32,14 +32,11 @@ console:
   podLabels: {}
   resources: {}
   config:
-    issuerURI: ""
     reactAppRuntimeIssuerURI: ""
     oauthRedirectURI: ""
     oauthClientID: ""
     oauthClientSecret: ""
     graphqlPort: 4000
-    oauthPachdClientID: ""
-    pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
 
   service:
     labels: {}
@@ -243,14 +240,6 @@ cloudsqlAuthProxy:
 
     console:
       enabled: true
-      config:
-        issuerURI: "http://localhost:30658/"
-        oauthRedirectURI: "http://localhost:4000/oauth/callback/?inline=true"
-        oauthClientID: "console"
-        oauthClientSecret: "abc"
-        graphqlPort: 4000
-        oauthPachdClientID: "pachd"
-        pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
     ```
 
 ### deployTarget
@@ -307,8 +296,6 @@ This section is to configure the Pachyderm UI (`console`) which requires an ente
 
 This is where the primary configuration settings for the console are configured, including authentication.
 
-- `config.issuerURI` is the pachd oauth address accessible to console within the kubernetes cluster. The default is generally fine here.
-
 - `config.reactAppRuntimeIssuerURI` this is the pachd oauth address thats accesible to clients outside of the cluster itself. When running local with `kubectl port-forward` this would be set to localhost (`"http://localhost:30658/"`). Otherwiswe this has to be an address acessible to clients.
 
 - `config.oauthRedirectURI` this is the oauth callback address within console that the pachd oauth service would redirect to. It's the URL of console with `/oauth/callback/?inline=true` appended. Running locally its therefore `"http://localhost:4000/oauth/callback/?inline=true"`.
@@ -318,10 +305,6 @@ This is where the primary configuration settings for the console are configured,
 - `config.oauthClientSecret` the secret configured for the client with pachd
 
 - `config.graphqlPort` the http port that the console service will be accessible on.
-
-- `config.oauthPachdClientID` the identifier for pachd's oauth client.
-
-- `config.pachdAddress` the address that console can access pachd at. It must be set if you install pachyderm in a different namespace than default. The format is `"pachd-peer.<namespace>.svc.cluster.local:30653"`
 
 ### etcd
 

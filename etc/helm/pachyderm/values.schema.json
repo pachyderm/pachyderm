@@ -59,22 +59,13 @@
                         "graphqlPort": {
                             "type": "integer"
                         },
-                        "issuerURI": {
-                            "type": "string"
-                        },
                         "oauthClientID": {
                             "type": "string"
                         },
                         "oauthClientSecret": {
                             "type": "string"
                         },
-                        "oauthPachdClientID": {
-                            "type": "string"
-                        },
                         "oauthRedirectURI": {
-                            "type": "string"
-                        },
-                        "pachdAddress": {
                             "type": "string"
                         },
                         "reactAppRuntimeIssuerURI": {
@@ -309,6 +300,23 @@
                 }
             }
         },
+        "oidc": {
+            "type": "object",
+            "properties": {
+                "IDTokenExpiry": {
+                    "type": "string"
+                },
+                "issuerURI": {
+                    "type": "string"
+                },
+                "localhostIssuer": {
+                    "type": "string"
+                },
+                "requireVerifiedEmail": {
+                    "type": "boolean"
+                }
+            }
+        },
         "pachd": {
             "type": "object",
             "properties": {
@@ -381,13 +389,10 @@
                 "mockIDP": {
                     "type": "boolean"
                 },
-                "oauthClientId": {
+                "oauthClientID": {
                     "type": "string"
                 },
                 "oauthClientSecret": {
-                    "type": "string"
-                },
-                "oauthIssuer": {
                     "type": "string"
                 },
                 "oauthRedirectURI": {
