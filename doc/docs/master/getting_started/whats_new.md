@@ -9,7 +9,7 @@ Here is a quick overview of what its entails.
 Primarily, this is a long overdue refactoring meant to increase Pachyderm performance and reduce resource consumption.
 We have also added many changes to our Enterprise Authorization and Authentication module, you now deploy Pachyderm with Helm, and we introduced a very straightforward way to track data provenance and lineage.
 
-Last but not least, we have entirely re-worked our Web UI (`Console`), and have also introduced a new integrated development environment (`Notebooks`) - namely, JupyterLab on Pachyderm - both of which are readily accessible on [Hub](https://hub.pachyderm.com/) or as an Enterprise feature of our core product.
+Last but not least, we have entirely re-worked our Web UI (`Console`), and are launching a beta version of our new integrated development environment (`Notebooks`) - namely, JupyterLab on Pachyderm. Both are readily accessible on [Hub](https://hub.pachyderm.com/) or as an Enterprise feature of our core product.
 
  
 ## Major Changes And New Features:
@@ -29,7 +29,7 @@ Check our new, high level, [architecture overview](../../deploy-manage/) featuri
 ### Helm
 As of this release, [Helm is the authoritative deployment method for Pachyderm](../../deploy-manage/deploy/helm_install/)
 
-Check our [reference values.yaml](../../reference/helm_values/) for all possible configuration options or choose the page that fits your particular target deployment in the `Production Deployment` menu.
+Check our [reference values.yaml](../../reference/helm_values/) for all possible configuration options or choose the page that fits your target deployment in the `Production Deployment` menu.
 
 !!! Warning
     `pachctl deploy` is now [EOL](../../contributing/supported-releases/#end-of-life-eol) and replaced by the package manager Helm.
@@ -52,14 +52,14 @@ Or visit the [Global ID](../../concepts/advanced-concepts/globalID/) page.
     [Transactions](../../how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands/#use-transactions) also use a single identifier.
 
 ### Single Datum Provenance And New Map/Reduce Pattern     
- You can now control and can implement your own [merge behavior](../../concepts/pipeline-concepts/datum/relationship-between-datums/#5-next-add-a-reduce-pipeline):
+ You can now control and implement your own [merge behavior](../../concepts/pipeline-concepts/datum/relationship-between-datums/#5-next-add-a-reduce-pipeline):
  In Pachyderm 1, multiple datums from the same input repo in the same job in a pipeline could write to the same output file and the results would be automatically merged, with indeterminate ordering of results in the merged file. 
- In Pachyderm 2, **if two datums from the same repo write to the same output file, it will raise an error** (Check our illustration of this [`Single Datum Provenance Rule`](../../concepts/pipeline-concepts/datum/relationship-between-datums/#example-two-steps-mapreduce-pattern-and-single-datum-provenance-rule). All pipelines relying on a merge behavior can add a following "Reduce" pipeline that groups the files into single datums (using filename metadata) and merges by using their own code.
+ In Pachyderm 2, **if two datums from the same repo write to the same output file, it will raise an error** (Check our illustration of this [`Single Datum Provenance Rule`](../../concepts/pipeline-concepts/datum/relationship-between-datums/#example-two-steps-mapreduce-pattern-and-single-datum-provenance-rule). All pipelines relying on a merge behavior can add a following "Reduce" pipeline that groups the files into single datums (using filename metadata) and merges them by using their own code.
 ### Default Overwrite Behavior
-The default upload behavior changes from append to [overwrite](../../concepts/data-concepts/file/#overwriting-files): `pachctl put file` now **overwrite files by default**.
+The default upload behavior changes from append to [overwrite](../../concepts/data-concepts/file/#overwriting-files): `pachctl put file` now **overwrites files by default**.
 
 
-### New Authentification, Authorization, And Enterprise Server
+### New Authentication, Authorization, And Enterprise Server
 Pachyderm now includes new [Enterprise Management](../../enterprise/auth/enterprise-server/setup/) options which allow for site-wide configuration of licensing, authentication and [access control](../../enterprise/auth/authorization/), as well as single-point Pachyderm configuration synchronization. With one command, your users can now gain access to every cluster in your enterprise, with the appropriate level of access control in each cluster. It also allows for [authentication against any OIDC provider](../../enterprise/auth/authentication/idp-dex/).
 
 
@@ -67,11 +67,11 @@ Pachyderm now includes new [Enterprise Management](../../enterprise/auth/enterpr
 We are introducing a new web UI, the Pachyderm `Console`, that replaces the Dashboard in Pachyderm 1. 
 This is a first iteration of the product in which we have focused on DAG visualization, allowing for easy access to job and log information in your pipelines.
 
-We have also kicked off a first iteration of our Notebooks product in which you will be able to run your pipelines and data experiments from your favorite Jupiter notebook.
+We have also kicked off a first iteration of our Notebooks product (released in its beta version) in which you will be able to run your pipelines and data experiments from your favorite Jupiter notebook.
 
 ### More
-No more empty directories in repos
-In Pachyderm 2, directories are implied from the paths of the files. They are no longer explicit objects in the file system. Directories will not be created in input or output repos unless they contain at least ome file.
+No more empty directories in repos.
+In Pachyderm 2, directories are implied from the paths of the files. They are no longer explicit objects in the file system. Directories will not be created in input or output repos unless they contain at least one file.
 
 
 !!! See Also "More"
