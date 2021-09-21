@@ -20,7 +20,7 @@ spec:
     {{- if eq .Values.console.service.type "NodePort" }}
     nodePort: 30080
     {{- end }}
-    port: 4000
+    port: {{ .Values.console.config.graphqlPort }}
   selector:
     app: console
     suite: pachyderm
