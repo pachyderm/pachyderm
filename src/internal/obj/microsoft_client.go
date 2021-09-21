@@ -112,8 +112,11 @@ func (c *microsoftClient) Exists(ctx context.Context, name string) (bool, error)
 	return exists, nil
 }
 
-func (c *microsoftClient) BucketURL() string {
-	panic("not implemented")
+func (c *microsoftClient) BucketURL() ObjectStoreURL {
+	return ObjectStoreURL{
+		Scheme: "as",
+		Bucket: c.container.Name,
+	}
 }
 
 func (c *microsoftClient) transformError(err error, name string) error {

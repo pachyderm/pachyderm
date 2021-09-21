@@ -284,7 +284,7 @@ func (c *amazonClient) Exists(ctx context.Context, name string) (bool, error) {
 	return true, nil
 }
 
-func (c *amazonClient) BucketURL() string {
+func (c *amazonClient) BucketURL() ObjectStoreURL {
 	panic("not implemented")
 }
 

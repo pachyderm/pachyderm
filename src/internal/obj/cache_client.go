@@ -98,7 +98,7 @@ func (c *cacheClient) Walk(ctx context.Context, p string, cb func(p string) erro
 	return c.slow.Walk(ctx, p, cb)
 }
 
-func (c *cacheClient) BucketURL() string {
+func (c *cacheClient) BucketURL() ObjectStoreURL {
 	return c.slow.BucketURL()
 }
 

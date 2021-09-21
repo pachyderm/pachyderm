@@ -271,7 +271,8 @@ func TestTransformPipeline(suite *testing.T) {
 		t.Parallel()
 		objC := dockertestenv.NewTestObjClient(t)
 		pi := defaultPipelineInfo()
-		pi.Details.Egress = &pps.Egress{URL: fmt.Sprintf("local://%s/", objC.BucketURL())}
+		egressURL := objC.BucketURL().String()
+		pi.Details.Egress = &pps.Egress{URL: egressURL}
 		env := newWorkerSpawnerPair(t, dockertestenv.NewTestDBConfig(t), pi)
 
 		files := []tarutil.File{
@@ -299,7 +300,7 @@ func TestTransformPipeline(suite *testing.T) {
 		objC := dockertestenv.NewTestObjClient(t)
 		pi := defaultPipelineInfo()
 		pi.Details.Input.Pfs.Glob = "/"
-		pi.Details.Egress = &pps.Egress{URL: fmt.Sprintf("local://%s/", objC.BucketURL())}
+		pi.Details.Egress = &pps.Egress{URL: objC.BucketURL().String()}
 		env := newWorkerSpawnerPair(t, dockertestenv.NewTestDBConfig(t), pi)
 
 		testJobSuccess(t, env, pi, nil)

@@ -417,7 +417,7 @@ func NewAmazonClientFromEnv() (Client, error) {
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
 // constructing the correct client for that URL using secrets.
 func NewClientFromURLAndSecret(url *ObjectStoreURL, reverse ...bool) (c Client, err error) {
-	switch url.Store {
+	switch url.Scheme {
 	case "s3":
 		c, err = NewAmazonClientFromSecret(url.Bucket, reverse...)
 	case "gcs":
@@ -448,20 +448,24 @@ func NewClientFromURLAndSecret(url *ObjectStoreURL, reverse ...bool) (c Client, 
 	case err != nil:
 		return nil, err
 	case c != nil:
-		return TracingObjClient(url.Store, c), nil
+		return TracingObjClient(url.Scheme, c), nil
 	default:
-		return nil, errors.Errorf("unrecognized object store: %s", url.Store)
+		return nil, errors.Errorf("unrecognized object store: %s", url.Scheme)
 	}
 }
 
 // ObjectStoreURL represents a parsed URL to an object in an object store.
 type ObjectStoreURL struct {
 	// The object store, e.g. s3, gcs, as...
-	Store string
+	Scheme string
 	// The "bucket" (in AWS parlance) or the "container" (in Azure parlance).
 	Bucket string
 	// The object itself.
 	Object string
+}
+
+func (s ObjectStoreURL) String() string {
+	return fmt.Sprintf("%s://%s/%s", s.Scheme, s.Bucket, s.Object)
 }
 
 // ParseURL parses an URL into ObjectStoreURL.
@@ -473,7 +477,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	switch url.Scheme {
 	case "s3", "gcs", "gs", "local":
 		return &ObjectStoreURL{
-			Store:  url.Scheme,
+			Scheme: url.Scheme,
 			Bucket: url.Host,
 			Object: strings.Trim(url.Path, "/"),
 		}, nil
@@ -484,7 +488,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
 		}
 		return &ObjectStoreURL{
-			Store:  url.Scheme,
+			Scheme: url.Scheme,
 			Bucket: parts[0],
 			Object: strings.Trim(path.Join(parts[1:]...), "/"),
 		}, nil
@@ -495,7 +499,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			key = parts[1]
 		}
 		return &ObjectStoreURL{
-			Store:  url.Scheme,
+			Scheme: url.Scheme,
 			Bucket: url.Host + "/" + parts[0],
 			Object: key,
 		}, nil

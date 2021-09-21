@@ -30,5 +30,5 @@ type Client interface {
 	Exists(ctx context.Context, name string) (bool, error)
 
 	// BucketURL returns the URL of the bucket this client uses.
-	BucketURL() string
+	BucketURL() ObjectStoreURL
 }

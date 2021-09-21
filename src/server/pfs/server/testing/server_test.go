@@ -4497,7 +4497,7 @@ func TestPFS(suite *testing.T) {
 		for _, path := range paths {
 			writeObj(t, objC, path, path)
 		}
-		bucketURL := objC.BucketURL()
+		bucketURL := objC.BucketURL().String()
 		for _, p := range paths {
 			objURL := bucketURL + "/" + p
 			require.NoError(t, env.PachClient.PutFileURL(commit, p, objURL, false))
@@ -4537,8 +4537,9 @@ func TestPFS(suite *testing.T) {
 		}
 		check := func() {
 			objC := dockertestenv.NewTestObjClient(t)
+			bucketURL := objC.BucketURL().String()
 			for _, path := range paths {
-				require.NoError(t, env.PachClient.GetFileURL(commit, path, objC.BucketURL()))
+				require.NoError(t, env.PachClient.GetFileURL(commit, path, bucketURL))
 			}
 			for _, path := range paths {
 				buf := &bytes.Buffer{}

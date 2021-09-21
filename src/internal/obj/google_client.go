@@ -107,8 +107,11 @@ func (c *googleClient) Delete(ctx context.Context, name string) (retErr error) {
 	return c.bucket.Object(name).Delete(ctx)
 }
 
-func (c *googleClient) BucketURL() string {
-	panic("not implemented")
+func (c *googleClient) BucketURL() ObjectStoreURL {
+	return ObjectStoreURL{
+		Scheme: "gcs",
+		Bucket: c.bucketName,
+	}
 }
 
 func (c *googleClient) transformError(err error, objectPath string) error {
