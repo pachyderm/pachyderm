@@ -81,6 +81,7 @@ dockers:
     extra_files:
       - dex-assets
       - LICENSE
+      - licenses
     build_flag_templates:
       - "--label=version={{.Version}}"
       - "--label=release={{.Version}}"
@@ -98,7 +99,8 @@ dockers:
       - "--label=version={{.Version}}"
       - "--label=release={{.Version}}"
     extra_files:
-     - LICENSE
+      - LICENSE
+      - licenses
   -
     image_templates:
       - pachyderm/worker
@@ -117,3 +119,4 @@ dockers:
       - "--label=release={{.Version}}"
     extra_files:
       - LICENSE
+      - licenses

@@ -3,7 +3,8 @@ FROM scratch
 LABEL name="Pachyderm" \
       vendor="Pachyderm"
 
-COPY LICENSE /licenses
+COPY LICENSE /LICENSE
+COPY licenses /licenses
 
 WORKDIR /app
 COPY worker . 
