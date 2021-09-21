@@ -313,10 +313,6 @@ This is where the primary configuration settings for the console are configured,
 
 - `config.graphqlPort` the http port that the console service will be accessible on.
 
-- `config.oauthPachdClientID` the identifier for pachd's oauth client.
-
-- `config.pachdAddress` the address that console can access pachd at. It must be set if you install pachyderm in a different namespace than default. The format is `"pachd-peer.<namespace>.svc.cluster.local:30653"`
-
 ### etcd
 
 This section is to configure the etcd cluster in the deployment.

@@ -35,3 +35,47 @@ imagePullSecrets:
   {{- end }}
 {{- end }}
 {{- end -}}
+
+{{- define "pachyderm.issuerURI" -}}
+{{- if .Values.console.config.issuerURI }}
+{{ .Values.console.config.issuerURI }}
+{{- else if .Values.ingress.host -}}
+https://{{ .Values.ingress.host }}/dex
+{{- else if eq .Values.deployTarget "LOCAL" -}}
+http://pachd:1658
+{{- end }}
+{{- end }}
+
+{{- define "pachyderm.reactAppRuntimeIssuerURI" -}}
+{{- if .Values.console.config.reactAppRuntimeIssuerURI }}
+{{ .Values.console.config.reactAppRuntimeIssuerURI }}
+{{- else if .Values.ingress.host -}}
+https://{{ .Values.ingress.host }}/dex
+{{- else if eq .Values.deployTarget "LOCAL" -}}
+http://localhost:30658/
+{{- end }}
+{{- end }}
+
+{{- define "pachyderm.consoleRedirectURI" -}}
+{{- if .Values.console.config.oauthRedirectURI }}
+{{ .Values.console.config.oauthRedirectURI }}
+{{- else if .Values.ingress.host -}}
+https://{{ .Values.ingress.host }}/oauth/callback/?inline=true
+{{- else if eq .Values.deployTarget "LOCAL" -}}
+http://localhost:4000/oauth/callback/?inline=true
+{{- end }}
+{{- end }}
+
+{{- define "pachyderm.pachdRedirectURI" -}}
+{{- if .Values.pachd.oidc.redirectURI }}
+{{ .Values.console.config.oauthRedirectURI }}
+{{- else if .Values.ingress.host -}}
+https://{{ .Values.ingress.host }}/authorization-code/callback
+{{- else if eq .Values.deployTarget "LOCAL" -}}
+http://localhost:30657/authorization-code/callback
+{{- end }}
+{{- end }}
+
+{{- define "pachyderm.pachdPeerAddress" -}}
+pachd-peer.{{ .Release.Namespace }}.svc.cluster.local:30653
+{{- end }}

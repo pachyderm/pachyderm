@@ -68,13 +68,7 @@
                         "oauthClientSecret": {
                             "type": "string"
                         },
-                        "oauthPachdClientID": {
-                            "type": "string"
-                        },
                         "oauthRedirectURI": {
-                            "type": "string"
-                        },
-                        "pachdAddress": {
                             "type": "string"
                         },
                         "reactAppRuntimeIssuerURI": {
@@ -309,6 +303,20 @@
                 }
             }
         },
+        "oidc": {
+            "type": "object",
+            "properties": {
+                "IDTokenExpiry": {
+                    "type": "string"
+                },
+                "localhostIssuer": {
+                    "type": "boolean"
+                },
+                "requireVerifiedEmail": {
+                    "type": "boolean"
+                }
+            }
+        },
         "pachd": {
             "type": "object",
             "properties": {
@@ -381,7 +389,7 @@
                 "mockIDP": {
                     "type": "boolean"
                 },
-                "oauthClientId": {
+                "oauthClientID": {
                     "type": "string"
                 },
                 "oauthClientSecret": {
