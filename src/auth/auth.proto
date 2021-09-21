@@ -68,6 +68,12 @@ message OIDCConfig{
  // OIDC requests to the embedded OIDC provider. This is necessary to support
  // some network configurations like Minikube. 
  bool localhost_issuer = 7;
+
+  // user_accessible_issuer_host can be set to override the host used 
+  // in the OAuth2 authorization URL in case the OIDC issuer isn't
+  // accessible outside the cluster. This is necessary to support 
+  // some configurations like Minikube.
+  string user_accessible_issuer_host = 8;
 }
 
 message GetConfigurationRequest {}
