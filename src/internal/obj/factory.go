@@ -438,7 +438,6 @@ func NewClientFromURLAndSecret(url *ObjectStoreURL, reverse ...bool) (c Client, 
 			break
 		}
 		parts := strings.SplitN(url.Bucket, "/", 2)
-		log.Println(parts)
 		c, err = NewMinioClient(parts[0], parts[1], "minioadmin", "minioadmin", false, false)
 	case "local":
 		root := strings.ReplaceAll(url.Bucket, ".", "/")
