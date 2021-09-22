@@ -43,32 +43,32 @@ region, run the following command:
       $ aws s3 ls
       ```
 
-You now need to give your cluster access to your bucket either by:
+You now need to **give Pachyderm access to your bucket** either by:
 
-- adding a policy to your cluster IAM Role (Recommended)
+- [Adding a policy to your service account IAM Role](#create-an-iam-role-and-policy-to-your-service-account) (Recommended)
 OR
-- passing your AWS credentials (account ID and KEY) to your values.yaml when installing
+- Passing your AWS credentials (account ID and KEY) to your values.yaml when installing
 
 !!! Info
       IAM roles provide finer grained user management and security
       capabilities than access keys. Pachyderm recommends the use of IAM roles for production
       deployments.
 
-### To Add A Policy To Your EKS IAM Role
+### Create An IAM Role And Policy To Your Service Account
 
-Make sure the **IAM role of your cluster has access to the S3 bucket that you created for Pachyderm**. 
+Before you can make sure that **the containers in your pods have the right permissions to access your S3 bucket**, you will need to [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html).
 
-1. Find the IAM role assigned to the cluster:
+Then follow the steps detailled in **[Create an IAM Role And Policy for your Service Account](https://docs.aws.amazon.com/eks/latest/userguide/create-service-account-iam-policy-and-role.html)**.
 
+In short, you will:
+
+1. Retrieve your **OpenID Connect provider URL**:
       1. Go to the AWS Management console.
       1. Select your cluster instance in **Amazon EKS**.
-      1. In the general **Details** tab, find your **Cluster IAM Role ARN**.
-      1. Find the **IAM Role** field.
+      1. In the **Configuration** tab of your EKS cluster, find your **OpenID Connect provider URL** and save it. You will need it when creating your IAM Role.
 
-1. **Enable access to the S3 bucket** for the IAM role:
-
-      1. Click on the **IAM Role**.
-      1. In the **Permissions** tab, click **Add inline policy**.
+1. Create an **IAM policy** that gives access to your bucket:
+      1. Create a new **Policy** from your IAM Console.
       1. Select the **JSON** tab.
       1. Copy/Paste the following text in the JSON tab:
 
@@ -85,21 +85,27 @@ Make sure the **IAM role of your cluster has access to the S3 bucket that you cr
                         "arn:aws:s3:::<your-bucket>"
                   ]},{
             "Effect": "Allow",
-            "Action": [
-                  "s3:PutObject",
-                  "s3:GetObject",
-                  "s3:DeleteObject"
-            ],
-            "Resource": [
-                  "arn:aws:s3:::<your-bucket>/*"
-            ]}
+                  "Action": [
+                        "s3:PutObject",
+                        "s3:GetObject",
+                        "s3:DeleteObject"
+                  ],
+                  "Resource": [
+                        "arn:aws:s3:::<your-bucket>/*"
+                  ]}
             ]
       }
-      ```
+      ``` 
 
       Replace `<your-bucket>` with the name of your S3 bucket.
 
-1. Create a name for the new policy.
+1. Create an **IAM role as a Web Identity** using the cluster OIDC procider as the identity provider.
+      1. Create a new **Role** from your IAM Console.
+      1. Select the **Web identity** Tab.
+      1. In the **Identity Provider** drop down, select the *OpenID Connect provider URL* of your EKS and `sts.amazonaws.com` as the Audience.
+      1. Attach the newly created permission to the Role.
+      1. Name it.
+      1. Retrieve the **Role arn**. You will need it in your values.yaml annotations when deploying Pachyderm.
 
 ### (Optional) Set Up Bucket Encryption
 
@@ -134,7 +140,7 @@ For your EKS cluster to successfully create two **Elastic Block Storage (EBS) pe
 
 In short, you will:
 
-1. [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html).
+1. [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html). You might already have completed this step if you choose to create an IAM Role and Policy to give your containers permission to access your S3 bucket.
 1. Create a CSI Driver service account whose IAM Role will be granted the permission (policy) to make calls to AWS APIs. 
 1. Install Amazon EBS Container Storage Interface (CSI) driver on your cluster configured with your created service account.
 
