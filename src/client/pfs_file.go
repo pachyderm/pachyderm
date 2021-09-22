@@ -380,6 +380,23 @@ func (ctfsc *CreateFileSetClient) Close() (*pfs.CreateFileSetResponse, error) {
 	return ret, nil
 }
 
+// GetFileSet gets a file set for a commit.
+func (c APIClient) GetFileSet(repo, branch, commit string) (_ string, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	resp, err := c.PfsAPIClient.GetFileSet(
+		c.Ctx(),
+		&pfs.GetFileSetRequest{
+			Commit: NewCommit(repo, branch, commit),
+		},
+	)
+	if err != nil {
+		return "", err
+	}
+	return resp.FileSetId, nil
+}
+
 // AddFileSet adds a fileset to a commit.
 func (c APIClient) AddFileSet(repo, branch, commit, ID string) (retErr error) {
 	defer func() {

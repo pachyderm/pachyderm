@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -22,6 +23,7 @@ import (
 // This is necessary to ensure we can finish the job when the service gets canceled.
 func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	pachClient := driver.PachClient()
+	cacheClient := pfssync.NewCacheClient(pachClient)
 	pipelineInfo := driver.PipelineInfo()
 	return forEachJob(pachClient, pipelineInfo, logger, func(ctx context.Context, jobInfo *pps.JobInfo) (retErr error) {
 		driver := driver.WithContext(ctx)
@@ -52,7 +54,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 			}
 		}()
 		storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
-		return datum.WithSet(pachClient, storageRoot, func(s *datum.Set) error {
+		return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
 			inputs := meta.Inputs
 			logger = logger.WithData(inputs)
 			env := driver.UserCodeEnv(logger.JobID(), jobInfo.OutputCommit, inputs)

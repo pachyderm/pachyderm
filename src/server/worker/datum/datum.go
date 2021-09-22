@@ -116,14 +116,14 @@ func createSet(metas []*Meta, storageRoot string, upload func(func(client.Modify
 
 // Set manages a set of datums.
 type Set struct {
-	pachClient                        *client.APIClient
+	pachClient                        *pfssync.CacheClient
 	storageRoot                       string
 	metaOutputClient, pfsOutputClient client.ModifyFile
 	stats                             *Stats
 }
 
 // WithSet provides a scoped environment for a datum set.
-func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) error, opts ...SetOption) (retErr error) {
+func WithSet(pachClient *pfssync.CacheClient, storageRoot string, cb func(*Set) error, opts ...SetOption) (retErr error) {
 	s := &Set{
 		pachClient:  pachClient,
 		storageRoot: storageRoot,

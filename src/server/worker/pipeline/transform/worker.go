@@ -11,6 +11,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
@@ -71,6 +72,7 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 
 func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *DatumSet, status *Status) error {
 	pachClient := driver.PachClient()
+	cacheClient := pfssync.NewCacheClient(pachClient)
 	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
 	// The sets would just create a temporary directory under /tmp.
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
@@ -85,7 +87,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 				datum.WithStats(datumSet.Stats),
 			}
 			// Setup datum set for processing.
-			return datum.WithSet(pachClient, storageRoot, func(s *datum.Set) error {
+			return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
 				di := datum.NewFileSetIterator(pachClient, datumSet.FileSetId)
 				// Process each datum in the assigned datum set.
 				return di.Iterate(func(meta *datum.Meta) error {

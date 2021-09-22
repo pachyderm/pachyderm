@@ -1,5 +1,49 @@
 package pfssync
 
+import (
+	"fmt"
+	"math/rand"
+	"testing"
+
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+)
+
+func BenchmarkDownload(b *testing.B) {
+	env := testpachd.NewRealEnv(b, dockertestenv.NewTestDBConfig(b))
+	repo := "repo"
+	require.NoError(b, env.PachClient.CreateRepo(repo))
+	commit, err := env.PachClient.StartCommit(repo, "master")
+	require.NoError(b, err)
+	require.NoError(b, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+		for i := 0; i < 100; i++ {
+			if err := mf.PutFile(fmt.Sprintf("file%d", i), randutil.NewBytesReader(rand.New(rand.NewSource(0)), 500)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}))
+	require.NoError(b, env.PachClient.FinishCommit(repo, "master", commit.ID))
+	fis, err := env.PachClient.ListFileAll(commit, "")
+	require.NoError(b, err)
+	cacheClient := NewCacheClient(env.PachClient)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		dir := b.TempDir()
+		require.NoError(b, WithDownloader(cacheClient, func(d Downloader) error {
+			for _, fi := range fis {
+				if err := d.Download(dir, fi.File); err != nil {
+					return err
+				}
+			}
+			return nil
+		}))
+	}
+}
+
 // TODO(2.0 optional): Rewrite these tests to work with the new sync package in V2.
 //suite.Run("SyncPullPush", func(t *testing.T) {
 //	t.Parallel()

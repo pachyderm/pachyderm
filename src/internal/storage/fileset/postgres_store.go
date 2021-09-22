@@ -26,6 +26,7 @@ type postgresStore struct {
 }
 
 // NewPostgresStore returns a Store backed by db
+// TODO: Expose configuration for cache size?
 func NewPostgresStore(db *sqlx.DB) MetadataStore {
 	return &postgresStore{
 		db:      db,
