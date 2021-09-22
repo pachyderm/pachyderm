@@ -23,11 +23,11 @@ func JobLabels(job *pps.Job) prometheus.Labels {
 	}
 }
 
-func DatumLabels(job *pps.Job, state pps.DatumState) prometheus.Labels {
+func DatumLabels(job *pps.Job, state string) prometheus.Labels {
 	return prometheus.Labels{
 		"pipeline": job.Pipeline.Name,
 		"job":      job.ID,
-		"state":    state.String(),
+		"state":    state,
 	}
 }
 
@@ -77,6 +77,7 @@ var (
 		[]string{
 			"pipeline",
 			"job",
+			"state",
 		},
 	)
 
