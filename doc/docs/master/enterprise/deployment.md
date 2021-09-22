@@ -11,28 +11,28 @@ you need to have your **Pachyderm Enterprise activation code** available.
 You should have received this from the Pachyderm sales team when
 registering for the Enterprise Edition.
 
-If you are a new user evaluating Pachyderm,
-you can request a [FREE evaluation code](https://www.pachyderm.com/trial).
-
-If you are having trouble locating your activation code, contact [support@pachyderm.io](mailto:support@pachyderm.io).
+!!! Information
+      - If you are a new user evaluating Pachyderm,
+      you can request a [FREE evaluation code](https://www.pachyderm.com/trial).
+      - If you are having trouble locating your activation code, contact [support@pachyderm.io](mailto:support@pachyderm.io).
 
 
 To unlock Pachyderm Enterprise Features, complete the following steps:
 
 1. Activate the Enterprise Edition by running:
 
-```shell
-$ echo <your-activation-token> | pachctl license activate
-```
+      ```shell
+      $ echo <your-activation-token> | pachctl license activate
+      ```
 
 1. Verify the status of the enterprise activation:
 
-```shell
-$ pachctl enterprise get-state
-```
+      ```shell
+      $ pachctl enterprise get-state
+      ```
 
-**System response:**
-```
-ACTIVE
-```
+      **System response:**
+      ```
+      ACTIVE
+      ```
 
