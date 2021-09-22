@@ -5,7 +5,7 @@ you are ready to deploy Pachyderm.
 
 Complete the following steps:
 
-1. [Create an S3 bucket](#create-an-S3-object-store-bucket-for-data) for Pachyderm
+1. [Create an S3 bucket](#create-an-S3-object-store-bucket-for-data) for Pachyderm and grant your containers access to it.
 1. [Enable Persistent Volumes Creation](#2-enable-your-persistent-volumes-creation)
 1. [Deploy Pachyderm ](#3-deploy-pachyderm)
 1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster]((#have-pachctl-and-your-cluster-communicate)).
