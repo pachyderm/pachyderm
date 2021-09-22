@@ -213,6 +213,8 @@ pachd:
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
+  activateEnterprise: false
+  registerWithEnterpriseServer: false
   enterpriseLicenseKey: ""
   enterpriseRootToken: ""
   enterpriseServerAddress: ""

@@ -312,6 +312,9 @@
         "pachd": {
             "type": "object",
             "properties": {
+                "activateEnterprise": {
+                    "type": "boolean"
+                },
                 "affinity": {
                     "type": "object"
                 },
@@ -321,10 +324,19 @@
                 "enabled": {
                     "type": "boolean"
                 },
+                "enterpriseCallbackAddress": {
+                    "type": "string"
+                },
                 "enterpriseLicenseKey": {
                     "type": "string"
                 },
+                "enterpriseRootToken": {
+                    "type": "string"
+                },
                 "enterpriseSecret": {
+                    "type": "string"
+                },
+                "enterpriseServerAddress": {
                     "type": "string"
                 },
                 "externalService": {
@@ -409,6 +421,9 @@
                             "type": "boolean"
                         }
                     }
+                },
+                "registerWithEnterpriseServer": {
+                    "type": "boolean"
                 },
                 "requireCriticalServersOnly": {
                     "type": "boolean"
