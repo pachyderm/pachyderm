@@ -21,8 +21,6 @@ import {commitFromObject, CommitObject} from '../builders/pfs';
 import {
   jobFromObject,
   pipelineFromObject,
-  GetLogsRequestObject,
-  getLogsRequestFromObject,
   egressFromObject,
   inputFromObject,
   parallelismSpecFromObject,
@@ -43,9 +41,15 @@ import {
   EgressObject,
   ResourceSpecObject,
   DatumSetSpecObject,
+  getLogsRequestFromArgs,
 } from '../builders/pps';
 import {durationFromObject, DurationObject} from '../builders/protobuf';
-import {JobSetQueryArgs, JobQueryArgs, ServiceArgs} from '../lib/types';
+import {
+  JobSetQueryArgs,
+  JobQueryArgs,
+  ServiceArgs,
+  GetLogsRequestArgs,
+} from '../lib/types';
 import {DEFAULT_JOBS_LIMIT} from '../services/constants/pps';
 import streamToObjectArray from '../utils/streamToObjectArray';
 
@@ -278,18 +282,38 @@ const pps = ({
       });
     },
 
-    getLogs: (request: GetLogsRequestObject) => {
-      const getLogsRequest = getLogsRequestFromObject(request);
+    getLogs: ({
+      pipelineName,
+      jobId,
+      since,
+      follow = false,
+    }: GetLogsRequestArgs) => {
+      const getLogsRequest = getLogsRequestFromArgs({
+        pipelineName,
+        jobId,
+        since,
+        follow,
+      });
       const stream = client.getLogs(getLogsRequest, credentialMetadata);
 
       return streamToObjectArray<LogMessage, LogMessage.AsObject>(stream);
     },
 
-    getLogsStream: (request: GetLogsRequestObject) => {
+    getLogsStream: ({
+      pipelineName,
+      jobId,
+      since,
+      follow = false,
+    }: GetLogsRequestArgs) => {
       return new Promise<ClientReadableStream<LogMessage>>(
         (resolve, reject) => {
           try {
-            const getLogsRequest = getLogsRequestFromObject(request);
+            const getLogsRequest = getLogsRequestFromArgs({
+              pipelineName,
+              jobId,
+              since,
+              follow,
+            });
             const stream = client.getLogs(getLogsRequest, credentialMetadata);
 
             return resolve(stream);

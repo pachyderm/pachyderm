@@ -24,6 +24,8 @@ import {
   ProcessStats,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
+import {GetLogsRequestArgs} from 'lib/types';
+
 import {
   commitFromObject,
   CommitObject,
@@ -206,13 +208,6 @@ export type JobInfoObject = {
   stats?: ProcessStatsFromObject;
   salt?: JobInfo.Details.AsObject['salt'];
   datumTries?: JobInfo.Details.AsObject['datumTries'];
-};
-
-export type GetLogsRequestObject = {
-  pipelineName?: string;
-  jobId?: string;
-  since?: number;
-  follow?: boolean;
 };
 
 export type ProcessStatsFromObject = {
@@ -705,12 +700,12 @@ export const processStatsFromObject = ({
   return processStats;
 };
 
-export const getLogsRequestFromObject = ({
+export const getLogsRequestFromArgs = ({
   pipelineName,
   jobId,
   since,
   follow = false,
-}: GetLogsRequestObject) => {
+}: GetLogsRequestArgs) => {
   const getLogsRequest = new GetLogsRequest();
   getLogsRequest.setFollow(follow);
 

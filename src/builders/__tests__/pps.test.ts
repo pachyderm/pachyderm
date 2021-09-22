@@ -17,7 +17,7 @@ import {
   transformFromObject,
   jobInfoFromObject,
   jobFromObject,
-  getLogsRequestFromObject,
+  getLogsRequestFromArgs,
 } from '../pps';
 
 describe('grpc/builders/pps', () => {
@@ -645,8 +645,8 @@ it('should create JobInfo from an object', () => {
   expect(pipelineJob.getStats()?.getDownloadBytes()).toBe(2896);
 });
 
-it('should create GetLogsRequestObject from a pipeline request', () => {
-  const getLogsRequest = getLogsRequestFromObject({
+it('should create getLogsRequest from a pipeline request', () => {
+  const getLogsRequest = getLogsRequestFromArgs({
     pipelineName: 'PipelineName',
     since: 564645,
     follow: true,
@@ -658,8 +658,8 @@ it('should create GetLogsRequestObject from a pipeline request', () => {
   expect(getLogsRequest.getFollow()).toBe(true);
 });
 
-it('should create GetLogsRequestObject from a job request', () => {
-  const getLogsRequest = getLogsRequestFromObject({
+it('should create getLogsRequest from a job request', () => {
+  const getLogsRequest = getLogsRequestFromArgs({
     pipelineName: 'PipelineName',
     jobId: '2222222',
     since: 564645,
