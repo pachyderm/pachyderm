@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"archive/tar"
 	"bufio"
 	"fmt"
 	"io"
@@ -9,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -1207,7 +1207,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 					return errors.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
 				// Check that the path matches one directory / file.
-				_, err := c.InspectFile(file.Commit, file.Path)
+				fi, err := c.InspectFile(file.Commit, file.Path)
 				if err != nil {
 					return err
 				}
@@ -1215,15 +1215,10 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				if err != nil {
 					return err
 				}
-				dir, err := ioutil.TempDir("", "pachyderm_get_file_recursive")
-				if err != nil {
-					return err
-				}
-				defer os.RemoveAll(dir)
-				if err := tarutil.Import(dir, r); err != nil {
-					return err
-				}
-				return os.Rename(path.Join(dir, file.Path), outputPath)
+				return tarutil.Import(outputPath, r, func(hdr *tar.Header) error {
+					hdr.Name = strings.TrimPrefix(hdr.Name, fi.File.Path)
+					return nil
+				})
 			}
 			var w io.Writer
 			// If an output path is given, print the output to stdout
