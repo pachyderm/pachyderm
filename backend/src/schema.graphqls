@@ -334,6 +334,28 @@ input CreateRepoArgs {
   projectId: String!
 }
 
+input RepoInput {
+  name: ID!
+}
+
+input PFS {
+  name: String!
+  repo: RepoInput!
+  glob: String
+  branch: String
+}
+
+input CreatePipelineArgs {
+  name: String!
+  image: String!
+  cmdList: [String!]!
+  pfs: PFS
+  crossList: [PFS!]
+  projectId: String!
+  description: String
+  update: Boolean
+}
+
 type Log {
   message: String!
   timestamp: Timestamp
@@ -368,4 +390,5 @@ type Subscription {
 type Mutation {
   exchangeCode(code: String!): Tokens!
   createRepo(args: CreateRepoArgs!): Repo!
+  createPipeline(args: CreatePipelineArgs!): Pipeline!
 }

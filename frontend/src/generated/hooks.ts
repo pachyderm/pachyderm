@@ -42,6 +42,68 @@ export const LogFieldsFragmentDoc = gql`
     message
   }
 `;
+export const CreatePipelineDocument = gql`
+  mutation createPipeline($args: CreatePipelineArgs!) {
+    createPipeline(args: $args) {
+      id
+      name
+      state
+      type
+      description
+      datumTimeoutS
+      datumTries
+      jobTimeoutS
+      outputBranch
+      s3OutputRepo
+      egress
+      jsonSpec
+      reason
+    }
+  }
+`;
+export type CreatePipelineMutationFn = Apollo.MutationFunction<
+  Types.CreatePipelineMutation,
+  Types.CreatePipelineMutationVariables
+>;
+
+/**
+ * __useCreatePipelineMutation__
+ *
+ * To run a mutation, you first call `useCreatePipelineMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useCreatePipelineMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [createPipelineMutation, { data, loading, error }] = useCreatePipelineMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useCreatePipelineMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.CreatePipelineMutation,
+    Types.CreatePipelineMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.CreatePipelineMutation,
+    Types.CreatePipelineMutationVariables
+  >(CreatePipelineDocument, options);
+}
+export type CreatePipelineMutationHookResult = ReturnType<
+  typeof useCreatePipelineMutation
+>;
+export type CreatePipelineMutationResult =
+  Apollo.MutationResult<Types.CreatePipelineMutation>;
+export type CreatePipelineMutationOptions = Apollo.BaseMutationOptions<
+  Types.CreatePipelineMutation,
+  Types.CreatePipelineMutationVariables
+>;
 export const CreateRepoDocument = gql`
   mutation createRepo($args: CreateRepoArgs!) {
     createRepo(args: $args) {

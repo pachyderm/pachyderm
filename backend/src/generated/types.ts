@@ -58,6 +58,17 @@ export type Commit = {
   sizeDisplay: Scalars['String'];
 };
 
+export type CreatePipelineArgs = {
+  name: Scalars['String'];
+  image: Scalars['String'];
+  cmdList: Array<Scalars['String']>;
+  pfs?: Maybe<Pfs>;
+  crossList?: Maybe<Array<Pfs>>;
+  projectId: Scalars['String'];
+  description?: Maybe<Scalars['String']>;
+  update?: Maybe<Scalars['Boolean']>;
+};
+
 export type CreateRepoArgs = {
   name: Scalars['String'];
   description?: Maybe<Scalars['String']>;
@@ -209,6 +220,7 @@ export type Mutation = {
   __typename?: 'Mutation';
   exchangeCode: Tokens;
   createRepo: Repo;
+  createPipeline: Pipeline;
 };
 
 export type MutationExchangeCodeArgs = {
@@ -217,6 +229,10 @@ export type MutationExchangeCodeArgs = {
 
 export type MutationCreateRepoArgs = {
   args: CreateRepoArgs;
+};
+
+export type MutationCreatePipelineArgs = {
+  args: CreatePipelineArgs;
 };
 
 export type NodeSelector = {
@@ -239,6 +255,13 @@ export enum NodeType {
   INPUT_REPO = 'INPUT_REPO',
   EGRESS = 'EGRESS',
 }
+
+export type Pfs = {
+  name: Scalars['String'];
+  repo: RepoInput;
+  glob?: Maybe<Scalars['String']>;
+  branch?: Maybe<Scalars['String']>;
+};
 
 export type PfsInput = {
   __typename?: 'PFSInput';
@@ -414,6 +437,10 @@ export type Repo = {
   sizeBytes: Scalars['Int'];
   sizeDisplay: Scalars['String'];
   linkedPipeline?: Maybe<Pipeline>;
+};
+
+export type RepoInput = {
+  name: Scalars['ID'];
 };
 
 export type RepoQueryArgs = {
@@ -619,6 +646,7 @@ export type ResolversTypes = ResolversObject<{
   Commit: ResolverTypeWrapper<Commit>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
+  CreatePipelineArgs: CreatePipelineArgs;
   CreateRepoArgs: CreateRepoArgs;
   CronInput: ResolverTypeWrapper<CronInput>;
   DagQueryArgs: DagQueryArgs;
@@ -643,6 +671,7 @@ export type ResolversTypes = ResolversObject<{
   NodeSelector: ResolverTypeWrapper<NodeSelector>;
   NodeState: NodeState;
   NodeType: NodeType;
+  PFS: Pfs;
   PFSInput: ResolverTypeWrapper<PfsInput>;
   Pach: ResolverTypeWrapper<Pach>;
   Pipeline: ResolverTypeWrapper<Pipeline>;
@@ -655,6 +684,7 @@ export type ResolversTypes = ResolversObject<{
   ProjectStatus: ProjectStatus;
   Query: ResolverTypeWrapper<{}>;
   Repo: ResolverTypeWrapper<Repo>;
+  RepoInput: RepoInput;
   RepoQueryArgs: RepoQueryArgs;
   SchedulingSpec: ResolverTypeWrapper<SchedulingSpec>;
   SearchResultQueryArgs: SearchResultQueryArgs;
@@ -677,6 +707,7 @@ export type ResolversParentTypes = ResolversObject<{
   Commit: Commit;
   Boolean: Scalars['Boolean'];
   Int: Scalars['Int'];
+  CreatePipelineArgs: CreatePipelineArgs;
   CreateRepoArgs: CreateRepoArgs;
   CronInput: CronInput;
   DagQueryArgs: DagQueryArgs;
@@ -696,6 +727,7 @@ export type ResolversParentTypes = ResolversObject<{
   LogsArgs: LogsArgs;
   Mutation: {};
   NodeSelector: NodeSelector;
+  PFS: Pfs;
   PFSInput: PfsInput;
   Pach: Pach;
   Pipeline: Pipeline;
@@ -705,6 +737,7 @@ export type ResolversParentTypes = ResolversObject<{
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
   Query: {};
   Repo: Repo;
+  RepoInput: RepoInput;
   RepoQueryArgs: RepoQueryArgs;
   SchedulingSpec: SchedulingSpec;
   SearchResultQueryArgs: SearchResultQueryArgs;
@@ -936,6 +969,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationCreateRepoArgs, 'args'>
+  >;
+  createPipeline?: Resolver<
+    ResolversTypes['Pipeline'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreatePipelineArgs, 'args'>
   >;
 }>;
 
@@ -1329,6 +1368,29 @@ export type LogFieldsFragment = {__typename?: 'Log'} & Pick<
       {__typename?: 'Timestamp'} & Pick<Timestamp, 'seconds' | 'nanos'>
     >;
   };
+
+export type CreatePipelineMutationVariables = Exact<{
+  args: CreatePipelineArgs;
+}>;
+
+export type CreatePipelineMutation = {__typename?: 'Mutation'} & {
+  createPipeline: {__typename?: 'Pipeline'} & Pick<
+    Pipeline,
+    | 'id'
+    | 'name'
+    | 'state'
+    | 'type'
+    | 'description'
+    | 'datumTimeoutS'
+    | 'datumTries'
+    | 'jobTimeoutS'
+    | 'outputBranch'
+    | 's3OutputRepo'
+    | 'egress'
+    | 'jsonSpec'
+    | 'reason'
+  >;
+};
 
 export type CreateRepoMutationVariables = Exact<{
   args: CreateRepoArgs;
