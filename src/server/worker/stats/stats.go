@@ -202,29 +202,6 @@ var (
 // code, and exposes the stats on an http endpoint.
 func InitPrometheus() {
 	logrus.Infof("registering prometheus collectors")
-	/*
-		metrics := []prometheus.Collector{
-			DatumCount,
-			DatumProcTime,
-			DatumProcSecondsCount,
-			DatumDownloadTime,
-			DatumDownloadSecondsCount,
-			DatumUploadTime,
-			DatumUploadSecondsCount,
-			DatumDownloadSize,
-			DatumDownloadBytesCount,
-			DatumUploadSize,
-			DatumUploadBytesCount,
-		}
-		for _, metric := range metrics {
-			if err := prometheus.Register(metric); err != nil {
-				// metrics may be redundantly registered; ignore these errors
-				if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
-					logrus.Errorf("error registering prometheus metric: %v", err)
-				}
-			}
-		}
-	*/
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
 		if err := http.ListenAndServe(fmt.Sprintf(":%v", PrometheusPort), nil); err != nil {
