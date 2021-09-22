@@ -815,7 +815,33 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			}
 		}
 
-		if subvBI.Head.ID != txnCtx.CommitSetID {
+		if subvBI.Head.ID == txnCtx.CommitSetID {
+			continue // this branch is already updated
+		}
+
+		// determine whether we can use the contents of an old commit
+		var oldCommit pfs.CommitInfo
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(
+			subvBI.Branch.NewCommit(txnCtx.CommitSetID), &oldCommit,
+		); err != nil && !col.IsErrNotFound(err) {
+				return err
+		} else if err == nil {
+			if len(subvBI.DirectProvenance) != len(oldCommit.DirectProvenance) {
+				return errors.EnsureStack(pfsserver.ErrInconsistentCommit{Branch: subvBI.Branch, Commit: oldCommit.Commit})
+			}
+			for _, br := range oldCommit.DirectProvenance {
+				if ! has(&subvBI.DirectProvenance, br) {
+					return errors.EnsureStack( pfsserver.ErrInconsistentCommit{Branch: subvBI.Branch, Commit: oldCommit.Commit})
+				}
+			}
+			// the old commit is compatible with the current provenance, so use it.
+			// This will reuse the old data and not create a job, meaning if the reprocess spec is "every job",
+			// moving a branch head back is different from doing the inverse changes in PFS
+			subvBI.Head = oldCommit.Commit
+			if err := d.branches.ReadWrite(txnCtx.SqlTx).Put(subvBI.Branch, subvBI); err != nil {
+				return err
+			}
+		} else {
 			// This branch has no commit for this CommitSet, start a new output commit in 'subvBI.Branch'
 			newCommit := &pfs.Commit{
 				Branch: subvBI.Branch,
@@ -827,6 +853,8 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 				Started:          txnCtx.Timestamp,
 				DirectProvenance: subvBI.DirectProvenance,
 			}
+
+			// we might be able to find an older parent commit that better reflects the provenance state, saving work
 
 			// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
 			newCommitInfo.ParentCommit = subvBI.Head

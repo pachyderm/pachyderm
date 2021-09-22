@@ -355,6 +355,77 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, "2", b.String())
 	})
 
+	suite.Run("RewindInput", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		c := env.PachClient
+
+		require.NoError(t, c.CreateRepo("A"))
+		require.NoError(t, c.CreateRepo("B"))
+		require.NoError(t, c.CreateRepo("C"))
+		require.NoError(t, c.CreateRepo("Z"))
+		repos := []string{"A", "B", "C", "Z"}
+
+		// A ─▶ B ─▶ Z
+		//           ▲
+		//      C ───╯
+
+		txnInfo, err := c.ExecuteInTransaction(func(tx *client.APIClient) error {
+			if err := tx.CreateBranch("A", "master", "", "", nil); err != nil {
+				return err
+			}
+			if err := c.CreateBranch("B", "master", "", "",
+				[]*pfs.Branch{client.NewBranch("A", "master")}); err != nil {
+				return err
+			}
+			if err := c.CreateBranch("C", "master", "", "", nil); err != nil {
+				return err
+			}
+			return c.CreateBranch("Z", "master", "", "", []*pfs.Branch{
+				client.NewBranch("B", "master"),
+				client.NewBranch("C", "master"),
+			})
+		})
+		require.NoError(t, err)
+		firstID := txnInfo.Transaction.ID
+
+		// make two commits by putting files in A
+		require.NoError(t,c.PutFile(client.NewCommit("A","master",""),"one", strings.NewReader("foo")))
+		info, err := c.InspectCommit("A", "master", "")
+		secondID := info.Commit.ID
+		require.NoError(t, err)
+		require.NoError(t,c.PutFile(client.NewCommit("A","master",""),"two", strings.NewReader("bar")))
+
+		// rewind once, everything should be back to firstCommit
+		require.NoError(t, c.CreateBranch("A", "master", "master", secondID,nil))
+		for _, r := range repos {
+			info, err := c.InspectCommit(r, "master", "")
+			require.NoError(t, err)
+			require.Equal(t, secondID, info.Commit.ID)
+		}
+
+		// add a file to C, then rewind A back to the start
+		// because C now has a different state, this must create a new commit ID
+		require.NoError(t,c.PutFile(client.NewCommit("C","master",""),"file", strings.NewReader("baz")))
+		require.NoError(t, c.CreateBranch("A", "master", "master", firstID,nil))
+
+		info, err = c.InspectCommit("B", "master", "")
+		require.NoError(t, err)
+		newID := info.Commit.ID
+		require.NotEqual(t, firstID, newID)
+		require.NotEqual(t, secondID, newID)
+
+		// TODO: add more functionality so that the parent of B's head is B@firstID, rather than B@secondID
+		//require.Equal(t, firstID, info.ParentCommit.ID)
+		require.Equal(t, secondID, info.ParentCommit.ID)
+
+		for _, r := range repos {
+			info, err := c.InspectCommit(r, "master", "")
+			require.NoError(t, err)
+			require.Equal(t, newID, info.Commit.ID)
+		}
+	})
+
 	suite.Run("CreateAndInspectRepo", func(t *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
