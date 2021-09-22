@@ -15,15 +15,15 @@ pachd:
     enabled: false
   clusterDeploymentID: dev
   activateEnterprise: true
+  registerWithEnterpriseServer: true
   enterpriseLicenseKey: ""
   enterpriseServerAddress: "grpc://pach-enterprise.enterprise.svc.cluster.local:1650"
   enterpriseCallbackAddress: "grpc://pachd.default.svc.cluster.local:1650"
-  enterpriseRootToken: "ENTERPRISE-ROOT-TOKEN"
-  oidc:
-    clientId: "pachd"
-    issuer: "http://pach-enterprise.enterprise.svc.cluster.local:1658/"
-    redirectURI: "http://localhost:30657/authorization-code/callback"
-    setupConnector: false
+  enterpriseRootToken: "valid-enterprise-token"
+  mockIDP: true
+  oauthClientID: "pachd"
+  oauthIssuer: "http://pach-enterprise.enterprise.svc.cluster.local:1658/"
+  oauthRedirectURI: "http://localhost:30657/authorization-code/callback"
 
 console:
   enabled: true
@@ -36,9 +36,6 @@ console:
     graphqlPort: 4000
     oauthPachdClientID: "pachd"
     pachdAddress: "pachd-peer:30653"
-
-enterpriseServer:
-  enabled: false
 
 etcd:
   service:
