@@ -43,51 +43,6 @@ region, run the following command:
       $ aws s3 ls
       ```
 
-### (Optional) Set Up Bucket Encryption
-
-Amazon S3 supports two types of bucket encryption — server-side encryption
-(SSE-S3) and AWS Key Management Service (AWS KMS), which stores customer
-master keys. When creating a bucket for your Pachyderm cluster, you can set up either
-of them. Because Pachyderm requests that buckets do not include encryption
-information, the method that you select for the bucket is applied.
-
-!!! Info
-      Setting up communication between Pachyderm object storage clients and AWS KMS
-      to append encryption information to Pachyderm requests is not supported and
-      not recommended. 
-
-To set up bucket encryption, see [Amazon S3 Default Encryption for S3 Buckets](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html).
-
-## 2- Enable Your Persistent Volumes Creation
-
-etcd and PostgreSQL (metadata storage) each claim the creation of a pv. 
-
-!!! Important
-      The metadata services generally require a small persistent volume size (i.e. 10GB) **but high IOPS (1500)**.
-      Note that Pachyderm out-of-the-box deployment comes with **gp2** default EBS volumes. 
-      While it might be easier to set up for test or development environments, **we highly recommend to use SSD gp3 in production**. A **gp3** EBS volume delivers a baseline performance of 3,000 IOPS and 125MB/s at any volume size. Any other disk choice may require to **oversize the volume significantly to ensure enough IOPS**.
-
-      See [volume types](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html).
-
-If you plan on using **gp2** EBS volumes, [skip this section and jump to the deployment of Pachyderm](#3-deploy-pachyderm).
-For gp3 volumes, you will need to **deploy an Amazon EBS CSI driver to your cluster as detailed below**.
-
-For your EKS cluster to successfully create two **Elastic Block Storage (EBS) persistent volumes (PV)**, follow the steps detailled in **[deploy Amazon EBS CSI driver to your cluster](https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html)**.
-
-In short, you will:
-
-1. [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html).
-1. Create a CSI Driver service account whose IAM Role will be granted the permission (policy) to make calls to AWS APIs. 
-1. Install Amazon EBS Container Storage Interface (CSI) driver on your cluster configured with your created service account.
-
-
-If you expect your cluster to be very long
-running or scale to thousands of jobs per commits, you might need to add
-more storage.  However, you can easily increase the size of the persistent
-volume later.
-## 3- Deploy Pachyderm
-You have created your S3 bucket and have configure your EKS cluster to create your pvs (metadata).
-
 You now need to give your cluster access to your bucket either by:
 
 - adding a policy to your cluster IAM Role (Recommended)
@@ -146,13 +101,60 @@ Make sure the **IAM role of your cluster has access to the S3 bucket that you cr
 
 1. Create a name for the new policy.
 
+### (Optional) Set Up Bucket Encryption
+
+Amazon S3 supports two types of bucket encryption — server-side encryption
+(SSE-S3) and AWS Key Management Service (AWS KMS), which stores customer
+master keys. When creating a bucket for your Pachyderm cluster, you can set up either
+of them. Because Pachyderm requests that buckets do not include encryption
+information, the method that you select for the bucket is applied.
+
+!!! Info
+      Setting up communication between Pachyderm object storage clients and AWS KMS
+      to append encryption information to Pachyderm requests is not supported and
+      not recommended. 
+
+To set up bucket encryption, see [Amazon S3 Default Encryption for S3 Buckets](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html).
+
+## 2- Enable Your Persistent Volumes Creation
+
+etcd and PostgreSQL (metadata storage) each claim the creation of a pv. 
+
+!!! Important
+      The metadata services generally require a small persistent volume size (i.e. 10GB) **but high IOPS (1500)**.
+      Note that Pachyderm out-of-the-box deployment comes with **gp2** default EBS volumes. 
+      While it might be easier to set up for test or development environments, **we highly recommend to use SSD gp3 in production**. A **gp3** EBS volume delivers a baseline performance of 3,000 IOPS and 125MB/s at any volume size. Any other disk choice may require to **oversize the volume significantly to ensure enough IOPS**.
+
+      See [volume types](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html).
+
+If you plan on using **gp2** EBS volumes, [skip this section and jump to the deployment of Pachyderm](#3-deploy-pachyderm).
+For gp3 volumes, you will need to **deploy an Amazon EBS CSI driver to your cluster as detailed below**.
+
+For your EKS cluster to successfully create two **Elastic Block Storage (EBS) persistent volumes (PV)**, follow the steps detailled in **[deploy Amazon EBS CSI driver to your cluster](https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html)**.
+
+In short, you will:
+
+1. [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html).
+1. Create a CSI Driver service account whose IAM Role will be granted the permission (policy) to make calls to AWS APIs. 
+1. Install Amazon EBS Container Storage Interface (CSI) driver on your cluster configured with your created service account.
+
+
+If you expect your cluster to be very long
+running or scale to thousands of jobs per commits, you might need to add
+more storage.  However, you can easily increase the size of the persistent
+volume later.
+## 3- Deploy Pachyderm
+You have created your S3 bucket, given your cluster access to your bucket, and have configured your EKS cluster to create your pvs (metadata).
+
+You can now deploy Pachyderm.
 ### Create Your Values.yaml   
 
-- [Check out our example of values.yaml for gp3](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp3-values.yaml)
-- [Check out our example of values.yaml for gp2](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp2-values.yaml)
-- or use our minimal example below.
+#### For gp3 EBS Volumes
 
-=== "For Gp3 EBS Volumes"   
+[Check out our example of values.yaml for gp3](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp3-values.yaml) or use our minimal example below.
+
+
+=== "Gp3 + Service account annotations"   
       ```yaml
       deployTarget: AMAZON
       # This uses GP3 which requires the CSI Driver https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
@@ -164,15 +166,11 @@ Make sure the **IAM role of your cluster has access to the S3 bucket that you cr
         storage:
           amazon:
             bucket: blah
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            id: AKIAIOSFODNN7EXAMPLE
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
             cloudFrontDistribution: cfd-123
             region: us-east-2
         serviceAccount:
           additionalAnnotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+            eks.amazonaws.com/role-arn: arn:aws:iam::<ACCOUNT_ID>:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
 
         worker:
           serviceAccount:
@@ -183,8 +181,38 @@ Make sure the **IAM role of your cluster has access to the S3 bucket that you cr
         persistence:
           storageClass: gp3
       ```
+=== "Gp3 + AWS Credentials"   
+      ```yaml
+      deployTarget: AMAZON
+      # This uses GP3 which requires the CSI Driver https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
+      # And a storageclass configured named gp3
+      etcd:
+        storageClass: gp3
+
+      pachd:
+        storage:
+          amazon:
+            bucket: blah
+
+            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+            id: AKIAIOSFODNN7EXAMPLE
+
+            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+
+            secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+            cloudFrontDistribution: cfd-123
+            region: us-east-2
+
+      postgresql:
+        persistence:
+          storageClass: gp3
+      ```
+
+#### For gp2 EBS Volumes
+
+[Check out our example of values.yaml for gp2](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp2-values.yaml) or use our minimal example below.   
     
-=== "For Gp2 EBS Volumes"
+=== "For Gp2 + Service account annotations"
       ```yaml
       deployTarget: AMAZON
       
@@ -195,10 +223,6 @@ Make sure the **IAM role of your cluster has access to the S3 bucket that you cr
         storage:
           amazon:
             bucket: blah
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            id: AKIAIOSFODNN7EXAMPLE
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
             cloudFrontDistribution: cfd-123
             region: us-east-2
         serviceAccount:
@@ -213,11 +237,34 @@ Make sure the **IAM role of your cluster has access to the S3 bucket that you cr
       postgresql:
         persistence:
           size: 500Gi
+      ```  
+=== "For Gp2 + AWS Credentials"
+      ```yaml
+      deployTarget: AMAZON
+      
+      etcd:
+        size: 500Gi
+
+      pachd:
+        storage:
+          amazon:
+            bucket: blah
+            
+            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+            id: AKIAIOSFODNN7EXAMPLE
+            
+            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+            
+            secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+            cloudFrontDistribution: cfd-123
+            region: us-east-2
+
+      postgresql:
+        persistence:
+          size: 500Gi
       ```
 
 Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
-
-- In the case of an added policy to your cluster IAM Role, update the `pachd.serviceAccount` and `pachd.worker` sections of your values.yaml.
 
 !!! Note
       The **worker nodes on which Pachyderm is deployed must be associated with the IAM role that is assigned to the Kubernetes cluster**. 
@@ -243,7 +290,6 @@ Check the [list of all available helm values](../../../../reference/helm_values/
       }
       ``` 
 
-- In the case where you pass your AWS credentials (account ID and KEY) to your cluster (not recommended), update `pachd.storage.amazon.id` and `pachd.storage.amazon.secret`.
 
 !!! Important "Load Balancer Setup" 
       If you would like to expose your pachd instance to the internet via load balancer, add the following config under `pachd` to your `values.yaml`
