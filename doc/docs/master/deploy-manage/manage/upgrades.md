@@ -74,7 +74,7 @@ the following command:
       pachctl             {{ config.pach_latest_version }}
       ```
 
-1. Redeploy Pachyderm by running the `helm upgrade pachd -f my_pachyderm_values.yaml pach/pachyderm` command
+1. Redeploy Pachyderm by running the [helm upgrade](https://helm.sh/docs/helm/helm_upgrade/) command
 with the same values file that you specified when you deployed the previous version
 of Pachyderm:
 
