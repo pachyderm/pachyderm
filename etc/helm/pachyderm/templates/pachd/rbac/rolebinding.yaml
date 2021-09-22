@@ -18,5 +18,5 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: pachyderm
-  namespace: default
+  namespace: {{ .Release.Namespace }}
 {{ end -}}
