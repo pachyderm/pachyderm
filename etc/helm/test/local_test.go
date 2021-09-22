@@ -24,12 +24,12 @@ func TestLocal(t *testing.T) {
 					"pachd.storage.local.hostPath": hostPath,
 					"global.imagePullSecrets[0]":   secret,
 					"pachd.enterpriseLicenseKey":   "licenseKey",
-					"pachd.pachOAuth.clientId":     "pachd",
-					"pachd.pachOAuth.issuer":       "http://issuer-ip:1658",
-					"pachd.pachOAuth.redirectURI":  "http://localhost:30657/authorization/callback",
+					"pachd.oauthClientId":          "pachd",
+					"pachd.oauthIssuer":            "http://issuer-ip:1658",
+					"pachd.oauthRedirectURI":       "http://localhost:30657/authorization/callback",
 				},
 				SetValues: map[string]string{
-					"pachd.upstreamIDP.mockIDP": "true",
+					"pachd.mockIDP": "true",
 				},
 			},
 			"../pachyderm/", "release-name", nil))
