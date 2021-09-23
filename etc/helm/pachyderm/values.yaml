@@ -53,7 +53,7 @@ console:
     #  cpu: "1"
     #  memory: "2G"
   config:
-    issuerURI: "" #Inferred if running locally or using ingress
+
     reactAppRuntimeIssuerURI: "" #Inferred if running locally or using ingress
     oauthRedirectURI: "" #Infered if running locally or using ingress
     oauthClientID: "console"
@@ -209,7 +209,6 @@ pachd:
   enterpriseSecret: ""
   oauthClientID: pachd
   oauthClientSecret: ""
-  oauthIssuer: ""
   oauthRedirectURI: ""
   userAccessibleOauthIssuerHost: ""
   upstreamIDPs: []
@@ -477,6 +476,7 @@ cloudsqlAuthProxy:
     type: ClusterIP
 
 oidc:
+  issuerURI: "" #Inferred if running locally or using ingress
   localhostIssuer: true
   requireVerifiedEmail: false
   IDTokenExpiry: 24h

@@ -42,7 +42,7 @@ spec:
         - name: REACT_APP_RUNTIME_ISSUER_URI
           value: {{ include "pachyderm.reactAppRuntimeIssuerURI" . | quote}}
         - name: OAUTH_REDIRECT_URI
-          value: {{ include "pachyderm.consoleRedirectURI" . | quote }} #TODO Investigate why this is different from react runtime issuer URI in Hub
+          value: {{ include "pachyderm.consoleRedirectURI" . | quote }}
         - name: OAUTH_CLIENT_ID
           value: {{ .Values.console.config.oauthClientID | quote }}
         - name: GRAPHQL_PORT

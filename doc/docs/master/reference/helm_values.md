@@ -32,7 +32,6 @@ console:
   podLabels: {}
   resources: {}
   config:
-    issuerURI: ""
     reactAppRuntimeIssuerURI: ""
     oauthRedirectURI: ""
     oauthClientID: ""
@@ -235,12 +234,6 @@ cloudsqlAuthProxy:
 
     console:
       enabled: true
-      config:
-        issuerURI: "http://localhost:30658/"
-        oauthRedirectURI: "http://localhost:4000/oauth/callback/?inline=true"
-        oauthClientID: "console"
-        oauthClientSecret: "abc"
-        graphqlPort: 4000
     ```
 
 ### deployTarget
@@ -296,8 +289,6 @@ This section is to configure the Pachyderm UI (`console`) which requires an ente
 #### console.config
 
 This is where the primary configuration settings for the console are configured, including authentication.
-
-- `config.issuerURI` is the pachd oauth address accessible to console within the kubernetes cluster. The default is generally fine here.
 
 - `config.reactAppRuntimeIssuerURI` this is the pachd oauth address thats accesible to clients outside of the cluster itself. When running local with `kubectl port-forward` this would be set to localhost (`"http://localhost:30658/"`). Otherwiswe this has to be an address acessible to clients.
 
