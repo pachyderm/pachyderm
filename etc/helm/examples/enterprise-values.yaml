@@ -1,3 +1,5 @@
 deployTarget: LOCAL
 pachd:
   enterpriseOnlyMode: true
+  rbac:
+    create: false
