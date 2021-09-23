@@ -162,7 +162,7 @@ func (s *Set) WithDatum(meta *Meta, cb func(*Datum) error, opts ...Option) error
 				if retErr == nil || i == d.numRetries {
 					retErr = d.finish(retErr)
 				}
-				duration := time.Duration(int64(d.meta.Stats.ProcessTime.GetNanos()) + d.meta.Stats.ProcessTime.GetSeconds()*1000000000)
+				duration := time.Duration(d.meta.Stats.ProcessTime.GetNanos()) + time.Duration(d.meta.Stats.ProcessTime.GetSeconds())*time.Second
 				labels := workerStats.DatumLabels(d.meta.Job, d.meta.State.String())
 				workerStats.DatumProcTime.With(labels).Observe(duration.Seconds())
 				workerStats.DatumProcSecondsCount.With(labels).Add(duration.Seconds())
