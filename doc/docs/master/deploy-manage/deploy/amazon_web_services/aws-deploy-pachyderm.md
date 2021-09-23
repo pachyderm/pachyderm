@@ -45,7 +45,7 @@ region, run the following command:
 
 You now need to **give Pachyderm access to your bucket** either by:
 
-- [Adding a policy to your service account IAM Role](#create-an-iam-role-and-policy-to-your-service-account) (Recommended)
+- [Adding a policy to your service account IAM Role](#add-an-iam-role-and-policy-to-your-service-account) (Recommended)
 OR
 - Passing your AWS credentials (account ID and KEY) to your values.yaml when installing
 
