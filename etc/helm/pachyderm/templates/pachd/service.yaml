@@ -56,6 +56,7 @@ spec:
     port: 30658
     {{- end }}
     targetPort: identity-port
+  {{- if not .Values.pachd.enterpriseOnlyMode }}
   - name: s3gateway-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30600
@@ -64,6 +65,7 @@ spec:
     port: 30600
     {{- end }}
     targetPort: s3gateway-port
+  {{- end }}
   - name: prom-metrics
     {{- if eq .Values.pachd.service.type "NodePort" }}
     {{- if .Values.pachd.enterpriseOnlyMode }}
