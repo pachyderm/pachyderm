@@ -37,12 +37,14 @@ imagePullSecrets:
 {{- end -}}
 
 {{- define "pachyderm.issuerURI" -}}
-{{- if .Values.console.config.issuerURI -}}
-{{ .Values.console.config.issuerURI }}
+{{- if .Values.oidc.issuerURI -}}
+{{ .Values.oidc.issuerURI }}
 {{- else if .Values.ingress.host -}}
 https://{{ .Values.ingress.host }}/dex
 {{- else if eq .Values.deployTarget "LOCAL" -}}
 http://pachd:1658
+{{ else }}
+{{ fail "For Authentication, an OIDC Issuer for this pachd must be set." }}
 {{- end -}}
 {{- end }}
 
@@ -63,17 +65,21 @@ http://localhost:30658/
 https://{{ .Values.ingress.host }}/oauth/callback/?inline=true
 {{- else if eq .Values.deployTarget "LOCAL" -}}
 http://localhost:4000/oauth/callback/?inline=true
+{{- else -}}
+{{ fail "To connect Console to Pachyderm, Console's Redirect URI must be set." }}
 {{- end }}
 {{- end }}
 
 {{- define "pachyderm.pachdRedirectURI" -}}
-{{- if .Values.pachd.oauthRedirectURI }}
+{{- if .Values.pachd.oauthRedirectURI -}}
 {{ .Values.console.config.oauthRedirectURI -}}
 {{- else if .Values.ingress.host -}}
 https://{{ .Values.ingress.host }}/authorization-code/callback
 {{- else if eq .Values.deployTarget "LOCAL" -}}
 http://localhost:30657/authorization-code/callback
-{{- end }}
+{{- else -}}
+{{ fail "For Authentication, an OIDC Redirect URI for this pachd must be set." }}
+{{- end -}}
 {{- end }}
 
 {{- define "pachyderm.pachdPeerAddress" -}}

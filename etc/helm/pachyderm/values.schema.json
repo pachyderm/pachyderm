@@ -59,9 +59,6 @@
                         "graphqlPort": {
                             "type": "integer"
                         },
-                        "issuerURI": {
-                            "type": "string"
-                        },
                         "oauthClientID": {
                             "type": "string"
                         },
@@ -309,6 +306,9 @@
                 "IDTokenExpiry": {
                     "type": "string"
                 },
+                "issuerURI": {
+                    "type": "string"
+                },
                 "localhostIssuer": {
                     "type": "boolean"
                 },
@@ -393,9 +393,6 @@
                     "type": "string"
                 },
                 "oauthClientSecret": {
-                    "type": "string"
-                },
-                "oauthIssuer": {
                     "type": "string"
                 },
                 "oauthRedirectURI": {
