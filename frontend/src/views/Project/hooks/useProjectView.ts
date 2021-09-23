@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 
+import useLocalProjectPreferences from '@dash-frontend/hooks/useLocalProjectPreferences';
 import {useProjectDagsData} from '@dash-frontend/hooks/useProjectDAGsData';
 import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
@@ -75,6 +76,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const {selectedNode} = useRouteController();
   const {viewState, setUrlFromViewState} = useUrlQueryState();
   const {pipelineId, repoId, projectId, jobId} = useUrlState();
+  const localPreferences = useLocalProjectPreferences({projectId});
   const [dagState, dispatch] = useReducer(dagReducer, {
     interacted: false,
     reset: false,
@@ -83,7 +85,10 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const [minScale, setMinScale] = useState(DEFAULT_MINIMUM_SCALE_VALUE);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
-  const dagDirection = viewState.dagDirection || DagDirection.RIGHT;
+  const dagDirection =
+    viewState.dagDirection ||
+    localPreferences.dagDirection ||
+    DagDirection.RIGHT;
   const {interacted, reset} = dagState;
 
   const rotateDag = useCallback(() => {
@@ -91,19 +96,22 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     // adjusting the current translation on rotation.
     dispatch({type: 'ROTATE'});
 
+    const handleChangeDirection = (nextDirection: DagDirection) => {
+      setUrlFromViewState({
+        dagDirection: nextDirection,
+      });
+      localPreferences.handleUpdateDagDirection(nextDirection);
+    };
+
     switch (dagDirection) {
       case DagDirection.DOWN:
-        setUrlFromViewState({
-          dagDirection: DagDirection.RIGHT,
-        });
+        handleChangeDirection(DagDirection.RIGHT);
         break;
       case DagDirection.RIGHT:
-        setUrlFromViewState({
-          dagDirection: DagDirection.DOWN,
-        });
+        handleChangeDirection(DagDirection.DOWN);
         break;
     }
-  }, [setUrlFromViewState, dagDirection]);
+  }, [setUrlFromViewState, dagDirection, localPreferences]);
 
   const {dags, loading, error} = useProjectDagsData({
     jobSetId: jobId,
