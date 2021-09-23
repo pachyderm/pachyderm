@@ -257,6 +257,39 @@ pachd:
   #     name: okta
   #     type: oidc
   upstreamIDPs: []
+  ## to set up upstream IDPs, set pachd.mockIDP to false,
+  ## and populate the pachd.upstreamIDPs with an array of Dex Connector configurations.
+  ## See the example below or https://dexidp.io/docs/connectors/
+  # upstreamIDPs:
+  #   - id: idpConnector
+  #     jsonConfig: >-
+  #       {
+  #           "issuer": "",
+  #           "clientID": "",
+  #           "clientSecret": "",
+  #           "redirectURI": "http://localhost:30658/callback",
+  #           "insecureEnableGroups": true,
+  #           "insecureSkipEmailVerified": true,
+  #           "insecureSkipIssuerCallbackDomainCheck": true,
+  #           "forwardedLoginParams": ["login_hint"]
+  #       }
+  #     name: idpConnector
+  #     type: oidc
+  # idps: |
+  #   - id: okta
+  #     jsonConfig: >- 
+  #       {
+  #           "issuer": "https://dev-84362674.okta.com",
+  #           "clientID": "client_id",
+  #           "clientSecret": "notsecret",
+  #           "redirectURI": "http://localhost:30658/callback",
+  #           "insecureEnableGroups": true,
+  #           "insecureSkipEmailVerified": true,
+  #           "insecureSkipIssuerCallbackDomainCheck": true,
+  #           "forwardedLoginParams": ["login_hint"]
+  #       }
+  #     name: okta
+  #     type: oidc
   mockIDP: false
   serviceAccount:
     create: true
@@ -406,8 +439,6 @@ pachd:
     # of --local-roles passed to pachctl deploy.
     clusterRBAC: true
 
-
-
 pgbouncer:
   service:
     type: ClusterIP
@@ -494,5 +525,4 @@ oidc:
   localhostIssuer: true
   requireVerifiedEmail: false
   IDTokenExpiry: 24h
-  # TODO IDPs / Connectors
   #TODO scopes:

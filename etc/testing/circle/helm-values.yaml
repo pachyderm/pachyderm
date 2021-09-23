@@ -1,6 +1,5 @@
 deployTarget: LOCAL
-console:
-  enabled: false
+
 pachd:
   service:
     type: NodePort
