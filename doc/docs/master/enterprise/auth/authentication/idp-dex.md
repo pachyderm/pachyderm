@@ -88,7 +88,7 @@ Then, complete the following steps:
 
 ## 2- Set up and create an Idp-Pachyderm connector
 
-### Create a connector configuration file
+### Create A Connector Configuration File
 To configure your Idp-Pachyderm integration, **create a connector configuration file** corresponding to your IdP. 
 
 !!! Info
@@ -159,7 +159,7 @@ to **Allowed Callback URLs** when registering Pachyderm on your IdP website.
 
     Note that Pachyderm's YAML format is **a simplified version** of Dex's [sample config](https://dexidp.io/docs/connectors/oidc/).
 
-### Create your Idp-Pachyderm connection
+### Create Your Idp-Pachyderm Connection
 Once your Pachyderm application is registered with your IdP (here Auth0), 
 and your IdP-Pachyderm connector config file created (here with the Auth0 parameters), **connect your IdP to Pachyderm** by running the following command:
 

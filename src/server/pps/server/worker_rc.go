@@ -762,7 +762,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 				},
 				{
 					Port: workerstats.PrometheusPort,
-					Name: "prometheus-metrics",
+					Name: "prom-metrics",
 				},
 			},
 		},

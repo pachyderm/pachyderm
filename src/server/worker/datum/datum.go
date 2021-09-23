@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	workerStats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
 )
 
 const (
@@ -161,6 +162,11 @@ func (s *Set) WithDatum(meta *Meta, cb func(*Datum) error, opts ...Option) error
 				if retErr == nil || i == d.numRetries {
 					retErr = d.finish(retErr)
 				}
+				duration := time.Duration(d.meta.Stats.ProcessTime.GetNanos()) + time.Duration(d.meta.Stats.ProcessTime.GetSeconds())*time.Second
+				labels := workerStats.DatumLabels(d.meta.Job, d.meta.State.String())
+				workerStats.DatumProcTime.With(labels).Observe(duration.Seconds())
+				workerStats.DatumProcSecondsCount.With(labels).Add(duration.Seconds())
+				workerStats.DatumCount.With(labels).Inc()
 			}()
 			return cb(d)
 		})
@@ -257,7 +263,13 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 	start := time.Now()
 	defer func() {
-		d.meta.Stats.DownloadTime = types.DurationProto(time.Since(start))
+		duration := time.Since(start)
+		d.meta.Stats.DownloadTime = types.DurationProto(duration)
+		labels := workerStats.JobLabels(d.meta.Job)
+		workerStats.DatumDownloadSize.With(labels).Observe(float64(d.meta.Stats.DownloadBytes))
+		workerStats.DatumDownloadBytesCount.With(labels).Add(float64(d.meta.Stats.DownloadBytes))
+		workerStats.DatumDownloadTime.With(labels).Observe(duration.Seconds())
+		workerStats.DatumDownloadSecondsCount.With(labels).Add(duration.Seconds())
 	}()
 	d.meta.Stats.DownloadBytes = 0
 	var mu sync.Mutex
@@ -353,7 +365,14 @@ func (d *Datum) uploadOutput() error {
 		}); err != nil {
 			return err
 		}
-		d.meta.Stats.UploadTime = types.DurationProto(time.Since(start))
+		// TODO: stats should probably include meta upload as well
+		duration := time.Since(start)
+		d.meta.Stats.UploadTime = types.DurationProto(duration)
+		labels := workerStats.JobLabels(d.meta.Job)
+		workerStats.DatumUploadSize.With(labels).Observe(float64(d.meta.Stats.UploadBytes))
+		workerStats.DatumUploadBytesCount.With(labels).Add(float64(d.meta.Stats.UploadBytes))
+		workerStats.DatumUploadTime.With(labels).Observe(duration.Seconds())
+		workerStats.DatumUploadSecondsCount.With(labels).Add(duration.Seconds())
 	}
 	return d.uploadMetaOutput()
 }
