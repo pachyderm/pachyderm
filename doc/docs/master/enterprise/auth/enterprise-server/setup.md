@@ -26,7 +26,7 @@ Deploying and configuring a Pachyderm cluster with the embedded enterprise serve
 1. [Install Pachyderm as usual with Helm](../../../../deploy-manage/deploy/helm_install/), and use `pachctl` commands to set up licensing and authentication.
 
 #### To setup enterprise features as a part of the helm deployment
-Update your values.yaml with your enterprise license key, and auth configurations ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-values.yaml)) or use our minimal example below.
+Update your values.yaml with your enterprise license key, and auth configurations ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-values.yaml)) or apply our minimal example below to your values.yaml.
 
 === "values.yaml with activation of an enterprise license and authentication"
 
