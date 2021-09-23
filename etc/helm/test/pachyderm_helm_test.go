@@ -29,7 +29,7 @@ func TestConsoleImageAndConfigTag(t *testing.T) {
 		SetValues: map[string]string{
 			"console.enabled":                 "true",
 			"console.image.tag":               "abc123",
-			"console.config.issuerURI":        expectedIssuerURI,
+			"oidc.issuerURI":                  expectedIssuerURI,
 			"console.config.oauthRedirectURI": expectedOauthRedirectURI,
 			"deployTarget":                    "GOOGLE",
 			"pachd.storage.google.bucket":     "bucket",
