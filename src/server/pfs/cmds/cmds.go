@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"archive/tar"
 	"bufio"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -1199,6 +1201,25 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 			}
 			defer c.Close()
 			defer progress.Wait()
+			// TODO: Decide what progress should look like in the recursive case. The files are downloaded in a batch in 2.x.
+			if recursive {
+				if outputPath == "" {
+					return errors.Errorf("an output path needs to be specified when using the --recursive flag")
+				}
+				// Check that the path matches one directory / file.
+				fi, err := c.InspectFile(file.Commit, file.Path)
+				if err != nil {
+					return err
+				}
+				r, err := c.GetFileTAR(file.Commit, file.Path)
+				if err != nil {
+					return err
+				}
+				return tarutil.Import(outputPath, r, func(hdr *tar.Header) error {
+					hdr.Name = strings.TrimPrefix(hdr.Name, fi.File.Path)
+					return nil
+				})
+			}
 			var w io.Writer
 			// If an output path is given, print the output to stdout
 			if outputPath == "" {
@@ -1236,6 +1257,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 			return nil
 		}),
 	}
+	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
 	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
 	getFile.Flags().Int64Var(&offsetBytes, "offset", 0, "The number of bytes in the file to skip ahead when reading.")
