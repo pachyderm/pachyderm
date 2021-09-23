@@ -71,6 +71,9 @@ type pipelineOp struct {
 	env          Env
 	etcdPrefix   string
 	pipelines    collection.PostgresCollection
+
+	monitorer *monitorManager
+
 	// writeBump and deleteBump represent whether a write or delete operation should
 	// be executed once the active pipelineOp goroutine is complete.
 	writeBump       bool
@@ -78,12 +81,6 @@ type pipelineOp struct {
 	bumpCnt         int
 	opsLock         *sync.Mutex
 	allOpsInProcess map[string]*pipelineOp
-
-	// make these channels
-	startMonitorCh          chan<- *pps.PipelineInfo
-	startCrashingMonitorCh  chan<- *pps.PipelineInfo
-	cancelMonitorCh         chan<- *pps.PipelineInfo
-	cancelCrashingMonitorCh chan<- *pps.PipelineInfo
 }
 
 var (
@@ -108,13 +105,10 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 		etcdPrefix: m.a.etcdPrefix,
 		pipelines:  m.a.pipelines,
 
+		monitorer: m.monitorer,
+
 		opsLock:         &m.opsInProcessMu,
 		allOpsInProcess: m.opsInProcess,
-
-		startMonitorCh:          m.startMonitorPipelineCh,
-		cancelMonitorCh:         m.stopMonitorPipelineCh,
-		startCrashingMonitorCh:  m.startMonitorCrashingPipelineCh,
-		cancelCrashingMonitorCh: m.stopMonitorCrashingPipelineCh,
 	}
 
 	errCnt := 0
@@ -519,7 +513,6 @@ func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) e
 			tracing.TagAnySpan(span, "err", retErr)
 			tracing.FinishAnySpan(span)
 		}()
-		log.Errorf("SET_PIPELINE_STATE (%v) spec commit: %v", state, op.pipelineInfo.SpecCommit)
 		return ppsutil.SetPipelineState(ctx, op.env.DB, op.pipelines,
 			op.pipelineInfo.SpecCommit, nil, state, reason)
 	}(); err != nil {
@@ -554,20 +547,20 @@ func (op *pipelineOp) createPipelineResources() error {
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
-	op.startMonitorCh <- op.pipelineInfo
+	op.monitorer.startMonitor(op.pipelineInfo)
 	op.pipelineInfo.Details.WorkerRc = op.rc.ObjectMeta.Name
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
-	op.startCrashingMonitorCh <- op.pipelineInfo
+	op.monitorer.startCrashingMonitor(op.pipelineInfo)
 }
 
 func (op *pipelineOp) stopPipelineMonitor() {
-	op.cancelMonitorCh <- op.pipelineInfo
+	op.monitorer.cancelMonitor(op.pipeline)
 }
 
 func (op *pipelineOp) stopCrashingPipelineMonitor() {
-	op.cancelCrashingMonitorCh <- op.pipelineInfo
+	op.monitorer.cancelCrashingMonitor(op.pipeline)
 }
 
 // finishPipelineOutputCommits finishes any output commits of
