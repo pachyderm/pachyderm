@@ -9,10 +9,12 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -73,10 +75,7 @@ type ppsMaster struct {
 	// the current pps master loses its master status
 	masterCtx context.Context
 
-	// fields for monitorPipeline goros, monitorCrashingPipeline goros, etc.
-	monitorCancelsMu       sync.Mutex
-	monitorCancels         map[string]func() // protected by monitorCancelsMu
-	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
+	monitorer *monitorManager
 
 	// fields for the pollPipelines, pollPipelinePods, and watchPipelines goros
 	pollPipelinesMu sync.Mutex
@@ -87,28 +86,37 @@ type ppsMaster struct {
 	opsInProcessMu sync.Mutex
 	opsInProcess   map[string]*pipelineOp
 
-	startMonitorPipelineCh chan *pps.PipelineInfo
-	stopMonitorPipelineCh  chan *pps.PipelineInfo
-
-	startMonitorCrashingPipelineCh chan *pps.PipelineInfo
-	stopMonitorCrashingPipelineCh  chan *pps.PipelineInfo
-
 	// channel through which pipeline events are passed
 	eventCh chan *pipelineEvent
+}
+
+type monitorManager struct {
+	masterCtx  context.Context
+	env        serviceenv.ServiceEnv
+	namespace  string
+	etcdPrefix string
+	pipelines  collection.PostgresCollection
+
+	monitorCancelsMu       sync.Mutex
+	monitorCancels         map[string]func() // protected by monitorCancelsMu
+	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
 }
 
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
 	m := &ppsMaster{
-		a:                              a,
-		monitorCancels:                 make(map[string]func()),
-		crashingMonitorCancels:         make(map[string]func()),
-		opsInProcess:                   make(map[string]*pipelineOp),
-		startMonitorPipelineCh:         make(chan *pps.PipelineInfo),
-		stopMonitorPipelineCh:          make(chan *pps.PipelineInfo),
-		startMonitorCrashingPipelineCh: make(chan *pps.PipelineInfo),
-		stopMonitorCrashingPipelineCh:  make(chan *pps.PipelineInfo),
+		a: a,
+		monitorer: &monitorManager{
+			env:        a.env,
+			namespace:  a.namespace,
+			etcdPrefix: a.etcdPrefix,
+			pipelines:  a.pipelines,
+
+			monitorCancels:         make(map[string]func()),
+			crashingMonitorCancels: make(map[string]func()),
+		},
+		opsInProcess: make(map[string]*pipelineOp),
 	}
 
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
@@ -125,7 +133,7 @@ func (a *apiServer) master() {
 
 		log.Infof("PPS master: launching master process")
 		m.masterCtx = ctx
-		go m.processMonitorUpdates()
+		m.monitorer.masterCtx = ctx
 		m.run()
 		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -135,23 +143,8 @@ func (a *apiServer) master() {
 	panic("internal error: PPS master has somehow exited. Restarting pod...")
 }
 
-func (a *apiServer) setPipelineCrashing(ctx context.Context, specCommit *pfs.Commit, reason string) error {
-	return a.setPipelineState(ctx, specCommit, pps.PipelineState_PIPELINE_CRASHING, reason)
-}
-
-func (m *ppsMaster) processMonitorUpdates() {
-	for {
-		select {
-		case pi := <-m.startMonitorPipelineCh:
-			m.startMonitor(pi)
-		case pi := <-m.stopMonitorPipelineCh:
-			m.cancelMonitor(pi.Pipeline.Name)
-		case pi := <-m.startMonitorCrashingPipelineCh:
-			m.startCrashingMonitor(pi)
-		case pi := <-m.stopMonitorCrashingPipelineCh:
-			m.cancelCrashingMonitor(pi.Pipeline.Name)
-		}
-	}
+func (m *ppsMaster) setPipelineCrashing(ctx context.Context, specCommit *pfs.Commit, reason string) error {
+	return m.monitorer.setPipelineState(ctx, specCommit, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
 
 func (m *ppsMaster) run() {
@@ -159,7 +152,7 @@ func (m *ppsMaster) run() {
 	// (which are what write to m.eventCh) have exited
 	m.eventCh = make(chan *pipelineEvent, 1)
 	defer close(m.eventCh)
-	defer m.cancelAllMonitorsAndCrashingMonitors()
+	defer m.monitorer.cancelAllMonitorsAndCrashingMonitors()
 	// start pollers in the background--cancel functions ensure poll/monitor
 	// goroutines all definitely stop (either because cancelXYZ returns or because
 	// the binary panics)
@@ -210,20 +203,20 @@ eventLoop:
 
 // setPipelineState is a PPS-master-specific helper that wraps
 // ppsutil.SetPipelineState in a trace
-func (a *apiServer) setPipelineState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) (retErr error) {
+func (m *monitorManager) setPipelineState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/SetPipelineState", "pipeline", specCommit.Branch.Repo.Name, "new-state", state)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
-	return ppsutil.SetPipelineState(ctx, a.env.GetDBClient(), a.pipelines,
+	return ppsutil.SetPipelineState(ctx, m.env.GetDBClient(), m.pipelines,
 		specCommit, nil, state, reason)
 }
 
 // transitionPipelineState is similar to setPipelineState, except that it sets
 // 'from' and logs a different trace
-func (a *apiServer) transitionPipelineState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+func (m *monitorManager) transitionPipelineState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/TransitionPipelineState", "pipeline", specCommit.Branch.Repo.Name,
 		"from-state", from, "to-state", to)
@@ -231,6 +224,6 @@ func (a *apiServer) transitionPipelineState(ctx context.Context, specCommit *pfs
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
-	return ppsutil.SetPipelineState(ctx, a.env.GetDBClient(), a.pipelines,
+	return ppsutil.SetPipelineState(ctx, m.env.GetDBClient(), m.pipelines,
 		specCommit, from, to, reason)
 }
