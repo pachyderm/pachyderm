@@ -20,10 +20,10 @@ The setup of an Enterprise Server requires to:
 ## 1 - Deploy An Enterprise Server
 
 ### Single-cluster deployment
-Deploying and configuring a Pachyderm cluster with the embedded enterprise server can be done in one of two flavors.
+Deploying and configuring a Pachyderm cluster with the embedded enterprise server can be done in one of two flavors:
 
 1. Provide all licensing and authentication configuration as a part of the Helm deployment.
-1. Install Pachyderm as usual with Helm, and use `pachctl` commands to set up licensing and authentication.
+1. [Install Pachyderm as usual with Helm](../../../../deploy-manage/deploy/helm_install/), and use `pachctl` commands to set up licensing and authentication.
 
 #### To setup enterprise features as a part of the helm deployment
 Update your values.yaml with your enterprise license key, and auth configurations ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-values.yaml)) or use our minimal example below.
@@ -74,8 +74,8 @@ Check the [list of all available helm values](../../../../reference/helm_values/
 #### To proceed with the usual helm install:
 1. [Install your favorite version of `pachctl`](../../../../getting_started/local_installation/#install-pachctl).
 1. [Deploy Pachyderm](../../../../deploy-manage/deploy/helm_install/): `helm install ...`.
-1. [Activate your enterprise Key](../deployment/#activate-pachyderm-enterprise-edition): `pachctl license activate`
-1. [Enable authentication](../index.md/#activate-user-access-management): `pachctl auth activate` 
+1. [Activate your enterprise Key](../../../deployment/#activate-pachyderm-enterprise-edition): `pachctl license activate`
+1. [Enable authentication](../../../auth/authorization/#activate-user-access-management): `pachctl auth activate` 
 
 
 This results in a single pachd pod, with authentication enabled. Proceed to [configuring IDP integrations](../../authentication/idp-dex).
@@ -107,7 +107,7 @@ Deploying a stand-alone enterprise server requires setting the helm parameter `e
 
 	```
 
-## 2- Activate enterprise licensing and enable auth
+## 2- Activate Enterprise Licensing And Enable Authentication
 
 - Use your enterprise key to activate your enterprise server: 
 	```shell
