@@ -1,12 +1,8 @@
 deployTarget: LOCAL
-console:
-  enabled: false
-enterpriseServer:
-  enabled: true
+pachd:
+  enterpriseOnlyMode: true
   service:
     type: NodePort
   image:
     tag: local
-pachd:
-  enabled: false
 

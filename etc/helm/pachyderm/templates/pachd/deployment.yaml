@@ -39,7 +39,11 @@ spec:
       containers:
       - command:
         - /pachd
+        {{- if .Values.pachd.enterpriseOnlyMode }}
+        - --mode=enterprise
+        {{- end }}
         env:
+        ## Env vars used in both embedded and standalone enterprise server 
         - name: POSTGRES_HOST
           value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
         - name: POSTGRES_PORT
@@ -61,6 +65,7 @@ spec:
           value: pg-bouncer # Must match pgbouncer service name
         - name: PG_BOUNCER_PORT
           value: "5432" # Must match pbouncer service port
+        {{- if not .Values.pachd.enterpriseOnlyMode }}
         - name: LOKI_LOGGING
           value: {{ .Values.pachd.lokiLogging | quote}}
         - name: PACH_ROOT
@@ -127,18 +132,18 @@ spec:
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
+        {{- end }}
         envFrom:
+          {{- if not .Values.pachd.enterpriseOnlyMode }}
           - secretRef:
               name: pachyderm-storage-secret
+          {{- end }}
           - secretRef:
               name: pachyderm-deployment-id-secret
         image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachd
         ports:
-        - containerPort: 1600
-          name: s3gateway-port
-          protocol: TCP
         - containerPort: 1650
           name: api-grpc-port
           protocol: TCP
@@ -154,6 +159,11 @@ spec:
         - containerPort: 1656
           name: prom-metrics
           protocol: TCP
+        {{- if not .Values.pachd.enterpriseOnlyMode }}
+        - containerPort: 1600
+          name: s3gateway-port
+          protocol: TCP
+        {{- end }}
         readinessProbe:
           exec:
             command:
@@ -179,6 +189,12 @@ spec:
       serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
       {{- end }}
       volumes:
+      {{- if .Values.pachd.tls.enabled }}
+      - name: pachd-tls-cert
+        secret:
+          secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
+      {{- end }}
+      {{- if not .Values.pachd.enterpriseOnlyMode }}
       - name: pach-disk
         {{- if eq (include "pachyderm.storageBackend" . ) "LOCAL" }}
         hostPath:
@@ -188,10 +204,6 @@ spec:
       - name: pachyderm-storage-secret
         secret:
           secretName: pachyderm-storage-secret
-      {{- if .Values.pachd.tls.enabled }}
-      - name: pachd-tls-cert
-        secret:
-          secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
       {{- end }}
       initContainers:
       - name: init-etcd

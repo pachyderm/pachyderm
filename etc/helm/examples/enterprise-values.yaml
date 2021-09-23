@@ -1,7 +1,3 @@
 deployTarget: LOCAL
-console:
-  enabled: false
-enterpriseServer:
-  enabled: true
 pachd:
-  enabled: false
+  enterpriseOnlyMode: true
