@@ -374,14 +374,14 @@ func TestPFS(suite *testing.T) {
 			if err := tx.CreateBranch("A", "master", "", "", nil); err != nil {
 				return err
 			}
-			if err := c.CreateBranch("B", "master", "", "",
+			if err := tx.CreateBranch("B", "master", "", "",
 				[]*pfs.Branch{client.NewBranch("A", "master")}); err != nil {
 				return err
 			}
-			if err := c.CreateBranch("C", "master", "", "", nil); err != nil {
+			if err := tx.CreateBranch("C", "master", "", "", nil); err != nil {
 				return err
 			}
-			return c.CreateBranch("Z", "master", "", "", []*pfs.Branch{
+			return tx.CreateBranch("Z", "master", "", "", []*pfs.Branch{
 				client.NewBranch("B", "master"),
 				client.NewBranch("C", "master"),
 			})
