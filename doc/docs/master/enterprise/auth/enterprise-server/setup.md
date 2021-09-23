@@ -20,13 +20,9 @@ The setup of an Enterprise Server requires to:
 ## 1 - Deploy An Enterprise Server
 
 ### Single-cluster deployment
-Deploying a Pachyderm cluster with the embedded enterprise server, and configuring it  
-
-To deploying a Pachyderm cluster with the embedded enterprise server, an additional set of helm parameter values should be populated. 
-
 Deploying and configuring a Pachyderm cluster with the embedded enterprise server can be done in one of two flavors.
 
-1. Provide all licensing and authentication configuration as a part of helm deployment.
+1. Provide all licensing and authentication configuration as a part of the Helm deployment.
 1. Install Pachyderm as usual with Helm, and use `pachctl` commands to set up licensing and authentication.
 
 #### To setup enterprise features as a part of the helm deployment
