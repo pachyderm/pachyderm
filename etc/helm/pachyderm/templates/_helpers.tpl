@@ -37,17 +37,17 @@ imagePullSecrets:
 {{- end -}}
 
 {{- define "pachyderm.issuerURI" -}}
-{{- if .Values.console.config.issuerURI }}
+{{- if .Values.console.config.issuerURI -}}
 {{ .Values.console.config.issuerURI }}
 {{- else if .Values.ingress.host -}}
 https://{{ .Values.ingress.host }}/dex
 {{- else if eq .Values.deployTarget "LOCAL" -}}
 http://pachd:1658
-{{- end }}
+{{- end -}}
 {{- end }}
 
 {{- define "pachyderm.reactAppRuntimeIssuerURI" -}}
-{{- if .Values.console.config.reactAppRuntimeIssuerURI }}
+{{- if .Values.console.config.reactAppRuntimeIssuerURI -}}
 {{ .Values.console.config.reactAppRuntimeIssuerURI }}
 {{- else if .Values.ingress.host -}}
 https://{{ .Values.ingress.host }}/dex
@@ -57,7 +57,7 @@ http://localhost:30658/
 {{- end }}
 
 {{- define "pachyderm.consoleRedirectURI" -}}
-{{- if .Values.console.config.oauthRedirectURI }}
+{{- if .Values.console.config.oauthRedirectURI -}}
 {{ .Values.console.config.oauthRedirectURI }}
 {{- else if .Values.ingress.host -}}
 https://{{ .Values.ingress.host }}/oauth/callback/?inline=true
@@ -68,7 +68,7 @@ http://localhost:4000/oauth/callback/?inline=true
 
 {{- define "pachyderm.pachdRedirectURI" -}}
 {{- if .Values.pachd.oauthRedirectURI }}
-{{ .Values.console.config.oauthRedirectURI }}
+{{ .Values.console.config.oauthRedirectURI -}}
 {{- else if .Values.ingress.host -}}
 https://{{ .Values.ingress.host }}/authorization-code/callback
 {{- else if eq .Values.deployTarget "LOCAL" -}}
