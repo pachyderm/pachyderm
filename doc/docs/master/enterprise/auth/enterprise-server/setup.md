@@ -26,13 +26,13 @@ Deploying and configuring a Pachyderm cluster with the embedded enterprise serve
 1. [Install Pachyderm as usual with Helm](../../../../deploy-manage/deploy/helm_install/), and use `pachctl` commands to set up licensing and authentication.
 
 #### To setup enterprise features as a part of the helm deployment
-Update your values.yaml with your enterprise license key, and auth configurations ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-values.yaml)) or apply our minimal example below to your values.yaml.
+Update your values.yaml with your enterprise license key, and auth configurations ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-values.yaml)) or insert our minimal example below to your values.yaml.
 
 === "values.yaml with activation of an enterprise license and authentication"
 
 	```yaml
 	pachd:
-		enterpriseLicenseKey: "<ENTEPRRISE-LICENSE-KEY>"
+		enterpriseLicenseKey: "<ENTERPRISE-LICENSE-KEY>"
 		oauthClientId: "pachd"
 		oauthIssuer: "http://<PACHD-IP>:30658/"
 		oauthRedirectURI: "http://<PACHD-IP>:30657/authorization-code/callback"
@@ -65,6 +65,12 @@ Update your values.yaml with your enterprise license key, and auth configuration
   		    name: idpConnector
   		    type: oidc
 	```
+
+!!! Note
+     Update the following values as follow:
+
+	 - `PACHD-IP`: The address of your Pachyderm host. Check the [Expose your Enterprise Server with a Load Balancer](#3-register-your-clusters) note to retrieve Pachyderm external IP address if necessary.
+	 - `ISSUER`, `CLIENT-ID`, `CLIENT-SECRET`: Refer to our [Identity Provider Configuration page](../../authentication/idp-dex/#create-a-connector-configuration-file).
 
 This results in a single pachd pod, with authentication enabled, and an IDP integration configured. The cluster's root token can be found in the kubernetes secret called `pachyderm-bootstrap-config`.
 
@@ -126,7 +132,7 @@ Deploying a stand-alone enterprise server requires setting the helm parameter `e
 Once the enterprise server is deployed, 
 deploy your cluster(s) (`helm install...`) and register it/them with the enterprise server.
 You migh want to [expose your cluster(s) to the internet](#3-register-your-clusters).
-## 3-  Register your clusters
+## 3-  Register Your Clusters
 - Run this command for each of the clusters you wish to register:
 
 	```shell
