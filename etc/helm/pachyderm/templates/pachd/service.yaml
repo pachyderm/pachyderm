@@ -21,7 +21,7 @@ spec:
   ports:
   - name: api-grpc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
-    {{-if .Values.pachd.enterpriseOnlyMode }}
+    {{- if .Values.pachd.enterpriseOnlyMode }}
     nodePort: 31650
     {{- else }}
     nodePort: 30650
