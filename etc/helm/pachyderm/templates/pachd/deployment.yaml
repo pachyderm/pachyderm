@@ -173,10 +173,12 @@ spec:
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}
         volumeMounts:
+        {{- if not .Values.pachd.enterpriseOnlyMode }}
         - mountPath: /pach
           name: pach-disk
         - mountPath: /pachyderm-storage-secret
           name: pachyderm-storage-secret
+        {{- end }}
         {{- if .Values.pachd.tls.enabled }}
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
