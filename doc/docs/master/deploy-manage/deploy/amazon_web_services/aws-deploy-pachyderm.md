@@ -54,7 +54,7 @@ OR
       capabilities than access keys. Pachyderm recommends the use of IAM roles for production
       deployments.
 
-### Create An IAM Role And Policy To Your Service Account
+### Add An IAM Role And Policy To Your Service Account
 
 Before you can make sure that **the containers in your pods have the right permissions to access your S3 bucket**, you will need to [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html).
 
@@ -172,16 +172,15 @@ You can now deploy Pachyderm.
         storage:
           amazon:
             bucket: blah
-            cloudFrontDistribution: cfd-123
             region: us-east-2
         serviceAccount:
           additionalAnnotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::<ACCOUNT_ID>:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+            eks.amazonaws.com/role-arn: arn:aws:iam::<ACCOUNT_ID>:role/pachyderm-bucket-access
 
         worker:
           serviceAccount:
             additionalAnnotations:
-              eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+              eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/pachyderm-bucket-access
 
       postgresql:
         persistence:
@@ -204,9 +203,7 @@ You can now deploy Pachyderm.
             id: AKIAIOSFODNN7EXAMPLE
 
             # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-
             secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-            cloudFrontDistribution: cfd-123
             region: us-east-2
 
       postgresql:
@@ -229,16 +226,15 @@ You can now deploy Pachyderm.
         storage:
           amazon:
             bucket: blah
-            cloudFrontDistribution: cfd-123
             region: us-east-2
         serviceAccount:
           additionalAnnotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/pachyderm-bucket-access
 
         worker:
           serviceAccount:
             additionalAnnotations:
-              eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+              eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/pachyderm-bucket-access
 
       postgresql:
         persistence:
@@ -259,10 +255,8 @@ You can now deploy Pachyderm.
             # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
             id: AKIAIOSFODNN7EXAMPLE
             
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            
+            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html           
             secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-            cloudFrontDistribution: cfd-123
             region: us-east-2
 
       postgresql:
@@ -271,31 +265,6 @@ You can now deploy Pachyderm.
       ```
 
 Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
-
-!!! Note
-      The **worker nodes on which Pachyderm is deployed must be associated with the IAM role that is assigned to the Kubernetes cluster**. 
-      If you created your cluster by using `eksctl` or `kops` the nodes must have a dedicated IAM role already assigned.
-
-      The IAM role of your cluster must have correct trust relationships: 
-      
-      1. Click the **Trust relationships > Edit trust relationship** 
-      1. Append the following statement to your JSON relationship
-
-      ```json
-      {
-      "Version": "2012-10-17",
-      "Statement": [
-            {
-            "Effect": "Allow",
-            "Principal": {
-            "Service": "ec2.amazonaws.com"
-            },
-            "Action": "sts:AssumeRole"
-            }
-      ]
-      }
-      ``` 
-
 
 !!! Important "Load Balancer Setup" 
       If you would like to expose your pachd instance to the internet via load balancer, add the following config under `pachd` to your `values.yaml`
