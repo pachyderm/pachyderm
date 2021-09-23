@@ -187,26 +187,19 @@ eventLoop:
 				}
 
 				if pipelineOp, ok := m.opsInProcess[e.pipeline]; ok {
-					pipelineOp.Bump(ot) // acquires lock: pipelineOp.bumpLock
+					pipelineOp.Bump(ot)
 				} else {
 					// Initialize op ctx (cancelled at the end of pipelineOp.Start(), to avoid leaking
 					// resources), whereas masterClient is passed by the
 					// PPS master and used in case a monitor needs to be spawned for 'pipeline',
 					// whose lifetime is tied to the master rather than this op.
 					opCtx, opCancel := context.WithCancel(m.masterCtx)
-					pipelineOp, err := m.newPipelineOp(opCtx, e.pipeline)
+					pipelineOp, err := m.newPipelineOp(opCtx, opCancel, e.pipeline)
 					if err != nil {
 						log.Errorf("PPS master: error creating a pipelineOp for pipeline '%s': %v", e.pipeline, err)
 					}
 					m.opsInProcess[e.pipeline] = pipelineOp
-					go pipelineOp.Start(ot, e.timestamp, func(f func()) {
-						m.opsInProcessMu.Lock()
-						defer m.opsInProcessMu.Unlock()
-						f()
-					}, func() {
-						opCancel()
-						delete(m.opsInProcess, e.pipeline)
-					})
+					go pipelineOp.Start(ot, e.timestamp)
 				}
 			}(e)
 		case <-m.masterCtx.Done():

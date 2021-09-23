@@ -63,6 +63,7 @@ type pipelineOp struct {
 	// a pachyderm client wrapping this operation's context (child of the PPS
 	// master's context, and cancelled at the end of step())
 	ctx          context.Context
+	cancel       context.CancelFunc
 	pipeline     string
 	pipelineInfo *pps.PipelineInfo
 	rc           *v1.ReplicationController
@@ -72,10 +73,11 @@ type pipelineOp struct {
 	pipelines    collection.PostgresCollection
 	// writeBump and deleteBump represent whether a write or delete operation should
 	// be executed once the active pipelineOp goroutine is complete.
-	writeBump  bool
-	deleteBump bool
-	bumpCnt    int
-	bumpLock   sync.Mutex
+	writeBump       bool
+	deleteBump      bool
+	bumpCnt         int
+	opsLock         *sync.Mutex
+	allOpsInProcess map[string]*pipelineOp
 
 	// make these channels
 	startMonitorCh          chan<- *pps.PipelineInfo
@@ -91,8 +93,10 @@ var (
 	errStaleRC      = errors.New("RC doesn't match pipeline version (likely stale)")
 )
 
-func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipelineOp, error) {
+func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc, pipeline string) (*pipelineOp, error) {
 	op := &pipelineOp{
+		cancel: cancel,
+		// pipeline name is recorded separately in the case we are running a delete Op and pipelineInfo isn't available in the DB
 		pipeline: pipeline,
 		pipelineInfo: &pps.PipelineInfo{
 			Pipeline: &pps.Pipeline{
@@ -103,6 +107,9 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 		env:        m.a.env,
 		etcdPrefix: m.a.etcdPrefix,
 		pipelines:  m.a.pipelines,
+
+		opsLock:         &m.opsInProcessMu,
+		allOpsInProcess: m.opsInProcess,
 
 		startMonitorCh:          m.startMonitorPipelineCh,
 		cancelMonitorCh:         m.stopMonitorPipelineCh,
@@ -147,9 +154,8 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 	return op, nil
 }
 
+// this function is expected to be called in synchrony. master.run() handles this by locking with opsInProcessMu
 func (op *pipelineOp) Bump(t opType) {
-	op.bumpLock.Lock()
-	defer op.bumpLock.Unlock()
 	op.bumpCnt++
 	switch t {
 	case writeOp:
@@ -162,8 +168,6 @@ func (op *pipelineOp) Bump(t opType) {
 }
 
 func (op *pipelineOp) getAndUnsetBump() opType {
-	op.bumpLock.Lock()
-	defer op.bumpLock.Unlock()
 	if op.writeBump {
 		op.writeBump = false
 		return writeOp
@@ -182,58 +186,63 @@ func (op *pipelineOp) getAndUnsetBump() opType {
 //
 // Other errors are simply logged and ignored, assuming that some future polling
 // of the pipeline will succeed.
-func (op *pipelineOp) Start(t opType, timestamp time.Time, withMasterLock func(func()), cleanup func()) {
-	switch t {
-	case writeOp:
-		var errCount int
-		var stepErr stepError
-		err := backoff.RetryNotify(func() error {
-			// Create/Modify/Delete pipeline resources as needed per new state
-			return op.step(timestamp)
-		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-			errCount++
-			if errors.As(err, &stepErr) {
-				if stepErr.retry && errCount < maxErrCount {
-					log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
-						op.pipelineInfo.Pipeline, err, d)
-					return nil
+func (op *pipelineOp) Start(t opType, timestamp time.Time) {
+	nextOt := t
+	for {
+		switch nextOt {
+		case writeOp:
+			var errCount int
+			var stepErr stepError
+			err := backoff.RetryNotify(func() error {
+				// Create/Modify/Delete pipeline resources as needed per new state
+				return op.step(timestamp)
+			}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
+				errCount++
+				if errors.As(err, &stepErr) {
+					if stepErr.retry && errCount < maxErrCount {
+						log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
+							op.pipelineInfo.Pipeline, err, d)
+						return nil
+					}
 				}
-			}
-			return errors.Wrapf(err, "could not update resource for pipeline %q", op.pipelineInfo.Pipeline)
-		})
+				return errors.Wrapf(err, "could not update resource for pipeline %q", op.pipelineInfo.Pipeline)
+			})
 
-		// we've given up on the step, check if the error indicated that the pipeline should fail
-		if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
-			failError := op.setPipelineFailure(fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err))
-			if failError != nil {
+			// we've given up on the step, check if the error indicated that the pipeline should fail
+			if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
+				failError := op.setPipelineFailure(fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err))
+				if failError != nil {
+					log.Errorf("PPS master: error creating a pipelineOp for pipeline '%s': %v", op.pipelineInfo.Pipeline,
+						errors.Wrapf(failError, "error failing pipeline %q (%v)", op.pipelineInfo.Pipeline, err))
+				}
 				log.Errorf("PPS master: error creating a pipelineOp for pipeline '%s': %v", op.pipelineInfo.Pipeline,
-					errors.Wrapf(failError, "error failing pipeline %q (%v)", op.pipelineInfo.Pipeline, err))
+					errors.Wrapf(err, "failing pipeline %q", op.pipelineInfo.Pipeline))
 			}
-			log.Errorf("PPS master: error creating a pipelineOp for pipeline '%s': %v", op.pipelineInfo.Pipeline,
+
+		case deleteOp:
+			err := op.deletePipelineResources()
+			log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipelineInfo.Pipeline,
 				errors.Wrapf(err, "failing pipeline %q", op.pipelineInfo.Pipeline))
 		}
 
-	case deleteOp:
-		err := op.deletePipelineResources()
-		log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipelineInfo.Pipeline,
-			errors.Wrapf(err, "failing pipeline %q", op.pipelineInfo.Pipeline))
-	}
-
-	// when checking for a bump, we must first acquire the master lock followed by the op.BumpLock
-	nextOt := noOp
-	withMasterLock(func() {
-		switch op.getAndUnsetBump() {
-		case writeOp:
-			nextOt = writeOp
-		case deleteOp:
-			nextOt = deleteOp
-		case noOp:
-			cleanup()
+		// we use the opsLock to guard getting and unsetting this op's bump state
+		func() {
+			op.opsLock.Lock()
+			defer op.opsLock.Unlock()
+			switch op.getAndUnsetBump() {
+			case writeOp:
+				nextOt = writeOp
+			case deleteOp:
+				nextOt = deleteOp
+			case noOp:
+				op.cancel()
+				delete(op.allOpsInProcess, op.pipeline)
+				nextOt = noOp
+			}
+		}()
+		if nextOt == noOp {
+			break
 		}
-	})
-	if nextOt != noOp {
-		// this should be tail recursive?
-		op.Start(nextOt, timestamp, withMasterLock, cleanup)
 	}
 }
 
