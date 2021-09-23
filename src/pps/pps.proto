@@ -351,10 +351,8 @@ message PipelineInfo {
   // reason includes any error messages associated with a failed pipeline
   string reason = 6;
 
-  // job_counts and last_job_state indicates the number of jobs within this
-  // pipeline in a given state and the state of the most recently created job,
-  // respectively.
-  map<int32, int32> job_counts = 7;
+  reserved 7; // map<int32, int32> job_counts;
+  // last_job_state indicates the state of the most recently created job
   JobState last_job_state = 8;
 
   // parallelism tracks the literal number of workers that this pipeline should
@@ -757,6 +755,8 @@ service API {
   // An internal call used to move a job from one state to another
   rpc UpdateJobState(UpdateJobStateRequest) returns(google.protobuf.Empty) {}
 
-  // RunLoadTest runs the default load test.
+  // RunLoadTest runs a load test.
+  rpc RunLoadTest(pfs_v2.RunLoadTestRequest) returns (pfs_v2.RunLoadTestResponse) {}
+  // RunLoadTestDefault runs the default load test.
   rpc RunLoadTestDefault(google.protobuf.Empty) returns (pfs_v2.RunLoadTestResponse) {}
 }

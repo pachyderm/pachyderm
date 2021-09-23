@@ -2146,51 +2146,6 @@ func TestPipelineState(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestJobCounts(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-	repo := tu.UniqueString("data")
-	require.NoError(t, c.CreateRepo(repo))
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
-		nil,
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(repo, "/*"),
-		"",
-		false,
-	))
-
-	// Trigger a job by creating a commit
-	commit, err := c.StartCommit(repo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(repo, commit.Branch.Name, commit.ID))
-	_, err = c.WaitCommitSetAll(commit.ID)
-	require.NoError(t, err)
-	jobInfos, err := c.ListJob(pipeline, nil, -1, true)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
-	require.Equal(t, commit.ID, jobInfos[0].Job.ID)
-	ctx, cancel := context.WithTimeout(c.Ctx(), time.Second*30)
-	defer cancel() //cleanup resources
-	_, err = c.WithCtx(ctx).WaitJob(pipeline, jobInfos[0].Job.ID, false)
-	require.NoError(t, err)
-
-	// check that the job has been accounted for
-	pipelineInfo, err := c.InspectPipeline(pipeline, false)
-	require.NoError(t, err)
-	require.Equal(t, int32(2), pipelineInfo.JobCounts[int32(pps.JobState_JOB_SUCCESS)])
-}
-
 // TestUpdatePipelineThatHasNoOutput tracks #1637
 func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	if testing.Short() {
@@ -3141,7 +3096,12 @@ func TestAutoscalingStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinTRetry(t, time.Second*120, func() error {
+		require.NoErrorWithinT(t, time.Second*60, func() error {
+			_, err := c.WaitCommit(pipelines[9], "master", "")
+			return err
+		})
+
+		require.NoErrorWithinTRetry(t, time.Second*15, func() error {
 			pis, err := c.ListPipeline(false)
 			require.NoError(t, err)
 			var standby int
@@ -9187,10 +9147,13 @@ func TestDebug(t *testing.T) {
 		require.NoError(t, err)
 		expectedFiles[pattern] = g
 	}
-	pattern := path.Join("input-repos", dataRepo, "commits")
-	g, err := globlib.Compile(pattern, '/')
-	require.NoError(t, err)
-	expectedFiles[pattern] = g
+	// Record glob patterns for expected source repo files.
+	for _, file := range []string{"commits", "commits-chart**"} {
+		pattern := path.Join("source-repos", dataRepo, file)
+		g, err := globlib.Compile(pattern, '/')
+		require.NoError(t, err)
+		expectedFiles[pattern] = g
+	}
 	for i := 0; i < 3; i++ {
 		pipeline := tu.UniqueString("TestDebug")
 		require.NoError(t, c.CreatePipeline(
@@ -9216,7 +9179,7 @@ func TestDebug(t *testing.T) {
 				expectedFiles[pattern] = g
 			}
 		}
-		for _, file := range []string{"spec", "commits", "jobs"} {
+		for _, file := range []string{"spec", "commits", "jobs", "commits-chart**", "jobs-chart**"} {
 			pattern := path.Join("pipelines", pipeline, file)
 			g, err := globlib.Compile(pattern, '/')
 			require.NoError(t, err)
@@ -9775,6 +9738,83 @@ func TestPipelineAncestry(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(infos))
 	checkInfos(infos)
+}
+
+func TestStandbyTransitions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	kc := tu.GetKubeClient(t)
+
+	data := tu.UniqueString(t.Name() + "_data")
+	require.NoError(t, c.CreateRepo(data))
+	pipeline := tu.UniqueString(t.Name())
+	req := basicPipelineReq(pipeline, data)
+	req.Autoscaling = true
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+	rcName := ppsutil.PipelineRcName(pipeline, 1)
+
+	// create an unrelated pipeline to guarantee event processing
+	// the high level structure of this test is:
+	// 1. Perform some operation on "pipeline" (start or stop)
+	// 2. Put data in "auxData" and wait for the output commit to be finished
+	//		As auxPipeline is also autoscaling, this requires bringing it out of standby,
+	//		ensuring the event from "pipeline" we actually care about was also processed
+	// 3. Verify that the resource version of the main pipeline's RC is unchanged,
+	// 		meaning the operation did not scale up the pipeline, even temporarily
+	auxData := tu.UniqueString("aux_data")
+	require.NoError(t, c.CreateRepo(auxData))
+	auxPipeline := tu.UniqueString("aux")
+	req = basicPipelineReq(auxPipeline, auxData)
+	req.Autoscaling = true
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	flushEventsAndCheckRC := func(initialVersion string) {
+		// push data to the other pipeline to make sure the stop was processed
+		require.NoError(t, c.PutFile(
+			client.NewCommit(auxData, "master", ""),
+			tu.UniqueString("foo"), strings.NewReader("bar")))
+		_, err = c.WaitCommit(auxPipeline, "master", "")
+		require.NoError(t, err)
+
+		// make sure main pipeline RC has not changed, which it would have if it passed through running
+		rc, err := kc.CoreV1().ReplicationControllers("default").Get(rcName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Equal(t, initialVersion, rc.ResourceVersion)
+	}
+
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+
+	// wait for pipeline to go into standby
+	require.NoErrorWithinTRetry(t, 10*time.Second, func() error {
+		info, err := c.InspectPipeline(pipeline, false)
+		if err != nil {
+			return err
+		}
+		if info.State != pps.PipelineState_PIPELINE_STANDBY {
+			return errors.Errorf("expected pipeline to be in standby, not %v", info.State)
+		}
+		return nil
+	})
+
+	// get the initial state of the pipeline's RC
+	initialRC, err := kc.CoreV1().ReplicationControllers("default").Get(rcName, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	// stop the pipeline, then verify the RC wasn't modified
+	require.NoError(t, c.StopPipeline(pipeline))
+	flushEventsAndCheckRC(initialRC.ResourceVersion)
+
+	// now do the same check with start
+	require.NoError(t, c.StartPipeline(pipeline))
+	flushEventsAndCheckRC(initialRC.ResourceVersion)
 }
 
 func monitorReplicas(t testing.TB, pipeline string, n int) {

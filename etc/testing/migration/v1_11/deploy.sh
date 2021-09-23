@@ -2,6 +2,7 @@
 # deploy.sh deploys a pachyderm 1.11.9 cluster (the first release with auth extract/restore)
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# shellcheck disable=SC1090
 source "${SCRIPT_DIR}/../../../govars.sh"
 
 set -x
@@ -29,6 +30,5 @@ if ! grep . <( kubectl get po -l suite=pachyderm 2>/dev/null ) \
   pachctl_1_11 deploy local
 
   # Wait for pachyderm to come up
-  HERE="$(dirname "${0}")"
   kubectl wait --for=condition=ready pod -l app=pachd --timeout=1m
 fi

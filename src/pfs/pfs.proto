@@ -6,6 +6,7 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/pfs";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
+import "google/protobuf/duration.proto";
 
 import "gogoproto/gogo.proto";
 
@@ -131,6 +132,8 @@ message CommitInfo {
   // Details are only provided when explicitly requested
   message Details {
     int64 size_bytes = 1;
+    google.protobuf.Duration compacting_time = 2;
+    google.protobuf.Duration validating_time = 3;
   }
   Details details = 12;
 }
@@ -419,6 +422,7 @@ message RunLoadTestResponse {
   Branch branch = 2;
   int64 seed = 3;
   string error = 4;
+  google.protobuf.Duration duration = 5;
 }
 
 service API {

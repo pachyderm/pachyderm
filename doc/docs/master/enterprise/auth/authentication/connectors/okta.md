@@ -62,9 +62,8 @@ To configure Pachyderm Auth, complete the following steps:
       **Example system response:**
 
       ```shell
-      dash-5768cb7d98-j6cgt       2/2     Running   0          4h2m
-      etcd-56d897697-xzsqr        1/1     Running   0          4h2m
       pachd-79f7f68c65-9qs8g      1/1     Running   0          4h2m
+      ...
       ```
 
    1. Forward the `pachd` pod to the OIDC port:

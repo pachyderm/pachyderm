@@ -370,11 +370,11 @@ func TestListPipelineFilter(t *testing.T) {
 // error, you get an error indicating the problem in the YAML, rather than an
 // error complaining about multiple documents.
 //
-// Note that with the new parsing method added to support free-form fields like
-// TFJob, this YAML is parsed, serialized and then re-parsed, so the error will
-// refer to "json" (the format used for the canonicalized pipeline), but the
-// issue referenced by the error (use of a string instead of an array for 'cmd')
-// is the main problem below
+// Note that because we parse, serialize, and re-parse pipeline specs to work
+// around protobuf-generated struct tags and such, the error will refer to
+// "json" (the format used for the canonicalized pipeline), but the issue
+// referenced by the error (use of a string instead of an array for 'cmd') is
+// the main problem below
 func TestYAMLError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -396,62 +396,6 @@ func TestYAMLError(t *testing.T) {
 		    - "cp /pfs/input/* /pfs/out"
 		EOF
 		) | match "cannot unmarshal string into Go value of type \[\]json.RawMessage"
-		`,
-	).Run())
-}
-
-func TestTFJobBasic(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	require.NoError(t, tu.BashCmd(`
-		yes | pachctl delete all
-		pachctl create repo input
-		( pachctl create pipeline -f - 2>&1 <<EOF || true
-		pipeline:
-		  name: first
-		input:
-		  pfs:
-		    glob: /*
-		    repo: input
-		tf_job:
-		  apiVersion: kubeflow.org/v1
-		  kind: TFJob
-		  metadata:
-		    generateName: tfjob
-		    namespace: kubeflow
-		  spec:
-		    tfReplicaSpecs:
-		      PS:
-		        replicas: 1
-		        restartPolicy: OnFailure
-		        template:
-		          spec:
-		            containers:
-		            - name: tensorflow
-		              image: gcr.io/your-project/your-image
-		              command:
-		                - python
-		                - -m
-		                - trainer.task
-		                - --batch_size=32
-		                - --training_steps=1000
-		      Worker:
-		        replicas: 3
-		        restartPolicy: OnFailure
-		        template:
-		          spec:
-		            containers:
-		            - name: tensorflow
-		              image: gcr.io/your-project/your-image
-		              command:
-		                - python
-		                - -m
-		                - trainer.task
-		                - --batch_size=32
-		                - --training_steps=1000
-		EOF
-		) | match "not supported yet"
 		`,
 	).Run())
 }

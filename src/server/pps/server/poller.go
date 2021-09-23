@@ -286,15 +286,13 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 				m.eventCh <- &pipelineEvent{
 					eventType: writeEv,
 					pipeline:  pipelineName,
-					etcdVer:   event.Ver,
-					etcdRev:   event.Rev,
+					timestamp: time.Unix(event.Rev, 0),
 				}
 			case watch.EventDelete:
 				m.eventCh <- &pipelineEvent{
 					eventType: deleteEv,
 					pipeline:  pipelineName,
-					etcdVer:   event.Ver,
-					etcdRev:   event.Rev,
+					timestamp: time.Unix(event.Rev, 0),
 				}
 			}
 		}

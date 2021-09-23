@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -25,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -457,7 +459,11 @@ each datum.`,
 			if pipelineInputPath != "" && len(args) == 1 {
 				return errors.Errorf("can't specify both a job and a pipeline spec")
 			} else if pipelineInputPath != "" {
-				pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineInputPath)
+				pipelineBytes, err := readPipelineBytes(pipelineInputPath)
+				if err != nil {
+					return err
+				}
+				pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
 				if err != nil {
 					return err
 				}
@@ -797,7 +803,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}, editorArgs...); err != nil {
 				return err
 			}
-			pipelineReader, err := ppsutil.NewPipelineManifestReader(f.Name())
+			pipelineBytes, err := readPipelineBytes(f.Name())
+			if err != nil {
+				return err
+			}
+			pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
 			if err != nil {
 				return err
 			}
@@ -1094,11 +1104,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	commands = append(commands, cmdutil.CreateAlias(listSecret, "list secret"))
 
+	var seed int64
 	runLoadTest := &cobra.Command{
-		Use:   "{{alias}}",
+		Use:   "{{alias}} <spec-file> ",
 		Short: "Run a PPS load test.",
 		Long:  "Run a PPS load test.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -1108,22 +1119,98 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 					retErr = err
 				}
 			}()
-			resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
-			if err != nil {
-				return err
+			if len(args) == 0 {
+				resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+				if err != nil {
+					return err
+				}
+				fmt.Println(resp.Spec)
+				resp.Spec = ""
+				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
+					return err
+				}
+				fmt.Println()
+				return nil
 			}
-			fmt.Println(resp.Spec)
-			resp.Spec = ""
-			return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
+			return filepath.Walk(args[0], func(file string, fi os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if fi.IsDir() {
+					return nil
+				}
+				spec, err := ioutil.ReadFile(file)
+				if err != nil {
+					return err
+				}
+				resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
+					Spec: string(spec),
+					Seed: seed,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Println(resp.Spec)
+				resp.Spec = ""
+				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
+					return err
+				}
+				fmt.Println()
+				return nil
+			})
 		}),
 	}
+	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
 	return commands
 }
 
+// readPipelineBytes reads the pipeline spec at 'pipelinePath' (which may be
+// '-' for stdin, a local path, or a remote URL) and returns the bytes stored
+// there.
+//
+// TODO(msteffen) This is very similar to readConfigBytes in
+// s/s/identity/cmds/cmds.go (which differs only in not supporting URLs),
+// so the two could perhaps be refactored.
+func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error) {
+	if pipelinePath == "-" {
+		fmt.Print("Reading from stdin.\n")
+		var err error
+		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, err
+		}
+	} else if url, err := url.Parse(pipelinePath); err == nil && url.Scheme != "" {
+		resp, err := http.Get(url.String())
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		pipelineBytes, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var err error
+		pipelineBytes, err = ioutil.ReadFile(pipelinePath)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pipelineBytes, nil
+}
+
 func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelinePath string, update bool) error {
-	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
+	pipelineBytes, err := readPipelineBytes(pipelinePath)
+	if err != nil {
+		return err
+	}
+	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
 	if err != nil {
 		return err
 	}
@@ -1165,8 +1252,7 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 			if request.Transform == nil {
 				return errors.New("must specify a pipeline `transform`")
 			}
-			pipelineParentPath, _ := filepath.Split(pipelinePath)
-			if err := dockerBuildHelper(request, registry, username, pipelineParentPath); err != nil {
+			if err := dockerPushHelper(request, registry, username); err != nil {
 				return err
 			}
 		}
@@ -1198,7 +1284,7 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 	return nil
 }
 
-func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, registry, username, pipelineParentPath string) error {
+func dockerPushHelper(request *ppsclient.CreatePipelineRequest, registry, username string) error {
 	// create docker client
 	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {

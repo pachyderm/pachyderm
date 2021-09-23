@@ -167,6 +167,8 @@ Update your values.yaml with your bucket name.
 
 Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml)) or use `--set-file storage.google.cred=<my-key>.json` when running the following helm install. 
 
+!!! Note
+    Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation.
 ### Deploy Pachyderm on the Kubernetes cluster
 
 Refer to our generic ["Helm Install"](./helm_install.md) page for more information on the required installations and modus operandi of an installation using `Helm`.
@@ -174,9 +176,9 @@ Refer to our generic ["Helm Install"](./helm_install.md) page for more informati
 Now you can deploy a Pachyderm cluster by running this command:
 
 ```shell
-$ helm repo add pachyderm https://helm.pachyderm.com
+$ helm repo add pach https://helm.pachyderm.com
 $ helm repo update
-$ helm install pachyderm -f my_values.yaml pachyderm/pachyderm --set-file storage.google.cred=<my-key>.json.
+$ helm install pachd -f my_values.yaml pach/pachyderm --set-file storage.google.cred=<my-key>.json.
 ```
 
 **System Response:**
@@ -216,6 +218,8 @@ pulls containers from DockerHub. You can see the cluster status with
 ```shell
 kubectl get pods
 ```
+Once the pods are up, you should see a pod for `pachd` running 
+(alongside etcd, pg-bouncer or postgres, console, depending on your installation). 
 
 **System Response:**
 
@@ -242,36 +246,28 @@ make sure that `pachctl` can talk to the cluster by:
 
 - Running a port-forward:
 
-```shell
-# Background this process because it blocks.
-pachctl port-forward   
-```
+    ```shell
+    # Background this process because it blocks.
+    pachctl port-forward   
+    ```
 
-- Exposing your cluster to the internet by setting up a LoadBalancer as follow:
+- Or, if you exposed your cluster to the internet by setting up a LoadBalancer (specified `LoadBalancer` in the `values.yaml` file):
 
-!!! Warning 
-    The following setup of a LoadBalancer only applies to pachd.
 
-1. To get an external IP address for a Cluster, edit its k8s service, 
-```shell
-kubectl edit service pachd
-```
-and change its `spec.type` value from `ClusterIP` to `LoadBalancer`. 
-
-1. Retrieve the external IP address of the edited service.
-When listing your services again, you should see an external IP address allocated to the service you just edited. 
-```shell
-kubectl get service
-```
-1. Update the context of your cluster with their direct url, using the external IP address above:
-```shell
-echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
-```
-1. Check that your are using the right context: 
-```shell
-pachctl config get active-context`
-```
-Your cluster context name set above should show up. 
+    1. Retrieve the external IP address of pachd service.
+    When listing your services, you should see an external IP address allocated to pachd. 
+    ```shell
+    kubectl get service
+    ```
+    1. Update the context of your cluster with their direct url, using the external IP address above:
+    ```shell
+    echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
+    ```
+    1. Check that your are using the right context: 
+    ```shell
+    pachctl config get active-context
+    ```
+    Your cluster context name set above should show up. 
     
 
 You are done! You can make sure that your cluster is working

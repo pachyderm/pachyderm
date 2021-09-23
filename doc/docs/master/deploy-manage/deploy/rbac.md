@@ -59,15 +59,15 @@ rs/kube-dns-86f6f55dd5   1         1         0         3m
 NAME                            READY     STATUS    RESTARTS   AGE
 po/kube-addon-manager-oryx      1/1       Running   0          3m
 po/kube-dns-86f6f55dd5-xksnb    2/3       Running   4          3m
-po/kubernetes-dashboard-bzjjh   1/1       Running   0          3m
+po/kubernetes-console-bzjjh     1/1       Running   0          3m
 po/storage-provisioner          1/1       Running   0          3m
 
 NAME                      DESIRED   CURRENT   READY     AGE
-rc/kubernetes-dashboard   1         1         1         3m
+rc/kubernetes-console   1         1         1         3m
 
 NAME                       TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)         AGE
 svc/kube-dns               ClusterIP   10.96.0.10     <none>        53/UDP,53/TCP   3m
-svc/kubernetes-dashboard   NodePort    10.97.194.16   <none>        80:30000/TCP    3m
+svc/kubernetes-console     NodePort    10.97.194.16   <none>        80:30000/TCP    3m
 ```
 
 In the output above, `po/kubernetes-dashboard-bzjjh` has only

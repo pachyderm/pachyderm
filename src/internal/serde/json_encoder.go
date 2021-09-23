@@ -1,3 +1,19 @@
+// json_encoder.go is similar to yaml_encoder.go; see its comment on general
+// approach. Because the final output is json, the steps this uses are a little
+// more redundant, but still the reverse of the steps in decoder.go (allowing
+// for future-proof reversability):
+// 1) Serialize structs to JSON using encoding/json or, in the case of
+//    protobufs, using Google's 'jsonpb' library
+// 2) Deserialize that text into a generic interface{}
+// 3) Serialize that interface using encoding/json
+//
+// Because the data is serialized to JSON twice, this approach seems more
+// redundant in the context of json_encoder.go, but it's symmetrical with the
+// encoding process.
+// TODO(msteffen) src/server/identity/cmds/cmds.go uses this to serialize
+// Pachyderm identity configs. That code could be written to modify the holder
+// (map[string]interface{}) instead of using connectorConfig as an intermediate
+// struct, which must be kept in sync.
 package serde
 
 import (

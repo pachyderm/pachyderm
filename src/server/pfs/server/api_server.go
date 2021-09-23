@@ -11,11 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"golang.org/x/net/context"
+	"gopkg.in/yaml.v3"
+
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -23,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -33,8 +34,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-
-	"golang.org/x/net/context"
 )
 
 // apiServer implements the public interface of the Pachyderm File System,
@@ -824,15 +823,19 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 		Branch: client.NewBranch(repo, branch),
 		Seed:   seed,
 	}
+	start := time.Now()
 	if err := a.runLoadTest(pachClient, resp.Branch, req.Spec, seed); err != nil {
 		resp.Error = err.Error()
 	}
+	resp.Duration = types.DurationProto(time.Since(start))
 	return resp, nil
 }
 
 func (a *apiServer) runLoadTest(pachClient *client.APIClient, branch *pfs.Branch, specStr string, seed int64) error {
+	d := yaml.NewDecoder(strings.NewReader(specStr))
+	d.KnownFields(true)
 	spec := &pfsload.CommitsSpec{}
-	if err := serde.DecodeYAML([]byte(specStr), spec); err != nil {
+	if err := d.Decode(spec); err != nil {
 		return err
 	}
 	return pfsload.Commits(pachClient, branch.Repo.Name, branch.Name, spec, seed)
@@ -877,7 +880,9 @@ fileSources:
   - name: "random"
     random:
       directory:
-        depth: 3
+        depth: 
+          min: 0
+          max: 3
         run: 3
       size:
         - min: 1000

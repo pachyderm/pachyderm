@@ -310,6 +310,7 @@ func (pe *postgresEvent) WatchEvent(ctx context.Context, db *sqlx.DB, template p
 		Value:    pe.protoData,
 		Type:     pe.eventType,
 		Template: template,
+		Rev:      pe.time.Unix(),
 	}
 }
 

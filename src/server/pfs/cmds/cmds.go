@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"archive/tar"
 	"bufio"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -159,7 +161,7 @@ or type (e.g. csv, binary, images, etc).`,
 	var repoType string
 	listRepo := &cobra.Command{
 		Short: "Return a list of repos.",
-		Long:  "Return a list of repos. By default, only show user repos",
+		Long:  "Return a list of repos. By default, hide system repos like pipeline metadata",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			if all && repoType != "" {
 				return errors.Errorf("cannot set a repo type with --all")
@@ -407,12 +409,18 @@ $ {{alias}} test@fork -p XXX`,
 	var originStr string
 	var expand bool
 	listCommit := &cobra.Command{
-		Use:   "{{alias}} [<repo>[@<branch-or-commit>]]",
-		Short: "Return all commits on a repo.",
-		Long:  "Return all commits on a repo.",
+		Use:   "{{alias}} [<commit-id>|<repo>[@<branch-or-commit>]]",
+		Short: "Return a list of commits.",
+		Long:  "Return a list of commits, either across the entire pachyderm cluster or restricted to a single repo.",
 		Example: `
+# return all commits
+$ {{alias}}
+
 # return commits in repo "foo"
 $ {{alias}} foo
+
+# return all sub-commits in a commit
+$ {{alias}} <commit-id>
 
 # return commits in repo "foo" on branch "master"
 $ {{alias}} foo@master
@@ -420,7 +428,7 @@ $ {{alias}} foo@master
 # return the last 20 commits in repo "foo" on branch "master"
 $ {{alias}} foo@master -n 20
 
-# return commits in repo "foo" since commit XXX
+# return commits in repo "foo" on branch "master" since commit XXX
 $ {{alias}} foo@master --from XXX`,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine("user")
@@ -743,7 +751,9 @@ $ {{alias}} test@master --new`,
 	squashCommit := &cobra.Command{
 		Use:   "{{alias}} <commit-id>",
 		Short: "Squash the sub-commits of a commit.",
-		Long:  "Squash the sub-commits of a commit.  The data in the sub-commits will remain in their child commits unless there are no children.",
+		Long: `Squash the sub-commits of a commit.  The data in the sub-commits will remain in their child commits.
+The squash will fail if it includes a commit with no children`,
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -761,13 +771,13 @@ $ {{alias}} test@master --new`,
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
-		Long: `A branch in Pachyderm is an alias for a Commit ID.
+		Long: `A branch in Pachyderm records provenance relationships between data in different repos,
+as well as being as an alias for a commit in its repo.
 
 The branch reference will "float" to always refer to the latest commit on the
-branch, known as the HEAD commit. Not all commits must be on a branch and
-multiple branches can refer to the same commit.
+branch, known as the HEAD commit. All commits are on exactly one branch.
 
-Any pachctl command that can take a Commit ID, can take a branch name instead.`,
+Any pachctl command that can take a commit, can take a branch name instead.`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAlias(branchDocs, "branch", " branch$"))
 
@@ -1191,6 +1201,25 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 			}
 			defer c.Close()
 			defer progress.Wait()
+			// TODO: Decide what progress should look like in the recursive case. The files are downloaded in a batch in 2.x.
+			if recursive {
+				if outputPath == "" {
+					return errors.Errorf("an output path needs to be specified when using the --recursive flag")
+				}
+				// Check that the path matches one directory / file.
+				fi, err := c.InspectFile(file.Commit, file.Path)
+				if err != nil {
+					return err
+				}
+				r, err := c.GetFileTAR(file.Commit, file.Path)
+				if err != nil {
+					return err
+				}
+				return tarutil.Import(outputPath, r, func(hdr *tar.Header) error {
+					hdr.Name = strings.TrimPrefix(hdr.Name, fi.File.Path)
+					return nil
+				})
+			}
 			var w io.Writer
 			// If an output path is given, print the output to stdout
 			if outputPath == "" {
@@ -1228,6 +1257,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 			return nil
 		}),
 	}
+	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
 	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
 	getFile.Flags().Int64Var(&offsetBytes, "offset", 0, "The number of bytes in the file to skip ahead when reading.")
@@ -1546,7 +1576,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	var branchStr string
 	var seed int64
 	runLoadTest := &cobra.Command{
-		Use:     "{{alias}} <spec>",
+		Use:     "{{alias}} <spec-file>",
 		Short:   "Run a PFS load test.",
 		Long:    "Run a PFS load test.",
 		Example: pfsload.LoadSpecification,
@@ -1567,30 +1597,46 @@ Objects are a low-level resource and should not be accessed directly by most use
 				}
 				fmt.Println(resp.Spec)
 				resp.Spec = ""
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
+				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
+					return err
+				}
+				fmt.Println()
+				return nil
 			}
-			spec, err := ioutil.ReadFile(args[0])
-			if err != nil {
-				return err
-			}
-			var branch *pfs.Branch
-			if branchStr != "" {
-				branch, err = cmdutil.ParseBranch(branchStr)
+			return filepath.Walk(args[0], func(file string, fi os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
-			}
-			resp, err := c.PfsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
-				Spec:   string(spec),
-				Branch: branch,
-				Seed:   seed,
+				if fi.IsDir() {
+					return nil
+				}
+				spec, err := ioutil.ReadFile(file)
+				if err != nil {
+					return err
+				}
+				var branch *pfs.Branch
+				if branchStr != "" {
+					branch, err = cmdutil.ParseBranch(branchStr)
+					if err != nil {
+						return err
+					}
+				}
+				resp, err := c.PfsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
+					Spec:   string(spec),
+					Branch: branch,
+					Seed:   seed,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Println(resp.Spec)
+				resp.Spec = ""
+				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
+					return err
+				}
+				fmt.Println()
+				return nil
 			})
-			if err != nil {
-				return err
-			}
-			fmt.Println(resp.Spec)
-			resp.Spec = ""
-			return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
 		}),
 	}
 	runLoadTest.Flags().StringVarP(&branchStr, "branch", "b", "", "The branch to use for generating the load.")

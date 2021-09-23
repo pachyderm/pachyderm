@@ -1,7 +1,6 @@
 package testutil
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -13,5 +12,5 @@ func NewObjectClient(t testing.TB) (obj.Client, string) {
 	dir := t.TempDir()
 	objC, err := obj.NewLocalClient(dir)
 	require.NoError(t, err)
-	return objC, strings.ReplaceAll(strings.Trim(dir, "/"), "/", ".")
+	return objC, objC.(interface{ BucketURL() string }).BucketURL()
 }

@@ -212,7 +212,13 @@ pachd:
   enterpriseLicenseKey: ""
   rootToken: ""
   enterpriseSecret: ""
+  oauthClientId: "pachd"
   oauthClientSecret: ""
+  oauthIssuer: ""
+  oauthRedirectURI: ""
+  userAccessibleOauthIssuerHost: ""
+  upstreamIDPs: []
+  mockIDP: false
   serviceAccount:
     create: true
     additionalAnnotations: {}

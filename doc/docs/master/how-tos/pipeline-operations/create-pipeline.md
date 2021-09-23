@@ -79,10 +79,9 @@ To create a pipeline, complete the following steps:
 
     ```shell
     NAME                      READY   STATUS    RESTARTS   AGE
-    dash-676d6cdf6f-lmfc5     2/2     Running   2          17d
-    etcd-79ffc76f58-ppf28     1/1     Running   1          17d
     pachd-5485f6ddd-wx8vw     1/1     Running   1          17d
     pipeline-edges-v1-qhd4f   2/2     Running   0          95s
+    ...
     ```
 
     You should see a pod named after your pipeline in the list of pods.

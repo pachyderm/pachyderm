@@ -13,12 +13,12 @@ function child {
     target="^(- )?$1:"
     prefix=0
 
-    while read line; do
+    while read -r line; do
         if [[ $prefix -gt 0 ]]; then
             if [[ $line =~ ^[[:graph:]] ]]; then
                 exit 0
             fi
-            echo ${line:$prefix}
+            echo "${line:$prefix}"
         fi
 
         if [[ $line =~ $target ]]; then
@@ -31,10 +31,10 @@ function child {
     done
 }
 
-count=$(cat .circleci/config.yml | child jobs | child circleci | child environment | grep PPS_BUCKETS | cut -d \" -f 2)
+count=$(child jobs <.circleci/config.yml | child circleci | child environment | grep PPS_BUCKETS | cut -d \" -f 2)
 
 echo "should be $count buckets, checking for PPS$count"
 
-cat .circleci/config.yml | child workflows | child circleci | child jobs \
+child workflows <.circleci/config.yml | child circleci | child jobs \
     | child circleci | child matrix | child parameters | grep "PPS$count" || fail "PPS bucket number mismatch"
 

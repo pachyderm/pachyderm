@@ -65,15 +65,16 @@ Prometheus' **Kubernetes cluster monitoring** using the Prometheus Operator:
             Let's take a quick look at this file:
             
             ```shell
-            $ pachctl deploy local --dry-run > pachd.json
+            $ kubectl -o json get service/pachd
             ```
-            In pachd.json, find:
-            ```shell
-            - name: prom-metrics
-                nodePort: 30656
-                port: 656
-                protocol: TCP
-                targetPort: 656
+            In the json file, find:
+            ```json
+                {
+                "name": "prom-metrics",
+                "port": 1656,
+                "protocol": "TCP",
+                "targetPort": "prom-metrics"
+                }
             ```
     
 ## Port-Forward

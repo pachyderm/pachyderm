@@ -15,6 +15,8 @@ To upload your files to a Pachyderm repository, run the
 `pachctl put file` command. By using the `pachctl put file`
 command, you can put both files and directories into a Pachyderm repository.
 
+!!! Warning
+     It is important to note that directories are not stored and will not exist **unless they contain files**. 
 ## File Processing Strategies
 
 Pachyderm provides the following file processing strategies:
@@ -32,35 +34,35 @@ from the most recent upload.
 
     1. View the list of files:
 
-       ```shell
-       pachctl list file images@master
-       ```
+         ```shell
+         pachctl list file images@master
+         ```
 
-       **System Response:**
+         **System Response:**
 
-       ```shell
-       NAME   TYPE SIZE
-       /A.csv file 258B
-       ```
+         ```shell
+         NAME   TYPE SIZE
+         /A.csv file 258B
+         ```
 
     1. Add the `A.csv` file once again:
 
-       ```shell
-       pachctl put file images@master -f A.csv
-       ```
+         ```shell
+         pachctl put file images@master -f A.csv
+         ```
 
     1. Verify that the file size has not changed:
 
-       ```shell
-       pachctl list file images@master
-       ```
+         ```shell
+         pachctl list file images@master
+         ```
 
-       **System Response:**
+         **System Response:**
 
-       ```shell
-       NAME   TYPE SIZE
-       /A.csv file 258B
-       ```
+         ```shell
+         NAME   TYPE SIZE
+         /A.csv file 258B
+         ```
 
 ### **Appending to files**
 When you enable the append mode by using the `--append`
@@ -73,32 +75,32 @@ If you upload the same file to that repository with the
 
     1. View the list of files:
 
-       ```shell
-       pachctl list file images@master
-       ```
+         ```shell
+         pachctl list file images@master
+         ```
 
-       **System Response:**
+         **System Response:**
 
-       ```shell
-       NAME   TYPE SIZE
-       /A.csv file 258B
-       ```
+         ```shell
+         NAME   TYPE SIZE
+         /A.csv file 258B
+         ```
 
     1. Add the `A.csv` file once again:
 
-       ```shell
-       pachctl put file -a images@master -f A.csv
-       ```
+         ```shell
+         pachctl put file -a images@master -f A.csv
+         ```
 
     1. Verify that the file size has doubled:
 
-       ```shell
-       pachctl list file images@master
-       ```
+         ```shell
+         pachctl list file images@master
+         ```
 
-       **System Response:**
+         **System Response:**
 
-       ```shell
-       NAME   TYPE SIZE
-       /A.csv file 516B
-       ```
+         ```shell
+         NAME   TYPE SIZE
+         /A.csv file 516B
+         ```

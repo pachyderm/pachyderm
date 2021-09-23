@@ -25,5 +25,5 @@
         "memory": "10G",
         "cpu": 1
     },
-    "standby": true
+    "autoscaling": true
 }

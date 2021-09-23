@@ -153,33 +153,37 @@ Update your values.yaml with your bucket name ([see example of values.yaml here]
       deployTarget: AMAZON
 
       pachd:
-      storage:
-      amazon:
+        storage:
+          amazon:
             bucket: blah
             region: us-east-2
-      serviceAccount:
-      additionalAnnotations:
+        serviceAccount:
+          additionalAnnotations:
             eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
 
-      worker:
-      serviceAccount:
-      additionalAnnotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+        worker:
+          serviceAccount:
+            additionalAnnotations:
+              eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
       ```
+
 === "values.yaml passing AWS credentials (account ID and KEY)"
+
       ```yaml
       deployTarget: AMAZON
 
       pachd:
-      storage:
-      amazon:
+        storage:
+          amazon:
             bucket: blah
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            id: AKIAIOSFODNN7EXAMPLE
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-            region: us-east-2
+          # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+          id: AKIAIOSFODNN7EXAMPLE
+          # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+          secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+          region: us-east-2
       ```
+      
+Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
 
 !!! Note
     - The **worker nodes on which Pachyderm is deployed must be associated with the IAM role that is assigned to the Kubernetes cluster**. 
@@ -206,13 +210,12 @@ Update your values.yaml with your bucket name ([see example of values.yaml here]
 !!! Important "Load Balancer Setup" 
       If you would like to expose your pachd instance to the internet via load balancer, add the following config under `pachd` to your `values.yaml`
       ```yaml
-      #pachd:
-      service:
-      type: LoadBalancer
+       pachd:
+        service:
+         type: LoadBalancer
       ```
 
       **NOTE: It is strongly recommended to configure SSL when exposing Pachyderm publicly.**
-
 
 ### Deploy Pachyderm on the Kubernetes cluster
 
@@ -221,9 +224,9 @@ Refer to our generic ["Helm Install"](./helm_install.md) page for more informati
 - Now you can deploy a Pachyderm cluster by running this command:
 
   ```shell
-  $ helm repo add pachyderm https://helm.pachyderm.com
+  $ helm repo add pach https://helm.pachyderm.com
   $ helm repo update
-  $ helm install pachyderm -f my_values.yaml pachyderm/pachyderm --version <version-of-the-chart>
+  $ helm install pachd -f my_values.yaml pach/pachyderm --version <version-of-the-chart>
   ```
 
   **System Response:**
