@@ -67,7 +67,7 @@ http://localhost:4000/oauth/callback/?inline=true
 {{- end }}
 
 {{- define "pachyderm.pachdRedirectURI" -}}
-{{- if .Values.pachd.oidc.redirectURI }}
+{{- if .Values.pachd.oauthRedirectURI }}
 {{ .Values.console.config.oauthRedirectURI }}
 {{- else if .Values.ingress.host -}}
 https://{{ .Values.ingress.host }}/authorization-code/callback

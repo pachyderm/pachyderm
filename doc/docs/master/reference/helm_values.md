@@ -38,8 +38,6 @@ console:
     oauthClientID: ""
     oauthClientSecret: ""
     graphqlPort: 4000
-    oauthPachdClientID: ""
-    pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
 
   service:
     labels: {}
@@ -243,8 +241,6 @@ cloudsqlAuthProxy:
         oauthClientID: "console"
         oauthClientSecret: "abc"
         graphqlPort: 4000
-        oauthPachdClientID: "pachd"
-        pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
     ```
 
 ### deployTarget
