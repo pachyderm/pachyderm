@@ -59,7 +59,7 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 			logrus.Infof("container %s is running. skip creation.", containerName)
 			return nil
 		}
-		logrus.Infof("container %s exists, but is not running. deleting...")
+		logrus.Infof("container %s exists, but is not running. deleting...", containerName)
 		if err := dclient.ContainerRemove(ctx, containerName, types.ContainerRemoveOptions{}); err != nil {
 			return err
 		}
