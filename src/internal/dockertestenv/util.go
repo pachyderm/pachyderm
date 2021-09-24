@@ -50,13 +50,19 @@ type containerSpec struct {
 func ensureContainer(ctx context.Context, dclient docker.APIClient, containerName string, spec containerSpec) error {
 	imageName := spec.Image
 	portMap := spec.PortMap
-	if _, err := dclient.ContainerInspect(ctx, containerName); err != nil {
+	if cjson, err := dclient.ContainerInspect(ctx, containerName); err != nil {
 		if !isErrNoSuchContainer(err) {
 			return err
 		}
 	} else {
-		logrus.Infof("container %s exists. skip creation.", containerName)
-		return nil
+		if cjson.State.Running {
+			logrus.Infof("container %s is running. skip creation.", containerName)
+			return nil
+		}
+		logrus.Infof("container %s exists, but is not running. deleting...")
+		if err := dclient.ContainerRemove(ctx, containerName, types.ContainerRemoveOptions{}); err != nil {
+			return err
+		}
 	}
 	logrus.Infof("container %s does not exist. creating...", containerName)
 	if err := ensureImage(ctx, dclient, imageName); err != nil {

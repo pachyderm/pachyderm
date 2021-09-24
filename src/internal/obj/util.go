@@ -15,3 +15,19 @@ func Copy(ctx context.Context, src, dst Client, srcPath, dstPath string) (retErr
 		return dst.Put(ctx, dstPath, r)
 	})
 }
+
+type testURL struct {
+	Client
+}
+
+// WrapWithTestURL marks client as a test client and will prepend test- to the url.
+// the consturctors in this package know how to parse test urls, and assume default credentials.
+func WrapWithTestURL(c Client) Client {
+	return testURL{c}
+}
+
+func (c testURL) BucketURL() ObjectStoreURL {
+	u := c.Client.BucketURL()
+	u.Scheme = "test-" + u.Scheme
+	return u
+}

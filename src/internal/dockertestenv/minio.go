@@ -35,7 +35,7 @@ func NewTestObjClient(t testing.TB) obj.Client {
 	bucketName := newTestMinioBucket(t, client)
 	oc, err := obj.NewMinioClient(endpoint, bucketName, id, secret, false, false)
 	require.NoError(t, err)
-	return oc
+	return obj.WrapWithTestURL(oc)
 }
 
 // newTestMinioBucket creates a new bucket, which will be cleaned up when the test finishes
@@ -80,8 +80,8 @@ func ensureMinio(ctx context.Context, dclient docker.APIClient) error {
 		Image: imageName,
 		Cmd:   []string{"server", "/data", `--console-address=:9001`},
 		PortMap: map[uint16]uint16{
-			9000: 9000,
-			9001: 9001,
+			minioPort:     minioPort,
+			minioPort + 1: minioPort + 1,
 		},
 	})
 }
