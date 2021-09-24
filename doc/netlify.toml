@@ -144,6 +144,24 @@
   force = true
 
 [[redirects]]
+  from = "/2.0.x/deploy-manage/deploy/single-node/"
+  to = "/latest/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/2.0.x/deploy-manage/deploy/non-cloud-object-stores/"
+  to = "/latest/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/2.0.x/deploy-manage/deploy/docker_registries/"
+  to = "/latest/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/latest/how-tos/use-jupyterhub/"
   to = "/latest/how-tos/use-pachyderm-ide/"
   status = 301
