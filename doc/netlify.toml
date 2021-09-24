@@ -295,7 +295,7 @@
 
 [[redirects]]
   from = "/2.0.x/deploy-manage/manage/migrations/"
-  to = "/latest/
+  to = "/latest/"
   status = 301
   force = true
 
