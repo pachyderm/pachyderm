@@ -4,13 +4,11 @@ package dockertestenv
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os/exec"
 	"sync"
 	"testing"
 	"time"
 
-	docker "github.com/docker/docker/client"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -27,20 +25,7 @@ const (
 )
 
 func postgresHost() string {
-	client, err := docker.NewClientWithOpts(docker.FromEnv)
-	if err != nil {
-		panic(err)
-	}
-	defer client.Close()
-	host := client.DaemonHost()
-	u, err := url.Parse(host)
-	if err != nil {
-		panic(err)
-	}
-	if u.Scheme == "unix" {
-		return "127.0.0.1"
-	}
-	return u.Hostname()
+	return getDockerHost()
 }
 
 func pgBouncerHost() string {

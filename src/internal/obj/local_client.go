@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -116,8 +115,11 @@ func (c *fsClient) Walk(ctx context.Context, prefix string, cb func(string) erro
 	return nil
 }
 
-func (c *fsClient) BucketURL() string {
-	return fmt.Sprintf("local://%s/", strings.ReplaceAll(filepath.ToSlash(c.rootDir), "/", "."))
+func (c *fsClient) BucketURL() ObjectStoreURL {
+	return ObjectStoreURL{
+		Scheme: "local",
+		Bucket: strings.ReplaceAll(filepath.ToSlash(c.rootDir), "/", "."),
+	}
 }
 
 func (c *fsClient) stagingPathFor(name string) string {

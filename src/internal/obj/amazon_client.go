@@ -284,6 +284,13 @@ func (c *amazonClient) Exists(ctx context.Context, name string) (bool, error) {
 	return true, nil
 }
 
+func (c *amazonClient) BucketURL() ObjectStoreURL {
+	return ObjectStoreURL{
+		Scheme: "s3",
+		Bucket: c.bucket,
+	}
+}
+
 func (c *amazonClient) transformError(err error, objectPath string) error {
 	const minWait = 250 * time.Millisecond
 	if err == nil {
