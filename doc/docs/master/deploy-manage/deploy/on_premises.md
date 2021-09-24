@@ -61,8 +61,6 @@ The object store you use must be accessible via a low-latency, high-bandwidth co
 
 Storage providers like [MinIO](https://min.io), [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) provide S3-compatible access to enterprise storage for on-premises deployment. 
 
-Refer to our [Custom Object Stores](../custom_object_stores/) page for more details on how to set up non-cloud object stores.
-
 #### Sizing And Configuring The Object Store
 Start with a large multiple of your current data set size.
 
