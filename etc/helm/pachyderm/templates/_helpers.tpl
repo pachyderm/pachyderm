@@ -42,7 +42,7 @@ imagePullSecrets:
 {{- else if .Values.ingress.host -}}
 https://{{ .Values.ingress.host }}/dex
 {{- else if eq .Values.deployTarget "LOCAL" -}}
-http://pachd:1658
+http://pachd:1658/
 {{- else -}}
 {{ fail "For Authentication, an OIDC Issuer for this pachd must be set." }}
 {{- end -}}
