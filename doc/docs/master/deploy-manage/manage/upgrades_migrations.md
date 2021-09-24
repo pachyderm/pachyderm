@@ -8,13 +8,13 @@ These updates fall into the following categories:
 For example, between version 1.12.2 and 1.13.0. 
 Upgrades are typically a simple process that requires little to no downtime.
 
-* [Migrations](./migrations.md) — A **migration** must be performed when you are **moving between major releases**,
-such as moving from 1.13.x to 2.0.
+* Migrations — A **migration** must be performed when you are **moving between major releases**,
+such as moving from 1.13.x to 2.0. For questions on how to migrate from Pachyderm 1.x to 2.x, please contact your technical account manager or email support@pachyderm.com.
 
-!!! Important
+!!! Important 
     Performing an *upgrade* between *major releases* might lead to corrupted
-    data. You must perform a [migration](./migrations.md) when going between
-    major versions!
+    data. You must perform a migration when going between
+    major versions.
 
 Whether you upgrade or migrate your cluster, Pachyderm recommends that you
 [perform a back up](./backup_restore.md). A backup guarantees that you can restore
