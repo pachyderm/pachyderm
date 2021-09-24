@@ -26,7 +26,7 @@ by using Auth0 as our Identity Provider.
 users can use to log in to various applications).
 
 However, Pachyderm's Identity Service is based on [Dex](https://dexidp.io/docs/) 
-and can therefore provide connectors to a large [variety of IdPs](https://dexidp.io/docs/connectors/) (LDAP, GitHub, SAML, OIDC, Google, OpenShift...). 
+and can therefore provide connectors to a large [variety of IdPs](https://dexidp.io/docs/connectors/) (LDAP, GitHub, SAML, OIDC...). 
 Use the IdP of your choice.
 
 <! More IdP connectors example:

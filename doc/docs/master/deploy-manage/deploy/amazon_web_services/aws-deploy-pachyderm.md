@@ -5,7 +5,7 @@ you are ready to deploy Pachyderm.
 
 Complete the following steps:
 
-1. [Create an S3 bucket](#create-an-S3-object-store-bucket-for-data) for Pachyderm
+1. [Create an S3 bucket](#create-an-S3-object-store-bucket-for-data) for Pachyderm and grant your containers access to it.
 1. [Enable Persistent Volumes Creation](#2-enable-your-persistent-volumes-creation)
 1. [Deploy Pachyderm ](#3-deploy-pachyderm)
 1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster]((#have-pachctl-and-your-cluster-communicate)).
@@ -43,6 +43,70 @@ region, run the following command:
       $ aws s3 ls
       ```
 
+You now need to **give Pachyderm access to your bucket** either by:
+
+- [Adding a policy to your service account IAM Role](#add-an-iam-role-and-policy-to-your-service-account) (Recommended)
+OR
+- Passing your AWS credentials (account ID and KEY) to your values.yaml when installing
+
+!!! Info
+      IAM roles provide finer grained user management and security
+      capabilities than access keys. Pachyderm recommends the use of IAM roles for production
+      deployments.
+
+### Add An IAM Role And Policy To Your Service Account
+
+Before you can make sure that **the containers in your pods have the right permissions to access your S3 bucket**, you will need to [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html).
+
+Then follow the steps detailled in **[Create an IAM Role And Policy for your Service Account](https://docs.aws.amazon.com/eks/latest/userguide/create-service-account-iam-policy-and-role.html)**.
+
+In short, you will:
+
+1. Retrieve your **OpenID Connect provider URL**:
+      1. Go to the AWS Management console.
+      1. Select your cluster instance in **Amazon EKS**.
+      1. In the **Configuration** tab of your EKS cluster, find your **OpenID Connect provider URL** and save it. You will need it when creating your IAM Role.
+
+1. Create an **IAM policy** that gives access to your bucket:
+      1. Create a new **Policy** from your IAM Console.
+      1. Select the **JSON** tab.
+      1. Copy/Paste the following text in the JSON tab:
+
+      ```json
+      {
+            "Version": "2012-10-17",
+            "Statement": [
+                  {
+            "Effect": "Allow",
+                  "Action": [
+                        "s3:ListBucket"
+                  ],
+                  "Resource": [
+                        "arn:aws:s3:::<your-bucket>"
+                  ]},{
+            "Effect": "Allow",
+                  "Action": [
+                        "s3:PutObject",
+                        "s3:GetObject",
+                        "s3:DeleteObject"
+                  ],
+                  "Resource": [
+                        "arn:aws:s3:::<your-bucket>/*"
+                  ]}
+            ]
+      }
+      ``` 
+
+      Replace `<your-bucket>` with the name of your S3 bucket.
+
+1. Create an **IAM role as a Web Identity** using the cluster OIDC procider as the identity provider.
+      1. Create a new **Role** from your IAM Console.
+      1. Select the **Web identity** Tab.
+      1. In the **Identity Provider** drop down, select the *OpenID Connect provider URL* of your EKS and `sts.amazonaws.com` as the Audience.
+      1. Attach the newly created permission to the Role.
+      1. Name it.
+      1. Retrieve the **Role arn**. You will need it in your values.yaml annotations when deploying Pachyderm.
+
 ### (Optional) Set Up Bucket Encryption
 
 Amazon S3 supports two types of bucket encryption — server-side encryption
@@ -76,7 +140,7 @@ For your EKS cluster to successfully create two **Elastic Block Storage (EBS) pe
 
 In short, you will:
 
-1. [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html).
+1. [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html). You might already have completed this step if you choose to create an IAM Role and Policy to give your containers permission to access your S3 bucket.
 1. Create a CSI Driver service account whose IAM Role will be granted the permission (policy) to make calls to AWS APIs. 
 1. Install Amazon EBS Container Storage Interface (CSI) driver on your cluster configured with your created service account.
 
@@ -86,73 +150,17 @@ running or scale to thousands of jobs per commits, you might need to add
 more storage.  However, you can easily increase the size of the persistent
 volume later.
 ## 3- Deploy Pachyderm
-You have created your S3 bucket and have configure your EKS cluster to create your pvs (metadata).
+You have created your S3 bucket, given your cluster access to your bucket, and have configured your EKS cluster to create your pvs (metadata).
 
-You now need to give your cluster access to your bucket either by:
-
-- adding a policy to your cluster IAM Role (Recommended)
-OR
-- passing your AWS credentials (account ID and KEY) to your values.yaml when installing
-
-!!! Info
-      IAM roles provide finer grained user management and security
-      capabilities than access keys. Pachyderm recommends the use of IAM roles for production
-      deployments.
-
-### To Add A Policy To Your EKS IAM Role
-
-Make sure the **IAM role of your cluster has access to the S3 bucket that you created for Pachyderm**. 
-
-1. Find the IAM role assigned to the cluster:
-
-      1. Go to the AWS Management console.
-      1. Select your cluster instance in **Amazon EKS**.
-      1. In the general **Details** tab, find your **Cluster IAM Role ARN**.
-      1. Find the **IAM Role** field.
-
-1. **Enable access to the S3 bucket** for the IAM role:
-
-      1. Click on the **IAM Role**.
-      1. In the **Permissions** tab, click **Add inline policy**.
-      1. Select the **JSON** tab.
-      1. Copy/Paste the following text in the JSON tab:
-
-      ```json
-      {
-            "Version": "2012-10-17",
-            "Statement": [
-                  {
-            "Effect": "Allow",
-                  "Action": [
-                        "s3:ListBucket"
-                  ],
-                  "Resource": [
-                        "arn:aws:s3:::<your-bucket>"
-                  ]},{
-            "Effect": "Allow",
-            "Action": [
-                  "s3:PutObject",
-                  "s3:GetObject",
-                  "s3:DeleteObject"
-            ],
-            "Resource": [
-                  "arn:aws:s3:::<your-bucket>/*"
-            ]}
-            ]
-      }
-      ```
-
-      Replace `<your-bucket>` with the name of your S3 bucket.
-
-1. Create a name for the new policy.
-
+You can now deploy Pachyderm.
 ### Create Your Values.yaml   
 
-- [Check out our example of values.yaml for gp3](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp3-values.yaml)
-- [Check out our example of values.yaml for gp2](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp2-values.yaml)
-- or use our minimal example below.
+#### For gp3 EBS Volumes
 
-=== "For Gp3 EBS Volumes"   
+[Check out our example of values.yaml for gp3](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp3-values.yaml) or use our minimal example below.
+
+
+=== "Gp3 + Service account annotations"   
       ```yaml
       deployTarget: AMAZON
       # This uses GP3 which requires the CSI Driver https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
@@ -164,27 +172,50 @@ Make sure the **IAM role of your cluster has access to the S3 bucket that you cr
         storage:
           amazon:
             bucket: blah
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            id: AKIAIOSFODNN7EXAMPLE
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-            cloudFrontDistribution: cfd-123
             region: us-east-2
         serviceAccount:
           additionalAnnotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+            eks.amazonaws.com/role-arn: arn:aws:iam::<ACCOUNT_ID>:role/pachyderm-bucket-access
 
         worker:
           serviceAccount:
             additionalAnnotations:
-              eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+              eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/pachyderm-bucket-access
 
       postgresql:
         persistence:
           storageClass: gp3
       ```
+=== "Gp3 + AWS Credentials"   
+      ```yaml
+      deployTarget: AMAZON
+      # This uses GP3 which requires the CSI Driver https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
+      # And a storageclass configured named gp3
+      etcd:
+        storageClass: gp3
+
+      pachd:
+        storage:
+          amazon:
+            bucket: blah
+
+            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+            id: AKIAIOSFODNN7EXAMPLE
+
+            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+            secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+            region: us-east-2
+
+      postgresql:
+        persistence:
+          storageClass: gp3
+      ```
+
+#### For gp2 EBS Volumes
+
+[Check out our example of values.yaml for gp2](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp2-values.yaml) or use our minimal example below.   
     
-=== "For Gp2 EBS Volumes"
+=== "For Gp2 + Service account annotations"
       ```yaml
       deployTarget: AMAZON
       
@@ -195,20 +226,38 @@ Make sure the **IAM role of your cluster has access to the S3 bucket that you cr
         storage:
           amazon:
             bucket: blah
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            id: AKIAIOSFODNN7EXAMPLE
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-            cloudFrontDistribution: cfd-123
             region: us-east-2
         serviceAccount:
           additionalAnnotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+            eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/pachyderm-bucket-access
 
         worker:
           serviceAccount:
             additionalAnnotations:
-              eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/eksctl-new-pachyderm-cluster-cluster-ServiceRole-1H3YFIPV75B52
+              eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/pachyderm-bucket-access
+
+      postgresql:
+        persistence:
+          size: 500Gi
+      ```  
+=== "For Gp2 + AWS Credentials"
+      ```yaml
+      deployTarget: AMAZON
+      
+      etcd:
+        size: 500Gi
+
+      pachd:
+        storage:
+          amazon:
+            bucket: blah
+            
+            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+            id: AKIAIOSFODNN7EXAMPLE
+            
+            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html           
+            secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+            region: us-east-2
 
       postgresql:
         persistence:
@@ -216,34 +265,6 @@ Make sure the **IAM role of your cluster has access to the S3 bucket that you cr
       ```
 
 Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
-
-- In the case of an added policy to your cluster IAM Role, update the `pachd.serviceAccount` and `pachd.worker` sections of your values.yaml.
-
-!!! Note
-      The **worker nodes on which Pachyderm is deployed must be associated with the IAM role that is assigned to the Kubernetes cluster**. 
-      If you created your cluster by using `eksctl` or `kops` the nodes must have a dedicated IAM role already assigned.
-
-      The IAM role of your cluster must have correct trust relationships: 
-      
-      1. Click the **Trust relationships > Edit trust relationship** 
-      1. Append the following statement to your JSON relationship
-
-      ```json
-      {
-      "Version": "2012-10-17",
-      "Statement": [
-            {
-            "Effect": "Allow",
-            "Principal": {
-            "Service": "ec2.amazonaws.com"
-            },
-            "Action": "sts:AssumeRole"
-            }
-      ]
-      }
-      ``` 
-
-- In the case where you pass your AWS credentials (account ID and KEY) to your cluster (not recommended), update `pachd.storage.amazon.id` and `pachd.storage.amazon.secret`.
 
 !!! Important "Load Balancer Setup" 
       If you would like to expose your pachd instance to the internet via load balancer, add the following config under `pachd` to your `values.yaml`
