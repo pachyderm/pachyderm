@@ -125,6 +125,36 @@ docker-push: docker-tag
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.3.5
 
+build/licenses: licenses/*
+	-rm -r ./build/licenses
+	cp -r licenses build/licenses
+
+build/LICENSE: LICENSE
+	-rm ./build/LICENSE
+	cp LICENSE build/LICENSE
+
+build/dex-assets: dex-assets
+	-rm -r ./build/dex-assets
+	cp -r dex-assets build/dex-assets
+
+build/pachd:
+	GOOS=linux GOARCH=amd64 go build -v -o ./build/pachd ./src/server/cmd/pachd
+
+build/worker:
+	GOOS=linux GOARCH=amd64 go build -v -o ./build/worker ./src/server/cmd/worker
+
+build/worker_init:
+	GOOS=linux GOARCH=amd64 go build -v -o ./build/worker_init ./etc/worker
+
+build/pachctl:
+	GOOS=linux GOARCH=amd64 go build -v -o ./build/pachctl ./src/server/cmd/pachctl
+
+pachd-image: build/pachd build/licenses build/LICENSE build/dex-assets
+	docker build -t pachyderm/pachd:local -f Dockerfile.pachd ./build
+
+worker-image: build/worker build/worker_init build/pachctl
+	docker build -t pachyderm/worker:local -f Dockerfile.worker ./build
+
 check-kubectl:
 	@# check that kubectl is installed
 	@which kubectl >/dev/null || { \
@@ -463,4 +493,7 @@ check-buckets:
 	microsoft-cluster \
 	clean-microsoft-cluster \
 	lint \
-	spellcheck
+	spellcheck \
+	build/pachd \
+	pachd-image \
+	cycle-pachd \
