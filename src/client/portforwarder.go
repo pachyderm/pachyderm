@@ -170,7 +170,7 @@ func (f *PortForwarder) RunForEnterpriseServer(localPort, remotePort uint16) (ui
 
 // RunForDash creates a port forwarder for dash
 func (f *PortForwarder) RunForDash(localPort, remotePort uint16) (uint16, error) {
-	return f.Run("dash", localPort, remotePort)
+	return f.Run("console", localPort, remotePort)
 }
 
 // Close shuts down port forwarding.

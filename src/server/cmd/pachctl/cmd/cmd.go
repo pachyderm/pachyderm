@@ -614,13 +614,13 @@ This resets the cluster to its initial state.`,
 				successCount++
 			}
 
-			fmt.Println("Forwarding the dash service port...")
+			fmt.Println("Forwarding the console service port...")
 			port, err = fw.RunForDash(dashPort, remoteDashPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
 				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["dash"] = uint32(port)
+				context.PortForwarders["console"] = uint32(port)
 				successCount++
 			}
 

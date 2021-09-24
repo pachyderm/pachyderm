@@ -310,7 +310,7 @@
                     "type": "string"
                 },
                 "localhostIssuer": {
-                    "type": "boolean"
+                    "type": "string"
                 },
                 "requireVerifiedEmail": {
                     "type": "boolean"

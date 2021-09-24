@@ -210,7 +210,7 @@ pachd:
   oauthClientID: pachd
   oauthClientSecret: ""
   oauthRedirectURI: ""
-  userAccessibleOauthIssuerHost: ""
+  userAccessibleOauthIssuerHost: "" # (Optional) Only set in cases where the issuerURI is not user accessible (ie. localhost install)
   upstreamIDPs: []
   ## to set up upstream IDPs, set pachd.mockIDP to false,
   ## and populate the pachd.upstreamIDPs with an array of Dex Connector configurations.
@@ -245,7 +245,7 @@ pachd:
   #       }
   #     name: okta
   #     type: oidc
-  mockIDP: false
+  mockIDP: true
   serviceAccount:
     create: true
     additionalAnnotations: {}
@@ -477,7 +477,7 @@ cloudsqlAuthProxy:
 
 oidc:
   issuerURI: "" #Inferred if running locally or using ingress
-  localhostIssuer: true
+  localhostIssuer: "" # "true", "false", or "" (used string as bool doesn't support empty value)
   requireVerifiedEmail: false
   IDTokenExpiry: 24h
   #TODO scopes:
