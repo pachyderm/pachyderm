@@ -294,6 +294,12 @@
   force = true
 
 [[redirects]]
+  from = "/2.0.x/deploy-manage/manage/migrations/"
+  to = "/latest/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/deploy-manage/*"
   to = "/latest/deploy-manage/:splat"
   status = 301
