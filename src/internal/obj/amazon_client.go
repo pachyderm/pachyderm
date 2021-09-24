@@ -285,7 +285,10 @@ func (c *amazonClient) Exists(ctx context.Context, name string) (bool, error) {
 }
 
 func (c *amazonClient) BucketURL() ObjectStoreURL {
-	panic("not implemented")
+	return ObjectStoreURL{
+		Scheme: "s3",
+		Bucket: c.bucket,
+	}
 }
 
 func (c *amazonClient) transformError(err error, objectPath string) error {
