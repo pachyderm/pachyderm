@@ -220,40 +220,7 @@ pachd:
   oauthClientSecret: ""
   oauthRedirectURI: ""
   # (Optional) Only set in cases where the issuerURI is not user accessible (ie. localhost install)
-  userAccessibleOauthIssuerHost: ""
-  # to set up upstream IDPs, set pachd.mockIDP to false,
-  ## and populate the pachd.upstreamIDPs with an array of Dex Connector configurations.
-  ## See the example below or https://dexidp.io/docs/connectors/
-  ## ex.
-  # upstreamIDPs:
-  #   - id: idpConnector
-  #     jsonConfig: >-
-  #       {
-  #           "issuer": "",
-  #           "clientID": "",
-  #           "clientSecret": "",
-  #           "redirectURI": "http://localhost:30658/callback",
-  #           "insecureEnableGroups": true,
-  #           "insecureSkipEmailVerified": true,
-  #           "insecureSkipIssuerCallbackDomainCheck": true,
-  #           "forwardedLoginParams": ["login_hint"]
-  #       }
-  #     name: idpConnector
-  #     type: oidc
-  #   - id: okta
-  #     jsonConfig: >- 
-  #       {
-  #           "issuer": "https://dev-123.okta.com",
-  #           "clientID": "client_id",
-  #           "clientSecret": "notsecret",
-  #           "redirectURI": "http://localhost:30658/callback",
-  #           "insecureEnableGroups": true,
-  #           "insecureSkipEmailVerified": true,
-  #           "insecureSkipIssuerCallbackDomainCheck": true,
-  #           "forwardedLoginParams": ["login_hint"]
-  #       }
-  #     name: okta
-  #     type: oidc
+  userAccessibleOauthIssuerHost: "" # (Optional) Only set in cases where the issuerURI is not user accessible (ie. localhost install)
   upstreamIDPs: []
   ## to set up upstream IDPs, set pachd.mockIDP to false,
   ## and populate the pachd.upstreamIDPs with an array of Dex Connector configurations.
@@ -288,7 +255,7 @@ pachd:
   #       }
   #     name: okta
   #     type: oidc
-  mockIDP: false
+  mockIDP: true
   serviceAccount:
     create: true
     additionalAnnotations: {}
@@ -521,7 +488,7 @@ cloudsqlAuthProxy:
 
 oidc:
   issuerURI: "" #Inferred if running locally or using ingress
-  localhostIssuer: true
+  localhostIssuer: "" # "true", "false", or "" (used string as bool doesn't support empty value)
   requireVerifiedEmail: false
   IDTokenExpiry: 24h
   #TODO scopes:
