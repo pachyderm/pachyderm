@@ -78,11 +78,6 @@ func (s *Storage) List(ctx context.Context, cb func(id ID) error) error {
 	})
 }
 
-func (s *Storage) Prefetch(ctx context.Context, ref *Ref) error {
-	client := NewClient(s.store, s.db, s.tracker, "")
-	return Get(ctx, client, s.memCache, s.deduper, ref, func(_ []byte) error { return nil })
-}
-
 // NewDeleter creates a deleter for use with a tracker.GC
 func (s *Storage) NewDeleter() track.Deleter {
 	return &deleter{}
