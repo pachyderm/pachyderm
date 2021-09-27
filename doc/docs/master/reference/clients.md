@@ -8,7 +8,7 @@ For more info, check out the [godocs](https://godoc.org/github.com/pachyderm/pac
 
 **Note** - A compatible version of `grpc` is needed when using the Go client.  You can deduce the compatible version from our [vendor.json](https://github.com/pachyderm/pachyderm/blob/master/src/server/vendor/vendor.json) file, where you will see something like:
 
-```
+```json
 		{
 			"checksumSHA1": "mEyChIkG797MtkrJQXW8X/qZ0l0=",
 			"path": "google.golang.org/grpc",
@@ -19,7 +19,7 @@ For more info, check out the [godocs](https://godoc.org/github.com/pachyderm/pac
 
 You can then get this version via:
 
-```
+```shell
 go get google.golang.org/grpc
 cd $GOPATH/src/google.golang.org/grpc
 git checkout 21f8ed309495401e6fd79b3a9fd549582aed1b4c
@@ -40,14 +40,23 @@ information.
 
 ## Python Client
 
-The Python client is officially supported by the Pachyderm team. 
-It implements almost all of the functionalities provided with the `pachctl` CLI tool allowing you to easily integrate operations like `create repo`, `put a file,` or `create pipeline` into your python applications.
+The Python client `python-pachyderm` is officially supported by the Pachyderm team. 
+It implements most of the functionalities provided with the `pachctl` CLI tool allowing you to easily integrate operations like `create repo`, `put a file,` or `create pipeline` into your python applications.
 
-For more info, check out our Github [repo](https://github.com/pachyderm/python-pachyderm/blob/master/README.md).
+!!! Note
+    Use **python-pachyderm v7.0** with Pachyderm 2.0 and higher. In the [documentation](https://python-pachyderm.readthedocs.io/en/v7.x/), you will find: 
+    - All [installation instructions](https://python-pachyderm.readthedocs.io/en/v7.x/getting_started.html#installation) and links to PyPI.
+    - A quick ["Hello World" example](https://python-pachyderm.readthedocs.io/en/v7.x/getting_started.html#installation) to get you started.
+    - Links to python-pachyderm main Github repository with a [list of useful examples](https://github.com/pachyderm/python-pachyderm/tree/master/examples). 
+    - As well as the entire reference API.
 
-## Scala Client
+## Node Client
 
-Our users are currently working on a Scala client for Pachyderm. Please contact us if you are interested in helping with this or testing it out.
+Our Javascript client `node-pachyderm` is being **used in production by our Pachyderm Console** to interface with the Pachyderm server. The team officially supports it. Today, we provide all the read operations necessary to our own UI. However, we and have no near-term plans to reach parity with python-pachyderm yet.
+
+Please contact us if you are [interested in contributing](https://github.com/pachyderm/node-pachyderm/blob/main/contributing.md) or ask your questions on our [slack channel](https://pachyderm-users.slack.com/archives/C028ZV066JY).
+
+You will find installations instructions and a first quick overview of how to use the library in our [public repository](https://github.com/pachyderm/node-pachyderm). Check also our [opencv example](https://github.com/pachyderm/node-pachyderm/tree/main/examples/opencv)
 
 ## Other languages
 
