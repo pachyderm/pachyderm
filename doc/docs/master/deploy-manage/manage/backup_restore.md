@@ -7,7 +7,7 @@ The `pachctl extract` command requires that all pipeline and data loading
 activity into Pachyderm stop before the extract occurs. This enables
 Pachyderm to create a consistent, point-in-time backup.
 
-Extract and restore commands are used to migrate between minor
+**Extract and restore** commands are used to migrate between minor
 and major releases of Pachyderm. In addition, there are a few design
 points and operational techniques that data engineers should take
 into consideration when creating complex pachyderm deployments to
@@ -301,5 +301,3 @@ To restore your Cluster from a Backup, run the following command:
   pachctl restore --url s3://<path-to-backup>>
   ```
 
-!!! note "See Also:"
-    - [Migrate Your Cluster](../migrations/)
