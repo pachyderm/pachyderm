@@ -21,16 +21,17 @@ type CacheClient struct {
 // TODO: Expose configuration for cache size?
 // TODO: Dedupe work?
 func NewCacheClient(pachClient *client.APIClient, renewer *renew.StringSet) *CacheClient {
-	cache, err := simplelru.NewLRU(100, nil)
+	cc := &CacheClient{
+		APIClient: pachClient,
+		renewer:   renewer,
+	}
+	cache, err := simplelru.NewLRU(100, cc.onEvicted)
 	if err != nil {
 		// lru.NewWithEvict only errors for size < 1
 		panic(err)
 	}
-	return &CacheClient{
-		APIClient: pachClient,
-		cache:     cache,
-		renewer:   renewer,
-	}
+	cc.cache = cache
+	return cc
 }
 
 func (cc *CacheClient) GetFileTAR(commit *pfs.Commit, path string) (io.ReadCloser, error) {

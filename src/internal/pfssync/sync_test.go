@@ -1,6 +1,7 @@
 package pfssync
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 )
 
@@ -29,19 +31,22 @@ func BenchmarkDownload(b *testing.B) {
 	require.NoError(b, env.PachClient.FinishCommit(repo, "master", commit.ID))
 	fis, err := env.PachClient.ListFileAll(commit, "")
 	require.NoError(b, err)
-	cacheClient := NewCacheClient(env.PachClient)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		dir := b.TempDir()
-		require.NoError(b, WithDownloader(cacheClient, func(d Downloader) error {
-			for _, fi := range fis {
-				if err := d.Download(dir, fi.File); err != nil {
-					return err
+	require.NoError(b, env.PachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		cacheClient := NewCacheClient(env.PachClient, renewer)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dir := b.TempDir()
+			require.NoError(b, WithDownloader(cacheClient, func(d Downloader) error {
+				for _, fi := range fis {
+					if err := d.Download(dir, fi.File); err != nil {
+						return err
+					}
 				}
-			}
-			return nil
-		}))
-	}
+				return nil
+			}))
+		}
+		return nil
+	}))
 }
 
 // TODO(2.0 optional): Rewrite these tests to work with the new sync package in V2.
