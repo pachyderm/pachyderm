@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	middleware_auth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
@@ -71,7 +70,6 @@ type pipelineOp struct {
 	namespace    string
 	env          serviceenv.ServiceEnv
 	etcdPrefix   string
-	pipelines    collection.PostgresCollection
 
 	monitorer *monitorManager
 
@@ -104,7 +102,6 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 		namespace:  m.a.namespace,
 		env:        m.a.env,
 		etcdPrefix: m.a.etcdPrefix,
-		pipelines:  m.a.pipelines,
 
 		monitorer: m.monitorer,
 
@@ -508,14 +505,7 @@ func (op *pipelineOp) rcIsFresh() bool {
 // collection watch event and cause step() to eventually run again.
 func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) error {
 	if err := func() (retErr error) {
-		span, ctx := tracing.AddSpanToAnyExisting(op.ctx,
-			"/pps.Master/SetPipelineState", "pipeline", op.pipelineInfo.SpecCommit.Branch.Repo.Name, "new-state", state)
-		defer func() {
-			tracing.TagAnySpan(span, "err", retErr)
-			tracing.FinishAnySpan(span)
-		}()
-		return ppsutil.SetPipelineState(ctx, op.env.GetDBClient(), op.pipelines,
-			op.pipelineInfo.SpecCommit, nil, state, reason)
+		return op.monitorer.setPipelineState(op.ctx, op.pipelineInfo.SpecCommit, state, reason)
 	}(); err != nil {
 		// don't bother failing if we can't set the state
 		return stepError{
