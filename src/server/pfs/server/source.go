@@ -22,14 +22,11 @@ type Source interface {
 type source struct {
 	commitInfo *pfs.CommitInfo
 	fileSet    fileset.FileSet
-	prefetch   func(fileset.FileSet) fileset.FileSet
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
 func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
-	sc := &sourceConfig{
-		prefetch: func(fs fileset.FileSet) fileset.FileSet { return fs },
-	}
+	sc := &sourceConfig{}
 	for _, opt := range opts {
 		opt(sc)
 	}
@@ -40,7 +37,6 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 	return &source{
 		commitInfo: commitInfo,
 		fileSet:    fs,
-		prefetch:   sc.prefetch,
 	}
 }
 
@@ -51,7 +47,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	defer cf()
 	iter := fileset.NewIterator(ctx, s.fileSet)
 	cache := make(map[string]*pfs.FileInfo)
-	return s.prefetch(s.fileSet).Iterate(ctx, func(f fileset.File) error {
+	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
 		file := s.commitInfo.Commit.NewFile(idx.Path)
 		file.Datum = idx.File.Datum
