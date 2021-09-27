@@ -70,7 +70,7 @@ svc/kube-dns               ClusterIP   10.96.0.10     <none>        53/UDP,53/TC
 svc/kubernetes-console     NodePort    10.97.194.16   <none>        80:30000/TCP    3m
 ```
 
-In the output above, `po/kubernetes-dashboard-bzjjh` has only
+In the output above, `po/kubernetes-console-bzjjh` has only
 two out of three pods ready and has restarted four times.
 To fix this issue, run:
 
