@@ -50,12 +50,15 @@ create pipeline](./pachctl/pachctl_create_pipeline.md) section.
         "dockerfile": string,
       },
       "parallelism_spec": {
-        // Set at most one of the following:
         "constant": int
       },
       "resource_requests": {
         "memory": string,
         "cpu": number,
+        "gpu": {
+          "type": string,
+          "number": int
+        }
         "disk": string,
       },
       "resource_limits": {
@@ -845,7 +848,9 @@ For more information, see [Exporting Data by using egress](../how-tos/basic-data
 
 ### Autoscaling (optional)
 `autoscaling` indicates that the pipeline should automatically scale the worker
-pool based on the datums it has to process. A pipeline with no outstanding jobs
+pool based on the datums it has to process.
+The maximum number of workers is controlled by the `parallelism_spec`.
+A pipeline with no outstanding jobs
 will go into *standby*. A pipeline in a *standby* state will have no pods running and
 thus will consume no resources. 
 
@@ -951,26 +956,26 @@ too high can also cause problems if you have `lazy` inputs, as there's a cap of
 10,000 `lazy` files per worker and multiple datums that are running all count
 against this limit.
 
-### Chunk Spec (optional)
-`chunk_spec` specifies how a pipeline should chunk its datums.
- A chunk is the unit of work that workers claim. Each worker claims 1 or more
- datums and it commits a full chunk once it's done processing it. Generally you
+### Datum Set Spec (optional)
+`datum_set_spec` specifies how a pipeline should group its datums.
+ A datum set is the unit of work that workers claim. Each worker claims 1 or more
+ datums and it commits a full set once it's done processing it. Generally you
  should set this if your pipeline is experiencing "stragglers." I.e. situations
  where most of the workers are idle but a few are still processing jobs. It can
  fix this problem by spreading the datums out in to more granular chunks for
  the workers to process.
 
-`chunk_spec.number` if nonzero, specifies that each chunk should contain `number`
- datums. Chunks may contain fewer if the total number of datums don't
- divide evenly. If you lower the chunk number to 1 it'll update after every datum, 
+`datum_set_spec.number` if nonzero, specifies that each datum set should contain `number`
+ datums. Sets may contain fewer if the total number of datums don't
+ divide evenly. If you lower the number to 1 it'll update after every datum,
  the cost is extra load on etcd which can slow other stuff down.
  The default value is 2.
 
-`chunk_spec.size_bytes` , if nonzero, specifies a target size for each chunk of datums.
- Chunks may be larger or smaller than `size_bytes`, but will usually be
+`datum_set_spec.size_bytes` , if nonzero, specifies a target size for each set of datums.
+ Sets may be larger or smaller than `size_bytes`, but will usually be
  pretty close to `size_bytes` in size.
 
-`chunk_spec.chunks_per_worker, if nonzero, specifies how many chunks should be
+`datum_set_spec.chunks_per_worker`, if nonzero, specifies how many datum sets should be
  created for each worker. It can't be set with number or size_bytes.
 
 ### Scheduling Spec (optional)
