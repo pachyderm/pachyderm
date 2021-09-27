@@ -228,4 +228,4 @@ To get started with Pachyderm IDE, try the
 
 This example walks you through the same steps as in the
 [Beginner Tutorial](../../../getting_started/beginner_tutorial/) but using the
-`python-pachyderm` client instead of `pachctl` or the Pachyderm UI.
+`python-pachyderm` client instead of `pachctl`.

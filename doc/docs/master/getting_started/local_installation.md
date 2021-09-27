@@ -215,7 +215,7 @@ Kubernetes restarted those pods. Re-run `kubectl get pods`
       ```
    
 1. Open a new terminal window.
-1. Use port forwarding to access the Pachyderm dashboard (Pachyderm UI).
+1. Use port forwarding to access the Pachyderm Console (Pachyderm UI).
 
       ```shell
       pachctl port-forward

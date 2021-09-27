@@ -1408,14 +1408,14 @@ $ {{alias}} "foo@master:data/*"`,
 	var diffCmdArg string
 	diffFile := &cobra.Command{
 		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
-		Short: "Return a diff of two file trees in input repo. Diff of file trees in output repo coming soon.",
-		Long:  "Return a diff of two file trees in input repo. Diff of file trees in output repo coming soon.",
+		Short: "Return a diff of two file trees stored in Pachyderm",
+		Long:  "Return a diff of two file trees stored in Pachyderm",
 		Example: `
-# Return the diff of the file "path" of the input repo "foo" between the head of the
+# Return the diff of the file "path" of the repo "foo" between the head of the
 # "master" branch and its parent.
 $ {{alias}} foo@master:path
 
-# Return the diff between the master branches of input repos foo and bar at paths
+# Return the diff between the master branches of repos foo and bar at paths
 # path1 and path2, respectively.
 $ {{alias}} foo@master:path1 bar@master:path2`,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {

@@ -9,31 +9,25 @@ debian
 doc - the Pachyderm documentation built with mkdocs
 ├── pachctl - cobra auto-generated docs on command-line usage
 etc - everything else
-├── build - scripts for building releases
-├── compatibility - contains mappings of pachyderm versions to the dash versions they're compatible with
+├── build - scripts for building releases 
 ├── compile - scripts to facilitate compiling and building docker images
 ├── contributing - contains helper scripts/assets for contributors
 ├── deploy - scripts/assets for pachyderm deployments
 │   ├── cloudfront
 │   ├── gpu - scripts to help enable GPU resources on k8s/pachyderm
 │   └── tracing - k8s manifests for enabling Jaeger tracing of pachyderm
-├── initdev - scripts to stand up a vagrant environment for pachyderm
+├── helm - Pachyderm helm chart
 ├── kube - internal scripts for working with k8s
 ├── kubernetes-kafka
 ├── kubernetes-prometheus
 ├── netcat
-├── plugin
-│   ├── logging
-│   └── monitoring
 ├── proto - scripts for compiling protobufs
 ├── testing - scripts/assets used for testing
 │   ├── artifacts - static assets used in testing/mocking
-│   ├── deploy - scripts to assist in deploying pachyderm on various cloud providers
-│   ├── entrypoint
+│   ├── loads
 │   ├── migration - sample data used in testing pachyderm migrations
 │   ├── s3gateway - scripts for running conformance tests on the s3gateway
-│   └── vault-s3-client
-├── user-job
+│   └── spout
 └── worker
 examples - example projects; see readme for details of each one
 src - source code
@@ -79,12 +73,9 @@ src - source code
 │   ├── debug - debug functionality
 │   │   ├── cmds - debug CLI
 │   │   └── server - debug server
-│   ├── deploy - storage secret deployment server
 │   ├── enterprise - enterprise functionality
 │   │   ├── cmds - enterprise CLI
 │   │   └── server - enterprise server
-│   ├── health - health check server
-│   ├── http - PFS-over-HTTP server, used by the dash to serve PFS content
 │   ├── pfs - PFS functionality
 │   │   ├── cmds - PFS CLI
 │   │   ├── fuse - support mounting PFS repos via FUSE
