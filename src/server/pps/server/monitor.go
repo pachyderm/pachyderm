@@ -63,30 +63,30 @@ const scaleUpInterval = time.Second * 30
 // corresponding goroutine running monitorPipeline() that puts the pipeline in
 // and out of standby in response to new output commits appearing in that
 // pipeline's output repo.
-func (mm *monitorManager) startMonitor(pipelineInfo *pps.PipelineInfo) {
+func (m *monitorManager) startMonitor(pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
-	mm.monitorCancelsMu.Lock()
-	defer mm.monitorCancelsMu.Unlock()
-	if _, ok := mm.monitorCancels[pipeline]; !ok {
-		mm.monitorCancels[pipeline] = mm.startMonitorThread(
+	m.monitorCancelsMu.Lock()
+	defer m.monitorCancelsMu.Unlock()
+	if _, ok := m.monitorCancels[pipeline]; !ok {
+		m.monitorCancels[pipeline] = m.startMonitorThread(
 			"monitorPipeline for "+pipeline, func(ctx context.Context) {
 				// monitorPipeline needs auth privileges to call subscribeCommit and
 				// inspectCommit
-				pachClient := mm.env.GetPachClient(ctx)
+				pachClient := m.env.GetPachClient(ctx)
 				pachClient.SetAuthToken(pipelineInfo.AuthToken)
-				mm.monitorPipeline(pachClient.Ctx(), pipelineInfo)
+				m.monitorPipeline(pachClient.Ctx(), pipelineInfo)
 			})
 	}
 }
 
 // cancelMonitor cancels the monitorPipeline goroutine for 'pipeline'. See
 // m.startMonitor().
-func (mm *monitorManager) cancelMonitor(pipeline string) {
-	mm.monitorCancelsMu.Lock()
-	defer mm.monitorCancelsMu.Unlock()
-	if cancel, ok := mm.monitorCancels[pipeline]; ok {
+func (m *monitorManager) cancelMonitor(pipeline string) {
+	m.monitorCancelsMu.Lock()
+	defer m.monitorCancelsMu.Unlock()
+	if cancel, ok := m.monitorCancels[pipeline]; ok {
 		cancel()
-		delete(mm.monitorCancels, pipeline)
+		delete(m.monitorCancels, pipeline)
 	}
 }
 
@@ -96,27 +96,27 @@ func (mm *monitorManager) cancelMonitor(pipeline string) {
 // Every crashing pipeline has a corresponding goro running
 // monitorCrashingPipeline that checks to see if the issues have resolved
 // themselves and moves the pipeline out of crashing if they have.
-func (mm *monitorManager) startCrashingMonitor(pipelineInfo *pps.PipelineInfo) {
+func (m *monitorManager) startCrashingMonitor(pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
-	mm.monitorCancelsMu.Lock()
-	defer mm.monitorCancelsMu.Unlock()
-	if _, ok := mm.crashingMonitorCancels[pipeline]; !ok {
-		mm.crashingMonitorCancels[pipeline] = mm.startMonitorThread(
+	m.monitorCancelsMu.Lock()
+	defer m.monitorCancelsMu.Unlock()
+	if _, ok := m.crashingMonitorCancels[pipeline]; !ok {
+		m.crashingMonitorCancels[pipeline] = m.startMonitorThread(
 			"monitorCrashingPipeline for "+pipeline,
 			func(ctx context.Context) {
-				mm.monitorCrashingPipeline(ctx, pipelineInfo)
+				m.monitorCrashingPipeline(ctx, pipelineInfo)
 			})
 	}
 }
 
 // cancelCrashingMonitor cancels the monitorCrashingPipeline goroutine for
 // 'pipeline'. See m.startCrashingMonitor().
-func (mm *monitorManager) cancelCrashingMonitor(pipeline string) {
-	mm.monitorCancelsMu.Lock()
-	defer mm.monitorCancelsMu.Unlock()
-	if cancel, ok := mm.crashingMonitorCancels[pipeline]; ok {
+func (m *monitorManager) cancelCrashingMonitor(pipeline string) {
+	m.monitorCancelsMu.Lock()
+	defer m.monitorCancelsMu.Unlock()
+	if cancel, ok := m.crashingMonitorCancels[pipeline]; ok {
 		cancel()
-		delete(mm.crashingMonitorCancels, pipeline)
+		delete(m.crashingMonitorCancels, pipeline)
 	}
 }
 
@@ -129,10 +129,10 @@ func (mm *monitorManager) cancelCrashingMonitor(pipeline string) {
 // 'leave' indicates pipelines whose monitorPipeline goros shouldn't be
 // cancelled. It's set by pollPipelines, which does not cancel any pipeline in
 // the database at the time that it runs
-func (mm *monitorManager) cancelAllMonitorsAndCrashingMonitors() {
-	mm.monitorCancelsMu.Lock()
-	defer mm.monitorCancelsMu.Unlock()
-	for _, monitorMap := range []map[string]func(){mm.monitorCancels, mm.crashingMonitorCancels} {
+func (m *monitorManager) cancelAllMonitorsAndCrashingMonitors() {
+	m.monitorCancelsMu.Lock()
+	defer m.monitorCancelsMu.Unlock()
+	for _, monitorMap := range []map[string]func(){m.monitorCancels, m.crashingMonitorCancels} {
 		for p := range monitorMap {
 			cancel := monitorMap[p]
 			cancel()
@@ -157,8 +157,8 @@ func (mm *monitorManager) cancelAllMonitorsAndCrashingMonitors() {
 // and startPipelinePoller (in poller.go). It doesn't manipulate any of
 // APIServer's fields, just wrapps the passed function in a goroutine, and
 // returns a cancel() fn to cancel it and block until it returns.
-func (mm *monitorManager) startMonitorThread(name string, f func(ctx context.Context)) func() {
-	ctx, cancel := context.WithCancel(mm.masterCtx)
+func (m *monitorManager) startMonitorThread(name string, f func(ctx context.Context)) func() {
+	ctx, cancel := context.WithCancel(m.masterCtx)
 	done := make(chan struct{})
 	go func() {
 		f(ctx)
@@ -177,7 +177,7 @@ func (mm *monitorManager) startMonitorThread(name string, f func(ctx context.Con
 	}
 }
 
-func (mm *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
+func (m *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	log.Printf("PPS master: monitoring pipeline %q", pipeline)
 	var eg errgroup.Group
@@ -185,7 +185,7 @@ func (mm *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps
 		if in.Cron != nil {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
-					return mm.makeCronCommits(ctx, in)
+					return m.makeCronCommits(ctx, in)
 				}, backoff.NewInfiniteBackOff(),
 					backoff.NotifyCtx(ctx, "cron for "+in.Cron.Name))
 			})
@@ -199,7 +199,7 @@ func (mm *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps
 		eg.Go(func() error {
 			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
-				pachClient := mm.env.GetPachClient(ctx)
+				pachClient := m.env.GetPachClient(ctx)
 				return pachClient.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 					ciChan <- ci
 					return nil
@@ -220,9 +220,9 @@ func (mm *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps
 				}()
 				// start span to capture & contextualize etcd state transition
 				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-					mm.env.GetEtcdClient(), pipeline,
+					m.env.GetEtcdClient(), pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
-				if err := mm.transitionPipelineState(ctx,
+				if err := m.transitionPipelineState(ctx,
 					pipelineInfo.SpecCommit,
 					[]pps.PipelineState{
 						pps.PipelineState_PIPELINE_RUNNING,
@@ -262,11 +262,11 @@ func (mm *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps
 							continue
 						}
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-							mm.env.GetEtcdClient(), pipeline,
+							m.env.GetEtcdClient(), pipeline,
 							"/pps.Master/MonitorPipeline/SpinUp",
 							"commit", ci.Commit.ID)
 
-						if err := mm.transitionPipelineState(ctx,
+						if err := m.transitionPipelineState(ctx,
 							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{pps.PipelineState_PIPELINE_STANDBY},
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
@@ -284,7 +284,7 @@ func (mm *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps
 						for {
 							// Wait for the commit to be finished before blocking on the
 							// job because the job may not exist yet.
-							pachClient := mm.env.GetPachClient(ctx)
+							pachClient := m.env.GetPachClient(ctx)
 							if _, err := pachClient.WaitCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID); err != nil {
 								return err
 							}
@@ -300,7 +300,7 @@ func (mm *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps
 									return nil // subscribeCommit exited, nothing left to do
 								}
 								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-									mm.env.GetEtcdClient(), pipeline,
+									m.env.GetEtcdClient(), pipeline,
 									"/pps.Master/MonitorPipeline/WatchNext",
 									"commit", ci.Commit.ID)
 							default:
@@ -308,7 +308,7 @@ func (mm *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps
 							}
 						}
 
-						if err := mm.transitionPipelineState(ctx,
+						if err := m.transitionPipelineState(ctx,
 							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{
 								pps.PipelineState_PIPELINE_RUNNING,
@@ -334,11 +334,11 @@ func (mm *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps
 		})
 		if pipelineInfo.Details.ParallelismSpec != nil && pipelineInfo.Details.ParallelismSpec.Constant > 1 && pipelineInfo.Details.Autoscaling {
 			eg.Go(func() error {
-				pachClient := mm.env.GetPachClient(ctx)
+				pachClient := m.env.GetPachClient(ctx)
 				return backoff.RetryUntilCancel(ctx, func() error {
 					worker := work.NewWorker(
-						mm.env.GetEtcdClient(),
-						mm.etcdPrefix,
+						m.env.GetEtcdClient(),
+						m.etcdPrefix,
 						driver.WorkNamespace(pipelineInfo),
 					)
 					for {
@@ -347,8 +347,8 @@ func (mm *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps
 							return err
 						}
 						if nClaims < nTasks {
-							kubeClient := mm.env.GetKubeClient()
-							namespace := mm.namespace
+							kubeClient := m.env.GetKubeClient()
+							namespace := m.namespace
 							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
 							scale, err := rc.GetScale(pipelineInfo.Details.WorkerRc, metav1.GetOptions{})
 							n := nTasks
@@ -385,7 +385,7 @@ func (mm *monitorManager) monitorPipeline(ctx context.Context, pipelineInfo *pps
 	}
 }
 
-func (mm *monitorManager) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
+func (m *monitorManager) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	ctx, cancelInner := context.WithCancel(ctx)
 	parallelism := pipelineInfo.Parallelism
@@ -395,12 +395,12 @@ func (mm *monitorManager) monitorCrashingPipeline(ctx context.Context, pipelineI
 	pipelineRCName := ppsutil.PipelineRcName(pipeline, pipelineInfo.Version)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		workerStatus, err := workerserver.Status(ctx, pipelineRCName,
-			mm.env.GetEtcdClient(), mm.etcdPrefix, mm.env.Config().PPSWorkerPort)
+			m.env.GetEtcdClient(), m.etcdPrefix, m.env.Config().PPSWorkerPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
 		}
 		if int(parallelism) == len(workerStatus) {
-			if err := mm.transitionPipelineState(ctx, pipelineInfo.SpecCommit,
+			if err := m.transitionPipelineState(ctx, pipelineInfo.SpecCommit,
 				[]pps.PipelineState{pps.PipelineState_PIPELINE_CRASHING},
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 				return errors.Wrap(err, "could not transition pipeline to RUNNING")

@@ -149,7 +149,7 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 	return op, nil
 }
 
-// this function is expected to be called in synchrony. master.run() handles this by locking with opsInProcessMu
+// this function is expected to be called synchronosly. master.run() handles this by locking with master.opsInProcessMu
 func (op *pipelineOp) Bump(t opType) {
 	op.bumpCnt++
 	switch t {
@@ -711,12 +711,6 @@ func (op *pipelineOp) restartPipeline(reason string) error {
 // deletePipelineResources deletes the RC and services associated with op's
 // pipeline. It doesn't return a stepError, leaving retry behavior to the caller
 func (op *pipelineOp) deletePipelineResources() (retErr error) {
-	if op.pipelineInfo == nil {
-		log.Infof("PPS master: NIL PIPELINE INFO pipeline %q", op.pipelineInfo.Pipeline.Name)
-	}
-	if op.pipelineInfo.Pipeline == nil {
-		log.Infof("PPS master: NIL PIPELINE pipeline %v", op.pipelineInfo.Pipeline)
-	}
 	log.Infof("PPS master: deleting resources for pipeline %q", op.pipeline)
 	span, ctx := tracing.AddSpanToAnyExisting(op.ctx,
 		"/pps.Master/DeletePipelineResources", "pipeline", op.pipeline)
