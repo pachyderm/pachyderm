@@ -74,7 +74,7 @@ is the preferred way.
 ## Connect by using a Pachyderm context
 
 You can specify an IP address that you use to connect to the
-Pachyderm UI and the S3 gateway by storing that address in the
+Console (Pachyderm UI) and the S3 gateway by storing that address in the
 Pachyderm configuration file as the `pachd_address` parameter.
 If you have already deployed a Pachyderm cluster, you can
 set a Pachyderm IP address by updating your cluster configuration
@@ -158,7 +158,7 @@ and test basic Pachyderm functionality. Pachyderm automatically starts
 port-forwarding from `pachctl` to `pachd`. Therefore, the traffic
 from the local machine goes to the `pachd` endpoint through the
 Kubernetes API. However, to open a persistent tunnel to other ports, including
-the Pachyderm dashboard, authentication callbacks, the built-in HTTP
+the Pachyderm Console, authentication callbacks, the built-in HTTP
 file API, and other, you need to run port-forwarding explicitly.
 
 Also, if you are connecting with port-forward, you are using the `0.0.0.0`.

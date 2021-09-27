@@ -124,10 +124,6 @@ such as "Click <text>". Generic links are not helpful for them.
 Also, use a standard phrase *For more information, see <link>* to
 introduce a link.
 
-| Do not use | Use |
-| ---------- | --- |
-| More information about getting your FREE trial token and activating the dashboard can be found [here](https://docs.pachyderm.com/latest/enterprise/deployment/#activate-by-using-the-dashboard). | For more information, see [Activate your token by using the dashboard](https://docs.pachyderm.com/latest/enterprise/deployment/#activate-by-using-the-dashboard). |
-
 ## Markdown
 
 The Pachyderm documentation uses Python Markdown, and many [PyMdown

@@ -40,11 +40,6 @@ to Pachyderm so that it creates a Kubernetes pod or pods that will run your code
 For more information about property fields that you can define in a pipeline,
 see [Pipeline Specification](../../../reference/pipeline_spec/).
 
-!!! note
-    To create a pipeline, you can use either the Pachyderm UI or the CLI.
-    This section provides the CLI instructions only. In the UI, follow the
-    wizard to create a pipeline.
-
 To create a pipeline, complete the following steps:
 
 1. Create a pipeline specification. For more information, see

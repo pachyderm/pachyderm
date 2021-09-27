@@ -48,7 +48,7 @@ including:
     **You will need to deploy an ingress
     controller and ingress resource object of your choice** (Nginx, Traefik, Ambassador...) on the Kubernetes cluster that
     runs your Pachyderm cluster.
-    See [Expose a Pachyderm UI Through an Ingress](./pach-ui-ingress)
+    See [Expose the Console (Pachyderm UI) through an Ingress](./pach-ui-ingress)
 
 
 ## Pachyderm Ingress Recommendations

@@ -202,7 +202,7 @@ port
     kubectl get svc/pachd -o json | sed 's/30655/30644/g' | kubectl apply -f -
     # Modify the etcd client port to run on 32378:
     kubectl get svc/etcd -o json | sed 's/32379/32378/g' | kubectl apply -f -
-    # Modify the dashboard ports to run on 30079 and 30078:
+    # Modify the console ports to run on 30079 and 30078:
     kubectl get svc/dash -o json | sed 's/30080/30079/g' | kubectl apply -f -
     kubectl get svc/dash -o json | sed 's/30081/30078/g' | kubectl apply -f -
     # Modify the pachd s3 port to run on 30611:

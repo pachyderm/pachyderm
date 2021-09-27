@@ -26,7 +26,7 @@ global:
 console:
   enabled: false
   image:
-    repository: "pachyderm/haberdashery"
+    repository: "pachyderm/console"
     pullPolicy: "IfNotPresent"
     tag: "41f09332d40f1e897314f0529fd5bbda37fc069e"
   podLabels: {}
