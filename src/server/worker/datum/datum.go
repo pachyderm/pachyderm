@@ -117,16 +117,16 @@ func createSet(metas []*Meta, storageRoot string, upload func(func(client.Modify
 
 // Set manages a set of datums.
 type Set struct {
-	pachClient                        *pfssync.CacheClient
+	cacheClient                       *pfssync.CacheClient
 	storageRoot                       string
 	metaOutputClient, pfsOutputClient client.ModifyFile
 	stats                             *Stats
 }
 
 // WithSet provides a scoped environment for a datum set.
-func WithSet(pachClient *pfssync.CacheClient, storageRoot string, cb func(*Set) error, opts ...SetOption) (retErr error) {
+func WithSet(cacheClient *pfssync.CacheClient, storageRoot string, cb func(*Set) error, opts ...SetOption) (retErr error) {
 	s := &Set{
-		pachClient:  pachClient,
+		cacheClient: cacheClient,
 		storageRoot: storageRoot,
 		stats:       &Stats{ProcessStats: &pps.ProcessStats{}},
 	}
@@ -252,7 +252,7 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 			retErr = errors.EnsureStack(err)
 		}
 	}()
-	return pfssync.WithDownloader(d.set.pachClient, func(downloader pfssync.Downloader) error {
+	return pfssync.WithDownloader(d.set.cacheClient, func(downloader pfssync.Downloader) error {
 		// TODO: Move to copy file for inputs to datum file set.
 		if err := d.downloadData(downloader); err != nil {
 			return err
