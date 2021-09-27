@@ -391,11 +391,9 @@ This parameter is optional, and if you do not explicitly add it in
 the pipeline spec, Pachyderm creates Kubernetes containers with the
 following default resources: 
 
-- The user container requests 0 CPU, 0 disk space, and 64MB of memory. 
+- The user and storage containers request 0 CPU, 0 disk space, and 64MB of memory.
 - The init container requests the same amount of CPU, memory, and disk
 space that is set for the user container.
-- The storage container requests 0 CPU and the amount of memory set by the
-[cache_size](#cache-size-optional) parameter.
 
 The `resource_requests` parameter enables you to overwrite these default
 values.
@@ -854,34 +852,6 @@ A pipeline with no outstanding jobs
 will go into *standby*. A pipeline in a *standby* state will have no pods running and
 thus will consume no resources. 
 
-### Cache Size (optional)
-
-`cache_size` controls how much **in-memory cache** a pipeline's sidecar containers use. In
-general, your pipeline's performance will increase with the cache size, but
-only up to a certain point depending on your workload.
-
-Every worker in every pipeline has a limited-functionality `pachd` server
-running adjacent to it, which proxies PFS reads and writes (this prevents
-thundering herds when jobs start and end, which is when all of a pipeline's
-workers are reading from and writing to PFS simultaneously). 
-Part of what these "sidecar" pachd servers do is *cache PFS reads:*
-Any time the worker reads files from the input repo or writes files to the output repo,
-the sidecar manages those requests, 
-which will **cache the files in memory for better performance**.
-
-If a pipeline has a cross input,
-and a worker is downloading the same datum from one branch of the input
-repeatedly, then the cache can speed up processing significantly.
-
-If not explicitly specified, cache_size defaults to 64M.
-
-!!! Note
-    When setting `cache_size`, it is important to keep in mind that any file
-    which is larger than 25% of the total `cache_size` will NOT be cached. 
-    For example, if `cache_size` is set to 1G, 
-    then only files which are 250M or smaller will be cached; 
-    files larger than 250M will not be cached.
-
 ### Reprocess Datums (optional)
 
 Per default, Pachyderm avoids repeated processing of unchanged datums (i.e., it processes only the datums that have changed and skip the unchanged datums). This [**incremental behavior**](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/#example-1-one-file-in-the-input-datum-one-file-in-the-output-datum) ensures efficient resource utilization. However, you might need to alter this behavior for specific use cases and **force the reprocessing of all of your datums systematically**. This is especially useful when your pipeline makes an external call to other resources, such as a deployment or triggering an external pipeline system.  Set `"reprocess_spec": "every_job"` in order to enable this behavior. 
@@ -939,22 +909,6 @@ Instead, it consumes data from an outside source.
     about the service by running `kubectl get services`.
 
 For more information, see [Spouts](../concepts/pipeline-concepts/pipeline/spout.md).
-
-### Max Queue Size (optional)
-`max_queue_size` specifies that maximum number of datums that a worker should
-hold in its processing queue at a given time (after processing its entire
-queue, a worker "checkpoints" its progress by writing to persistent storage).
-The default value is `1` which means workers will only hold onto the value that
-they're currently processing.
-
-Increasing this value can improve pipeline performance, as that allows workers
-to simultaneously download, process and upload different datums at the same
-time (and reduces the total time spent on checkpointing). Decreasing this value
-can make jobs more robust to failed workers, as work gets checkpointed more
-often, and a failing worker will not lose as much progress. Setting this value
-too high can also cause problems if you have `lazy` inputs, as there's a cap of
-10,000 `lazy` files per worker and multiple datums that are running all count
-against this limit.
 
 ### Datum Set Spec (optional)
 `datum_set_spec` specifies how a pipeline should group its datums.
