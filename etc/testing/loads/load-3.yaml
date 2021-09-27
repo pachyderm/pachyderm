@@ -12,7 +12,7 @@ operations:
         prob: 100
 validator:
   frequency:
-    count: 5 
+    prob: 0 
 fileSources:
   - name: "random"
     random:
