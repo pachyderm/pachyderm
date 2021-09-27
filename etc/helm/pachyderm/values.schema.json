@@ -378,7 +378,19 @@
                         }
                     }
                 },
+                "mockIDP": {
+                    "type": "boolean"
+                },
+                "oauthClientId": {
+                    "type": "string"
+                },
                 "oauthClientSecret": {
+                    "type": "string"
+                },
+                "oauthIssuer": {
+                    "type": "string"
+                },
+                "oauthRedirectURI": {
                     "type": "string"
                 },
                 "podLabels": {
@@ -582,6 +594,12 @@
                             "type": "string"
                         }
                     }
+                },
+                "upstreamIDPs": {
+                    "type": "array"
+                },
+                "userAccessibleOauthIssuerHost": {
+                    "type": "string"
                 },
                 "worker": {
                     "type": "object",

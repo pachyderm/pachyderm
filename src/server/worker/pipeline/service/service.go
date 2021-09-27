@@ -48,6 +48,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		if meta == nil {
 			return errors.New("services must have a single datum")
 		}
+		meta.Job = jobInfo.Job
 		defer func() {
 			if common.IsDone(ctx) {
 				retErr = ppsutil.FinishJob(pachClient, jobInfo, pps.JobState_JOB_FINISHING, "")

@@ -4492,17 +4492,18 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		masterCommit := client.NewCommit(repo, "master", "")
 		require.NoError(t, err)
-		objC, bucket := obj.NewTestClient(t)
+		objC := dockertestenv.NewTestObjClient(t)
 		paths := []string{"files/foo", "files/bar", "files/fizz"}
 		for _, path := range paths {
 			writeObj(t, objC, path, path)
 		}
-		for _, path := range paths {
-			url := fmt.Sprintf("local://%s/%s", bucket, path)
-			require.NoError(t, env.PachClient.PutFileURL(commit, path, url, false))
+		bucketURL := objC.BucketURL().String()
+		for _, p := range paths {
+			objURL := bucketURL + "/" + p
+			require.NoError(t, env.PachClient.PutFileURL(commit, p, objURL, false))
 		}
-		url := fmt.Sprintf("local://%s/files", bucket)
-		require.NoError(t, env.PachClient.PutFileURL(commit, "recursive", url, true))
+		srcURL := bucketURL + "/files"
+		require.NoError(t, env.PachClient.PutFileURL(commit, "recursive", srcURL, true))
 		check := func() {
 			cis, err := env.PachClient.ListCommit(client.NewRepo(repo), nil, nil, 0)
 			require.NoError(t, err)
@@ -4535,10 +4536,10 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(commit, path, strings.NewReader(path)))
 		}
 		check := func() {
-			objC, bucket := tu.NewObjectClient(t)
+			objC := dockertestenv.NewTestObjClient(t)
+			bucketURL := objC.BucketURL().String()
 			for _, path := range paths {
-				url := fmt.Sprintf("local://%s/", bucket)
-				require.NoError(t, env.PachClient.GetFileURL(commit, path, url))
+				require.NoError(t, env.PachClient.GetFileURL(commit, path, bucketURL))
 			}
 			for _, path := range paths {
 				buf := &bytes.Buffer{}

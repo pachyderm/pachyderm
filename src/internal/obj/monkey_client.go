@@ -86,3 +86,7 @@ func (c *monkeyClient) Exists(ctx context.Context, path string) (bool, error) {
 	}
 	return c.c.Exists(ctx, path)
 }
+
+func (c *monkeyClient) BucketURL() ObjectStoreURL {
+	return c.c.BucketURL()
+}

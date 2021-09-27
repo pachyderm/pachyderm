@@ -2,6 +2,7 @@ package obj
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -104,6 +105,14 @@ func (c *minioClient) Exists(ctx context.Context, name string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func (c *minioClient) BucketURL() ObjectStoreURL {
+	u := c.Client.EndpointURL()
+	return ObjectStoreURL{
+		Scheme: "minio",
+		Bucket: fmt.Sprintf("%s/%s", u.Host, c.bucket),
+	}
 }
 
 func (c *minioClient) transformError(err error, objectPath string) error {

@@ -22,8 +22,6 @@ import (
 
 const threeMinutes = 3 * 60 // Passed to col.PutTTL (so value is in seconds)
 
-const localhostIdentityServer = "localhost:30658"
-
 // various oidc invalid argument errors. Use 'goerror' instead of internal
 // 'errors' library b/c stack trace isn't useful
 var (
@@ -86,9 +84,10 @@ func half(state string) string {
 // structs that we would normally need to instantiate multiple times
 type oidcConfig struct {
 	*auth.OIDCConfig
-	oidcProvider  *oidc.Provider
-	oauthConfig   oauth2.Config
-	rewriteClient *http.Client
+	oidcProvider      *oidc.Provider
+	oauthConfig       oauth2.Config
+	rewriteClient     *http.Client
+	userAccessAddress string
 }
 
 func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, error) {
@@ -107,9 +106,10 @@ func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, e
 	}
 
 	return &oidcConfig{
-		OIDCConfig:    config,
-		oidcProvider:  oidcProvider,
-		rewriteClient: rewriteClient,
+		OIDCConfig:        config,
+		oidcProvider:      oidcProvider,
+		rewriteClient:     rewriteClient,
+		userAccessAddress: config.UserAccessibleIssuerHost,
 		oauthConfig: oauth2.Config{
 			ClientID:     config.ClientID,
 			ClientSecret: config.ClientSecret,
@@ -160,12 +160,12 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 		oauth2.SetAuthURLParam("response_type", "code"),
 		oauth2.SetAuthURLParam("nonce", nonce))
 
-	if config.LocalhostIssuer {
+	if config.userAccessAddress != "" {
 		rewriteURL, err := url.Parse(authURL)
 		if err != nil {
 			return "", "", errors.Wrap(err, "could not parse Auth URL for Localhost Issuer rewrite")
 		}
-		rewriteURL.Host = localhostIdentityServer
+		rewriteURL.Host = config.userAccessAddress
 		authURL = rewriteURL.String()
 	}
 	return authURL, state, nil

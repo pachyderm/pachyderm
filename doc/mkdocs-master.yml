@@ -1,7 +1,7 @@
 site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
 site_author: Pachyderm
-site_url: https://docs.pachyderm.com/2.0.x-beta/
+site_url: https://docs.pachyderm.com/2.0.x-rc/
 docs_dir: docs/master/
 site_dir: site/2.0.x-rc/
 
@@ -191,14 +191,11 @@ nav:
                     - Deploy Pachyderm: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
                     - Deploy CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
-                - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
-                - Deploy on OpenShift: deploy-manage/deploy/openshift.md
                 - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
                 - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
-                - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md
             - Post-Deployment:    
                 - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
@@ -224,7 +221,6 @@ nav:
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
             - Upgrades and Migrations:
                 - Overview: deploy-manage/manage/upgrades_migrations.md
-                - Migrate to a Major Version: deploy-manage/manage/migrations.md
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Backup and Restore: deploy-manage/manage/backup_restore.md
             - Optimize Performance:

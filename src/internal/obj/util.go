@@ -3,11 +3,8 @@ package obj
 import (
 	"context"
 	"io"
-	"strings"
-	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 // Copy copys an object from src at srcPath to dst at dstPath
@@ -19,10 +16,18 @@ func Copy(ctx context.Context, src, dst Client, srcPath, dstPath string) (retErr
 	})
 }
 
-// NewTestClient creates a obj.Client which is cleaned up after the test exists
-func NewTestClient(t testing.TB) (Client, string) {
-	dir := t.TempDir()
-	objC, err := NewLocalClient(dir)
-	require.NoError(t, err)
-	return objC, strings.ReplaceAll(strings.Trim(dir, "/"), "/", ".")
+type testURL struct {
+	Client
+}
+
+// WrapWithTestURL marks client as a test client and will prepend test- to the url.
+// the consturctors in this package know how to parse test urls, and assume default credentials.
+func WrapWithTestURL(c Client) Client {
+	return testURL{c}
+}
+
+func (c testURL) BucketURL() ObjectStoreURL {
+	u := c.Client.BucketURL()
+	u.Scheme = "test-" + u.Scheme
+	return u
 }

@@ -7,7 +7,7 @@ The `pachctl extract` command requires that all pipeline and data loading
 activity into Pachyderm stop before the extract occurs. This enables
 Pachyderm to create a consistent, point-in-time backup.
 
-Extract and restore commands are used to migrate between minor
+**Extract and restore** commands are used to migrate between minor
 and major releases of Pachyderm. In addition, there are a few design
 points and operational techniques that data engineers should take
 into consideration when creating complex pachyderm deployments to
@@ -202,7 +202,7 @@ port
     kubectl get svc/pachd -o json | sed 's/30655/30644/g' | kubectl apply -f -
     # Modify the etcd client port to run on 32378:
     kubectl get svc/etcd -o json | sed 's/32379/32378/g' | kubectl apply -f -
-    # Modify the dashboard ports to run on 30079 and 30078:
+    # Modify the console ports to run on 30079 and 30078:
     kubectl get svc/dash -o json | sed 's/30080/30079/g' | kubectl apply -f -
     kubectl get svc/dash -o json | sed 's/30081/30078/g' | kubectl apply -f -
     # Modify the pachd s3 port to run on 30611:
@@ -301,5 +301,3 @@ To restore your Cluster from a Backup, run the following command:
   pachctl restore --url s3://<path-to-backup>>
   ```
 
-!!! note "See Also:"
-    - [Migrate Your Cluster](../migrations/)
