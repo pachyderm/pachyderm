@@ -96,6 +96,7 @@ var (
 
 func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc, pipeline string) (*pipelineOp, error) {
 	op := &pipelineOp{
+		ctx:    ctx,
 		cancel: cancel,
 		// pipeline name is recorded separately in the case we are running a delete Op and pipelineInfo isn't available in the DB
 		pipeline: pipeline,
@@ -120,12 +121,6 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 		"current-state", op.pipelineInfo.State.String(),
 		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
 
-	// add pipeline auth
-	// the provided context is authorized as pps master, but we want to switch to the pipeline itself
-	// so first clear the cached WhoAmI result from the context
-	pachClient := m.a.env.GetPachClient(middleware_auth.ClearWhoAmI(ctx))
-	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
-	op.ctx = pachClient.Ctx()
 	return op, nil
 }
 
@@ -255,6 +250,13 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 		}
 		return errors.Wrapf(err, "couldn't initialize pipeline op %q", op.pipelineInfo.Pipeline)
 	})
+
+	// add pipeline auth
+	// the provided context is authorized as pps master, but we want to switch to the pipeline itself
+	// so first clear the cached WhoAmI result from the context
+	pachClient := op.env.GetPachClient(middleware_auth.ClearWhoAmI(op.ctx))
+	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
+	op.ctx = pachClient.Ctx()
 
 	// set op.rc
 	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
