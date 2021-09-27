@@ -1,13 +1,15 @@
 import {split, HttpLink} from '@apollo/client';
 import {getMainDefinition} from '@apollo/client/utilities';
 
+import {getSubscriptionsPrefix} from '@dash-frontend/lib/runtimeVariables';
+
 import {WebSocketLink} from './websocketLink';
 
 export const splitLink = () => {
   const webSocketLink = new WebSocketLink({
     url: `${window.location.protocol.startsWith('https:') ? 'wss' : 'ws'}://${
       window.location.hostname
-    }${process.env.REACT_APP_BACKEND_SUBSCRIPTIONS_PREFIX}`,
+    }${getSubscriptionsPrefix()}`,
     connectionParams: () => {
       return {
         'auth-token': window.localStorage.getItem('auth-token') || '',

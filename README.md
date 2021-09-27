@@ -60,6 +60,43 @@ This feature is still under development, and will likely change.
 
 This will start the production server at `localhost:3000`. Additionally, if you'd like to test the production UI/API against the mock gRPC & Auth server, you can run `npm run start:mock` from /backend and add a `.env.production.local` file that replicates the variables found in `.env.test`.
 
+## Working with environment variables
+All variables are stored in `.env.${environmentName}`
+
+### Client build-time variables
+Any variables added with the `REACT_APP` prefix (no `_RUNTIME`) will be appended to
+the `process.env` object in the client Javascript bundle.
+
+```
+// client-side code
+const port = process.env.REACT_APP_PORT;
+```
+
+### Client runtime variables
+Any variables with the `REACT_APP_RUNTIME` prefix will be added to a window object
+called `pachDashConfig` with can be accessed in the client code:
+
+```
+// client-side code
+const port = process.env.pachDashConfig.REACT_APP_RUNTIME_PORT;
+```
+
+These variables can also be accessed in the node runtime (on the server, and during test execution), but not via the `pachDashConfig` object. The reason for this, is that
+the node runtime does not support maps as environment variables.
+
+```
+// node runtime
+const port = process.env.REACT_APP_RUNTIME_PORT;
+```
+
+### Server-only variables
+Any variables not prefixed with `REACT_APP` or `REACT_APP_RUNTIME` will only be accessible from the server __only__.
+
+```
+// server code
+const port = process.env.PORT;
+```
+
 ## Deploying Dash
 
 ### Environment variables

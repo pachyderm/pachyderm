@@ -17,8 +17,9 @@ declare namespace NodeJS {
   interface ProcessEnv {
     pachDashConfig: {
       REACT_APP_RUNTIME_ISSUER_URI: string;
+      REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX: string;
     };
-    REACT_APP_RUNTIME_ISSUER_URI?: string;
+    REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX?: string;
   }
 }
 
@@ -34,6 +35,7 @@ declare global {
       PACHD_ADDRESS: string;
       GRPC_SSL: string;
       REACT_APP_RUNTIME_ISSUER_URI: string;
+      REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX: string;
     }
   }
 }

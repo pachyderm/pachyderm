@@ -3,6 +3,7 @@ import {useEffect, useMemo} from 'react';
 import {useLocation, useHistory} from 'react-router';
 
 import useAuth from '@dash-frontend/hooks/useAuth';
+import {getIssuerUri} from '@dash-frontend/lib/runtimeVariables';
 
 const useAuthenticatedRoute = () => {
   const {
@@ -39,17 +40,7 @@ const useAuthenticatedRoute = () => {
 
   useEffect(() => {
     if (!error && !loggedIn && !loginWindowSucceeded && authConfig) {
-      const {REACT_APP_RUNTIME_ISSUER_URI, pachDashConfig} = process.env;
-
-      // when running in the node runtime environment,
-      // environment variables can't be objects. Therefore
-      // we'll need jest to override this in order to be set.
-      let issuerUri = '';
-      if (REACT_APP_RUNTIME_ISSUER_URI) {
-        issuerUri = REACT_APP_RUNTIME_ISSUER_URI;
-      } else {
-        issuerUri = pachDashConfig.REACT_APP_RUNTIME_ISSUER_URI;
-      }
+      const issuerUri = getIssuerUri();
 
       let connection = undefined;
       if (connectionParam) {
