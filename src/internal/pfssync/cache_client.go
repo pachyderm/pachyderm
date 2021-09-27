@@ -7,20 +7,20 @@ import (
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-// TODO: Account for file set expiring.
-
 type CacheClient struct {
 	*client.APIClient
-	mu    sync.Mutex
-	cache *simplelru.LRU
+	mu      sync.Mutex
+	cache   *simplelru.LRU
+	renewer *renew.StringSet
 }
 
 // TODO: Expose configuration for cache size?
 // TODO: Dedupe work?
-func NewCacheClient(pachClient *client.APIClient) *CacheClient {
+func NewCacheClient(pachClient *client.APIClient, renewer *renew.StringSet) *CacheClient {
 	cache, err := simplelru.NewLRU(100, nil)
 	if err != nil {
 		// lru.NewWithEvict only errors for size < 1
@@ -29,6 +29,7 @@ func NewCacheClient(pachClient *client.APIClient) *CacheClient {
 	return &CacheClient{
 		APIClient: pachClient,
 		cache:     cache,
+		renewer:   renewer,
 	}
 }
 
@@ -44,9 +45,14 @@ func (cc *CacheClient) GetFileTAR(commit *pfs.Commit, path string) (io.ReadClose
 	if err != nil {
 		return nil, err
 	}
+	cc.renewer.Add(id)
 	commit = client.NewCommit(client.FileSetsRepoName, "", id)
 	cc.mu.Lock()
 	cc.cache.Add(key, commit)
 	cc.mu.Unlock()
 	return cc.APIClient.GetFileTAR(commit, path)
+}
+
+func (cc *CacheClient) onEvicted(key, value interface{}) {
+	cc.renewer.Remove(value.(*pfs.Commit).ID)
 }

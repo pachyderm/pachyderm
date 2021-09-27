@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -23,7 +24,6 @@ import (
 // This is necessary to ensure we can finish the job when the service gets canceled.
 func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	pachClient := driver.PachClient()
-	cacheClient := pfssync.NewCacheClient(pachClient)
 	pipelineInfo := driver.PipelineInfo()
 	return forEachJob(pachClient, pipelineInfo, logger, func(ctx context.Context, jobInfo *pps.JobInfo) (retErr error) {
 		driver := driver.WithContext(ctx)
@@ -55,18 +55,22 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 			}
 		}()
 		storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
-		return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
-			inputs := meta.Inputs
-			logger = logger.WithData(inputs)
-			env := driver.UserCodeEnv(logger.JobID(), jobInfo.OutputCommit, inputs)
-			return s.WithDatum(meta, func(d *datum.Datum) error {
-				return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
-					return d.Run(ctx, func(runCtx context.Context) error {
-						return driver.RunUserCode(runCtx, logger, env)
+		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+			pachClient := pachClient.WithCtx(ctx)
+			cacheClient := pfssync.NewCacheClient(pachClient, renewer)
+			return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
+				inputs := meta.Inputs
+				logger = logger.WithData(inputs)
+				env := driver.UserCodeEnv(logger.JobID(), jobInfo.OutputCommit, inputs)
+				return s.WithDatum(meta, func(d *datum.Datum) error {
+					return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
+						return d.Run(ctx, func(runCtx context.Context) error {
+							return driver.RunUserCode(runCtx, logger, env)
+						})
 					})
 				})
-			})
 
+			})
 		})
 	})
 }

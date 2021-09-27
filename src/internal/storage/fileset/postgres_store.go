@@ -85,24 +85,23 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 	if err == nil {
 		return md, err
 	}
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 1 * time.Millisecond
 	if err := backoff.RetryUntilCancel(ctx, func() error {
-		if err := s.deduper.Do(ctx, id, func() error {
+		var err error
+		md, err = s.getFromCache(ctx, id)
+		return err
+	}, b, func(err error, _ time.Duration) error {
+		if !pacherr.IsNotExist(err) {
+			return err
+		}
+		return s.deduper.Do(ctx, id, func() error {
 			md, err := s.get(ctx, s.db, id)
 			if err != nil {
 				return err
 			}
 			return s.putInCache(ctx, id, md)
-		}); err != nil {
-			return err
-		}
-		var err error
-		md, err = s.getFromCache(ctx, id)
-		return err
-	}, backoff.NewExponentialBackOff(), func(err error, _ time.Duration) error {
-		if pacherr.IsNotExist(err) {
-			return nil
-		}
-		return err
+		})
 	}); err != nil {
 		return nil, err
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -72,7 +73,6 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 
 func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *DatumSet, status *Status) error {
 	pachClient := driver.PachClient()
-	cacheClient := pfssync.NewCacheClient(pachClient)
 	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
 	// The sets would just create a temporary directory under /tmp.
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
@@ -86,44 +86,48 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 				datum.WithPFSOutput(mfPFS),
 				datum.WithStats(datumSet.Stats),
 			}
-			// Setup datum set for processing.
-			return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
-				di := datum.NewFileSetIterator(pachClient, datumSet.FileSetId)
-				// Process each datum in the assigned datum set.
-				return di.Iterate(func(meta *datum.Meta) error {
-					ctx := pachClient.Ctx()
-					inputs := meta.Inputs
-					logger = logger.WithData(inputs)
-					env := driver.UserCodeEnv(logger.JobID(), datumSet.OutputCommit, inputs)
-					var opts []datum.Option
-					if driver.PipelineInfo().Details.DatumTimeout != nil {
-						timeout, err := types.DurationFromProto(driver.PipelineInfo().Details.DatumTimeout)
-						if err != nil {
-							return err
+			return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+				pachClient := pachClient.WithCtx(ctx)
+				cacheClient := pfssync.NewCacheClient(pachClient, renewer)
+				// Setup datum set for processing.
+				return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
+					di := datum.NewFileSetIterator(pachClient, datumSet.FileSetId)
+					// Process each datum in the assigned datum set.
+					return di.Iterate(func(meta *datum.Meta) error {
+						ctx := pachClient.Ctx()
+						inputs := meta.Inputs
+						logger = logger.WithData(inputs)
+						env := driver.UserCodeEnv(logger.JobID(), datumSet.OutputCommit, inputs)
+						var opts []datum.Option
+						if driver.PipelineInfo().Details.DatumTimeout != nil {
+							timeout, err := types.DurationFromProto(driver.PipelineInfo().Details.DatumTimeout)
+							if err != nil {
+								return err
+							}
+							opts = append(opts, datum.WithTimeout(timeout))
 						}
-						opts = append(opts, datum.WithTimeout(timeout))
-					}
-					if driver.PipelineInfo().Details.DatumTries > 0 {
-						opts = append(opts, datum.WithRetry(int(driver.PipelineInfo().Details.DatumTries)-1))
-					}
-					if driver.PipelineInfo().Details.Transform.ErrCmd != nil {
-						opts = append(opts, datum.WithRecoveryCallback(func(runCtx context.Context) error {
-							return driver.RunUserErrorHandlingCode(runCtx, logger, env)
-						}))
-					}
-					return s.WithDatum(meta, func(d *datum.Datum) error {
-						cancelCtx, cancel := context.WithCancel(ctx)
-						defer cancel()
-						return status.withDatum(inputs, cancel, func() error {
-							return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
-								return d.Run(cancelCtx, func(runCtx context.Context) error {
-									return driver.RunUserCode(runCtx, logger, env)
+						if driver.PipelineInfo().Details.DatumTries > 0 {
+							opts = append(opts, datum.WithRetry(int(driver.PipelineInfo().Details.DatumTries)-1))
+						}
+						if driver.PipelineInfo().Details.Transform.ErrCmd != nil {
+							opts = append(opts, datum.WithRecoveryCallback(func(runCtx context.Context) error {
+								return driver.RunUserErrorHandlingCode(runCtx, logger, env)
+							}))
+						}
+						return s.WithDatum(meta, func(d *datum.Datum) error {
+							cancelCtx, cancel := context.WithCancel(ctx)
+							defer cancel()
+							return status.withDatum(inputs, cancel, func() error {
+								return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
+									return d.Run(cancelCtx, func(runCtx context.Context) error {
+										return driver.RunUserCode(runCtx, logger, env)
+									})
 								})
 							})
-						})
-					}, opts...)
-				})
-			}, opts...)
+						}, opts...)
+					})
+				}, opts...)
+			})
 		})
 		if err != nil {
 			return err

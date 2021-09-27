@@ -7,7 +7,9 @@ import (
 	"crypto/cipher"
 	io "io"
 	"io/ioutil"
+	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
@@ -52,15 +54,15 @@ func Get(ctx context.Context, client Client, cache kv.GetPut, deduper *miscutil.
 	if ref.EncryptionAlgo != EncryptionAlgo_CHACHA20 {
 		return errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
 	}
-	for {
-		err := getFromCache(ctx, cache, ref, cb)
-		if err == nil {
-			return nil
-		}
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 1 * time.Millisecond
+	return backoff.RetryUntilCancel(ctx, func() error {
+		return getFromCache(ctx, cache, ref, cb)
+	}, b, func(err error, _ time.Duration) error {
 		if !pacherr.IsNotExist(err) {
 			return err
 		}
-		if err := deduper.Do(ctx, ref.Key(), func() error {
+		return deduper.Do(ctx, ref.Key(), func() error {
 			return client.Get(ctx, ref.Id, func(ctext []byte) error {
 				if err := verifyData(ref.Id, ctext); err != nil {
 					return err
@@ -79,10 +81,8 @@ func Get(ctx context.Context, client Client, cache kv.GetPut, deduper *miscutil.
 				}
 				return putInCache(ctx, cache, ref, rawData)
 			})
-		}); err != nil {
-			return err
-		}
-	}
+		})
+	})
 }
 
 // compress attempts to compress src using algo. If the compressed data is bigger
