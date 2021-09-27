@@ -7,9 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	middleware_auth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
@@ -17,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -69,6 +72,8 @@ type pipelineOp struct {
 	rc           *v1.ReplicationController
 	namespace    string
 	env          serviceenv.ServiceEnv
+	txEnv        *transactionenv.TransactionEnv
+	pipelines    collection.PostgresCollection
 	etcdPrefix   string
 
 	monitorer *monitorManager
@@ -101,6 +106,8 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 		},
 		namespace:  m.a.namespace,
 		env:        m.a.env,
+		txEnv:      m.a.txnEnv,
+		pipelines:  m.a.pipelines,
 		etcdPrefix: m.a.etcdPrefix,
 
 		monitorer: m.monitorer,
@@ -108,30 +115,6 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 		opsLock:         &m.opsInProcessMu,
 		allOpsInProcess: m.opsInProcess,
 	}
-
-	errCnt := 0
-	backoff.RetryNotify(func() error {
-		// get latest PipelineInfo (events can pile up, so that the current state
-		// doesn't match the event being processed)
-		specCommit, err := ppsutil.FindPipelineSpecCommit(ctx, m.a.env.PfsServer(), *m.a.txnEnv, pipeline)
-		if err != nil {
-			return errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
-		}
-		if err := m.a.pipelines.ReadOnly(ctx).Get(specCommit, op.pipelineInfo); err != nil {
-			return errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
-		}
-		return nil
-	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		errCnt++
-		// Don't put the pipeline in a failing state if we're in the middle
-		// of activating auth, retry in a bit
-		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
-			log.Errorf("PPS master: could not initialize pipeline op for pipeline %q: %v; retrying in %v",
-				op.pipelineInfo.Pipeline, err, d)
-			return nil
-		}
-		return errors.Wrapf(err, "couldn't initialize pipeline op %q", op.pipelineInfo.Pipeline)
-	})
 
 	tracing.TagAnySpan(ctx,
 		"current-state", op.pipelineInfo.State.String(),
@@ -257,6 +240,22 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
 
+	// set op.pipelineInfo
+	errCnt := 0
+	backoff.RetryNotify(func() error {
+		return op.getLatestPipelineInfo(op.ctx, op.pipeline, op.pipelineInfo)
+	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
+		errCnt++
+		// Don't put the pipeline in a failing state if we're in the middle
+		// of activating auth, retry in a bit
+		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
+			log.Errorf("PPS master: could not initialize pipeline op for pipeline %q: %v; retrying in %v",
+				op.pipelineInfo.Pipeline, err, d)
+			return nil
+		}
+		return errors.Wrapf(err, "couldn't initialize pipeline op %q", op.pipelineInfo.Pipeline)
+	})
+
 	// set op.rc
 	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
 	// the pipeline indefinitely)
@@ -372,6 +371,17 @@ func (op *pipelineOp) run() error {
 		// In general, CRASHING is actually almost identical to RUNNING (except for
 		// the monitorCrashing goro)
 		return op.scaleUpPipeline()
+	}
+	return nil
+}
+
+func (op *pipelineOp) getLatestPipelineInfo(ctx context.Context, pipeline string, val proto.Message) error {
+	specCommit, err := ppsutil.FindPipelineSpecCommit(ctx, op.env.PfsServer(), *op.txEnv, pipeline)
+	if err != nil {
+		return errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
+	}
+	if err := op.pipelines.ReadOnly(ctx).Get(specCommit, val); err != nil {
+		return errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
 	}
 	return nil
 }
