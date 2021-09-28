@@ -14,7 +14,7 @@ edit_uri: ""
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
 pach_featured_version: '1.13.4'
-pach_latest_version: '2.0.0-rc.1'
+pach_latest_version: '2.0.0-rc.2'
 pach_major_minor_version: '2.0'
 search_index_version: '2.0.x-rc'
 
@@ -173,9 +173,7 @@ nav:
             - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
             - Skip Failed Datums: how-tos/advanced-data-operations/err_cmd.md        
             - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md
-        - Use Pachyderm IDE:
-            - Overview: how-tos/use-pachyderm-ide/index.md
-            - Using the Pachyderm IDE with python-pachyderm: how-tos/use-pachyderm-ide/using-pachyderm-ide.md
+        - Use Notebooks: how-tos/use-pachyderm-ide/index.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:

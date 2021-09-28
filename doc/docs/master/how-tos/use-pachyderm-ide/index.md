@@ -1,81 +1,38 @@
-# Use the Pachyderm IDE with `python-pachyderm`
+# Notebooks (beta)
 
 !!! Warning
-    The Pachyderm IDE is an enterprise feature. Request your FREE 30-day [**Enterprise Edition trial token**](https://www.pachyderm.com/trial).
-
-This section describes how you can use the `python-pachyderm`
-client from within the Pachyderm IDE.
-
-!!! Note
-    You need to have Pachyderm IDE installed as described in
-    [Deploy the Pachyderm IDE](../../deploy-manage/deploy/deploy-pachyderm-ide.md).
+     - Notebooks is a [**beta**](../../../../contributing/supported-releases/#beta) release.
+     - Notebooks (Pachyderm IDE) is an enterprise feature. Request your FREE 30-day [**Enterprise Edition trial token**](https://www.pachyderm.com/trial) or create a workspace on our Saas
+     solution [Hub](https://hub.pachyderm.com) and experiment with Notebooks right away.
 
 ## Overview
 
-When you deploy the Pachyderm IDE, you get JupyterHub and
-a customized JupyterLab UI running next to your Pachyderm
-cluster.
+Pachyderm Notebooks is a **JupyterHub server and a customized JupyterLab UI running next to your Pachyderm cluster**.
 
-Before we proceed, let's clarify the following terms
-as they might be confusing for first-time users:
+The Jupiter notebooks spawned from Notebooks provide data scientists with a familiar way to sample (mount repositories) or experiment with data and code written in Python. 
+Because those experiments are running on Pachyderm, Data scientists benefit from the complete reproducibility that data versioning and lineage offer, while ML engineers can productionize those pipelines faster, efficiently, and securely.
 
-* JupyterHub is a popular data science platform that enables users
-to quickly spin out multiple single-tenant Jupyter Notebook server instances.
+## Base Image
 
-* Jupyter Notebooks provide a means for conducting experiments with data and
-code written in Python which is familiar to many data scientists. Because of
-the built-in rich-text support, visualizations, the easy-to-use web interface,
-many enterprise users prefer Jupyter Notebooks to the classic Terminal prompt.
-JupyterHub brings all the benefits of Jupyter Notebooks without the need
-to install or configure anything on user machines except for a web browser.
+Our Notebooks instances come with a pre-installed suite of packages, including:
 
-* JupyterLab is an alternative UI for the classic Jupyter Notebook IDE
-that enables you to author and test notebooks and
-code.
+ - [Jupyter Data science base image](https://hub.docker.com/layers/jupyter/datascience-notebook/python-3.8.8/images/sha256-bab39ddef7f66e05a0618a23abbf8e71cba000a5fff585b515cc3338698ec165?context=explore) with [libraries for data analysis](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/selecting.html#jupyter-datascience-notebook) from the Python (scipy, scikit-learn, pandas, beautifulsoup, seaborn, matplotlib... ), R, and Julia communities. 
+ - Our [Python Client `python-pachyderm`](../../../../reference/clients/#python-client). 
+ - Our Command-Line Tool `pachctl`.
 
-* [python-pachyderm](https://github.com/pachyderm/python-pachyderm) is an
-official Python client for Pachyderm. For Python developers who prefer to
-communicate with Pachyderm directly through the API, rather than by using
-the `pachctl` tool, `python-pachyderm` is the right choice.
-The [API Documentation](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html)
-describes various API operations that you can execute to interact with
-Pachyderm.
+Any additional library can be installed running `pip install` from a cell.
 
-`python-pachyderm` is preinstalled in your Pachyderm IDE.
+!!! Note 
+     We have also included a selection of data science examples running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. In the `/examples` directory, you will also find integration examples with opensource products (labeling, model serving...).
+## Getting Started
 
-### Difference in Pipeline Creation Methods
+!!! Note 
+     See the `deploy-manage` section of this documentation to learn how to connect to Notebooks or simply click on the `Notebooks` button of your workspace on [Hub](https://hub.pachyderm.com).
 
-`python-pachyderm` supports the standard
-[create_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html#python_pachyderm.Client.create_pipeline)
-method that is
-also available through the Pachyderm CLI and UI. When you use
-`create_pipeline`, you need to build a new Docker image and push
-it to an image registry every
-time you update the code in your pipeline. Users that are less familiar
-with Docker might find this process a bit cumbersome. However, you must
-use this method for all non-Python code.
+The landing page of Notebooks takes you to an **Intro to Pachyderm Tutorial notebook**. 
+Follow along to learn the basics of Pachyderm (repos, pipelines, commits, etc...) from your familiar Jupiter notebook. 
 
-When you use `python-pachyderm`, in addition to the
-`create_pipeline` method,
-you can use the [create_python_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html#python_pachyderm.create_python_pipeline)
-function that does not require
-you to include your code in a Docker image and rebuild it each time you make
-a change. Instead, this function creates a PFS repository
-called `<pipeline_name>_source` and puts the source code into it. Also, it
-creates a `<pipeline_name>_build` repository to build Python dependencies.
-Therefore, when you use `create_python_pipeline`, your DAG includes two
-additional repositories for each pipeline.
-Because of that, you do not need
-to build a new Docker image every time you change something in your
-pipeline code. You can run your code instantly. This method is ideal for
-users who want to avoid building Docker images.
+![Notebooks Landing Page](../images/notebooks-landing-page.png)
 
-While you can mix and match pipeline creation methods in Pachyderm IDE, you
-might eventually want to pick one method that works for your use case. It is a
-matter of personal preference which method to use. While some users, those
-who write code in Python, in particular, might
-find it convenient to avoid the Docker build workflow, others might want to
-enable Docker in JupyterHub or build Docker images from their local machines.
-
-In the [OpenCV Example for JupyterHub](https://github.com/pachyderm/python-pachyderm/tree/master/examples/opencv),
-both methods are used in the same notebook cell.
+!!! Note 
+     You might have noticed that we used `pachctl` in this Tutorial. Feel free to use 'python-pachyderm' instead. 
