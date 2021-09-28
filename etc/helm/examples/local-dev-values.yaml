@@ -15,7 +15,7 @@ pachd:
     enabled: false
   clusterDeploymentID: dev
   ## if pachd.enterpriseLicenseKey is set, the following values will be interpreted to setup Auth
-  enterpriseLicenseKey: ""
+  # enterpriseLicenseKey: ""
   oauthClientId: "pachd"
   oauthIssuer: "http://pachd:1658/"
   oauthRedirectURI: "http://localhost:30657/authorization-code/callback"
