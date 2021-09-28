@@ -41,7 +41,7 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "41f09332d40f1e897314f0529fd5bbda37fc069e"
+    tag: "825da792035ea9c2941d5e68f881485d44d99c57"
   # podLabels specifies labels to add to the console pod.
   podLabels: {}
   # resources specifies the resource request and limits.
@@ -53,7 +53,7 @@ console:
     #  cpu: "1"
     #  memory: "2G"
   config:
-    issuerURI: ""
+    issuerURI: "" # Cannot have trailing slash
     reactAppRuntimeIssuerURI: ""
     oauthRedirectURI: ""
     oauthClientID: ""
