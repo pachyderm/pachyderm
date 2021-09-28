@@ -379,6 +379,7 @@ pgbouncer:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
+  maxConnections: 1000
 
 # Note: Postgres values control the Bitnami Postgresql Subchart
 postgresql:

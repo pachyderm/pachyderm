@@ -646,6 +646,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "maxConnections": {
+                    "type": "integer"
                 }
             }
         },
