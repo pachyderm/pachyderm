@@ -118,6 +118,7 @@ then
     docker run -d \
     -e POSTGRESQL_USERNAME="pachyderm" \
     -e POSTGRESQL_PASSWORD="password" \
+	-e PGBOUNCER_AUTH_TYPE=any \
     -e POSTGRESQL_HOST=$postgres_ip \
 	-e PGBOUNCER_IGNORE_STARTUP_PARAMETERS=extra_float_digits \
 	-e PGBOUNCER_UNIX_SOCKET_DIR=" " \
