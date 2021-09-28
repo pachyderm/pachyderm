@@ -2140,41 +2140,6 @@ func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext,
 	})
 }
 
-func (a *apiServer) findPipelineSpecCommit(ctx context.Context, pipeline string) (*pfs.Commit, error) {
-	var commit *pfs.Commit
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		var err error
-		commit, err = a.findPipelineSpecCommitInTransaction(txnCtx, pipeline, "")
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return commit, nil
-}
-
-// findPipelineSpecCommitInTransaction finds the spec commit corresponding to the pipeline version present in the commit given
-// by startID. If startID is blank, find the current pipeline version
-func (a *apiServer) findPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, pipeline, startID string) (*pfs.Commit, error) {
-	curr := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", startID)
-	commitInfo, err := a.env.PfsServer().InspectCommitInTransaction(txnCtx,
-		&pfs.InspectCommitRequest{Commit: curr})
-	if err != nil {
-		return nil, err
-	}
-	for commitInfo.Origin.Kind != pfs.OriginKind_USER {
-		curr = commitInfo.ParentCommit
-		if curr == nil {
-			return nil, errors.Errorf("spec commit for pipeline %s not found", pipeline)
-		}
-		if commitInfo, err = a.env.PfsServer().InspectCommitInTransaction(txnCtx,
-			&pfs.InspectCommitRequest{Commit: curr}); err != nil {
-			return nil, err
-		}
-	}
-
-	return curr, nil
-}
-
 func (a *apiServer) updatePipeline(
 	txnCtx *txncontext.TransactionContext,
 	pipeline string,
@@ -2182,7 +2147,7 @@ func (a *apiServer) updatePipeline(
 	cb func() error) error {
 
 	// get most recent pipeline key
-	key, err := a.findPipelineSpecCommitInTransaction(txnCtx, pipeline, "")
+	key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PfsServer(), pipeline, "")
 	if err != nil {
 		return err
 	}
@@ -2261,7 +2226,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		return nil, errors.New("cannot inspect future pipelines")
 	}
 
-	key, err := a.findPipelineSpecCommitInTransaction(txnCtx, name, "")
+	key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PfsServer(), name, "")
 	if err != nil {
 		return nil, errors.Wrapf(err, "couldn't find up to date spec for pipeline %q", name)
 	}
@@ -2495,7 +2460,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	pipelineInfo := &pps.PipelineInfo{}
 	// Try to retrieve PipelineInfo for this pipeline. If we see a not found error,
 	// we will still try to delete what we can because we know there is a pipeline
-	if specCommit, err := a.findPipelineSpecCommitInTransaction(txnCtx, pipelineName, ""); err == nil {
+	if specCommit, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PfsServer(), pipelineName, ""); err == nil {
 		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(specCommit, pipelineInfo); err != nil && !col.IsErrNotFound(err) {
 			return err
 		}

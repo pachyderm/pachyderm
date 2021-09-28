@@ -29,12 +29,16 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 )
 
@@ -424,4 +428,39 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceE
 	pachClient.SetAuthToken(pipelineInfo.AuthToken)
 
 	return pipelineInfo, nil
+}
+
+func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, txnEnv transactionenv.TransactionEnv, pipeline string) (*pfs.Commit, error) {
+	var commit *pfs.Commit
+	if err := txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		var err error
+		commit, err = FindPipelineSpecCommitInTransaction(txnCtx, pfsServer, pipeline, "")
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return commit, nil
+}
+
+// FindPipelineSpecCommitInTransaction finds the spec commit corresponding to the pipeline version present in the commit given
+// by startID. If startID is blank, find the current pipeline version
+func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, pfsServer pfsServer.APIServer, pipeline, startID string) (*pfs.Commit, error) {
+	curr := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", startID)
+	commitInfo, err := pfsServer.InspectCommitInTransaction(txnCtx,
+		&pfs.InspectCommitRequest{Commit: curr})
+	if err != nil {
+		return nil, err
+	}
+	for commitInfo.Origin.Kind != pfs.OriginKind_USER {
+		curr = commitInfo.ParentCommit
+		if curr == nil {
+			return nil, errors.Errorf("spec commit for pipeline %s not found", pipeline)
+		}
+		if commitInfo, err = pfsServer.InspectCommitInTransaction(txnCtx,
+			&pfs.InspectCommitRequest{Commit: curr}); err != nil {
+			return nil, err
+		}
+	}
+
+	return curr, nil
 }
