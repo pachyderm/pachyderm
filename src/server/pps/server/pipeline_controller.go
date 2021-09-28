@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -101,17 +100,13 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 		masterOpCancel: cancel,
 		ctx:            ctx,
 		// pipeline name is recorded separately in the case we are running a delete Op and pipelineInfo isn't available in the DB
-		pipeline: pipeline,
-		pipelineInfo: &pps.PipelineInfo{
-			Pipeline: &pps.Pipeline{
-				Name: pipeline,
-			},
-		},
-		namespace:  m.a.namespace,
-		env:        m.a.env,
-		txEnv:      m.a.txnEnv,
-		pipelines:  m.a.pipelines,
-		etcdPrefix: m.a.etcdPrefix,
+		pipeline:     pipeline,
+		pipelineInfo: &pps.PipelineInfo{},
+		namespace:    m.a.namespace,
+		env:          m.a.env,
+		txEnv:        m.a.txnEnv,
+		pipelines:    m.a.pipelines,
+		etcdPrefix:   m.a.etcdPrefix,
 
 		monitorer: m.monitorer,
 
@@ -168,28 +163,31 @@ func (op *pipelineOp) Start(t opType, timestamp time.Time) {
 				if errors.As(err, &stepErr) {
 					if stepErr.retry && errCount < maxErrCount {
 						log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
-							op.pipelineInfo.Pipeline, err, d)
+							op.pipeline, err, d)
 						return nil
 					}
 				}
-				return errors.Wrapf(err, "could not update resource for pipeline %q", op.pipelineInfo.Pipeline)
+				return errors.Wrapf(err, "could not update resource for pipeline %q", op.pipeline)
 			})
 
 			// we've given up on the step, check if the error indicated that the pipeline should fail
-			if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
-				failError := op.setPipelineFailure(fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err))
-				if failError != nil {
-					log.Errorf("PPS master: error creating a pipelineOp for pipeline '%s': %v", op.pipelineInfo.Pipeline,
-						errors.Wrapf(failError, "error failing pipeline %q (%v)", op.pipelineInfo.Pipeline, err))
+			if err != nil {
+				if errors.As(err, &stepErr) && stepErr.failPipeline {
+					failError := op.setPipelineFailure(fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err))
+					if failError != nil {
+						log.Errorf("PPS master: error starting a pipelineOp for pipeline '%s': %v", op.pipeline,
+							errors.Wrapf(failError, "error failing pipeline %q (%v)", op.pipeline, err))
+					}
 				}
-				log.Errorf("PPS master: error creating a pipelineOp for pipeline '%s': %v", op.pipelineInfo.Pipeline,
-					errors.Wrapf(err, "failing pipeline %q", op.pipelineInfo.Pipeline))
+				log.Errorf("PPS master: error starting a pipelineOp for pipeline '%s': %v", op.pipeline,
+					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
 			}
 
 		case deleteOp:
-			err := op.deletePipelineResources()
-			log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipelineInfo.Pipeline,
-				errors.Wrapf(err, "failing pipeline %q", op.pipelineInfo.Pipeline))
+			if err := op.deletePipelineResources(); err != nil {
+				log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipeline,
+					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
+			}
 		}
 
 		// we use the opsLock to guard getting and unsetting this op's bump state
@@ -234,19 +232,24 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 
 	// set op.pipelineInfo
 	errCnt := 0
-	backoff.RetryNotify(func() error {
-		return op.getLatestPipelineInfo(op.masterOpCtx, op.pipeline, op.pipelineInfo)
+	if err := backoff.RetryNotify(func() error {
+		return op.loadLatestPipelineInfo()
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		errCnt++
 		// Don't put the pipeline in a failing state if we're in the middle
 		// of activating auth, retry in a bit
 		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
 			log.Errorf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
-				op.pipelineInfo.Pipeline, err, d)
+				op.pipeline, err, d)
 			return nil
 		}
-		return errors.Wrapf(err, "couldn't initialize pipeline op %q", op.pipelineInfo.Pipeline)
-	})
+		return stepError{
+			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q", op.pipeline),
+			retry: false,
+		}
+	}); err != nil {
+		return err
+	}
 
 	tracing.TagAnySpan(op.ctx,
 		"current-state", op.pipelineInfo.State.String(),
@@ -377,13 +380,14 @@ func (op *pipelineOp) run() error {
 	return nil
 }
 
-func (op *pipelineOp) getLatestPipelineInfo(ctx context.Context, pipeline string, val proto.Message) error {
-	specCommit, err := ppsutil.FindPipelineSpecCommit(ctx, op.env.PFSServer, *op.txEnv, pipeline)
+func (op *pipelineOp) loadLatestPipelineInfo() error {
+	*op.pipelineInfo = pps.PipelineInfo{}
+	specCommit, err := ppsutil.FindPipelineSpecCommit(op.masterOpCtx, op.env.PFSServer, *op.txEnv, op.pipeline)
 	if err != nil {
-		return errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
+		return errors.Wrapf(err, "could not find spec commit for pipeline %q", op.pipeline)
 	}
-	if err := op.pipelines.ReadOnly(ctx).Get(specCommit, val); err != nil {
-		return errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
+	if err := op.pipelines.ReadOnly(op.masterOpCtx).Get(specCommit, op.pipelineInfo); err != nil {
+		return errors.Wrapf(err, "could not retrieve pipeline info for %q", op.pipeline)
 	}
 	return nil
 }

@@ -188,13 +188,13 @@ eventLoop:
 				var ot opType
 				switch e.eventType {
 				case writeEv:
-					ot = writeOp // raises flag in pipelineOp to run again whenever it finishes (doesn't block)
+					ot = writeOp
 				case deleteEv:
 					ot = deleteOp
 				}
 
 				if pipelineOp, ok := m.opsInProcess[e.pipeline]; ok {
-					pipelineOp.Bump(ot)
+					pipelineOp.Bump(ot) // raises flag in pipelineOp to run again whenever it finishes
 				} else {
 					// Initialize op ctx (cancelled at the end of pipelineOp.Start(), to avoid leaking
 					// resources), whereas masterClient is passed by the
