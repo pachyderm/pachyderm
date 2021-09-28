@@ -72,7 +72,7 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, pipeline string) (*pipeli
 	}
 	// get latest PipelineInfo (events can pile up, so that the current state
 	// doesn't match the event being processed)
-	specCommit, err := m.a.findPipelineSpecCommit(ctx, pipeline)
+	specCommit, err := ppsutil.FindPipelineSpecCommit(ctx, m.a.env.PFSServer, *m.a.txnEnv, pipeline)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
 	}
@@ -119,7 +119,7 @@ func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 
 	// we've given up on the step, check if the error indicated that the pipeline should fail
 	if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
-		specCommit, specErr := m.a.findPipelineSpecCommit(ctx, e.pipeline)
+		specCommit, specErr := ppsutil.FindPipelineSpecCommit(ctx, m.a.env.PFSServer, *m.a.txnEnv, e.pipeline)
 		if specErr != nil {
 			return errors.Wrapf(specErr, "error failing pipeline %q (%v)", e.pipeline, err)
 		}
