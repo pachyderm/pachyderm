@@ -93,6 +93,8 @@ func NewDistributedCompactor(s *Storage, maxFanIn int, workerFunc CompactionBatc
 
 // Compact compacts the contents of ids into a new fileset with the specified ttl and returns the ID.
 // Compact always returns the ID of a primitive fileset.
+// Compact does not renew ids.
+// It is the responsibility of the caller to renew ids.  In some cases they may be permanent and not require renewal.
 func (c *DistributedCompactor) Compact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	var err error
 	ids, err = c.s.Flatten(ctx, ids)
@@ -106,19 +108,33 @@ func (c *DistributedCompactor) Compact(ctx context.Context, ids []ID, ttl time.D
 	for len(ids)/childSize > c.maxFanIn {
 		childSize *= c.maxFanIn
 	}
-	results := []ID{}
-	for start := 0; start < len(ids); start += childSize {
-		end := start + childSize
-		if end > len(ids) {
-			end = len(ids)
+	var retID *ID
+	// Any filesets generated in this section will be intermediary results, which we have to renew,
+	// until the function returns.
+	if err := c.s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
+		results := []ID{}
+		for start := 0; start < len(ids); start += childSize {
+			end := start + childSize
+			if end > len(ids) {
+				end = len(ids)
+			}
+			id, err := c.Compact(ctx, ids[start:end], ttl)
+			if err != nil {
+				return err
+			}
+			renewer.Add(*id)
+			results = append(results, *id)
 		}
-		id, err := c.Compact(ctx, ids[start:end], ttl)
+		id, err := c.Compact(ctx, results, ttl)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		results = append(results, *id)
+		retID = id
+		return nil
+	}); err != nil {
+		return nil, err
 	}
-	return c.Compact(ctx, results, ttl)
+	return retID, nil
 }
 
 func (c *DistributedCompactor) shardedCompact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
@@ -132,14 +148,29 @@ func (c *DistributedCompactor) shardedCompact(ctx context.Context, ids []ID, ttl
 	}); err != nil {
 		return nil, err
 	}
-	results, err := c.workerFunc(ctx, tasks)
-	if err != nil {
+	var retID *ID
+	if err := c.s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
+		results, err := c.workerFunc(ctx, tasks)
+		if err != nil {
+			return err
+		}
+		// ensure results are renewed while Concat is operating on them.
+		for _, id := range results {
+			renewer.Add(id)
+		}
+		if len(results) != len(tasks) {
+			return errors.Errorf("results are a different length than tasks")
+		}
+		id, err := c.s.Concat(ctx, results, ttl)
+		if err != nil {
+			return err
+		}
+		retID = id
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-	if len(results) != len(tasks) {
-		return nil, errors.Errorf("results are a different length than tasks")
-	}
-	return c.s.Concat(ctx, results, ttl)
+	return retID, nil
 }
 
 // CompactCallback is the standard callback signature for a compaction operation.
