@@ -201,10 +201,7 @@ eventLoop:
 					// PPS master and used in case a monitor needs to be spawned for 'pipeline',
 					// whose lifetime is tied to the master rather than this op.
 					opCtx, opCancel := context.WithCancel(m.masterCtx)
-					pipelineOp, err := m.newPipelineOp(opCtx, opCancel, e.pipeline)
-					if err != nil {
-						log.Errorf("PPS master: error creating a pipelineOp for pipeline '%s': %v", e.pipeline, err)
-					}
+					pipelineOp = m.newPipelineOp(opCtx, opCancel, e.pipeline)
 					m.opsInProcess[e.pipeline] = pipelineOp
 					go pipelineOp.Start(ot, e.timestamp)
 				}

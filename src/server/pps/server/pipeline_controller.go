@@ -63,9 +63,11 @@ func max(is ...int) int {
 // used by step() to take any necessary actions
 type pipelineOp struct {
 	// a pachyderm client wrapping this operation's context (child of the PPS
-	// master's context, and cancelled at the end of step())
+	// master's context, and cancelled at the end of Start())
+	masterOpCtx    context.Context
+	masterOpCancel context.CancelFunc
+	// gets reset in each step() as a child of masterOpCtx to use the most pipeline's most recent auth-token, instead of identifying as PPS-Master
 	ctx          context.Context
-	cancel       context.CancelFunc
 	pipeline     string
 	pipelineInfo *pps.PipelineInfo
 	rc           *v1.ReplicationController
@@ -93,10 +95,11 @@ var (
 	errStaleRC      = errors.New("RC doesn't match pipeline version (likely stale)")
 )
 
-func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc, pipeline string) (*pipelineOp, error) {
+func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc, pipeline string) *pipelineOp {
 	op := &pipelineOp{
-		ctx:    ctx,
-		cancel: cancel,
+		masterOpCtx:    ctx,
+		masterOpCancel: cancel,
+		ctx:            ctx,
 		// pipeline name is recorded separately in the case we are running a delete Op and pipelineInfo isn't available in the DB
 		pipeline: pipeline,
 		pipelineInfo: &pps.PipelineInfo{
@@ -115,12 +118,7 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 		opsLock:         &m.opsInProcessMu,
 		allOpsInProcess: m.opsInProcess,
 	}
-
-	tracing.TagAnySpan(ctx,
-		"current-state", op.pipelineInfo.State.String(),
-		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
-
-	return op, nil
+	return op
 }
 
 // this function is expected to be called synchronosly. master.run() handles this by locking with master.opsInProcessMu
@@ -204,7 +202,7 @@ func (op *pipelineOp) Start(t opType, timestamp time.Time) {
 			case deleteOp:
 				nextOt = deleteOp
 			case noOp:
-				op.cancel()
+				op.masterOpCancel()
 				delete(op.allOpsInProcess, op.pipeline)
 				nextOt = noOp
 			}
@@ -223,8 +221,8 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 	log.Debugf("PPS master: processing event for %q", op.pipelineInfo.Pipeline)
 
 	// Handle tracing
-	span, _ := extended.AddSpanToAnyPipelineTrace(op.ctx,
-		op.env.EtcdClient, op.pipelineInfo.Pipeline.Name, "/pps.Master/ProcessPipelineUpdate")
+	span, _ := extended.AddSpanToAnyPipelineTrace(op.masterOpCtx,
+		op.env.EtcdClient, op.pipeline, "/pps.Master/ProcessPipelineUpdate")
 	if !timestamp.IsZero() {
 		tracing.TagAnySpan(span, "update-time", timestamp)
 	} else {
@@ -237,23 +235,26 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 	// set op.pipelineInfo
 	errCnt := 0
 	backoff.RetryNotify(func() error {
-		return op.getLatestPipelineInfo(op.ctx, op.pipeline, op.pipelineInfo)
+		return op.getLatestPipelineInfo(op.masterOpCtx, op.pipeline, op.pipelineInfo)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		errCnt++
 		// Don't put the pipeline in a failing state if we're in the middle
 		// of activating auth, retry in a bit
 		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
-			log.Errorf("PPS master: could not initialize pipeline op for pipeline %q: %v; retrying in %v",
+			log.Errorf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
 				op.pipelineInfo.Pipeline, err, d)
 			return nil
 		}
 		return errors.Wrapf(err, "couldn't initialize pipeline op %q", op.pipelineInfo.Pipeline)
 	})
 
+	tracing.TagAnySpan(op.ctx,
+		"current-state", op.pipelineInfo.State.String(),
+		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
 	// add pipeline auth
-	// the provided context is authorized as pps master, but we want to switch to the pipeline itself
-	// so first clear the cached WhoAmI result from the context
-	pachClient := op.env.GetPachClient(middleware_auth.ClearWhoAmI(op.ctx))
+	// the pipelineOp's context is authorized as pps master, but we want to switch to the pipeline itself
+	// first clear the cached WhoAmI result from the context
+	pachClient := op.env.GetPachClient(middleware_auth.ClearWhoAmI(op.masterOpCtx))
 	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
 	op.ctx = pachClient.Ctx()
 
@@ -713,7 +714,7 @@ func (op *pipelineOp) restartPipeline(reason string) error {
 // pipeline. It doesn't return a stepError, leaving retry behavior to the caller
 func (op *pipelineOp) deletePipelineResources() (retErr error) {
 	log.Infof("PPS master: deleting resources for pipeline %q", op.pipeline)
-	span, ctx := tracing.AddSpanToAnyExisting(op.ctx,
+	span, ctx := tracing.AddSpanToAnyExisting(op.masterOpCtx,
 		"/pps.Master/DeletePipelineResources", "pipeline", op.pipeline)
 	defer func() {
 		tracing.TagAnySpan(ctx, "err", retErr)
