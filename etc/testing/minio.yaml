@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  labels:
+    app: minio
+spec:
+  ports:
+  - port: 9000
+    name: s3
+  clusterIP: None
+  selector:
+    app: minio
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+spec:
+  selector:
+    matchLabels:
+      app: minio
+  serviceName: "minio"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: minio
+        image: docker.io/minio/minio:latest 
+        ports:
+        - containerPort: 9000
+          name: s3
+        volumeMounts:
+        - name: data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: minio-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "my-storage-class"
+      resources:
+        requests:
+          storage: 1Gi
