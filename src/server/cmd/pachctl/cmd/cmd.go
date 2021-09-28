@@ -535,14 +535,12 @@ This resets the cluster to its initial state.`,
 	var remotePort uint16
 	var oidcPort uint16
 	var remoteOidcPort uint16
-	var uiPort uint16
-	var uiWebsocketPort uint16
 	var s3gatewayPort uint16
 	var remoteS3gatewayPort uint16
 	var dexPort uint16
 	var remoteDexPort uint16
-	var dashPort uint16
-	var remoteDashPort uint16
+	var consolePort uint16
+	var remoteConsolePort uint16
 	var namespace string
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
@@ -614,13 +612,13 @@ This resets the cluster to its initial state.`,
 				successCount++
 			}
 
-			fmt.Println("Forwarding the dash service port...")
-			port, err = fw.RunForDash(dashPort, remoteDashPort)
+			fmt.Println("Forwarding the console service port...")
+			port, err = fw.RunForConsole(consolePort, remoteConsolePort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
 				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["dash"] = uint32(port)
+				context.PortForwarders["console"] = uint32(port)
 				successCount++
 			}
 
@@ -661,14 +659,12 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16Var(&remotePort, "remote-port", 1650, "The remote port that pachd is bound to in the cluster.")
 	portForward.Flags().Uint16Var(&oidcPort, "oidc-port", 30657, "The local port to bind pachd's OIDC callback to.")
 	portForward.Flags().Uint16Var(&remoteOidcPort, "remote-oidc-port", 1657, "The remote port that OIDC callback is bound to in the cluster.")
-	portForward.Flags().Uint16VarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
-	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
 	portForward.Flags().Uint16Var(&remoteS3gatewayPort, "remote-s3gateway-port", 1600, "The remote port that the s3 gateway is bound to.")
 	portForward.Flags().Uint16Var(&dexPort, "dex-port", 30658, "The local port to bind the identity service to.")
 	portForward.Flags().Uint16Var(&remoteDexPort, "remote-dex-port", 1658, "The local port to bind the identity service to.")
-	portForward.Flags().Uint16Var(&dashPort, "dash-port", 34000, "The local port to bind the dash service to.")
-	portForward.Flags().Uint16Var(&remoteDashPort, "remote-dash-port", 4000, "The remote port to bind the dash service to.")
+	portForward.Flags().Uint16Var(&consolePort, "console-port", 34000, "The local port to bind the console service to.")
+	portForward.Flags().Uint16Var(&remoteConsolePort, "remote-console-port", 4000, "The remote port to bind the console  service to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace Pachyderm is deployed in.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
