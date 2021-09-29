@@ -49,7 +49,7 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 	return c.storage.CompactLevelBased(ctx, ids, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 		var id *fileset.ID
 		if err := c.compactionQueue.RunTaskBlock(ctx, func(master *work.Master) error {
-			workerFunc := func(ctx context.Context, tasks []fileset.CompactionTask) ([]fileset.ID, error) {
+			workerFunc := func(ctx context.Context, renewer *fileset.Renewer, tasks []fileset.CompactionTask) ([]fileset.ID, error) {
 				workTasks := make([]*work.Task, len(tasks))
 				for i, task := range tasks {
 					serInputs := make([]string, len(task.Inputs))
@@ -82,6 +82,7 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 					if err != nil {
 						return err
 					}
+					renewer.Add(*id)
 					results[int(res.Index)] = *id
 					return nil
 				}); err != nil {

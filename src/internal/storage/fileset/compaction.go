@@ -75,7 +75,7 @@ type Compactor interface {
 type CompactionWorker func(ctx context.Context, spec CompactionTask) (*ID, error)
 
 // CompactionBatchWorker can perform batches of CompactionTasks
-type CompactionBatchWorker func(ctx context.Context, spec []CompactionTask) ([]ID, error)
+type CompactionBatchWorker func(ctx context.Context, renewer *Renewer, spec []CompactionTask) ([]ID, error)
 
 // DistributedCompactor performs compaction by fanning out tasks to workers.
 type DistributedCompactor struct {
@@ -103,33 +103,33 @@ func (c *DistributedCompactor) Compact(ctx context.Context, ids []ID, ttl time.D
 	if err != nil {
 		return nil, err
 	}
+	var tasks []CompactionTask
+	var taskLens []int
+	for start := 0; start < len(ids); start += c.maxFanIn {
+		end := start + c.maxFanIn
+		if end > len(ids) {
+			end = len(ids)
+		}
+		ids := ids[start:end]
+		taskLen := len(tasks)
+		if err := miscutil.LogStep(fmt.Sprintf("sharding %v file sets", len(ids)), func() error {
+			return c.s.Shard(ctx, ids, func(pathRange *index.PathRange) error {
+				tasks = append(tasks, CompactionTask{
+					Inputs:    ids,
+					PathRange: pathRange,
+				})
+				return nil
+			})
+		}); err != nil {
+			return nil, err
+		}
+		taskLens = append(taskLens, len(tasks)-taskLen)
+	}
 	var id *ID
 	if err := c.s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
-		var taskLens []int
-		var tasks []CompactionTask
-		for start := 0; start < len(ids); start += c.maxFanIn {
-			end := start + c.maxFanIn
-			if end > len(ids) {
-				end = len(ids)
-			}
-			ids := ids[start:end]
-			taskLen := len(tasks)
-			if err := miscutil.LogStep(fmt.Sprintf("sharding %v file sets", len(ids)), func() error {
-				return c.s.Shard(ctx, ids, func(pathRange *index.PathRange) error {
-					tasks = append(tasks, CompactionTask{
-						Inputs:    ids,
-						PathRange: pathRange,
-					})
-					return nil
-				})
-			}); err != nil {
-				return err
-			}
-			taskLens = append(taskLens, len(tasks)-taskLen)
-		}
 		var resultIds []ID
 		if err := miscutil.LogStep(fmt.Sprintf("compacting %v tasks", len(tasks)), func() error {
-			results, err := c.workerFunc(ctx, tasks)
+			results, err := c.workerFunc(ctx, renewer, tasks)
 			if err != nil {
 				return err
 			}
