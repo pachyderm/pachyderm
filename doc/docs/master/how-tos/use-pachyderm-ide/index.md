@@ -23,7 +23,7 @@ Our Notebooks instances come with a pre-installed suite of packages, including:
 Any additional library can be installed running `pip install` from a cell.
 
 !!! Note 
-     We have also included a selection of data science examples running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. In the `/examples` directory, you will also find integration examples with opensource products (labeling, model serving...).
+     We have also included a selection of data science examples running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. In the `/examples` directory, you will also find integration examples with opensource products that would complete your ML stack such as labeling or model serving products.
 ## Getting Started
 
 !!! Note 
