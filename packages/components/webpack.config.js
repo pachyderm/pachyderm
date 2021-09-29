@@ -104,7 +104,7 @@ const config = {
           },
           {
             loader: require.resolve('file-loader'),
-            include: [/\.svg$/],
+            include: [/\.(svg|webp)$/],
             options: {
               outputPath(url, resourcePath) {
                 const temp = resourcePath.split('/');

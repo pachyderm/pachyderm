@@ -91,7 +91,7 @@
   --z-index-sheet: 102;
   --z-index-application-banner: 101;
   --z-index-modal-overlay: 1040;
-  --z-index-notification-banner: 1041;
+  --z-index-notification-banner: 1051;
 }
 
 @custom-media --extra-small-viewport (width < 375px);

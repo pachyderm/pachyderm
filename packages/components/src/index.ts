@@ -31,6 +31,7 @@ export * from './Input';
 export * from './Label';
 export * from './Link';
 export * from './LoadingDots';
+export * from './LoadingPachyderm';
 export * from './Modal';
 export * from './NotificationBanner';
 export * from './PachctlConnectDetails';
