@@ -554,12 +554,20 @@ func (op *pipelineOp) createPipelineResources() error {
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
-	op.monitorer.startMonitor(op.pipelineInfo)
+	// since *op.pipelineInfo may be modified on a Bump, and startMonitor() passes its
+	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of op.pipelineInfo to
+	// avoid a race condition
+	pi := *op.pipelineInfo
+	op.monitorer.startMonitor(&pi)
 	op.pipelineInfo.Details.WorkerRc = op.rc.ObjectMeta.Name
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
-	op.monitorer.startCrashingMonitor(op.pipelineInfo)
+	// since *op.pipelineInfo may be modified on a Bump, and startMonitor() passes its
+	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of op.pipelineInfo to
+	// avoid a race condition
+	pi := *op.pipelineInfo
+	op.monitorer.startCrashingMonitor(&pi)
 }
 
 func (op *pipelineOp) stopPipelineMonitor() {
