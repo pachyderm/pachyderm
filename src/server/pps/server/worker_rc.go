@@ -51,6 +51,7 @@ type workerOptions struct {
 	resourceLimits        *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the user and init containers
 	sidecarResourceLimits *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the sidecar container
 	workerEnv             []v1.EnvVar         // Environment vars set in the user container
+	sidecarEnv            []v1.EnvVar         // Environment vars set in the sidecar container
 	volumes               []v1.Volume         // Volumes that we expose to the user container
 	volumeMounts          []v1.VolumeMount    // Paths where we mount each volume in 'volumes'
 	schedulingSpec        *pps.SchedulingSpec // the SchedulingSpec for the pipeline
@@ -138,7 +139,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}
 
 	// Set up sidecar env vars
-	sidecarEnv := []v1.EnvVar{{
+	sidecarEnv := append(options.sidecarEnv, []v1.EnvVar{{
 		Name:  "PORT",
 		Value: strconv.FormatUint(uint64(a.port), 10),
 	}, {
@@ -152,7 +153,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}, {
 		Name:  "GC_PERCENT",
 		Value: strconv.FormatInt(int64(a.gcPercent), 10),
-	}}
+	}}...)
 
 	sidecarEnv = append(sidecarEnv, a.getStorageEnvVars(pipelineInfo)...)
 	sidecarEnv = append(sidecarEnv, commonEnv...)
@@ -509,6 +510,13 @@ func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOpt
 			},
 		)
 	}
+	var sidecarEnv []v1.EnvVar
+	for name, value := range transform.StorageEnv {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{
+			Name:  name,
+			Value: value,
+		})
+	}
 
 	var volumes []v1.Volume
 	var volumeMounts []v1.VolumeMount
@@ -625,6 +633,7 @@ func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOpt
 		sidecarResourceLimits: sidecarResourceLimits,
 		userImage:             userImage,
 		workerEnv:             workerEnv,
+		sidecarEnv:            sidecarEnv,
 		volumes:               volumes,
 		volumeMounts:          volumeMounts,
 		imagePullSecrets:      imagePullSecrets,

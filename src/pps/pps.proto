@@ -25,6 +25,7 @@ message Transform {
   repeated string cmd = 2;
   repeated string err_cmd = 3;
   map<string, string> env = 4;
+  map<string, string> storage_env = 14;
   repeated SecretMount secrets = 5;
   repeated string image_pull_secrets = 6;
   repeated string stdin = 7;
