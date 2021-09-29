@@ -17,7 +17,7 @@ Because those experiments are running on Pachyderm, Data scientists benefit from
 Our Notebooks instances come with a pre-installed suite of packages, including:
 
  - [Jupyter Data science base image](https://hub.docker.com/layers/jupyter/datascience-notebook/python-3.8.8/images/sha256-bab39ddef7f66e05a0618a23abbf8e71cba000a5fff585b515cc3338698ec165?context=explore) with [libraries for data analysis](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/selecting.html#jupyter-datascience-notebook) from the Python (scipy, scikit-learn, pandas, beautifulsoup, seaborn, matplotlib... ), R, and Julia communities. 
- - Our [Python Client `python-pachyderm`](../../../../reference/clients/#python-client). 
+ - Our [Python Client `python-pachyderm`](../../reference/clients/#python-client). 
  - Our Command-Line Tool `pachctl`.
 
 Any additional library can be installed running `pip install` from a cell.
