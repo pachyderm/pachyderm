@@ -36,7 +36,7 @@ to install or configure anything on user machines except for a web browser.
 that enables you to author and test notebooks and
 code.
 
-* [python-pachyderm](../../../reference/clients/#python-client) is an
+* [python-pachyderm](../../reference/clients/#python-client) is an
 official Python client for Pachyderm. For Python developers who prefer to
 communicate with Pachyderm directly through the API, rather than by using
 the `pachctl` tool, `python-pachyderm` is the right choice.
