@@ -1,14 +1,14 @@
 # Deploy Enterprise Edition
 
 To deploy and use Pachyderm's Enterprise Edition, follow
-[the deployment instructions](../deploy-manage/deploy/) for your platform,
+[the deployment instructions](../../deploy-manage/deploy/helm_install/) for your platform,
 then [activate the Enterprise Edition](#activate-pachyderm-enterprise-edition).
 
 ## Activate Pachyderm Enterprise Edition
 
 To activate Pachyderm's enterprise features, 
 you need to have your **Pachyderm Enterprise activation code** available. 
-You should have received this from the Pachyderm sales team when
+You should have received it from the Pachyderm sales team when
 registering for the Enterprise Edition.
 
 !!! Information
