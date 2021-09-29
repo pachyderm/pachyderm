@@ -31,11 +31,12 @@ spec:
       containers:
       - name: minio
         image: docker.io/minio/minio:latest 
+        args: ["server", "/data"]
         ports:
         - containerPort: 9000
           name: s3
         volumeMounts:
-        - name: data
+        - name: minio-data
           mountPath: /data
   volumeClaimTemplates:
   - metadata:
