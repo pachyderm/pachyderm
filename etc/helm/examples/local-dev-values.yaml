@@ -14,11 +14,11 @@ pachd:
   metrics:
     enabled: false
   clusterDeploymentID: dev
- ## if pachd.enterpriseLicenseKey is set, enterprise will be activated and auth will be setup by the config pod
+  activateEnterprise: false
   enterpriseLicenseKey: ""
-  userAccessibleOauthIssuerHost: "localhost:30658"
-  mockIDP: true
 
+console:
+  enabled: false
 
 etcd:
   service:

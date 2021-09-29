@@ -4,7 +4,7 @@
 deployTarget: LOCAL
 
 pachd:
- ## if pachd.enterpriseLicenseKey is set, auth will be activated by the config pod
+  activateEnterprise: false
   enterpriseLicenseKey: ""
   userAccessibleOauthIssuerHost: "localhost:30658"
   mockIDP: true

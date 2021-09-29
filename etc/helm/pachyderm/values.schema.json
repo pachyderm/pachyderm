@@ -309,9 +309,6 @@
                 "issuerURI": {
                     "type": "string"
                 },
-                "localhostIssuer": {
-                    "type": "string"
-                },
                 "requireVerifiedEmail": {
                     "type": "boolean"
                 }
@@ -320,6 +317,9 @@
         "pachd": {
             "type": "object",
             "properties": {
+                "activateEnterprise": {
+                    "type": "boolean"
+                },
                 "affinity": {
                     "type": "object"
                 },
@@ -368,6 +368,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "localhostIssuer": {
+                    "type": "string"
                 },
                 "logLevel": {
                     "type": "string"

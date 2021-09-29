@@ -42,7 +42,7 @@ imagePullSecrets:
 {{- else if .Values.ingress.host -}}
 https://{{ .Values.ingress.host }}/dex
 {{- else if eq .Values.deployTarget "LOCAL" -}}
-http://pachd:1658/
+http://pachd:1658
 {{- else -}}
 {{ fail "For Authentication, an OIDC Issuer for this pachd must be set." }}
 {{- end -}}
@@ -93,8 +93,14 @@ pachd-peer.{{ .Release.Namespace }}.svc.cluster.local:30653
 {{- end }}
 
 {{- define "pachyderm.localhostIssuer" -}}
-{{- if .Values.oidc.localhostIssuer -}}
-.Values.oidc.localhostIssuer
+{{- if .Values.pachd.localhostIssuer -}}
+  {{- if eq .Values.pachd.localhostIssuer "true" -}}
+    true
+  {{- else if eq .Values.pachd.localhostIssuer "false" -}}
+    false
+  {{- else -}}
+    {{- fail "pachd.localhostIssuer must either be set to the string value of \"true\" or \"false\"" }}
+  {{- end -}}
 {{- else if eq .Values.deployTarget "LOCAL" -}}
 true
 {{- else if .Values.ingress.host -}}
@@ -106,6 +112,17 @@ false
 {{- if .Values.pachd.userAccessibleOauthIssuerHost -}}
 {{ .Values.pachd.userAccessibleOauthIssuerHost }}
 {{- else if eq .Values.deployTarget "LOCAL" -}}
-http://localhost:30658/
+localhost:30658
 {{- end -}}
+{{- end }}
+
+{{- define "pachyderm.idps" -}}
+{{- if .Values.pachd.upstreamIDPs }}
+{{ toYaml .Values.pachd.upstreamIDPs | indent 4 }}
+{{- else if or (.Values.pachd.mockIDP) (eq .Values.deployTarget "LOCAL") }}
+    - id: test
+      name: test
+      type: mockPassword
+      jsonConfig: '{"username": "admin", "password": "password"}'
+{{- end }}
 {{- end }}
