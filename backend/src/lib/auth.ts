@@ -10,7 +10,10 @@ export const getTokenIssuer = () => {
 
   // we need to add well-known to the uri to prevent the openid-client library from trying
   // additional uris on failed requests
-  return Issuer.discover(`${issuerUri}/.well-known/openid-configuration`);
+  const issuerUrl = new URL(issuerUri);
+  issuerUrl.pathname = '/.well-known/openid-configuration';
+
+  return Issuer.discover(issuerUrl.toString());
 };
 
 export const getOIDCClient = async () => {

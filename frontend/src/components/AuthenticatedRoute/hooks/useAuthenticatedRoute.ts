@@ -52,8 +52,11 @@ const useAuthenticatedRoute = () => {
         loginHint = loginHintParam;
       }
 
+      const authUrl = new URL(issuerUri);
+      authUrl.pathname = authConfig.authEndpoint;
+
       initiateOauthFlow({
-        authUrl: `${issuerUri}${authConfig.authEndpoint}`,
+        authUrl: authUrl.toString(),
         clientId: authConfig.clientId,
         scope: [
           'openid',

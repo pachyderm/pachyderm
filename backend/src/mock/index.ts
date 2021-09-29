@@ -32,6 +32,13 @@ const defaultState = {
   authPort: 0,
 };
 
+const getAuthUrl = (path: string) => {
+  const issuerUrl = new URL(process.env.ISSUER_URI || '');
+  issuerUrl.pathname = path;
+
+  return issuerUrl.toString();
+};
+
 const createServer = () => {
   const grpcServer = new Server();
   const authApp = express();
@@ -48,19 +55,17 @@ const createServer = () => {
   authApp.use(cors());
 
   authApp.get('/.well-known/openid-configuration', (_, res) => {
-    const issuer = process.env.ISSUER_URI;
-
     if (mockServer.state.authConfigurationError) {
       return res.send({});
     }
 
     return res.send({
-      issuer,
-      authorization_endpoint: `${issuer}/auth`,
-      token_endpoint: `${issuer}/token`,
-      jwks_uri: `${issuer}/keys`,
-      userinfo_endpoint: `${issuer}/userinfo`,
-      device_authorization_endpoint: `${issuer}/device/code`,
+      issuer: process.env.ISSUER_URI,
+      authorization_endpoint: getAuthUrl('/auth'),
+      token_endpoint: getAuthUrl('/token'),
+      jwks_uri: getAuthUrl('/keys'),
+      userinfo_endpoint: getAuthUrl('/userinfo'),
+      device_authorization_endpoint: getAuthUrl('/device/code'),
       ...openIdConfiguration,
     });
   });
