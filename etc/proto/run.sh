@@ -18,14 +18,11 @@ tar -C "${GOPATH}/src/github.com/pachyderm/pachyderm" -xf /dev/stdin
 #    exit 1
 #fi
 
-#export GO111MODULE=auto
-
 go get github.com/gogo/protobuf/protoc-gen-gogofast
 
 cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
 
 # Run the bespoke pachyderm codegen plugin
-find .
 cd etc/proto/pachgen
 go mod init
 go mod tidy
@@ -36,10 +33,9 @@ protoc \
     --proto_path . \
     --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
     "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
-    --pach_out="${GOPATH}/src" \
+    --pach_out="." \
     $(find . -name "*.proto") > /dev/stderr
-
-exit 0
+cd -
 
 # shellcheck disable=SC2044
 for i in $(find src -name "*.proto"); do \
