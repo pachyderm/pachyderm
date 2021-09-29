@@ -1,7 +1,8 @@
 #!/bin/bash
 # This script build protos using the pachyderm_proto image.
 
-find src -regex ".*\.proto" -print0 \
-| xargs -0 tar cf - \
-| docker run -i --rm pachyderm_proto \
-| tar xf -
+tar cf - $(find src -name "*.proto") $(find etc/proto/pachgen) \
+ | docker run -i pachyderm_proto
+#tar cf - $(find src -name "*.proto") \
+#| docker run -i pachyderm_proto \
+#| tar xf -
