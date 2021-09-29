@@ -107,6 +107,12 @@ message PFSInput {
   pfs_v2.Trigger trigger = 12;
 }
 
+message SQLInput {
+  string driver = 1;
+  string source = 2;
+  string query = 3;
+}
+
 message CronInput {
   string name = 1;
   string repo = 2;
@@ -126,6 +132,7 @@ message Input {
   repeated Input cross = 4;
   repeated Input union = 5;
   CronInput cron = 6;
+  SQLInput sql = 7;
 }
 
 message JobInput {
