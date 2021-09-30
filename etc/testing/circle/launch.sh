@@ -5,7 +5,7 @@ set -ex
 # shellcheck disable=SC1090
 source "$(dirname "$0")/env.sh"
 
-# add a podsecuritycontext which disables root
+# add a PodSecurityPolicy which disables root
 kubectl apply -f etc/testing/circle/pod-security-policy.yaml
 
 # deploy object storage

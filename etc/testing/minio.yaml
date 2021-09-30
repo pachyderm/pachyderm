@@ -8,6 +8,8 @@ spec:
   ports:
   - port: 9000
     name: s3
+  - port: 9001
+    name: console
   clusterIP: None
   selector:
     app: minio
@@ -30,11 +32,15 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: minio
-        image: docker.io/minio/minio:latest 
-        args: ["server", "/data"]
+        image: docker.io/minio/minio:latest
+        command: ["/bin/bash"]
+        # this will create a bucket called "pachyderm-test" and then launch minio
+        args: ["-c", "mkdir -p /data/pachyderm-test && minio server /data --console-address=0.0.0.0:9001" ]
         ports:
         - containerPort: 9000
           name: s3
+        - containerPort: 9001
+          name: console
         volumeMounts:
         - name: minio-data
           mountPath: /data
