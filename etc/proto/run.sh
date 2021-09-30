@@ -41,26 +41,24 @@ popd > /dev/stderr
 
 
 # shellcheck disable=SC2044
-for i in $(find src -name "*.proto"); do \
-    if ! grep -q 'go_package' "${i}"; then
-        echo -e "\e[1;31mError:\e[0m missing \"go_package\" declaration in ${i}" >/dev/stderr
-    fi
-    protoc \
-        "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
-        -Isrc \
-        --gogofast_out=plugins=grpc,\
-Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,\
-Mgoogle/protobuf/empty.proto=github.com/gogo/protobuf/types,\
-Mgoogle/protobuf/timestamp.proto=github.com/gogo/protobuf/types,\
-Mgoogle/protobuf/wrappers.proto=github.com/gogo/protobuf/types,\
-Mgogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto,\
-Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
-":${GOPATH}/src" \
-    "${i}" >/dev/stderr
-done
+#for i in $(find src -name "*.proto"); do \
+#    if ! grep -q 'go_package' "${i}"; then
+#        echo -e "\e[1;31mError:\e[0m missing \"go_package\" declaration in ${i}" >/dev/stderr
+#    fi
+#    protoc \
+#        "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
+#        -Isrc \
+#        --gogofast_out=plugins=grpc,\
+#Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,\
+#Mgoogle/protobuf/empty.proto=github.com/gogo/protobuf/types,\
+#Mgoogle/protobuf/timestamp.proto=github.com/gogo/protobuf/types,\
+#Mgoogle/protobuf/wrappers.proto=github.com/gogo/protobuf/types,\
+#Mgogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto,\
+#Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
+#":${GOPATH}/src" \
+#    "${i}" >/dev/stderr
+#done
 
 # TODO (brendon): figure out how to configure protoc
-cd v2
-
-find . > /dev/stderr
+pushd v2 > /dev/stderr
 find src -regex ".*\.go" -print0 | xargs -0 tar cf -

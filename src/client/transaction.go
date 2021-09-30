@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
@@ -183,34 +182,42 @@ type TransactionBuilder struct {
 }
 
 type pfsBuilderClient struct {
+	unsupportedPfsBuilderClient
 	tb *TransactionBuilder
 }
 
 type ppsBuilderClient struct {
+	unsupportedPpsBuilderClient
 	tb *TransactionBuilder
 }
 
 type authBuilderClient struct {
+	unsupportedAuthBuilderClient
 	tb *TransactionBuilder
 }
 
 type versionBuilderClient struct {
+	unsupportedVersionBuilderClient
 	tb *TransactionBuilder
 }
 
 type adminBuilderClient struct {
+	unsupportedAdminBuilderClient
 	tb *TransactionBuilder
 }
 
 type transactionBuilderClient struct {
+	unsupportedTransactionBuilderClient
 	tb *TransactionBuilder
 }
 
 type debugBuilderClient struct {
+	unsupportedDebugBuilderClient
 	tb *TransactionBuilder
 }
 
 type enterpriseBuilderClient struct {
+	unsupportedEnterpriseBuilderClient
 	tb *TransactionBuilder
 }
 
@@ -327,330 +334,4 @@ func (c *ppsBuilderClient) UpdateJobState(ctx context.Context, req *pps.UpdateJo
 func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreatePipeline: req})
 	return nil, nil
-}
-
-// Boilerplate for making unsupported API requests error when used on a TransactionBuilder
-func unsupportedError(name string) error {
-	return errors.Errorf("the '%s' API call is not supported in transactions", name)
-}
-
-func (c *pfsBuilderClient) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest, opts ...grpc.CallOption) (*pfs.ActivateAuthResponse, error) {
-	return nil, unsupportedError("ActivateAuth")
-}
-func (c *pfsBuilderClient) InspectRepo(ctx context.Context, req *pfs.InspectRepoRequest, opts ...grpc.CallOption) (*pfs.RepoInfo, error) {
-	return nil, unsupportedError("InspectRepo")
-}
-func (c *pfsBuilderClient) ListRepo(ctx context.Context, req *pfs.ListRepoRequest, opts ...grpc.CallOption) (pfs.API_ListRepoClient, error) {
-	return nil, unsupportedError("ListRepo")
-}
-func (c *pfsBuilderClient) InspectCommit(ctx context.Context, req *pfs.InspectCommitRequest, opts ...grpc.CallOption) (*pfs.CommitInfo, error) {
-	return nil, unsupportedError("InspectCommit")
-}
-func (c *pfsBuilderClient) ListCommit(ctx context.Context, req *pfs.ListCommitRequest, opts ...grpc.CallOption) (pfs.API_ListCommitClient, error) {
-	return nil, unsupportedError("ListCommit")
-}
-func (c *pfsBuilderClient) InspectCommitSet(ctx context.Context, req *pfs.InspectCommitSetRequest, opts ...grpc.CallOption) (pfs.API_InspectCommitSetClient, error) {
-	return nil, unsupportedError("InspectCommitSet")
-}
-func (c *pfsBuilderClient) ListCommitSet(ctx context.Context, req *pfs.ListCommitSetRequest, opts ...grpc.CallOption) (pfs.API_ListCommitSetClient, error) {
-	return nil, unsupportedError("ListCommitSet")
-}
-func (c *pfsBuilderClient) DropCommitSet(ctx context.Context, req *pfs.DropCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DropCommitSet")
-}
-func (c *pfsBuilderClient) SubscribeCommit(ctx context.Context, req *pfs.SubscribeCommitRequest, opts ...grpc.CallOption) (pfs.API_SubscribeCommitClient, error) {
-	return nil, unsupportedError("SubscribeCommit")
-}
-func (c *pfsBuilderClient) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("ClearCommit")
-}
-func (c *pfsBuilderClient) InspectBranch(ctx context.Context, req *pfs.InspectBranchRequest, opts ...grpc.CallOption) (*pfs.BranchInfo, error) {
-	return nil, unsupportedError("InspectBranch")
-}
-func (c *pfsBuilderClient) ListBranch(ctx context.Context, req *pfs.ListBranchRequest, opts ...grpc.CallOption) (pfs.API_ListBranchClient, error) {
-	return nil, unsupportedError("ListBranch")
-}
-func (c *pfsBuilderClient) ModifyFile(ctx context.Context, opts ...grpc.CallOption) (pfs.API_ModifyFileClient, error) {
-	return nil, unsupportedError("ModifyFile")
-}
-func (c *pfsBuilderClient) GetFile(ctx context.Context, req *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileClient, error) {
-	return nil, unsupportedError("GetFile")
-}
-func (c *pfsBuilderClient) GetFileTAR(ctx context.Context, req *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileTARClient, error) {
-	return nil, unsupportedError("GetFileTAR")
-}
-func (c *pfsBuilderClient) InspectFile(ctx context.Context, req *pfs.InspectFileRequest, opts ...grpc.CallOption) (*pfs.FileInfo, error) {
-	return nil, unsupportedError("InspectFile")
-}
-func (c *pfsBuilderClient) ListFile(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (pfs.API_ListFileClient, error) {
-	return nil, unsupportedError("ListFile")
-}
-func (c *pfsBuilderClient) WalkFile(ctx context.Context, req *pfs.WalkFileRequest, opts ...grpc.CallOption) (pfs.API_WalkFileClient, error) {
-	return nil, unsupportedError("WalkFile")
-}
-func (c *pfsBuilderClient) GlobFile(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (pfs.API_GlobFileClient, error) {
-	return nil, unsupportedError("GlobFile")
-}
-func (c *pfsBuilderClient) DiffFile(ctx context.Context, req *pfs.DiffFileRequest, opts ...grpc.CallOption) (pfs.API_DiffFileClient, error) {
-	return nil, unsupportedError("DiffFile")
-}
-func (c *pfsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteAll")
-}
-func (c *pfsBuilderClient) Fsck(ctx context.Context, req *pfs.FsckRequest, opts ...grpc.CallOption) (pfs.API_FsckClient, error) {
-	return nil, unsupportedError("Fsck")
-}
-func (c *pfsBuilderClient) CreateFileSet(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateFileSetClient, error) {
-	return nil, unsupportedError("CreateFileSet")
-}
-func (c *pfsBuilderClient) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest, opts ...grpc.CallOption) (*pfs.CreateFileSetResponse, error) {
-	return nil, unsupportedError("GetFileSet")
-}
-func (c *pfsBuilderClient) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("AddFileSet")
-}
-func (c *pfsBuilderClient) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("RenewFileSet")
-}
-func (c *pfsBuilderClient) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetRequest, opts ...grpc.CallOption) (*pfs.CreateFileSetResponse, error) {
-	return nil, unsupportedError("ComposeFileSet")
-}
-func (c *pfsBuilderClient) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest, opts ...grpc.CallOption) (*pfs.CheckStorageResponse, error) {
-	return nil, unsupportedError("CheckStorage")
-}
-func (c *pfsBuilderClient) PutCache(ctx context.Context, req *pfs.PutCacheRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("PutCache")
-}
-func (c *pfsBuilderClient) GetCache(ctx context.Context, req *pfs.GetCacheRequest, opts ...grpc.CallOption) (*pfs.GetCacheResponse, error) {
-	return nil, unsupportedError("GetCache")
-}
-func (c *pfsBuilderClient) ClearCache(ctx context.Context, req *pfs.ClearCacheRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("ClearCache")
-}
-func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
-	return nil, unsupportedError("RunLoadTest")
-}
-func (c *pfsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
-	return nil, unsupportedError("RunLoadTestDefault")
-}
-func (c *pfsBuilderClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (pfs.API_ListTaskClient, error) {
-	return nil, unsupportedError("ListTask")
-}
-
-func (c *ppsBuilderClient) InspectJobSet(ctx context.Context, req *pps.InspectJobSetRequest, opts ...grpc.CallOption) (pps.API_InspectJobSetClient, error) {
-	return nil, unsupportedError("InspectJobSet")
-}
-func (c *ppsBuilderClient) ListJobSet(ctx context.Context, req *pps.ListJobSetRequest, opts ...grpc.CallOption) (pps.API_ListJobSetClient, error) {
-	return nil, unsupportedError("ListJobSet")
-}
-func (c *ppsBuilderClient) InspectJob(ctx context.Context, req *pps.InspectJobRequest, opts ...grpc.CallOption) (*pps.JobInfo, error) {
-	return nil, unsupportedError("InspectJob")
-}
-func (c *ppsBuilderClient) ListJob(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (pps.API_ListJobClient, error) {
-	return nil, unsupportedError("ListJob")
-}
-func (c *ppsBuilderClient) SubscribeJob(ctx context.Context, req *pps.SubscribeJobRequest, opts ...grpc.CallOption) (pps.API_SubscribeJobClient, error) {
-	return nil, unsupportedError("SubscribeJob")
-}
-func (c *ppsBuilderClient) DeleteJob(ctx context.Context, req *pps.DeleteJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteJob")
-}
-func (c *ppsBuilderClient) InspectDatum(ctx context.Context, req *pps.InspectDatumRequest, opts ...grpc.CallOption) (*pps.DatumInfo, error) {
-	return nil, unsupportedError("InspectDatum")
-}
-func (c *ppsBuilderClient) ListDatum(ctx context.Context, req *pps.ListDatumRequest, opts ...grpc.CallOption) (pps.API_ListDatumClient, error) {
-	return nil, unsupportedError("ListDatum")
-}
-func (c *ppsBuilderClient) RestartDatum(ctx context.Context, req *pps.RestartDatumRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("RestartDatum")
-}
-func (c *ppsBuilderClient) InspectPipeline(ctx context.Context, req *pps.InspectPipelineRequest, opts ...grpc.CallOption) (*pps.PipelineInfo, error) {
-	return nil, unsupportedError("InspectPipeline")
-}
-func (c *ppsBuilderClient) ListPipeline(ctx context.Context, req *pps.ListPipelineRequest, opts ...grpc.CallOption) (pps.API_ListPipelineClient, error) {
-	return nil, unsupportedError("ListPipeline")
-}
-func (c *ppsBuilderClient) DeletePipeline(ctx context.Context, req *pps.DeletePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeletePipeline")
-}
-func (c *ppsBuilderClient) StartPipeline(ctx context.Context, req *pps.StartPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("StartPipeline")
-}
-func (c *ppsBuilderClient) StopPipeline(ctx context.Context, req *pps.StopPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("StopPipeline")
-}
-func (c *ppsBuilderClient) RunPipeline(ctx context.Context, req *pps.RunPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("RunPipeline")
-}
-func (c *ppsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteAll")
-}
-func (c *ppsBuilderClient) GetLogs(ctx context.Context, req *pps.GetLogsRequest, opts ...grpc.CallOption) (pps.API_GetLogsClient, error) {
-	return nil, unsupportedError("GetLogs")
-}
-func (c *ppsBuilderClient) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest, opts ...grpc.CallOption) (*pps.ActivateAuthResponse, error) {
-	return nil, unsupportedError("ActivateAuth")
-}
-func (c *ppsBuilderClient) RunCron(ctx context.Context, req *pps.RunCronRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("RunCron")
-}
-func (c *ppsBuilderClient) CreateSecret(ctx context.Context, req *pps.CreateSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("CreateSecret")
-}
-func (c *ppsBuilderClient) DeleteSecret(ctx context.Context, req *pps.DeleteSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteSecret")
-}
-func (c *ppsBuilderClient) InspectSecret(ctx context.Context, req *pps.InspectSecretRequest, opt ...grpc.CallOption) (*pps.SecretInfo, error) {
-	return nil, unsupportedError("InspectSecret")
-}
-func (c *ppsBuilderClient) ListSecret(ctx context.Context, in *types.Empty, opt ...grpc.CallOption) (*pps.SecretInfos, error) {
-	return nil, unsupportedError("ListSecret")
-}
-func (c *ppsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
-	return nil, unsupportedError("RunLoadTest")
-}
-func (c *ppsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
-	return nil, unsupportedError("RunLoadTestDefault")
-}
-func (c *ppsBuilderClient) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest, opts ...grpc.CallOption) (*pps.RenderTemplateResponse, error) {
-	return nil, unsupportedError("RenderTemplate")
-}
-func (c *ppsBuilderClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (pps.API_ListTaskClient, error) {
-	return nil, unsupportedError("ListTask")
-}
-
-func (c *authBuilderClient) Activate(ctx context.Context, req *auth.ActivateRequest, opts ...grpc.CallOption) (*auth.ActivateResponse, error) {
-	return nil, unsupportedError("Activate")
-}
-func (c *authBuilderClient) Deactivate(ctx context.Context, req *auth.DeactivateRequest, opts ...grpc.CallOption) (*auth.DeactivateResponse, error) {
-	return nil, unsupportedError("Deactivate")
-}
-func (c *authBuilderClient) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest, opts ...grpc.CallOption) (*auth.GetConfigurationResponse, error) {
-	return nil, unsupportedError("GetConfiguration")
-}
-func (c *authBuilderClient) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest, opts ...grpc.CallOption) (*auth.SetConfigurationResponse, error) {
-	return nil, unsupportedError("SetConfiguration")
-}
-func (c *authBuilderClient) GetRoleBinding(ctx context.Context, req *auth.GetRoleBindingRequest, opts ...grpc.CallOption) (*auth.GetRoleBindingResponse, error) {
-	return nil, unsupportedError("GetRoleBinding")
-}
-func (c *authBuilderClient) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleBindingRequest, opts ...grpc.CallOption) (*auth.ModifyRoleBindingResponse, error) {
-	return nil, unsupportedError("ModifyRoleBinding")
-}
-func (c *authBuilderClient) DeleteRoleBinding(ctx context.Context, req *auth.Resource, opts ...grpc.CallOption) error {
-	return unsupportedError("DeleteRoleBinding")
-}
-func (c *authBuilderClient) Authenticate(ctx context.Context, req *auth.AuthenticateRequest, opts ...grpc.CallOption) (*auth.AuthenticateResponse, error) {
-	return nil, unsupportedError("Authenticate")
-}
-func (c *authBuilderClient) GetPermissions(ctx context.Context, req *auth.GetPermissionsRequest, opts ...grpc.CallOption) (*auth.GetPermissionsResponse, error) {
-	return nil, unsupportedError("GetPermissions")
-}
-func (c *authBuilderClient) GetPermissionsForPrincipal(ctx context.Context, req *auth.GetPermissionsForPrincipalRequest, opts ...grpc.CallOption) (*auth.GetPermissionsResponse, error) {
-	return nil, unsupportedError("GetPermissionsForPrincipal")
-}
-func (c *authBuilderClient) Authorize(ctx context.Context, req *auth.AuthorizeRequest, opts ...grpc.CallOption) (*auth.AuthorizeResponse, error) {
-	return nil, unsupportedError("Authorize")
-}
-func (c *authBuilderClient) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest, opts ...grpc.CallOption) (*auth.WhoAmIResponse, error) {
-	return nil, unsupportedError("WhoAmI")
-}
-func (c *authBuilderClient) GetRolesForPermission(ctx context.Context, req *auth.GetRolesForPermissionRequest, opts ...grpc.CallOption) (*auth.GetRolesForPermissionResponse, error) {
-	return nil, unsupportedError("GetRolesForPermission")
-}
-func (c *authBuilderClient) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRequest, opts ...grpc.CallOption) (*auth.GetRobotTokenResponse, error) {
-	return nil, unsupportedError("GetRobotToken")
-}
-func (c *authBuilderClient) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest, opts ...grpc.CallOption) (*auth.GetOIDCLoginResponse, error) {
-	return nil, unsupportedError("GetOIDCLogin")
-}
-func (c *authBuilderClient) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest, opts ...grpc.CallOption) (*auth.RevokeAuthTokenResponse, error) {
-	return nil, unsupportedError("RevokeAuthToken")
-}
-func (c *authBuilderClient) RevokeAuthTokensForUser(ctx context.Context, req *auth.RevokeAuthTokensForUserRequest, opts ...grpc.CallOption) (*auth.RevokeAuthTokensForUserResponse, error) {
-	return nil, unsupportedError("RevokeAuthTokensForUser")
-}
-func (c *authBuilderClient) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsForUserRequest, opts ...grpc.CallOption) (*auth.SetGroupsForUserResponse, error) {
-	return nil, unsupportedError("SetGroupsForUser")
-}
-func (c *authBuilderClient) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRequest, opts ...grpc.CallOption) (*auth.ModifyMembersResponse, error) {
-	return nil, unsupportedError("ModifyMembers")
-}
-func (c *authBuilderClient) GetGroups(ctx context.Context, req *auth.GetGroupsRequest, opts ...grpc.CallOption) (*auth.GetGroupsResponse, error) {
-	return nil, unsupportedError("GetGroups")
-}
-func (c *authBuilderClient) GetGroupsForPrincipal(ctx context.Context, req *auth.GetGroupsForPrincipalRequest, opts ...grpc.CallOption) (*auth.GetGroupsResponse, error) {
-	return nil, unsupportedError("GetGroupsForPrincipal")
-}
-func (c *authBuilderClient) GetUsers(ctx context.Context, req *auth.GetUsersRequest, opts ...grpc.CallOption) (*auth.GetUsersResponse, error) {
-	return nil, unsupportedError("GetUsers")
-}
-func (c *authBuilderClient) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuthTokensRequest, opts ...grpc.CallOption) (*auth.ExtractAuthTokensResponse, error) {
-	return nil, unsupportedError("ExtractAuthTokens")
-}
-func (c *authBuilderClient) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthTokenRequest, opts ...grpc.CallOption) (*auth.RestoreAuthTokenResponse, error) {
-	return nil, unsupportedError("RestoreAuthToken")
-}
-
-func (c *enterpriseBuilderClient) Activate(ctx context.Context, req *enterprise.ActivateRequest, opts ...grpc.CallOption) (*enterprise.ActivateResponse, error) {
-	return nil, unsupportedError("Activate")
-}
-func (c *enterpriseBuilderClient) GetState(ctx context.Context, req *enterprise.GetStateRequest, opts ...grpc.CallOption) (*enterprise.GetStateResponse, error) {
-	return nil, unsupportedError("GetState")
-}
-func (c *enterpriseBuilderClient) GetActivationCode(ctx context.Context, req *enterprise.GetActivationCodeRequest, opts ...grpc.CallOption) (*enterprise.GetActivationCodeResponse, error) {
-	return nil, unsupportedError("GetActivationCode")
-}
-func (c *enterpriseBuilderClient) Deactivate(ctx context.Context, req *enterprise.DeactivateRequest, opts ...grpc.CallOption) (*enterprise.DeactivateResponse, error) {
-	return nil, unsupportedError("Deactivate")
-}
-func (c *enterpriseBuilderClient) Heartbeat(ctx context.Context, req *enterprise.HeartbeatRequest, opts ...grpc.CallOption) (*enterprise.HeartbeatResponse, error) {
-	return nil, unsupportedError("Heartbeat")
-}
-
-func (c *versionBuilderClient) GetVersion(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*versionpb.Version, error) {
-	return nil, unsupportedError("GetVersion")
-}
-
-func (c *adminBuilderClient) InspectCluster(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*admin.ClusterInfo, error) {
-	return nil, unsupportedError("InspectCluster")
-}
-
-func (c *transactionBuilderClient) BatchTransaction(ctx context.Context, req *transaction.BatchTransactionRequest, opts ...grpc.CallOption) (*transaction.TransactionInfo, error) {
-	return nil, unsupportedError("BatchTransaction")
-}
-func (c *transactionBuilderClient) StartTransaction(ctx context.Context, req *transaction.StartTransactionRequest, opts ...grpc.CallOption) (*transaction.Transaction, error) {
-	return nil, unsupportedError("StartTransaction")
-}
-func (c *transactionBuilderClient) InspectTransaction(ctx context.Context, req *transaction.InspectTransactionRequest, opts ...grpc.CallOption) (*transaction.TransactionInfo, error) {
-	return nil, unsupportedError("InspectTransaction")
-}
-func (c *transactionBuilderClient) DeleteTransaction(ctx context.Context, req *transaction.DeleteTransactionRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteTransaction")
-}
-func (c *transactionBuilderClient) ListTransaction(ctx context.Context, req *transaction.ListTransactionRequest, opts ...grpc.CallOption) (*transaction.TransactionInfos, error) {
-	return nil, unsupportedError("ListTransaction")
-}
-func (c *transactionBuilderClient) FinishTransaction(ctx context.Context, req *transaction.FinishTransactionRequest, opts ...grpc.CallOption) (*transaction.TransactionInfo, error) {
-	return nil, unsupportedError("FinishTransaction")
-}
-func (c *transactionBuilderClient) DeleteAll(ctx context.Context, req *transaction.DeleteAllRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteAll")
-}
-
-func (c *debugBuilderClient) Profile(ctx context.Context, req *debug.ProfileRequest, opts ...grpc.CallOption) (debug.Debug_ProfileClient, error) {
-	return nil, unsupportedError("Profile")
-}
-func (c *debugBuilderClient) Binary(ctx context.Context, req *debug.BinaryRequest, opts ...grpc.CallOption) (debug.Debug_BinaryClient, error) {
-	return nil, unsupportedError("Binary")
-}
-func (c *debugBuilderClient) Dump(ctx context.Context, req *debug.DumpRequest, opts ...grpc.CallOption) (debug.Debug_DumpClient, error) {
-	return nil, unsupportedError("Dump")
-}
-
-func (c *authBuilderClient) DeleteExpiredAuthTokens(ctx context.Context, req *auth.DeleteExpiredAuthTokensRequest, opts ...grpc.CallOption) (*auth.DeleteExpiredAuthTokensResponse, error) {
-	return nil, unsupportedError("DeleteExpiredAuthTokens")
-}
-func (c *authBuilderClient) RotateRootToken(ctx context.Context, req *auth.RotateRootTokenRequest, opts ...grpc.CallOption) (*auth.RotateRootTokenResponse, error) {
-	return nil, unsupportedError("RotateRootToken")
 }
