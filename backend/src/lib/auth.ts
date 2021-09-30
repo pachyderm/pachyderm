@@ -5,13 +5,19 @@ import {Issuer} from 'openid-client';
 
 import {Account} from '@graphqlTypes';
 
+const WELL_KNOWN_URL = '.well-known/openid-configuration';
+
 export const getTokenIssuer = () => {
   const {ISSUER_URI: issuerUri = ''} = process.env;
 
   // we need to add well-known to the uri to prevent the openid-client library from trying
   // additional uris on failed requests
   const issuerUrl = new URL(issuerUri);
-  issuerUrl.pathname = '/.well-known/openid-configuration';
+  if (issuerUrl.pathname.endsWith('/')) {
+    issuerUrl.pathname += WELL_KNOWN_URL;
+  } else {
+    issuerUrl.pathname += `/${WELL_KNOWN_URL}`;
+  }
 
   return Issuer.discover(issuerUrl.toString());
 };

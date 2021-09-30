@@ -53,7 +53,13 @@ const useAuthenticatedRoute = () => {
       }
 
       const authUrl = new URL(issuerUri);
-      authUrl.pathname = authConfig.authEndpoint;
+
+      if (authUrl.pathname.endsWith('/')) {
+        // remove leading slashes
+        authUrl.pathname += authConfig.authEndpoint.replace(/^\/+/g, '');
+      } else {
+        authUrl.pathname += authConfig.authEndpoint;
+      }
 
       initiateOauthFlow({
         authUrl: authUrl.toString(),
