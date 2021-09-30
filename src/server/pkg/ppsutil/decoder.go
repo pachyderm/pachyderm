@@ -2,12 +2,7 @@ package ppsutil
 
 import (
 	"bytes"
-	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
-	"net/url"
-	"os"
 	"unicode"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -22,36 +17,7 @@ type PipelineManifestReader struct {
 }
 
 // NewPipelineManifestReader creates a new manifest reader from a path.
-func NewPipelineManifestReader(path string) (result *PipelineManifestReader, retErr error) {
-	var pipelineBytes []byte
-	if path == "-" {
-		fmt.Print("Reading from stdin.\n")
-		var err error
-		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			return nil, err
-		}
-	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
-		resp, err := http.Get(url.String())
-		if err != nil {
-			return nil, err
-		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		pipelineBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		var err error
-		pipelineBytes, err = ioutil.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-	}
+func NewPipelineManifestReader(pipelineBytes []byte) *PipelineManifestReader {
 	// TODO(msteffen): if we can get the yaml decoder to handle leading tabs, as
 	// in pps/cmds/cmds_test.go, then we can get rid of this
 	idx := bytes.IndexFunc(pipelineBytes, func(r rune) bool {
@@ -60,11 +26,11 @@ func NewPipelineManifestReader(path string) (result *PipelineManifestReader, ret
 	if idx >= 0 && pipelineBytes[idx] == '{' {
 		return &PipelineManifestReader{
 			decoder: serde.NewJSONDecoder(bytes.NewReader(pipelineBytes)),
-		}, nil
+		}
 	}
 	return &PipelineManifestReader{
 		decoder: serde.NewYAMLDecoder(bytes.NewReader(pipelineBytes)),
-	}, nil
+	}
 }
 
 // NextCreatePipelineRequest gets the next request from the manifest reader.

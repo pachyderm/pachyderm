@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -421,11 +422,11 @@ each datum.`,
 			if pipelineInputPath != "" && len(args) == 1 {
 				return errors.Errorf("can't specify both a job and a pipeline spec")
 			} else if pipelineInputPath != "" {
-				pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineInputPath)
+				pipelineBytes, err := readPipelineBytes(pipelineInputPath)
 				if err != nil {
 					return err
 				}
-				request, err := pipelineReader.NextCreatePipelineRequest()
+				request, err := ppsutil.NewPipelineManifestReader(pipelineBytes).NextCreatePipelineRequest()
 				if err != nil {
 					return err
 				}
@@ -809,11 +810,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}, editorArgs...); err != nil {
 				return err
 			}
-			pipelineReader, err := ppsutil.NewPipelineManifestReader(f.Name())
+			pipelineBytes, err := readPipelineBytes(f.Name())
 			if err != nil {
 				return err
 			}
-			request, err := pipelineReader.NextCreatePipelineRequest()
+			request, err := ppsutil.NewPipelineManifestReader(pipelineBytes).NextCreatePipelineRequest()
 			if err != nil {
 				return err
 			}
@@ -1159,15 +1160,55 @@ you can increase the amount of memory used for the bloom filters with the
 	return commands
 }
 
-func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, username, pipelinePath string, update bool) error {
+// readPipelineBytes reads the pipeline spec or template at 'pipelinePath'
+// (which may be '-' for stdin, a local path, or a remote URL) and returns
+// the bytes stored there.
+//
+// TODO(msteffen) This is very similar to readConfigBytes in
+// s/s/identity/cmds/cmds.go (which differs only in not supporting URLs),
+// so the two could perhaps be refactored.
+func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error) {
+	if pipelinePath == "-" {
+		fmt.Print("Reading from stdin.\n")
+		var err error
+		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, err
+		}
+	} else if url, err := url.Parse(pipelinePath); err == nil && url.Scheme != "" {
+		resp, err := http.Get(url.String())
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		pipelineBytes, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var err error
+		pipelineBytes, err = ioutil.ReadFile(pipelinePath)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pipelineBytes, nil
+}
+
+func pipelineHelper(reprocess, build, pushImages bool, registry, username, pipelinePath string, update bool) error {
 	if build && pushImages {
 		logrus.Warning("`--push-images` is redundant, as it's already enabled with `--build`")
 	}
 
-	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
+	pipelineBytes, err := readPipelineBytes(pipelinePath)
 	if err != nil {
 		return err
 	}
+	pipelineReader := ppsutil.NewPipelineManifestReader(pipelineBytes)
 
 	pc, err := pachdclient.NewOnUserMachine("user")
 	if err != nil {
