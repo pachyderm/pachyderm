@@ -28,7 +28,7 @@ func TestLocal(t *testing.T) {
 				},
 				SetValues: map[string]string{
 					"pachd.activateEnterprise": "true",
-					"pachd.mockIDP":            "true",
+					"oidc.mockIDP":             "true",
 				},
 			},
 			"../pachyderm/", "release-name", nil))
