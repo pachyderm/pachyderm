@@ -68,6 +68,9 @@
                         "oauthRedirectURI": {
                             "type": "string"
                         },
+                        "pachdAddress": {
+                            "type": "string"
+                        },
                         "reactAppRuntimeIssuerURI": {
                             "type": "string"
                         }
@@ -309,8 +312,17 @@
                 "issuerURI": {
                     "type": "string"
                 },
+                "mockIDP": {
+                    "type": "boolean"
+                },
                 "requireVerifiedEmail": {
                     "type": "boolean"
+                },
+                "upstreamIDPs": {
+                    "type": "array"
+                },
+                "userAccessibleOauthIssuerHost": {
+                    "type": "string"
                 }
             }
         },
@@ -388,9 +400,6 @@
                             "type": "string"
                         }
                     }
-                },
-                "mockIDP": {
-                    "type": "boolean"
                 },
                 "oauthClientID": {
                     "type": "string"
@@ -603,12 +612,6 @@
                         }
                     }
                 },
-                "upstreamIDPs": {
-                    "type": "array"
-                },
-                "userAccessibleOauthIssuerHost": {
-                    "type": "string"
-                },
                 "worker": {
                     "type": "object",
                     "properties": {
@@ -644,6 +647,9 @@
         "pgbouncer": {
             "type": "object",
             "properties": {
+                "maxConnections": {
+                    "type": "integer"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -654,9 +660,6 @@
                             "type": "string"
                         }
                     }
-                },
-                "maxConnections": {
-                    "type": "integer"
                 }
             }
         },

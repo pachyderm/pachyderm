@@ -113,7 +113,9 @@ See our oidc connector example in JSON and YAML formats below.
         "clientID": "hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5",
         "clientSecret": "7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL",
         "redirectURI": "http://<ip>:30658/callback",
-        "insecureEnableGroups": true
+        "insecureEnableGroups": true,
+        "insecureSkipEmailVerified": true,
+        "forwardedLoginParams": ["login_hint"] 
         }
     }
     ```
@@ -130,6 +132,9 @@ See our oidc connector example in JSON and YAML formats below.
             clientSecret: 7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL
             redirectURI: http://<ip>:30658/callback
             insecureEnableGroups: true
+            insecureSkipEmailVerified: true
+            forwardedLoginParams:
+            - login_hint
     ```
 
 You will need to replace the following placeholders with relevant values:

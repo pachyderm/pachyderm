@@ -112,22 +112,22 @@ false
 {{- end }}
 
 {{- define "pachyderm.userAccessibleOauthIssuerHost" -}}
-{{- if .Values.pachd.userAccessibleOauthIssuerHost -}}
-{{ .Values.pachd.userAccessibleOauthIssuerHost }}
+{{- if .Values.oidc.userAccessibleOauthIssuerHost -}}
+{{ .Values.oidc.userAccessibleOauthIssuerHost }}
 {{- else if eq .Values.deployTarget "LOCAL" -}}
 localhost:30658
 {{- end -}}
 {{- end }}
 
 {{- define "pachyderm.idps" -}}
-{{- if .Values.pachd.upstreamIDPs }}
-{{ toYaml .Values.pachd.upstreamIDPs | indent 4 }}
-{{- else if or (.Values.pachd.mockIDP) (eq .Values.deployTarget "LOCAL") }}
+{{- if .Values.oidc.upstreamIDPs }}
+{{ toYaml .Values.oidc.upstreamIDPs | indent 4 }}
+{{- else if or (.Values.oidc.mockIDP) (eq .Values.deployTarget "LOCAL") }}
     - id: test
       name: test
       type: mockPassword
       jsonConfig: '{"username": "admin", "password": "password"}'
 {{- else }}
-    {{- fail "either pachd.upstreamIDPs or pachd.mockIDP must be set in non-LOCAL deployments" }}
+    {{- fail "either oidc.upstreamIDPs or oidc.mockIDP must be set in non-LOCAL deployments" }}
 {{- end }}
 {{- end }}
