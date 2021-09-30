@@ -47,7 +47,7 @@ You will find all available modules and functions in [`python-pachyderm` API doc
 
 !!! Attention "Get started"
 	 - Take a look at `python-pachyderm` main Github repository and the [list of useful examples](https://github.com/pachyderm/python-pachyderm/tree/v6.x/examples) that should get you started.
-	 - [Read about the few basic operations you will need to know to start using python-pachyderm](../../how-tos/use-pachyderm-ide/using-pachyderm-ide/).
+	 - [Read about the few operations you will need to know to start using python-pachyderm](../../how-tos/use-pachyderm-ide/using-pachyderm-ide/).
 
 ## Other languages
 
