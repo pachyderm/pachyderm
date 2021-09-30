@@ -26,7 +26,12 @@
   stroke-linejoin: bevel;
 }
 
-.link:hover {
+.hoverLink {
+  stroke: transparent;
+  stroke-width: 12px;
+}
+
+.hoverLink:hover {
   cursor: pointer;
 }
 
@@ -48,7 +53,29 @@
   stroke-dasharray: 5;
 }
 
+.link.hovering {
+  stroke-dasharray: 3;
+  stroke-width: 2px;
+  stroke: var(--grey-7);
+}
+
 .circle {
   fill: var(--cyan-6);
   animation: scaleDown linear 0.8s infinite;
+}
+
+.fastForwardIcon {
+  pointer-events: none;
+}
+
+.fastForwardIconWrapper {
+  stroke-width: 2px;
+  stroke: var(--pachyderm-plum);
+  paint-order: stroke;
+  fill: var(--white);
+  filter: url(#node-dropshadow);
+}
+
+.fastForwardIconWrapper {
+  cursor: pointer;
 }

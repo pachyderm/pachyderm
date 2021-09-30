@@ -17,5 +17,4 @@
 
 :global(.borderRect) {
   fill: transparent;
-  cursor: pointer;
 }

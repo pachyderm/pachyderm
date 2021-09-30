@@ -1,6 +1,5 @@
-import {NodeState} from '@graphqlTypes';
 import {extent} from 'd3-array';
-import {useCallback, useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 
 import {Dag, DagDirection} from '@dash-frontend/lib/types';
 import useRouteController from 'hooks/useRouteController';
@@ -20,18 +19,8 @@ const useDag = ({
   data,
   dagDirection,
 }: useDagProps) => {
-  const {selectedNode, navigateToNode} = useRouteController();
+  const {selectedNode} = useRouteController();
   const [rectBox, setRectBox] = useState({x: 0, y: 0, width: 0, height: 0});
-
-  const handleRectClick = useCallback(() => {
-    const errorNode = data.nodes.find((n) => n.state === NodeState.ERROR);
-
-    if (errorNode) {
-      navigateToNode(errorNode);
-    } else {
-      navigateToNode(data.nodes[0]);
-    }
-  }, [data.nodes, navigateToNode]);
 
   // adjust rect for hover state and dag selection
   useEffect(() => {
@@ -59,7 +48,7 @@ const useDag = ({
     setRectBox,
   ]);
 
-  return {handleRectClick, rectBox};
+  return {rectBox};
 };
 
 export default useDag;

@@ -23,7 +23,7 @@
   text-transform: none;
 }
 
-.base .text:after {
+.base .text.hasArrow:after {
   width: 5px;
   height: 20px;
   margin-left: calc(50% - 20px);

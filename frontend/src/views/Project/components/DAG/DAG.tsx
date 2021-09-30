@@ -28,7 +28,7 @@ const DAG: React.FC<DagProps> = ({
   isInteractive = true,
   dagDirection,
 }) => {
-  const {handleRectClick, rectBox} = useDag({
+  const {rectBox} = useDag({
     data,
     id,
     nodeHeight,
@@ -44,11 +44,11 @@ const DAG: React.FC<DagProps> = ({
         y={rectBox.y}
         width={rectBox.width}
         height={rectBox.height}
-        onClick={handleRectClick}
       />
       {/* Ordering of links and nodes in DOM is important so nodes are on top layer */}
       {data.links.map((link) => (
         <Link
+          nodes={data.nodes}
           key={link.id}
           link={link}
           isInteractive={isInteractive}

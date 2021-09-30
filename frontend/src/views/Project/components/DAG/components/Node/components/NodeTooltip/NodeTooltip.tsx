@@ -1,12 +1,11 @@
 import {NodeType} from '@graphqlTypes';
-import classnames from 'classnames';
 import React from 'react';
 
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 import {Node} from '@dash-frontend/lib/types';
 import {deriveNameFromNodeNameAndType} from 'lib/deriveRepoNameFromNode';
 
-import styles from './NodeTooltip.module.css';
+import Tooltip from '../../../Tooltip';
 
 const NODE_TOOLTIP_WIDTH = 250;
 const NODE_TOOLTIP_HEIGHT = 80;
@@ -68,30 +67,16 @@ const NodeTooltip: React.FC<NodeTooltipProps> = ({
   const isEgress = type === NodeType.EGRESS;
 
   return (
-    <foreignObject
-      className={styles.base}
+    <Tooltip
       width={NODE_TOOLTIP_WIDTH}
       height={NODE_TOOLTIP_HEIGHT}
       y={isEgress ? EGRESS_NODE_TOOLTIP_Y_OFFSET : NODE_TOOLTIP_Y_OFFSET}
       x={isEgress ? EGRESS_NODE_TOOLTIP_X_OFFSET : NODE_TOOLTIP_X_OFFSET}
+      noCaps={isEgress || !access}
+      show={show}
     >
-      <span>
-        <p
-          className={classnames(styles.text, {
-            [styles.noCaps]: isEgress || !access,
-            [styles.show]: show,
-          })}
-          style={{minHeight: `${NODE_TOOLTIP_HEIGHT - 9}px`}}
-        >
-          <TooltipContent
-            name={name}
-            type={type}
-            state={state}
-            access={access}
-          />
-        </p>
-      </span>
-    </foreignObject>
+      <TooltipContent name={name} type={type} state={state} access={access} />
+    </Tooltip>
   );
 };
 

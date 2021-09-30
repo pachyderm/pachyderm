@@ -25,6 +25,7 @@ const SIDEBAR_WIDTH = 384;
 const MIN_DAG_HEIGHT = 300;
 const DAG_TOP_PADDING = 100;
 export const MAX_SCALE_VALUE = 1.5;
+const CENTER_SCALE_VALUE = 1;
 const DEFAULT_MINIMUM_SCALE_VALUE = 0.6;
 
 interface DagState {
@@ -260,13 +261,14 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
 
       const selectedNodeCenterX =
         (svgSize.width - SIDEBAR_WIDTH) / 2 -
-        (centerNode.x + nodeWidth / 2) * MAX_SCALE_VALUE;
+        (centerNode.x + nodeWidth / 2) * CENTER_SCALE_VALUE;
       const selectedNodeCenterY =
-        svgSize.height / 2 - (centerNode.y + nodeHeight / 2) * MAX_SCALE_VALUE;
+        svgSize.height / 2 -
+        (centerNode.y + nodeHeight / 2) * CENTER_SCALE_VALUE;
 
       const transform = zoomIdentity
         .translate(selectedNodeCenterX, selectedNodeCenterY)
-        .scale(MAX_SCALE_VALUE);
+        .scale(CENTER_SCALE_VALUE);
 
       const transition = svg.transition().on('interrupt', () => {
         zoomRef.current?.transform(svg.transition(), transform);
