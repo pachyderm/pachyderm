@@ -16,6 +16,8 @@ spec:
   {{- if .Values.ingress.tls.enabled }}
   tls:
     - secretName: {{ required "if ingress.tls.enabled you must specify ingress.tls.secretName" .Values.ingress.tls.secretName }}
+      hosts:
+       - {{ required "ingress.host is required when ingress.enabled" .Values.ingress.host | quote }}
   {{- end }}
   rules:
     - host: {{ required "ingress.host is required when ingress.enabled" .Values.ingress.host | quote }}
