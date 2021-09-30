@@ -37,6 +37,7 @@ require (
 	github.com/golang/snappy v0.0.1
 	github.com/google/go-cmp v0.5.0 // indirect
 	github.com/google/go-github v17.0.0+incompatible
+	github.com/google/go-jsonnet v0.17.0 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0

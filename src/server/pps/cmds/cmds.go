@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-jsonnet"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -622,14 +623,18 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var registry string
 	var username string
 	var pipelinePath string
+	var jsonnetPath string
+	var jsonnetArgs []string
 	createPipeline := &cobra.Command{
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(false, build, pushImages, registry, username, pipelinePath, false)
+			return pipelineHelper(false, build, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, false)
 		}),
 	}
-	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
+	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A file (URL or filepath) containing one or more pipeline specs. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
+	createPipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "A Jsonnet template file (url or filepath) for a pipeline spec. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
+	createPipeline.Flags().StringSliceVar(&jsonnetArgs, "arg", nil, "Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arugments are passed). Value must be of the form 'param=value'. For multiple args, --arg may be set more than once, or it may be passed a comma-separated list of 'param=value' pairs.")
 	createPipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
@@ -641,10 +646,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(reprocess, build, pushImages, registry, username, pipelinePath, true)
+			return pipelineHelper(reprocess, build, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, true)
 		}),
 	}
-	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
+	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A file (URL or filepath) containing one or more pipeline specs. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
+	updatePipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "A Jsonnet template file (url or filepath) for a pipeline spec. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
+	updatePipeline.Flags().StringSliceVar(&jsonnetArgs, "arg", nil, "Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arugments are passed). Value must be of the form 'param=value'. For multiple args, --arg may be set more than once, or it may be passed a comma-separated list of 'param=value' pairs.")
 	updatePipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
@@ -1160,6 +1167,27 @@ you can increase the amount of memory used for the bloom filters with the
 	return commands
 }
 
+func evaluateJsonnetTemplate(jsonnetPath string, jsonnetArgs []string) ([]byte, error) {
+	templateBytes, err := readPipelineBytes(jsonnetPath)
+	if err != nil {
+		return nil, err
+	}
+	vm := jsonnet.MakeVM()
+	for _, argStr := range jsonnetArgs {
+		kv := strings.SplitN(argStr, "=", 2)
+		if len(kv) != 2 {
+			return nil, errors.Errorf("invalid template argument %q: must have form \"key=value\"", argStr)
+		}
+		vm.TLAVar(kv[0], kv[1])
+
+	}
+	output, err := vm.EvaluateAnonymousSnippet(jsonnetPath, string(templateBytes))
+	if err != nil {
+		return nil, errors.Wrapf(err, "template err")
+	}
+	return []byte(output), nil
+}
+
 // readPipelineBytes reads the pipeline spec or template at 'pipelinePath'
 // (which may be '-' for stdin, a local path, or a remote URL) and returns
 // the bytes stored there.
@@ -1199,12 +1227,27 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 	return pipelineBytes, nil
 }
 
-func pipelineHelper(reprocess, build, pushImages bool, registry, username, pipelinePath string, update bool) error {
+func pipelineHelper(reprocess, build, pushImages bool, registry, username, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool) error {
+	// validate arguments
+	if pipelinePath != "" && jsonnetPath != "" {
+		return errors.New("cannot set both --file and --jsonnet; exactly one must be set")
+	}
+	if pipelinePath == "" && jsonnetPath == "" {
+		pipelinePath = "-" // default input
+	}
+
 	if build && pushImages {
 		logrus.Warning("`--push-images` is redundant, as it's already enabled with `--build`")
 	}
 
-	pipelineBytes, err := readPipelineBytes(pipelinePath)
+	// read/compute pipeline spec(s) (file, stdin, url, or via template)
+	var pipelineBytes []byte
+	var err error
+	if pipelinePath != "" {
+		pipelineBytes, err = readPipelineBytes(pipelinePath)
+	} else if jsonnetPath != "" {
+		pipelineBytes, err = evaluateJsonnetTemplate(jsonnetPath, jsonnetArgs)
+	}
 	if err != nil {
 		return err
 	}
