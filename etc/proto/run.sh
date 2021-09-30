@@ -18,24 +18,27 @@ tar -C "${GOPATH}/src/github.com/pachyderm/pachyderm" -xf /dev/stdin
 #    exit 1
 #fi
 
-go get github.com/gogo/protobuf/protoc-gen-gogofast
+go get github.com/gogo/protobuf/protoc-gen-gogofast > /dev/stderr
 
 cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
 
-# Run the bespoke pachyderm codegen plugin
-cd etc/proto/pachgen
-go mod init
-go mod tidy
-go build -o "${GOPATH}/bin/protoc-gen-pach"
-cd -
-cd src
+# Build then run the bespoke pachyderm codegen plugin
+pushd etc/proto/pachgen > /dev/stderr
+go mod init > /dev/stderr
+go mod tidy > /dev/stderr
+go build -o "${GOPATH}/bin/protoc-gen-pach" > /dev/stderr
+popd > /dev/stderr
+
+mkdir -p v2/src
+pushd src > /dev/stderr
 protoc \
     --proto_path . \
     --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
     "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
-    --pach_out="." \
+    --pach_out="../v2/src" \
     $(find . -name "*.proto") > /dev/stderr
-cd -
+popd > /dev/stderr
+
 
 # shellcheck disable=SC2044
 for i in $(find src -name "*.proto"); do \
@@ -59,4 +62,5 @@ done
 # TODO (brendon): figure out how to configure protoc
 cd v2
 
+find . > /dev/stderr
 find src -regex ".*\.go" -print0 | xargs -0 tar cf -
