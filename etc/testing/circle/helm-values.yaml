@@ -6,7 +6,8 @@ pachd:
     type: NodePort
   image:
     tag: local
-  storage: 
+  storage:
+    backend: MINIO
     minio:
       bucket: "pachyderm-test"
       endpoint: "minio.default.svc.cluster.local:9000"
