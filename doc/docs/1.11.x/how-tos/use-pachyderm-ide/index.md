@@ -46,7 +46,7 @@ the `pachctl` tool, `python-pachyderm` is the right choice.
 ### Difference in Pipeline Creation Methods
 
 `python-pachyderm` supports the standard
-[create_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html#python_pachyderm.Client.create_pipeline)
+[create_pipeline](https://python-pachyderm.readthedocs.io/en/v6.x/python_pachyderm.mixin.html?highlight=create_pipeline#python_pachyderm.mixin.pps.PPSMixin.create_pipeline)
 method that is
 also available through the Pachyderm CLI and UI. When you use
 `create_pipeline`, you need to build a new Docker image and push
@@ -57,7 +57,7 @@ use this method for all non-Python code.
 
 When you use `python-pachyderm`, in addition to the
 `create_pipeline` method,
-you can use the [create_python_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html#python_pachyderm.create_python_pipeline)
+you can use the [create_python_pipeline](https://python-pachyderm.readthedocs.io/en/v6.x/python_pachyderm.html#python_pachyderm.util.create_python_pipeline)
 function that does not require
 you to include your code in a Docker image and rebuild it each time you make
 a change. Instead, this function creates a PFS repository

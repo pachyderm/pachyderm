@@ -3,9 +3,9 @@
 `pachctl` is the command-line tool you use 
 to interact with a Pachyderm cluster in your terminal. 
 However,  external applications might need to
-interact with Pachyderm directly through an interface.
+interact with Pachyderm directly through our APIs.
 
-In this case, Pachyderm offers language-specific APIs in Go, Python, and JS.
+In this case, Pachyderm offers language specific SDKs in Go, Python, and JS.
 
 ## Go Client
 
@@ -14,7 +14,7 @@ The Pachyderm team officially supports the Go client. It implements most of the 
 For more info, check out the [godocs](https://godoc.org/github.com/pachyderm/pachyderm/src/client).
 
 !!! Attention
-     A compatible version of `gRPC` is needed when using the Go client.  You can deduce the compatible version by searching for the version number next to `replace google.golang.org/grpc => google.golang.org/grpc` in https://github.com/pachyderm/pachyderm/blob/master/go.mod then:
+     A compatible version of `gRPC` is needed when using the Go client.  You can identify the compatible version by searching for the version number next to `replace google.golang.org/grpc => google.golang.org/grpc` in https://github.com/pachyderm/pachyderm/blob/master/go.mod then:
 
 
 	```shell
@@ -53,9 +53,9 @@ You will find all you need to get you started or dive into the details of the av
 
 ## Node Client
 
-Our Javascript client `node-pachyderm` is a library officially supported by Pachyderm and **used in production by Pachyderm Console**. 
-Today, we provide all the read operations necessary to our UI. 
-We will add more functions as our Console evolves; however, there are no near-term plans to reach parity with python-pachyderm yet. 
+Our Javascript client `node-pachyderm` is a library officially supported by Pachyderm and **used in production by Pachyderm Console**.  
+
+Today, we provide only read operations as shown in Console. Over time, we will add additional functionality to the SDK. However, there are no near-term plans to reach parity with python-pachyderm yet.
 
 Please get in touch with us if you are [interested in contributing](https://github.com/pachyderm/node-pachyderm/blob/main/contributing.md) or ask your questions on our dedicated [slack channel](https://pachyderm-users.slack.com/archives/C028ZV066JY).
 

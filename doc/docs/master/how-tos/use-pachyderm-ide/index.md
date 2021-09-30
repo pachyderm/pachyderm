@@ -7,9 +7,9 @@
 
 ## Overview
 
-Pachyderm Notebooks is a **JupyterHub server and a customized JupyterLab UI running next to your Pachyderm cluster**.
+Pachyderm Notebooks is a **customized JupyterHub deployment running inside and authenticated to your Pachyderm cluster.**.
 
-The Jupiter notebooks spawned from Notebooks provide data scientists with a familiar way to sample (mount repositories) or experiment with data and code written in Python. 
+The Jupyter notebooks spawned from Notebooks provide data scientists with a familiar way to sample (mount repositories) or experiment with data and code written in Python. 
 Because those experiments are running on Pachyderm, Data scientists benefit from the complete reproducibility that data versioning and lineage offer, while ML engineers can productionize those pipelines faster, efficiently, and securely.
 
 ## Base Image
@@ -29,10 +29,11 @@ Any additional library can be installed running `pip install` from a cell.
 !!! Note 
      See the `deploy-manage` section of this documentation to learn how to connect to Notebooks or simply click on the `Notebooks` button of your workspace on [Hub](https://hub.pachyderm.com).
 
-The landing page of Notebooks takes you to an **Intro to Pachyderm Tutorial notebook**. 
-Follow along to learn the basics of Pachyderm (repos, pipelines, commits, etc...) from your familiar Jupiter notebook. 
 
-![Notebooks Landing Page](../images/notebooks-landing-page.png)
+From the landing page of Notebooks, in the `/examples` directory, click on the **Intro to Pachyderm Tutorial**. 
+Follow along to learn the basics of Pachyderm (repos, pipelines, commits, etc...) from your familiar Jupyter notebook. 
+
+![Notebooks tutorial](../images/notebooks-tutorial.png)
 
 !!! Note 
-     You might have noticed that we used `pachctl` in this Tutorial. Feel free to use 'python-pachyderm' instead. 
+     This Tutorial uses Pachyderm's CLI `pachctl`. Feel free to use 'python-pachyderm' instead. 
