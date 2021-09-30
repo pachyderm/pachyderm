@@ -8,8 +8,8 @@ pachd:
     tag: local
   storage: 
     minio:
-      bucket: "pachyderm_test"
-      endpoint: "minio.default.svc.cluster.local"
+      bucket: "pachyderm-test"
+      endpoint: "minio.default.svc.cluster.local:9000"
       id: "minioadmin"
       secret: "minioadmin"
       secure: "false"
