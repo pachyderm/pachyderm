@@ -14,19 +14,9 @@ pachd:
   metrics:
     enabled: false
   clusterDeploymentID: dev
-  ## if pachd.enterpriseLicenseKey is set, the following values will be interpreted to setup Auth
+  # to enable enterprise features pass in pachd.activateEnterprise=true, and a valid pachd.enterpriseLicenseKey
+  activateEnterprise: false
   # enterpriseLicenseKey: ""
-  oauthIssuer: "http://pachd:1658"
-  oauthRedirectURI: "http://localhost:30657/authorization-code/callback"
-  userAccessibleOauthIssuerHost: "localhost:30658"
-  mockIDP: true
-
-console:
-  enabled: false
-  config:
-    issuerURI: "http://pachd:1658"
-    oauthRedirectURI: "http://localhost:4000/oauth/callback/?inline=true"
-    reactAppRuntimeIssuerURI: "http://localhost:30658"
 
 etcd:
   service:

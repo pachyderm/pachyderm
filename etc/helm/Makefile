@@ -29,9 +29,6 @@ kubeval-gcp-tls:
 kubeval-hub:
 	helm template pachyderm -f examples/hub-values.yaml | kubeval --strict
 
-kubeval-local:
-	helm template pachyderm -f examples/local-values.yaml | kubeval --strict
-
 kubeval-local-dev:
 	helm template pachyderm -f examples/local-dev-values.yaml | kubeval --strict
 

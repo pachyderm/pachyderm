@@ -32,14 +32,11 @@ console:
   podLabels: {}
   resources: {}
   config:
-    issuerURI: ""
     reactAppRuntimeIssuerURI: ""
     oauthRedirectURI: ""
     oauthClientID: ""
     oauthClientSecret: ""
     graphqlPort: 4000
-    oauthPachdClientID: ""
-    pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
 
   service:
     labels: {}
@@ -93,6 +90,14 @@ ingress:
       crt: ""
       key: ""
 
+oidc:
+  issuerURI: "" #Inferred if running locally or using ingress
+  requireVerifiedEmail: false
+  IDTokenExpiry: 24h
+  upstreamIDPs: []
+  mockIDP: false
+  userAccessibleOauthIssuerHost: ""
+
 pachd:
   enabled: true
   affinity: {}
@@ -121,16 +126,14 @@ pachd:
     labels: {}
     type: "ClusterIP"
 
+  activateEnterprise: false
   enterpriseLicenseKey: ""
   rootToken: ""
   enterpriseSecret: ""
-  oauthClientId: "pachd"
+  oauthClientID: "pachd"
   oauthClientSecret: ""
-  oauthIssuer: ""
   oauthRedirectURI: ""
-  userAccessibleOauthIssuerHost: ""
-  upstreamIDPs: []
-  mockIDP: false
+  localhostIssuer: ""
   serviceAccount:
     create: true
     additionalAnnotations: {}
@@ -243,14 +246,6 @@ cloudsqlAuthProxy:
 
     console:
       enabled: true
-      config:
-        issuerURI: "http://localhost:30658/"
-        oauthRedirectURI: "http://localhost:4000/oauth/callback/?inline=true"
-        oauthClientID: "console"
-        oauthClientSecret: "abc"
-        graphqlPort: 4000
-        oauthPachdClientID: "pachd"
-        pachdAddress: "pachd-peer.default.svc.cluster.local:30653"
     ```
 
 ### deployTarget
@@ -307,8 +302,6 @@ This section is to configure the Pachyderm UI (`console`) which requires an ente
 
 This is where the primary configuration settings for the console are configured, including authentication.
 
-- `config.issuerURI` is the pachd oauth address accessible to console within the kubernetes cluster. The default is generally fine here.
-
 - `config.reactAppRuntimeIssuerURI` this is the pachd oauth address thats accesible to clients outside of the cluster itself. When running local with `kubectl port-forward` this would be set to localhost (`"http://localhost:30658/"`). Otherwiswe this has to be an address acessible to clients.
 
 - `config.oauthRedirectURI` this is the oauth callback address within console that the pachd oauth service would redirect to. It's the URL of console with `/oauth/callback/?inline=true` appended. Running locally its therefore `"http://localhost:4000/oauth/callback/?inline=true"`.
@@ -318,10 +311,6 @@ This is where the primary configuration settings for the console are configured,
 - `config.oauthClientSecret` the secret configured for the client with pachd
 
 - `config.graphqlPort` the http port that the console service will be accessible on.
-
-- `config.oauthPachdClientID` the identifier for pachd's oauth client.
-
-- `config.pachdAddress` the address that console can access pachd at. It must be set if you install pachyderm in a different namespace than default. The format is `"pachd-peer.<namespace>.svc.cluster.local:30653"`
 
 ### etcd
 
@@ -381,6 +370,22 @@ There are three options for configuring TLS on the ingress under `ingress.tls`.
 1. `enabled`, using an existing secret. You must set enabled to true and provide a secret name where the exiting cert and key are stored.
 1. `enabled`, using a new secret. You must set enabled to true and `newSecret.create` to true and specify a secret name, and a cert and key in string format
 
+## oidc
+
+This section is to configure the oidc settings within pachyderm.
+
+- `oidc.issuerURI` specifies the Oauth Issuer. Inferred if running locally or using ingress.
+
+- `oidc.requireVerifiedEmail` specifies whether email verification is required for authentication.
+
+- `oidc.IDTokenExpiry` specifies the duration where OIDC ID Tokens are valid.
+
+- `oidc.upstreamIDPs` specifies a list of Identity Providers to use for authentication.
+
+- `oidc.mockIDP` when set to `true`, specifes to ignore `upstreamIDPs` in favor of a placeholder IDP with a preset username/password.
+
+- `oidc.userAccessibleOauthIssuerHost` specifies the Oauth issuer's address host that's used in the Oauth authorization redirect URI. This value is only necessary in local settings or anytime the registered Issuer address isn't accessible outside the cluster.
+
 ### pachd
 
 This section is to configure the pachd deployment.
@@ -411,25 +416,21 @@ This section is to configure the pachd deployment.
 
 - `pachd.service.type` specifies the Kubernetes type of the pachd service. The default is `ClusterIP`.
 
+- `pachd.activateEnterprise` specifies whether to activate enterprise features.
+
 - `pachd.enterpriseLicenseKey` specify the enterprise license key if you have one.
 
 - `pachd.rootToken` is the auth token used to communicate with the cluster as the root user.
 
 - `pachd.enterpriseSecret` specifies the enterprise cluster secret.
 
-- `pachd.oauthClientId` specifies the Oauth client ID representing pachd.
+- `pachd.oauthClientID` specifies the Oauth client ID representing pachd.
 
 - `pachd.oauthClientSecret` specifies the Oauth client secret.
 
-- `pachd.oauthIssuer` specifies the Oauth Issuer.
-
 - `pachd.oauthRedirectURI` specifies the Oauth redirect URI served by pachd.
 
-- `pachd.userAccessibleOauthIssuerHost` specifies the Oauth issuer's address host that's used in the Oauth authorization redirect URI. This value is only necessary in local settings or anytime the registered Issuer address isn't accessible outside the cluster.
-
-- `pachd.upstreamIDPs` specifies a list of Identity Providers to use for authentication.
-
-- `pachd.mockIDP` when set to `true`, specifes to ignore `upstreamIDPs` in favor of a placeholder IDP with a preset username/password.
+- `pachd.localhostIssuer` specifies to pachd whether dex is embedded in its process. This value can be set to "true", "false", or "".
 
 If any of `rootToken`,`enterpriseSecret`, or `oauthClientSecret` are blank, a value will be generated automatically. When using autogenerated value for the initial install, it must be pulled from the config secret and added to values.yaml for future helm upgrades.
 
