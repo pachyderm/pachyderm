@@ -1,4 +1,4 @@
-deployTarget: LOCAL
+deployTarget: custom
 dash:
   enabled: false
 pachd:
