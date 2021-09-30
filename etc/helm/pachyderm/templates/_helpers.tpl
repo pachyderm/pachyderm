@@ -42,7 +42,11 @@ imagePullSecrets:
 {{- else if .Values.ingress.host -}}
 https://{{ .Values.ingress.host }}/dex
 {{- else if eq .Values.deployTarget "LOCAL" -}}
+{{- if eq .Values.pachd.service.type "NodePort" -}}
 http://pachd:1658
+{{- else -}}
+http://pachd:30658
+{{- end -}}
 {{- else -}}
 {{ fail "For Authentication, an OIDC Issuer for this pachd must be set." }}
 {{- end -}}
@@ -50,9 +54,8 @@ http://pachd:1658
 
 {{- /*
 reactAppRuntimeIssuerURI: The URI without the path of the user accessible issuerURI. 
-ie. In local deployments, this is http://localhost:30658/, while the issuer URI is http://pachd:1658
+ie. In local deployments, this is http://localhost:30658, while the issuer URI is http://pachd:30658
 In deployments where the issuerURI is user accessible (ie. Via ingress) this would be the issuerURI without the path
-Trailing slash? 
 */ -}}
 {{- define "pachyderm.reactAppRuntimeIssuerURI" -}}
 {{- if .Values.console.config.reactAppRuntimeIssuerURI -}}
@@ -60,7 +63,7 @@ Trailing slash?
 {{- else if .Values.ingress.host -}}
 https://{{ .Values.ingress.host }}
 {{- else if eq .Values.deployTarget "LOCAL" -}}
-http://localhost:30658/
+http://localhost:30658
 {{- end }}
 {{- end }}
 
