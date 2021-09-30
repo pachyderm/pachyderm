@@ -118,6 +118,7 @@ pachd:
     labels: {}
     type: "ClusterIP"
 
+  activateEnterprise: false
   enterpriseLicenseKey: ""
   rootToken: ""
   enterpriseSecret: ""
@@ -393,6 +394,8 @@ This section is to configure the pachd deployment.
 - `pachd.externalService.s3GatewayPort` is the desired s3 gateway port (30600 is default).
 
 - `pachd.service.type` specifies the Kubernetes type of the pachd service. The default is `ClusterIP`.
+
+- `pachd.activateEnterprise` specifies whether to activate enterprise features.
 
 - `pachd.enterpriseLicenseKey` specify the enterprise license key if you have one.
 
