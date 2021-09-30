@@ -124,5 +124,7 @@ localhost:30658
       name: test
       type: mockPassword
       jsonConfig: '{"username": "admin", "password": "password"}'
+{{- else }}
+    {{- fail "either pachd.upstreamIDPs or pachd.mockIDP must be set in non-LOCAL deployments" }}
 {{- end }}
 {{- end }}
