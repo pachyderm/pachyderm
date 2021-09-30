@@ -107,9 +107,8 @@
   --salmon: #fe9b7c;
   --light-blue: #5ba3b1;
   --purple: #a5597e;
-  width: 120px;
+  min-width: 120px;
   position: relative;
-  margin: 200px 50px 0;
   pointer-events: none;
 }
 
@@ -158,6 +157,9 @@ img {
 }
 
 .body {
+  background-image: url(./body.webp);
+  background-size: cover;
+  height: 100px;
   position: absolute;
   width: 100%;
   bottom: 0;
@@ -170,6 +172,9 @@ img {
   left: 0;
   width: 56.66%;
   transform-origin: 70% 70%;
+}
+
+.head.isAnimating {
   animation: head 1.4s 0.525s linear infinite;
 }
 
@@ -182,16 +187,25 @@ img {
 }
 
 .trunk {
+  background-image: url(./trunk.webp);
+  background-size: cover;
+  height: 52px;
   position: absolute;
   width: 36.9%;
   top: 0;
   left: 16.8%;
   z-index: -1;
   transform-origin: 60% 84%;
+}
+
+.trunk.isAnimating {
   animation: trunk 1.4s 0.14s linear infinite;
 }
 
-  .skull {
+.skull {
+  background-image: url(./head.webp);
+  background-size: cover;
+  height: 44px;
   position: absolute;
   bottom: 0;
   right: 0;

@@ -1,63 +1,66 @@
 import classNames from 'classnames';
 import React from 'react';
 
-import body from './body.webp';
-import head from './head.webp';
 import styles from './LoadingPachyderm.module.css';
-import trunk from './trunk.webp';
 
 type LoadingPachydermProps = {
   freeTrial?: boolean;
+  isAnimating?: boolean;
 };
 
-const LoadingPachyderm: React.FC<LoadingPachydermProps> = ({freeTrial}) => {
+const LoadingPachyderm: React.FC<LoadingPachydermProps> = ({
+  freeTrial,
+  isAnimating,
+}) => {
   return (
     <div className={styles.logoWrapper}>
-      <div className={styles.bounce}>
-        <div className={styles.spin}>
-          <svg
-            className={classNames(styles.shape, styles.triangle)}
-            viewBox="0 0 70 60"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path d="M35 0L69.641 60H0.358982L35 0Z" fill="currentColor" />
-          </svg>
+      {isAnimating && (
+        <div className={styles.bounce}>
+          <div className={styles.spin}>
+            <svg
+              className={classNames(styles.shape, styles.triangle)}
+              viewBox="0 0 70 60"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M35 0L69.641 60H0.358982L35 0Z" fill="currentColor" />
+            </svg>
+          </div>
+          <div className={styles.spin}>
+            <svg
+              className={classNames(styles.shape, styles.square)}
+              viewBox="0 0 60 60"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect width="60" height="60" fill="currentColor" />
+            </svg>
+          </div>
+          <div className={styles.spin}>
+            <svg
+              className={classNames(styles.shape, styles.circle)}
+              viewBox="0 0 60 60"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle cx="30" cy="30" r="30" fill="currentColor" />
+            </svg>
+          </div>
+          <div className={styles.spin}>
+            <svg
+              className={classNames(styles.shape, styles.pentagon)}
+              viewBox="0 0 63 60"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M31.5 0L62.4093 22.4569L50.603 58.7931H12.397L0.590664 22.4569L31.5 0Z"
+                fill="currentColor"
+              />
+            </svg>
+          </div>
         </div>
-        <div className={styles.spin}>
-          <svg
-            className={classNames(styles.shape, styles.square)}
-            viewBox="0 0 60 60"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <rect width="60" height="60" fill="currentColor" />
-          </svg>
-        </div>
-        <div className={styles.spin}>
-          <svg
-            className={classNames(styles.shape, styles.circle)}
-            viewBox="0 0 60 60"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <circle cx="30" cy="30" r="30" fill="currentColor" />
-          </svg>
-        </div>
-        <div className={styles.spin}>
-          <svg
-            className={classNames(styles.shape, styles.pentagon)}
-            viewBox="0 0 63 60"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M31.5 0L62.4093 22.4569L50.603 58.7931H12.397L0.590664 22.4569L31.5 0Z"
-              fill="currentColor"
-            />
-          </svg>
-        </div>
-      </div>
+      )}
       <div className={styles.char}>
         {freeTrial && (
           <svg
@@ -109,10 +112,18 @@ const LoadingPachyderm: React.FC<LoadingPachydermProps> = ({freeTrial}) => {
             </g>
           </svg>
         )}
-        <img className={styles.body} src={body} alt="" />
-        <div className={styles.head}>
-          <img className={styles.trunk} src={trunk} alt="" />
-          <img className={styles.skull} src={head} alt="" />
+        <div className={styles.body} />
+        <div
+          className={classNames(styles.head, {
+            [styles.isAnimating]: isAnimating,
+          })}
+        >
+          <div
+            className={classNames(styles.skull, {
+              [styles.isAnimating]: isAnimating,
+            })}
+          />
+          <div className={styles.trunk} />
         </div>
       </div>
     </div>
