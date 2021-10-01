@@ -293,11 +293,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		})
 	}
 
-	zeroVal := int64(0)
 	workerImage := a.workerImage
 	var securityContext *v1.PodSecurityContext
 	if a.workerUsesRoot {
-		securityContext = &v1.PodSecurityContext{RunAsUser: &zeroVal}
+		securityContext = &v1.PodSecurityContext{RunAsUser: int64Ptr(0)}
+	} else {
+		securityContext = &v1.PodSecurityContext{
+			RunAsUser:  int64Ptr(1001),
+			RunAsGroup: int64Ptr(1001),
+		}
 	}
 	resp, err := a.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
@@ -368,7 +372,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
-		TerminationGracePeriodSeconds: &zeroVal,
+		TerminationGracePeriodSeconds: int64Ptr(0),
 		SecurityContext:               securityContext,
 	}
 	if options.schedulingSpec != nil {
@@ -809,4 +813,8 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 	}
 
 	return nil
+}
+
+func int64Ptr(x int64) *int64 {
+	return &x
 }
