@@ -139,6 +139,8 @@ export class OIDCConfig extends jspb.Message {
     setRequireEmailVerified(value: boolean): OIDCConfig;
     getLocalhostIssuer(): boolean;
     setLocalhostIssuer(value: boolean): OIDCConfig;
+    getUserAccessibleIssuerHost(): string;
+    setUserAccessibleIssuerHost(value: string): OIDCConfig;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): OIDCConfig.AsObject;
@@ -159,6 +161,7 @@ export namespace OIDCConfig {
         scopesList: Array<string>,
         requireEmailVerified: boolean,
         localhostIssuer: boolean,
+        userAccessibleIssuerHost: string,
     }
 }
 

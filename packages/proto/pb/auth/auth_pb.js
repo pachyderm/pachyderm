@@ -2042,7 +2042,8 @@ proto.auth_v2.OIDCConfig.toObject = function(includeInstance, msg) {
     redirectUri: jspb.Message.getFieldWithDefault(msg, 4, ""),
     scopesList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
     requireEmailVerified: jspb.Message.getBooleanFieldWithDefault(msg, 6, false),
-    localhostIssuer: jspb.Message.getBooleanFieldWithDefault(msg, 7, false)
+    localhostIssuer: jspb.Message.getBooleanFieldWithDefault(msg, 7, false),
+    userAccessibleIssuerHost: jspb.Message.getFieldWithDefault(msg, 8, "")
   };
 
   if (includeInstance) {
@@ -2106,6 +2107,10 @@ proto.auth_v2.OIDCConfig.deserializeBinaryFromReader = function(msg, reader) {
     case 7:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setLocalhostIssuer(value);
+      break;
+    case 8:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setUserAccessibleIssuerHost(value);
       break;
     default:
       reader.skipField();
@@ -2182,6 +2187,13 @@ proto.auth_v2.OIDCConfig.serializeBinaryToWriter = function(message, writer) {
   if (f) {
     writer.writeBool(
       7,
+      f
+    );
+  }
+  f = message.getUserAccessibleIssuerHost();
+  if (f.length > 0) {
+    writer.writeString(
+      8,
       f
     );
   }
@@ -2330,6 +2342,24 @@ proto.auth_v2.OIDCConfig.prototype.getLocalhostIssuer = function() {
  */
 proto.auth_v2.OIDCConfig.prototype.setLocalhostIssuer = function(value) {
   return jspb.Message.setProto3BooleanField(this, 7, value);
+};
+
+
+/**
+ * optional string user_accessible_issuer_host = 8;
+ * @return {string}
+ */
+proto.auth_v2.OIDCConfig.prototype.getUserAccessibleIssuerHost = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 8, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.auth_v2.OIDCConfig} returns this
+ */
+proto.auth_v2.OIDCConfig.prototype.setUserAccessibleIssuerHost = function(value) {
+  return jspb.Message.setProto3StringField(this, 8, value);
 };
 
 
