@@ -165,7 +165,7 @@ For a set of standard roles, read the [GCP IAM permissions documentation](https:
 ### Create your values.yaml
 Update your values.yaml with your bucket name.
 
-Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml)) or use `--set-file storage.google.cred=<my-key>.json` when running the following helm install. 
+Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml)) or use `--set-file pachd.storage.google.cred=<my-key>.json` when running the following helm install. 
 
 !!! Note
     Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation.
@@ -178,7 +178,7 @@ Now you can deploy a Pachyderm cluster by running this command:
 ```shell
 $ helm repo add pach https://helm.pachyderm.com
 $ helm repo update
-$ helm install pachd -f my_values.yaml pach/pachyderm --set-file storage.google.cred=<my-key>.json.
+$ helm install pachd -f my_values.yaml pach/pachyderm --set-file pachd.storage.google.cred=<my-key>.json.
 ```
 
 **System Response:**
@@ -234,12 +234,7 @@ If you see a few restarts on the `pachd` pod, you can safely ignore them.
 That simply means that Kubernetes tried to bring up those containers
 before other components were ready, so it restarted them.
 
-### Install `pachctl`
-
-`pachctl` is a command-line utility for interacting with a Pachyderm cluster. You install it locally by [following those steps](../../../getting_started/local_installation/#install-pachctl).
-
-
-### Have 'pachctl' and your Cluster Communicate
+## 5- Have 'pachctl' and your Cluster Communicate
 
 Finally, assuming your `pachd` is running as shown above, 
 make sure that `pachctl` can talk to the cluster by:
@@ -285,7 +280,7 @@ pachctl             {{ config.pach_latest_version }}
 pachd               {{ config.pach_latest_version }}
 ```
 
-## 5- Advanced Setups
+## 6- Advanced Setups
 ### Increase Ingress Throughput
 
 One way to improve Ingress performance is to restrict Pachd to
