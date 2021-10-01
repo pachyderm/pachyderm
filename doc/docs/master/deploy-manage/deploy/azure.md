@@ -401,7 +401,7 @@ you might accidentally deploy your cluster on Minikube.
     the `etcd` nodes are ready which might result in the `pachd` nodes
     restarting. You can safely ignore those restarts.
 
-Have 'pachctl' and your Cluster Communicate
+## Have 'pachctl' and your Cluster Communicate
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
@@ -433,3 +433,17 @@ If you're not exposing `pachd` publicly, you can run:
 # Background this process because it blocks.
 $ pachctl port-forward
 ``` 
+
+## Check That Your Cluster Is Up And Running
+
+```shell
+$ pachctl version
+```
+
+**System Response:**
+
+```shell
+COMPONENT           VERSION
+pachctl             {{ config.pach_latest_version }}
+pachd               {{ config.pach_latest_version }}
+```

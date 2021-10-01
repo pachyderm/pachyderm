@@ -170,6 +170,7 @@ deploy Pachyderm on your local cluster by following these steps:
       More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/).
 
 ## Check your install
+
 Check the status of the Pachyderm pods by periodically
 running `kubectl get pods`. When Pachyderm is ready for use,
 all Pachyderm pods must be in the **Running** status.
@@ -200,42 +201,60 @@ If you see a few restarts on the `pachd` nodes, that means that
 Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
 Kubernetes restarted those pods. Re-run `kubectl get pods`
 
-1. Run `pachctl version` to verify that `pachd` has been deployed.
+## Have 'pachctl' and your Cluster Communicate
 
-      ```shell
-      $ pachctl version
-      ```
+Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
-      **System Response:**
+* If you exposed your cluster to the internet by setting up a LoadBalancer in the `values.yaml` as follow:
 
-      ```shell
-      COMPONENT           VERSION
-      pachctl             {{ config.pach_latest_version }}
-      pachd               {{ config.pach_latest_version }}
-      ```
-   
-1. Open a new terminal window.
-1. Use port forwarding to access the Pachyderm Console (Pachyderm UI).
+     ```yaml
+     pachd:
+      service:
+        type: LoadBalancer
+     ```
 
-      ```shell
-      pachctl port-forward
-      ```
+    1. Retrieve the external IP address of the service.  When listing your services again, you should see an external IP address allocated to the `pachd` service 
 
-      This command runs continuosly and does not exit unless you interrupt it.
+        ```shell
+        $ kubectl get service
+        ```
 
-1. Minikube users: you can alternatively set up Pachyderm to directly connect to the Minikube instance:
+    1. Update the context of your cluster with their direct url, using the external IP address above:
 
-   * Get your Minikube IP address:
+        ```shell
+        $ echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+        ```
 
-      ```shell
-      minikube ip
-      ```
+    1. Check that your are using the right context: 
 
-   * Configure Pachyderm to connect directly to the Minikube instance:
+        ```shell
+        $ pachctl config get active-context`
+        ```
 
-      ```shell
-      pachctl config update context `pachctl config get active-context` --pachd-address=<minikube ip>:30080
-      ```
+        Your cluster context name should show up.
+
+
+* If you're not exposing `pachd` publicly, you can run:
+
+    ```shell
+    # Background this process because it blocks.
+    $ pachctl port-forward
+    ``` 
+    Open a new terminal window. This command does not exit unless you interrupt it.
+
+* Verify that `pachctl` and your cluster are connected:
+
+    ```shell
+    $ pachctl version
+    ```
+
+    **System Response:**
+
+    ```
+    COMPONENT           VERSION
+    pachctl             {{ config.pach_latest_version }}
+    pachd               {{ config.pach_latest_version }}
+    ```
 
 ## Next Steps
 
