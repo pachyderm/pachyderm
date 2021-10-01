@@ -18,6 +18,8 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: minio
+  labels:
+    app: minio
 spec:
   selector:
     matchLabels:
@@ -47,6 +49,8 @@ spec:
   volumeClaimTemplates:
   - metadata:
       name: minio-data
+      labels:
+        app: minio
     spec:
       accessModes: [ "ReadWriteOnce"]
       storageClassName: "standard"
