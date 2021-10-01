@@ -6,6 +6,7 @@ set -ex
 source "$(dirname "$0")/env.sh"
 
 # add a PodSecurityPolicy which disables root
+kubectl delete psp restricted privileged || true
 kubectl apply -f etc/testing/circle/pod-security-policy.yaml
 
 # deploy object storage
