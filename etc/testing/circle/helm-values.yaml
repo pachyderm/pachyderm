@@ -1,6 +1,5 @@
 deployTarget: custom
-dash:
-  enabled: false
+
 pachd:
   service:
     type: NodePort

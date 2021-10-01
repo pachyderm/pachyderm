@@ -1,24 +1,19 @@
 # Pachyderm Integration with Identity Providers
 
 !!! Note
-    Return to our [Enterprise landing page](https://docs.pachyderm.com/latest/enterprise/) if you do not have a key.
-
-    Before connecting your IdP to Pachyderm, verify that
-    the [Authentication](../index.md/#activate-user-access-management) is enabled by running `pachctl auth whoami`.
-
-    The command should return `You are "pach:root" `(i.e., your are the **Root User** with `clusterAdmin` privileges). 
-    
-    Run `pachctl auth use-auth-token` to login as a Root User.
+    - Return to our [Enterprise landing page](https://docs.pachyderm.com/latest/enterprise/) if you do not have an enterprise key.
+    - Before connecting your IdP to Pachyderm, verify that
+    the [Authentication](../index.md/#activate-user-access-management) is enabled by running `pachctl auth whoami`. The command should return `You are "pach:root" `(i.e., your are the **Root User** with `clusterAdmin` privileges). 
+    - Run `pachctl auth use-auth-token` to login as a Root User.
     
 
-Enable your users to authenticate to Pachyderm by logging into their favorite Identity Provider by
-following those 3 steps:
+Enable your users to authenticate to Pachyderm by logging into their favorite Identity Provider in 3 steps:
 
-1. Register the Pachyderm Application with your IdP.
-1. Set up and create your Idp-Pachyderm connector.
-1. Login.
+1. [Register the Pachyderm Application with your IdP](#1-register-a-pachyderm-application-with-your-idp).
+1. [Set up and create your Idp-Pachyderm connector](#2-set-up-and-create-an-idp-pachyderm-connector).
+1. [Login](#3-login).
 
-Your users should now be able to [log in](./login.md).
+Your users should now be able to [login to Pachyderm](./login.md).
 
 We chose to illustrate those steps
 by using Auth0 as our Identity Provider.
@@ -113,7 +108,9 @@ See our oidc connector example in JSON and YAML formats below.
         "clientID": "hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5",
         "clientSecret": "7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL",
         "redirectURI": "http://<ip>:30658/callback",
-        "insecureEnableGroups": true
+        "insecureEnableGroups": true,
+        "insecureSkipEmailVerified": true,
+        "forwardedLoginParams": ["login_hint"] 
         }
     }
     ```
@@ -130,6 +127,9 @@ See our oidc connector example in JSON and YAML formats below.
             clientSecret: 7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL
             redirectURI: http://<ip>:30658/callback
             insecureEnableGroups: true
+            insecureSkipEmailVerified: true
+            forwardedLoginParams:
+            - login_hint
     ```
 
 You will need to replace the following placeholders with relevant values:

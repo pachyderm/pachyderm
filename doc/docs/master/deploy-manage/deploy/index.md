@@ -58,6 +58,10 @@ deployment options and related topics:
           Deploy on Azure
           </a>
           </li>
+          <li><a href="on_premises/" class="md-typeset md-link">
+          Deploy On Premises
+          </a>
+          </li>
           <li><a href="helm_install/" class="md-typeset md-link">
           Helm install / uninstall
           </a>
@@ -72,17 +76,13 @@ deployment options and related topics:
   <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Custom Deployments &nbsp;&nbsp;&nbsp;<i class="fa fa-book"></i></h4>
+        <h4 class="mdl-card__title-text">Additional Customizations &nbsp;&nbsp;&nbsp;<i class="fa fa-book"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
         Customized deployment options.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="deploy_custom/" class="md-typeset md-link">
-           Create a Custom Deployment
-           </a>
-           </li>
            <li><a href="import-kubernetes-context/" class="md-typeset md-link">
            Import a Kubernetes Context
            </a>
