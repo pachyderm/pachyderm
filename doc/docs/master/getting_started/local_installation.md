@@ -207,43 +207,42 @@ Assuming your `pachd` is running as shown above, make sure that `pachctl` can ta
 
 * If you exposed your cluster to the internet by setting up a LoadBalancer in the `values.yaml` as follow:
 
-      ```yaml
-      pachd:
-            service:
-            type: LoadBalancer
-      ```
+     ```yaml
+     pachd:
+      service:
+        type: LoadBalancer
+     ```
 
-      1. Retrieve the external IP address of the service.  When listing your services again, you should see an external IP address allocated to the `pachd` service 
+    1. Retrieve the external IP address of the service.  When listing your services again, you should see an external IP address allocated to the `pachd` service 
 
-            ```shell
-            $ kubectl get service
-            ```
-            **Note**: Minikube users: Get your Minikube IP address to connect directly to the Minikube instance by running `minikube ip`.
+        ```shell
+        $ kubectl get service
+        ```
 
-      1. Update the context of your cluster with their direct url, using the external IP address above:
+    1. Update the context of your cluster with their direct url, using the external IP address above:
 
-            ```shell
-            $ echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
-            ```
+        ```shell
+        $ echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+        ```
 
-      1. Check that your are using the right context: 
+    1. Check that your are using the right context: 
 
-            ```shell
-            $ pachctl config get active-context`
-            ```
-            Your cluster context name should show up.
+        ```shell
+        $ pachctl config get active-context`
+        ```
+
+        Your cluster context name should show up.
 
 
+* If you're not exposing `pachd` publicly, you can run:
 
-* If you're not exposing `pachd` publicly, use port forwarding:
+    ```shell
+    # Background this process because it blocks.
+    $ pachctl port-forward
+    ``` 
+    Open a new terminal window. This command does not exit unless you interrupt it.
 
-      ```shell
-      # Background this process.
-      $ pachctl port-forward
-      ``` 
-      Open a new terminal window. This command runs continuously and does not exit unless you interrupt it.
-
-* Verify that the Pachyderm cluster is up and running:
+* Verify that `pachctl` and your cluster are connected:
 
     ```shell
     $ pachctl version
@@ -256,7 +255,6 @@ Assuming your `pachd` is running as shown above, make sure that `pachctl` can ta
     pachctl             {{ config.pach_latest_version }}
     pachd               {{ config.pach_latest_version }}
     ```
-
 
 ## Next Steps
 

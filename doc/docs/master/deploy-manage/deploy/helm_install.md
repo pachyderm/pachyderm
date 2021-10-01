@@ -42,10 +42,6 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
     ```shell
     $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm
     ```
-!!! Info
-    You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`). 
-    **Each version of a chart is associated with a given version of Pachyderm**. No mention of the version will install the latest available version of Pachyderm by default. 
-    [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) lists all available chart versions and their associated version of Pachyderm. 
 
 1. Check your deployment
     ```shell
@@ -63,6 +59,11 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
     pachd-5db79fb9dd-b2gdq         1/1     Running   2          18h
     postgres-0                     1/1     Running   0          18h
     ```
+
+!!! Info "To choose a specific helm chart version"
+     You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`). 
+     **Each version of a chart is associated with a given version of Pachyderm**. No mention of the version will install the latest available version of Pachyderm by default. 
+     [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) lists all available chart versions and their associated version of Pachyderm. 
 
 ### Install `pachctl`
 
