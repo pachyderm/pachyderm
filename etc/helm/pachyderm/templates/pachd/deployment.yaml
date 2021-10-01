@@ -193,16 +193,16 @@ spec:
         secret:
           secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
       {{- end }}
-      initContainers:
-      - name: init-etcd
-        image: busybox:1.28
-        command: ['sh', '-c', "until wget http://etcd:2379/version; do echo waiting for etcd; sleep 2; done"]
-      {{- if or .Values.postgresql.enabled }}
-      - name: init-postgres
-        image: postgres:13.0-alpine
-        command: ['sh', '-c', "until pg_isready -h postgres -p 5432; do echo waiting for postgres; sleep 2; done"]
-      {{- end }}
-      - name: init-pgbouncer
-        image: postgres:13.0-alpine
-        command: ['sh', '-c', "until pg_isready -h pg-bouncer -p 5432; do echo waiting for postgres; sleep 2; done"]
+      # initContainers:
+      # - name: init-etcd
+      #   image: joeshaw/busybox-nonroot
+      #   command: ['sh', '-c', "until wget http://etcd:2379/version; do echo waiting for etcd; sleep 2; done"]
+      # {{- if or .Values.postgresql.enabled }}
+      # - name: init-postgres
+      #   image: postgres:13.0-alpine
+      #   command: ['sh', '-c', "until pg_isready -h postgres -p 5432; do echo waiting for postgres; sleep 2; done"]
+      # {{- end }}
+      # - name: init-pgbouncer
+      #   image: postgres:13.0-alpine
+      #   command: ['sh', '-c', "until pg_isready -h pg-bouncer -p 5432; do echo waiting for postgres; sleep 2; done"]
 {{- end }}

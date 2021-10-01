@@ -58,6 +58,9 @@ spec:
               fieldPath: metadata.namespace
         image: "{{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}"
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
+        securityContext:
+          runAsUser: 1001
+          runAsGroup: 1001
         name: etcd
         ports:
         - containerPort: 2379
