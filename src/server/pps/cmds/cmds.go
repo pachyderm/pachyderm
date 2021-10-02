@@ -625,11 +625,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var pipelinePath string
 	var jsonnetPath string
 	var jsonnetArgs []string
+	var dryRun bool
 	createPipeline := &cobra.Command{
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(false, build, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, false)
+			return pipelineHelper(false, build, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, dryRun, false)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A file (URL or filepath) containing one or more pipeline specs. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
@@ -639,6 +640,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
+	createPipeline.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "Print the pipeline spec, instead of deploying it.")
 	commands = append(commands, cmdutil.CreateAlias(createPipeline, "create pipeline"))
 
 	var reprocess bool
@@ -646,7 +648,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(reprocess, build, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, true)
+			return pipelineHelper(reprocess, build, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, dryRun, true)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A file (URL or filepath) containing one or more pipeline specs. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
@@ -657,6 +659,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
+	updatePipeline.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "Print the pipeline spec, instead of deploying it.")
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
 	runPipeline := &cobra.Command{
@@ -1227,7 +1230,7 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 	return pipelineBytes, nil
 }
 
-func pipelineHelper(reprocess, build, pushImages bool, registry, username, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool) error {
+func pipelineHelper(reprocess, build, pushImages bool, registry, username, pipelinePath, jsonnetPath string, jsonnetArgs []string, dryRun, update bool) error {
 	// validate arguments
 	if pipelinePath != "" && jsonnetPath != "" {
 		return errors.New("cannot set both --file and --jsonnet; exactly one must be set")
@@ -1350,14 +1353,19 @@ func pipelineHelper(reprocess, build, pushImages bool, registry, username, pipel
 						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
 			}
 		}
-		if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
-			_, err := txClient.PpsAPIClient.CreatePipeline(
-				txClient.Ctx(),
-				request,
-			)
-			return grpcutil.ScrubGRPC(err)
-		}); err != nil {
-			return err
+		if dryRun {
+			encoder("json").EncodeProto(request)
+			fmt.Println()
+		} else {
+			if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
+				_, err := txClient.PpsAPIClient.CreatePipeline(
+					txClient.Ctx(),
+					request,
+				)
+				return grpcutil.ScrubGRPC(err)
+			}); err != nil {
+				return err
+			}
 		}
 	}
 

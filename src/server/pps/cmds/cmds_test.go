@@ -1093,6 +1093,58 @@ func TestJsonnetPipelineTemplate(t *testing.T) {
 		`).Run())
 }
 
+func TestJsonnetPipelineTemplateDryRun(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		expected_output='{
+		  "pipeline": {
+		    "name": "foo-pipeline"
+		  },
+		  "transform": {
+		    "cmd": [
+		      "/bin/bash"
+		    ],
+		    "stdin": [
+		      "cp /pfs/input/* /pfs/out/bar"
+		    ]
+		  },
+		  "input": {
+		    "pfs": {
+		      "name": "input",
+		      "repo": "data",
+		      "glob": "/*"
+		    }
+		  }
+		}'
+		actual_output="$(
+		  pachctl create pipeline \
+		  --jsonnet - \
+		  --arg name=foo \
+		  --arg output=bar \
+		  --dry-run \
+		  <<EOF | tail -n "$(wc -l <<<"${expected_output}")"
+		function(name, output) {
+		  pipeline: { name: name+"-pipeline" },
+		  input: {
+		    pfs: {
+		      name: "input",
+		      glob: "/*",
+		      repo: "data"
+		    }
+		  },
+		  transform: {
+		    cmd: [ "/bin/bash" ],
+		    stdin: [ "cp /pfs/input/* /pfs/out/"+output ]
+		  }
+		}
+		EOF
+		)"
+		test "${expected_output}" = "${actual_output}"
+		`).Run())
+}
+
 func TestJsonnetPipelineTemplateError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
