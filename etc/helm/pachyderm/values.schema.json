@@ -350,6 +350,9 @@
                 "externalService": {
                     "type": "object",
                     "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
                         "apiGRPCPort": {
                             "type": "integer"
                         },
