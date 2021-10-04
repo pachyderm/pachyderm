@@ -1,16 +1,12 @@
 # Notebooks (beta)
 
-!!! Warning
-     - Notebooks is a [**beta**](../../../../contributing/supported-releases/#beta) release.
-     - Notebooks (Pachyderm IDE) is an enterprise feature. Request your FREE 30-day [**Enterprise Edition trial token**](https://www.pachyderm.com/trial) or create a workspace on our Saas
-     solution [Hub](https://hub.pachyderm.com) and experiment with Notebooks right away.
-
+!!! Warning 
+     - Notebooks [**beta**](../../../../contributing/supported-releases/#beta) is available on our Saas solution [Hub](https://hub.pachyderm.com). 
+     - Create a workspace and experiment with Notebooks right away with our **21 days Free Workspace**.
 ## Overview
 
 Pachyderm Notebooks is a **customized JupyterHub deployment running inside and authenticated to your Pachyderm cluster.**.
-
-The Jupyter notebooks spawned from Notebooks provide data scientists with a familiar way to sample (mount repositories) or experiment with data and code written in Python. 
-Because those experiments are running on Pachyderm, Data scientists benefit from the complete reproducibility that data versioning and lineage offer, while ML engineers can productionize those pipelines faster, efficiently, and securely.
+The Jupyter notebooks spawned from Notebooks provide data scientists with a familiar way to sample (mount repositories) or experiment with data and code written in Python. Because those experiments are running on Pachyderm, Data scientists benefit from the complete reproducibility that data versioning and lineage offer. At the same time, ML engineers can productionize those pipelines faster, efficiently, and securely.
 
 ## Base Image
 
@@ -20,14 +16,15 @@ Our Notebooks instances come with a pre-installed suite of packages, including:
  - Our [Python Client `python-pachyderm`](../../reference/clients/#python-client). 
  - Our Command-Line Tool `pachctl`.
 
-Any additional library can be installed running `pip install` from a cell.
+Run `pip install` from a cell to install any additional library.
 
 !!! Note 
-     We have also included a selection of data science examples running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. In the `/examples` directory, you will also find integration examples with opensource products that would complete your ML stack such as labeling or model serving applications.
+     We have included a selection of data science examples running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. In the `/examples` directory, you will also find integration examples with opensource products that complete your ML stack, such as labeling or model serving applications.
+     
 ## Getting Started
 
 !!! Note 
-     See the `deploy-manage` section of this documentation to learn how to connect to Notebooks or simply click on the `Notebooks` button of your workspace on [Hub](https://hub.pachyderm.com).
+     Simply click on the `Notebooks` button of your workspace on [Hub](https://hub.pachyderm.com).
 
 
 From the landing page of Notebooks, in the `/examples` directory, click on the **Intro to Pachyderm Tutorial**. 
