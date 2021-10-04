@@ -46,6 +46,10 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
+          <li><a href="recommendations/" class="md-typeset md-link">
+          Production Infrastructure Recommendations
+          </a>
+          </li>
           <li><a href="google_cloud_platform/" class="md-typeset md-link">
           Deploy on GKE
           </a>

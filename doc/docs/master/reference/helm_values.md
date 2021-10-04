@@ -382,7 +382,7 @@ This section is to configure the oidc settings within pachyderm.
 
 - `oidc.upstreamIDPs` specifies a list of Identity Providers to use for authentication.
 
-- `oidc.mockIDP` when set to `true`, specifes to ignore `upstreamIDPs` in favor of a placeholder IDP with a preset username/password.
+- `oidc.mockIDP` when set to `true`, specifes to ignore `upstreamIDPs` in favor of a placeholder IDP with a username/password preset to "admin" and "password".
 
 - `oidc.userAccessibleOauthIssuerHost` specifies the Oauth issuer's address host that's used in the Oauth authorization redirect URI. This value is only necessary in local settings or anytime the registered Issuer address isn't accessible outside the cluster.
 

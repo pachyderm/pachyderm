@@ -166,6 +166,16 @@ deploy Pachyderm on your local cluster by following these steps:
    $ helm install pachd pach/pachyderm --set deployTarget=LOCAL
    ```
 
+* To install pachyderm with console and authentication set up, run the following helm installation:
+   ```shell
+   $ helm install pachd pach/pachyderm --set deployTarget=LOCAL --set pachd.activateEnterprise=true --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true
+   ```
+!!! Note
+     * To use a temporary enterprise license key, [click here](../../enterprise).
+     * By default, a mock Identity Provider will be set up with username & password set to, `admin` &`password` respectively. 
+         - To configure your Identiy Provider as a part of `helm install`, see examples for the `upstreamIDPs` value in the [helm chart values specification](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
+         - To set up an Identity Provider later using `pachctl`, see [our IDP Configuration document](../../enterprise/auth/authentication/idp-dex).
+
 !!! Info "See Also"
       More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/).
 
