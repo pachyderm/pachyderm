@@ -11,11 +11,12 @@ sudo apt-get install -y -qq \
   conntrack
 
 # Install Helm
-curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -
-sudo apt-get install apt-transport-https --yes
-echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
-sudo apt-get update
-sudo apt-get install helm
+if [ ! -f cached-deps/helm ]; then
+  HELM_VERSION=3.5.4
+  curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz \
+      | tar xzf - linux-amd64/helm
+      mv ./linux-amd64/helm cached-deps/helm
+fi
 
 # Install kubectl
 # To get the latest kubectl version:
