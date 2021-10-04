@@ -185,17 +185,8 @@ eventLoop:
 			func(e *pipelineEvent) {
 				m.opsInProcessMu.Lock()
 				defer m.opsInProcessMu.Unlock()
-
-				var ot opType
-				switch e.eventType {
-				case writeEv:
-					ot = writeOp
-				case deleteEv:
-					ot = deleteOp
-				}
-
 				if pipelineOp, ok := m.opsInProcess[e.pipeline]; ok {
-					pipelineOp.Bump(ot) // raises flag in pipelineOp to run again whenever it finishes
+					pipelineOp.Bump() // raises flag in pipelineOp to run again whenever it finishes
 				} else {
 					// Initialize op ctx (cancelled at the end of pipelineOp.Start(), to avoid leaking
 					// resources), whereas masterClient is passed by the
@@ -204,7 +195,7 @@ eventLoop:
 					opCtx, opCancel := context.WithCancel(m.masterCtx)
 					pipelineOp = m.newPipelineOp(opCtx, opCancel, e.pipeline)
 					m.opsInProcess[e.pipeline] = pipelineOp
-					go pipelineOp.Start(ot, e.timestamp)
+					go pipelineOp.Start(e.timestamp)
 				}
 			}(e)
 		case <-m.masterCtx.Done():

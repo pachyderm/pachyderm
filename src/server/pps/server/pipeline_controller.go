@@ -38,14 +38,6 @@ const (
 	rcExpected
 )
 
-type opType byte
-
-const (
-	noOp opType = iota
-	writeOp
-	deleteOp
-)
-
 func max(is ...int) int {
 	if len(is) == 0 {
 		return 0
@@ -81,9 +73,7 @@ type pipelineOp struct {
 
 	// writeBump and deleteBump represent whether a write or delete operation should
 	// be executed once the active pipelineOp goroutine is complete.
-	writeBump       bool
-	deleteBump      bool
-	bumpCnt         int
+	bumpChan        chan struct{}
 	opsLock         *sync.Mutex
 	allOpsInProcess map[string]*pipelineOp
 }
@@ -113,33 +103,18 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 
 		opsLock:         &m.opsInProcessMu,
 		allOpsInProcess: m.opsInProcess,
+
+		bumpChan: make(chan struct{}, 1),
 	}
 	return op
 }
 
 // this function is expected to be called synchronosly. master.run() handles this by locking with master.opsInProcessMu
-func (op *pipelineOp) Bump(t opType) {
-	op.bumpCnt++
-	switch t {
-	case writeOp:
-		op.writeBump = true
-		op.deleteBump = false
-	case deleteOp:
-		op.writeBump = false
-		op.deleteBump = true
+func (op *pipelineOp) Bump() {
+	select {
+	case op.bumpChan <- struct{}{}:
+	default:
 	}
-}
-
-func (op *pipelineOp) getAndUnsetBump() opType {
-	if op.writeBump {
-		op.writeBump = false
-		return writeOp
-	}
-	if op.deleteBump {
-		op.deleteBump = false
-		return deleteOp
-	}
-	return noOp
 }
 
 // Start calls step for the given pipeline in a backoff loop.
@@ -149,11 +124,11 @@ func (op *pipelineOp) getAndUnsetBump() opType {
 //
 // Other errors are simply logged and ignored, assuming that some future polling
 // of the pipeline will succeed.
-func (op *pipelineOp) Start(t opType, timestamp time.Time) {
-	nextOt := t
+func (op *pipelineOp) Start(timestamp time.Time) {
+	op.Bump()
 	for {
-		switch nextOt {
-		case writeOp:
+		select {
+		case <-op.bumpChan:
 			var errCount int
 			var stepErr stepError
 			err := backoff.RetryNotify(func() error {
@@ -183,31 +158,8 @@ func (op *pipelineOp) Start(t opType, timestamp time.Time) {
 				log.Errorf("PPS master: error starting a pipelineOp for pipeline '%s': %v", op.pipeline,
 					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
 			}
-
-		case deleteOp:
-			if err := op.deletePipelineResources(); err != nil {
-				log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipeline,
-					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
-			}
-		}
-
-		// we use the opsLock to guard getting and unsetting this op's bump state
-		func() {
-			op.opsLock.Lock()
-			defer op.opsLock.Unlock()
-			switch op.getAndUnsetBump() {
-			case writeOp:
-				nextOt = writeOp
-			case deleteOp:
-				nextOt = deleteOp
-			case noOp:
-				op.masterOpCancel()
-				delete(op.allOpsInProcess, op.pipeline)
-				nextOt = noOp
-			}
-		}()
-		if nextOt == noOp {
-			break
+		case <-op.ctx.Done():
+			return
 		}
 	}
 }
@@ -249,6 +201,25 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 			retry: false,
 		}
 	}); err != nil {
+		// I don't like the IsNotFoundError works with string comparison.
+		// What if we add a not found in the message in an instance where the DB records are indeed foud?
+		if errutil.IsNotFoundError(err) {
+			// we interpret no pipeline def as this event being a delete event
+			if err := op.deletePipelineResources(); err != nil {
+				log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipeline,
+					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
+			}
+			// unregister pipelineOp
+			func() {
+				op.opsLock.Lock()
+				defer op.opsLock.Unlock()
+				op.masterOpCancel()
+				delete(op.allOpsInProcess, op.pipeline)
+			}()
+
+			log.Infof("PPS master: successfully deleted pipeline: %q", op.pipeline)
+			return nil
+		}
 		return err
 	}
 
