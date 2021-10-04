@@ -7,6 +7,7 @@ Complete the following steps:
 
 1. [Create an S3 bucket](#create-an-S3-object-store-bucket-for-data) for your data and grant Pachyderm access.
 1. [Enable Persistent Volumes Creation](#2-enable-your-persistent-volumes-creation)
+1. (Optional) [Create An AWS Managed PostgreSQL Instance](#3-optional-amazon-rds-aws-managed-postgresql-database)
 1. [Deploy Pachyderm ](#3-deploy-pachyderm)
 1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster]((#have-pachctl-and-your-cluster-communicate)).
 1. And check that your cluster is [up and running](#5-check-that-your-cluster-is-up-and-running)
@@ -161,7 +162,7 @@ In that case, you will need to:
 - Create an environment to run your AWS PostgreSQL databases. It is important to note that you will be creating **two databases** (`pachyderm` and `dex`).
 - Update your values.yaml to turn off the installation of the bundled postgreSQL and provide your new instance information.
 
-### Create An AWS Managed Postgres Instance
+### Create An AWS Managed PostgreSQL Instance
 
 !!! Info 
       You will find all the steps highlighted below in [AWS "Getting Started" hands-on tutorial](https://aws.amazon.com/getting-started/hands-on/create-connect-postgresql-db/).
