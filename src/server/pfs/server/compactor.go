@@ -8,6 +8,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
@@ -48,7 +49,7 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 	return c.storage.CompactLevelBased(ctx, ids, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 		var id *fileset.ID
 		if err := c.compactionQueue.RunTaskBlock(ctx, func(master *work.Master) error {
-			workerFunc := func(ctx context.Context, tasks []fileset.CompactionTask) ([]fileset.ID, error) {
+			workerFunc := func(ctx context.Context, renewer *fileset.Renewer, tasks []fileset.CompactionTask) ([]fileset.ID, error) {
 				workTasks := make([]*work.Task, len(tasks))
 				for i, task := range tasks {
 					serInputs := make([]string, len(task.Inputs))
@@ -81,6 +82,7 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 					if err != nil {
 						return err
 					}
+					renewer.Add(*id)
 					results[int(res.Index)] = *id
 					return nil
 				}); err != nil {
@@ -102,30 +104,37 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 func (c *compactor) compactionWorker(ctx context.Context) error {
 	return backoff.RetryUntilCancel(ctx, func() error {
 		return c.worker.Run(ctx, func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
-			task, err := deserializeCompactionTask(subtask.Data)
-			if err != nil {
-				return nil, err
-			}
-			ids := []fileset.ID{}
-			for _, input := range task.Inputs {
-				id, err := fileset.ParseID(input)
+			var result *types.Any
+			if err := miscutil.LogStep("processing compaction task", func() error {
+				task, err := deserializeCompactionTask(subtask.Data)
 				if err != nil {
-					return nil, err
+					return err
 				}
-				ids = append(ids, *id)
-			}
-			pathRange := &index.PathRange{
-				Lower: task.Range.Lower,
-				Upper: task.Range.Upper,
-			}
-			id, err := c.storage.Compact(ctx, ids, defaultTTL, index.WithRange(pathRange))
-			if err != nil {
+				ids := []fileset.ID{}
+				for _, input := range task.Inputs {
+					id, err := fileset.ParseID(input)
+					if err != nil {
+						return err
+					}
+					ids = append(ids, *id)
+				}
+				pathRange := &index.PathRange{
+					Lower: task.Range.Lower,
+					Upper: task.Range.Upper,
+				}
+				id, err := c.storage.Compact(ctx, ids, defaultTTL, index.WithRange(pathRange))
+				if err != nil {
+					return err
+				}
+				result, err = serializeCompactionResult(&CompactionTaskResult{
+					Index: task.Index,
+					Id:    id.HexString(),
+				})
+				return err
+			}); err != nil {
 				return nil, err
 			}
-			return serializeCompactionResult(&CompactionTaskResult{
-				Index: task.Index,
-				Id:    id.HexString(),
-			})
+			return result, nil
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Printf("error in compaction worker: %v", err)

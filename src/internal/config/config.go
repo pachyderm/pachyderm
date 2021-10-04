@@ -231,7 +231,7 @@ func (c *Config) write() error {
 		panic("config V1 included (this is a bug)")
 	}
 
-	rawConfig, err := serde.EncodeJSON(c)
+	rawConfig, err := serde.EncodeJSON(c, serde.WithIndent(2))
 	if err != nil {
 		return err
 	}

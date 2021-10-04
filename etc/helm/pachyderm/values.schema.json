@@ -59,16 +59,10 @@
                         "graphqlPort": {
                             "type": "integer"
                         },
-                        "issuerURI": {
-                            "type": "string"
-                        },
                         "oauthClientID": {
                             "type": "string"
                         },
                         "oauthClientSecret": {
-                            "type": "string"
-                        },
-                        "oauthPachdClientID": {
                             "type": "string"
                         },
                         "oauthRedirectURI": {
@@ -309,9 +303,35 @@
                 }
             }
         },
+        "oidc": {
+            "type": "object",
+            "properties": {
+                "IDTokenExpiry": {
+                    "type": "string"
+                },
+                "issuerURI": {
+                    "type": "string"
+                },
+                "mockIDP": {
+                    "type": "boolean"
+                },
+                "requireVerifiedEmail": {
+                    "type": "boolean"
+                },
+                "upstreamIDPs": {
+                    "type": "array"
+                },
+                "userAccessibleOauthIssuerHost": {
+                    "type": "string"
+                }
+            }
+        },
         "pachd": {
             "type": "object",
             "properties": {
+                "activateEnterprise": {
+                    "type": "boolean"
+                },
                 "affinity": {
                     "type": "object"
                 },
@@ -330,6 +350,9 @@
                 "externalService": {
                     "type": "object",
                     "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
                         "apiGRPCPort": {
                             "type": "integer"
                         },
@@ -361,6 +384,9 @@
                         }
                     }
                 },
+                "localhostIssuer": {
+                    "type": "string"
+                },
                 "logLevel": {
                     "type": "string"
                 },
@@ -378,16 +404,10 @@
                         }
                     }
                 },
-                "mockIDP": {
-                    "type": "boolean"
-                },
-                "oauthClientId": {
+                "oauthClientID": {
                     "type": "string"
                 },
                 "oauthClientSecret": {
-                    "type": "string"
-                },
-                "oauthIssuer": {
                     "type": "string"
                 },
                 "oauthRedirectURI": {
@@ -595,12 +615,6 @@
                         }
                     }
                 },
-                "upstreamIDPs": {
-                    "type": "array"
-                },
-                "userAccessibleOauthIssuerHost": {
-                    "type": "string"
-                },
                 "worker": {
                     "type": "object",
                     "properties": {
@@ -636,6 +650,9 @@
         "pgbouncer": {
             "type": "object",
             "properties": {
+                "maxConnections": {
+                    "type": "integer"
+                },
                 "resources": {
                     "type": "object"
                 },

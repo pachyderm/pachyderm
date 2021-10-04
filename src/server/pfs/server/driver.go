@@ -135,8 +135,6 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 		return nil, err
 	}
 	d.commitStore = newPostgresCommitStore(env.GetDBClient(), tracker, d.storage)
-	// Setup PFS master
-	go d.master(env.Context())
 	return d, nil
 }
 
