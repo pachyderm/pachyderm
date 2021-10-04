@@ -2597,7 +2597,7 @@ func TestDebug(t *testing.T) {
 
 	expectedFiles := make(map[string]*globlib.Glob)
 	// Record glob patterns for expected pachd files.
-	for _, file := range []string{"version", "logs", "logs-previous**", "goroutine", "heap"} {
+	for _, file := range []string{"version", "logs.txt", "logs-previous**", "goroutine", "heap"} {
 		pattern := path.Join("pachd", "*", "pachd", file)
 		g, err := globlib.Compile(pattern, '/')
 		require.NoError(t, err)
@@ -2628,14 +2628,14 @@ func TestDebug(t *testing.T) {
 		))
 		// Record glob patterns for expected pipeline files.
 		for _, container := range []string{"user", "storage"} {
-			for _, file := range []string{"logs", "logs-previous**", "goroutine", "heap"} {
+			for _, file := range []string{"logs.txt", "logs-previous**", "goroutine", "heap"} {
 				pattern := path.Join("pipelines", pipeline, "pods", "*", container, file)
 				g, err := globlib.Compile(pattern, '/')
 				require.NoError(t, err)
 				expectedFiles[pattern] = g
 			}
 		}
-		for _, file := range []string{"spec", "commits", "jobs", "commits-chart**", "jobs-chart**"} {
+		for _, file := range []string{"spec.json", "commits.json", "jobs.json", "commits-chart**", "jobs-chart**"} {
 			pattern := path.Join("pipelines", pipeline, file)
 			g, err := globlib.Compile(pattern, '/')
 			require.NoError(t, err)
@@ -2643,7 +2643,7 @@ func TestDebug(t *testing.T) {
 		}
 	}
 	for _, app := range []string{"etcd", "pg-bouncer"} {
-		for _, file := range []string{"logs", "logs-previous**"} {
+		for _, file := range []string{"logs.txt", "logs-previous**"} {
 			pattern := path.Join(app, "*", "*", file)
 			g, err := globlib.Compile(pattern, '/')
 			require.NoError(t, err)

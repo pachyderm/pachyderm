@@ -277,7 +277,7 @@ func collectProfileFunc(profile *debug.Profile) collectFunc {
 }
 
 func collectProfile(tw *tar.Writer, profile *debug.Profile, prefix ...string) error {
-	return collectDebugFile(tw, profile.Name, func(w io.Writer) error {
+	return collectDebugFile(tw, profile.Name, "", func(w io.Writer) error {
 		return writeProfile(w, profile)
 	}, prefix...)
 }
@@ -334,7 +334,7 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 }
 
 func collectBinary(tw *tar.Writer, prefix ...string) error {
-	return collectDebugFile(tw, "binary", func(w io.Writer) (retErr error) {
+	return collectDebugFile(tw, "binary", "", func(w io.Writer) (retErr error) {
 		f, err := os.Open(os.Args[0])
 		if err != nil {
 			return err
@@ -435,7 +435,7 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
 		},
 	}
-	if err := collectDebugFile(tw, "commits.json", func(w io.Writer) error {
+	if err := collectDebugFile(tw, "commits", "json", func(w io.Writer) error {
 		return pachClient.ListCommitF(repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
 			if ci.Finished != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
 				compactingDuration, err := types.DurationFromProto(ci.Details.CompactingTime)
@@ -482,7 +482,7 @@ func reverseContinuousSeries(series ...chart.ContinuousSeries) {
 }
 
 func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series, prefix ...string) error {
-	return collectDebugFile(tw, name, func(w io.Writer) error {
+	return collectDebugFile(tw, name, "", func(w io.Writer) error {
 		graph := chart.Chart{
 			Title: name,
 			TitleStyle: chart.Style{
@@ -524,7 +524,7 @@ func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series,
 }
 
 func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
-	return collectDebugFile(tw, "version", func(w io.Writer) error {
+	return collectDebugFile(tw, "version", "", func(w io.Writer) error {
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
@@ -535,7 +535,7 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 }
 
 func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
-	if err := collectDebugFile(tw, "logs.txt", func(w io.Writer) (retErr error) {
+	if err := collectDebugFile(tw, "logs", "txt", func(w io.Writer) (retErr error) {
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
 		if err != nil {
 			return err
@@ -550,7 +550,7 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 	}, prefix...); err != nil {
 		return err
 	}
-	return collectDebugFile(tw, "logs-previous.txt", func(w io.Writer) (retErr error) {
+	return collectDebugFile(tw, "logs-previous", "txt", func(w io.Writer) (retErr error) {
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream()
 		if err != nil {
 			return err
@@ -574,7 +574,7 @@ func collectDump(tw *tar.Writer, prefix ...string) error {
 
 func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limit int64) collectPipelineFunc {
 	return func(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
-		if err := collectDebugFile(tw, "spec.json", func(w io.Writer) error {
+		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
 			fullPipelineInfo, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name, true)
 			if err != nil {
 				return err
@@ -612,7 +612,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
 		},
 	}
-	if err := collectDebugFile(tw, "jobs.json", func(w io.Writer) error {
+	if err := collectDebugFile(tw, "jobs", "json", func(w io.Writer) error {
 		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
 		return pachClient.ListJobF(pipelineName, nil, 0, false, func(ji *pps.JobInfo) error {
