@@ -2642,6 +2642,14 @@ func TestDebug(t *testing.T) {
 			expectedFiles[pattern] = g
 		}
 	}
+	for _, app := range []string{"etcd", "pg-bouncer"} {
+		for _, file := range []string{"logs", "logs-previous**"} {
+			pattern := path.Join(app, "*", "*", file)
+			g, err := globlib.Compile(pattern, '/')
+			require.NoError(t, err)
+			expectedFiles[pattern] = g
+		}
+	}
 
 	commit1, err := aliceClient.StartCommit(dataRepo, "master")
 	require.NoError(t, err)

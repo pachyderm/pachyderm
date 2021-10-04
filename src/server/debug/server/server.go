@@ -123,11 +123,9 @@ func (s *debugServer) handleRedirect(
 					return err
 				}
 			}
-
 			if len(extraApps) > 0 {
 				return s.appLogs(tw, extraApps)
 			}
-
 			return nil
 		})
 	})
