@@ -8,6 +8,7 @@ import {DagDirection} from '@dash-frontend/lib/types';
 export interface UrlState {
   dagDirection?: DagDirection;
   sidebarWidth?: number;
+  skipCenterOnSelect?: boolean;
   jobFilters?: JobState[];
   prevFileBrowserPath?: string;
 }

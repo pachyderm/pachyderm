@@ -10,6 +10,7 @@ import {
   LETS_START_TITLE,
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import View from '@dash-frontend/components/View';
+import {DagDirection} from '@dash-frontend/lib/types';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 import {useWorkspace} from 'hooks/useWorkspace';
 
@@ -17,11 +18,14 @@ import FileBrowser from '../FileBrowser';
 import JobLogsViewer from '../LogsViewers/JobLogsViewer/JobLogsViewer';
 import PipelineLogsViewer from '../LogsViewers/PipelineLogsViewer';
 
+import {ReactComponent as CheckboxChecked} from './components/Checkbox_Checked.svg';
+import {ReactComponent as CheckboxUnchecked} from './components/Checkbox_Unchecked.svg';
 import DAG from './components/DAG';
 import ProjectHeader from './components/ProjectHeader';
 import ProjectSidebar from './components/ProjectSidebar';
 import RangeSlider from './components/RangeSlider';
 import {ReactComponent as RotateSvg} from './components/Rotate.svg';
+import {ReactComponent as RotateFlippedSvg} from './components/Rotate_Flipped.svg';
 import {ReactComponent as ZoomOutSvg} from './components/ZoomOut.svg';
 import {NODE_HEIGHT, NODE_WIDTH} from './constants/nodeSizes';
 import {
@@ -52,6 +56,8 @@ const Project: React.FC = () => {
     zoomOut,
     isSidebarOpen,
     sidebarSize,
+    skipCenterOnSelect,
+    handleChangeCenterOnSelect,
   } = useProjectView(NODE_WIDTH, NODE_HEIGHT);
   const {hasConnectInfo} = useWorkspace();
 
@@ -84,6 +90,23 @@ const Project: React.FC = () => {
                 value={sliderZoomValue * 100}
                 disabled={noDags}
               />
+              <button
+                className={styles.controlButton}
+                onClick={rotateDag}
+                disabled={noDags}
+              >
+                {dagDirection === DagDirection.RIGHT ? (
+                  <RotateSvg
+                    aria-label={'Rotate Canvas'}
+                    className={classnames(styles.svgControl, styles.rotateSvg)}
+                  />
+                ) : (
+                  <RotateFlippedSvg
+                    aria-label={'Rotate Canvas'}
+                    className={classnames(styles.svgControl, styles.rotateSvg)}
+                  />
+                )}
+              </button>
               <Tooltip
                 className={styles.tooltip}
                 tooltipKey="zoomOut"
@@ -98,23 +121,43 @@ const Project: React.FC = () => {
                 >
                   <ZoomOutSvg
                     aria-label="Reset Canvas"
-                    className={classnames(styles.svgControl, styles.zoomOutSvg)}
+                    className={styles.svgControl}
                   />
                   <label className={styles.controlLabel}>Reset Canvas</label>
                 </button>
               </Tooltip>
-              <button
-                className={classnames(styles.controlButton, [
-                  styles[dagDirection],
-                ])}
-                onClick={rotateDag}
-                disabled={noDags}
+              <Tooltip
+                className={styles.tooltip}
+                tooltipKey="skipCenter"
+                size="large"
+                placement="bottom"
+                tooltipText={`${
+                  !skipCenterOnSelect ? 'Disable' : 'Enable'
+                } panning and zooming to a selection`}
               >
-                <RotateSvg
-                  aria-label={'Rotate Canvas'}
-                  className={classnames(styles.svgControl, styles.rotateSvg)}
-                />
-              </button>
+                <button
+                  className={styles.controlButton}
+                  onClick={() => {
+                    handleChangeCenterOnSelect(!!skipCenterOnSelect);
+                  }}
+                  disabled={noDags}
+                >
+                  {!skipCenterOnSelect ? (
+                    <CheckboxChecked
+                      aria-label="Uncheck Skip Center"
+                      className={styles.svgControl}
+                    />
+                  ) : (
+                    <CheckboxUnchecked
+                      aria-label="Check Skip Center"
+                      className={styles.svgControl}
+                    />
+                  )}
+                  <label className={styles.controlLabel}>
+                    Center Selections
+                  </label>
+                </button>
+              </Tooltip>
               {error && (
                 <span className={styles.dagError}>
                   Connection error: data may not be up to date.

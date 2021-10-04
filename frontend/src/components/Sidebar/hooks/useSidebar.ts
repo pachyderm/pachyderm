@@ -1,6 +1,8 @@
 import React, {useEffect, useState, useCallback} from 'react';
 
+import useLocalProjectPreferences from '@dash-frontend/hooks/useLocalProjectPreferences';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const SIDEBAR_MIN_WIDTH = 304;
 const SIDEBAR_MAX_WIDTH = 700;
@@ -12,14 +14,16 @@ const useSidebar = ({defaultSize}: {defaultSize?: string}) => {
 
   const [isOpen, setIsOpen] = useState(false);
   const {viewState, setUrlFromViewState} = useUrlQueryState();
-  const [sidebarWidth, setSidebarWidth] = useState(
-    viewState.sidebarWidth || sidebarSize,
+  const {projectId} = useUrlState();
+  const localPreferences = useLocalProjectPreferences({projectId});
+  const [sidebarWidth, setSidebarWidth] = useState<number>(
+    viewState.sidebarWidth || localPreferences.sidebarWidth || sidebarSize,
   );
   useEffect(() => {
-    if (!viewState.sidebarWidth) {
+    if (!viewState.sidebarWidth && !localPreferences.sidebarWidth) {
       setSidebarWidth(sidebarSize);
     }
-  }, [sidebarSize, viewState.sidebarWidth]);
+  }, [localPreferences.sidebarWidth, sidebarSize, viewState.sidebarWidth]);
 
   const [dragging, setDragging] = useState(false);
 
@@ -52,9 +56,12 @@ const useSidebar = ({defaultSize}: {defaultSize?: string}) => {
   );
 
   const onDragEnd = useCallback(() => {
-    dragging && setUrlFromViewState({sidebarWidth});
+    if (dragging) {
+      setUrlFromViewState({sidebarWidth});
+      localPreferences.handleUpdateSidebarWidth(sidebarWidth);
+    }
     setDragging(false);
-  }, [dragging, setUrlFromViewState, sidebarWidth]);
+  }, [dragging, localPreferences, setUrlFromViewState, sidebarWidth]);
 
   useEffect(() => {
     setIsOpen(true);

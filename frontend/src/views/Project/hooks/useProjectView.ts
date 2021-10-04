@@ -90,7 +90,18 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     viewState.dagDirection ||
     localPreferences.dagDirection ||
     DagDirection.RIGHT;
+
+  const skipCenterOnSelect =
+    viewState.skipCenterOnSelect || localPreferences.getSkipCenterOnSelect();
+
   const {interacted, reset} = dagState;
+
+  const handleChangeCenterOnSelect = (shouldCenter: boolean) => {
+    localPreferences.handleUpdateCenterOnSelect(!shouldCenter);
+    setUrlFromViewState({
+      skipCenterOnSelect: !shouldCenter,
+    });
+  };
 
   const rotateDag = useCallback(() => {
     // Reset interaction on rotations, in the future we might want to look into
@@ -244,38 +255,40 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
 
   // zoom and pan to selected node
   useEffect(() => {
-    const centerNodeSelection = select<SVGGElement, Node>(
-      `#${selectedNode}GROUP`,
-    );
+    if (!skipCenterOnSelect) {
+      const centerNodeSelection = select<SVGGElement, Node>(
+        `#${selectedNode}GROUP`,
+      );
 
-    if (
-      !centerNodeSelection.empty() &&
-      zoomRef.current &&
-      !loading &&
-      interacted &&
-      !reset
-    ) {
-      const svg = select<SVGSVGElement, unknown>('#Svg');
+      if (
+        !centerNodeSelection.empty() &&
+        zoomRef.current &&
+        !loading &&
+        interacted &&
+        !reset
+      ) {
+        const svg = select<SVGSVGElement, unknown>('#Svg');
 
-      const centerNode = centerNodeSelection.data()[0];
+        const centerNode = centerNodeSelection.data()[0];
 
-      const selectedNodeCenterX =
-        (svgSize.width - SIDEBAR_WIDTH) / 2 -
-        (centerNode.x + nodeWidth / 2) * CENTER_SCALE_VALUE;
-      const selectedNodeCenterY =
-        svgSize.height / 2 -
-        (centerNode.y + nodeHeight / 2) * CENTER_SCALE_VALUE;
+        const selectedNodeCenterX =
+          (svgSize.width - SIDEBAR_WIDTH) / 2 -
+          (centerNode.x + nodeWidth / 2) * CENTER_SCALE_VALUE;
+        const selectedNodeCenterY =
+          svgSize.height / 2 -
+          (centerNode.y + nodeHeight / 2) * CENTER_SCALE_VALUE;
 
-      const transform = zoomIdentity
-        .translate(selectedNodeCenterX, selectedNodeCenterY)
-        .scale(CENTER_SCALE_VALUE);
+        const transform = zoomIdentity
+          .translate(selectedNodeCenterX, selectedNodeCenterY)
+          .scale(CENTER_SCALE_VALUE);
 
-      const transition = svg.transition().on('interrupt', () => {
-        zoomRef.current?.transform(svg.transition(), transform);
-      });
-      // zoom.transform does not obey the constraints set on panning and zooming,
-      // if constraints are added this should be updated to use one of the methods that obeys them.
-      zoomRef.current.transform(transition, transform);
+        const transition = svg.transition().on('interrupt', () => {
+          zoomRef.current?.transform(svg.transition(), transform);
+        });
+        // zoom.transform does not obey the constraints set on panning and zooming,
+        // if constraints are added this should be updated to use one of the methods that obeys them.
+        zoomRef.current.transform(transition, transform);
+      }
     }
   }, [
     loading,
@@ -285,6 +298,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     svgSize,
     interacted,
     reset,
+    skipCenterOnSelect,
   ]);
 
   // reset interaction on empty canvas
@@ -353,5 +367,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     zoomOut,
     isSidebarOpen: isOpen,
     sidebarSize,
+    skipCenterOnSelect,
+    handleChangeCenterOnSelect,
   };
 };

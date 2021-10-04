@@ -45,22 +45,12 @@
 
 .controlButton {
   border: none;
+  display: flex;
+  align-items: center;
+  height: 1.25rem;
+  padding: 0;
   background-color: transparent;
   margin-left: 1rem;
-}
-
-.controlButton.DOWN, .controlButton.RIGHT {
-  margin-top: -0.4rem;
-
-}
-
-.controlButton.DOWN {
-  transform: scaleX(1) rotate(-90deg);
-  margin-left: 0.9rem;
-}
-
-.controlButton.RIGHT {
-  transform: scaleX(-1) rotate(-90deg);
 }
 
 .controlButton:disabled label {
@@ -77,15 +67,8 @@
 }
 
 .rotateSvg {
-  width: 1.4375rem;
-  height: 1.5625rem;
   display: inline-block;
   vertical-align: baseline;
-}
-
-.zoomOutSvg {
-  width: 1rem;
-  height: 1rem;
 }
 
 .controlButton:hover:active:not(:disabled) .svgControl {
