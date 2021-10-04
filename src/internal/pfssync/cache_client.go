@@ -36,22 +36,33 @@ func NewCacheClient(pachClient *client.APIClient, renewer *renew.StringSet) *Cac
 
 func (cc *CacheClient) GetFileTAR(commit *pfs.Commit, path string) (io.ReadCloser, error) {
 	key := pfsdb.CommitKey(commit)
-	cc.mu.Lock()
-	if c, ok := cc.cache.Get(key); ok {
-		cc.mu.Unlock()
-		return cc.APIClient.GetFileTAR(c.(*pfs.Commit), path)
+	if c, ok := cc.get(key); ok {
+		return cc.APIClient.GetFileTAR(c, path)
 	}
-	cc.mu.Unlock()
 	id, err := cc.APIClient.GetFileSet(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 	if err != nil {
 		return nil, err
 	}
 	cc.renewer.Add(id)
 	commit = client.NewCommit(client.FileSetsRepoName, "", id)
-	cc.mu.Lock()
-	cc.cache.Add(key, commit)
-	cc.mu.Unlock()
+	cc.put(key, commit)
 	return cc.APIClient.GetFileTAR(commit, path)
+}
+
+func (cc *CacheClient) get(key string) (*pfs.Commit, bool) {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+	c, ok := cc.cache.Get(key)
+	if !ok {
+		return nil, ok
+	}
+	return c.(*pfs.Commit), ok
+}
+
+func (cc *CacheClient) put(key string, commit *pfs.Commit) {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+	cc.cache.Add(key, commit)
 }
 
 func (cc *CacheClient) onEvicted(key, value interface{}) {

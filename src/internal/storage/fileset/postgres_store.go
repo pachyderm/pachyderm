@@ -109,15 +109,10 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 }
 
 func (s *postgresStore) getFromCache(ctx context.Context, id ID) (*Metadata, error) {
-	var mdData []byte
-	if err := s.cache.Get(ctx, id[:], func(data []byte) error {
-		mdData = data
-		return nil
-	}); err != nil {
-		return nil, err
-	}
 	md := &Metadata{}
-	if err := proto.Unmarshal(mdData, md); err != nil {
+	if err := s.cache.Get(ctx, id[:], func(data []byte) error {
+		return proto.Unmarshal(data, md)
+	}); err != nil {
 		return nil, err
 	}
 	return md, nil

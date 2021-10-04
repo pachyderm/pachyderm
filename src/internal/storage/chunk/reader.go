@@ -73,6 +73,7 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 		})
 	}
 	ctx, cancel := context.WithCancel(r.ctx)
+	defer cancel()
 	taskChain := NewTaskChain(ctx)
 	defer func() {
 		if retErr != nil {

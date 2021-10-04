@@ -50,6 +50,7 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 
 // Get calls getFunc to retrieve a chunk, then verifies, decrypts, and decompresses the data.
 // cb is called with the uncompressed plaintext
+// TODO: Move the cache and deduper out of this function.
 func Get(ctx context.Context, client Client, cache kv.GetPut, deduper *miscutil.WorkDeduper, ref *Ref, cb kv.ValueCallback) error {
 	if ref.EncryptionAlgo != EncryptionAlgo_CHACHA20 {
 		return errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
