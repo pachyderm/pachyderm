@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/components",
-  "version": "1.10.1",
+  "version": "1.11.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -65,11 +65,13 @@
     "style-loader": "^0.23.1",
     "stylelint": "^13.8.0",
     "tsconfig-paths-webpack-plugin": "^3.3.0",
-    "typescript": "^4.2.4"
+    "typescript": "^4.2.4",
+    "xhr-mock": "^2.5.1"
   },
   "dependencies": {
     "@types/lodash": "^4.14.167",
     "classnames": "^2.2.6",
+    "launchdarkly-react-client-sdk": "^2.23.1",
     "lodash": "^4.17.20",
     "rudder-sdk-js": "1.0.16",
     "splitting": "^1.0.6"

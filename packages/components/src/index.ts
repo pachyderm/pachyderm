@@ -22,6 +22,7 @@ export * from './Chip';
 export * from './Dropdown';
 export * from './EllipsisMessage';
 export * from './ErrorRetry';
+export * from './FeatureFlags';
 export * from './Form';
 export * from './GenericError';
 export * from './Group';
