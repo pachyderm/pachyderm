@@ -117,16 +117,16 @@ func createSet(metas []*Meta, storageRoot string, upload func(func(client.Modify
 
 // Set manages a set of datums.
 type Set struct {
-	pachClient                        *client.APIClient
+	cacheClient                       *pfssync.CacheClient
 	storageRoot                       string
 	metaOutputClient, pfsOutputClient client.ModifyFile
 	stats                             *Stats
 }
 
 // WithSet provides a scoped environment for a datum set.
-func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) error, opts ...SetOption) (retErr error) {
+func WithSet(cacheClient *pfssync.CacheClient, storageRoot string, cb func(*Set) error, opts ...SetOption) (retErr error) {
 	s := &Set{
-		pachClient:  pachClient,
+		cacheClient: cacheClient,
 		storageRoot: storageRoot,
 		stats:       &Stats{ProcessStats: &pps.ProcessStats{}},
 	}
@@ -186,6 +186,7 @@ type Datum struct {
 	numRetries       int
 	recoveryCallback func(context.Context) error
 	timeout          time.Duration
+	IDPrefix         string
 }
 
 func newDatum(set *Set, meta *Meta, opts ...Option) *Datum {
@@ -251,7 +252,7 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 			retErr = errors.EnsureStack(err)
 		}
 	}()
-	return pfssync.WithDownloader(d.set.pachClient, func(downloader pfssync.Downloader) error {
+	return pfssync.WithDownloader(d.set.cacheClient, func(downloader pfssync.Downloader) error {
 		// TODO: Move to copy file for inputs to datum file set.
 		if err := d.downloadData(downloader); err != nil {
 			return err
@@ -351,7 +352,7 @@ func (d *Datum) uploadMetaFile(mf client.ModifyFile) error {
 	if err := marshaler.Marshal(buf, d.meta); err != nil {
 		return err
 	}
-	fullPath := path.Join(MetaPrefix, d.ID, MetaFileName)
+	fullPath := path.Join(MetaPrefix, d.IDPrefix+d.ID, MetaFileName)
 	return mf.PutFile(fullPath, buf, client.WithAppendPutFile(), client.WithDatumPutFile(d.ID))
 }
 

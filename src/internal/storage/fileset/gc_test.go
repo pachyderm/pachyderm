@@ -39,9 +39,4 @@ func TestGC(t *testing.T) {
 	require.NoError(t, err)
 	t.Log(countDeleted)
 	require.True(t, countDeleted > 0)
-
-	// check that it's not there
-	exists, err = s.exists(ctx, *id)
-	require.NoError(t, err)
-	require.False(t, exists)
 }
