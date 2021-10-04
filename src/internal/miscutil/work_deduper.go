@@ -9,6 +9,9 @@ type WorkDeduper struct {
 	futures sync.Map
 }
 
+// Concurrent calls to Do will block until cb has been completed by one of them, then the others will run, possibly concurrently.
+// The motivating use case is to eliminate network round trips when populating a cache.
+// Callers should check and populate the cache inside cb.
 func (wd *WorkDeduper) Do(ctx context.Context, k interface{}, cb func() error) error {
 	fut, created := wd.getOrCreateFuture(k)
 	if created {

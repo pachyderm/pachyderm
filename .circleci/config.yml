@@ -191,12 +191,12 @@ workflows:
     jobs:
       - hub
   hub_load_tests:
-    #triggers:
-    #  - schedule:
-    #      cron: "0 6 * * *"
-    #      filters:
-    #        branches:
-    #          only: master
+    triggers:
+      - schedule:
+          cron: "0 6 * * *"
+          filters:
+            branches:
+              only: master
     jobs:
       - load:
           matrix:
