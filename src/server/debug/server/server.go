@@ -69,6 +69,7 @@ func (s *debugServer) handleRedirect(
 	collectWorker collectWorkerFunc,
 	redirect redirectFunc,
 	collect collectFunc,
+	extraApps ...string,
 ) error {
 	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
 		return withDebugWriter(w, func(tw *tar.Writer) error {
@@ -122,9 +123,42 @@ func (s *debugServer) handleRedirect(
 					return err
 				}
 			}
+
+			if len(extraApps) > 0 {
+				return s.appLogs(tw, extraApps)
+			}
+
 			return nil
 		})
 	})
+}
+
+func (s *debugServer) appLogs(tw *tar.Writer, apps []string) error {
+	pods, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
+		},
+		LabelSelector: metav1.FormatLabelSelector(&metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"suite": "pachyderm",
+			},
+			MatchExpressions: []metav1.LabelSelectorRequirement{{
+				Key:      "app",
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   apps,
+			}},
+		}),
+	})
+	if err != nil {
+		return err
+	}
+	for _, pod := range pods.Items {
+		if err := s.collectLogs(tw, pod.Name, "", join(pod.Labels["app"], pod.Name)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *debugServer) handlePipelineRedirect(
@@ -341,6 +375,7 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 		s.collectWorkerDump,
 		redirectDumpFunc(pachClient.Ctx()),
 		collectDump,
+		"pg-bouncer", "etcd",
 	)
 }
 
@@ -402,7 +437,7 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
 		},
 	}
-	if err := collectDebugFile(tw, "commits", func(w io.Writer) error {
+	if err := collectDebugFile(tw, "commits.json", func(w io.Writer) error {
 		return pachClient.ListCommitF(repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
 			if ci.Finished != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
 				compactingDuration, err := types.DurationFromProto(ci.Details.CompactingTime)
@@ -502,7 +537,7 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 }
 
 func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
-	if err := collectDebugFile(tw, "logs", func(w io.Writer) (retErr error) {
+	if err := collectDebugFile(tw, "logs.txt", func(w io.Writer) (retErr error) {
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
 		if err != nil {
 			return err
@@ -517,7 +552,7 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 	}, prefix...); err != nil {
 		return err
 	}
-	return collectDebugFile(tw, "logs-previous", func(w io.Writer) (retErr error) {
+	return collectDebugFile(tw, "logs-previous.txt", func(w io.Writer) (retErr error) {
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream()
 		if err != nil {
 			return err
@@ -541,7 +576,7 @@ func collectDump(tw *tar.Writer, prefix ...string) error {
 
 func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limit int64) collectPipelineFunc {
 	return func(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
-		if err := collectDebugFile(tw, "spec", func(w io.Writer) error {
+		if err := collectDebugFile(tw, "spec.json", func(w io.Writer) error {
 			fullPipelineInfo, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name, true)
 			if err != nil {
 				return err
@@ -579,7 +614,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
 		},
 	}
-	if err := collectDebugFile(tw, "jobs", func(w io.Writer) error {
+	if err := collectDebugFile(tw, "jobs.json", func(w io.Writer) error {
 		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
 		return pachClient.ListJobF(pipelineName, nil, 0, false, func(ji *pps.JobInfo) error {
