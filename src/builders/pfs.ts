@@ -8,6 +8,8 @@ import {
   FileType,
   Repo,
   Trigger,
+  OriginKind,
+  CommitOrigin,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
 
 import {timestampFromObject, TimestampObject} from '../builders/protobuf';
@@ -56,6 +58,7 @@ export type CommitInfoObject = {
   finishing?: TimestampObject;
   finished?: TimestampObject;
   sizeBytesUpperBound?: CommitInfo.AsObject['sizeBytesUpperBound'];
+  originKind?: OriginKind;
 };
 
 export type CommitSetObject = {
@@ -168,6 +171,7 @@ export const commitInfoFromObject = ({
   finishing,
   finished,
   sizeBytesUpperBound,
+  originKind,
 }: CommitInfoObject) => {
   const commitInfo = new CommitInfo()
     .setCommit(commitFromObject(commit))
@@ -175,7 +179,8 @@ export const commitInfoFromObject = ({
     .setDetails(new CommitInfo.Details().setSizeBytes(sizeBytes))
     .setStarted(started ? timestampFromObject(started) : undefined)
     .setFinishing(finishing ? timestampFromObject(finishing) : undefined)
-    .setFinished(finished ? timestampFromObject(finished) : undefined);
+    .setFinished(finished ? timestampFromObject(finished) : undefined)
+    .setOrigin(new CommitOrigin().setKind(originKind || OriginKind.AUTO));
   if (sizeBytesUpperBound) {
     commitInfo.setSizeBytesUpperBound(sizeBytesUpperBound);
   }

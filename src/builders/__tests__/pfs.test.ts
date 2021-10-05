@@ -143,6 +143,7 @@ describe('grpc/builders/pfs', () => {
     expect(commitInfo.getFinished()?.getSeconds()).toBe(undefined);
     expect(commitInfo.getFinished()?.getNanos()).toBe(undefined);
     expect(commitInfo.getSizeBytesUpperBound()).toBe(0);
+    expect(commitInfo.getOrigin()?.getKind()).toBe(2);
   });
 
   it('should create commitInfo from an object', () => {
@@ -166,6 +167,7 @@ describe('grpc/builders/pfs', () => {
         nanos: 449796001,
       },
       sizeBytesUpperBound: 200,
+      originKind: 1,
     });
 
     expect(commitInfo.getCommit()?.getBranch()?.getName()).toBe('master');
@@ -185,6 +187,7 @@ describe('grpc/builders/pfs', () => {
     expect(commitInfo.getFinished()?.getSeconds()).toBe(1615922001);
     expect(commitInfo.getFinished()?.getNanos()).toBe(449796001);
     expect(commitInfo.getSizeBytesUpperBound()).toBe(200);
+    expect(commitInfo.getOrigin()?.getKind()).toBe(1);
   });
 
   it('should create CommitSet from an object', () => {
