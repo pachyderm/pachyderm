@@ -99,10 +99,10 @@ spec:
       securityContext:
         runAsUser: 1001
         runAsGroup: 1001
-          #initContainers:
-          #- name: init-etcd
-          #  image: busybox:1.28
-          #  command: ['sh', '-c', "until wget http://etcd:2379/version; do echo waiting for etcd; sleep 2; done"]
+          initContainers:
+          - name: init-etcd
+           image: busybox:1.28
+           command: ['sh', '-c', "until wget -O- http://etcd:2379/version > /dev/null; do echo waiting for etcd; sleep 2; done"]
           #{{- if or .Values.postgresql.enabled }}
           #- name: init-postgres
           #  image: postgres:13.0-alpine

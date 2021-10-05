@@ -204,9 +204,9 @@ clean-launch: check-kubectl
 	kubectl delete pvc -l suite=pachyderm
 	kubectl delete pvc -l suite=pachyderm -n enterprise
 	# cleanup minio
-	kubectl delete statefulset -l app=minio
-	kubectl delete service -l app=minio
-	kubectl delete pvc -l app=minio
+	kubectl delete statefulset -l app=minio -n default
+	kubectl delete service -l app=minio -n default
+	kubectl delete pvc -l app=minio -n default
 
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
