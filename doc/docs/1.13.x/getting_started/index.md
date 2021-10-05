@@ -1,7 +1,11 @@
 # Getting Started
 
 Our fully managed **SaaS platform** [Hub](../hub/hub_getting_started)
-provides a fast and easy way to get Pachyderm up and running quickly.
+provides a fast and easy way to get Pachyderm up and running.
+
+!!! Attention "**Your first 21 days are free!**"
+    *Offer limited to one single user workspace with 4 vCPUs, 15GB RAM, and unlimited object storage.*
+
 You can also deploy Pachyderm on your local machine or in your favorite cloud
 provider. 
 
