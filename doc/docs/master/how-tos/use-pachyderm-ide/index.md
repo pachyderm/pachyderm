@@ -2,7 +2,10 @@
 
 !!! Warning 
      - Notebooks [**beta**](../../../../contributing/supported-releases/#beta) is available on our Saas solution [Hub](https://hub.pachyderm.com). 
-     - Create a workspace and experiment with Notebooks right away with our **21 days Free Workspace**.
+     - Create a workspace and experiment with Notebooks right away with our **21 days free trial**\*.
+
+     *\*Offer limited to one single user workspace with 4 vCPUs, 15GB RAM, and unlimited object storage.*
+    
 ## Overview
 
 Pachyderm Notebooks is a **customized JupyterHub deployment running inside and authenticated to your Pachyderm cluster.**.
@@ -19,7 +22,7 @@ Our Notebooks instances come with a pre-installed suite of packages, including:
 Run `pip install` from a cell to install any additional library.
 
 !!! Note 
-     We have included a selection of data science examples running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. In the `/examples` directory, you will also find integration examples with opensource products that complete your ML stack, such as labeling or model serving applications.
+     We have included a selection of data science examples running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. In the `/examples` directory, you will also find integration examples with open-source products, such as labeling or model serving applications.
      
 ## Getting Started
 
