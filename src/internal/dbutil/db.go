@@ -1,12 +1,15 @@
 package dbutil
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -118,4 +121,22 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 	db.SetConnMaxLifetime(dbc.connMaxLifetime)
 	db.SetConnMaxIdleTime(dbc.connMaxIdleTime)
 	return db, nil
+}
+
+// WaitUntilReady attempts to ping the database until the context is cancelled.
+// Progress information is written to log
+func WaitUntilReady(ctx context.Context, log *logrus.Logger, db *sqlx.DB) error {
+	const period = time.Second
+	const timeout = time.Second
+	return backoff.RetryUntilCancel(ctx, func() error {
+		log.Debugf("pinging db...")
+		ctx, cf := context.WithTimeout(ctx, timeout)
+		defer cf()
+		if err := db.PingContext(ctx); err != nil {
+			log.Debugf("db is not ready: %v", err)
+			return err
+		}
+		log.Infof("db is ready")
+		return nil
+	}, backoff.NewConstantBackOff(period), nil)
 }

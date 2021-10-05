@@ -291,22 +291,20 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 }
 
 func (env *NonblockingServiceEnv) initDirectDBClient() error {
-	if err := backoff.Retry(func() error {
-		db, err := dbutil.NewDB(
-			dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
-			dbutil.WithDBName(env.config.PostgresDBName),
-			dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
-			dbutil.WithMaxOpenConns(env.config.PostgresMaxOpenConns),
-			dbutil.WithMaxIdleConns(env.config.PostgresMaxIdleConns),
-			dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
-			dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
-		)
-		if err != nil {
-			return err
-		}
-		env.directDBClient = db
-		return db.Ping()
-	}, backoff.RetryEvery(time.Second).For(5*time.Minute)); err != nil {
+	db, err := dbutil.NewDB(
+		dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
+		dbutil.WithDBName(env.config.PostgresDBName),
+		dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
+		dbutil.WithMaxOpenConns(env.config.PostgresMaxOpenConns),
+		dbutil.WithMaxIdleConns(env.config.PostgresMaxIdleConns),
+		dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
+		dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
+	)
+	if err != nil {
+		return err
+	}
+	env.directDBClient = db
+	if err != nil {
 		return err
 	}
 	if err := prometheus.Register(sqlstats.NewStatsCollector("direct", env.directDBClient.DB)); err != nil {
@@ -316,24 +314,19 @@ func (env *NonblockingServiceEnv) initDirectDBClient() error {
 }
 
 func (env *NonblockingServiceEnv) initDBClient() error {
-	if err := backoff.Retry(func() error {
-		db, err := dbutil.NewDB(
-			dbutil.WithHostPort(env.config.PGBouncerHost, env.config.PGBouncerPort),
-			dbutil.WithDBName(env.config.PostgresDBName),
-			dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
-			dbutil.WithMaxOpenConns(env.config.PGBouncerMaxOpenConns),
-			dbutil.WithMaxIdleConns(env.config.PGBouncerMaxIdleConns),
-			dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
-			dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
-		)
-		if err != nil {
-			return err
-		}
-		env.dbClient = db
-		return db.Ping()
-	}, backoff.RetryEvery(time.Second).For(5*time.Minute)); err != nil {
+	db, err := dbutil.NewDB(
+		dbutil.WithHostPort(env.config.PGBouncerHost, env.config.PGBouncerPort),
+		dbutil.WithDBName(env.config.PostgresDBName),
+		dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
+		dbutil.WithMaxOpenConns(env.config.PGBouncerMaxOpenConns),
+		dbutil.WithMaxIdleConns(env.config.PGBouncerMaxIdleConns),
+		dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
+		dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
+	)
+	if err != nil {
 		return err
 	}
+	env.dbClient = db
 	if err := prometheus.Register(sqlstats.NewStatsCollector("pg_bouncer", env.dbClient.DB)); err != nil {
 		log.WithError(err).Warning("problem registering stats collector for pg_bouncer db client")
 	}

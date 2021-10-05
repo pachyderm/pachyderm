@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -124,6 +125,9 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	env.InitDexDB()
 
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
+	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
+		return err
+	}
 	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
@@ -544,6 +548,9 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
+	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
+		return err
+	}
 	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
