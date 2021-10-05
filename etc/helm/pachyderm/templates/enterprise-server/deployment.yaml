@@ -96,16 +96,19 @@ spec:
         secret:
           secretName: {{ required "If enterpriseServer.tls.enabled, you must set enterpriseServer.tls.secretName" .Values.enterpriseServer.tls.secretName | quote }}
       {{- end }}
-      initContainers:
-      - name: init-etcd
-        image: busybox:1.28
-        command: ['sh', '-c', "until wget http://etcd:2379/version; do echo waiting for etcd; sleep 2; done"]
-      {{- if or .Values.postgresql.enabled }}
-      - name: init-postgres
-        image: postgres:13.0-alpine
-        command: ['sh', '-c', "until pg_isready -h postgres -p 5432; do echo waiting for postgres; sleep 2; done"]
-      {{- end }}
-      - name: init-pgbouncer
-        image: postgres:13.0-alpine
-        command: ['sh', '-c', "until pg_isready -h pg-bouncer -p 5432; do echo waiting for postgres; sleep 2; done"]
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+          #initContainers:
+          #- name: init-etcd
+          #  image: busybox:1.28
+          #  command: ['sh', '-c', "until wget http://etcd:2379/version; do echo waiting for etcd; sleep 2; done"]
+          #{{- if or .Values.postgresql.enabled }}
+          #- name: init-postgres
+          #  image: postgres:13.0-alpine
+          #  command: ['sh', '-c', "until pg_isready -h postgres -p 5432; do echo waiting for postgres; sleep 2; done"]
+          #{{- end }}
+          #- name: init-pgbouncer
+          #  image: postgres:13.0-alpine
+          #  command: ['sh', '-c', "until pg_isready -h pg-bouncer -p 5432; do echo waiting for postgres; sleep 2; done"]
 {{- end }}
