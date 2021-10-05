@@ -122,7 +122,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-enterprise", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
-	env.InitDexDB()
 
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
@@ -134,6 +133,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
+	env.InitDexDB()
 
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
@@ -542,7 +542,6 @@ func doFullMode(config interface{}) (retErr error) {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-full", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
-	env.InitDexDB()
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
@@ -557,6 +556,7 @@ func doFullMode(config interface{}) (retErr error) {
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
+	env.InitDexDB()
 
 	var reporter *metrics.Reporter
 	if env.Config().Metrics {
