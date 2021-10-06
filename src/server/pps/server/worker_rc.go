@@ -297,6 +297,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	var securityContext *v1.PodSecurityContext
 	if a.workerUsesRoot {
 		securityContext = &v1.PodSecurityContext{RunAsUser: int64Ptr(0)}
+	} else {
+		securityContext = &v1.PodSecurityContext{RunAsUser: int64Ptr(1000)}
 	}
 	resp, err := a.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
