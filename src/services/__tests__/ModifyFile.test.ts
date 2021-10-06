@@ -1,6 +1,6 @@
 import path from 'path';
 
-import client from 'client';
+import client from '../../client';
 
 describe('ModifyFile', () => {
   afterAll(async () => {

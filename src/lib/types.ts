@@ -20,7 +20,7 @@ import {
   CommitSetObject,
   RepoObject,
   TriggerObject,
-} from 'builders/pfs';
+} from '../builders/pfs';
 
 export interface GRPCPlugin {
   onCall?: (args: {requestName: string}) => void;

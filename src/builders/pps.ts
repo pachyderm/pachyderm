@@ -24,8 +24,6 @@ import {
   ProcessStats,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
-import {GetLogsRequestArgs} from 'lib/types';
-
 import {
   commitFromObject,
   CommitObject,
@@ -38,6 +36,7 @@ import {
   timestampFromObject,
   TimestampObject,
 } from '../builders/protobuf';
+import {GetLogsRequestArgs} from '../lib/types';
 
 export type PipelineObject = {
   name: Pipeline.AsObject['name'];
