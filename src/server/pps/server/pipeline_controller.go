@@ -183,7 +183,7 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
 
-	// set op.pipelineInfo
+	// loads op.pipelineInfo
 	errCnt := 0
 	if err := backoff.RetryNotify(func() error {
 		return op.loadLatestPipelineInfo()
@@ -201,23 +201,15 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 			retry: false,
 		}
 	}); err != nil {
-		// I don't like the IsNotFoundError works with string comparison.
-		// What if we add a not found in the message in an instance where the DB records are indeed foud?
 		if errutil.IsNotFoundError(err) {
-			// we interpret no pipeline def as this event being a delete event
+			// we interpret pipelineInfo not found as this event being a delete event
 			if err := op.deletePipelineResources(); err != nil {
 				log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipeline,
 					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
+			} else {
+				log.Infof("PPS master: successfully deleted pipeline: %q", op.pipeline)
+				op.tryFinish() // try to finish the pipeline. Locks op.opsLock
 			}
-			// unregister pipelineOp
-			func() {
-				op.opsLock.Lock()
-				defer op.opsLock.Unlock()
-				op.masterOpCancel()
-				delete(op.allOpsInProcess, op.pipeline)
-			}()
-
-			log.Infof("PPS master: successfully deleted pipeline: %q", op.pipeline)
 			return nil
 		}
 		return err
@@ -350,6 +342,20 @@ func (op *pipelineOp) run() error {
 		return op.scaleUpPipeline()
 	}
 	return nil
+}
+
+// shuts down this pipelineOps goroutine if there are no bumps to process
+func (op *pipelineOp) tryFinish() {
+	op.opsLock.Lock()
+	defer op.opsLock.Unlock()
+	select {
+	case <-op.bumpChan:
+		op.Bump()
+	default:
+		op.masterOpCancel()
+		delete(op.allOpsInProcess, op.pipeline)
+		log.Infof("PPS master: cancelled subprocesses for pipeline: %q", op.pipeline)
+	}
 }
 
 func (op *pipelineOp) loadLatestPipelineInfo() error {
