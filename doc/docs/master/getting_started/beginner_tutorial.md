@@ -502,7 +502,7 @@ Pachyderm Console let's you interactively
 explore your pipelines, your data, debug jobs, read logs etc...
 
 - If you a **running this example on Hub, you have readily access to The Pachyderm Console**.
- Click the **...** link on your workspace name in the Hub UI, then **Console**.
+ Click the **Console** link on your workspace name in the Hub UI.
 
 ![Console Access](./images/hub_console_access.png)
 

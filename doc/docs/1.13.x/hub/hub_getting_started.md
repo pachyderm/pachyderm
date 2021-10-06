@@ -10,8 +10,15 @@ the steps of creating a workspace in Hub so that
 you do not need to worry about the underlying infrastructure
 and can get started right away.
 
+
 !!! Note
-    Let us know how to improve Hub. Join our [Slack channel](http://slack.pachyderm.io).
+    Get a workspace up and running in a few minutes.
+    Take advantage of our **21-day free trial**\* and start experimenting.
+    
+    Got any questions? [Contact us](mailto:support@pachyderm.io) or ask us on our [Users Slack Channel](http://slack.pachyderm.io/). 
+
+    *\*Offer limited to one single user workspace with 4 vCPUs, 15GB RAM, and unlimited object storage.*
+    
 ## Get started in 4 simple steps
 ![Hub Steps](../images/hub_steps.png)
 ## Before you start

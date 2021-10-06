@@ -10,10 +10,14 @@ the steps of creating a workspace in Hub so that
 you do not need to worry about the underlying infrastructure
 and can get started right away.
 
+
 !!! Note
-    Hub is the quickest and easiest way to get started with Pachyderm.
-    In a few minutes, you are ready to experiment.
-    Note that your first 4 hours are free. 
+    Get a workspace up and running in a few minutes.
+    Take advantage of our **21-day free trial**\* and start experimenting.
+    
+    Got any questions? [Contact us](mailto:support@pachyderm.io) or ask us on our [Users Slack Channel](http://slack.pachyderm.io/). 
+
+    *\*Offer limited to one single user workspace with 4 vCPUs, 15GB RAM, and unlimited object storage.*
 ## Get started in 4 simple steps
 ![Hub Steps](../images/hub_steps.png)
 ## Before you start
@@ -83,8 +87,7 @@ After your workspace creation, open a terminal window and [install 'pachctl'](ht
 
 1. Check the repo in your console:
 
-      In the Hub UI, click the **...** button next to your workspace name,
-      then **Console**. 
+      In the Hub UI, click the **Console** button next to your workspace name. 
       
       Your console opens in a new window. Click **View Project**. 
       Your should see your newly created repo **test**.
