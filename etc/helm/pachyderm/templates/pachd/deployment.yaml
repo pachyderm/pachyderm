@@ -37,8 +37,8 @@ spec:
       {{- end }}
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       securityContext:
-        runAsUser: 1001
-        runAsGroup: 1001
+        runAsUser: 1000
+        runAsGroup: 1000
       containers:
       - command:
         - /pachd

@@ -133,7 +133,7 @@ lifecycleHooks: {}
 ##
 securityContext:
   enabled: true
-  fsGroup: 1001
+  fsGroup: 1000
 ## Container Security Context
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 ## @param containerSecurityContext.enabled Enable container security context
@@ -141,7 +141,7 @@ securityContext:
 ##
 containerSecurityContext:
   enabled: true
-  runAsUser: 1001
+  runAsUser: 1000
 ## Pod Service Account
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 ##
@@ -915,7 +915,7 @@ metrics:
   ##
   securityContext:
     enabled: false
-    runAsUser: 1001
+    runAsUser: 1000
   ## Configure extra options for liveness probe
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
   ## @param metrics.livenessProbe.enabled Enable livenessProbe

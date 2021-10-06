@@ -37,7 +37,6 @@ type dbConfig struct {
 	maxIdleConns    int
 	connMaxLifetime time.Duration
 	connMaxIdleTime time.Duration
-	driver          string
 }
 
 func newConfig(opts ...Option) *dbConfig {
@@ -46,7 +45,6 @@ func newConfig(opts ...Option) *dbConfig {
 		maxIdleConns:    DefaultMaxIdleConns,
 		connMaxLifetime: DefaultConnMaxLifetime,
 		connMaxIdleTime: DefaultConnMaxIdleTime,
-		driver:          "pgx",
 	}
 	for _, opt := range opts {
 		opt(dbc)
@@ -128,6 +126,7 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 func WaitUntilReady(ctx context.Context, log *logrus.Logger, db *sqlx.DB) error {
 	const period = time.Second
 	const timeout = time.Second
+	log.Infof("waiting for db to be ready...")
 	return backoff.RetryUntilCancel(ctx, func() error {
 		log.Debugf("pinging db...")
 		ctx, cf := context.WithTimeout(ctx, timeout)
