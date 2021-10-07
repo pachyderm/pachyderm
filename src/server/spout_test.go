@@ -44,7 +44,8 @@ func TestSpoutPachctl(t *testing.T) {
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
 				Transform: &pps.Transform{
-					Cmd: []string{"/bin/sh"},
+					Cmd:        []string{"/bin/sh"},
+					WorkingDir: "/pach",
 					Stdin: []string{
 						"while [ : ]",
 						"do",
@@ -105,7 +106,8 @@ func TestSpoutPachctl(t *testing.T) {
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
 				Transform: &pps.Transform{
-					Cmd: []string{"/bin/sh"},
+					Cmd:        []string{"/bin/sh"},
+					WorkingDir: "/pach",
 					Stdin: []string{
 						"while [ : ]",
 						"do",
@@ -201,7 +203,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
 				Transform: &pps.Transform{
-					Cmd: []string{"/bin/sh"},
+					Cmd:        []string{"/bin/sh"},
+					WorkingDir: "/pach",
 					Stdin: []string{
 						"while [ : ]",
 						"do",
@@ -290,7 +293,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
 				Transform: &pps.Transform{
-					Cmd: []string{"/bin/sh"},
+					Cmd:        []string{"/bin/sh"},
+					WorkingDir: "/pach",
 					Stdin: []string{
 						// add extra command to get around issues with put file -o on a new repo
 						"date > date",
@@ -347,7 +351,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
 				Transform: &pps.Transform{
-					Cmd: []string{"/bin/sh"},
+					Cmd:        []string{"/bin/sh"},
+					WorkingDir: "/pach",
 					Stdin: []string{
 						"while [ : ]",
 						"do",
@@ -527,7 +532,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
 				Transform: &pps.Transform{
-					Cmd: []string{"/bin/sh"},
+					Cmd:        []string{"/bin/sh"},
+					WorkingDir: "/pach",
 					Stdin: []string{
 						"while [ : ]",
 						"do",
