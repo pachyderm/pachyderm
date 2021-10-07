@@ -23,7 +23,6 @@ type compactor struct {
 	maxFanIn int
 
 	compactionQueue *work.TaskQueue
-	worker          *work.Worker
 }
 
 func newCompactor(ctx context.Context, storage *fileset.Storage, etcdClient *etcd.Client, etcdPrefix string, maxFanIn int) (*compactor, error) {
@@ -34,14 +33,11 @@ func newCompactor(ctx context.Context, storage *fileset.Storage, etcdClient *etc
 	if err != nil {
 		return nil, err
 	}
-	worker := work.NewWorker(etcdClient, etcdPrefix, storageTaskNamespace)
 	c := &compactor{
 		storage:         storage,
 		maxFanIn:        maxFanIn,
 		compactionQueue: compactionQueue,
-		worker:          worker,
 	}
-	go c.compactionWorker(ctx)
 	return c, nil
 }
 
@@ -82,7 +78,9 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 					if err != nil {
 						return err
 					}
-					renewer.Add(*id)
+					if err := renewer.Add(ctx, *id); err != nil {
+						return err
+					}
 					results[int(res.Index)] = *id
 					return nil
 				}); err != nil {
@@ -101,9 +99,10 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 	})
 }
 
-func (c *compactor) compactionWorker(ctx context.Context) error {
+func compactionWorker(ctx context.Context, storage *fileset.Storage, etcdClient *etcd.Client, etcdPrefix string) error {
+	worker := work.NewWorker(etcdClient, etcdPrefix, storageTaskNamespace)
 	return backoff.RetryUntilCancel(ctx, func() error {
-		return c.worker.Run(ctx, func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
+		return worker.Run(ctx, func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
 			var result *types.Any
 			if err := miscutil.LogStep("processing compaction task", func() error {
 				task, err := deserializeCompactionTask(subtask.Data)
@@ -122,7 +121,7 @@ func (c *compactor) compactionWorker(ctx context.Context) error {
 					Lower: task.Range.Lower,
 					Upper: task.Range.Upper,
 				}
-				id, err := c.storage.Compact(ctx, ids, defaultTTL, index.WithRange(pathRange))
+				id, err := storage.Compact(ctx, ids, defaultTTL, index.WithRange(pathRange))
 				if err != nil {
 					return err
 				}

@@ -401,14 +401,17 @@ func (c *pfsBuilderClient) Fsck(ctx context.Context, req *pfs.FsckRequest, opts 
 func (c *pfsBuilderClient) CreateFileSet(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateFileSetClient, error) {
 	return nil, unsupportedError("CreateFileSet")
 }
-func (c *pfsBuilderClient) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("RenewFileSet")
+func (c *pfsBuilderClient) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest, opts ...grpc.CallOption) (*pfs.CreateFileSetResponse, error) {
+	return nil, unsupportedError("GetFileSet")
 }
 func (c *pfsBuilderClient) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("AddFileSet")
 }
-func (c *pfsBuilderClient) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest, opts ...grpc.CallOption) (*pfs.CreateFileSetResponse, error) {
-	return nil, unsupportedError("GetFileSet")
+func (c *pfsBuilderClient) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("RenewFileSet")
+}
+func (c *pfsBuilderClient) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetRequest, opts ...grpc.CallOption) (*pfs.CreateFileSetResponse, error) {
+	return nil, unsupportedError("ComposeFileSet")
 }
 func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTest")

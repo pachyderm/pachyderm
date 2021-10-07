@@ -58,6 +58,10 @@ func (d *driver) master(ctx context.Context) {
 }
 
 func (d *driver) finishCommits(ctx context.Context) error {
+	compactor, err := newCompactor(d.env.Context(), d.storage, d.etcdClient, d.prefix, d.env.Config().StorageCompactionMaxFanIn)
+	if err != nil {
+		return err
+	}
 	return d.commits.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
 		if ev.Type == watch.EventError {
 			return ev.Err
@@ -85,7 +89,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 				start := time.Now()
 				if err := miscutil.LogStep(fmt.Sprintf("compacting commit %v", commit.ID), func() error {
 					var err error
-					totalId, err = d.compactor.Compact(ctx, []fileset.ID{*id}, defaultTTL)
+					totalId, err = compactor.Compact(ctx, []fileset.ID{*id}, defaultTTL)
 					if err != nil {
 						return err
 					}
