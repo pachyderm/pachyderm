@@ -52,6 +52,46 @@ const tutorial = {
   ],
 };
 
+const allFiles = {
+  ...tutorial,
+  '/': [
+    ...tutorial['/'],
+    fileInfoFromObject({
+      committed: {seconds: 1633119338, nanos: 0},
+      file: {
+        commitId: '531f844bd184e913b050d49856e8d438',
+        path: '/commas.csv',
+        branch: {name: 'master', repo: {name: 'samples'}},
+      },
+      fileType: FileType.FILE,
+      hash: '1aa5784d52481911bc44df0e8b6a8fd581b0518c',
+      sizeBytes: 146,
+    }),
+    fileInfoFromObject({
+      committed: {seconds: 1633119338, nanos: 0},
+      file: {
+        commitId: '531f844bd184e913b050d49856e8d438',
+        path: '/tabs.csv',
+        branch: {name: 'master', repo: {name: 'samples'}},
+      },
+      fileType: FileType.FILE,
+      hash: '1aa5784d52481911bc44df0e8b6a8fd581b0518c',
+      sizeBytes: 146,
+    }),
+    fileInfoFromObject({
+      committed: {seconds: 1633119338, nanos: 0},
+      file: {
+        commitId: '531f844bd184e913b050d49856e8d438',
+        path: '/tabs.tsv',
+        branch: {name: 'master', repo: {name: 'samples'}},
+      },
+      fileType: FileType.FILE,
+      hash: '1aa5784d52481911bc44df0e8b6a8fd581b0518c',
+      sizeBytes: 146,
+    }),
+  ],
+};
+
 type Files = {
   [projectId: string]: {
     [path: string]: FileInfo[];
@@ -59,7 +99,7 @@ type Files = {
 };
 
 const files: Files = {
-  '1': tutorial,
+  '1': allFiles,
   '2': tutorial,
   '3': tutorial,
   '4': tutorial,

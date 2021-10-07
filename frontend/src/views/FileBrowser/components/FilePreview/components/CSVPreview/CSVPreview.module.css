@@ -35,3 +35,9 @@
   font-weight: 600;
   background-color: var(--background-blue);
 }
+
+.settingsHeader {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}

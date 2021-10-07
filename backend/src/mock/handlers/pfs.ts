@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 import {Status} from '@grpc/grpc-js/build/src/constants';
 import {
   Permission,
@@ -9,6 +12,7 @@ import {
 } from '@pachyderm/node-pachyderm';
 import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
+import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 
 import {REPO_READER_PERMISSIONS} from '@dash-backend/constants/permissions';
 import commits from '@dash-backend/mock/fixtures/commits';
@@ -44,7 +48,12 @@ const pfs = () => {
   return {
     getService: (): Pick<
       PfsIAPIServer,
-      'listRepo' | 'inspectRepo' | 'listCommit' | 'listFile' | 'createRepo'
+      | 'listRepo'
+      | 'inspectRepo'
+      | 'listCommit'
+      | 'listFile'
+      | 'createRepo'
+      | 'getFile'
     > => {
       return {
         listRepo: (call) => {
@@ -121,6 +130,16 @@ const pfs = () => {
           const replyFiles = directories[path] || directories['/'];
 
           replyFiles.forEach((file) => call.write(file));
+          call.end();
+        },
+        getFile: (call) => {
+          const filePath = call.request.getFile()?.getPath();
+          const file = fs.readFileSync(
+            path.resolve(__dirname, `../fixtures/files/${filePath}`),
+          );
+          const bytes = new BytesValue();
+          bytes.setValue(file);
+          call.write(bytes);
           call.end();
         },
         createRepo: (call, callback) => {

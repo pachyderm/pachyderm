@@ -58,6 +58,8 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
           case 'json':
             return <JSONPreview downloadLink={fileLink} />;
           case 'csv':
+          case 'tsv':
+          case 'tab':
             return <CSVPreview downloadLink={fileLink} />;
         }
       }

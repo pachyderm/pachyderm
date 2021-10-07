@@ -9,10 +9,13 @@ const {GRPC_SSL} = process.env;
 const handleFileDownload = async (req: Request, res: Response) => {
   const authToken = req.cookies.dashAuthToken;
   const pachdAddress = process.env.PACHD_ADDRESS;
+  const isTest = process.env.NODE_ENV === 'test';
   const sameOrigin =
-    req.get('origin') === undefined || process.env.NODE_ENV === 'development';
+    req.get('origin') === undefined ||
+    process.env.NODE_ENV === 'development' ||
+    isTest;
 
-  if (!sameOrigin || !authToken || !pachdAddress) {
+  if (!isTest && (!sameOrigin || !authToken || !pachdAddress)) {
     return res
       .send('You do not have permission to access this file.')
       .status(401);

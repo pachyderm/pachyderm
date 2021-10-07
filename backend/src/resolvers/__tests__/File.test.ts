@@ -21,7 +21,7 @@ describe('File Resolver', () => {
 
       const files = data?.files;
       expect(errors?.length).toBe(0);
-      expect(files?.length).toEqual(3);
+      expect(files?.length).toEqual(6);
       expect(files?.[0]?.path).toEqual('/AT-AT.png');
       expect(files?.[1]?.path).toEqual('/liberty.png');
       expect(files?.[2]?.path).toEqual('/cats/');

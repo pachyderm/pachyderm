@@ -34,7 +34,7 @@ describe('File Browser', () => {
       expect(await findByText('liberty.png')).toBeInTheDocument();
       expect(await findByText('AT-AT.png')).toBeInTheDocument();
       expect(await findByText('cats')).toBeInTheDocument();
-      expect(await findAllByRole('row')).toHaveLength(4);
+      expect(await findAllByRole('row')).toHaveLength(7);
 
       userEvent.type(searchBar, 'lib');
 
@@ -104,9 +104,9 @@ describe('File Browser', () => {
       });
 
       let rows = await findAllByRole('row');
-      expect(rows[1].textContent).toContain('liberty.png');
-      expect(rows[2].textContent).toContain('cats');
-      expect(rows[3].textContent).toContain('AT-AT.png');
+      expect(rows[1].textContent).toContain('tabs.tsv');
+      expect(rows[2].textContent).toContain('tabs.csv');
+      expect(rows[3].textContent).toContain('liberty.png');
 
       const sizeHeader = await findByLabelText(
         'sort by size in descending order',
@@ -116,9 +116,9 @@ describe('File Browser', () => {
       });
 
       rows = await findAllByRole('row');
-      expect(rows[1].textContent).toContain('liberty.png');
-      expect(rows[2].textContent).toContain('AT-AT.png');
-      expect(rows[3].textContent).toContain('cats');
+      expect(rows[1].textContent).toContain('commas.csv');
+      expect(rows[2].textContent).toContain('tabs.csv');
+      expect(rows[3].textContent).toContain('tabs.tsv');
 
       const typeHeader = await findByLabelText(
         'sort by type in descending order',
@@ -129,8 +129,8 @@ describe('File Browser', () => {
 
       rows = await findAllByRole('row');
       expect(rows[1].textContent).toContain('cats');
-      expect(rows[2].textContent).toContain('AT-AT.png');
-      expect(rows[3].textContent).toContain('liberty.png');
+      expect(rows[2].textContent).toContain('commas.csv');
+      expect(rows[3].textContent).toContain('tabs.csv');
 
       const dateHeader = await findByLabelText(
         'sort by date in descending order',

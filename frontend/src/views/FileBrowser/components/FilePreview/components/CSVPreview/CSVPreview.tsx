@@ -1,46 +1,24 @@
-import {LoadingDots} from '@pachyderm/components';
-import {csv} from 'd3-fetch';
-import React, {
-  CSSProperties,
-  useCallback,
-  useEffect,
-  useState,
-  useMemo,
-} from 'react';
+import {LoadingDots, DefaultDropdown} from '@pachyderm/components';
+import React, {CSSProperties, useCallback} from 'react';
 import {FixedSizeGrid} from 'react-window';
 
 import {FixedGridRowProps} from '@dash-frontend/lib/types';
 
 import styles from './CSVPreview.module.css';
+import useCSVPreview, {
+  FilePreviewProps,
+  DELIMITER_ITEMS,
+} from './hooks/useCSVPreview';
 
 const ITEM_HEIGHT = 34;
 const ITEM_WIDTH = 160;
 const HEADER_OVERHEAD = 170;
 
-type FilePreviewProps = {
-  downloadLink: string | undefined | null;
-};
-
 const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
-  const [data, setData] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const getData = async () => {
-      if (downloadLink) {
-        setLoading(true);
-        const responseData = await csv(downloadLink, {
-          credentials: 'include',
-          mode: 'cors',
-        });
-        responseData && setData(responseData);
-        setLoading(false);
-      }
-    };
-    getData();
-  }, [downloadLink]);
-
-  const headers = useMemo(() => Object.keys(data[0] || {}), [data]);
+  const {headers, data, loading, delimiter, setDelimiter, delimiterLabel} =
+    useCSVPreview({
+      downloadLink,
+    });
 
   const Row: React.FC<FixedGridRowProps> = ({rowIndex, columnIndex, style}) => {
     const rowValue = data[rowIndex];
@@ -83,18 +61,30 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
   if (loading) return <LoadingDots />;
 
   return (
-    <FixedSizeGrid
-      columnWidth={ITEM_WIDTH}
-      columnCount={headers.length}
-      rowCount={data.length}
-      rowHeight={ITEM_HEIGHT}
-      innerElementType={InnerElement}
-      width={window.innerWidth}
-      height={window.innerHeight - HEADER_OVERHEAD}
-      className={styles.base}
-    >
-      {Row}
-    </FixedSizeGrid>
+    <>
+      <div className={styles.settingsHeader}>
+        <DefaultDropdown
+          initialSelectId={delimiter}
+          onSelect={setDelimiter}
+          menuOpts={{pin: 'right'}}
+          items={DELIMITER_ITEMS}
+        >
+          Separator: {delimiterLabel}
+        </DefaultDropdown>
+      </div>
+      <FixedSizeGrid
+        columnWidth={ITEM_WIDTH}
+        columnCount={headers.length}
+        rowCount={data.length}
+        rowHeight={ITEM_HEIGHT}
+        innerElementType={InnerElement}
+        width={window.innerWidth}
+        height={window.innerHeight - HEADER_OVERHEAD}
+        className={styles.base}
+      >
+        {Row}
+      </FixedSizeGrid>
+    </>
   );
 };
 

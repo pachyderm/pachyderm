@@ -17,5 +17,6 @@ baseConfig.moduleNameMapper = {
 };
 
 baseConfig.timers = 'real';
+baseConfig.testEnvironment = './dash-jsdom-environment';
 
 module.exports = baseConfig;

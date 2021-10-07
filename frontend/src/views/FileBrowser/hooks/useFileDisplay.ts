@@ -16,6 +16,8 @@ const SUPPORTED_PREVIEW_MINOR_TYPES: string[] = [
   'json',
   'jsonl',
   'csv',
+  'tsv',
+  'tab',
   'html',
   'xml',
   'htm',

@@ -18,7 +18,9 @@ const getDownloadLink = (file: FileInfo.AsObject, host: string) => {
   const filePath = file.file?.path;
 
   if (repoName && branchName && commitId && filePath) {
-    return `${host}/download/${repoName}/${branchName}/${commitId}${filePath}`;
+    return `${
+      process.env.NODE_ENV === 'test' ? 'http:' : ''
+    }${host}/download/${repoName}/${branchName}/${commitId}${filePath}`;
   }
 
   return null;
