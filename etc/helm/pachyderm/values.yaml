@@ -108,38 +108,6 @@ etcd:
     # type specifies the Kubernetes type of the etcd service.
     type: ClusterIP
 
-enterpriseServer:
-  enabled: false
-  affinity: {}
-  service:
-    type: ClusterIP
-  # There are three options for TLS:
-  # 1. Disabled
-  # 2. Enabled, existingSecret, specify secret name
-  # 3. Enabled, newSecret, must specify cert, key and name
-  tls:
-    enabled: false
-    secretName: ""
-    newSecret:
-      create: false
-      crt: ""
-      key: ""
-  resources: {}
-    #limits:
-    #  cpu: "1"
-    #  memory: "2G"
-    #requests:
-    #  cpu: "1"
-    #  memory: "2G"
-  # podLabels specifies labels to add to the pachd pod.
-  podLabels: {}
-  clusterDeploymentID: ""
-  image:
-    repository: "pachyderm/pachd"
-    pullPolicy: "IfNotPresent"
-    # tag defaults to the chart’s specified appVersion.
-    tag: ""
-
 ingress:
   enabled: false
   annotations: {}
@@ -158,6 +126,7 @@ ingress:
 
 pachd:
   enabled: true
+  enterpriseOnlyMode: false
   affinity: {}
   # clusterDeploymentID sets the Pachyderm cluster ID.
   clusterDeploymentID: ""

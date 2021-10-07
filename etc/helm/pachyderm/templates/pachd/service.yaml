@@ -21,7 +21,11 @@ spec:
   ports:
   - name: api-grpc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
+    {{- if .Values.pachd.enterpriseOnlyMode }}
+    nodePort: 31650
+    {{- else }}
     nodePort: 30650
+    {{- end }}
     port: 1650
     {{- else }}
     port: 30650
@@ -30,7 +34,11 @@ spec:
     targetPort: api-grpc-port
   - name: oidc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
+    {{- if .Values.pachd.enterpriseOnlyMode }}
+    nodePort: 31657
+    {{- else }}
     nodePort: 30657
+    {{- end }}
     port: 1657
     {{- else }}
     port: 30657
@@ -38,12 +46,17 @@ spec:
     targetPort: oidc-port
   - name: identity-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
+    {{- if .Values.pachd.enterpriseOnlyMode }}
+    nodePort: 31658
+    {{- else }}
     nodePort: 30658
+    {{- end }}
     port: 1658
     {{- else }}
     port: 30658
     {{- end }}
     targetPort: identity-port
+  {{- if not .Values.pachd.enterpriseOnlyMode }}
   - name: s3gateway-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30600
@@ -52,9 +65,14 @@ spec:
     port: 30600
     {{- end }}
     targetPort: s3gateway-port
+  {{- end }}
   - name: prom-metrics
     {{- if eq .Values.pachd.service.type "NodePort" }}
+    {{- if .Values.pachd.enterpriseOnlyMode }}
+    nodePort: 31656
+    {{- else }}
     nodePort: 30656
+    {{- end }}
     {{- end }}
     port: 1656
     protocol: TCP

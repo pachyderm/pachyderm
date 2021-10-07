@@ -190,7 +190,7 @@ launch-enterprise: check-kubectl check-kubectl-connection
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
 	helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml
 	# wait for the pachyderm to come up
-	kubectl wait --for=condition=ready pod -l app=pach-enterprise --namespace enterprise --timeout=5m
+	kubectl wait --for=condition=ready pod -l app=pachd --namespace enterprise --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl
