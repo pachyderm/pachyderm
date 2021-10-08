@@ -61,7 +61,6 @@ The diagram below gives a quick overview of the recommended setup:
 
 ### `NodePort`
 By default, the local deployment of Pachyderm deploys the `pachd` service as  `type:NodePort`. However, `NodePort` is a limited solution that is not secure in production deployments. Therefore, Pachyderm services are otherwise exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport). 
-    `
 
 ### `Ingress` 
 An Ingress exposes HTTP and HTTPS routes from outside the cluster to services in the cluster such as Console or Authentication services. 
@@ -113,10 +112,10 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
     ```
 
 
-As of today, few Ingress Controller offer full support of the gRPC protocol. To access `pachd` over gRPC (for example when using `pachctl` or the s3Gateway, we recommend the use of a Load Balancer instead.
+As of today, few Ingress Controller offer full support of the gRPC protocol. To access `pachd` over gRPC (for example, when using `pachctl` or the s3Gateway, we recommend using a Load Balancer instead.
 
 !!! Info
-    You might choose to deploy your preferred Ingress Controller (Traefik, NGINX) rather than rely on. Read about the installation and configuration of [Traefik](./pach-ui-ingress/) on a cluster.
+    You might choose to deploy your preferred Ingress Controller (Traefik, NGINX). Read about the installation and configuration of [Traefik](./pach-ui-ingress/) on a cluster.
 
 !!! See "See Also" 
      * Kubernetes [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
