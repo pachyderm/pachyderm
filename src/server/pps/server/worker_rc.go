@@ -304,8 +304,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
 	} else if userStr != "" {
 		// This is to allow the user to be set in the pipeline spec.
-		if i, err := strconv.ParseInt(pipelineInfo.Details.Transform.User, 10, 64); err != nil {
-			a.env.Logger().Warnf("could not parse user %q into int: %v", err)
+		if i, err := strconv.ParseInt(userStr, 10, 64); err != nil {
+			a.env.Logger().Warnf("could not parse user %q into int: %v", userStr, err)
 		} else {
 			userSecurityCtx = &v1.SecurityContext{
 				RunAsUser:  int64Ptr(i),
