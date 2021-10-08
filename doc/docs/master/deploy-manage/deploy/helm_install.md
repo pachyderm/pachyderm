@@ -3,7 +3,7 @@
 The package manager [Helm](https://helm.sh/docs/intro/install/#helm) is the authoritative deployment method for Pachyderm.
 
 !!! Reminder
-    For improved security, **Pachyderm services are now exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)**. These changes do not apply to LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations)
+    **Pachyderm services are exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)**. These changes do not apply to LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations)
 
 This page gives a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) or in our [GitHub repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/pachyderm).
 

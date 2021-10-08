@@ -1,18 +1,16 @@
 # Set up Ingress with Traefik to access Pachyderm UI (`console`) service in your cluster 
-Before completing the following steps, read the [Overview](../index).
+
+Before completing the following steps, read the [Infrastructure Recommendation page](../).
+
 This section provides an example of how to route
-cluster-external requests (URLs - hostname and path) to cluster-internal services
-(here Pachyderm UI (`console`) service 
+cluster-external HTTP/HTTPS requests to cluster-internal services
+(here Pachyderm UI `console` service and `authentication` services
 using the **ingress controller** Traefik.
  
-However, we recommend you choose the ingress controller
-implementation that best fits your cluster.
-
-Pachyderm UI requires a single (HTTP) port to be open.
 
 ## Traefik ingress controller on Pachyderm UI's cluster in one diagram
 Here is a quick high-level view of the various components at play.
-![pach-ui-ingress](../pach-ui-ingress.png)
+![pach-ui-ingress](../../../images/console_ingress_traefik.png)
 
 !!! Warning 
 
@@ -51,58 +49,75 @@ Here is a quick high-level view of the various components at play.
    You will need to configure any specific annotations your ingress controller requires. 
 
     - my_pachyderm_values.yaml
-      ```yaml
-      ingress:
+       ```yaml
+       ingress:
          enabled: false
          annotations:
-            kubernetes.io/ingress.class: traefik
-            traefik.frontend.rule.type: PathPrefixStrip
-         host: "console.localhost"
+            kubernetes.io/ingress.class: "traefik"
+            traefik.ingress.kubernetes.io/router.tls: "true"
+         host: "<your_domain_name>"
+       ```
+
+       For a list of all available annotations, read the [Traefik & Kubernetes documentation](https://doc.traefik.io/traefik/routing/providers/kubernetes-ingress/).
+
+       At a minimum, you will need to specify the `host` field: match the hostname header of the http request (domain).  
+
+
+       Check the [list of all available helm values](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L143) at your disposal in our reference documentation.
+
+1. Install Pachyderm and Console using the Helm Chart
+
+      Once you have your [networking infrastructure](./) set up, apply a helm values file such as the one specified in the example file below to wire up routing through an Ingress, and set up TLS.
+
+
+      ```yaml
+      ingress:
+         enabled: true
+         host: <DNS-ENTRY-A>
+         annotations:
+            ## annotations specific to integrate with your ingress-controller
+            traefik.ingress.kubernetes.io/router.tls: "true"
+            kubernetes.io/ingress.class: "traefik"
+         tls:
+            enabled: true
+            secretName: "pach-tls"
+      pachd:
+         tls:
+            enabled: true
+            secretName: "pach-tls"
+         externalService:
+            enabled: true
+            loadBalancerIP: <DNS-ENTRY-B>
+      console:
+         enabled: true
       ```
-
-         At a minimum, you will need to specify the following fields:
-
-         - `host` — match the hostname header of the http request (domain).  In the example above,  **console.localhost** 
-
-!!! Note
-      Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
-
-   - Install Pachyderm using the Helm Chart
       ```shell
       $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm
       ```
-      
-   - Check your new rules by running `kubectl describe ingress console`:
-      ```shell
-      $ kubectl describe ingress console
-      ```
-      ```
-      Name:             console
-      Namespace:        default
-      Address:
-      Default backend:  default-http-backend:80 
-      Rules:
-      Host            Path  Backends
-      console.localhost
-                        /     console:console-http (10.1.0.7:4000)
-      Annotations:      kubernetes.io/ingress.class: traefik
-                        /dex     pachd:identity-port (10.1.0.8:1658)
-      Annotations:      kubernetes.io/ingress.class: traefik
-                        /     pachd:oidc-port (10.1.0.8:1657)
-      Annotations:      kubernetes.io/ingress.class: traefik
-      Events:           <none>
-      ```
+      The deployment of Pachyderm automatically creates the required set of rules.
+
+1. Check your new rules by running `kubectl describe ingress console`:
+         ```shell
+         $ kubectl describe ingress console
+         ```
+         ```
+         Name:             console
+         Namespace:        default
+         Address:
+         Default backend:  default-http-backend:80 
+         Rules:
+         Host            Path  Backends
+         console.localhost
+                           /     console:console-http (10.1.0.7:4000)
+         Annotations:      kubernetes.io/ingress.class: traefik
+                           /dex     pachd:identity-port (10.1.0.8:1658)
+         Annotations:      kubernetes.io/ingress.class: traefik
+                           /     pachd:oidc-port (10.1.0.8:1657)
+         Annotations:      kubernetes.io/ingress.class: traefik
+         Events:           <none>
+         ```
        
-   - Check the Traefik Dashboard again (http://127.0.0.1:9000/dashboard/), your new set of rules should now be visible.
-
-
-!!! Warning
-      - You need to have administrative access to the hostname that you
-      specify in the `host` field.
-      - Do not create routes (`paths`) with `pachd` or S3 services
-      in the `Ingress` resource `.yaml`.
-      - Do not create routes (`paths`) with `console`.
-      Pachyderm UI will not load.
+1. Check the Traefik Dashboard again (http://127.0.0.1:9000/dashboard/), your new set of rules should now be visible.
 
 
 ## Browse
@@ -110,8 +125,7 @@ Connect to your Console (Pachyderm UI): http://console.localhost/app/. You are a
 
 ## References
 * [Traefik](https://doc.traefik.io/traefik/v1.7/user-guide/kubernetes/) documentation.
-* Kubernetes [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
-* Kubernetes [Ingress Controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
+
 
 
 

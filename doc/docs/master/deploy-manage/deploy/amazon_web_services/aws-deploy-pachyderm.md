@@ -155,7 +155,6 @@ running or scale to thousands of jobs per commits, you might need to add
 more storage.  However, you can easily increase the size of the persistent
 volume later.
 
-<<<<<<< HEAD
 ## 3. Create an AWS Managed PostgreSQL Database
 
 By default, Pachyderm runs with a bundled version of PostgreSQL. 
@@ -225,23 +224,8 @@ postgresql:
 ```
 ## 4. Deploy Pachyderm
 You have created your S3 bucket, given your cluster access to your bucket, created an AWS Managed PostgreSQL instance, and, if needed, have configured your EKS cluster to create your pvs.
-=======
-## 3- Set Up Networking Infrastructure
-### Add an Ingress Controller to your cluster
-Choose an Ingress Controller such as Traefik or NGINX, and deploy in your cluster.
 
-### Create a TCP load balancer
-Provision a TCP load balancer with port 30650 forwarding to pachd, and 
-### Create a DNS entry in Route 53
-Create a DNS entry that points to your Load Balancer 
-
-### Use a certificate manager that will refresh your TLS Certificate
-
-## 4- Deploy Pachyderm
-You have created your S3 bucket, given your cluster access to your bucket, and have configured your EKS cluster to create your pvs (metadata).
->>>>>>> 18a677e49 (Simplify the Happy Path doc for Local and Production deployment)
-
-You can now deploy Pachyderm.
+You can now finalize your values.yaml and deploy Pachyderm.
 ### Update Your Values.yaml   
 
 #### For gp3 EBS Volumes
@@ -407,11 +391,7 @@ Refer to our generic ["Helm Install"](./helm_install.md) page for more informati
 
 - Finally, make sure [`pachtl` talks with your cluster](#4-have-pachctl-and-your-cluster-communicate).
 
-<<<<<<< HEAD
 ## 5. Have 'pachctl' And Your Cluster Communicate
-=======
-## 5- Have 'pachctl' And Your Cluster Communicate
->>>>>>> 18a677e49 (Simplify the Happy Path doc for Local and Production deployment)
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
