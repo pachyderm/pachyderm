@@ -137,7 +137,7 @@ etcd and PostgreSQL (metadata storage) each claim the creation of a pv.
 If you plan on using **gp2** EBS volumes:
 
 - [Skip this section and jump to the deployment of Pachyderm](#3-deploy-pachyderm) 
-- or, optional, [jump to AWS-managed PostgreSQL](#3-optional-amazon-rds-aws-managed-postgresql-database)
+- or, for deployments in production, [jump to AWS-managed PostgreSQL](#3-optional-amazon-rds-aws-managed-postgresql-database)
 
 For gp3 volumes, you will need to **deploy an Amazon EBS CSI driver to your cluster as detailed below**.
 
@@ -155,91 +155,51 @@ running or scale to thousands of jobs per commits, you might need to add
 more storage.  However, you can easily increase the size of the persistent
 volume later.
 
-## 3- (Optional) Amazon RDS - AWS Managed PostgreSQL Database
-You might opt for **AWS-managed PostgreSQL** instead of Pachyderm's bundled instance.
-In that case, you will need to:
+## 3- Amazon RDS - AWS Managed PostgreSQL Database
+By default, Pachyderm runs with a bundled version of PostgreSQL. 
+For production environments, it is **strongly recommended that you disable the bundled version and use an RDS PostgreSQL instance**. 
 
-- Create an environment to run your AWS PostgreSQL databases. It is important to note that you will be creating **two databases** (`pachyderm` and `dex`).
+This section will provide guidance on the configuration settings you will need to: 
+
+- Create an environment to run your AWS PostgreSQL databases. Note that you will be creating **two databases** (`pachyderm` and `dex`).
 - Update your values.yaml to turn off the installation of the bundled postgreSQL and provide your new instance information.
+
+!!! Note
+      It is assumed that you are already familiar with RDS, or will be working with an administrator who is.
 
 ### Create An AWS Managed PostgreSQL Instance
 
 !!! Info 
-      You will find all the steps highlighted below in [AWS "Getting Started" hands-on tutorial](https://aws.amazon.com/getting-started/hands-on/create-connect-postgresql-db/).
+      Find the details of all the steps highlighted below in [AWS Documentation: "Getting Started" hands-on tutorial](https://aws.amazon.com/getting-started/hands-on/create-connect-postgresql-db/).
  
-- In the ASW Management Console, find **RDS** under *Database* and open the RDS console. 
-- On the top right, **select the region matching Your Pachyderm cluster**. 
-- In the Create database section, click **Create database**. 
-- Choose the **PostgreSQL** engine and select the latest version. **OPEN QUESTION: WHICH VERSION DO WE RECOMMEND??? How do I find the compatibility Pachyderm version - postgreSQL version)** 
-- You will now configure your DB instance. Find the list of the recommended settings you will use below:
+In the RDS console, create a database **in the region matching your Pachyderm cluster**. Choose the **PostgreSQL** engine and select a PostgreSQL version >= 13.3.
 
-#### Settings
+Configure your DB instance as follow.
 
-Fill in the **`DB instance identifier`** with a unique name across all of your DB instances in the current region as well as your Administrator username and password (**`Master username`**, **`Master password`**).
- 
-#### Instance specifications
+| SECTION | Recommended values|
+|:----------------|:--------------------------------------------------------|
+| *Settings* | Fill in the **`DB instance identifier`** with a unique name across all of your DB instances in the current region as well as your Administrator username and password (**`Master username`**, **`Master password`**).|
+| *Instance specifications* | - **`DB instance class`**: The standard default should work. You can change the instance type later on to optimize your performances and costs. <br><br>  - Select your **`Storage type`** and **`Allocated storage`**: If you choose **gp2**, remember that Pachyderm's metadata services require **high IOPS (1500)**, oversize the disk accordingly (`>= 1TB`), if you select **io1**, keep the `100 GiB` default size. Read more [information on Storage for RDS on Amazon's website](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_Storage.html). <br><br>  - **`Storage autoscaling`** is optionnal. If your workload is cyclical or unpredictable, enable storage autoscaling to allow RDS to scale up your storage when needed. <br><br> - Availability & durability: We highly recommend creating a **`standby instance`** for production environments.|
+|*Connectivity*|  - **Select the VPC of your Kubernetes cluster**. Attention: After a database is created, you can't change its VPC. Read more on [VPCs and RDS on Amazon documentation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.html). <br><br> - Pick a **`Subnet group`** or Create a new one. Read more about [DB Subnet Groups on Amazon documentation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html#USER_VPC.Subnets). <br><br> - Set the **`Public access`** to `No` for production environments. <br><br>- Choose to **Create a new `VPC security group` and open the postgreSQL port** or use an existing one. |
+|*Database authentication*|Choose **Password authentication** or **Password and IAM database authentication**.|
+|*Additional configuration*|- In the **Database options** section, enter the **`Database name`**: `pachyderm`. Warning: If you do not specify a database name, Amazon RDS does not create a database. <br><br> - Click **Create database** to create your PostgreSQL service. Your instance is running. Head to your final step to create a second database.|
+|*Dex Database*|Additionally, you will need to create a second database named "dex" for Pachyderm's authentication service. Note that the database must be named `dex`. Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres). |
 
-- **`DB instance class`**: The standard default should work. 
-      You can change the instance type later on to optimize your performances and costs.
 
-- Select your **`Storage type`** and **`Allocated storage`**:
-      If you choose **gp2**, remember that Pachyderm's metadata services require **high IOPS (1500)**, oversize the disk accordingly (`>= 1TB`), if you select **io1**, keep the `100 GiB` default size.
+!!! Important
+       **Additional step for production settings**: Create a new user account and **grant it full CRUD permissions to both `pachyderm` and `dex`**.
 
-      Read more [information on Storage for RDS on Amazon's website](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_Storage.html).
-
-- **`Storage autoscaling`** is optionnal. 
-      If your workload is cyclical or unpredictable, enable storage autoscaling to allow RDS to scale up your storage when needed. 
-
-- Availability & durability: 
-
-!!! Information 
-      We highly recommend creating a **`standby instance`** for production environments.
-#### Connectivity
-    
-!!! Important 
-      **Select the VPC of your Kubernetes cluster**. 
-      After a database is created, you can't change its VPC. 
-      
-      Read more on [VPCs and RDS on Amazon documentation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.html).
-
-- Pick a **`Subnet group`** or Create a new one. 
-      Read more about [DB Subnet Groups on Amazon documentation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html#USER_VPC.Subnets). 
-
-- Set the **`Public access`** to `No` for production environments. 
-      **OPEN QUESTION: Then how do you connect to create Dex database afterward? Do we recommend opening a port on a firewall for admin purposes??** 
-
-- Select **create new `VPC security group`**. 
-      **OPEN QUESTION - Create a new security group and open the postgres port or use existing??**
-
-#### Database authentication
-      
-Choose **Password authentication** or **Password and IAM database authentication**.
-
-#### Additional configuration
-
-In the **Database options** section, enter a **`Database name`**. 
-
-!!! Warning
-      If you do not specify a database name, Amazon RDS does not create a database.
-
-Click **Create database** to create your PostgreSQL service. Your instance is running. 
-Head to your final step: the creation of a second database.
-#### Dex Database
-
-Additionally, you will need to create a second database named "dex" for Pachyderm's authentication service. 
-**OPEN QUESTION:  grant which privileges to whom?**
-
-Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres).
+       Pachyderm will use the same username to connect to `pachyderm` as well as to `dex`. 
 
 ### Update your values.yaml 
 Once your databases have been created, add the following fields to your Helm values:
-**OPEN QUESTION: Where is the config for Dex database?**
+
 
 ```yaml
 global:
   postgresql:
-    postgresqlUsername: "adminusername"
-    postgresqlPassword: "adminpassword" 
+    postgresqlUsername: "username"
+    postgresqlPassword: "password" 
     postgresqlDatabase: "databasename"
     # The postgresql database host to connect to. Defaults to postgres service in subchart
     postgresqlHost: "RDS CNAME"
@@ -253,7 +213,7 @@ postgresql:
   enabled: false
 ```
 ## 4- Deploy Pachyderm
-You have created your S3 bucket, given your cluster access to your bucket, and have configured your EKS cluster to create your pvs (metadata).
+You have created your S3 bucket, given your cluster access to your bucket, created an AWS Managed PostgreSQL instance, and, if needed, have configured your EKS cluster to create your pvs.
 
 You can now deploy Pachyderm.
 ### Create Your Values.yaml   
