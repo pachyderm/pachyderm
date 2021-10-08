@@ -49,6 +49,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const defaultTransformImage = tu.DefaultTransformImage
+
 func newCountBreakFunc(maxCount int) func(func() error) error {
 	var count int
 	return func(cb func() error) error {

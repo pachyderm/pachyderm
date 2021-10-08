@@ -8,6 +8,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 )
 
+const DefaultTransformImage = "pachyderm/testuser:local"
+
 var (
 	pachClient *client.APIClient
 	pachErr    error
@@ -28,5 +30,6 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	if pachErr != nil {
 		t.Fatalf("error getting Pachyderm client: %s", pachErr.Error())
 	}
+	pachClient = pachClient.WithDefaultTransformImage(DefaultTransformImage)
 	return pachClient
 }

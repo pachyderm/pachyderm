@@ -294,11 +294,24 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}
 
 	workerImage := a.workerImage
-	var securityContext *v1.PodSecurityContext
+	pachSecurityCtx := &v1.SecurityContext{
+		RunAsUser:  int64Ptr(1000),
+		RunAsGroup: int64Ptr(1000),
+	}
+	var userSecurityCtx *v1.SecurityContext
+	userStr := pipelineInfo.Details.Transform.User
 	if a.workerUsesRoot {
-		securityContext = &v1.PodSecurityContext{RunAsUser: int64Ptr(0)}
-	} else {
-		securityContext = &v1.PodSecurityContext{RunAsUser: int64Ptr(1000)}
+		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
+	} else if userStr != "" {
+		// This is to allow the user to be set in the pipeline spec.
+		if i, err := strconv.ParseInt(pipelineInfo.Details.Transform.User, 10, 64); err != nil {
+			a.env.Logger().Warnf("could not parse user %q into int: %v", err)
+		} else {
+			userSecurityCtx = &v1.SecurityContext{
+				RunAsUser:  int64Ptr(i),
+				RunAsGroup: int64Ptr(i),
+			}
+		}
 	}
 	resp, err := a.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
@@ -330,6 +343,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 						v1.ResourceMemory: memDefaultQuantity,
 					},
 				},
+				SecurityContext: pachSecurityCtx,
 			},
 		},
 		Containers: []v1.Container{
@@ -346,7 +360,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 						v1.ResourceMemory: memDefaultQuantity,
 					},
 				},
-				VolumeMounts: userVolumeMounts,
+				VolumeMounts:    userVolumeMounts,
+				SecurityContext: userSecurityCtx,
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
@@ -362,7 +377,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 						v1.ResourceMemory: memSidecarQuantity,
 					},
 				},
-				Ports: sidecarPorts,
+				Ports:           sidecarPorts,
+				SecurityContext: pachSecurityCtx,
 			},
 		},
 		ServiceAccountName:            workerServiceAccountName,
@@ -370,7 +386,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
 		TerminationGracePeriodSeconds: int64Ptr(0),
-		SecurityContext:               securityContext,
 	}
 	if options.schedulingSpec != nil {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector

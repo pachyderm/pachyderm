@@ -657,6 +657,9 @@ func (c APIClient) CreatePipeline(
 	outputBranch string,
 	update bool,
 ) error {
+	if image == "" {
+		image = c.defaultTransformImage
+	}
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
@@ -851,6 +854,9 @@ func (c APIClient) CreatePipelineService(
 	externalPort int32,
 	annotations map[string]string,
 ) error {
+	if image == "" {
+		image = c.defaultTransformImage
+	}
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
@@ -873,6 +879,12 @@ func (c APIClient) CreatePipelineService(
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
+}
+
+func (c APIClient) WithDefaultTransformImage(x string) *APIClient {
+	c2 := c
+	c2.defaultTransformImage = x
+	return &c2
 }
 
 // GetDatumTotalTime sums the timing stats from a DatumInfo
