@@ -9,7 +9,7 @@ metadata:
   labels:
     app: ""
     suite: pachyderm
-  name: pachyderm
+  name: {{ include "pachd.fullname" . }}
   namespace: {{ .Release.Namespace }}
 rules:
 - apiGroups:

@@ -9,12 +9,12 @@ metadata:
   labels:
     app: ""
     suite: pachyderm
-  name: pachyderm-worker
+  name: {{ include "pachd.fullname" . }}-worker
   namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: ""
   kind: Role
-  name: pachyderm-worker
+  name: {{ include "pachd.fullname" . }}-worker
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.pachd.worker.serviceAccount.name }}

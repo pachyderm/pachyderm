@@ -4,6 +4,19 @@ SPDX-License-Identifier: Apache-2.0
 */ -}}
 {{- /* vim: set filetype=mustache: */ -}}
 
+{{- define "pachd.fullname" -}}
+{{- if .Values.pachd.fullnameOverride }}
+{{- .Values.pachd.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.pachd.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- define "pachyderm.storageBackend" -}}
 {{- if eq .Values.deployTarget "" }}
 {{ fail "deployTarget must be set" }}

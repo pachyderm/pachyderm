@@ -158,6 +158,8 @@ ingress:
 
 pachd:
   enabled: true
+  nameOverride: "pachd"
+  fullnameOverride: ""
   affinity: {}
   # clusterDeploymentID sets the Pachyderm cluster ID.
   clusterDeploymentID: ""

@@ -9,14 +9,14 @@ metadata:
   labels:
     app: ""
     suite: pachyderm
-  name: pachyderm
+  name: {{ include "pachd.fullname" . }}
   namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: ""
   kind: Role
-  name: pachyderm
+  name: {{ include "pachd.fullname" . }}
 subjects:
 - kind: ServiceAccount
-  name: pachyderm
+  name: {{ .Values.pachd.serviceAccount.name | quote }}
   namespace: {{ .Release.Namespace }}
 {{ end -}}
