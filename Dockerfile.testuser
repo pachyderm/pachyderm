@@ -1,4 +1,0 @@
-FROM ubuntu:20.04
-
-USER 1000
-
