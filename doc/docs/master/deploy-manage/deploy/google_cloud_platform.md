@@ -1,5 +1,10 @@
 # Google Cloud Platform
 
+
+!!! Important "Before your start your installation process." 
+      - We strongly recommend to read our [infrastructure recommendations](../ingress/). Specifically, you will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only. For example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+
 Google Cloud Platform provides seamless support for Kubernetes.
 Therefore, Pachyderm is fully supported on [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/) (GKE).
 The following section walks you through deploying a Pachyderm cluster on GKE.
@@ -235,35 +240,31 @@ That simply means that Kubernetes tried to bring up those containers
 before other components were ready, so it restarted them.
 
 ## 5- Have 'pachctl' and your Cluster Communicate
-
 Finally, assuming your `pachd` is running as shown above, 
-make sure that `pachctl` can talk to the cluster by:
+make sure that `pachctl` can talk to the cluster.
 
-- Running a port-forward:
+If you are exposing your cluster publicly, retrieve the external IP address of your load balancer or your domain name and:
 
-    ```shell
-    # Background this process because it blocks.
-    pachctl port-forward   
-    ```
+  1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 
-- Or, if you exposed your cluster to the internet by setting up a LoadBalancer (specified `LoadBalancer` in the `values.yaml` file):
+      ```shell
+      $ echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      ```
 
+  1. Check that your are using the right context: 
 
-    1. Retrieve the external IP address of pachd service.
-    When listing your services, you should see an external IP address allocated to pachd. 
-    ```shell
-    kubectl get service
-    ```
-    1. Update the context of your cluster with their direct url, using the external IP address above:
-    ```shell
-    echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
-    ```
-    1. Check that your are using the right context: 
-    ```shell
-    pachctl config get active-context
-    ```
-    Your cluster context name set above should show up. 
-    
+      ```shell
+      $ pachctl config get active-context`
+      ```
+
+      Your cluster context name should show up.
+
+If you're not exposing `pachd` publicly, you can run:
+
+```shell
+# Background this process because it blocks.
+$ pachctl port-forward
+``` 
 
 You are done! You can make sure that your cluster is working
 by running `pachctl version` or creating a new repo.

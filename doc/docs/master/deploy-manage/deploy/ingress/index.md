@@ -2,19 +2,12 @@
 
 In the simplest case, such as running a Pachyderm cluster locally, implicit and
 explicit port-forwarding enables you to communicate with `pachd`, the Pachyderm
-daemon pod, and `console`, the Pachyderm UI. Port-forwarding can be used in
+API pod, and `console`, the Pachyderm UI. Port-forwarding can be used in
 cloud environments as well, but a production environment might require you to
-define more **sophisticated inbound connection rules**.
+define **additional inbound connection rules**.
 
 
 ## Pachyderm Infrastructure Recommendations
-
-If you run Pachyderm in a cloud platform, the cloud provider is responsible
-for securing the underlying infrastructure, such as the Kubernetes control plane.
-If you are running Kubernetes locally, the security of
-Kubernetes APIs, kubelet, and other components become your responsibility.
-See security recommendations in the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/securing-a-cluster/). 
-
 
 For production deployments,
 we recommend that you:
@@ -44,9 +37,9 @@ Provision a TCP load balancer with port `30650` (gRPC port) and `30600` (s3gatew
 
 * **Configure access to your external IP addresses through firewalls or your Cloud Provider Network Security.**
 
-* **Create a DNS entry for each public IP (each Load Balancer)**
+* (Optional) **Create a DNS entry for each public IP (each Load Balancer)**
 
-Once you have your networking infrastructure set up, check the deployment page of your cloud provider or read the following section for Ingress and Network Load Balancer set up details.
+Once you have your networking infrastructure set up, check the deployment page of your cloud provider or read the following section for Ingress and TCP Load Balancer set up details.
 
 ## Deliver external traffic to Pachyderm
 Pachyderm provides multiple ways to deliver external traffic to services. 
@@ -54,13 +47,13 @@ Pachyderm provides multiple ways to deliver external traffic to services.
 However, we recommend to set up the following resources in a production environment:
 
 - An **Ingress Controller** to manage **HTTP/HTTPS** external access to the `Console` and authentication services (`oidc` and `identity` services).
-- A **Network Load Balancer** to manage **gRPC** external access to `pachd`.
+- A **TCP Load Balancer** to manage **gRPC** external access to `pachd`.
 
-The diagram below gives a quick overview of the recommended setup:
+The diagram below gives a quick overview of the above recommendations on AWS EKS:
 ![Infrastruture Recommendation](../../images/infra_recommendations.png)
 
 ### `NodePort`
-By default, the local deployment of Pachyderm deploys the `pachd` service as  `type:NodePort`. However, `NodePort` is a limited solution that is not secure in production deployments. Therefore, Pachyderm services are otherwise exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport). 
+By default, the local deployment of Pachyderm deploys the `pachd` service as  `type:NodePort`. However, `NodePort` is a limited solution that is not recommended in production deployments. Therefore, Pachyderm services are otherwise exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport). 
 
 ### `Ingress` 
 An Ingress exposes HTTP and HTTPS routes from outside the cluster to services in the cluster such as Console or Authentication services. 
@@ -69,7 +62,7 @@ To configure the Ingress, enable the `ingress` field in your values.yaml and pro
 
 If your `ingress` is enabled: 
 
-- Your cloud provider provisions an Application Load Balancer (ALB) automatically.
+- Cloud providers may provision a Load balancer automatically. For example, AWS will provision an Application Load Balancer (ALB).
 - The deployment of Pachyderm (Check our [Helm documentation](../helm_install/)) automatically creates the following set of rules:
 ```yaml
     - host: <your_domain_name>
@@ -91,7 +84,7 @@ If your `ingress` is enabled:
 See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L143) for all available fields.
 
 !!! Example
-    In the example below, we are opening the HTTPS port and enabling tls.
+    In the example below, we are opening the HTTPS port and enabling TLS on AWS EKS.
 
     ```yaml
     ingress:
@@ -122,7 +115,7 @@ As of today, few Ingress Controller offer full support of the gRPC protocol. To 
      * Kubernetes [Ingress Controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
 
 ### `LoadBalancer`
-You should load balance **all gRPC and S3 incoming traffic** to a Network LB (load balanced at L4 of the OSI model) deployed in front of the `pachd` service. To automatically provision an external load balancer in your current cloud (if supported), enable the `externalService` field of the `pachd` service in your values.yaml as follow:
+You should load balance **all gRPC and S3 incoming traffic** to a TCP LB (load balanced at L4 of the OSI model) deployed in front of the `pachd` service. To automatically provision an external load balancer in your current cloud (if supported), enable the `externalService` field of the `pachd` service in your values.yaml as follow:
 
 ```yaml
 # If enabled, External service creates a service which is safe to
@@ -138,12 +131,12 @@ pachd:
 See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L197) for all available fields.
 
 !!! Note
-        When externalService is enabled, Pachyderm creates a corresponding `pachd-lb` service of `type:LoadBalancer` allowing your cloud platform (AWS, GKE...) to provision a Network Load Balancer (NLB) automatically.
+        When externalService is enabled, Pachyderm creates a corresponding `pachd-lb` service of `type:LoadBalancer` allowing your cloud platform (AWS, GKE...) to provision a TCP Load Balancer automatically.
 
-Add the appropriate annotations to attach any NLB configuration information to the metadata of your service.
+Add the appropriate annotations to attach any Load Balancer configuration information to the metadata of your service.
 
 !!! Example
-    In the following example, we deploy an ALB and enable TLS:
+    In the following example, we deploy an NLB and enable TLS on AWS EKS:
 
     ``` yaml
     annotations:

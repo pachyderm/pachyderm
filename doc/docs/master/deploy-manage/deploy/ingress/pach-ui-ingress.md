@@ -121,7 +121,7 @@ Here is a quick high-level view of the various components at play.
 
 
 ## Browse
-Connect to your Console (Pachyderm UI): `http://<your_domain_name>/`. You are all set!
+Connect to your Console (Pachyderm UI): `https://<external-IP-address-or-domain-name>:443/` (if TLS is enabled) or `http://<external-IP-address-or-domain-name>:80/`. You are all set!
 
 ## References
 * [Traefik](https://doc.traefik.io/traefik/v1.7/user-guide/kubernetes/) documentation.

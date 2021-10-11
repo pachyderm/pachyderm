@@ -1,5 +1,9 @@
 # Deploy Pachyderm on AWS
 
+!!! Important "Before your start your installation process." 
+      - We strongly recommend to read our [infrastructure recommendations](../ingress/). Specifically, you will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only. For example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+
 Once your Kubernetes cluster is up,
 you are ready to deploy Pachyderm.
 
@@ -339,16 +343,6 @@ You can now finalize your values.yaml and deploy Pachyderm.
 
 Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
 
-!!! Important "Load Balancer Setup" 
-      If you would like to expose your pachd instance to the internet via load balancer, add the following config under `pachd` to your `values.yaml`
-      ```yaml
-       pachd:
-        service:
-         type: LoadBalancer
-      ```
-
-      **NOTE: It is strongly recommended to configure SSL when exposing Pachyderm publicly.**
-
 ### Deploy Pachyderm On The Kubernetes Cluster
 
 Refer to our generic ["Helm Install"](./helm_install.md) page for more information on the required installations and modus operandi of an installation using `Helm`.
@@ -393,20 +387,15 @@ Refer to our generic ["Helm Install"](./helm_install.md) page for more informati
 
 ## 5. Have 'pachctl' And Your Cluster Communicate
 
-Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
+Install [pachctl](../../../../getting_started/local_installation#install-pachctl), then,
+assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
-If you specified `LoadBalancer` in the `values.yaml` file:
+If you are exposing your cluster publicly, retrieve the external IP address of your load balancer or your domain name and:
 
-  1. Retrieve the external IP address of the service.  When listing your services again, you should see an external IP address allocated to the `pachd` service 
-
-      ```shell
-      $ kubectl get service
-      ```
-
-  1. Update the context of your cluster with their direct url, using the external IP address above:
+  1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 
       ```shell
-      $ echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      $ echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
       ```
 
   1. Check that your are using the right context: 

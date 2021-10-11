@@ -3,7 +3,8 @@
 This page walks you through the fundamentals of what you need to know about Kubernetes, persistent volumes, and object stores to deploy Pachyderm on-premises.
 
 !!! Note "Check Also"
-    - [Ingress](../ingress/) details the Kubernetes ingress configuration you would need for using the Console.
+    - Read our [infrastructure recommendations](../ingress/). Specifically, you will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
+    - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only. For example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
     - Troubleshooting a deployment? Check out [Troubleshooting Deployments](../../troubleshooting/deploy_troubleshooting.md).
 
 ## Introduction
