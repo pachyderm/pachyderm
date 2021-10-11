@@ -151,7 +151,10 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 			return nil, err
 		}
 	}
-
+	refreshTokenPolicy, err := dex_server.NewRefreshTokenPolicy(w.logger, true, "48h", "48h", "48h")
+	if err != nil {
+		return nil, err
+	}
 	serverConfig := dex_server.Config{
 		Storage:            storage,
 		Issuer:             config.Issuer,
@@ -163,7 +166,8 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 			Theme:   "pachyderm",
 			Dir:     webDir,
 		},
-		Logger: w.logger,
+		Logger:             w.logger,
+		RefreshTokenPolicy: refreshTokenPolicy,
 	}
 
 	var ctx context.Context
