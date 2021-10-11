@@ -132,7 +132,7 @@ func WaitUntilReady(ctx context.Context, log *logrus.Logger, db *sqlx.DB) error 
 		ctx, cf := context.WithTimeout(ctx, timeout)
 		defer cf()
 		if err := db.PingContext(ctx); err != nil {
-			log.Debugf("db is not ready: %v", err)
+			log.Infof("db is not ready: %v", err)
 			return err
 		}
 		log.Infof("db is ready")
