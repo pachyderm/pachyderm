@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 
 import {Button} from './../Button';
 
-import {BasicModal, useModal, WizardModal} from './';
+import {BasicModal, useModal, WizardModal, FullPageModal} from './';
 
 export default {title: 'Modal'};
 
@@ -97,6 +97,21 @@ export const Wizard = () => {
           "This is page 2 of the modal. Pressing 'done' simply closes the modal",
         ]}
       />
+    </>
+  );
+};
+
+export const FullPage = () => {
+  const {isOpen, openModal, closeModal} = useModal();
+
+  return (
+    <>
+      <Button autoWidth autoHeight onClick={openModal}>
+        Open Modal
+      </Button>
+      <FullPageModal show={isOpen} onHide={closeModal}>
+        This is a full page modal
+      </FullPageModal>
     </>
   );
 };
