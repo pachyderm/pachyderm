@@ -144,6 +144,7 @@ func TestJSONMultiplePipelines(t *testing.T) {
 		  },
 		  "transform": {
 		    "cmd": [ "/bin/bash" ],
+			"image": "pachyderm/testuser:local", 
 		    "stdin": [
 		      "cp /pfs/input/* /pfs/out"
 		    ]
@@ -162,6 +163,7 @@ func TestJSONMultiplePipelines(t *testing.T) {
 		  },
 		  "transform": {
 		    "cmd": [ "/bin/bash" ],
+			"image": "pachyderm/testuser:local", 
 		    "stdin": [
 		      "cp /pfs/first/* /pfs/out"
 		    ]
@@ -209,6 +211,7 @@ func TestJSONStringifiedNumbers(t *testing.T) {
 		  },
 		  "transform": {
 		    "cmd": [ "/bin/bash" ],
+			"image": "pachyderm/testuser:local", 
 		    "stdin": [
 		      "cp /pfs/input/* /pfs/out"
 		    ]
@@ -263,6 +266,7 @@ func TestRunPipeline(t *testing.T) {
 			  },
 			  "transform": {
 			    "cmd": ["bash"],
+				"image": "pachyderm/testuser:local", 
 			    "stdin": ["cp /pfs/data/file /pfs/out"]
 			  }
 			}
@@ -295,6 +299,7 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		    repo: input
 		transform:
 		  cmd: [ /bin/bash ]
+		  image: "pachyderm/testuser:local" 
 		  stdin:
 		    - "cp /pfs/input/* /pfs/out"
 		---
@@ -306,6 +311,7 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		    repo: first
 		transform:
 		  cmd: [ /bin/bash ]
+		  image: "pachyderm/testuser:local"
 		  stdin:
 		    - "cp /pfs/first/* /pfs/out"
 		EOF
@@ -349,6 +355,7 @@ func TestListPipelineFilter(t *testing.T) {
 		  },
 		"transform": {
 		  "cmd": [ "/bin/bash" ],
+		  "image": "pachyderm/testuser:local", 
 		  "stdin": [
 		    "cp /pfs/input/* /pfs/out"
 		  ]
@@ -392,6 +399,7 @@ func TestYAMLError(t *testing.T) {
 		    repo: input
 		transform:
 		  cmd: /bin/bash # should be list, instead of string
+		  image: "pachyderm/testuser:local"
 		  stdin:
 		    - "cp /pfs/input/* /pfs/out"
 		EOF
@@ -426,6 +434,7 @@ func TestYAMLSecret(t *testing.T) {
 		      repo: input
 		  transform:
 		    cmd: [ /bin/bash ]
+		  	image: "pachyderm/testuser:local"
 		    stdin:
 		      - "env | grep MY_SECRET >/pfs/out/vars"
 		    secrets:
@@ -461,6 +470,7 @@ func TestYAMLTimestamp(t *testing.T) {
 		      spec: "@yearly"
 		  transform:
 		    cmd: [ /bin/bash ]
+		  	image: "pachyderm/testuser:local"
 		    stdin:
 		      - "cp /pfs/in/* /pfs/out"
 		EOF
@@ -487,6 +497,7 @@ func TestEditPipeline(t *testing.T) {
 		      repo: data
 		  transform:
 		    cmd: [ /bin/bash ]
+		  	image: "pachyderm/testuser:local"
 		    stdin:
 		      - "cp /pfs/data/* /pfs/out"
 		EOF
@@ -509,7 +520,7 @@ func TestMissingPipeline(t *testing.T) {
 		pachctl create pipeline <<EOF
 		  {
 		    "transform": {
-			  "image": "ubuntu:20.04"
+			  "image": "pachyderm/testuser:local"
 		    },
 		    "input": {
 		      "pfs": {
@@ -532,7 +543,7 @@ func TestUnnamedPipeline(t *testing.T) {
 		  {
 		    "pipeline": {},
 		    "transform": {
-			  "image": "ubuntu:20.04"
+			  "image": "pachyderm/testuser:local"
 		    },
 		    "input": {
 		      "pfs": {
@@ -653,6 +664,8 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 		      repo: data
 		  transform:
 		    cmd: [ /bin/bash ]
+			user: "1000"
+			image: "pachyderm/testuser:local"
 		    stdin:
 		      - "cp /pfs/data/* /pfs/out"
 		EOF
