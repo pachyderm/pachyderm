@@ -389,7 +389,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	debug.SetGCPercent(env.Config().GCPercent)
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
-	}
+	}	
 	authInterceptor := auth.NewInterceptor(env)
 	server, err := grpcutil.NewServer(
 		context.Background(),
