@@ -403,7 +403,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	createPipeline := func(args createArgs) error {
 		return args.client.CreatePipeline(
 			args.name,
-			"", // default image: DefaultUserImage
+			"",
 			[]string{"bash"},
 			[]string{"cp /pfs/*/* /pfs/out/"},
 			&pps.ParallelismSpec{Constant: 1},
@@ -1733,6 +1733,7 @@ func TestInspectDatum(t *testing.T) {
 			Pipeline: &pps.Pipeline{Name: pipeline},
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
+				Image: tu.DefaultTransformImage,
 				Stdin: []string{"cp /pfs/*/* /pfs/out/"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
