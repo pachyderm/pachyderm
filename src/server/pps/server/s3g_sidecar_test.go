@@ -148,6 +148,7 @@ func TestS3Input(t *testing.T) {
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
+			User:  "1000",
 			Cmd:   []string{"bash", "-x"},
 			Stdin: []string{
 				"ls -R /pfs >/pfs/out/pfs_files",
@@ -244,6 +245,7 @@ func TestS3Chain(t *testing.T) {
 				Pipeline: client.NewPipeline(pipelines[i]),
 				Transform: &pps.Transform{
 					Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
+					User:  "1000",
 					Cmd:   []string{"bash", "-x"},
 					Stdin: []string{
 						"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
@@ -355,6 +357,7 @@ func TestS3Output(t *testing.T) {
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
+			User:  "1000",
 			Stdin: []string{
 				"ls -R /pfs | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/pfs_files",
 				"aws --endpoint=${S3_ENDPOINT} s3 ls | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/s3_buckets",
@@ -441,6 +444,7 @@ func TestFullS3(t *testing.T) {
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
+			User:  "1000",
 			Stdin: []string{
 				"ls -R /pfs | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/pfs_files",
 				"aws --endpoint=${S3_ENDPOINT} s3 ls | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/s3_buckets",
@@ -539,6 +543,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
 				Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
+				User:  "1000",
 				Cmd:   []string{"bash", "-x"},
 				Stdin: []string{
 					fmt.Sprintf(
@@ -697,6 +702,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
 				Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
+				User:  "1000",
 				Cmd:   []string{"bash", "-x"},
 				Stdin: []string{
 					fmt.Sprintf(
