@@ -2704,7 +2704,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
-		"bash:4",
+		"",
 		[]string{"bash"},
 		[]string{"echo bar >/pfs/out/file"},
 		&pps.ParallelismSpec{
