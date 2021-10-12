@@ -114,7 +114,9 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 	}
 	uw.ids = append(uw.ids, *id)
 	if uw.renewer != nil {
-		uw.renewer.Add(*id)
+		if err := uw.renewer.Add(uw.ctx, *id); err != nil {
+			return err
+		}
 	}
 	// Reset fileset buffer.
 	uw.buffer = NewBuffer()

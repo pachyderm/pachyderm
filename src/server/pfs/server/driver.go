@@ -81,7 +81,6 @@ type driver struct {
 
 	storage     *fileset.Storage
 	commitStore commitStore
-	compactor   *compactor
 }
 
 func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
@@ -129,11 +128,7 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.GetDBClient(), tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.GetDBClient()), tracker, chunkStorage, fileset.StorageOptions(env.Config())...)
-	// Setup compaction queue and worker.
-	d.compactor, err = newCompactor(env.Context(), d.storage, etcdClient, etcdPrefix, env.Config().StorageCompactionMaxFanIn)
-	if err != nil {
-		return nil, err
-	}
+	go compactionWorker(env.Context(), d.storage, etcdClient, etcdPrefix)
 	d.commitStore = newPostgresCommitStore(env.GetDBClient(), tracker, d.storage)
 	return d, nil
 }

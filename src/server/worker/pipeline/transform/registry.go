@@ -362,7 +362,6 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, master *
 						if err != nil {
 							return err
 						}
-						renewer.Remove(data.FileSetId)
 						if _, err := pachClient.PfsAPIClient.AddFileSet(
 							pachClient.Ctx(),
 							&pfs.AddFileSetRequest{
@@ -410,7 +409,9 @@ func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload 
 	if err != nil {
 		return nil, err
 	}
-	renewer.Add(resp.FileSetId)
+	if err := renewer.Add(pachClient.Ctx(), resp.FileSetId); err != nil {
+		return nil, err
+	}
 	data, err := serializeDatumSet(&DatumSet{
 		JobID:        pj.ji.Job.ID,
 		OutputCommit: pj.commitInfo.Commit,
