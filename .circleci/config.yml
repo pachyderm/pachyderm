@@ -2,17 +2,21 @@ version: 2.1
 
 jobs:
   test:
+    resource_class: xlarge
     machine:
-      image: ubuntu-2004:202101-01
+      image: ubuntu-2004:202107-02
     steps:
       - checkout
-      - run: npm ci
-      - run: npm run checkVersion
-      - run: npm run lint
+      - run: nvm install 16.11.0
+      - run: nvm alias default 16.11.0
+      - run: nvm use 16.11.0 && node -v
+      - run: nvm use 16.11.0 && npm ci
+      - run: nvm use 16.11.0 && npm run checkVersion
+      - run: nvm use 16.11.0 && npm run lint
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/start-minikube.sh
       - run: etc/testing/circle/deploy-pachyderm.sh
-      - run: pachctl port-forward & npm run test
+      - run: nvm use 16.11.0 && pachctl port-forward & npm run test
 workflows:
   version: 2
   test:

@@ -392,7 +392,7 @@ describe('grpc/builders/pps', () => {
     expect(pipelineInfo.getDetails()?.getS3Out()).toBe(false);
   });
 
-  it('should create PipelineInfo from an object with defaults', () => {
+  it('should create PipelineInfo from an object with custom properties', () => {
     const pipelineInfo = pipelineInfoFromObject({
       pipeline: {
         name: 'testPipeline',
