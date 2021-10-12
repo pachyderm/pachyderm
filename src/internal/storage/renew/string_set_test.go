@@ -15,29 +15,25 @@ func TestStringSet(t *testing.T) {
 		idsRenewed[id] = struct{}{}
 		return nil
 	}
+	var numIdsReferenced int
 	idsCreated := make(map[string]struct{})
 	cf := func(ctx context.Context, ids []string, ttl time.Duration) (string, error) {
+		numIdsReferenced += len(ids)
 		id := uuid.NewWithoutDashes()
 		idsCreated[id] = struct{}{}
 		return id, nil
 	}
 	require.NoError(t, WithStringSet(context.Background(), 15*time.Second, rf, cf, func(ctx context.Context, ss *StringSet) error {
 		time.Sleep(time.Second)
-		for i := 0; i < 101; i++ {
+		for i := 0; i < 201; i++ {
 			if err := ss.Add(ctx, uuid.NewWithoutDashes()); err != nil {
 				return err
 			}
 		}
-		for i := 0; i < 100; i++ {
-			id := uuid.NewWithoutDashes()
-			if err := ss.Add(ctx, id); err != nil {
-				return err
-			}
-			idsCreated[id] = struct{}{}
-		}
 		time.Sleep(15 * time.Second)
 		return nil
 	}))
-	require.Equal(t, 101, len(idsCreated))
-	require.Equal(t, idsCreated, idsRenewed)
+	require.Equal(t, 1, len(idsRenewed))
+	require.Equal(t, 202, numIdsReferenced)
+	require.Equal(t, 2, len(idsCreated))
 }

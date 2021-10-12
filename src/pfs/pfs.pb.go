@@ -3956,7 +3956,7 @@ type APIClient interface {
 	AddFileSet(ctx context.Context, in *AddFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error)
 	// RenewFileSet prevents a file set from being deleted for a set amount of time.
 	RenewFileSet(ctx context.Context, in *RenewFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	// ComposeFileSet composes a file set from a set of file sets.
+	// ComposeFileSet composes a file set from a list of file sets.
 	ComposeFileSet(ctx context.Context, in *ComposeFileSetRequest, opts ...grpc.CallOption) (*CreateFileSetResponse, error)
 	// RunLoadTest runs a load test.
 	RunLoadTest(ctx context.Context, in *RunLoadTestRequest, opts ...grpc.CallOption) (*RunLoadTestResponse, error)
@@ -4714,7 +4714,7 @@ type APIServer interface {
 	AddFileSet(context.Context, *AddFileSetRequest) (*types.Empty, error)
 	// RenewFileSet prevents a file set from being deleted for a set amount of time.
 	RenewFileSet(context.Context, *RenewFileSetRequest) (*types.Empty, error)
-	// ComposeFileSet composes a file set from a set of file sets.
+	// ComposeFileSet composes a file set from a list of file sets.
 	ComposeFileSet(context.Context, *ComposeFileSetRequest) (*CreateFileSetResponse, error)
 	// RunLoadTest runs a load test.
 	RunLoadTest(context.Context, *RunLoadTestRequest) (*RunLoadTestResponse, error)

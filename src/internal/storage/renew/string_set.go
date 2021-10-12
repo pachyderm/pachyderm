@@ -7,10 +7,10 @@ import (
 )
 
 // RenewFunc is the type of a function used to renew a string
-type RenewFunc func(ctx context.Context, x string, ttl time.Duration) error
+type RenewFunc = func(ctx context.Context, x string, ttl time.Duration) error
 
 // ComposeFunc is the type of a function used to compose a set of strings
-type ComposeFunc func(ctx context.Context, xs []string, ttl time.Duration) (string, error)
+type ComposeFunc = func(ctx context.Context, xs []string, ttl time.Duration) (string, error)
 
 // StringSet renews a set of strings until it is closed
 type StringSet struct {
@@ -32,14 +32,21 @@ func NewStringSet(ctx context.Context, ttl time.Duration, renewFunc RenewFunc, c
 	ss.Renewer = NewRenewer(ctx, ttl, func(ctx context.Context, ttl time.Duration) error {
 		ss.mu.Lock()
 		defer ss.mu.Unlock()
-		for _, strings := range ss.strings {
-			for _, s := range strings {
-				if err := renewFunc(ctx, s, ttl); err != nil {
-					return err
-				}
+		if len(ss.strings[0]) > 1 || len(ss.strings) > 1 {
+			var xs []string
+			for _, strings := range ss.strings {
+				xs = append(xs, strings...)
 			}
+			x, err := ss.composeFunc(ctx, xs, ss.ttl)
+			if err != nil {
+				return err
+			}
+			ss.strings = [][]string{[]string{x}}
 		}
-		return nil
+		if len(ss.strings[0]) == 0 {
+			return nil
+		}
+		return renewFunc(ctx, ss.strings[0][0], ttl)
 	})
 	return ss
 }
@@ -49,6 +56,7 @@ func (ss *StringSet) Add(ctx context.Context, x string) error {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 	ss.strings[0] = append(ss.strings[0], x)
+	// TODO: Expose fan in configuration and potentially increase fan in and document as the upper bound for the compose API.
 	for i := 0; len(ss.strings[i]) > 100; i++ {
 		id, err := ss.composeFunc(ctx, ss.strings[i], ss.ttl)
 		if err != nil {

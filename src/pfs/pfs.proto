@@ -505,7 +505,7 @@ service API {
   rpc AddFileSet(AddFileSetRequest) returns (google.protobuf.Empty) {}
   // RenewFileSet prevents a file set from being deleted for a set amount of time.
   rpc RenewFileSet(RenewFileSetRequest) returns (google.protobuf.Empty) {}
-  // ComposeFileSet composes a file set from a set of file sets.
+  // ComposeFileSet composes a file set from a list of file sets.
   rpc ComposeFileSet(ComposeFileSetRequest) returns (CreateFileSetResponse) {}
 
   // RunLoadTest runs a load test.

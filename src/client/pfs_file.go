@@ -430,7 +430,7 @@ func (c APIClient) RenewFileSet(ID string, ttl time.Duration) (retErr error) {
 	return err
 }
 
-// ComposeFileSet composes a file set from a set of file sets.
+// ComposeFileSet composes a file set from a list of file sets.
 func (c APIClient) ComposeFileSet(IDs []string, ttl time.Duration) (_ string, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
