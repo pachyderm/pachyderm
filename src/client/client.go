@@ -140,6 +140,7 @@ type APIClient struct {
 	clientContextName string
 
 	defaultTransformImage string
+	defaultTransformUser  string
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
