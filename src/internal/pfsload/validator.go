@@ -79,17 +79,14 @@ type file struct {
 func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
 	if v.spec.FrequencySpec != nil {
 		freq := v.spec.FrequencySpec
-		switch {
-		case freq.Count > 0:
+		if freq.Count > 0 {
 			freq.count++
 			if freq.Count > freq.count {
 				return nil
 			}
 			freq.count = 0
-		case freq.Prob > 0:
-			if !shouldExecute(v.random, freq.Prob) {
-				return nil
-			}
+		} else if !shouldExecute(v.random, freq.Prob) {
+			return nil
 		}
 	}
 	var files []*file

@@ -13,7 +13,9 @@ operations:
       - deleteFile:
           count: 10000 
         prob: 80 
-validator: {}
+validator:
+  frequency:
+    prob: 0 
 fileSources:
   - name: "random"
     random:

@@ -390,10 +390,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
-	var reporter *metrics.Reporter
-	if env.Config().Metrics {
-		reporter = metrics.NewReporter(env)
-	}
 	authInterceptor := auth.NewInterceptor(env)
 	server, err := grpcutil.NewServer(
 		context.Background(),
@@ -432,7 +428,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			txnEnv,
 			path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
 			env.Config().Namespace,
-			reporter,
+			nil,
 			env.Config().PPSWorkerPort,
 			env.Config().PeerPort,
 		)

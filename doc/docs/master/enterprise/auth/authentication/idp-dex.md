@@ -187,7 +187,7 @@ or
 $ pachctl idp update-connector --config oidc-dex-connector.yaml
 ```
 !!! Info
-    Run `pachct idp --help` for a full list of commands.
+    Run `pachctl idp --help` for a full list of commands.
     In particular, those commands let you create, update, delete, list, or get a specific connector.
 
 ## 3- Login

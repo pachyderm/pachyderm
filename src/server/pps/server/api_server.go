@@ -3008,7 +3008,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 			fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
 		},
 		&pps.ParallelismSpec{
-			Constant: 1,
+			Constant: 5,
 		},
 		&pps.Input{
 			Pfs: &pps.PFSInput{
