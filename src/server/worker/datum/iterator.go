@@ -333,7 +333,7 @@ func computeDatumKeys(renewer *renew.StringSet, pachClient *client.APIClient, it
 						}
 						keyHasher.Write([]byte(rawKey))
 						key := hex.EncodeToString(keyHasher.Sum(nil))
-						out, err := marshaller.MarshalToString(&Meta{Inputs: []*common.Input{input}})
+						out, err := marshaller.MarshalToString(input)
 						if err != nil {
 							return errors.Wrap(err, "marshalling input for key aggregation")
 						}
