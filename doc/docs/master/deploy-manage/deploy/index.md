@@ -68,6 +68,10 @@ deployment options and related topics:
           Deploy On Premises
           </a>
           </li>
+          <li><a href="console/" class="md-typeset md-link">
+          Deploy Console
+          </a>
+          </li>
         </ul>
        </div>
      </div>
