@@ -6,7 +6,11 @@ API pod, and `console`, the Pachyderm UI. Port-forwarding can be used in
 cloud environments as well, but a production environment might require you to
 define **additional inbound connection rules**.
 
+Before we dive into the delivery of external traffic to Pachyderm, 
+read the following recommendations for the set up of your infrastructure in production.
 
+!!! Note
+    We are mentioning `values.yaml` often on this page. Read our [Helm documentation](../helm_install) if this configuration file is not familiar to you.
 ## Pachyderm Infrastructure Recommendations
 
 For production deployments,
@@ -28,7 +32,7 @@ we recommend that you:
 
     Pachyderm authentication is an additional
     security layer to protect your data from unauthorized access.
-    See [Configure Access Controls](../../../enterprise/auth/).
+    See the [authentication and authorization section](../../../enterprise/auth/) to activate access control and set up an IdP.
 
 * **Add an [Ingress Controller](#ingress) to your cluster** for HTTP/HTTPS incoming traffic.
 
@@ -39,9 +43,9 @@ Provision a TCP load balancer with port `30650` (gRPC port) and `30600` (s3gatew
 
 * (Optional) **Create a DNS entry for each public IP (each Load Balancer)**
 
-Once you have your networking infrastructure set up, check the deployment page of your cloud provider or read the following section for Ingress and TCP Load Balancer set up details.
+Once you have your networking infrastructure setup, check the [deployment page of your cloud provider](../../). The following section comes back to the set up of Ingress and TCP Load Balancer in detail.
 
-## Deliver external traffic to Pachyderm
+## Deliver External Traffic To Pachyderm
 Pachyderm provides multiple ways to deliver external traffic to services. 
 
 However, we recommend to set up the following resources in a production environment:
@@ -49,7 +53,7 @@ However, we recommend to set up the following resources in a production environm
 - An **Ingress Controller** to manage **HTTP/HTTPS** external access to the `Console` and authentication services (`oidc` and `identity` services).
 - A **TCP Load Balancer** to manage **gRPC** external access to `pachd`.
 
-The diagram below gives a quick overview of the above recommendations on AWS EKS:
+The diagram below gives a quick overview of those recommendations on AWS EKS:
 ![Infrastruture Recommendation](../../images/infra_recommendations.png)
 
 ### `NodePort`
@@ -147,4 +151,5 @@ Add the appropriate annotations to attach any Load Balancer configuration inform
         service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:region:account-id:certificate/aaa-bbb-cccc"
         service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "30600,30650,30657,30658"
     ```
-    
+
+Next:   Find the [deployment page that matches your cloud provider](../../)

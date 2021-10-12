@@ -8,8 +8,8 @@ The package manager [Helm](https://helm.sh/docs/intro/install/#helm) is the auth
 This page gives a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) or in our [GitHub repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/pachyderm).
 
 !!! Important "Before your start your installation process." 
-      - We strongly recommend to read our [infrastructure recommendations](../ingress/). Specifically, you will find instructions on setting up an ingress controller, a load balancer, or connecting an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only. For example, on Minikube or Docker Desktop), the deployment of Console requires the set up on an Ingress and the activation of authentication.
+      - Please read our [infrastructure recommendations](../ingress/). Specifically, you will find instructions on setting up an ingress controller, a load balancer, or connecting an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires the set up on an Ingress and the activation of authentication.
 ## Install
 ### Prerequisites
 1. Install [`Helm`](https://helm.sh/docs/intro/install/). 
