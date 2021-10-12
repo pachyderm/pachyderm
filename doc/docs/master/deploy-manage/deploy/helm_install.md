@@ -76,7 +76,7 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
-If you are exposing your cluster publicly, retrieve the external IP address of your load balancer or your domain name and:
+If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name and:
 
   1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 

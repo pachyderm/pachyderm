@@ -1,10 +1,10 @@
 # Deploy Pachyderm on AWS
 
 !!! Important "Before your start your installation process." 
-      - We strongly recommend to read our [infrastructure recommendations](../ingress/). Specifically, you will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only. For example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+      - We strongly recommend to read our [infrastructure recommendations](../../ingress/). Specifically, you will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only. For example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../../ingress/#ingress).
 
-Once your Kubernetes cluster is up,
+Once your Kubernetes cluster and your infrastructure are set up, 
 you are ready to deploy Pachyderm.
 
 Complete the following steps:
@@ -390,7 +390,7 @@ Refer to our generic ["Helm Install"](./helm_install.md) page for more informati
 Install [pachctl](../../../../getting_started/local_installation#install-pachctl), then,
 assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
-If you are exposing your cluster publicly, retrieve the external IP address of your load balancer or your domain name and:
+If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name and:
 
   1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 
