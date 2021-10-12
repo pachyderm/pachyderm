@@ -5149,9 +5149,6 @@ func TestGroupInput(t *testing.T) {
 		actual := make([][]string, 0, 3)
 		dis, err := c.ListDatumAll(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
-		sort.Slice(dis, func(i, j int) bool {
-			return dis[i].Data[0].File.Path < dis[j].Data[0].File.Path
-		})
 		for _, di := range dis {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
 			datumFiles := make([]string, 0)
@@ -5160,6 +5157,9 @@ func TestGroupInput(t *testing.T) {
 			}
 			actual = append(actual, datumFiles)
 		}
+		sort.Slice(actual, func(i, j int) bool {
+			return actual[i][0] < actual[j][0]
+		})
 		require.Equal(t, expected, actual)
 	})
 
@@ -5244,9 +5244,6 @@ func TestGroupInput(t *testing.T) {
 		actual := make([][]string, 0, 3)
 		dis, err := c.ListDatumAll(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
-		sort.Slice(dis, func(i, j int) bool {
-			return dis[i].Data[0].File.Path < dis[j].Data[0].File.Path
-		})
 		for _, di := range dis {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
 			datumFiles := make([]string, 0)
@@ -5255,6 +5252,9 @@ func TestGroupInput(t *testing.T) {
 			}
 			actual = append(actual, datumFiles)
 		}
+		sort.Slice(actual, func(i, j int) bool {
+			return actual[i][0] < actual[j][0]
+		})
 		require.Equal(t, expected, actual)
 	})
 
@@ -5314,9 +5314,6 @@ func TestGroupInput(t *testing.T) {
 		actual := make([][]string, 0, 2)
 		dis, err := c.ListDatumAll(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
-		sort.Slice(dis, func(i, j int) bool {
-			return dis[i].Data[0].File.Path < dis[j].Data[0].File.Path
-		})
 		for _, di := range dis {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
 			datumFiles := make([]string, 0)
@@ -5325,6 +5322,9 @@ func TestGroupInput(t *testing.T) {
 			}
 			actual = append(actual, datumFiles)
 		}
+		sort.Slice(actual, func(i, j int) bool {
+			return actual[i][0] < actual[j][0]
+		})
 		require.Equal(t, expected, actual)
 	})
 	t.Run("Symlink", func(t *testing.T) {
@@ -5384,9 +5384,6 @@ func TestGroupInput(t *testing.T) {
 		dis, err := c.ListDatumAll(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
 		// these don't come in a consistent order because group inputs use maps
-		sort.Slice(dis, func(i, j int) bool {
-			return dis[i].Data[0].File.Path < dis[j].Data[0].File.Path
-		})
 		for _, di := range dis {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
 			datumFiles := make([]string, 0)
@@ -5395,6 +5392,9 @@ func TestGroupInput(t *testing.T) {
 			}
 			actual = append(actual, datumFiles)
 		}
+		sort.Slice(actual, func(i, j int) bool {
+			return actual[i][0] < actual[j][0]
+		})
 		require.Equal(t, expected, actual)
 	})
 }
