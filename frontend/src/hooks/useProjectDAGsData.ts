@@ -49,7 +49,7 @@ export const useProjectDagsData = ({
     loading: isSubscribing,
   } = useGetDagsSubscription({
     variables: {args: {projectId, jobSetId}},
-    onSubscriptionData: async ({subscriptionData}) => {
+    onSubscriptionData: async ({client, subscriptionData}) => {
       if (
         (repoId || pipelineId) &&
         !(subscriptionData.data?.dags || []).some((dag) => {
@@ -61,6 +61,8 @@ export const useProjectDagsData = ({
         })
       ) {
         browserHistory.push(projectRoute({projectId}));
+      } else {
+        client.reFetchObservableQueries();
       }
     },
     // We want to skip the `onSubscriptionData` callback if
