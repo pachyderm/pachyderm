@@ -8,7 +8,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -53,18 +55,22 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 			}
 		}()
 		storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
-		return datum.WithSet(pachClient, storageRoot, func(s *datum.Set) error {
-			inputs := meta.Inputs
-			logger = logger.WithData(inputs)
-			env := driver.UserCodeEnv(logger.JobID(), jobInfo.OutputCommit, inputs)
-			return s.WithDatum(meta, func(d *datum.Datum) error {
-				return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
-					return d.Run(ctx, func(runCtx context.Context) error {
-						return driver.RunUserCode(runCtx, logger, env)
+		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+			pachClient := pachClient.WithCtx(ctx)
+			cacheClient := pfssync.NewCacheClient(pachClient, renewer)
+			return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
+				inputs := meta.Inputs
+				logger = logger.WithData(inputs)
+				env := driver.UserCodeEnv(logger.JobID(), jobInfo.OutputCommit, inputs)
+				return s.WithDatum(meta, func(d *datum.Datum) error {
+					return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
+						return d.Run(ctx, func(runCtx context.Context) error {
+							return driver.RunUserCode(runCtx, logger, env)
+						})
 					})
 				})
-			})
 
+			})
 		})
 	})
 }

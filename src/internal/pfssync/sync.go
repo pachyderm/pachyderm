@@ -7,7 +7,6 @@ import (
 	"path"
 	"syscall"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -21,14 +20,14 @@ type Downloader interface {
 }
 
 type downloader struct {
-	pachClient *client.APIClient
+	pachClient *CacheClient
 	pipes      map[string]struct{}
 	eg         *errgroup.Group
 	done       bool
 }
 
 // WithDownloader provides a scoped environment for a Downloader.
-func WithDownloader(pachClient *client.APIClient, cb func(Downloader) error) (retErr error) {
+func WithDownloader(pachClient *CacheClient, cb func(Downloader) error) (retErr error) {
 	d := &downloader{
 		pachClient: pachClient,
 		pipes:      make(map[string]struct{}),

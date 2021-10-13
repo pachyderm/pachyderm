@@ -10,7 +10,9 @@ operations:
               - source: "random"
                 prob: 100
         prob: 100 
-validator: {}
+validator:
+  frequency:
+    prob: 0 
 fileSources:
   - name: "random"
     random:

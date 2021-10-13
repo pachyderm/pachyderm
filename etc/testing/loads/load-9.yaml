@@ -14,7 +14,9 @@ operations:
           count: 10 
           directoryProb: 50 
         prob: 20 
-validator: {}
+validator:
+  frequency:
+    prob: 0 
 fileSources:
   - name: "random"
     random:
