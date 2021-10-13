@@ -1,7 +1,9 @@
 # Overview
 
 Pachyderm runs on [Kubernetes](http://kubernetes.io/) and
-is backed by an object store of your choice. This section covers common
+is backed by an object store of your choice. In addition, we recommend using a **managed database instance** (such as RDS for AWS or CloudSQL for Google) for the storage of metadata. 
+
+This section covers common
 deployment options and related topics:
 
 <div class="row">
@@ -46,6 +48,10 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
+          <li><a href="./ingress/" class="md-typeset md-link">
+          Architecture, Ingress, and LB
+          </a>
+          </li>
           <li><a href="google_cloud_platform/" class="md-typeset md-link">
           Deploy on GKE
           </a>
@@ -62,8 +68,8 @@ deployment options and related topics:
           Deploy On Premises
           </a>
           </li>
-          <li><a href="helm_install/" class="md-typeset md-link">
-          Helm install / uninstall
+          <li><a href="console/" class="md-typeset md-link">
+          Deploy Console
           </a>
           </li>
         </ul>
@@ -120,10 +126,6 @@ deployment options and related topics:
         <ul>
            <li><a href="connect-to-cluster/" class="md-typeset md-link">
            Connect to a Pachyderm cluster
-           </a>
-           </li>
-           <li><a href="ingress/" class="md-typeset md-link">
-           Configure Ingress
            </a>
            </li>
            <li><a href="tracing/" class="md-typeset md-link">

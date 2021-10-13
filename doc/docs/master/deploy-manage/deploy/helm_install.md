@@ -3,10 +3,14 @@
 The package manager [Helm](https://helm.sh/docs/intro/install/#helm) is the authoritative deployment method for Pachyderm.
 
 !!! Reminder
-    For improved security, **Pachyderm services are now exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)**. These changes do not apply to LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations)
+    **Pachyderm services are exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)**. These changes do not apply to LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations)
 
 This page gives a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) or in our [GitHub repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/pachyderm).
 
+!!! Important "Before your start your installation process." 
+      - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on  how to install and get started with `Helm`.
+      - Read our [infrastructure recommendations](../ingress/). You will find instructions on setting up an ingress controller, a load balancer, or connecting an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires the set up on an Ingress and the activation of authentication.
 ## Install
 ### Prerequisites
 1. Install [`Helm`](https://helm.sh/docs/intro/install/). 
@@ -73,55 +77,42 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
-* If you exposed your cluster to the internet by setting up a LoadBalancer in the `values.yaml` as follow:
+If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name and:
 
-     ```yaml
-     pachd:
-      service:
-        type: LoadBalancer
-     ```
+  1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 
-    1. Retrieve the external IP address of the service.  When listing your services again, you should see an external IP address allocated to the `pachd` service 
+      ```shell
+      $ echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      ```
 
-        ```shell
-        $ kubectl get service
-        ```
+  1. Check that your are using the right context: 
 
-    1. Update the context of your cluster with their direct url, using the external IP address above:
+      ```shell
+      $ pachctl config get active-context`
+      ```
 
-        ```shell
-        $ echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
-        ```
+      Your cluster context name should show up.
 
-    1. Check that your are using the right context: 
+If you're not exposing `pachd` publicly, you can run:
 
-        ```shell
-        $ pachctl config get active-context`
-        ```
+```shell
+# Background this process because it blocks.
+$ pachctl port-forward
+``` 
 
-        Your cluster context name should show up.
+Verify that `pachctl` and your cluster are connected:
 
+```shell
+$ pachctl version
+```
 
-* If you're not exposing `pachd` publicly, you can run:
+**System Response:**
 
-    ```shell
-    # Background this process because it blocks.
-    $ pachctl port-forward
-    ``` 
-
-* Verify that `pachctl` and your cluster are connected:
-
-    ```shell
-    $ pachctl version
-    ```
-
-    **System Response:**
-
-    ```
-    COMPONENT           VERSION
-    pachctl             {{ config.pach_latest_version }}
-    pachd               {{ config.pach_latest_version }}
-    ```
+```
+COMPONENT           VERSION
+pachctl             {{ config.pach_latest_version }}
+pachd               {{ config.pach_latest_version }}
+```
 
 ## Uninstall the Pachyderm Helm Chart
 [Helm uninstall](https://helm.sh/docs/helm/helm_uninstall/) a release as easily as you installed it.

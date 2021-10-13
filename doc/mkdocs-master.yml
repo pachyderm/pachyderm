@@ -178,9 +178,12 @@ nav:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
-            - Getting Started with Pachyderm Hub: hub/hub_getting_started.md
+            - Get Started with Pachyderm Hub: hub/hub_getting_started.md
             - Deploy with Helm: deploy-manage/deploy/helm_install.md
-            - Production Deployments:
+            - Production Deployments:       
+                - Infrastructure and Ingress Setup:
+                    - Infrastructure Recommendations: deploy-manage/deploy/ingress/index.md
+                    - Set Up Traefik: deploy-manage/deploy/ingress/pach-ui-ingress.md  
                 - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
                 - Deploy on AWS:
                     - Overview: deploy-manage/deploy/amazon_web_services/index.md
@@ -196,10 +199,7 @@ nav:
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md
             - Post-Deployment:    
-                - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
-                - Configure Ingress:
-                    - Overview: deploy-manage/deploy/ingress/index.md
-                    - Console Ingress: deploy-manage/deploy/ingress/pach-ui-ingress.md            
+                - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md          
                 - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
                 - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
                 - Monitor cluster metrics with Prometheus: 
@@ -207,6 +207,7 @@ nav:
                     - List of pachd metrics: deploy-manage/deploy/prometheus/pachd_metrics.md
                     - List of pipeline metrics: deploy-manage/deploy/prometheus/job_metrics.md
                 - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
+            - Deploy Console: deploy-manage/deploy/console.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
