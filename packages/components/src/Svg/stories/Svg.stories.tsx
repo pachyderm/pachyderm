@@ -82,6 +82,7 @@ import {
 
 import styles from './SvgStory.module.css';
 
+/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'SVGs'};
 
 type SVGWrapperProps = {

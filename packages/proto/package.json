@@ -8,7 +8,7 @@
     "build": "./build.sh",
     "prepublishOnly": "npm run build"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "Apache License 2.0",
   "dependencies": {
     "@grpc/grpc-js": "^1.2.2",
     "@types/google-protobuf": "^3.7.4",

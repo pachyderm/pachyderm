@@ -2,6 +2,7 @@ import React from 'react';
 
 import Tooltip from './Tooltip';
 
+/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Tooltip'};
 
 export const Default = () => {
@@ -20,8 +21,8 @@ export const Default = () => {
 };
 
 export const Large = () => {
-  const tooltipText = `This is a large tooltip, it is used when 
-the tooltip contains a large amount of text. It's padding is 1rem and it's text is left aligned. 
+  const tooltipText = `This is a large tooltip, it is used when
+the tooltip contains a large amount of text. It's padding is 1rem and it's text is left aligned.
 Additionally its max width is 18.75rem.`;
   return (
     <>
@@ -39,9 +40,9 @@ Additionally its max width is 18.75rem.`;
 };
 
 export const ExtraLarge = () => {
-  const tooltipText = `This is an extra large tooltip, it is used when 
-the tooltip contains a really large amount of text. It's padding is 1.25rem and it's text is left aligned. 
-Additionally its max width is 24.75rem. It's padding is 1.25rem and it's text is left aligned. 
+  const tooltipText = `This is an extra large tooltip, it is used when
+the tooltip contains a really large amount of text. It's padding is 1.25rem and it's text is left aligned.
+Additionally its max width is 24.75rem. It's padding is 1.25rem and it's text is left aligned.
 Additionally its max width is 24.75rem`;
   return (
     <>

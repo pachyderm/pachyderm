@@ -7,6 +7,7 @@ import {ChipGroup} from './Chip';
 
 import {Chip, ChipInput} from './';
 
+/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Chip'};
 
 export const Default = () => {

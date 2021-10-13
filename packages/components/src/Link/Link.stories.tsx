@@ -5,6 +5,7 @@ import {ButtonLink} from '../ButtonLink';
 
 import {Link} from './';
 
+/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Link'};
 
 export const Default = () => {

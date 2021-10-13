@@ -3,6 +3,7 @@ import {MemoryRouter} from 'react-router-dom';
 
 import {Tabs} from './';
 
+/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Tabs'};
 
 export const Default = () => {

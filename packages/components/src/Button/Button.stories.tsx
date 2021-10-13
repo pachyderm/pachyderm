@@ -3,6 +3,7 @@ import {BrowserRouter} from 'react-router-dom';
 
 import {Button} from './';
 
+/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Button'};
 
 export const Default = () => {

@@ -5,6 +5,7 @@ import {Form} from '../Form';
 
 import {RadioButton} from './';
 
+/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'RadioButton'};
 
 export const Default = () => {

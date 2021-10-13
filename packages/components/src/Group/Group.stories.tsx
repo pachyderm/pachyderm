@@ -1,6 +1,8 @@
 import React from 'react';
 
 import {Group, GroupProps} from './';
+
+/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {
   title: 'Group',
 };

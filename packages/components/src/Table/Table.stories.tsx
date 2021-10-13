@@ -2,6 +2,7 @@ import React from 'react';
 
 import Table from './Table';
 
+/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Table'};
 
 const bruinsPointLeaders = [

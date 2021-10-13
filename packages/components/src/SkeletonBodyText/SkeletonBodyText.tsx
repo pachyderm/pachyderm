@@ -4,12 +4,12 @@ import React, {memo} from 'react';
 
 import styles from './SkeletonBodyText.module.css';
 
-interface SkeletonBodyText {
+interface SkeletonBodyTextProps {
   lines?: number;
   disableShimmer?: boolean;
 }
 
-export const SkeletonBodyText: React.FC<SkeletonBodyText> = ({
+export const SkeletonBodyText: React.FC<SkeletonBodyTextProps> = ({
   lines = 1,
   disableShimmer = false,
   ...props

@@ -53,6 +53,6 @@
   fill: var(--pachyderm-black);
 }
 
-:global(.modal-backdrop) {
+:global(.modal-backdrop) { /* stylelint-disable-line selector-class-pattern */
   background-color: var(--background-black);
 }

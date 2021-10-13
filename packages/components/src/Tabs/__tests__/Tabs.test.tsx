@@ -49,6 +49,7 @@ describe('Tabs', () => {
     };
   };
 
+  /* eslint-disable-next-line jest/expect-expect */
   it('should initially display the correct active tab', () => {
     const {assertTab} = renderTestBed();
 
@@ -57,6 +58,7 @@ describe('Tabs', () => {
     assertTab('three').toBeHidden();
   });
 
+  /* eslint-disable-next-line jest/expect-expect */
   it('should be able to navigate between tabs', () => {
     const {activateTab, assertTab} = renderTestBed();
 

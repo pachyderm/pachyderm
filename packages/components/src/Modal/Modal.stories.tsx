@@ -4,6 +4,7 @@ import {Button} from './../Button';
 
 import {BasicModal, useModal, WizardModal, FullPageModal} from './';
 
+/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Modal'};
 
 export const Default = () => {
