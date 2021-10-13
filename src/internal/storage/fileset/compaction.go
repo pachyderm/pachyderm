@@ -2,9 +2,11 @@ package fileset
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
@@ -40,6 +42,8 @@ func indexOfCompacted(factor int64, inputs []*Primitive) int {
 
 // Compact compacts the contents of ids into a new fileset with the specified ttl and returns the ID.
 // Compact always returns the ID of a primitive fileset.
+// Compact does not renew ids.
+// It is the responsibility of the caller to renew ids.  In some cases they may be permanent and not require renewal.
 func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts ...index.Option) (*ID, error) {
 	var size int64
 	w := s.newWriter(ctx, WithTTL(ttl), WithIndexCallback(func(idx *index.Index) error {
@@ -71,7 +75,7 @@ type Compactor interface {
 type CompactionWorker func(ctx context.Context, spec CompactionTask) (*ID, error)
 
 // CompactionBatchWorker can perform batches of CompactionTasks
-type CompactionBatchWorker func(ctx context.Context, spec []CompactionTask) ([]ID, error)
+type CompactionBatchWorker func(ctx context.Context, renewer *Renewer, spec []CompactionTask) ([]ID, error)
 
 // DistributedCompactor performs compaction by fanning out tasks to workers.
 type DistributedCompactor struct {
@@ -93,53 +97,68 @@ func NewDistributedCompactor(s *Storage, maxFanIn int, workerFunc CompactionBatc
 
 // Compact compacts the contents of ids into a new fileset with the specified ttl and returns the ID.
 // Compact always returns the ID of a primitive fileset.
-func (c *DistributedCompactor) Compact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+func (c *DistributedCompactor) Compact(ctx context.Context, ids []ID, ttl time.Duration) (_ *ID, retErr error) {
 	var err error
 	ids, err = c.s.Flatten(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	if len(ids) <= c.maxFanIn {
-		return c.shardedCompact(ctx, ids, ttl)
-	}
-	childSize := c.maxFanIn
-	for len(ids)/childSize > c.maxFanIn {
-		childSize *= c.maxFanIn
-	}
-	results := []ID{}
-	for start := 0; start < len(ids); start += childSize {
-		end := start + childSize
+	var tasks []CompactionTask
+	var taskLens []int
+	for start := 0; start < len(ids); start += c.maxFanIn {
+		end := start + c.maxFanIn
 		if end > len(ids) {
 			end = len(ids)
 		}
-		id, err := c.Compact(ctx, ids[start:end], ttl)
-		if err != nil {
+		ids := ids[start:end]
+		taskLen := len(tasks)
+		if err := miscutil.LogStep(fmt.Sprintf("sharding %v file sets", len(ids)), func() error {
+			return c.s.Shard(ctx, ids, func(pathRange *index.PathRange) error {
+				tasks = append(tasks, CompactionTask{
+					Inputs:    ids,
+					PathRange: pathRange,
+				})
+				return nil
+			})
+		}); err != nil {
 			return nil, err
 		}
-		results = append(results, *id)
+		taskLens = append(taskLens, len(tasks)-taskLen)
 	}
-	return c.Compact(ctx, results, ttl)
-}
-
-func (c *DistributedCompactor) shardedCompact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
-	var tasks []CompactionTask
-	if err := c.s.Shard(ctx, ids, func(pathRange *index.PathRange) error {
-		tasks = append(tasks, CompactionTask{
-			Inputs:    ids,
-			PathRange: pathRange,
-		})
-		return nil
+	var id *ID
+	if err := c.s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
+		var resultIds []ID
+		if err := miscutil.LogStep(fmt.Sprintf("compacting %v tasks", len(tasks)), func() error {
+			results, err := c.workerFunc(ctx, renewer, tasks)
+			if err != nil {
+				return err
+			}
+			if len(results) != len(tasks) {
+				return errors.Errorf("results are a different length than tasks")
+			}
+			for _, taskLen := range taskLens {
+				id, err := c.s.Concat(ctx, results[:taskLen], ttl)
+				if err != nil {
+					return err
+				}
+				renewer.Add(*id)
+				resultIds = append(resultIds, *id)
+				results = results[taskLen:]
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+		if len(resultIds) == 1 {
+			id = &resultIds[0]
+			return nil
+		}
+		id, err = c.Compact(ctx, resultIds, ttl)
+		return err
 	}); err != nil {
 		return nil, err
 	}
-	results, err := c.workerFunc(ctx, tasks)
-	if err != nil {
-		return nil, err
-	}
-	if len(results) != len(tasks) {
-		return nil, errors.Errorf("results are a different length than tasks")
-	}
-	return c.s.Concat(ctx, results, ttl)
+	return id, nil
 }
 
 // CompactCallback is the standard callback signature for a compaction operation.
@@ -159,8 +178,11 @@ func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, ttl time.Dura
 		return s.Compose(ctx, ids, ttl)
 	}
 	i := indexOfCompacted(s.compactionConfig.LevelFactor, prims)
-	id, err := compact(ctx, ids[i:], ttl)
-	if err != nil {
+	var id *ID
+	if err := miscutil.LogStep(fmt.Sprintf("compacting %v levels out of %v", len(ids)-i, len(ids)), func() error {
+		id, err = compact(ctx, ids[i:], ttl)
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	return s.CompactLevelBased(ctx, append(ids[:i], *id), ttl, compact)
