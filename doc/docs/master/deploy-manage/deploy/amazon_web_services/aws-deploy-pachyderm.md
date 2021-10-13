@@ -6,7 +6,7 @@
       - If you are planning to install Pachyderm UI. Read our [Console deployment](../../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../../ingress/#ingress).
 
 Once your Kubernetes cluster is up, and your infrastructure is configured, 
-you are ready to prepare the installation of Pachyderm. 
+you are ready to prepare for the installation of Pachyderm. 
 Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
 
 
