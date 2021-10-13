@@ -35,14 +35,27 @@ make docker-build
 make docker-push
 
 # Create a workspace running the image we just built.
-hubcli --endpoint https://hub.pachyderm.com/api/graphql --apikey $HUB_API_KEY --op create-workspace-and-wait --orgid 2193 --loglevel trace --infofile workspace.json --version $VERSION --expiration 2h --description $CIRCLE_BUILD_URL --prefix "ci-"
+for i in {1..3}; do
+	hubcli --endpoint https://hub.pachyderm.com/api/graphql --apikey $HUB_API_KEY --op create-workspace-and-wait --orgid 2193 --loglevel trace --infofile workspace.json --version $VERSION --expiration 2h --description $CIRCLE_BUILD_URL --prefix "ci-" && break
+done
 
 # Print client and server versions, for debugging.
 pachctl version
 
 # Run load tests.
-pachctl run pfs-load-test
-pachctl run pps-load-test
+set +e
+pachctl run pfs-load-test "$@"
+if [ $? -ne 0 ]; then
+	pachctl debug dump /tmp/debug-dump
+	exit 1
+fi
+pachctl run pps-load-test "$@"
+if [ $? -ne 0 ]; then
+	pachctl debug dump /tmp/debug-dump
+	exit 1
+fi
+set -e
+pachctl debug dump /tmp/debug-dump
 
 # Delete the workspace.  We don't do this in a "trap ... exit" statement so that you can log into
 # the workspace and debug it if the load tests fail.  Hub will automatically clean up the workspace
