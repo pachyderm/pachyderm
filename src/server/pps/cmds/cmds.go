@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -1094,11 +1095,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	commands = append(commands, cmdutil.CreateAlias(listSecret, "list secret"))
 
+	var seed int64
 	runLoadTest := &cobra.Command{
-		Use:   "{{alias}}",
+		Use:   "{{alias}} <spec-file> ",
 		Short: "Run a PPS load test.",
 		Long:  "Run a PPS load test.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -1108,15 +1110,48 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 					retErr = err
 				}
 			}()
-			resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
-			if err != nil {
-				return err
+			if len(args) == 0 {
+				resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+				if err != nil {
+					return err
+				}
+				fmt.Println(resp.Spec)
+				resp.Spec = ""
+				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
+					return err
+				}
+				fmt.Println()
+				return nil
 			}
-			fmt.Println(resp.Spec)
-			resp.Spec = ""
-			return cmdutil.Encoder(output, os.Stdout).EncodeProto(resp)
+			return filepath.Walk(args[0], func(file string, fi os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if fi.IsDir() {
+					return nil
+				}
+				spec, err := ioutil.ReadFile(file)
+				if err != nil {
+					return err
+				}
+				resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
+					Spec: string(spec),
+					Seed: seed,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Println(resp.Spec)
+				resp.Spec = ""
+				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
+					return err
+				}
+				fmt.Println()
+				return nil
+			})
 		}),
 	}
+	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
 	return commands

@@ -1,0 +1,25 @@
+# This workload tests many small files.
+count: 5 
+operations:
+  - count: 5 
+    operation:
+      - putFile:
+          files:
+            count: 10000 
+            file:
+              - source: "random"
+                prob: 100
+        prob: 100
+validator: {}
+fileSources:
+  - name: "random"
+    random:
+      directory:
+        depth:
+          min: 1
+          max: 1 
+        run: 5000
+      size:
+        - min: 100
+          max: 1000
+          prob: 100

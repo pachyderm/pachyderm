@@ -1,4 +1,5 @@
-count: 5
+# This workload tests a mix of small, medium, and large files.
+count: 5 
 operations:
   - count: 5
     operation:
@@ -8,28 +9,18 @@ operations:
             file:
               - source: "random"
                 prob: 100
-        prob: 70 
-      - deleteFile:
-          count: 5
-          directoryProb: 20 
-        prob: 30 
+        prob: 100 
 validator: {}
 fileSources:
   - name: "random"
     random:
-      directory:
-        depth: 3
-        run: 3
       size:
         - min: 1000
           max: 10000
-          prob: 30 
-        - min: 10000
-          max: 100000
-          prob: 30 
+          prob: 50 
         - min: 1000000
           max: 10000000
-          prob: 30 
-        - min: 10000000
-          max: 100000000
+          prob: 40 
+        - min: 100000000
+          max: 1000000000
           prob: 10 
