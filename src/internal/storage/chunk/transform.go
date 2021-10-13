@@ -7,11 +7,14 @@ import (
 	"crypto/cipher"
 	io "io"
 	"io/ioutil"
+	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/chacha20"
 )
 
@@ -47,33 +50,39 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 
 // Get calls getFunc to retrieve a chunk, then verifies, decrypts, and decompresses the data.
 // cb is called with the uncompressed plaintext
-func Get(ctx context.Context, client Client, cache kv.GetPut, ref *Ref, cb kv.ValueCallback) error {
-	if err := getFromCache(ctx, cache, ref, cb); err == nil {
-		return nil
-	}
+// TODO: Move the cache and deduper out of this function.
+func Get(ctx context.Context, client Client, cache kv.GetPut, deduper *miscutil.WorkDeduper, ref *Ref, cb kv.ValueCallback) error {
 	if ref.EncryptionAlgo != EncryptionAlgo_CHACHA20 {
 		return errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
 	}
-	return client.Get(ctx, ref.Id, func(ctext []byte) error {
-		if err := verifyData(ref.Id, ctext); err != nil {
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 1 * time.Millisecond
+	return backoff.RetryUntilCancel(ctx, func() error {
+		return getFromCache(ctx, cache, ref, cb)
+	}, b, func(err error, _ time.Duration) error {
+		if !pacherr.IsNotExist(err) {
 			return err
 		}
-		var r io.Reader = bytes.NewReader(ctext)
-		var err error
-		if r, err = decrypt(ref.Dek, r); err != nil {
-			return err
-		}
-		if r, err = decompress(ref.CompressionAlgo, r); err != nil {
-			return err
-		}
-		rawData, err := ioutil.ReadAll(r)
-		if err != nil {
-			return err
-		}
-		if err := putInCache(ctx, cache, ref, rawData); err != nil {
-			logrus.Error(err)
-		}
-		return cb(rawData)
+		return deduper.Do(ctx, ref.Key(), func() error {
+			return client.Get(ctx, ref.Id, func(ctext []byte) error {
+				if err := verifyData(ref.Id, ctext); err != nil {
+					return err
+				}
+				var r io.Reader = bytes.NewReader(ctext)
+				var err error
+				if r, err = decrypt(ref.Dek, r); err != nil {
+					return err
+				}
+				if r, err = decompress(ref.CompressionAlgo, r); err != nil {
+					return err
+				}
+				rawData, err := ioutil.ReadAll(r)
+				if err != nil {
+					return err
+				}
+				return putInCache(ctx, cache, ref, rawData)
+			})
+		})
 	})
 }
 

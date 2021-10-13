@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
