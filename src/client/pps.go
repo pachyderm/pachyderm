@@ -186,6 +186,18 @@ func NewCronInputOpts(name string, repo string, spec string, overwrite bool) *pp
 	}
 }
 
+// NewSQLInput returns a SQL input which will read data from a SQL compatible datastore.
+func NewSQLInput(name string, driver string, source string, query string) *pps.Input {
+	return &pps.Input{
+		Sql: &pps.SQLInput{
+			Name:   name,
+			Driver: driver,
+			Source: source,
+			Query:  query,
+		},
+	}
+}
+
 // NewJobInput creates a pps.JobInput.
 func NewJobInput(repoName string, branchName string, commitID string, glob string) *pps.JobInput {
 	return &pps.JobInput{

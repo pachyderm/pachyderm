@@ -108,9 +108,10 @@ message PFSInput {
 }
 
 message SQLInput {
-  string driver = 1;
-  string source = 2;
-  string query = 3;
+  string name = 1;
+  string driver = 2;
+  string source = 3;
+  string query = 4;
 }
 
 message CronInput {
