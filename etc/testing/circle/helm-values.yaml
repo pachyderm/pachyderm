@@ -1,4 +1,4 @@
-deployTarget: LOCAL
+deployTarget: custom
 
 pachd:
   service:
@@ -6,9 +6,14 @@ pachd:
   image:
     tag: local
   storage:
-    local:
-      requireRoot: false
-      hostPath: /tmp/pachyderm/
+    backend: MINIO
+    minio:
+      bucket: "pachyderm-test"
+      endpoint: "minio.default.svc.cluster.local:9000"
+      id: "minioadmin"
+      secret: "minioadmin"
+      secure: "false"
+      signature: ""
   metrics:
     enabled: false
   resources:
