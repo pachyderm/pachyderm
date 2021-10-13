@@ -180,6 +180,7 @@ launch: install check-kubectl
 
 launch-dev: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
+	kubectl apply -f etc/testing/minio.yaml --namespace=default
 	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values.yaml
 	# wait for the pachyderm to come up
 	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
@@ -199,9 +200,13 @@ clean-launch: check-kubectl
 	# These resources were not cleaned up by the old pachctl undeploy
 	kubectl delete roles.rbac.authorization.k8s.io,rolebindings.rbac.authorization.k8s.io -l suite=pachyderm
 	kubectl delete clusterroles.rbac.authorization.k8s.io,clusterrolebindings.rbac.authorization.k8s.io -l suite=pachyderm
-	# Helm won't clean statefulset PVCs by design
+	# Helm won't clean statefulset PVCs by design	
 	kubectl delete pvc -l suite=pachyderm
 	kubectl delete pvc -l suite=pachyderm -n enterprise
+	# cleanup minio
+	kubectl delete statefulset -l app=minio -n default
+	kubectl delete service -l app=minio -n default
+	kubectl delete pvc -l app=minio -n default
 
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."

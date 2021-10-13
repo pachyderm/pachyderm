@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 # SPDX-License-Identifier: Apache-2.0
-deployTarget: LOCAL
+deployTarget: custom
 
 pachd:
   image:
@@ -17,6 +17,15 @@ pachd:
   # to enable enterprise features pass in pachd.activateEnterprise=true, and a valid pachd.enterpriseLicenseKey
   activateEnterprise: false
   # enterpriseLicenseKey: ""
+  storage:
+    backend: MINIO
+    minio:
+      bucket: "pachyderm-test"
+      endpoint: "minio.default.svc.cluster.local:9000"
+      id: "minioadmin"
+      secret: "minioadmin"
+      secure: "false"
+      signature: ""
 
 etcd:
   service:
