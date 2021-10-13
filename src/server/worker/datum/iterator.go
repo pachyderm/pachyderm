@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"path"
 	"strings"
@@ -241,12 +242,13 @@ func (mi *fileSetMultiIterator) Iterate(cb func(*Meta) error) error {
 		var meta Meta
 		// kind of an abuse of the field, just stick this to key off of
 		meta.Hash = hdr.Name
+		decoder := json.NewDecoder(tr)
 		for {
 			input := new(common.Input)
-			if err := jsonpb.Unmarshal(tr, input); err != nil && errors.Is(err, io.EOF) {
+			if err := jsonpb.UnmarshalNext(decoder, input); err != nil && errors.Is(err, io.EOF) {
 				break
 			} else if err != nil {
-				return err
+				return errors.Wrap(err, "error unmarshalling input")
 			}
 			meta.Inputs = append(meta.Inputs, input)
 		}
