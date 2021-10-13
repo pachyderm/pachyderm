@@ -361,7 +361,7 @@ func TestPFS(suite *testing.T) {
 		ci, err = env.PachClient.InspectCommit("b", "master", "")
 		require.NoError(t, err)
 		commit4 := ci.Commit
-		require.Equal(t, commit4.ID, commit2.ID)
+		require.NotEqual(t, commit4.ID, commit1.ID)
 
 		checkRepoCommits([]*pfs.Commit{commit4, commit3, commit2, commit1})
 
@@ -406,14 +406,14 @@ func TestPFS(suite *testing.T) {
 		firstID := txnInfo.Transaction.ID
 
 		// make two commits by putting files in A
-		require.NoError(t,c.PutFile(client.NewCommit("A","master",""),"one", strings.NewReader("foo")))
+		require.NoError(t, c.PutFile(client.NewCommit("A", "master", ""), "one", strings.NewReader("foo")))
 		info, err := c.InspectCommit("A", "master", "")
 		secondID := info.Commit.ID
 		require.NoError(t, err)
-		require.NoError(t,c.PutFile(client.NewCommit("A","master",""),"two", strings.NewReader("bar")))
+		require.NoError(t, c.PutFile(client.NewCommit("A", "master", ""), "two", strings.NewReader("bar")))
 
 		// rewind once, everything should be back to firstCommit
-		require.NoError(t, c.CreateBranch("A", "master", "master", secondID,nil))
+		require.NoError(t, c.CreateBranch("A", "master", "master", secondID, nil))
 		for _, r := range repos {
 			info, err := c.InspectCommit(r, "master", "")
 			require.NoError(t, err)
@@ -422,8 +422,11 @@ func TestPFS(suite *testing.T) {
 
 		// add a file to C, then rewind A back to the start
 		// because C now has a different state, this must create a new commit ID
-		require.NoError(t,c.PutFile(client.NewCommit("C","master",""),"file", strings.NewReader("baz")))
-		require.NoError(t, c.CreateBranch("A", "master", "master", firstID,nil))
+		require.NoError(t, c.PutFile(client.NewCommit("C", "master", ""), "file", strings.NewReader("baz")))
+		info, err = c.InspectCommit("A", "master", "")
+		require.NoError(t, err)
+		thirdID := info.Commit.ID
+		require.NoError(t, c.CreateBranch("A", "master", "master", firstID, nil))
 
 		info, err = c.InspectCommit("B", "master", "")
 		require.NoError(t, err)
@@ -431,9 +434,9 @@ func TestPFS(suite *testing.T) {
 		require.NotEqual(t, firstID, newID)
 		require.NotEqual(t, secondID, newID)
 
-		// TODO: add logic to make the parent of B's head B@firstID, rather than B@secondID
+		// TODO: add logic to make the parent of B's head B@firstID, rather than the most recent commit
 		//require.Equal(t, firstID, info.ParentCommit.ID)
-		require.Equal(t, secondID, info.ParentCommit.ID)
+		require.Equal(t, thirdID, info.ParentCommit.ID)
 
 		for _, r := range repos {
 			info, err := c.InspectCommit(r, "master", "")
@@ -455,7 +458,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, c.CreateBranch("C", "master", "", "", []*pfs.Branch{
 			client.NewBranch("A", "master")}))
 
-		require.NoError(t,c.PutFile(client.NewCommit("A","master",""),"foo", strings.NewReader("bar")))
+		require.NoError(t, c.PutFile(client.NewCommit("A", "master", ""), "foo", strings.NewReader("bar")))
 		oldHead, err := c.InspectBranch("A", "master")
 		require.NoError(t, err)
 
@@ -466,7 +469,7 @@ func TestPFS(suite *testing.T) {
 		}))
 
 		// add a file to B and record C's new head
-		require.NoError(t,c.PutFile(client.NewCommit("B","master",""),"foo", strings.NewReader("bar")))
+		require.NoError(t, c.PutFile(client.NewCommit("B", "master", ""), "foo", strings.NewReader("bar")))
 		cHead, err := c.InspectBranch("C", "master")
 		require.NoError(t, err)
 
