@@ -7,9 +7,8 @@
 
 Once your Kubernetes cluster is up, and your infrastructure is configured, 
 you are ready to prepare the installation of Pachyderm. 
-Some of the following steps might require you to keep updating the values.yaml started during the setup of the infrastructure before your helm installation.
+Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
 
-Complete the following steps:
 
 1. [Create an S3 bucket](#1-create-an-S3-object) for your data and grant Pachyderm access.
 1. [Enable Persistent Volumes Creation](#2-enable-your-persistent-volumes-creation)
