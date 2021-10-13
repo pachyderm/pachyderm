@@ -47,7 +47,9 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 				if err != nil {
 					return nil, err
 				}
-				renewer.Add(*parentID)
+				if err := renewer.Add(ctx, *parentID); err != nil {
+					return nil, err
+				}
 				return parentID, nil
 			}))
 		}
@@ -79,7 +81,9 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset
 		if err != nil {
 			return nil, err
 		}
-		renewer.Add(*parentID)
+		if err := renewer.Add(ctx, *parentID); err != nil {
+			return nil, err
+		}
 		return parentID, nil
 	}))
 	if err != nil {
@@ -102,14 +106,18 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renew
 		return nil, err
 	}
 	if !compact {
-		renewer.Add(*id)
+		if err := renewer.Add(ctx, *id); err != nil {
+			return nil, err
+		}
 		return id, nil
 	}
 	compactedID, err := d.storage.Compact(ctx, []fileset.ID{*id}, defaultTTL)
 	if err != nil {
 		return nil, err
 	}
-	renewer.Add(*compactedID)
+	if err := renewer.Add(ctx, *compactedID); err != nil {
+		return nil, err
+	}
 	return compactedID, nil
 }
 
@@ -406,29 +414,6 @@ func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWr
 	return id, nil
 }
 
-func (d *driver) renewFileSet(ctx context.Context, id fileset.ID, ttl time.Duration) error {
-	if ttl < time.Second {
-		return errors.Errorf("ttl (%d) must be at least one second", ttl)
-	}
-	if ttl > maxTTL {
-		return errors.Errorf("ttl (%d) exceeds max ttl (%d)", ttl, maxTTL)
-	}
-	_, err := d.storage.SetTTL(ctx, id, ttl)
-	return err
-}
-
-func (d *driver) addFileSet(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
-	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
-	if err != nil {
-		return err
-	}
-	// TODO: This check needs to be in the add transaction.
-	if commitInfo.Finishing != nil {
-		return pfsserver.ErrCommitFinished{Commit: commitInfo.Commit}
-	}
-	return d.commitStore.AddFileSetTx(txnCtx.SqlTx, commitInfo.Commit, filesetID)
-}
-
 func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
 	commitInfo, err := d.getCommit(ctx, commit)
 	if err != nil {
@@ -472,6 +457,33 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	}
 	ids = append(ids, *id)
 	return d.storage.Compose(ctx, ids, defaultTTL)
+}
+
+func (d *driver) addFileSet(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
+	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
+	if err != nil {
+		return err
+	}
+	// TODO: This check needs to be in the add transaction.
+	if commitInfo.Finishing != nil {
+		return pfsserver.ErrCommitFinished{Commit: commitInfo.Commit}
+	}
+	return d.commitStore.AddFileSetTx(txnCtx.SqlTx, commitInfo.Commit, filesetID)
+}
+
+func (d *driver) renewFileSet(ctx context.Context, id fileset.ID, ttl time.Duration) error {
+	if ttl < time.Second {
+		return errors.Errorf("ttl (%d) must be at least one second", ttl)
+	}
+	if ttl > maxTTL {
+		return errors.Errorf("ttl (%d) exceeds max ttl (%d)", ttl, maxTTL)
+	}
+	_, err := d.storage.SetTTL(ctx, id, ttl)
+	return err
+}
+
+func (d *driver) composeFileSet(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+	return d.storage.Compose(ctx, ids, ttl)
 }
 
 func (d *driver) commitSizeUpperBound(ctx context.Context, commit *pfs.Commit) (int64, error) {

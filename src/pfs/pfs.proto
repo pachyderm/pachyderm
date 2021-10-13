@@ -407,6 +407,11 @@ message RenewFileSetRequest {
   int64 ttl_seconds = 2;
 }
 
+message ComposeFileSetRequest {
+  repeated string file_set_ids = 1;
+  int64 ttl_seconds = 2;
+}
+
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
@@ -499,6 +504,8 @@ service API {
   rpc AddFileSet(AddFileSetRequest) returns (google.protobuf.Empty) {}
   // RenewFileSet prevents a file set from being deleted for a set amount of time.
   rpc RenewFileSet(RenewFileSetRequest) returns (google.protobuf.Empty) {}
+  // ComposeFileSet composes a file set from a list of file sets.
+  rpc ComposeFileSet(ComposeFileSetRequest) returns (CreateFileSetResponse) {}
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
