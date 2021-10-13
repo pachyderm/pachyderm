@@ -796,6 +796,27 @@ func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetReque
 	return &types.Empty{}, nil
 }
 
+// ComposeFileSet implements the pfs.ComposeFileSet RPC
+func (a *apiServer) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	var fsids []fileset.ID
+	for _, id := range req.FileSetIds {
+		fsid, err := fileset.ParseID(id)
+		if err != nil {
+			return nil, err
+		}
+		fsids = append(fsids, *fsid)
+	}
+	filesetID, err := a.driver.composeFileSet(ctx, fsids, time.Duration(req.TtlSeconds)*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.CreateFileSetResponse{
+		FileSetId: filesetID.HexString(),
+	}, nil
+}
+
 // RunLoadTest implements the pfs.RunLoadTest RPC
 func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
 	func() { a.Log(nil, nil, nil, 0) }()

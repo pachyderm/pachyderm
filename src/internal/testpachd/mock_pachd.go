@@ -439,6 +439,7 @@ type createFileSetFunc func(pfs.API_CreateFileSetServer) error
 type addFileSetFunc func(context.Context, *pfs.AddFileSetRequest) (*types.Empty, error)
 type getFileSetFunc func(context.Context, *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error)
 type renewFileSetFunc func(context.Context, *pfs.RenewFileSetRequest) (*types.Empty, error)
+type composeFileSetFunc func(context.Context, *pfs.ComposeFileSetRequest) (*pfs.CreateFileSetResponse, error)
 type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 type runLoadTestDefaultFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
 
@@ -475,6 +476,7 @@ type mockCreateFileSet struct{ handler createFileSetFunc }
 type mockAddFileSet struct{ handler addFileSetFunc }
 type mockGetFileSet struct{ handler getFileSetFunc }
 type mockRenewFileSet struct{ handler renewFileSetFunc }
+type mockComposeFileSet struct{ handler composeFileSetFunc }
 type mockRunLoadTest struct{ handler runLoadTestFunc }
 type mockRunLoadTestDefault struct{ handler runLoadTestDefaultFunc }
 
@@ -511,6 +513,7 @@ func (mock *mockCreateFileSet) Use(cb createFileSetFunc)           { mock.handle
 func (mock *mockAddFileSet) Use(cb addFileSetFunc)                 { mock.handler = cb }
 func (mock *mockGetFileSet) Use(cb getFileSetFunc)                 { mock.handler = cb }
 func (mock *mockRenewFileSet) Use(cb renewFileSetFunc)             { mock.handler = cb }
+func (mock *mockComposeFileSet) Use(cb composeFileSetFunc)         { mock.handler = cb }
 func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefault) Use(cb runLoadTestDefaultFunc) { mock.handler = cb }
 
@@ -553,6 +556,7 @@ type mockPFSServer struct {
 	AddFileSet         mockAddFileSet
 	GetFileSet         mockGetFileSet
 	RenewFileSet       mockRenewFileSet
+	ComposeFileSet     mockComposeFileSet
 	RunLoadTest        mockRunLoadTest
 	RunLoadTestDefault mockRunLoadTestDefault
 }
@@ -754,6 +758,12 @@ func (api *pfsServerAPI) RenewFileSet(ctx context.Context, req *pfs.RenewFileSet
 		return api.mock.RenewFileSet.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.RenewFileSet")
+}
+func (api *pfsServerAPI) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetRequest) (*pfs.CreateFileSetResponse, error) {
+	if api.mock.ComposeFileSet.handler != nil {
+		return api.mock.ComposeFileSet.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.ComposeFileSet")
 }
 func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error) {
 	if api.mock.RunLoadTest.handler != nil {

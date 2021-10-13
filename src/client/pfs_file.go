@@ -322,7 +322,10 @@ func (c APIClient) WithRenewer(cb func(context.Context, *renew.StringSet) error)
 	rf := func(ctx context.Context, p string, ttl time.Duration) error {
 		return c.WithCtx(ctx).RenewFileSet(p, ttl)
 	}
-	return renew.WithStringSet(c.Ctx(), DefaultTTL, rf, cb)
+	cf := func(ctx context.Context, ps []string, ttl time.Duration) (string, error) {
+		return c.WithCtx(ctx).ComposeFileSet(ps, ttl)
+	}
+	return renew.WithStringSet(c.Ctx(), DefaultTTL, rf, cf, cb)
 }
 
 // WithCreateFileSetClient provides a scoped fileset client.
@@ -425,6 +428,24 @@ func (c APIClient) RenewFileSet(ID string, ttl time.Duration) (retErr error) {
 		},
 	)
 	return err
+}
+
+// ComposeFileSet composes a file set from a list of file sets.
+func (c APIClient) ComposeFileSet(IDs []string, ttl time.Duration) (_ string, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	resp, err := c.PfsAPIClient.ComposeFileSet(
+		c.Ctx(),
+		&pfs.ComposeFileSetRequest{
+			FileSetIds: IDs,
+			TtlSeconds: int64(ttl.Seconds()),
+		},
+	)
+	if err != nil {
+		return "", err
+	}
+	return resp.FileSetId, nil
 }
 
 // GetFile returns the contents of a file at a specific Commit.

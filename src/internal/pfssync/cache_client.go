@@ -25,7 +25,7 @@ func NewCacheClient(pachClient *client.APIClient, renewer *renew.StringSet) *Cac
 		APIClient: pachClient,
 		renewer:   renewer,
 	}
-	cache, err := simplelru.NewLRU(100, cc.onEvicted)
+	cache, err := simplelru.NewLRU(10, nil)
 	if err != nil {
 		// lru.NewWithEvict only errors for size < 1
 		panic(err)
@@ -43,7 +43,9 @@ func (cc *CacheClient) GetFileTAR(commit *pfs.Commit, path string) (io.ReadClose
 	if err != nil {
 		return nil, err
 	}
-	cc.renewer.Add(id)
+	if err := cc.renewer.Add(cc.APIClient.Ctx(), id); err != nil {
+		return nil, err
+	}
 	commit = client.NewCommit(client.FileSetsRepoName, "", id)
 	cc.put(key, commit)
 	return cc.APIClient.GetFileTAR(commit, path)
@@ -63,8 +65,4 @@ func (cc *CacheClient) put(key string, commit *pfs.Commit) {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 	cc.cache.Add(key, commit)
-}
-
-func (cc *CacheClient) onEvicted(key, value interface{}) {
-	cc.renewer.Remove(value.(*pfs.Commit).ID)
 }

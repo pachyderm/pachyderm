@@ -141,7 +141,9 @@ func (c *DistributedCompactor) Compact(ctx context.Context, ids []ID, ttl time.D
 				if err != nil {
 					return err
 				}
-				renewer.Add(*id)
+				if err := renewer.Add(ctx, *id); err != nil {
+					return err
+				}
 				resultIds = append(resultIds, *id)
 				results = results[taskLen:]
 			}

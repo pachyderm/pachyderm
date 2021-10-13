@@ -176,7 +176,9 @@ func (pj *pendingJob) withParallelDatums(ctx context.Context, cb func(context.Co
 		if err != nil {
 			return err
 		}
-		renewer.Add(fileSetID)
+		if err := renewer.Add(ctx, fileSetID); err != nil {
+			return err
+		}
 		// Set up the datum iterators for merging.
 		// If there is no parent, only use the datum iterator for the current job.
 		var dits []datum.Iterator
@@ -186,7 +188,9 @@ func (pj *pendingJob) withParallelDatums(ctx context.Context, cb func(context.Co
 			if err != nil {
 				return err
 			}
-			renewer.Add(parentFileSetID)
+			if err := renewer.Add(ctx, parentFileSetID); err != nil {
+				return err
+			}
 			dits = append(dits, datum.NewFileSetIterator(pachClient, parentFileSetID))
 		}
 		dits = append(dits, datum.NewFileSetIterator(pachClient, fileSetID))
@@ -203,7 +207,9 @@ func (pj *pendingJob) withParallelDatums(ctx context.Context, cb func(context.Co
 		if err != nil {
 			return err
 		}
-		renewer.Add(outputFileSetID)
+		if err := renewer.Add(ctx, outputFileSetID); err != nil {
+			return err
+		}
 		return cb(ctx, datum.NewFileSetIterator(pachClient, outputFileSetID))
 	})
 }
@@ -238,7 +244,9 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, cb func(context.Cont
 		if err != nil {
 			return err
 		}
-		renewer.Add(fileSetID)
+		if err := renewer.Add(ctx, fileSetID); err != nil {
+			return err
+		}
 		// Setup an iterator using the parent meta commit.
 		parentDit := datum.NewCommitIterator(pachClient, pj.parentMetaCommit)
 		// Create the output datum file set for the datums that were not processed by the parent (failed, recovered, etc.).
@@ -272,7 +280,9 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, cb func(context.Cont
 		if err != nil {
 			return err
 		}
-		renewer.Add(outputFileSetID)
+		if err := renewer.Add(ctx, outputFileSetID); err != nil {
+			return err
+		}
 		pj.saveJobStats(stats)
 		if err := pj.writeJobInfo(); err != nil {
 			return err

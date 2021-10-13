@@ -281,7 +281,7 @@ func (s *Storage) Size(ctx context.Context, id ID) (int64, error) {
 
 // WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.
 func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *Renewer) error) (retErr error) {
-	r := newRenewer(ctx, s.tracker, ttl)
+	r := newRenewer(ctx, s, ttl)
 	defer func() {
 		if err := r.Close(); retErr == nil {
 			retErr = err
