@@ -90,7 +90,7 @@ To connect to your Console (Pachyderm UI):
     - As a User of your IdP otherwise.
 
 You are all set! 
-You should land on the Projects Page of Console.
+You should land on the Projects page of Console.
 
 ![Console Landing Page](../../../getting_started/images/console_landing_page.png)
 

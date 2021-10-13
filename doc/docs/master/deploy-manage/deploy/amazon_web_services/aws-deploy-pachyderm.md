@@ -1,11 +1,13 @@
 # Deploy Pachyderm on AWS
 
 !!! Important "Before your start your installation process." 
-      - Please read our [infrastructure recommendations](../../ingress/). Specifically, you will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
+      - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on  how to install and get started with `Helm`.
+      - Read our [infrastructure recommendations](../../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
       - If you are planning to install Pachyderm UI. Read our [Console deployment](../../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../../ingress/#ingress).
 
-Once your Kubernetes cluster and your infrastructure are set up, 
-you are ready to deploy Pachyderm.
+Once your Kubernetes cluster is up, and your infrastructure is configured, 
+you are ready to prepare the installation of Pachyderm. 
+Some of the following steps might require you to keep updating the values.yaml started during the setup of the infrastructure before your helm installation.
 
 Complete the following steps:
 
@@ -345,7 +347,6 @@ Check the [list of all available helm values](../../../../reference/helm_values/
 
 ### Deploy Pachyderm On The Kubernetes Cluster
 
-Refer to our generic ["Helm Install"](./helm_install.md) page for more information on the required installations and modus operandi of an installation using `Helm`.
 
 - Now you can deploy a Pachyderm cluster by running this command:
 
