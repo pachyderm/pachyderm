@@ -180,7 +180,7 @@ This section will provide guidance on the configuration settings you will need t
  
 In the RDS console, create a database **in the region matching your Pachyderm cluster**. Choose the **PostgreSQL** engine and select a PostgreSQL version >= 13.3.
 
-Configure your DB instance as follow.
+Configure your DB instance as follows.
 
 | SETTING | Recommended value|
 |:----------------|:--------------------------------------------------------|
