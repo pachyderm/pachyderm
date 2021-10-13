@@ -7,7 +7,7 @@ launch-prod:
 	npm run build --prefix ./frontend && npm run build --prefix ./backend && npm start --prefix ./backend
 
 launch-mock:
-	npm run mock-and-start --prefix ./backend & npm run start:mock  --prefix ./frontend
+	LOG_LEVEL=debug npm run mock-and-start --prefix ./backend & npm run start:mock  --prefix ./frontend
 
 setup-auth:
 	npm run setup

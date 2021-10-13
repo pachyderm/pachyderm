@@ -10,3 +10,8 @@ node_modules/
 .env.dev.local
 .env.development.local
 .env.production.local
+coverage/
+cypress/screenshots
+cypress/fixtures/example.json
+cypress/accessToken.txt
+cypress/accessToken_*.txt

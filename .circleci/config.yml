@@ -6,6 +6,7 @@ orbs:
 
 jobs:
     backend-test:
+        resource_class: xlarge
         docker:
             - image: circleci/node:14.16.0
         steps:
@@ -28,6 +29,16 @@ jobs:
             - run: cd frontend && npm run test -- --collect-coverage
             - codecov/upload:
                   file: frontend/coverage/lcov.info
+    e2e-test:
+        resource_class: xlarge
+        docker:
+            - image: circleci/node:14.16.0-browsers
+        steps:
+            - checkout
+            - run: npm ci
+            - run: cd backend && npm ci
+            - run: cd frontend && npm ci
+            - run: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
     build:
         resource_class: xlarge
         docker:
@@ -66,6 +77,7 @@ workflows:
         jobs:
             - backend-test
             - frontend-test
+            - e2e-test
             - build
     # live-automation:
     #     triggers:
