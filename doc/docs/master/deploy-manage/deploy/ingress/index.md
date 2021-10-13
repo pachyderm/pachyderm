@@ -7,10 +7,10 @@ cloud environments as well, but a production environment might require you to
 define **additional inbound connection rules**.
 
 Before we dive into the delivery of external traffic to Pachyderm, 
-read the following recommendations for the set up of your infrastructure in production.
+read the following recommendations to set up your infrastructure in production.
 
 !!! Note
-    We are mentioning `values.yaml` often on this page. Read our [Helm documentation](../helm_install) if this configuration file is not familiar to you.
+    - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on how to install and get started with `Helm`.
 ## Pachyderm Infrastructure Recommendations
 
 For production deployments,
