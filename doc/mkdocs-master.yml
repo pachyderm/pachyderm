@@ -32,8 +32,8 @@ theme:
   features:
     - tabs
   palette:
-    primary: #4B2A5C
-    accent: #4B2A5C
+    primary: #5ba3b1
+    accent: #5ba3b1
   font: false
   favicon: assets/images/favicon-32x32.png
   icon:
