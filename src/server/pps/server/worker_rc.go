@@ -293,11 +293,25 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		})
 	}
 
-	zeroVal := int64(0)
 	workerImage := a.workerImage
-	var securityContext *v1.PodSecurityContext
+	pachSecurityCtx := &v1.SecurityContext{
+		RunAsUser:  int64Ptr(1000),
+		RunAsGroup: int64Ptr(1000),
+	}
+	var userSecurityCtx *v1.SecurityContext
+	userStr := pipelineInfo.Details.Transform.User
 	if a.workerUsesRoot {
-		securityContext = &v1.PodSecurityContext{RunAsUser: &zeroVal}
+		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
+	} else if userStr != "" {
+		// This is to allow the user to be set in the pipeline spec.
+		if i, err := strconv.ParseInt(userStr, 10, 64); err != nil {
+			a.env.Logger().Warnf("could not parse user %q into int: %v", userStr, err)
+		} else {
+			userSecurityCtx = &v1.SecurityContext{
+				RunAsUser:  int64Ptr(i),
+				RunAsGroup: int64Ptr(i),
+			}
+		}
 	}
 	resp, err := a.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
@@ -329,6 +343,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 						v1.ResourceMemory: memDefaultQuantity,
 					},
 				},
+				SecurityContext: pachSecurityCtx,
 			},
 		},
 		Containers: []v1.Container{
@@ -345,7 +360,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 						v1.ResourceMemory: memDefaultQuantity,
 					},
 				},
-				VolumeMounts: userVolumeMounts,
+				VolumeMounts:    userVolumeMounts,
+				SecurityContext: userSecurityCtx,
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
@@ -361,15 +377,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 						v1.ResourceMemory: memSidecarQuantity,
 					},
 				},
-				Ports: sidecarPorts,
+				Ports:           sidecarPorts,
+				SecurityContext: pachSecurityCtx,
 			},
 		},
 		ServiceAccountName:            workerServiceAccountName,
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
-		TerminationGracePeriodSeconds: &zeroVal,
-		SecurityContext:               securityContext,
+		TerminationGracePeriodSeconds: int64Ptr(0),
 	}
 	if options.schedulingSpec != nil {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
@@ -809,4 +825,8 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 	}
 
 	return nil
+}
+
+func int64Ptr(x int64) *int64 {
+	return &x
 }
