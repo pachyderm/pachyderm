@@ -15,7 +15,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - nodes
   - pods
   - pods/log
   - endpoints
