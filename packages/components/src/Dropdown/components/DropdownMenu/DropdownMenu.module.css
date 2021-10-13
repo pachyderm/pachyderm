@@ -17,18 +17,14 @@
 
 @keyframes slide-up {
   0% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scaleY(0);
-  }
-
-  10% {
-    visibility: visible;
-    transform: scaleY(1);
-  }
-
-  100% {
     opacity: 1;
-    transform: translate3d(0, -1rem, 0) scaleY(1);
+    visibility: visible;
+    transform: translate3d(0, 1rem, 0) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    transform: translate3d(0, 0, 0) scaleY(1);
   }
 }
 
@@ -61,6 +57,15 @@
   right: 0;
 }
 
+.base::-webkit-scrollbar {
+  width: 10px;
+}
+
+.base::-webkit-scrollbar-thumb {
+  background: var(--line-grey);
+  border-radius: 10px;
+}
+
 .open {
   opacity: 1;
   visibility: visible;
@@ -69,19 +74,7 @@
   animation: slide-down .3s cubic-bezier(0.68, -0.6, 0.32, 1.6);
 }
 
-.openAbove.open {
-  opacity: 1;
-  visibility: visible;
-  transform: translate3d(0, -1rem, 0) scaleY(1);
-  /* Taken from https://easings.net/ */
-  animation: slide-up .3s cubic-bezier(0.68, -0.6, 0.32, 1.6);
-}
-
-.base::-webkit-scrollbar {
-  width: 10px;
-}
-
-.base::-webkit-scrollbar-thumb {
-  background: var(--line-grey);
-  border-radius: 10px;
+.close {
+  transform: translate3d(0, 1rem, 0) scaleY(1);
+  animation: slide-up .1s linear;
 }

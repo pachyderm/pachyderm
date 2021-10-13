@@ -9,6 +9,7 @@ export {default as useOutsideClick} from './hooks/useOutsideClick';
 export {default as useClipboardCopy} from './hooks/useClipboardCopy';
 export {default as useDebounce} from './hooks/useDebounce';
 export {default as useAnalytics} from './hooks/useAnalytics';
+export {default as usePreviousValue} from './hooks/usePreviousValue';
 export {default as useScrollDirection} from './hooks/useScrollDirection';
 
 export * from './hooks/useSort';
