@@ -1,0 +1,20 @@
+.taskCard {
+  border: 1px solid var(--grey-4);
+  background-color: var(--grey-1);
+  padding: 1rem 2rem;
+  box-shadow: 1px 1px 4px 0px var(--dropshadow);
+  margin-bottom: 2rem;
+}
+
+.taskHeader {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.taskHeaderWrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+}
