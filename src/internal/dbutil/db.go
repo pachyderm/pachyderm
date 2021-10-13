@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -120,4 +122,23 @@ type Interface interface {
 	sqlx.ExtContext
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+}
+
+// WaitUntilReady attempts to ping the database until the context is cancelled.
+// Progress information is written to log
+func WaitUntilReady(ctx context.Context, log *logrus.Logger, db *sqlx.DB) error {
+	const period = time.Second
+	const timeout = time.Second
+	log.Infof("waiting for db to be ready...")
+	return backoff.RetryUntilCancel(ctx, func() error {
+		log.Debugf("pinging db...")
+		ctx, cf := context.WithTimeout(ctx, timeout)
+		defer cf()
+		if err := db.PingContext(ctx); err != nil {
+			log.Infof("db is not ready: %v", err)
+			return err
+		}
+		log.Infof("db is ready")
+		return nil
+	}, backoff.NewConstantBackOff(period), nil)
 }
