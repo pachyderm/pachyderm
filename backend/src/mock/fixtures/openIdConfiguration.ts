@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-export default {
+const config = {
   grant_types_supported: [
     'authorization_code',
     'refresh_token',
@@ -23,3 +23,5 @@ export default {
     'sub',
   ],
 };
+
+export default config;

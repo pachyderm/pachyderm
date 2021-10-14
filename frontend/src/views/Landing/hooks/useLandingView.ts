@@ -13,7 +13,7 @@ import {useForm} from 'react-hook-form';
 
 import {useProjects} from '@dash-frontend/hooks/useProjects';
 
-type sortOptions = {
+type sortOptionsType = {
   [key: string]: SortableItem<Project>;
 };
 
@@ -21,7 +21,7 @@ type statusFormType = {
   [key: string]: boolean;
 };
 
-const sortOptions: sortOptions = {
+const sortOptions: sortOptionsType = {
   Newest: {
     name: 'Newest',
     reverse: true,

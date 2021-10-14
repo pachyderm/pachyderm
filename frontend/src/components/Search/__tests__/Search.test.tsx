@@ -3,7 +3,6 @@ import {render} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
-import {JobFilters} from '@dash-frontend/components/JobList/hooks/useJobFilters';
 import {
   click,
   getUrlState,

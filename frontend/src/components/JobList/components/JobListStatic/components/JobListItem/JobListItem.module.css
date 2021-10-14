@@ -50,11 +50,13 @@
   text-align: center;
 }
 
+/* stylelint-disable-next-line selector-class-pattern */
 .jobStatus.JOB_FAILURE {
   background-color: var(--background-pink);
   color: var(--pachyderm-coral);
 }
 
+/* stylelint-disable-next-line selector-class-pattern */
 .jobStatus.JOB_KILLED {
   color: var(--pachyderm-black);
 }

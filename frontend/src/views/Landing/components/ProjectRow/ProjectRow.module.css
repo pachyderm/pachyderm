@@ -37,10 +37,13 @@
   line-height: 25px;
 }
 
+/* stylelint-disable-next-line selector-class-pattern */
 .row.HEALTHYSelected td:first-child {
   border-left: solid 6px var(--banner-green);
   padding-left: calc(1.5rem - 6px);
 }
+
+/* stylelint-disable-next-line selector-class-pattern */
 .row.UNHEALTHYSelected td:first-child {
   border-left: solid 6px var(--error-red);
   padding-left: calc(1.5rem - 6px);

@@ -1,4 +1,4 @@
-export default {
+const keys = {
   keys: [
     {
       kty: 'RSA',
@@ -10,3 +10,5 @@ export default {
     },
   ],
 };
+
+export default keys;
