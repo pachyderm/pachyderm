@@ -100,7 +100,7 @@ func (a *apiServer) master() {
 		crashingMonitorCancels: make(map[string]func()),
 	}
 
-	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
+	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		// set internal auth for basic operations
@@ -224,7 +224,7 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 	// Same for cancelCrashingMonitor
 	m.cancelCrashingMonitor(pipelineName)
 
-	kubeClient := m.a.env.GetKubeClient()
+	kubeClient := m.a.env.KubeClient
 	namespace := m.a.namespace
 
 	// Delete any services associated with op.pipeline
@@ -283,7 +283,7 @@ func (a *apiServer) setPipelineState(ctx context.Context, specCommit *pfs.Commit
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
-	return ppsutil.SetPipelineState(ctx, a.env.GetDBClient(), a.pipelines,
+	return ppsutil.SetPipelineState(ctx, a.env.DB, a.pipelines,
 		specCommit, nil, state, reason)
 }
 
@@ -297,6 +297,6 @@ func (a *apiServer) transitionPipelineState(ctx context.Context, specCommit *pfs
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
-	return ppsutil.SetPipelineState(ctx, a.env.GetDBClient(), a.pipelines,
+	return ppsutil.SetPipelineState(ctx, a.env.DB, a.pipelines,
 		specCommit, from, to, reason)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -19,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -68,7 +68,7 @@ type CommitStream interface {
 }
 
 type driver struct {
-	env serviceenv.ServiceEnv
+	env Env
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -83,13 +83,9 @@ type driver struct {
 	commitStore commitStore
 }
 
-func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*driver, error) {
-	// Setup etcd, object storage, and database clients.
-	etcdClient := env.GetEtcdClient()
-	objClient, err := obj.NewClient(env.Config().StorageBackend, env.Config().StorageRoot)
-	if err != nil {
-		return nil, err
-	}
+func newDriver(env Env) (*driver, error) {
+	storageConfig := env.StorageConfig
+	objClient := env.ObjectClient
 	// test object storage.
 	if err := func() error {
 		ctx, cf := context.WithTimeout(context.Background(), 30*time.Second)
@@ -98,38 +94,41 @@ func newDriver(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPre
 	}(); err != nil {
 		return nil, err
 	}
-	repos := pfsdb.Repos(env.GetDBClient(), env.GetPostgresListener())
-	commits := pfsdb.Commits(env.GetDBClient(), env.GetPostgresListener())
-	branches := pfsdb.Branches(env.GetDBClient(), env.GetPostgresListener())
+	repos := pfsdb.Repos(env.DB, env.Listener)
+	commits := pfsdb.Commits(env.DB, env.Listener)
+	branches := pfsdb.Branches(env.DB, env.Listener)
 
 	// Setup driver struct.
 	d := &driver{
-		env:        env,
-		txnEnv:     txnEnv,
-		etcdClient: etcdClient,
-		prefix:     etcdPrefix,
+		txnEnv:     env.TxnEnv,
+		etcdClient: env.EtcdClient,
+		prefix:     env.EtcdPrefix,
 		repos:      repos,
 		commits:    commits,
 		branches:   branches,
-		// TODO: set maxFanIn based on downward API.
+		env:        env,
 	}
 	// Setup tracker and chunk / fileset storage.
-	tracker := track.NewPostgresTracker(env.GetDBClient())
-	chunkStorageOpts, err := chunk.StorageOptions(env.Config())
+	tracker := track.NewPostgresTracker(env.DB)
+	chunkStorageOpts, err := chunk.StorageOptions(&storageConfig)
 	if err != nil {
 		return nil, err
 	}
-	memCache := env.Config().ChunkMemoryCache()
-	keyStore := chunk.NewPostgresKeyStore(env.GetDBClient())
+	memCache := storageConfig.ChunkMemoryCache()
+	keyStore := chunk.NewPostgresKeyStore(env.DB)
 	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
 	if err != nil {
 		return nil, err
 	}
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
-	chunkStorage := chunk.NewStorage(objClient, memCache, env.GetDBClient(), tracker, chunkStorageOpts...)
-	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.GetDBClient()), tracker, chunkStorage, fileset.StorageOptions(env.Config())...)
-	go compactionWorker(env.Context(), d.storage, etcdClient, etcdPrefix)
-	d.commitStore = newPostgresCommitStore(env.GetDBClient(), tracker, d.storage)
+	chunkStorage := chunk.NewStorage(objClient, memCache, env.DB, tracker, chunkStorageOpts...)
+	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
+	// Setup compaction queue and worker.
+	go compactionWorker(env.BackgroundContext, d.storage, env.EtcdClient, env.EtcdPrefix)
+	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
+	// Setup PFS master
+	go d.master(env.BackgroundContext)
+
 	return d, nil
 }
 
@@ -185,7 +184,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		// idempotent way to ensure that R exists. By permitting these calls when
 		// they don't actually change anything, even if the caller doesn't have
 		// WRITER access, we make the pattern more generally useful.
-		if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_WRITE); err != nil {
+		if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_WRITE); err != nil {
 			return errors.Wrapf(err, "could not update description of %q", repo)
 		}
 		existingRepoInfo.Description = description
@@ -208,7 +207,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 			// and the ACL already exists with a different owner, this will fail.
 			// For now, we expect system repos to share auth info with their corresponding
 			// user repo, so the role binding should exist
-			if err := d.env.AuthServer().CreateRoleBindingInTransaction(
+			if err := d.env.AuthServer.CreateRoleBindingInTransaction(
 				txnCtx,
 				whoAmI.Username,
 				[]string{auth.RepoOwnerRole},
@@ -235,7 +234,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 		return nil, err
 	}
 	if includeAuth {
-		resp, err := d.env.AuthServer().GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{
+		resp, err := d.env.AuthServer.GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{
 			Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
 		})
 		if err != nil {
@@ -250,7 +249,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 }
 
 func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Permission, []string, error) {
-	resp, err := d.env.AuthServer().GetPermissions(ctx, &auth.GetPermissionsRequest{
+	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
 	})
 	if err != nil {
@@ -331,12 +330,12 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	}
 
 	// Check if the caller is authorized to delete this repo
-	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_DELETE); err != nil {
+	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_DELETE); err != nil {
 		return err
 	}
 
 	if !force {
-		if _, err := d.env.PpsServer().InspectPipelineInTransaction(txnCtx, repo.Name); err == nil {
+		if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, repo.Name); err == nil {
 			return errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
 		} else if err != nil && !errutil.IsNotFoundError(err) {
 			return err
@@ -407,7 +406,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 	// since system repos share a role binding, only delete it if this is the user repo, in which case the other repos will be deleted anyway
 	if repo.Type == pfs.UserRepoType {
-		if err := d.env.AuthServer().DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil && !auth.IsErrNotActivated(err) {
+		if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil && !auth.IsErrNotActivated(err) {
 			return grpcutil.ScrubGRPC(err)
 		}
 	}
@@ -430,7 +429,8 @@ func (d *driver) startCommit(
 		return nil, errors.Errorf("branch must be specified")
 	}
 	// Check that caller is authorized
-	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_WRITE); err != nil {
+	fmt.Println("AUTH", d.env.AuthServer)
+	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return nil, err
 	}
 
@@ -555,7 +555,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
 	if !force && len(commitInfo.DirectProvenance) > 0 {
-		if info, err := d.env.PpsServer().InspectPipelineInTransaction(txnCtx,
+		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx,
 			commit.Branch.Repo.Name,
 		); err != nil && !errutil.IsNotFoundError(err) {
 			return err
@@ -817,14 +817,14 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(
 			subvBI.Branch.NewCommit(txnCtx.CommitSetID), &oldCommit,
 		); err != nil && !col.IsErrNotFound(err) {
-				return err
+			return err
 		} else if err == nil {
 			if len(subvBI.DirectProvenance) != len(oldCommit.DirectProvenance) {
 				return errors.EnsureStack(pfsserver.ErrInconsistentCommit{Branch: subvBI.Branch, Commit: oldCommit.Commit})
 			}
 			for _, br := range oldCommit.DirectProvenance {
-				if ! has(&subvBI.DirectProvenance, br) {
-					return errors.EnsureStack( pfsserver.ErrInconsistentCommit{Branch: subvBI.Branch, Commit: oldCommit.Commit})
+				if !has(&subvBI.DirectProvenance, br) {
+					return errors.EnsureStack(pfsserver.ErrInconsistentCommit{Branch: subvBI.Branch, Commit: oldCommit.Commit})
 				}
 			}
 			// the old commit is compatible with the current provenance, so use it.
@@ -902,7 +902,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	if commit == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
 	}
-	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 		return nil, err
 	}
 
@@ -1113,7 +1113,7 @@ func (d *driver) listCommit(
 		return errors.New("repo cannot be nil")
 	}
 
-	if err := d.env.AuthServer().CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_LIST_COMMIT); err != nil {
+	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_LIST_COMMIT); err != nil {
 		return err
 	}
 	if from != nil && !proto.Equal(from.Branch.Repo, repo) || to != nil && !proto.Equal(to.Branch.Repo, repo) {
@@ -1339,8 +1339,6 @@ reloadCommitSet:
 }
 
 func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) error) error {
-	pachClient := d.env.GetPachClient(ctx)
-
 	// Track the commitsets we've already processed
 	seen := map[string]struct{}{}
 
@@ -1352,8 +1350,11 @@ func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) 
 			return nil
 		}
 		seen[commitInfo.Commit.ID] = struct{}{}
-
-		commitInfos, err := pachClient.InspectCommitSet(commitInfo.Commit.ID)
+		var commitInfos []*pfs.CommitInfo
+		err := d.inspectCommitSet(ctx, &pfs.CommitSet{ID: commitInfo.Commit.ID}, false, func(ci *pfs.CommitInfo) error {
+			commitInfos = append(commitInfos, ci)
+			return nil
+		})
 		if err != nil {
 			return err
 		}
@@ -1659,7 +1660,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 
 	var err error
-	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_CREATE_BRANCH); err != nil {
+	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_CREATE_BRANCH); err != nil {
 		return err
 	}
 	// Validate request
@@ -1831,7 +1832,7 @@ func (d *driver) inspectBranch(txnCtx *txncontext.TransactionContext, branch *pf
 }
 
 func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.BranchInfo) error) error {
-	if _, err := d.env.AuthServer().WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil && !auth.IsErrNotActivated(err) {
+	if _, err := d.env.AuthServer.WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil && !auth.IsErrNotActivated(err) {
 		return err
 	} else if err == nil {
 		return errors.New("Cannot list branches from all repos with auth activated")
@@ -1881,7 +1882,7 @@ func (d *driver) listBranchInTransaction(txnCtx *txncontext.TransactionContext, 
 		return errors.New("repo cannot be nil")
 	}
 
-	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
 		return err
 	}
 
@@ -1914,7 +1915,7 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		return errors.New("branch repo cannot be nil")
 	}
 
-	if err := d.env.AuthServer().CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_DELETE_BRANCH); err != nil {
+	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_DELETE_BRANCH); err != nil {
 		return err
 	}
 

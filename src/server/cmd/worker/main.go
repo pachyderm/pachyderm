@@ -44,7 +44,13 @@ func do(config interface{}) error {
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())
-	pipelineInfo, err := ppsutil.GetWorkerPipelineInfo(pachClient, env) // get pipeline creds for pachClient
+	pipelineInfo, err := ppsutil.GetWorkerPipelineInfo(
+		pachClient,
+		env.GetDBClient(),
+		env.GetPostgresListener(),
+		env.Config().PPSPipelineName,
+		env.Config().PPSSpecCommitID,
+	) // get pipeline creds for pachClient
 	if err != nil {
 		return errors.Wrapf(err, "error getting pipelineInfo")
 	}

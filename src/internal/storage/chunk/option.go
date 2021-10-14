@@ -72,7 +72,7 @@ func WithNoUpload() WriterOption {
 }
 
 // StorageOptions returns the chunk storage options for the config.
-func StorageOptions(conf *serviceenv.Configuration) ([]StorageOption, error) {
+func StorageOptions(conf *serviceenv.StorageConfiguration) ([]StorageOption, error) {
 	var opts []StorageOption
 	if conf.StorageUploadConcurrencyLimit > 0 {
 		opts = append(opts, WithMaxConcurrentObjects(0, conf.StorageUploadConcurrencyLimit))

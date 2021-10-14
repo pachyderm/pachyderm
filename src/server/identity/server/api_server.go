@@ -10,7 +10,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 )
 
 const (
@@ -21,7 +20,7 @@ const (
 
 type apiServer struct {
 	pachLogger log.Logger
-	env        serviceenv.ServiceEnv
+	env        Env
 
 	api *dexAPI
 }
@@ -46,11 +45,11 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 }
 
 // NewIdentityServer returns an implementation of identity.APIServer.
-func NewIdentityServer(env serviceenv.ServiceEnv, public bool) identity.APIServer {
+func NewIdentityServer(env Env, public bool) identity.APIServer {
 	server := &apiServer{
 		env:        env,
-		pachLogger: log.NewLogger("identity.API", env.Logger()),
-		api:        newDexAPI(env.GetDexDB()),
+		pachLogger: log.NewLogger("identity.API", env.Logger),
+		api:        newDexAPI(env.DexStorage),
 	}
 
 	if public {
@@ -69,7 +68,7 @@ func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.S
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `INSERT INTO identity.config (id, issuer, id_token_expiry) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET issuer=$2, id_token_expiry=$3`, configKey, req.Config.Issuer, req.Config.IdTokenExpiry); err != nil {
+	if _, err := a.env.DB.ExecContext(ctx, `INSERT INTO identity.config (id, issuer, id_token_expiry) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET issuer=$2, id_token_expiry=$3`, configKey, req.Config.Issuer, req.Config.IdTokenExpiry); err != nil {
 		return nil, err
 	}
 
@@ -81,7 +80,7 @@ func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.G
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var config []*identity.IdentityServerConfig
-	err := a.env.GetDBClient().SelectContext(ctx, &config, "SELECT issuer, id_token_expiry FROM identity.config WHERE id=$1;", configKey)
+	err := a.env.DB.SelectContext(ctx, &config, "SELECT issuer, id_token_expiry FROM identity.config WHERE id=$1;", configKey)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +284,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllReques
 		}
 	}
 
-	if _, err := a.env.GetDBClient().ExecContext(ctx, `DELETE FROM identity.config`); err != nil {
+	if _, err := a.env.DB.ExecContext(ctx, `DELETE FROM identity.config`); err != nil {
 		return nil, err
 	}
 

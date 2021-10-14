@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -224,9 +224,9 @@ var authHandlers = map[string]authHandler{
 }
 
 // NewInterceptor instantiates a new Interceptor
-func NewInterceptor(env serviceenv.ServiceEnv) *Interceptor {
+func NewInterceptor(getAuthServer func() authserver.APIServer) *Interceptor {
 	return &Interceptor{
-		env: env,
+		getAuthServer: getAuthServer,
 	}
 }
 
@@ -263,7 +263,7 @@ func (s ServerStreamWrapper) RecvMsg(m interface{}) error {
 // Interceptor checks the authentication metadata in unary and streaming RPCs
 // and prevents unknown or unauthorized calls.
 type Interceptor struct {
-	env serviceenv.ServiceEnv
+	getAuthServer func() authserver.APIServer
 }
 
 // InterceptUnary applies authentication rules to unary RPCs
@@ -274,7 +274,7 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 		return nil, fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(ctx, i.env.AuthServer(), info.FullMethod)
+	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
 
 	if err != nil {
 		logrus.WithError(err).Errorf("denied unary call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
@@ -297,7 +297,7 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 		return fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(ctx, i.env.AuthServer(), info.FullMethod)
+	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
 
 	if err != nil {
 		logrus.WithError(err).Errorf("denied streaming call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))

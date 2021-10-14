@@ -82,41 +82,28 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 		realEnv.ServiceEnv.Close()
 	})
 
+	// database migrations
 	err = migrations.ApplyMigrations(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState)
 	require.NoError(t, err)
 	err = migrations.BlockUntil(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), clusterstate.DesiredClusterState)
 	require.NoError(t, err)
 
 	txnEnv := &txnenv.TransactionEnv{}
-
-	etcdPrefix := ""
-	realEnv.PFSServer, err = pfsserver.NewAPIServer(
-		realEnv.ServiceEnv,
-		txnEnv,
-		etcdPrefix,
-	)
-	require.NoError(t, err)
-
+	// AUTH
 	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
-
-	realEnv.TransactionServer, err = txnserver.NewAPIServer(realEnv.ServiceEnv, txnEnv)
-	require.NoError(t, err)
-
-	realEnv.ProxyServer = proxyserver.NewAPIServer(realEnv.ServiceEnv)
-
-	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
-
 	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetAuthServer(realEnv.AuthServer)
+
+	// PFS
+	pfsEnv, err := pfsserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
+	require.NoError(t, err)
+	pfsEnv.EtcdPrefix = ""
+	realEnv.PFSServer, err = pfsserver.NewAPIServer(*pfsEnv)
+	require.NoError(t, err)
 	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetPfsServer(realEnv.PFSServer)
+
+	// PPS
+	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
 	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetPpsServer(&realEnv.MockPPSTransactionServer.api)
-
-	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer)
-
-	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
-	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
-	linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
-	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
-
 	realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
 		Use(func(txnctx *txncontext.TransactionContext, name string) (*pps.PipelineInfo, error) {
 			return nil, col.ErrNotFound{
@@ -124,6 +111,17 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 				Key:  name,
 			}
 		})
+
+	realEnv.TransactionServer, err = txnserver.NewAPIServer(realEnv.ServiceEnv, txnEnv)
+	require.NoError(t, err)
+	realEnv.ProxyServer = proxyserver.NewAPIServer(proxyserver.Env{Listener: realEnv.ServiceEnv.GetPostgresListener()})
+
+	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer)
+
+	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
+	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
+	linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
+	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
 
 	return realEnv
 }
