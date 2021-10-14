@@ -32,7 +32,7 @@ func withDebugWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	return cb(tw)
 }
 
-func collectDebugFile(tw *tar.Writer, name string, cb func(io.Writer) error, prefix ...string) (retErr error) {
+func collectDebugFile(tw *tar.Writer, name, ext string, cb func(io.Writer) error, prefix ...string) (retErr error) {
 	if len(prefix) > 0 {
 		name = join(prefix[0], name)
 	}
@@ -45,7 +45,11 @@ func collectDebugFile(tw *tar.Writer, name string, cb func(io.Writer) error, pre
 		if err := cb(f); err != nil {
 			return err
 		}
-		return writeTarFile(tw, name, f)
+		fullName := name
+		if ext != "" {
+			fullName += "." + ext
+		}
+		return writeTarFile(tw, fullName, f)
 	})
 }
 
