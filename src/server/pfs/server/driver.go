@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -126,9 +125,6 @@ func newDriver(env Env) (*driver, error) {
 	// Setup compaction queue and worker.
 	go compactionWorker(env.BackgroundContext, d.storage, env.EtcdClient, env.EtcdPrefix)
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
-	// Setup PFS master
-	go d.master(env.BackgroundContext)
-
 	return d, nil
 }
 
@@ -429,7 +425,6 @@ func (d *driver) startCommit(
 		return nil, errors.Errorf("branch must be specified")
 	}
 	// Check that caller is authorized
-	fmt.Println("AUTH", d.env.AuthServer)
 	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return nil, err
 	}
@@ -1358,7 +1353,6 @@ func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) 
 		if err != nil {
 			return err
 		}
-
 		return cb(&pfs.CommitSetInfo{
 			CommitSet: client.NewCommitSet(commitInfo.Commit.ID),
 			Commits:   commitInfos,

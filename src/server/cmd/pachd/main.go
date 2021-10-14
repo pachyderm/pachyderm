@@ -430,7 +430,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		if err != nil {
 			return err
 		}
-		pfsAPIServer, err := pfs_server.NewAPIServer(*pfsEnv)
+		pfsAPIServer, err := pfs_server.NewSidecarAPIServer(*pfsEnv)
 		if err != nil {
 			return err
 		}
