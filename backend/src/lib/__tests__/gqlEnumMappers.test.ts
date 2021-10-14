@@ -3,6 +3,7 @@ import {
   JobState,
   PipelineState,
   ProjectStatus,
+  OriginKind,
 } from '@pachyderm/node-pachyderm';
 
 import {
@@ -10,6 +11,7 @@ import {
   toGQLJobState,
   toGQLPipelineState,
   toGQLProjectStatus,
+  toGQLCommitOrigin,
 } from '../gqlEnumMappers';
 
 describe('gqlEnumMappers', () => {
@@ -45,6 +47,15 @@ describe('gqlEnumMappers', () => {
       Object.values(ProjectStatus).forEach((val) => {
         if (typeof val === 'string') return;
         expect(() => toGQLProjectStatus(val)).not.toThrowError();
+      });
+    });
+  });
+
+  describe('toGQLCommitOrigin', () => {
+    it('should not return an error for any proto origin kind', () => {
+      Object.values(OriginKind).forEach((val) => {
+        if (typeof val === 'string') return;
+        expect(() => toGQLCommitOrigin(val)).not.toThrowError();
       });
     });
   });

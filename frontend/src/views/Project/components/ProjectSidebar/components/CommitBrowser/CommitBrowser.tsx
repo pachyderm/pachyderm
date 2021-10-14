@@ -1,10 +1,11 @@
-import {RepoQuery} from '@graphqlTypes';
-import {Link, LoadingDots} from '@pachyderm/components';
+import {OriginKind, RepoQuery} from '@graphqlTypes';
+import {Link, LoadingDots, Tooltip, PureCheckbox} from '@pachyderm/components';
 import formatDistanceToNow from 'date-fns/formatDistanceToNow';
 import React, {useMemo} from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
   fileBrowserRoute,
@@ -28,12 +29,17 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({
   repoBaseRef,
 }) => {
   const {branchId, projectId, repoId} = useUrlState();
+  const [hideAutoCommits, handleHideAutoCommitChange] = useLocalProjectSettings(
+    {projectId, key: 'hide_auto_commits'},
+  );
   const currentCommits = useMemo(
     () =>
       (repo?.commits || []).filter(
-        (commit) => commit?.branch?.name === branchId,
+        (commit) =>
+          commit?.branch?.name === branchId &&
+          (!hideAutoCommits || commit?.originKind === OriginKind.USER),
       ),
-    [branchId, repo],
+    [branchId, repo, hideAutoCommits],
   );
 
   if (loading) {
@@ -51,6 +57,14 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({
   return (
     <>
       <BranchBrowser repo={repo} repoBaseRef={repoBaseRef} />
+      <div className={styles.autoCommits}>
+        <PureCheckbox
+          selected={!hideAutoCommits}
+          small
+          label="Show auto commits"
+          onChange={() => handleHideAutoCommitChange(!hideAutoCommits)}
+        />
+      </div>
       <div className={styles.commits}>
         {currentCommits.length ? (
           currentCommits.map((commit) => {
@@ -68,12 +82,20 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({
                           addSuffix: true,
                         },
                       )}`}
+                  {` (${commit.sizeDisplay})`}
                 </div>
                 <dl className={styles.commitInfo}>
-                  <dt className={styles.commitData}>ID {commit.id}</dt>
-                  <dt className={styles.commitData}>
-                    Size {commit.sizeDisplay}
-                  </dt>
+                  {commit.description ? (
+                    <Tooltip
+                      tooltipText={commit.description}
+                      placement="left"
+                      tooltipKey="description"
+                    >
+                      <dt className={styles.commitData}>ID {commit.id}</dt>
+                    </Tooltip>
+                  ) : (
+                    <dt className={styles.commitData}>ID {commit.id}</dt>
+                  )}
                   <dt className={styles.commitData}>
                     {commit.hasLinkedJob && (
                       <Link

@@ -1,4 +1,5 @@
 import {render} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
@@ -138,5 +139,16 @@ describe('ProjectSidebar', () => {
       const {queryByText} = render(<Project />);
       expect(queryByText('Read Logs')).toBeNull();
     });
+  });
+
+  it('should filter commits by auto origin', async () => {
+    window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
+
+    const {findByLabelText, queryAllByText} = render(<Project />);
+
+    const hideAutoCommits = await findByLabelText('Show auto commits');
+    expect(queryAllByText('View Files').length).toBe(3);
+    userEvent.click(hideAutoCommits);
+    expect(queryAllByText('View Files').length).toBe(2);
   });
 });

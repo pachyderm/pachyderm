@@ -25,3 +25,8 @@
 .commits {
   margin-top: 0.625rem;
 }
+
+.autoCommits {
+  padding: 0rem 1.5625rem;
+  margin-bottom: 1.25rem;
+}

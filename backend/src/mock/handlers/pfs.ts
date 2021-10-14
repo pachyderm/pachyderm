@@ -90,12 +90,14 @@ const pfs = () => {
           const [accountId] = call.metadata.get('authn-token');
 
           const repoName = call.request.getRepo()?.getName();
+          const authInfo =
+            repoAuthInfos[accountId.toString()] || repoAuthInfos['default'];
 
           if (repoName && accountId) {
-            const authInfo = repoAuthInfos[accountId.toString()][repoName];
+            const authRepoInfo = authInfo[repoName];
 
             if (
-              !authInfo
+              !authRepoInfo
                 .getPermissionsList()
                 .includes(Permission.REPO_LIST_COMMIT)
             ) {

@@ -1243,6 +1243,7 @@ export const RepoDocument = gql`
           id
           name
         }
+        originKind
         description
         hasLinkedJob
         id

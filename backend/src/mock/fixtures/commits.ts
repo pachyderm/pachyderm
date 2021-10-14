@@ -1,4 +1,4 @@
-import {CommitInfo} from '@pachyderm/node-pachyderm';
+import {CommitInfo, OriginKind} from '@pachyderm/node-pachyderm';
 import {commitInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pfs';
 
 import repos from './repos';
@@ -22,6 +22,7 @@ const tutorial = [
       seconds: 1614136191,
       nanos: 0,
     },
+    originKind: OriginKind.USER,
   }),
   commitInfoFromObject({
     commit: {
@@ -41,6 +42,7 @@ const tutorial = [
       seconds: 1614136291,
       nanos: 0,
     },
+    originKind: OriginKind.USER,
   }),
   commitInfoFromObject({
     commit: {
@@ -81,6 +83,7 @@ const customerTeam = [
       seconds: 1614136391,
       nanos: 0,
     },
+    originKind: OriginKind.USER,
   }),
   commitInfoFromObject({
     commit: {
@@ -116,6 +119,7 @@ const customerTeam = [
       seconds: 1614136391,
       nanos: 0,
     },
+    originKind: OriginKind.USER,
   }),
   commitInfoFromObject({
     commit: {
@@ -133,6 +137,7 @@ const customerTeam = [
       seconds: 1614136391,
       nanos: 0,
     },
+    originKind: OriginKind.USER,
   }),
   commitInfoFromObject({
     commit: {

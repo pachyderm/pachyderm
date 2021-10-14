@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react';
 
-import useLocalProjectPreferences from '@dash-frontend/hooks/useLocalProjectPreferences';
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import {useProjectDagsData} from '@dash-frontend/hooks/useProjectDAGsData';
 import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
@@ -77,7 +77,11 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const {selectedNode} = useRouteController();
   const {viewState, setUrlFromViewState} = useUrlQueryState();
   const {pipelineId, repoId, projectId, jobId} = useUrlState();
-  const localPreferences = useLocalProjectPreferences({projectId});
+  const [dagDirectionSetting, setDagDirectionSetting] = useLocalProjectSettings(
+    {projectId, key: 'dag_direction'},
+  );
+  const [skipCenterOnSelectSetting, setSkipCenterOnSelectSetting] =
+    useLocalProjectSettings({projectId, key: 'skip_center_on_select'});
   const [dagState, dispatch] = useReducer(dagReducer, {
     interacted: false,
     reset: false,
@@ -87,17 +91,15 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
   const dagDirection =
-    viewState.dagDirection ||
-    localPreferences.dagDirection ||
-    DagDirection.RIGHT;
+    viewState.dagDirection || dagDirectionSetting || DagDirection.RIGHT;
 
   const skipCenterOnSelect =
-    viewState.skipCenterOnSelect || localPreferences.getSkipCenterOnSelect();
+    viewState.skipCenterOnSelect || skipCenterOnSelectSetting;
 
   const {interacted, reset} = dagState;
 
   const handleChangeCenterOnSelect = (shouldCenter: boolean) => {
-    localPreferences.handleUpdateCenterOnSelect(!shouldCenter);
+    setSkipCenterOnSelectSetting(!skipCenterOnSelectSetting);
     setUrlFromViewState({
       skipCenterOnSelect: !shouldCenter,
     });
@@ -112,7 +114,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
       setUrlFromViewState({
         dagDirection: nextDirection,
       });
-      localPreferences.handleUpdateDagDirection(nextDirection);
+      setDagDirectionSetting(nextDirection);
     };
 
     switch (dagDirection) {
@@ -123,7 +125,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
         handleChangeDirection(DagDirection.DOWN);
         break;
     }
-  }, [setUrlFromViewState, dagDirection, localPreferences]);
+  }, [dagDirection, setUrlFromViewState, setDagDirectionSetting]);
 
   const {dags, loading, error} = useProjectDagsData({
     jobSetId: jobId,

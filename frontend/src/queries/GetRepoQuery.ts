@@ -13,6 +13,7 @@ export const GET_REPO_QUERY = gql`
           id
           name
         }
+        originKind
         description
         hasLinkedJob
         id

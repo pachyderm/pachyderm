@@ -3,6 +3,7 @@ import {
   JobState,
   PipelineState,
   ProjectStatus,
+  OriginKind,
 } from '@pachyderm/node-pachyderm';
 import {ApolloError} from 'apollo-server-errors';
 
@@ -11,6 +12,7 @@ import {
   FileType as GQLFileType,
   PipelineState as GQLPipelineState,
   JobState as GQLJobState,
+  OriginKind as GQLOriginKind,
 } from '@graphqlTypes';
 
 /*
@@ -90,5 +92,22 @@ export const toGQLProjectStatus = (projectStatus: ProjectStatus) => {
       return GQLProjectStatus.UNHEALTHY;
     default:
       throw new ApolloError(`Unknown project status ${projectStatus}`);
+  }
+};
+
+export const toGQLCommitOrigin = (originKind?: OriginKind) => {
+  switch (originKind) {
+    case OriginKind.ALIAS:
+      return GQLOriginKind.ALIAS;
+    case OriginKind.AUTO:
+      return GQLOriginKind.AUTO;
+    case OriginKind.FSCK:
+      return GQLOriginKind.FSCK;
+    case OriginKind.USER:
+      return GQLOriginKind.USER;
+    case OriginKind.ORIGIN_KIND_UNKNOWN:
+      return GQLOriginKind.ORIGIN_KIND_UNKNOWN;
+    default:
+      throw new ApolloError(`Unknown origin kind ${originKind}`);
   }
 };

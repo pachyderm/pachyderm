@@ -2,6 +2,7 @@ import {JobInfo} from '@pachyderm/node-pachyderm';
 
 import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';
+import {toGQLCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
 import {PachClient} from '@dash-backend/lib/types';
 import {MutationResolvers, QueryResolvers, RepoResolvers} from '@graphqlTypes';
 
@@ -57,6 +58,7 @@ const repoResolver: RepoResolver = {
               id: commit.commit?.branch?.name,
               name: commit.commit?.branch?.name,
             },
+            originKind: toGQLCommitOrigin(commit.origin?.kind),
             description: commit.description,
             finished: commit.finished?.seconds || 0,
             hasLinkedJob: jobs.some((job) => job.job?.id === commit.commit?.id),

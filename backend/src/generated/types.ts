@@ -51,6 +51,7 @@ export type Commit = {
   repoName: Scalars['String'];
   branch?: Maybe<Branch>;
   description?: Maybe<Scalars['String']>;
+  originKind?: Maybe<OriginKind>;
   hasLinkedJob: Scalars['Boolean'];
   id: Scalars['ID'];
   started: Scalars['Int'];
@@ -255,6 +256,14 @@ export enum NodeType {
   OUTPUT_REPO = 'OUTPUT_REPO',
   INPUT_REPO = 'INPUT_REPO',
   EGRESS = 'EGRESS',
+}
+
+export enum OriginKind {
+  USER = 'USER',
+  AUTO = 'AUTO',
+  FSCK = 'FSCK',
+  ALIAS = 'ALIAS',
+  ORIGIN_KIND_UNKNOWN = 'ORIGIN_KIND_UNKNOWN',
 }
 
 export type Pfs = {
@@ -672,6 +681,7 @@ export type ResolversTypes = ResolversObject<{
   NodeSelector: ResolverTypeWrapper<NodeSelector>;
   NodeState: NodeState;
   NodeType: NodeType;
+  OriginKind: OriginKind;
   PFS: Pfs;
   PFSInput: ResolverTypeWrapper<PfsInput>;
   Pach: ResolverTypeWrapper<Pach>;
@@ -788,6 +798,11 @@ export type CommitResolvers<
   branch?: Resolver<Maybe<ResolversTypes['Branch']>, ParentType, ContextType>;
   description?: Resolver<
     Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  originKind?: Resolver<
+    Maybe<ResolversTypes['OriginKind']>,
     ParentType,
     ContextType
   >;
@@ -1641,6 +1656,7 @@ export type RepoQuery = {__typename?: 'Query'} & {
         {__typename?: 'Commit'} & Pick<
           Commit,
           | 'repoName'
+          | 'originKind'
           | 'description'
           | 'hasLinkedJob'
           | 'id'
