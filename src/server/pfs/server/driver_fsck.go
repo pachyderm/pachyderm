@@ -286,7 +286,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	// TODO(global ids): is there any verification we can do for commitsets?
 
 	if fix {
-		return dbutil.WithTx(ctx, d.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
+		return dbutil.WithTx(ctx, d.env.DB, func(sqlTx *sqlx.Tx) error {
 			for _, ci := range newCommitInfos {
 				// We've observed users getting ErrExists from this create,
 				// which doesn't make a lot of sense, but we insulate against

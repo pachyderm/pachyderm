@@ -58,7 +58,7 @@ func (d *driver) master(ctx context.Context) {
 }
 
 func (d *driver) finishCommits(ctx context.Context) error {
-	compactor, err := newCompactor(d.env.Context(), d.storage, d.etcdClient, d.prefix, d.env.Config().StorageCompactionMaxFanIn)
+	compactor, err := newCompactor(d.env.BackgroundContext, d.storage, d.etcdClient, d.prefix, d.env.StorageConfig.StorageCompactionMaxFanIn)
 	if err != nil {
 		return err
 	}

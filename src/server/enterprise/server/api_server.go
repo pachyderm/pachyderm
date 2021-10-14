@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 )
 
@@ -36,7 +35,7 @@ const (
 
 type apiServer struct {
 	pachLogger log.Logger
-	env        serviceenv.ServiceEnv
+	env        Env
 
 	enterpriseTokenCache *keycache.Cache
 
@@ -52,11 +51,11 @@ func (a *apiServer) LogReq(request interface{}) {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string, heartbeat bool) (ec.APIServer, error) {
+func NewEnterpriseServer(env Env, heartbeat bool) (ec.APIServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewEtcdCollection(
-		env.GetEtcdClient(),
-		etcdPrefix,
+		env.EtcdClient,
+		env.EtcdPrefix,
 		nil,
 		&ec.EnterpriseRecord{},
 		nil,
@@ -64,11 +63,11 @@ func NewEnterpriseServer(env serviceenv.ServiceEnv, etcdPrefix string, heartbeat
 	)
 
 	s := &apiServer{
-		pachLogger:           log.NewLogger("enterprise.API", env.Logger()),
+		pachLogger:           log.NewLogger("enterprise.API", env.Logger),
 		env:                  env,
-		enterpriseTokenCache: keycache.NewCache(env.Context(), enterpriseTokenCol.ReadOnly(env.Context()), enterpriseTokenKey, defaultEnterpriseRecord),
+		enterpriseTokenCache: keycache.NewCache(env.BackgroundContext, enterpriseTokenCol.ReadOnly(env.BackgroundContext), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
-		configCol:            col.NewEtcdCollection(env.GetEtcdClient(), etcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
+		configCol:            col.NewEtcdCollection(env.EtcdClient, env.EtcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
 	}
 	go s.enterpriseTokenCache.Watch()
 
@@ -112,7 +111,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 	if err != nil {
 		if lc.IsErrInvalidIDOrSecret(err) {
 			logrus.WithError(err).Error("enterprise license heartbeat had invalid id or secret, disabling enterprise")
-			_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 				e := a.enterpriseTokenCol.ReadWrite(stm)
 				return e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
 					LastHeartbeat:   types.TimestampNow(),
@@ -124,7 +123,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 		return err
 	}
 
-	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		e := a.enterpriseTokenCol.ReadWrite(stm)
 		return e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
 			LastHeartbeat:   types.TimestampNow(),
@@ -146,7 +145,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 
 	var clientID string
 	authEnabled := true
-	config, err := a.env.AuthServer().GetConfiguration(ctx, &auth.GetConfigurationRequest{})
+	config, err := a.env.AuthServer.GetConfiguration(ctx, &auth.GetConfigurationRequest{})
 	if err != nil && auth.IsErrNotActivated(err) {
 		authEnabled = false
 	} else if err != nil {
@@ -201,7 +200,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	record := &ec.EnterpriseRecord{License: heartbeatResp.License}
 
 	// If the test heartbeat succeeded, write the state and config to etcd
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		if err := a.configCol.ReadWrite(stm).Put(configKey, &ec.EnterpriseConfig{
 			LicenseServer: req.LicenseServer,
 			Id:            req.Id,
@@ -318,7 +317,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(enterpriseTokenKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return err

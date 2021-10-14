@@ -13,9 +13,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/net/context"
-	"gopkg.in/yaml.v3"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -25,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
@@ -34,6 +30,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"golang.org/x/net/context"
+	"gopkg.in/yaml.v3"
 )
 
 // apiServer implements the public interface of the Pachyderm File System,
@@ -42,23 +40,19 @@ import (
 // request structures into normal function calls.
 type apiServer struct {
 	log.Logger
+	env    Env
 	driver *driver
-	txnEnv *txnenv.TransactionEnv
-
-	// env generates clients for pachyderm's downstream services
-	env serviceenv.ServiceEnv
 }
 
-func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string) (*apiServer, error) {
-	d, err := newDriver(env, txnEnv, etcdPrefix)
+func newAPIServer(env Env) (*apiServer, error) {
+	d, err := newDriver(env)
 	if err != nil {
 		return nil, err
 	}
 	s := &apiServer{
-		Logger: log.NewLogger("pfs.API", env.Logger()),
-		driver: d,
+		Logger: log.NewLogger("pfs.API", env.Logger),
 		env:    env,
-		txnEnv: txnEnv,
+		driver: d,
 	}
 	return s, nil
 }
@@ -68,9 +62,9 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	var repoInfo pfs.RepoInfo
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.repos.ReadOnly(ctx).List(&repoInfo, col.DefaultOptions(), func(string) error {
-			err := a.driver.env.AuthServer().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
+			err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
 				Type: auth.ResourceType_REPO,
 				Name: repoInfo.Repo.Name,
 			})
@@ -98,7 +92,7 @@ func (a *apiServer) CreateRepoInTransaction(txnCtx *txncontext.TransactionContex
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.CreateRepo(request)
 	}, nil); err != nil {
 		return nil, err
@@ -118,7 +112,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	var repoInfo *pfs.RepoInfo
-	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		repoInfo, err = a.InspectRepoInTransaction(txnCtx, request)
 		return err
@@ -154,7 +148,7 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContex
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.DeleteRepo(request)
 	}, nil); err != nil {
 		return nil, err
@@ -174,7 +168,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	var err error
 	commit := &pfs.Commit{}
-	if err = a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err = a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		commit, err = txn.StartCommit(request)
 		return err
 	}, nil); err != nil {
@@ -195,7 +189,7 @@ func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionCont
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.FinishCommit(request)
 	}, nil); err != nil {
 		return nil, err
@@ -267,7 +261,7 @@ func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionC
 func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.SquashCommitSet(request)
 	}, nil); err != nil {
 		return nil, err
@@ -279,7 +273,7 @@ func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashComm
 func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSetRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.dropCommitSet(txnCtx, request.CommitSet)
 	}); err != nil {
 		return nil, err
@@ -311,7 +305,7 @@ func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionCont
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.CreateBranch(request)
 	}, func(txnCtx *txncontext.TransactionContext) (string, error) {
 		if request.Head == nil || request.NewCommitSet {
@@ -343,7 +337,7 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	branchInfo := &pfs.BranchInfo{}
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		branchInfo, err = a.driver.inspectBranch(txnCtx, request.Branch)
 		return err
@@ -364,7 +358,7 @@ func (a *apiServer) ListBranch(request *pfs.ListBranchRequest, srv pfs.API_ListB
 	if request.Repo == nil {
 		return a.driver.listBranch(srv.Context(), request.Reverse, srv.Send)
 	}
-	return a.txnEnv.WithReadContext(srv.Context(), func(txnCtx *txncontext.TransactionContext) error {
+	return a.env.TxnEnv.WithReadContext(srv.Context(), func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.listBranchInTransaction(txnCtx, request.Repo, request.Reverse, srv.Send)
 	})
 }
@@ -379,7 +373,7 @@ func (a *apiServer) DeleteBranchInTransaction(txnCtx *txncontext.TransactionCont
 func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.DeleteBranch(request)
 	}, nil); err != nil {
 		return nil, err
@@ -762,7 +756,7 @@ func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) 
 func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *types.Empty, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.AddFileSetInTransaction(txnCtx, req)
 	}); err != nil {
 		return nil, err

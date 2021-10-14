@@ -81,7 +81,7 @@ func (m *ppsMaster) step(pipeline string, timestamp time.Time) (retErr error) {
 
 	// Handle tracing
 	span, opCtx := extended.AddSpanToAnyPipelineTrace(opCtx,
-		m.a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate")
+		m.a.env.EtcdClient, pipeline, "/pps.Master/ProcessPipelineUpdate")
 	if !timestamp.IsZero() {
 		tracing.TagAnySpan(span, "update-time", timestamp)
 	} else {
@@ -272,7 +272,7 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 		tracing.FinishAnySpan(span)
 	}(span)
 
-	kubeClient := op.m.a.env.GetKubeClient()
+	kubeClient := op.m.a.env.KubeClient
 	namespace := op.m.a.namespace
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.pipelineInfo.Pipeline.Name)
 
@@ -484,7 +484,7 @@ func (op *pipelineOp) deletePipelineResources() error {
 // called muliple times if the k8s write fails. It may be helpful to think of
 // the rc passed to update() as mutable, while op.rc is immutable.
 func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error {
-	kubeClient := op.m.a.env.GetKubeClient()
+	kubeClient := op.m.a.env.KubeClient
 	namespace := op.m.a.namespace
 	rc := kubeClient.CoreV1().ReplicationControllers(namespace)
 
