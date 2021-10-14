@@ -588,7 +588,6 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	fmt.Println("about to set everything up")
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
 
