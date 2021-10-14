@@ -84,6 +84,7 @@ func TestSimplePipeline(t *testing.T) {
 	}
 
 	c := tu.GetPachClient(t)
+	c = c.WithDefaultTransformUser("1000")
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")

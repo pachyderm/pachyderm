@@ -151,6 +151,15 @@ jobs:
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
+  rootless:
+    resource_class: large
+    machine:
+      image: ubuntu-2004:202101-01
+    steps:
+      - checkout
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/rootless_test.sh
+
 workflows:
   circleci:
     jobs:

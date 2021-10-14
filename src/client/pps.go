@@ -657,6 +657,9 @@ func (c APIClient) CreatePipeline(
 	outputBranch string,
 	update bool,
 ) error {
+	if image == "" {
+		image = c.defaultTransformImage
+	}
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
@@ -851,6 +854,9 @@ func (c APIClient) CreatePipelineService(
 	externalPort int32,
 	annotations map[string]string,
 ) error {
+	if image == "" {
+		image = c.defaultTransformImage
+	}
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
@@ -873,6 +879,22 @@ func (c APIClient) CreatePipelineService(
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
+}
+
+// WithDefaultTransformImage sets the image used when the empty string ""
+// is passed as the image in calls to CreatePipeline*
+func (c APIClient) WithDefaultTransformImage(x string) *APIClient {
+	c2 := c
+	c2.defaultTransformImage = x
+	return &c2
+}
+
+// WithDefaultTransformUser sets the user to run the transform container as.
+// This overrides the user set by the image.
+func (c APIClient) WithDefaultTransformUser(x string) *APIClient {
+	c2 := c
+	c2.defaultTransformUser = x
+	return &c2
 }
 
 // GetDatumTotalTime sums the timing stats from a DatumInfo

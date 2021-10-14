@@ -138,6 +138,9 @@ type APIClient struct {
 	// The client context name this client was created from, if it was created by
 	// NewOnUserMachine
 	clientContextName string
+
+	defaultTransformImage string
+	defaultTransformUser  string
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
