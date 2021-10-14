@@ -7,6 +7,7 @@ import TaskCard from './components/TaskCard';
 import {Step, TaskComponentProps} from './lib/types';
 import TutorialModal from './TutorialModal';
 
+/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'TutorialModal'};
 
 const Task1Component: React.FC<TaskComponentProps> = ({

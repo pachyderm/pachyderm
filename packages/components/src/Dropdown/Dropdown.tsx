@@ -32,6 +32,7 @@ export interface DropdownProps {
   filter?: (items: ItemObject, searchValue: string) => boolean;
   selectedId?: string;
   formCtx?: UseFormReturn;
+  sideOpen?: boolean;
 }
 
 const defaultFilter = (item: ItemObject, searchValue: string) => {
@@ -50,6 +51,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   filter = defaultFilter,
   formCtx,
   selectedId: managedSelectedId,
+  sideOpen = false,
 }) => {
   const defaultFormContext = useForm();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,8 +76,9 @@ export const Dropdown: React.FC<DropdownProps> = ({
       setIsOpen,
       filter,
       setFilteredResults,
+      sideOpen,
     }),
-    [isOpen, setIsOpen, filter, setFilteredResults],
+    [isOpen, setIsOpen, filter, setFilteredResults, sideOpen],
   );
 
   const selectedIdContext = useMemo(

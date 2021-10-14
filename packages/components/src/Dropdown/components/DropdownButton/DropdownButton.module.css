@@ -51,3 +51,11 @@
 .purple .icon path {
   fill: var(--pachyderm-plum);
 }
+
+.sideOpen .icon {
+  transform: rotate(270deg);
+}
+
+.sideOpen {
+  width: auto;
+}

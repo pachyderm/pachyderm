@@ -68,3 +68,11 @@ export const Disabled = () => {
     </DefaultDropdown>
   );
 };
+
+export const SideOpen = () => {
+  return (
+    <DefaultDropdown items={items} storeSelected sideOpen>
+      Difficulty
+    </DefaultDropdown>
+  );
+};

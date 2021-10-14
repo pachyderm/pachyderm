@@ -21,13 +21,14 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   ...rest
 }) => {
   const dropdownButtonRef = useRef<HTMLButtonElement>(null);
-  const {toggleDropdown, isOpen, handleKeyDown} = useDropdownButton(
+  const {toggleDropdown, isOpen, handleKeyDown, sideOpen} = useDropdownButton(
     dropdownButtonRef,
   );
   const mergedClasses = classnames(styles.base, className, {
     [styles.hideChevron]: hideChevron,
     [styles.purple]: color === 'purple',
     [styles.disabled]: disabled,
+    [styles.sideOpen]: sideOpen,
   });
 
   return (
