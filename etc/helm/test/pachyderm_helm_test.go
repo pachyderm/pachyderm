@@ -260,9 +260,9 @@ func TestSetNamespaceClusterRoleBinding(t *testing.T) {
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
 	}
 
-	output := helm.RenderTemplate(t, options, helmChartPath, "clusterrolebinding", []string{"templates/pachd/rbac/clusterrolebinding.yaml"})
+	output := helm.RenderTemplate(t, options, helmChartPath, "rolebinding", []string{"templates/pachd/rbac/rolebinding.yaml"})
 
-	var rolebinding rbacv1.ClusterRoleBinding
+	var rolebinding rbacv1.RoleBinding
 	helm.UnmarshalK8SYaml(t, output, &rolebinding)
 
 	subjects := rolebinding.Subjects
