@@ -271,7 +271,10 @@ func writeProfile(w io.Writer, profile *debug.Profile) error {
 	if p == nil {
 		return errors.Errorf("unable to find profile %q", profile.Name)
 	}
-	return p.WriteTo(w, 2)
+	if profile.Name == "goroutine" {
+		return p.WriteTo(w, 2)
+	}
+	return p.WriteTo(w, 0)
 }
 
 func redirectProfileFunc(ctx context.Context, profile *debug.Profile) redirectFunc {
