@@ -422,9 +422,6 @@
                 "rbac": {
                     "type": "object",
                     "properties": {
-                        "clusterRBAC": {
-                            "type": "boolean"
-                        },
                         "create": {
                             "type": "boolean"
                         }

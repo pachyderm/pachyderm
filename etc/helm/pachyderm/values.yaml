@@ -365,10 +365,6 @@ pachd:
     # Setting it to false is analogous to passing --no-rbac to pachctl
     # deploy.
     create: true
-    # clusterRBAC indicates that ClusterRole and ClusterRoleBinding
-    # should be used rather than Role and RoleBinding; it is the inverse
-    # of --local-roles passed to pachctl deploy.
-    clusterRBAC: false
 
 pgbouncer:
   service:

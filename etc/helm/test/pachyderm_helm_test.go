@@ -246,7 +246,7 @@ func TestSetNamespaceWorkerServiceAccount(t *testing.T) {
 	}
 }
 
-func TestSetNamespaceClusterRoleBinding(t *testing.T) {
+func TestSetNamespaceRoleBinding(t *testing.T) {
 
 	helmChartPath := "../pachyderm"
 

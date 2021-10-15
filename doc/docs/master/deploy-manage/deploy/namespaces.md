@@ -20,8 +20,3 @@ you need to add the `-n` or `--namespace` flag when deploying.
         ```
 
     - or [import one from Kubernetes](../import-kubernetes-context/):
-    
-
-!!! Note
-    If you want to use RBAC for multiple Pachyderm clusters in different namespaces within the same cluster,
-    you should disable cluster-level roles by setting the value of `pachd.rbac.clusterRBAC` to `false` in your [values.yaml](../../../reference/helm_values/) or passing `--set pachd.rbac.clusterRBAC=false` when deploying.
