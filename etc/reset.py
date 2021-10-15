@@ -55,6 +55,7 @@ class BaseDriver:
         push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local"]
 
         await asyncio.gather(*[self.push_image(i) for i in push_images])
+        await run("kubectl", "apply", "-f", "etc/testing/minio.yaml", "--namespace=default")
         await run("helm", "install", "pachyderm", "etc/helm/pachyderm", "-f", "etc/helm/examples/local-dev-values.yaml")
         await run("pachctl", "config", "import-kube", "local", "--overwrite")
 
