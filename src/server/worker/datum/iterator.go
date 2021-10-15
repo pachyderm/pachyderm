@@ -359,7 +359,7 @@ func computeDatumKeyFilesets(pachClient *client.APIClient, renewer *renew.String
 			if err != nil {
 				return err
 			}
-			renewer.Add(resp.FileSetId)
+			renewer.Add(ctx, resp.FileSetId)
 			filesets[i] = resp.FileSetId
 			return nil
 		})
