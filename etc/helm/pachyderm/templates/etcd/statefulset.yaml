@@ -58,9 +58,6 @@ spec:
               fieldPath: metadata.namespace
         image: "{{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}"
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
-        securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
         name: etcd
         ports:
         - containerPort: 2379
@@ -73,6 +70,10 @@ spec:
         volumeMounts:
         - mountPath: /var/data/etcd
           name: etcd-storage
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
   volumeClaimTemplates:
   - metadata:
       labels:
