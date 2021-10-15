@@ -368,7 +368,7 @@ pachd:
     # clusterRBAC indicates that ClusterRole and ClusterRoleBinding
     # should be used rather than Role and RoleBinding; it is the inverse
     # of --local-roles passed to pachctl deploy.
-    clusterRBAC: true
+    clusterRBAC: false
 
 pgbouncer:
   service:
