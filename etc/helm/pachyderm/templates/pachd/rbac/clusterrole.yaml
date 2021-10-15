@@ -11,40 +11,4 @@ metadata:
     suite: pachyderm
   name: pachyderm
   namespace: {{ .Release.Namespace }}
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  - pods/log
-  - endpoints
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - replicationcontrollers
-  - replicationcontrollers/scale
-  - services
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - delete
-  - deletecollection
 {{ end -}}
