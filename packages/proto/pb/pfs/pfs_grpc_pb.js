@@ -6,6 +6,7 @@ var pfs_pfs_pb = require('../pfs/pfs_pb.js');
 var google_protobuf_empty_pb = require('google-protobuf/google/protobuf/empty_pb.js');
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
 var google_protobuf_wrappers_pb = require('google-protobuf/google/protobuf/wrappers_pb.js');
+var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/duration_pb.js');
 var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
 var auth_auth_pb = require('../auth/auth_pb.js');
 
@@ -117,6 +118,17 @@ function serialize_pfs_v2_CommitSetInfo(arg) {
 
 function deserialize_pfs_v2_CommitSetInfo(buffer_arg) {
   return pfs_pfs_pb.CommitSetInfo.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_ComposeFileSetRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.ComposeFileSetRequest)) {
+    throw new Error('Expected argument of type pfs_v2.ComposeFileSetRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_ComposeFileSetRequest(buffer_arg) {
+  return pfs_pfs_pb.ComposeFileSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_CreateBranchRequest(arg) {
@@ -891,6 +903,18 @@ renewFileSet: {
     requestDeserialize: deserialize_pfs_v2_RenewFileSetRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  // ComposeFileSet composes a file set from a list of file sets.
+composeFileSet: {
+    path: '/pfs_v2.API/ComposeFileSet',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.ComposeFileSetRequest,
+    responseType: pfs_pfs_pb.CreateFileSetResponse,
+    requestSerialize: serialize_pfs_v2_ComposeFileSetRequest,
+    requestDeserialize: deserialize_pfs_v2_ComposeFileSetRequest,
+    responseSerialize: serialize_pfs_v2_CreateFileSetResponse,
+    responseDeserialize: deserialize_pfs_v2_CreateFileSetResponse,
   },
   // RunLoadTest runs a load test.
 runLoadTest: {

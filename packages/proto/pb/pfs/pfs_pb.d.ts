@@ -8,6 +8,7 @@ import * as jspb from "google-protobuf";
 import * as google_protobuf_empty_pb from "google-protobuf/google/protobuf/empty_pb";
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 import * as google_protobuf_wrappers_pb from "google-protobuf/google/protobuf/wrappers_pb";
+import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
 import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as auth_auth_pb from "../auth/auth_pb";
 
@@ -400,6 +401,16 @@ export namespace CommitInfo {
         getSizeBytes(): number;
         setSizeBytes(value: number): Details;
 
+        hasCompactingTime(): boolean;
+        clearCompactingTime(): void;
+        getCompactingTime(): google_protobuf_duration_pb.Duration | undefined;
+        setCompactingTime(value?: google_protobuf_duration_pb.Duration): Details;
+
+        hasValidatingTime(): boolean;
+        clearValidatingTime(): void;
+        getValidatingTime(): google_protobuf_duration_pb.Duration | undefined;
+        setValidatingTime(value?: google_protobuf_duration_pb.Duration): Details;
+
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): Details.AsObject;
         static toObject(includeInstance: boolean, msg: Details): Details.AsObject;
@@ -413,6 +424,8 @@ export namespace CommitInfo {
     export namespace Details {
         export type AsObject = {
             sizeBytes: number,
+            compactingTime?: google_protobuf_duration_pb.Duration.AsObject,
+            validatingTime?: google_protobuf_duration_pb.Duration.AsObject,
         }
     }
 
@@ -1511,6 +1524,31 @@ export namespace RenewFileSetRequest {
     }
 }
 
+export class ComposeFileSetRequest extends jspb.Message { 
+    clearFileSetIdsList(): void;
+    getFileSetIdsList(): Array<string>;
+    setFileSetIdsList(value: Array<string>): ComposeFileSetRequest;
+    addFileSetIds(value: string, index?: number): string;
+    getTtlSeconds(): number;
+    setTtlSeconds(value: number): ComposeFileSetRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ComposeFileSetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ComposeFileSetRequest): ComposeFileSetRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ComposeFileSetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ComposeFileSetRequest;
+    static deserializeBinaryFromReader(message: ComposeFileSetRequest, reader: jspb.BinaryReader): ComposeFileSetRequest;
+}
+
+export namespace ComposeFileSetRequest {
+    export type AsObject = {
+        fileSetIdsList: Array<string>,
+        ttlSeconds: number,
+    }
+}
+
 export class ActivateAuthRequest extends jspb.Message { 
 
     serializeBinary(): Uint8Array;
@@ -1587,6 +1625,11 @@ export class RunLoadTestResponse extends jspb.Message {
     getError(): string;
     setError(value: string): RunLoadTestResponse;
 
+    hasDuration(): boolean;
+    clearDuration(): void;
+    getDuration(): google_protobuf_duration_pb.Duration | undefined;
+    setDuration(value?: google_protobuf_duration_pb.Duration): RunLoadTestResponse;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RunLoadTestResponse.AsObject;
     static toObject(includeInstance: boolean, msg: RunLoadTestResponse): RunLoadTestResponse.AsObject;
@@ -1603,6 +1646,7 @@ export namespace RunLoadTestResponse {
         branch?: Branch.AsObject,
         seed: number,
         error: string,
+        duration?: google_protobuf_duration_pb.Duration.AsObject,
     }
 }
 
