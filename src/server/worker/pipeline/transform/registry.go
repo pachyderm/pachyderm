@@ -193,6 +193,9 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 				}
 				return pj.writeJobInfo()
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+					return err
+				}
 				pj.logger.Logf("error restarting job: %v, retrying in %v", err, d)
 				return nil
 			})
