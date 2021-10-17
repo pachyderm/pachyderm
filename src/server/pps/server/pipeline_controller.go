@@ -37,14 +37,6 @@ const (
 	rcExpected
 )
 
-type opType byte
-
-const (
-	noOp opType = iota
-	writeOp
-	deleteOp
-)
-
 func max(is ...int) int {
 	if len(is) == 0 {
 		return 0
@@ -77,11 +69,7 @@ type pipelineOp struct {
 	monitorCancel         func()
 	crashingMonitorCancel func()
 
-	// writeBump and deleteBump represent whether a write or delete operation should
-	// be executed once the active pipelineOp goroutine is complete.
-	writeBump       bool
-	deleteBump      bool
-	bumpCnt         int
+	bumpChan        chan struct{}
 	opsLock         *sync.Mutex
 	allOpsInProcess map[string]*pipelineOp
 }
@@ -106,6 +94,8 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 		pipelines:    m.a.pipelines,
 		etcdPrefix:   m.a.etcdPrefix,
 
+		bumpChan: make(chan struct{}, 1),
+
 		opsLock:         &m.opsInProcessMu,
 		allOpsInProcess: m.opsInProcess,
 	}
@@ -113,28 +103,11 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 }
 
 // this function is expected to be called synchronosly. master.run() handles this by locking with master.opsInProcessMu
-func (op *pipelineOp) Bump(t opType) {
-	op.bumpCnt++
-	switch t {
-	case writeOp:
-		op.writeBump = true
-		op.deleteBump = false
-	case deleteOp:
-		op.writeBump = false
-		op.deleteBump = true
+func (op *pipelineOp) Bump() {
+	select {
+	case op.bumpChan <- struct{}{}:
+	default:
 	}
-}
-
-func (op *pipelineOp) getAndUnsetBump() opType {
-	if op.writeBump {
-		op.writeBump = false
-		return writeOp
-	}
-	if op.deleteBump {
-		op.deleteBump = false
-		return deleteOp
-	}
-	return noOp
 }
 
 // Start calls step for the given pipeline in a backoff loop.
@@ -144,11 +117,12 @@ func (op *pipelineOp) getAndUnsetBump() opType {
 //
 // Other errors are simply logged and ignored, assuming that some future polling
 // of the pipeline will succeed.
-func (op *pipelineOp) Start(t opType, timestamp time.Time) {
-	nextOt := t
+func (op *pipelineOp) Start(timestamp time.Time) {
 	for {
-		switch nextOt {
-		case writeOp:
+		select {
+		case <-op.masterOpCtx.Done():
+			return
+		case <-op.bumpChan:
 			var errCount int
 			var stepErr stepError
 			err := backoff.RetryNotify(func() error {
@@ -178,32 +152,20 @@ func (op *pipelineOp) Start(t opType, timestamp time.Time) {
 				log.Errorf("PPS master: error starting a pipelineOp for pipeline '%s': %v", op.pipeline,
 					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
 			}
-
-		case deleteOp:
-			if err := op.deletePipelineResources(); err != nil {
-				log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipeline,
-					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
-			}
 		}
+	}
+}
 
-		// we use the opsLock to guard getting and unsetting this op's bump state
-		func() {
-			op.opsLock.Lock()
-			defer op.opsLock.Unlock()
-			switch op.getAndUnsetBump() {
-			case writeOp:
-				nextOt = writeOp
-			case deleteOp:
-				nextOt = deleteOp
-			case noOp:
-				op.masterOpCancel()
-				delete(op.allOpsInProcess, op.pipeline)
-				nextOt = noOp
-			}
-		}()
-		if nextOt == noOp {
-			break
-		}
+// finishes the op if it isn't bumped
+func (op *pipelineOp) tryFinish() {
+	op.opsLock.Lock()
+	defer op.opsLock.Unlock()
+	select {
+	case <-op.bumpChan:
+		op.Bump()
+	default:
+		op.masterOpCancel()
+		delete(op.allOpsInProcess, op.pipeline)
 	}
 }
 
@@ -229,7 +191,17 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 	// set op.pipelineInfo
 	errCnt := 0
 	if err := backoff.RetryNotify(func() error {
-		return op.loadLatestPipelineInfo()
+		err := op.loadLatestPipelineInfo()
+		// if the pipeline info is not found, interpret the operation as a delete
+		if err != nil && collection.IsErrNotFound(err) {
+			if err := op.deletePipelineResources(); err != nil {
+				log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipeline,
+					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
+			}
+			op.tryFinish()
+			return nil
+		}
+		return err
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		errCnt++
 		// Don't put the pipeline in a failing state if we're in the middle
