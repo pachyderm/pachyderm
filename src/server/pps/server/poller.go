@@ -24,7 +24,7 @@ const pollBackoffTime = 2 * time.Second
 func (m *ppsMaster) startPipelinePoller() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.pollCancel = m.monitorer.startMonitorThread("pollPipelines", m.pollPipelines)
+	m.pollCancel = startMonitorThread(m.masterCtx, "pollPipelines", m.pollPipelines)
 }
 
 func (m *ppsMaster) cancelPipelinePoller() {
@@ -40,7 +40,7 @@ func (m *ppsMaster) cancelPipelinePoller() {
 func (m *ppsMaster) startPipelinePodsPoller() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.pollPodsCancel = m.monitorer.startMonitorThread("pollPipelinePods", m.pollPipelinePods)
+	m.pollPodsCancel = startMonitorThread(m.masterCtx, "pollPipelinePods", m.pollPipelinePods)
 }
 
 func (m *ppsMaster) cancelPipelinePodsPoller() {
@@ -56,7 +56,7 @@ func (m *ppsMaster) cancelPipelinePodsPoller() {
 func (m *ppsMaster) startPipelineWatcher() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.watchCancel = m.monitorer.startMonitorThread("watchPipelines", m.watchPipelines)
+	m.watchCancel = startMonitorThread(m.masterCtx, "watchPipelines", m.watchPipelines)
 }
 
 func (m *ppsMaster) cancelPipelineWatcher() {
