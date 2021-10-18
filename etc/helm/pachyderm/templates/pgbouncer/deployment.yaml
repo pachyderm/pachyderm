@@ -52,6 +52,10 @@ spec:
           value: "extra_float_digits"
         - name: PGBOUNCER_UNIX_SOCKET_DIR
           value: " "
+        {{- if .Values.global.postgresql.postgresqlSSL }}
+        - name: PGBOUNCER_SERVER_TLS_SSLMODE
+          value: "require"
+        {{- end }}
         - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
