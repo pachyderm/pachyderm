@@ -114,4 +114,4 @@ replace github.com/prometheus/common => github.com/prometheus/common v0.9.1
 
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20191115194625-c23dd37a84c9
 
-replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20211013012734-825fea71e695
+replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20211018163244-31634c5ecc5f
