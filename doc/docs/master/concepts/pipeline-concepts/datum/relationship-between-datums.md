@@ -26,26 +26,29 @@ each pipeline's job.
 ### 4- **Final commit in the pipeline's output repo**
 
 !!! Note "Reminder"
-        The output produced by a pipeline's job is written to an output repo of the same name.
+        The output produced by a pipeline's job is written to an output repo of the same name (i.e., output repo name = pipeline name).
 
 The content of all `/pfs/out` is combined in a commit to the pipeline's output repo. 
 This generally means unioning all the files together.
 
 !!! Important "The Single Datum Provenance Rule"
-     If two outputted files have the same name (i.e. two datums wrote to the same output file, creating a conflict), then an error is raised resulting in your pipeline failure. 
+     If two outputted files have the same name (i.e., two datums wrote to the same output file, creating a conflict), then an error is raised, resulting in your pipeline failure. 
 
-     To avoid this anti-pattern from the start, **have each datum write in separate files**. 
-     Pachyderm provides an **environment variable `PACH_DATUM_ID`**, available in the pipeline's user code, 
-     that stores the datum ID. It gives an easy way to ensure that each datum outputs distinct file paths.
-### 5. **Next: Add a `Reduce` pipeline**
+     Avoid this anti-pattern from the start by **having each datum write in separate files**. Pachyderm provides an **environment variable `PACH_DATUM_ID`** that stores the datum ID. This variable is available in the pipeline's user code. To ensure that each datum outputs distinct file paths, you can use this variable in the name of your outputted files.
+### 5. **Next: Add a `Reduce` (Merge) pipeline**
 
-If you need files from different datums merged into single files in a particular way, **add a pipeline that groups the files from the previous output repo into single datums using the appropriate glob pattern and merges them as intended using your code**. The example that follows illustrates this two steps approach. 
+If you need files from different datums merged into single files in a particular way:
+
+- **add a pipeline that groups the files** from the previous output repo into single datums using the appropriate glob pattern.
+- then **merge them as intended using your code**. 
+
+The example that follows illustrates this two steps approach. 
 
 ### Example: Two Steps Map/Reduce Pattern and Single Datum Provenance Rule
 
-In this example, we highlight a 2 pipelines pattern where a first pipeline's glob pattern splits an incoming commit into 3 datums (called "Red", "Blue", "Purple"), each producing 2 files each.
+In this example, we highlight a two pipelines pattern where a first pipeline's glob pattern splits an incoming commit into three datums (called "Datum1" (Red), "Datum2" (Blue), "Datum3" (Purple)), each producing two files each.
 The files can then be further
-appended or overwritten with other files to create your final result. In the example below, the following pipeline appends the content of all files in each directory into one final document.
+appended or overwritten with other files to create the final result. Below, a second pipeline appends the content of all files in each directory into one final document.
 
 
 !!! Note "Worth Noting"
@@ -59,11 +62,11 @@ appended or overwritten with other files to create your final result. In the exa
 
 Let's now create a new commit and overwrite a file in `datum 2`,
 Pachyderm detects three datums. However, because `datum 1` and `datum 3` are
-unchanged, it skips processing these datums. Then, Pachyderm detects
-that something has changed in `datum 2`. Pachyderm is unaware of any
-details of the change; therefore, it processes the whole `datum 2`
+unchanged, it skips processing these datums. Pachyderm detects
+that something has changed in `datum 2`. It is unaware of any
+details of the change; therefore, it processes the whole `datum 2(')` (here in yellow)
 and outputs 3 files. Then, the following pipeline aggregates
-these data to create the following final result:
+these data to create the final result.
 
 ![Map Reduce](../../../images/parallel_data_processing_following_commit.png)
 
