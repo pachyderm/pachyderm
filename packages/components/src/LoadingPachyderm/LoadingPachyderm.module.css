@@ -107,12 +107,12 @@
   --salmon: #fe9b7c;
   --light-blue: #5ba3b1;
   --purple: #a5597e;
-  min-width: 120px;
+  width: 120px;
   position: relative;
   pointer-events: none;
 }
 
-img {
+.logoWrapper > img {
   position: relative;
   width: 100%;
 }
