@@ -80,11 +80,6 @@ func getDSN(dbc *dbConfig) string {
 	if dbc.password != "" {
 		fields["password"] = dbc.password
 	}
-	if dbc.sslMode != "" {
-		fields["sslmode"] = dbc.sslMode
-	} else {
-		fields["sslmode"] = "disable"
-	}
 	var dsnParts []string
 	for k, v := range fields {
 		dsnParts = append(dsnParts, k+"="+v)
