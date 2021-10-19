@@ -4,11 +4,8 @@ This section describes features available in the enterprise
 edition of Pachyderm. 
 
 !!! Warning "Get your free-trial token."
-    To try our enterprise features, fill in [this form](https://www.pachyderm.com/trial) or log in to the Pachyderm UI and
-    provide your email address. 
+    To try our enterprise features, fill in [this form](https://www.pachyderm.com/trial) or [schedule some time with one of our experts](https://www.pachyderm.com/request-a-demo/). 
 
-If you are interested in Pachyderm Enterprise, 
-[schedule some time with one of our experts](https://www.pachyderm.com/request-a-demo/).
 
 Read about how you can use Pachyderm Enterprise features in the following
 sections.
@@ -40,10 +37,10 @@ sections.
   <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Configuration &nbsp;&nbsp;&nbsp;<i class="fa fa-cogs"></i></h4>
+        <h4 class="mdl-card__title-text">Access Control &nbsp;&nbsp;&nbsp;<i class="fa fa-cogs"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Learn how to set up your authentication and grant permissions on Pachyderm resources or set up and manage an enterprise server in front of your clusters.
+        Learn how to set up your authentication, grant permissions on Pachyderm resources, or set up and manage an enterprise server in front of your clusters.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>

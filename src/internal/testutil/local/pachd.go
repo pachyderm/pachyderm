@@ -110,7 +110,7 @@ func RunLocal() (retErr error) {
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 
 	// Setup External Pachd GRPC Server.
-	authInterceptor := auth.NewInterceptor(env)
+	authInterceptor := auth.NewInterceptor(env.AuthServer)
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
@@ -131,7 +131,7 @@ func RunLocal() (retErr error) {
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err := pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
+			pfsAPIServer, err := pfs_server.NewAPIServer(pfs_server.Env{})
 			if err != nil {
 				return err
 			}
@@ -143,9 +143,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("PPS API", func() error {
 			ppsAPIServer, err := pps_server.NewAPIServer(
-				env,
-				txnEnv,
-				reporter,
+				pps_server.EnvFromServiceEnv(env, txnEnv, reporter),
 			)
 			if err != nil {
 				return err
@@ -159,7 +157,7 @@ func RunLocal() (retErr error) {
 
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
-				env,
+				identity_server.Env{},
 				true,
 			)
 			if err != nil {
@@ -173,7 +171,8 @@ func RunLocal() (retErr error) {
 
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
-				env, txnEnv, true, requireNoncriticalServers, true)
+				authserver.EnvFromServiceEnv(env, txnEnv),
+				true, requireNoncriticalServers, true)
 			if err != nil {
 				return err
 			}
@@ -199,7 +198,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), true)
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)), true)
 			if err != nil {
 				return err
 			}
@@ -209,7 +208,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(env)
+			licenseAPIServer, err := licenseserver.New(licenseserver.Env{})
 			if err != nil {
 				return err
 			}
@@ -219,7 +218,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(env))
+			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(adminserver.Env{}))
 			return nil
 		}); err != nil {
 			return err
@@ -267,9 +266,7 @@ func RunLocal() (retErr error) {
 		txnEnv := &txnenv.TransactionEnv{}
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err := pfs_server.NewAPIServer(
-				env,
-				txnEnv,
-				path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix),
+				pfs_server.Env{},
 			)
 			if err != nil {
 				return err
@@ -281,9 +278,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("PPS API", func() error {
 			ppsAPIServer, err := pps_server.NewAPIServer(
-				env,
-				txnEnv,
-				reporter,
+				pps_server.EnvFromServiceEnv(env, txnEnv, reporter),
 			)
 			if err != nil {
 				return err
@@ -295,7 +290,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
-				env,
+				identity_server.Env{},
 				false,
 			)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
@@ -305,8 +300,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
-				env,
-				txnEnv,
+				authserver.EnvFromServiceEnv(env, txnEnv),
 				false,
 				requireNoncriticalServers,
 				true,
@@ -335,7 +329,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), false)
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)), false)
 			if err != nil {
 				return err
 			}
@@ -360,7 +354,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(env))
+			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(adminserver.Env{}))
 			return nil
 		}); err != nil {
 			return err

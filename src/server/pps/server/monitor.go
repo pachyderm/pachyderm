@@ -220,7 +220,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 				}()
 				// start span to capture & contextualize etcd state transition
 				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-					m.a.env.GetEtcdClient(), pipeline,
+					m.a.env.EtcdClient, pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
 				if err := m.a.transitionPipelineState(ctx,
 					pipelineInfo.SpecCommit,
@@ -262,7 +262,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 							continue
 						}
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-							m.a.env.GetEtcdClient(), pipeline,
+							m.a.env.EtcdClient, pipeline,
 							"/pps.Master/MonitorPipeline/SpinUp",
 							"commit", ci.Commit.ID)
 
@@ -300,7 +300,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 									return nil // subscribeCommit exited, nothing left to do
 								}
 								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-									m.a.env.GetEtcdClient(), pipeline,
+									m.a.env.EtcdClient, pipeline,
 									"/pps.Master/MonitorPipeline/WatchNext",
 									"commit", ci.Commit.ID)
 							default:
@@ -337,7 +337,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 				pachClient := m.a.env.GetPachClient(ctx)
 				return backoff.RetryUntilCancel(ctx, func() error {
 					worker := work.NewWorker(
-						m.a.env.GetEtcdClient(),
+						m.a.env.EtcdClient,
 						m.a.etcdPrefix,
 						driver.WorkNamespace(pipelineInfo),
 					)
@@ -347,7 +347,7 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 							return err
 						}
 						if nClaims < nTasks {
-							kubeClient := m.a.env.GetKubeClient()
+							kubeClient := m.a.env.KubeClient
 							namespace := m.a.namespace
 							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
 							scale, err := rc.GetScale(pipelineInfo.Details.WorkerRc, metav1.GetOptions{})
@@ -395,7 +395,7 @@ func (m *ppsMaster) monitorCrashingPipeline(ctx context.Context, pipelineInfo *p
 	pipelineRCName := ppsutil.PipelineRcName(pipeline, pipelineInfo.Version)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		workerStatus, err := workerserver.Status(ctx, pipelineRCName,
-			m.a.env.GetEtcdClient(), m.a.etcdPrefix, m.a.workerGrpcPort)
+			m.a.env.EtcdClient, m.a.etcdPrefix, m.a.workerGrpcPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
 		}

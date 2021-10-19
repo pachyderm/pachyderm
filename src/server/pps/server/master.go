@@ -2,18 +2,15 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -100,7 +97,7 @@ func (a *apiServer) master() {
 		crashingMonitorCancels: make(map[string]func()),
 	}
 
-	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
+	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		// set internal auth for basic operations
@@ -169,111 +166,6 @@ eventLoop:
 	}
 }
 
-// attemptStep calls step for the given pipeline in a backoff loop.
-// When it encounters a stepError, returned by most pipeline controller helper
-// functions, it uses the fields to decide whether to retry the step or,
-// if the retries have been exhausted, fail the pipeline.
-//
-// Other errors are simply logged and ignored, assuming that some future polling
-// of the pipeline will succeed.
-func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
-	var errCount int
-	var stepErr stepError
-	err := backoff.RetryNotify(func() error {
-		// Create/Modify/Delete pipeline resources as needed per new state
-		return m.step(e.pipeline, e.timestamp)
-	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		errCount++
-		if errors.As(err, &stepErr) {
-			if stepErr.retry && errCount < maxErrCount {
-				log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
-					e.pipeline, err, d)
-				return nil
-			}
-		}
-		return errors.Wrapf(err, "could not update resource for pipeline %q", e.pipeline)
-	})
-
-	// we've given up on the step, check if the error indicated that the pipeline should fail
-	if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
-		specCommit, specErr := m.a.findPipelineSpecCommit(ctx, e.pipeline)
-		if specErr != nil {
-			return errors.Wrapf(specErr, "error failing pipeline %q (%v)", e.pipeline, err)
-		}
-		failError := m.a.setPipelineFailure(ctx, specCommit, fmt.Sprintf(
-			"could not update resources after %d attempts: %v", errCount, err))
-		if failError != nil {
-			return errors.Wrapf(failError, "error failing pipeline %q (%v)", e.pipeline, err)
-		}
-		return errors.Wrapf(err, "failing pipeline %q", e.pipeline)
-	}
-	return err
-}
-
-func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) {
-	log.Infof("PPS master: deleting resources for pipeline %q", pipelineName)
-	span, ctx := tracing.AddSpanToAnyExisting(m.masterCtx,
-		"/pps.Master/DeletePipelineResources", "pipeline", pipelineName)
-	defer func() {
-		tracing.TagAnySpan(ctx, "err", retErr)
-		tracing.FinishAnySpan(span)
-	}()
-
-	// Cancel any running monitorPipeline call
-	m.cancelMonitor(pipelineName)
-	// Same for cancelCrashingMonitor
-	m.cancelCrashingMonitor(pipelineName)
-
-	kubeClient := m.a.env.GetKubeClient()
-	namespace := m.a.namespace
-
-	// Delete any services associated with op.pipeline
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipelineName)
-	opts := &metav1.DeleteOptions{
-		OrphanDependents: &falseVal,
-	}
-	services, err := kubeClient.CoreV1().Services(namespace).List(metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		return errors.Wrapf(err, "could not list services")
-	}
-	for _, service := range services.Items {
-		if err := kubeClient.CoreV1().Services(namespace).Delete(service.Name, opts); err != nil {
-			if !errutil.IsNotFoundError(err) {
-				return errors.Wrapf(err, "could not delete service %q", service.Name)
-			}
-		}
-	}
-
-	// Delete any secrets associated with op.pipeline
-	secrets, err := kubeClient.CoreV1().Secrets(namespace).List(metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		return errors.Wrapf(err, "could not list secrets")
-	}
-	for _, secret := range secrets.Items {
-		if err := kubeClient.CoreV1().Secrets(namespace).Delete(secret.Name, opts); err != nil {
-			if !errutil.IsNotFoundError(err) {
-				return errors.Wrapf(err, "could not delete secret %q", secret.Name)
-			}
-		}
-	}
-
-	// Finally, delete op.pipeline's RC, which will cause pollPipelines to stop
-	// polling it.
-	rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		return errors.Wrapf(err, "could not list RCs")
-	}
-	for _, rc := range rcs.Items {
-		if err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(rc.Name, opts); err != nil {
-			if !errutil.IsNotFoundError(err) {
-				return errors.Wrapf(err, "could not delete RC %q", rc.Name)
-			}
-		}
-	}
-
-	return nil
-}
-
 // setPipelineState is a PPS-master-specific helper that wraps
 // ppsutil.SetPipelineState in a trace
 func (a *apiServer) setPipelineState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) (retErr error) {
@@ -283,7 +175,7 @@ func (a *apiServer) setPipelineState(ctx context.Context, specCommit *pfs.Commit
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
-	return ppsutil.SetPipelineState(ctx, a.env.GetDBClient(), a.pipelines,
+	return ppsutil.SetPipelineState(ctx, a.env.DB, a.pipelines,
 		specCommit, nil, state, reason)
 }
 
@@ -297,6 +189,6 @@ func (a *apiServer) transitionPipelineState(ctx context.Context, specCommit *pfs
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
-	return ppsutil.SetPipelineState(ctx, a.env.GetDBClient(), a.pipelines,
+	return ppsutil.SetPipelineState(ctx, a.env.DB, a.pipelines,
 		specCommit, from, to, reason)
 }

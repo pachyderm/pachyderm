@@ -90,7 +90,7 @@ func WithTTL(ttl time.Duration) WriterOption {
 }
 
 // StorageOptions returns the fileset storage options for the config.
-func StorageOptions(conf *serviceenv.Configuration) []StorageOption {
+func StorageOptions(conf *serviceenv.StorageConfiguration) []StorageOption {
 	var opts []StorageOption
 	if conf.StorageMemoryThreshold > 0 {
 		opts = append(opts, WithMemoryThreshold(conf.StorageMemoryThreshold))

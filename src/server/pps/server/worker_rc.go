@@ -97,7 +97,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Value: a.storageBackend,
 	}, {
 		Name:  "POSTGRES_USER",
-		Value: a.env.Config().PostgresUser,
+		Value: a.env.Config.PostgresUser,
 	}, {
 		Name: "POSTGRES_PASSWORD",
 		ValueFrom: &v1.EnvVarSource{
@@ -110,13 +110,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		},
 	}, {
 		Name:  "POSTGRES_DATABASE",
-		Value: a.env.Config().PostgresDBName,
+		Value: a.env.Config.PostgresDBName,
 	}, {
 		Name:  "PG_BOUNCER_HOST",
-		Value: a.env.Config().PGBouncerHost,
+		Value: a.env.Config.PGBouncerHost,
 	}, {
 		Name:  "PG_BOUNCER_PORT",
-		Value: strconv.FormatInt(int64(a.env.Config().PGBouncerPort), 10),
+		Value: strconv.FormatInt(int64(a.env.Config.PGBouncerPort), 10),
 	}, {
 		Name:  client.PeerPortEnv,
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
@@ -209,15 +209,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		})
 	}
 	// Propagate feature flags to worker and sidecar
-	if a.env.Config().DisableCommitProgressCounter {
+	if a.env.Config.DisableCommitProgressCounter {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 	}
-	if a.env.Config().LokiLogging {
+	if a.env.Config.LokiLogging {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 	}
-	if p := a.env.Config().GoogleCloudProfilerProject; p != "" {
+	if p := a.env.Config.GoogleCloudProfilerProject; p != "" {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
 	}
@@ -293,11 +293,25 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		})
 	}
 
-	zeroVal := int64(0)
 	workerImage := a.workerImage
-	var securityContext *v1.PodSecurityContext
+	pachSecurityCtx := &v1.SecurityContext{
+		RunAsUser:  int64Ptr(1000),
+		RunAsGroup: int64Ptr(1000),
+	}
+	var userSecurityCtx *v1.SecurityContext
+	userStr := pipelineInfo.Details.Transform.User
 	if a.workerUsesRoot {
-		securityContext = &v1.PodSecurityContext{RunAsUser: &zeroVal}
+		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
+	} else if userStr != "" {
+		// This is to allow the user to be set in the pipeline spec.
+		if i, err := strconv.ParseInt(userStr, 10, 64); err != nil {
+			a.env.Logger.Warnf("could not parse user %q into int: %v", userStr, err)
+		} else {
+			userSecurityCtx = &v1.SecurityContext{
+				RunAsUser:  int64Ptr(i),
+				RunAsGroup: int64Ptr(i),
+			}
+		}
 	}
 	resp, err := a.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
@@ -329,6 +343,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 						v1.ResourceMemory: memDefaultQuantity,
 					},
 				},
+				SecurityContext: pachSecurityCtx,
 			},
 		},
 		Containers: []v1.Container{
@@ -345,7 +360,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 						v1.ResourceMemory: memDefaultQuantity,
 					},
 				},
-				VolumeMounts: userVolumeMounts,
+				VolumeMounts:    userVolumeMounts,
+				SecurityContext: userSecurityCtx,
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
@@ -361,15 +377,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 						v1.ResourceMemory: memSidecarQuantity,
 					},
 				},
-				Ports: sidecarPorts,
+				Ports:           sidecarPorts,
+				SecurityContext: pachSecurityCtx,
 			},
 		},
 		ServiceAccountName:            workerServiceAccountName,
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
-		TerminationGracePeriodSeconds: &zeroVal,
-		SecurityContext:               securityContext,
+		TerminationGracePeriodSeconds: int64Ptr(0),
 	}
 	if options.schedulingSpec != nil {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
@@ -442,7 +458,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 
 func (a *apiServer) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
-		{Name: assets.UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(a.env.Config().StorageUploadConcurrencyLimit)},
+		{Name: assets.UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(a.env.Config.StorageUploadConcurrencyLimit)},
 		{Name: client.PPSPipelineNameEnv, Value: pipelineInfo.Pipeline.Name},
 	}
 	return vars
@@ -609,7 +625,7 @@ func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOpt
 	}
 	var s3GatewayPort int32
 	if ppsutil.ContainsS3Inputs(pipelineInfo.Details.Input) || pipelineInfo.Details.S3Out {
-		s3GatewayPort = int32(a.env.Config().S3GatewayPort)
+		s3GatewayPort = int32(a.env.Config.S3GatewayPort)
 	}
 
 	// Generate options for new RC
@@ -670,7 +686,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, pipelineInfo 
 	s.SetLabels(labels)
 
 	// send RPC to k8s to create the secret there
-	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
+	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(&s); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
@@ -733,7 +749,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 			},
 		},
 	}
-	if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
+	if _, err := a.env.KubeClient.CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
@@ -767,7 +783,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 			},
 		},
 	}
-	if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
+	if _, err := a.env.KubeClient.CoreV1().Services(a.namespace).Create(service); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return err
 		}
@@ -801,7 +817,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 				Ports:    servicePort,
 			},
 		}
-		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
+		if _, err := a.env.KubeClient.CoreV1().Services(a.namespace).Create(service); err != nil {
 			if !errutil.IsAlreadyExistError(err) {
 				return err
 			}
@@ -809,4 +825,8 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 	}
 
 	return nil
+}
+
+func int64Ptr(x int64) *int64 {
+	return &x
 }

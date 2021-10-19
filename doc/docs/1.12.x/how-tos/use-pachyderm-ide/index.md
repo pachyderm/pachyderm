@@ -1,15 +1,12 @@
 # Use the Pachyderm IDE with `python-pachyderm`
 
-!!! note
-    The Pachyderm IDE is an enterprise feature,
-    which is also available for testing during
-    the 14-day free trial.
-    Contact sales@pachyderm.com for more information.
+!!! Warning
+    The Pachyderm IDE is an enterprise feature. Request your FREE 30-day [**Enterprise Edition trial token**](https://www.pachyderm.com/trial).
 
 This section describes how you can use the `python-pachyderm`
 client from within the Pachyderm IDE.
 
-!!! note
+!!! Note
     You need to have Pachyderm IDE installed as described in
     [Deploy the Pachyderm IDE](../../deploy-manage/deploy/deploy-pachyderm-ide.md).
 
@@ -36,20 +33,17 @@ to install or configure anything on user machines except for a web browser.
 that enables you to author and test notebooks and
 code.
 
-* [python-pachyderm](https://github.com/pachyderm/python-pachyderm) is an
+* [python-pachyderm](../../reference/clients/#python-client) is an
 official Python client for Pachyderm. For Python developers who prefer to
 communicate with Pachyderm directly through the API, rather than by using
 the `pachctl` tool, `python-pachyderm` is the right choice.
-The [API Documentation](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html)
-describes various API operations that you can execute to interact with
-Pachyderm.
 
 `python-pachyderm` is preinstalled in your Pachyderm IDE.
 
 ### Difference in Pipeline Creation Methods
 
 `python-pachyderm` supports the standard
-[create_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html#python_pachyderm.Client.create_pipeline)
+[create_pipeline](https://python-pachyderm.readthedocs.io/en/v6.x/python_pachyderm.mixin.html?highlight=create_pipeline#python_pachyderm.mixin.pps.PPSMixin.create_pipeline)
 method that is
 also available through the Pachyderm CLI and UI. When you use
 `create_pipeline`, you need to build a new Docker image and push
@@ -60,7 +54,7 @@ use this method for all non-Python code.
 
 When you use `python-pachyderm`, in addition to the
 `create_pipeline` method,
-you can use the [create_python_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.html#python_pachyderm.create_python_pipeline)
+you can use the [create_python_pipeline](https://python-pachyderm.readthedocs.io/en/v6.x/python_pachyderm.html#python_pachyderm.util.create_python_pipeline)
 function that does not require
 you to include your code in a Docker image and rebuild it each time you make
 a change. Instead, this function creates a PFS repository
@@ -80,5 +74,4 @@ who write code in Python, in particular, might
 find it convenient to avoid the Docker build workflow, others might want to
 enable Docker in JupyterHub or build Docker images from their local machines.
 
-In the [OpenCV Example for JupyterHub](https://github.com/pachyderm/python-pachyderm/tree/1.13.x/examples/opencv),
-both methods are used in the same notebook cell.
+

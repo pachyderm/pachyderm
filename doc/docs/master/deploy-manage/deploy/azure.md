@@ -1,5 +1,10 @@
 # Azure
 
+!!! Important "Before your start your installation process." 
+      - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on  how to install and get started with `Helm`.
+      - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+
 You can deploy Pachyderm in a new or existing Microsoft® Azure® Kubernetes
 Service environment and use Azure's resource to run your Pachyderm
 workloads. 
@@ -12,8 +17,11 @@ To deploy Pachyderm to AKS, you need to:
 
 ## Install Prerequisites
 
-Before you can deploy Pachyderm on Azure, you need to configure a few
-prerequisites on your client machine. If not explicitly specified, use the
+Before you deploy Pachyderm on Azure, 
+make sure to have read our [infrastructure recommendations](../ingress/).
+
+Additionally, you will need to install a few
+clients on your machine. If not explicitly specified, use the
 latest available version of the components listed below.
 Install the following:
 
@@ -401,22 +409,16 @@ you might accidentally deploy your cluster on Minikube.
     the `etcd` nodes are ready which might result in the `pachd` nodes
     restarting. You can safely ignore those restarts.
 
-Have 'pachctl' and your Cluster Communicate
+## Have 'pachctl' and your Cluster Communicate
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
-If you specified `LoadBalancer` in the `values.yaml` file:
+If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name and:
 
-  1. Retrieve the external IP address of the service.  When listing your services again, you should see an external IP address allocated to the `pachd` service 
-
-      ```shell
-      $ kubectl get service
-      ```
-
-  1. Update the context of your cluster with their direct url, using the external IP address above:
+  1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 
       ```shell
-      $ echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      $ echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
       ```
 
   1. Check that your are using the right context: 
@@ -433,3 +435,17 @@ If you're not exposing `pachd` publicly, you can run:
 # Background this process because it blocks.
 $ pachctl port-forward
 ``` 
+
+## Check That Your Cluster Is Up And Running
+
+```shell
+$ pachctl version
+```
+
+**System Response:**
+
+```shell
+COMPONENT           VERSION
+pachctl             {{ config.pach_latest_version }}
+pachd               {{ config.pach_latest_version }}
+```

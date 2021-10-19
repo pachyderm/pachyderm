@@ -1,15 +1,19 @@
-deployTarget: LOCAL
-dash:
-  enabled: false
+deployTarget: custom
+
 pachd:
   service:
     type: NodePort
   image:
     tag: local
   storage:
-    local:
-      requireRoot: false
-      hostPath: /tmp/pachyderm/
+    backend: MINIO
+    minio:
+      bucket: "pachyderm-test"
+      endpoint: "minio.default.svc.cluster.local:9000"
+      id: "minioadmin"
+      secret: "minioadmin"
+      secure: "false"
+      signature: ""
   metrics:
     enabled: false
   resources:

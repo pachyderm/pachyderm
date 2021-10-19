@@ -37,20 +37,24 @@ spec:
         - containerPort: {{ .Values.console.config.graphqlPort }}
           name: console-http
         env:
+        {{- if eq .Values.deployTarget "LOCAL" }}
+        - name: REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX
+          value: ":{{ .Values.console.config.graphqlPort }}/graphql"
+        {{- end }}
         - name: ISSUER_URI
-          value: {{ .Values.console.config.issuerURI | quote}}
+          value: {{ include "pachyderm.issuerURI" . | quote}}
         - name: REACT_APP_RUNTIME_ISSUER_URI
-          value: {{ .Values.console.config.reactAppRuntimeIssuerURI | quote }}
+          value: {{ include "pachyderm.reactAppRuntimeIssuerURI" . | quote}}
         - name: OAUTH_REDIRECT_URI
-          value: {{ .Values.console.config.oauthRedirectURI | quote }}
+          value: {{ include "pachyderm.consoleRedirectURI" . | quote }}
         - name: OAUTH_CLIENT_ID
           value: {{ .Values.console.config.oauthClientID | quote }}
         - name: GRAPHQL_PORT
           value: {{ .Values.console.config.graphqlPort | quote }}
         - name: OAUTH_PACHD_CLIENT_ID
-          value: {{ .Values.console.config.oauthPachdClientID | quote }}
+          value: {{ .Values.pachd.oauthClientID | quote }}
         - name: PACHD_ADDRESS
-          value: {{ .Values.console.config.pachdAddress | quote }}
+          value: {{ include "pachyderm.pachdPeerAddress" . | quote }}
         - name: OAUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:

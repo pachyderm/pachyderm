@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -64,7 +63,7 @@ var webDir = "/dex-assets"
 type dexWeb struct {
 	sync.RWMutex
 
-	env serviceenv.ServiceEnv
+	env Env
 
 	// Rather than restart the server on every request, we cache it
 	// along with the config and set of connectors. If either of these
@@ -80,12 +79,12 @@ type dexWeb struct {
 	apiServer       identity.APIServer
 }
 
-func newDexWeb(env serviceenv.ServiceEnv, apiServer identity.APIServer) *dexWeb {
+func newDexWeb(env Env, apiServer identity.APIServer) *dexWeb {
 	logger := logrus.WithField("source", "dex-web")
 	return &dexWeb{
 		env:             env,
 		logger:          logger,
-		storageProvider: env.GetDexDB(),
+		storageProvider: env.DexStorage,
 		apiServer:       apiServer,
 	}
 }
@@ -220,7 +219,7 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		if err := dbutil.WithTx(r.Context(), w.env.GetDBClient(), func(tx *sqlx.Tx) error {
+		if err := dbutil.WithTx(r.Context(), w.env.DB, func(tx *sqlx.Tx) error {
 			err := addUserInTx(r.Context(), tx, authReq.Claims.Email)
 			return errors.Wrapf(err, "unable to record user identity for login")
 		}); err != nil {

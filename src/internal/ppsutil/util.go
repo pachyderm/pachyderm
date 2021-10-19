@@ -27,14 +27,18 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 )
 
@@ -407,21 +411,55 @@ func ErrorState(s pps.PipelineState) bool {
 // GetWorkerPipelineInfo gets the PipelineInfo proto describing the pipeline that this
 // worker is part of.
 // getPipelineInfo has the side effect of adding auth to the passed pachClient
-func GetWorkerPipelineInfo(pachClient *client.APIClient, env serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
+func GetWorkerPipelineInfo(pachClient *client.APIClient, db *sqlx.DB, l collection.PostgresListener, pipelineName, specCommitID string) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
+	pipelines := ppsdb.Pipelines(db, l)
 	pipelineInfo := &pps.PipelineInfo{}
 	// Notice we use the SpecCommitID from our env, not from postgres. This is
 	// because the value in postgres might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	specCommit := client.NewSystemRepo(env.Config().PPSPipelineName, pfs.SpecRepoType).
-		NewCommit("master", env.Config().PPSSpecCommitID)
+	specCommit := client.NewSystemRepo(pipelineName, pfs.SpecRepoType).
+		NewCommit("master", specCommitID)
 	if err := pipelines.ReadOnly(ctx).Get(specCommit, pipelineInfo); err != nil {
 		return nil, err
 	}
 	pachClient.SetAuthToken(pipelineInfo.AuthToken)
 
 	return pipelineInfo, nil
+}
+
+func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, txnEnv transactionenv.TransactionEnv, pipeline string) (*pfs.Commit, error) {
+	var commit *pfs.Commit
+	if err := txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) (err error) {
+		commit, err = FindPipelineSpecCommitInTransaction(txnCtx, pfsServer, pipeline, "")
+		return
+	}); err != nil {
+		return nil, err
+	}
+	return commit, nil
+}
+
+// FindPipelineSpecCommitInTransaction finds the spec commit corresponding to the pipeline version present in the commit given
+// by startID. If startID is blank, find the current pipeline version
+func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, pfsServer pfsServer.APIServer, pipeline, startID string) (*pfs.Commit, error) {
+	curr := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", startID)
+	commitInfo, err := pfsServer.InspectCommitInTransaction(txnCtx,
+		&pfs.InspectCommitRequest{Commit: curr})
+	if err != nil {
+		return nil, err
+	}
+	for commitInfo.Origin.Kind != pfs.OriginKind_USER {
+		curr = commitInfo.ParentCommit
+		if curr == nil {
+			return nil, errors.Errorf("spec commit for pipeline %s not found", pipeline)
+		}
+		if commitInfo, err = pfsServer.InspectCommitInTransaction(txnCtx,
+			&pfs.InspectCommitRequest{Commit: curr}); err != nil {
+			return nil, err
+		}
+	}
+
+	return curr, nil
 }

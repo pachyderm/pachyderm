@@ -43,7 +43,7 @@ spec:
         - name: PGBOUNCER_DATABASE
           value: "*"
         - name: PGBOUNCER_MAX_CLIENT_CONN
-          value: "1000"
+          value: "{{ .Values.pgbouncer.maxConnections }}"
         - name: PGBOUNCER_POOL_MODE
           value: "transaction"
         - name: PGBOUNCER_IDLE_TRANSACTION_TIMEOUT

@@ -6,16 +6,20 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
+	"golang.org/x/sync/semaphore"
 )
 
 // Reader reads data from chunk storage.
 type Reader struct {
-	ctx         context.Context
-	client      Client
-	memCache    kv.GetPut
-	dataRefs    []*DataRef
-	offsetBytes int64
+	ctx           context.Context
+	client        Client
+	memCache      kv.GetPut
+	deduper       *miscutil.WorkDeduper
+	dataRefs      []*DataRef
+	offsetBytes   int64
+	prefetchLimit int
 }
 
 type ReaderOption func(*Reader)
@@ -26,12 +30,14 @@ func WithOffsetBytes(offsetBytes int64) ReaderOption {
 	}
 }
 
-func newReader(ctx context.Context, client Client, memCache kv.GetPut, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
+func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper, prefetchLimit int, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	r := &Reader{
-		ctx:      ctx,
-		client:   client,
-		memCache: memCache,
-		dataRefs: dataRefs,
+		ctx:           ctx,
+		client:        client,
+		memCache:      memCache,
+		deduper:       deduper,
+		prefetchLimit: prefetchLimit,
+		dataRefs:      dataRefs,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -47,7 +53,7 @@ func (r *Reader) Iterate(cb func(*DataReader) error) error {
 			offset -= dataRef.SizeBytes
 			continue
 		}
-		dr := newDataReader(r.ctx, r.client, r.memCache, dataRef, offset)
+		dr := newDataReader(r.ctx, r.client, r.memCache, r.deduper, dataRef, offset)
 		offset = 0
 		if err := cb(dr); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -60,9 +66,37 @@ func (r *Reader) Iterate(cb func(*DataReader) error) error {
 }
 
 // Get writes the concatenation of the data referenced by the data references.
-func (r *Reader) Get(w io.Writer) error {
+func (r *Reader) Get(w io.Writer) (retErr error) {
+	if len(r.dataRefs) <= 1 {
+		return r.Iterate(func(dr *DataReader) error {
+			return dr.Get(w)
+		})
+	}
+	ctx, cancel := context.WithCancel(r.ctx)
+	defer cancel()
+	taskChain := NewTaskChain(ctx)
+	defer func() {
+		if retErr != nil {
+			cancel()
+		}
+		if err := taskChain.Wait(); retErr == nil {
+			retErr = err
+		}
+	}()
+	sem := semaphore.NewWeighted(int64(r.prefetchLimit))
 	return r.Iterate(func(dr *DataReader) error {
-		return dr.Get(w)
+		if err := sem.Acquire(ctx, 1); err != nil {
+			return err
+		}
+		return taskChain.CreateTask(func(ctx context.Context, serial func(func() error) error) error {
+			if err := Get(ctx, r.client, r.memCache, r.deduper, dr.dataRef.Ref, func(_ []byte) error { return nil }); err != nil {
+				return err
+			}
+			return serial(func() error {
+				defer sem.Release(1)
+				return dr.Get(w)
+			})
+		})
 	})
 }
 
@@ -71,15 +105,17 @@ type DataReader struct {
 	ctx      context.Context
 	client   Client
 	memCache kv.GetPut
+	deduper  *miscutil.WorkDeduper
 	dataRef  *DataRef
 	offset   int64
 }
 
-func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, dataRef *DataRef, offset int64) *DataReader {
+func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper, dataRef *DataRef, offset int64) *DataReader {
 	return &DataReader{
 		ctx:      ctx,
 		client:   client,
 		memCache: memCache,
+		deduper:  deduper,
 		dataRef:  dataRef,
 		offset:   offset,
 	}
@@ -92,7 +128,7 @@ func (dr *DataReader) DataRef() *DataRef {
 
 // Get writes the data referenced by the data reference.
 func (dr *DataReader) Get(w io.Writer) error {
-	return Get(dr.ctx, dr.client, dr.memCache, dr.dataRef.Ref, func(chunk []byte) error {
+	return Get(dr.ctx, dr.client, dr.memCache, dr.deduper, dr.dataRef.Ref, func(chunk []byte) error {
 		if dr.offset > dr.dataRef.SizeBytes {
 			return errors.Errorf("DataReader.offset cannot be greater than the dataRef size. offset size: %v, dataRef size: %v.", dr.offset, dr.dataRef.SizeBytes)
 		}

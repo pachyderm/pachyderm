@@ -1,10 +1,16 @@
 # Google Cloud Platform
 
+
+!!! Important "Before your start your installation process." 
+      - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on  how to install and get started with `Helm`.
+      - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+
 Google Cloud Platform provides seamless support for Kubernetes.
 Therefore, Pachyderm is fully supported on [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/) (GKE).
 The following section walks you through deploying a Pachyderm cluster on GKE.
 
-## 1- Prerequisites
+## 1. Prerequisites
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/) >= 124.0.0
 - [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
@@ -27,7 +33,7 @@ the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts)
     gcloud components install kubectl
     ```
 
-## 2- Deploy Kubernetes
+## 2. Deploy Kubernetes
 
 To create a new Kubernetes cluster by using GKE, run:
 
@@ -102,7 +108,7 @@ the following command:
 # Update your kubeconfig to point at your newly created cluster.
 gcloud container clusters get-credentials ${CLUSTER_NAME}
 ```
-## 3- Set up your Storage Resources
+## 3. Set up your Storage Resources
 
 ### Create a GCS Bucket
 Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) (Object store) to function correctly. You can create the bucket by running the following commands:
@@ -160,25 +166,24 @@ In the "Cloud Storage" section of your Google Cloud Console sidebar,  select the
 
 For a set of standard roles, read the [GCP IAM permissions documentation](https://cloud.google.com/storage/docs/access-control/iam-permissions#bucket_permissions).
 
-## 4- Deploy Pachyderm
+## 4. Deploy Pachyderm
 
-### Create your values.yaml
+### Update your values.yaml
 Update your values.yaml with your bucket name.
 
-Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml)) or use `--set-file storage.google.cred=<my-key>.json` when running the following helm install. 
+Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml)) or use `--set-file pachd.storage.google.cred=<my-key>.json` when running the following helm install. 
 
 !!! Note
     Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation.
 ### Deploy Pachyderm on the Kubernetes cluster
 
-Refer to our generic ["Helm Install"](./helm_install.md) page for more information on the required installations and modus operandi of an installation using `Helm`.
 
 Now you can deploy a Pachyderm cluster by running this command:
 
 ```shell
 $ helm repo add pach https://helm.pachyderm.com
 $ helm repo update
-$ helm install pachd -f my_values.yaml pach/pachyderm --set-file storage.google.cred=<my-key>.json.
+$ helm install pachd -f my_values.yaml pach/pachyderm --set-file pachd.storage.google.cred=<my-key>.json.
 ```
 
 **System Response:**
@@ -234,41 +239,32 @@ If you see a few restarts on the `pachd` pod, you can safely ignore them.
 That simply means that Kubernetes tried to bring up those containers
 before other components were ready, so it restarted them.
 
-### Install `pachctl`
-
-`pachctl` is a command-line utility for interacting with a Pachyderm cluster. You install it locally by [following those steps](../../../getting_started/local_installation/#install-pachctl).
-
-
-### Have 'pachctl' and your Cluster Communicate
-
+## 5. Have 'pachctl' and your Cluster Communicate
 Finally, assuming your `pachd` is running as shown above, 
-make sure that `pachctl` can talk to the cluster by:
+make sure that `pachctl` can talk to the cluster.
 
-- Running a port-forward:
+If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name and:
 
-    ```shell
-    # Background this process because it blocks.
-    pachctl port-forward   
-    ```
+  1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 
-- Or, if you exposed your cluster to the internet by setting up a LoadBalancer (specified `LoadBalancer` in the `values.yaml` file):
+      ```shell
+      $ echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      ```
 
+  1. Check that your are using the right context: 
 
-    1. Retrieve the external IP address of pachd service.
-    When listing your services, you should see an external IP address allocated to pachd. 
-    ```shell
-    kubectl get service
-    ```
-    1. Update the context of your cluster with their direct url, using the external IP address above:
-    ```shell
-    echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
-    ```
-    1. Check that your are using the right context: 
-    ```shell
-    pachctl config get active-context
-    ```
-    Your cluster context name set above should show up. 
-    
+      ```shell
+      $ pachctl config get active-context`
+      ```
+
+      Your cluster context name should show up.
+
+If you're not exposing `pachd` publicly, you can run:
+
+```shell
+# Background this process because it blocks.
+$ pachctl port-forward
+``` 
 
 You are done! You can make sure that your cluster is working
 by running `pachctl version` or creating a new repo.
@@ -285,7 +281,7 @@ pachctl             {{ config.pach_latest_version }}
 pachd               {{ config.pach_latest_version }}
 ```
 
-## 5- Advanced Setups
+## 6. Advanced Setups
 ### Increase Ingress Throughput
 
 One way to improve Ingress performance is to restrict Pachd to

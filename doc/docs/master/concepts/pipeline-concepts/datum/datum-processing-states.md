@@ -25,7 +25,7 @@ of datums that can occur in Pachyderm:
 You can view the information about datum processing states in the output of
 the `pachctl list job <jobID>` command:
 
-![datums in progress](../../../assets/images/datums_in_progress.svg)
+![datums in progress](../../images/datums_in_progress.png)
 
 !!! Note
     Datums that failed are still included in the total, but not

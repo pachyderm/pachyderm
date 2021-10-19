@@ -156,7 +156,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 			})
 			defer timer.Stop()
 		}
-		if err := backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
+		if err := backoff.RetryUntilCancel(reg.driver.PachClient().Ctx(), func() error {
 			ctx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
 			defer cancel()
 			eg, jobCtx := errgroup.WithContext(ctx)
@@ -184,17 +184,22 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 				}
 				err = errors.Unwrap(err)
 			}
-			// Reload the job's commits and info as they may have changed.
-			if err := pj.load(); err != nil {
-				return err
-			}
+			pj.driver = reg.driver
 			pj.ji.Restart++
-			if err := pj.writeJobInfo(); err != nil {
-				pj.logger.Logf("error incrementing restart count for job (%s): %v", pj.ji.Job.ID, err)
-			}
-			return nil
+			return backoff.RetryUntilCancel(reg.driver.PachClient().Ctx(), func() error {
+				// Reload the job's commits and info as they may have changed.
+				if err := pj.load(); err != nil {
+					return err
+				}
+				return pj.writeJobInfo()
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+					return err
+				}
+				pj.logger.Logf("error restarting job: %v, retrying in %v", err, d)
+				return nil
+			})
 		}); err != nil {
-			// TODO: We can hit this due to a transient failure of the pachd sidecar.
 			pj.logger.Logf("fatal job error: %v", err)
 		}
 	}()
@@ -362,7 +367,6 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, master *
 						if err != nil {
 							return err
 						}
-						renewer.Remove(data.FileSetId)
 						if _, err := pachClient.PfsAPIClient.AddFileSet(
 							pachClient.Ctx(),
 							&pfs.AddFileSetRequest{
@@ -410,7 +414,9 @@ func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload 
 	if err != nil {
 		return nil, err
 	}
-	renewer.Add(resp.FileSetId)
+	if err := renewer.Add(pachClient.Ctx(), resp.FileSetId); err != nil {
+		return nil, err
+	}
 	data, err := serializeDatumSet(&DatumSet{
 		JobID:        pj.ji.Job.ID,
 		OutputCommit: pj.commitInfo.Commit,

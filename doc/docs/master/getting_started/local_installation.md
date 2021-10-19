@@ -11,7 +11,7 @@ To install Pachyderm on Windows, take a look at
       environment**. It is meant to help you learn and experiment quickly with Pachyderm. 
       - A local installation is designed for a **single-node cluster**.
       This cluster uses local storage on disk and does not create a
-      PersistentVolume (PV). If you want to deploy a production multi-node
+      Persistent Volumes (PVs). If you want to deploy a production multi-node
       cluster, follow the instructions for your cloud provider or on-prem
       installation as described in [Deploy Pachyderm](../../deploy-manage/deploy/).
       New Kubernetes nodes cannot be added to this single-node cluster.
@@ -136,14 +136,16 @@ with a Pachyderm cluster in your terminal.
       out. This is expected behavior because Pachyderm has not been deployed yet (`pachd` is not yet running).
 
 !!! Note "Architecture"
-      A look at [Pachyderm high-level architecture diagram](https://docs.pachyderm.com/latest/deploy-manage/#overview) 
+      A look at [Pachyderm high-level architecture diagram](../../deploy-manage/#overview) 
       will help you build a mental image of Pachyderm various architectural components.
+
+      For information, you can also check what a production setup looks like: [infrastructure diagram](../../deploy-manage/deploy/ingress/#deliver-external-traffic-to-pachyderm).
 
 ### Install `Helm`
 
 Follow Helm's [installation guide](https://helm.sh/docs/intro/install/).
 
-## Deploy Pachyderm's latest version with Helm
+## Deploy Pachyderm's latest version (option: deploy Pachyderm with Console)
 
 When done with the [Prerequisites](#prerequisites),
 deploy Pachyderm on your local cluster by following these steps:
@@ -166,10 +168,25 @@ deploy Pachyderm on your local cluster by following these steps:
    $ helm install pachd pach/pachyderm --set deployTarget=LOCAL
    ```
 
+* To install pachyderm **with Console** (Pachyderm UI) and authentication set up, run the following helm installation:
+   ```shell
+   $ helm install pachd pach/pachyderm --set deployTarget=LOCAL --set pachd.activateEnterprise=true --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true
+   ```
+!!! Note
+     * You will need an Enterprise Key. To request a FREE trial enterprise license key, [click here](../../enterprise).
+     * By default, a mock Identity Provider will be set up with username & password set to, `admin` & `password` respectively. 
+
+To connect to your Console (Pachyderm UI), enable port forwarding by running `pachctl port-forward`, and then point your browser to `localhost:4000`.
+
+Alternatively, you can connect to your Console (Pachyderm UI) directly by pointing your
+browser to port `4000` on your minikube IP (run `minikube ip` to retrieve minikube's external IP) or docker desktop IP `http://<dockerDesktopIdaddress-or-minikube>:4000/` and authenticate using `admin` & `password`. You are all set!
+
+
 !!! Info "See Also"
       More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/).
 
 ## Check your install
+
 Check the status of the Pachyderm pods by periodically
 running `kubectl get pods`. When Pachyderm is ready for use,
 all Pachyderm pods must be in the **Running** status.
@@ -200,56 +217,65 @@ If you see a few restarts on the `pachd` nodes, that means that
 Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
 Kubernetes restarted those pods. Re-run `kubectl get pods`
 
-1. Run `pachctl version` to verify that `pachd` has been deployed.
+## Have 'pachctl' and your Cluster Communicate
+
+Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
+The easiest way to have `pachctl` connect to your local cluster is to use the `port-forward` command.
+
+1. Use port forwarding:
 
       ```shell
-      $ pachctl version
-      ```
+      # Background this process because it blocks.
+      $ pachctl port-forward
+      ``` 
+      Open a new terminal window. This command does not exit unless you interrupt it. 
 
-      **System Response:**
 
-      ```shell
-      COMPONENT           VERSION
-      pachctl             {{ config.pach_latest_version }}
-      pachd               {{ config.pach_latest_version }}
-      ```
-   
-1. Open a new terminal window.
-1. Use port forwarding to access the Pachyderm Console (Pachyderm UI).
+1. You can, alternatively, configure Pachyderm to connect directly to your instance:
+    * Retrieve the external IP address of the service.  You should see an external IP address allocated to the `pachd` service 
 
-      ```shell
-      pachctl port-forward
-      ```
+        ```shell
+        $ kubectl get service
+        ```
+       Note: Minikube users, run `minikube ip` to retrieve your cluster external IP.
 
-      This command runs continuosly and does not exit unless you interrupt it.
+    * Update the context of your cluster with their direct url, using the external IP address above:
 
-1. Minikube users: you can alternatively set up Pachyderm to directly connect to the Minikube instance:
+        ```shell
+        $ echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<choose-a-cluster-context-name>" --overwrite
+        ```
 
-   * Get your Minikube IP address:
+    * Check that your are using the right context: 
 
-      ```shell
-      minikube ip
-      ```
+        ```shell
+        $ pachctl config get active-context`
+        ```
 
-   * Configure Pachyderm to connect directly to the Minikube instance:
+        Your cluster context name should show up.
 
-      ```shell
-      pachctl config update context `pachctl config get active-context` --pachd-address=<minikube ip>:30080
-      ```
+
+* Verify that `pachctl` and your cluster are connected:
+
+    ```shell
+    $ pachctl version
+    ```
+
+    **System Response:**
+
+    ```
+    COMPONENT           VERSION
+    pachctl             {{ config.pach_latest_version }}
+    pachd               {{ config.pach_latest_version }}
+    ```
+    You are all set!
+
 
 ## Next Steps
 
-* Complete the [Beginner Tutorial](./beginner_tutorial.md)
+Complete the [Beginner Tutorial](./beginner_tutorial.md)
 to learn the basics of Pachyderm, such as adding data and building
 analysis pipelines.
 
-* Explore the Pachyderm Console.
-By default, Pachyderm deploys the Pachyderm Enterprise Console. You can
-use a FREE trial token to experiment with it. Point your
-browser to port `30080` on your minikube IP.
-Alternatively, if you cannot connect directly, enable port forwarding
-by running `pachctl port-forward`, and then point your browser to
-`localhost:30080`.
 
 !!! note "See Also:"
     [General Troubleshooting](../troubleshooting/general_troubleshooting.md)

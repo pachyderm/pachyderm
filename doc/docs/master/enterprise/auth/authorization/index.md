@@ -78,7 +78,7 @@ These roles are only applicable at the cluster level. `clusterAdmin` is a catch-
 
 - **licenseAdmin**: This role grant the ability to register new clusters with the license server, as well as manage and update the enterprise license. For example, this role can perform a `pachctl enterprise register`, `pachctl license activate` or `pachctl license delete-cluster`. 
 
-- **oidcAppAdmin**: An oidcAppAdmin can configure oidc apps between the Identity service and a cluster. They can perform operations such as `pachctl idp create-client`. This role is necessary to deploy pachd, dash or other apps that need to be registered with the identity service.
+- **oidcAppAdmin**: An oidcAppAdmin can configure oidc apps between the Identity service and a cluster. They can perform operations such as `pachctl idp create-client`. This role is necessary to deploy pachd, console or other apps that need to be registered with the identity service.
 
 - **robotUser**: A robotUser has the ability to create robot users and generate auth tokens for them.
 

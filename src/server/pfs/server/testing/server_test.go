@@ -339,20 +339,153 @@ func TestPFS(suite *testing.T) {
 
 		checkRepoCommits([]*pfs.Commit{commit3, commit2, commit1})
 
-		// Rewind branch b.master to commit2 must create a new commit set because the old one already has an entry on 'master'
+		// Rewinding branch b.master to commit2 can reuse the old commit
 		require.NoError(t, env.PachClient.CreateBranch("b", "master", "master", commit2.ID, provB))
 		ci, err := env.PachClient.InspectCommit("b", "master", "")
 		require.NoError(t, err)
+		require.Equal(t, ci.Commit.ID, commit2.ID)
+
+		checkRepoCommits([]*pfs.Commit{commit3, commit2, commit1})
+
+		// The commit4 data in "a" should be the same as what we wrote into commit2 (as that's the source data in "b")
+		aHead := client.NewCommit("a", "master", "")
+		var b bytes.Buffer
+		require.NoError(t, env.PachClient.GetFile(aHead, "file", &b))
+		require.Equal(t, "2", b.String())
+
+		// Now rewind branch b.master to commit1 and force using a new commit by going through an explicit transaction
+		_, err = env.PachClient.ExecuteInTransaction(func(c *client.APIClient) error {
+			return c.CreateBranch("b", "master", "master", commit1.ID, provB)
+		})
+		require.NoError(t, err)
+		ci, err = env.PachClient.InspectCommit("b", "master", "")
+		require.NoError(t, err)
 		commit4 := ci.Commit
-		require.NotEqual(t, commit4.ID, commit2.ID)
+		require.NotEqual(t, commit4.ID, commit1.ID)
 
 		checkRepoCommits([]*pfs.Commit{commit4, commit3, commit2, commit1})
 
-		// The commit4 data in "a" should be the same as what we wrote into commit2 (as that's the source data in "b")
-		commit4a := client.NewCommit("a", "master", commit4.ID)
-		var b bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(commit4a, "file", &b))
-		require.Equal(t, "2", b.String())
+		// The commit4 data in "a" should be from commit1
+		b.Reset()
+		require.NoError(t, env.PachClient.GetFile(aHead, "file", &b))
+		require.Equal(t, "1", b.String())
+	})
+
+	suite.Run("RewindInput", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		c := env.PachClient
+
+		require.NoError(t, c.CreateRepo("A"))
+		require.NoError(t, c.CreateRepo("B"))
+		require.NoError(t, c.CreateRepo("C"))
+		require.NoError(t, c.CreateRepo("Z"))
+		repos := []string{"A", "B", "C", "Z"}
+
+		// A ─▶ B ─▶ Z
+		//           ▲
+		//      C ───╯
+
+		txnInfo, err := c.ExecuteInTransaction(func(tx *client.APIClient) error {
+			if err := tx.CreateBranch("A", "master", "", "", nil); err != nil {
+				return err
+			}
+			if err := tx.CreateBranch("B", "master", "", "",
+				[]*pfs.Branch{client.NewBranch("A", "master")}); err != nil {
+				return err
+			}
+			if err := tx.CreateBranch("C", "master", "", "", nil); err != nil {
+				return err
+			}
+			return tx.CreateBranch("Z", "master", "", "", []*pfs.Branch{
+				client.NewBranch("B", "master"),
+				client.NewBranch("C", "master"),
+			})
+		})
+		require.NoError(t, err)
+		firstID := txnInfo.Transaction.ID
+
+		// make two commits by putting files in A
+		require.NoError(t, c.PutFile(client.NewCommit("A", "master", ""), "one", strings.NewReader("foo")))
+		info, err := c.InspectCommit("A", "master", "")
+		secondID := info.Commit.ID
+		require.NoError(t, err)
+		require.NoError(t, c.PutFile(client.NewCommit("A", "master", ""), "two", strings.NewReader("bar")))
+
+		// rewind once, everything should be back to firstCommit
+		require.NoError(t, c.CreateBranch("A", "master", "master", secondID, nil))
+		for _, r := range repos {
+			info, err := c.InspectCommit(r, "master", "")
+			require.NoError(t, err)
+			require.Equal(t, secondID, info.Commit.ID)
+		}
+
+		// add a file to C, then rewind A back to the start
+		// because C now has a different state, this must create a new commit ID
+		require.NoError(t, c.PutFile(client.NewCommit("C", "master", ""), "file", strings.NewReader("baz")))
+		info, err = c.InspectCommit("A", "master", "")
+		require.NoError(t, err)
+		thirdID := info.Commit.ID
+		require.NoError(t, c.CreateBranch("A", "master", "master", firstID, nil))
+
+		info, err = c.InspectCommit("B", "master", "")
+		require.NoError(t, err)
+		newID := info.Commit.ID
+		require.NotEqual(t, firstID, newID)
+		require.NotEqual(t, secondID, newID)
+
+		// TODO: add logic to make the parent of B's head B@firstID, rather than the most recent commit
+		//require.Equal(t, firstID, info.ParentCommit.ID)
+		require.Equal(t, thirdID, info.ParentCommit.ID)
+
+		for _, r := range repos {
+			info, err := c.InspectCommit(r, "master", "")
+			require.NoError(t, err)
+			require.Equal(t, newID, info.Commit.ID)
+		}
+	})
+
+	suite.Run("RewindProvenanceChange", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		c := env.PachClient
+
+		require.NoError(t, c.CreateRepo("A"))
+		require.NoError(t, c.CreateRepo("B"))
+		require.NoError(t, c.CreateRepo("C"))
+		require.NoError(t, c.CreateBranch("A", "master", "", "", nil))
+		require.NoError(t, c.CreateBranch("B", "master", "", "", nil))
+		require.NoError(t, c.CreateBranch("C", "master", "", "", []*pfs.Branch{
+			client.NewBranch("A", "master")}))
+
+		require.NoError(t, c.PutFile(client.NewCommit("A", "master", ""), "foo", strings.NewReader("bar")))
+		oldHead, err := c.InspectBranch("A", "master")
+		require.NoError(t, err)
+
+		// add B to C's provenance
+		require.NoError(t, c.CreateBranch("C", "master", "", "", []*pfs.Branch{
+			client.NewBranch("A", "master"),
+			client.NewBranch("B", "master"),
+		}))
+
+		// add a file to B and record C's new head
+		require.NoError(t, c.PutFile(client.NewCommit("B", "master", ""), "foo", strings.NewReader("bar")))
+		cHead, err := c.InspectBranch("C", "master")
+		require.NoError(t, err)
+
+		// rewind A to before the provenance change
+		require.NoError(t, c.CreateBranch("A", "master", "master", oldHead.Head.ID, nil))
+
+		// this must create a new commit set, since the old one isn't consistent with current provenance
+		newHead, err := c.InspectBranch("A", "master")
+		require.NoError(t, err)
+		require.NotEqual(t, newHead.Head.ID, oldHead.Head.ID)
+
+		// there's no clear relationship between C's new state and any old one, so the new commit's parent should be the previous head
+		cInfo, err := c.InspectCommit("C", "master", "")
+		require.NoError(t, err)
+		require.NotNil(t, cInfo.ParentCommit)
+		require.Equal(t, cHead.Head.ID, cInfo.ParentCommit.ID)
 	})
 
 	suite.Run("CreateAndInspectRepo", func(t *testing.T) {

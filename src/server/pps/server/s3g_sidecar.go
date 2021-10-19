@@ -42,19 +42,25 @@ func (a *apiServer) ServeSidecarS3G() {
 		apiServer:  a,
 		pachClient: a.env.GetPachClient(context.Background()),
 	}
-	port := a.env.Config().S3GatewayPort
+	port := a.env.Config.S3GatewayPort
 	s.server = s3.Server(port, nil)
 
 	// Read spec commit for this sidecar's pipeline, and set auth token for pach
 	// client
-	specCommit := a.env.Config().PPSSpecCommitID
+	specCommit := a.env.Config.PPSSpecCommitID
 	if specCommit == "" {
 		// This error is not recoverable
 		panic("cannot serve sidecar S3 gateway if no spec commit is set")
 	}
 	if err := backoff.RetryNotify(func() error {
 		var err error
-		s.pipelineInfo, err = ppsutil.GetWorkerPipelineInfo(s.pachClient, a.env)
+		s.pipelineInfo, err = ppsutil.GetWorkerPipelineInfo(
+			s.pachClient,
+			a.env.DB,
+			a.env.Listener,
+			a.env.Config.PPSPipelineName,
+			a.env.Config.PPSSpecCommitID,
+		)
 		return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logrus.Errorf("error starting sidecar s3 gateway: %v; retrying in %d", err, d)
@@ -116,7 +122,7 @@ func (s *sidecarS3G) createK8sServices() {
 	// createK8sServices goes through master election so that only one k8s service
 	// is created per pachyderm job running sidecar s3 gateway
 	backoff.RetryNotify(func() error {
-		masterLock := dlock.NewDLock(s.apiServer.env.GetEtcdClient(),
+		masterLock := dlock.NewDLock(s.apiServer.env.EtcdClient,
 			path.Join(s.apiServer.etcdPrefix,
 				s3gSidecarLockPath,
 				s.pipelineInfo.Pipeline.Name,
@@ -231,7 +237,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			ClusterIP: "None",
 			Ports: []v1.ServicePort{
 				{
-					Port: int32(s.s.apiServer.env.Config().S3GatewayPort),
+					Port: int32(s.s.apiServer.env.Config.S3GatewayPort),
 					Name: "s3-gateway-port",
 				},
 			},
@@ -239,7 +245,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	}
 
 	err := backoff.RetryNotify(func() error {
-		_, err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Create(service)
+		_, err := s.s.apiServer.env.KubeClient.CoreV1().Services(s.s.apiServer.namespace).Create(service)
 		if err != nil && strings.Contains(err.Error(), "already exists") {
 			return nil // service already created
 		}
@@ -258,7 +264,7 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(_ context.Context, job *pps.J
 		return // Nothing to delete; this isn't an s3 pipeline (shouldn't happen)
 	}
 	if err := backoff.RetryNotify(func() error {
-		err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Delete(
+		err := s.s.apiServer.env.KubeClient.CoreV1().Services(s.s.apiServer.namespace).Delete(
 			ppsutil.SidecarS3GatewayService(job.Pipeline.Name, job.ID),
 			&metav1.DeleteOptions{OrphanDependents: new(bool) /* false */})
 		if err != nil && errutil.IsNotFoundError(err) {

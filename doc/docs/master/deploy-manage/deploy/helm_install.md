@@ -3,10 +3,14 @@
 The package manager [Helm](https://helm.sh/docs/intro/install/#helm) is the authoritative deployment method for Pachyderm.
 
 !!! Reminder
-    For improved security, **Pachyderm services are now exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)**. These changes do not apply to LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations)
+    **Pachyderm services are exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)**. These changes do not apply to LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations)
 
-This page gives you a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) or in our [GitHub repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/pachyderm).
+This page gives a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) or in our [GitHub repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/pachyderm).
 
+!!! Important "Before your start your installation process." 
+      - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on  how to install and get started with `Helm`.
+      - Read our [infrastructure recommendations](../ingress/). You will find instructions on setting up an ingress controller, a load balancer, or connecting an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires the set up on an Ingress and the activation of authentication.
 ## Install
 ### Prerequisites
 1. Install [`Helm`](https://helm.sh/docs/intro/install/). 
@@ -27,7 +31,8 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
 !!! Warning
     **No default k8s CPU and memory requests and limits** are created for pachd.  If you don't provide values in the values.yaml file, then those requests and limits are simply not set. 
     
-    For Production deployments, Pachyderm strongly recommends that you **[create your values.yaml file with CPU and memory requests and limits for both pachd and etcd](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml)** set to values appropriate to your specific environment. For reference, 1 CPU and 2 GB memory for each is a sensible default.    
+    For Production deployments, Pachyderm strongly recommends that you **[create your values.yaml file with CPU and memory requests and limits for both pachd and etcd](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml)** set to values appropriate to your specific environment. For reference, 1 CPU and 2 GB memory for each is a sensible default. 
+
 ###  Install the Pachyderm Helm Chart
 1. Get your Helm Repo Info
     ```shell
@@ -41,12 +46,6 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
     ```shell
     $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm
     ```
-!!! Info
-    You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`). 
-    **Each version of a chart is associated with a given version of Pachyderm**. No mention of the version will install the latest available version of Pachyderm by default. 
-    [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) lists all available chart versions and their associated version of Pachyderm. 
-
-### Check your installation
 
 1. Check your deployment
     ```shell
@@ -65,19 +64,55 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
     postgres-0                     1/1     Running   0          18h
     ```
 
-1. Verify that the Pachyderm cluster is up and running
+!!! Info "To choose a specific helm chart version"
+     You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`). 
+     **Each version of a chart is associated with a given version of Pachyderm**. No mention of the version will install the latest available version of Pachyderm by default. 
+     [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) lists all available chart versions and their associated version of Pachyderm. 
 
-    ```shell
-    $ pachctl version
-    ```
+### Install `pachctl`
 
-    **System Response:**
+`pachctl` is a command-line utility for interacting with a Pachyderm cluster. You install it locally by [following those steps](../../../getting_started/local_installation/#install-pachctl).
 
-    ```
-    COMPONENT           VERSION
-    pachctl             {{ config.pach_latest_version }}
-    pachd               {{ config.pach_latest_version }}
-    ```
+### Have 'pachctl' and your Cluster Communicate
+
+Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
+
+If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name and:
+
+  1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
+
+      ```shell
+      $ echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      ```
+
+  1. Check that your are using the right context: 
+
+      ```shell
+      $ pachctl config get active-context`
+      ```
+
+      Your cluster context name should show up.
+
+If you're not exposing `pachd` publicly, you can run:
+
+```shell
+# Background this process because it blocks.
+$ pachctl port-forward
+``` 
+
+Verify that `pachctl` and your cluster are connected:
+
+```shell
+$ pachctl version
+```
+
+**System Response:**
+
+```
+COMPONENT           VERSION
+pachctl             {{ config.pach_latest_version }}
+pachd               {{ config.pach_latest_version }}
+```
 
 ## Uninstall the Pachyderm Helm Chart
 [Helm uninstall](https://helm.sh/docs/helm/helm_uninstall/) a release as easily as you installed it.

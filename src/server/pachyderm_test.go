@@ -43,7 +43,6 @@ import (
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 
 	"github.com/gogo/protobuf/types"
-	globlib "github.com/pachyderm/ohmyglob"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -9139,25 +9138,11 @@ func TestDebug(t *testing.T) {
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	expectedFiles := make(map[string]*globlib.Glob)
-	// Record glob patterns for expected pachd files.
-	for _, file := range []string{"version", "logs", "logs-previous**", "goroutine", "heap"} {
-		pattern := path.Join("pachd", "*", "pachd", file)
-		g, err := globlib.Compile(pattern, '/')
-		require.NoError(t, err)
-		expectedFiles[pattern] = g
-	}
-	// Record glob patterns for expected source repo files.
-	for _, file := range []string{"commits", "commits-chart**"} {
-		pattern := path.Join("source-repos", dataRepo, file)
-		g, err := globlib.Compile(pattern, '/')
-		require.NoError(t, err)
-		expectedFiles[pattern] = g
-	}
-	for i := 0; i < 3; i++ {
-		pipeline := tu.UniqueString("TestDebug")
+	expectedFiles, pipelines := tu.DebugFiles(t, dataRepo)
+
+	for _, p := range pipelines {
 		require.NoError(t, c.CreatePipeline(
-			pipeline,
+			p,
 			"",
 			[]string{"bash"},
 			[]string{
@@ -9170,23 +9155,7 @@ func TestDebug(t *testing.T) {
 			"",
 			false,
 		))
-		// Record glob patterns for expected pipeline files.
-		for _, container := range []string{"user", "storage"} {
-			for _, file := range []string{"logs", "logs-previous**", "goroutine", "heap"} {
-				pattern := path.Join("pipelines", pipeline, "pods", "*", container, file)
-				g, err := globlib.Compile(pattern, '/')
-				require.NoError(t, err)
-				expectedFiles[pattern] = g
-			}
-		}
-		for _, file := range []string{"spec", "commits", "jobs", "commits-chart**", "jobs-chart**"} {
-			pattern := path.Join("pipelines", pipeline, file)
-			g, err := globlib.Compile(pattern, '/')
-			require.NoError(t, err)
-			expectedFiles[pattern] = g
-		}
 	}
-
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))

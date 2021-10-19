@@ -29,7 +29,7 @@ func TestConsoleImageAndConfigTag(t *testing.T) {
 		SetValues: map[string]string{
 			"console.enabled":                 "true",
 			"console.image.tag":               "abc123",
-			"console.config.issuerURI":        expectedIssuerURI,
+			"oidc.issuerURI":                  expectedIssuerURI,
 			"console.config.oauthRedirectURI": expectedOauthRedirectURI,
 			"deployTarget":                    "GOOGLE",
 			"pachd.storage.google.bucket":     "bucket",
@@ -246,7 +246,7 @@ func TestSetNamespaceWorkerServiceAccount(t *testing.T) {
 	}
 }
 
-func TestSetNamespaceClusterRoleBinding(t *testing.T) {
+func TestSetNamespaceRoleBinding(t *testing.T) {
 
 	helmChartPath := "../pachyderm"
 
@@ -260,9 +260,9 @@ func TestSetNamespaceClusterRoleBinding(t *testing.T) {
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
 	}
 
-	output := helm.RenderTemplate(t, options, helmChartPath, "clusterrolebinding", []string{"templates/pachd/rbac/clusterrolebinding.yaml"})
+	output := helm.RenderTemplate(t, options, helmChartPath, "rolebinding", []string{"templates/pachd/rbac/rolebinding.yaml"})
 
-	var rolebinding rbacv1.ClusterRoleBinding
+	var rolebinding rbacv1.RoleBinding
 	helm.UnmarshalK8SYaml(t, output, &rolebinding)
 
 	subjects := rolebinding.Subjects
