@@ -43,7 +43,7 @@ Provision a TCP load balancer with port `30650` (gRPC port) and `30600` (s3gatew
 
 * (Optional) **Create a DNS entry for each public IP (each Load Balancer)**
 
-Once you have your networking infrastructure setup, check the [deployment page of your cloud provider](../../). The following section comes back to the setup of an Ingress and a TCP Load Balancer in detail.
+Once you have your networking infrastructure setup, check the [deployment page of your cloud provider](../../). The following section comes back to the setup of an Ingress and a TCP Load Balancer in details.
 
 ## Deliver External Traffic To Pachyderm
 Pachyderm provides multiple ways to deliver external traffic to services. 
