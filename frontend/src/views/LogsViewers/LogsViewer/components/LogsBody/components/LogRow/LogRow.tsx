@@ -12,7 +12,7 @@ import React, {
 } from 'react';
 import {areEqual} from 'react-window';
 
-import {LOGS_DATE_FORMAT} from '../../../../constants/logsViewersConstants';
+import {LOGS_DATE_FORMAT} from '../../../../../constants/logsViewersConstants';
 
 import styles from './LogRow.module.css';
 

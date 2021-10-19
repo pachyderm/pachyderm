@@ -1,0 +1,25 @@
+.row {
+  padding-left: 2rem;
+  font-family: Menlo;
+  color: var(--white);
+  background-color: var(--pachyderm-black);
+  font-size: 12px;
+  line-height: 1rem;
+  display: flex;
+  align-items: flex-start;
+}
+
+.messageCol {
+  width: 100%;
+  white-space: pre-wrap;
+  line-break: anywhere;
+}
+
+.firstRow{
+  align-items: flex-end;
+}
+
+.mark {
+  background-color: var(--background-blue);
+  padding: 0;
+}

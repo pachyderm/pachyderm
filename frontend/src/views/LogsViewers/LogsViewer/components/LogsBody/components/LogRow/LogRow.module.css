@@ -44,7 +44,6 @@
 }
 
 .mark {
-  /* TODO: Add color to lib */
   background-color: var(--plum-2);
   padding: 0;
 }

@@ -5,6 +5,7 @@ import {
   SkeletonDisplayText,
   PureCheckbox,
 } from '@pachyderm/components';
+import classnames from 'classnames';
 import fill from 'lodash/fill';
 import React, {useCallback, useEffect, useState} from 'react';
 
@@ -13,6 +14,7 @@ import styles from './LogsListHeader.module.css';
 type LogsListHeaderProps = {
   dropdownOptions: DropdownItem[];
   selectedTime: string;
+  rawLogs: boolean;
   setSelectedTime: React.Dispatch<React.SetStateAction<string>>;
   selectedLogsMap: {[key: number]: boolean};
   setSelectedLogsMap: React.Dispatch<
@@ -25,6 +27,7 @@ type LogsListHeaderProps = {
 const LogsListHeader: React.FC<LogsListHeaderProps> = ({
   dropdownOptions,
   selectedTime,
+  rawLogs,
   setSelectedTime,
   selectedLogsMap,
   setSelectedLogsMap,
@@ -40,7 +43,10 @@ const LogsListHeader: React.FC<LogsListHeaderProps> = ({
     if (Object.values(selectedLogsMap).includes(false)) {
       setSelectAllCheckbox(false);
     }
-  }, [logs.length, selectedLogsMap]);
+    if (rawLogs) {
+      setSelectAllCheckbox(false);
+    }
+  }, [logs.length, rawLogs, selectedLogsMap]);
 
   const onSelectAll = useCallback(() => {
     if (!selectAllCheckbox) {
@@ -51,16 +57,25 @@ const LogsListHeader: React.FC<LogsListHeaderProps> = ({
     setSelectAllCheckbox(!selectAllCheckbox);
   }, [logs.length, selectAllCheckbox, setSelectedLogsMap]);
   return (
-    <div className={styles.bodyHeader}>
+    <div
+      className={classnames(styles.bodyHeader, {[styles.rawHeader]: rawLogs})}
+    >
       <div className={styles.timestampHeader}>
-        <PureCheckbox
-          data-testid="LogsListHeader__select_all"
-          selected={selectAllCheckbox}
-          disabled={logs.length === 0}
-          onChange={onSelectAll}
-        />
-        <div className={styles.timestampText}>
-          <span>TIMESTAMP</span>
+        {!rawLogs && (
+          <PureCheckbox
+            data-testid="LogsListHeader__select_all"
+            selected={selectAllCheckbox}
+            disabled={logs.length === 0}
+            onChange={onSelectAll}
+          />
+        )}
+
+        <div
+          className={classnames(
+            styles[rawLogs ? 'rawTimestampText' : 'timestampText'],
+          )}
+        >
+          {!rawLogs && <span>TIMESTAMP</span>}
 
           {loading ? (
             <SkeletonDisplayText />
@@ -75,7 +90,7 @@ const LogsListHeader: React.FC<LogsListHeaderProps> = ({
           )}
         </div>
       </div>
-      <div className={styles.messageHeader}>RESPONSE</div>
+      {!rawLogs && <div className={styles.messageHeader}>RESPONSE</div>}
     </div>
   );
 };

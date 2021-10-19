@@ -2,6 +2,7 @@ import {Maybe} from '@graphqlTypes';
 import {useModal} from '@pachyderm/components';
 import {useCallback, useEffect, useState} from 'react';
 
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useLogs from '@dash-frontend/hooks/useLogs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
@@ -27,6 +28,11 @@ const useLogsViewer = (
     [key: number]: boolean;
   }>({});
 
+  const [rawLogs, handleRawLogsChange] = useLocalProjectSettings({
+    projectId,
+    key: 'raw_logs',
+  });
+
   const [selectedTime, setSelectedTime] = useState(dropdownLabel);
 
   const dropdownValues: {[key: string]: Maybe<number> | undefined} = {
@@ -48,12 +54,12 @@ const useLogsViewer = (
     pipelineName: pipelineId,
     jobId: jobId,
     start: dropdownValues[selectedTime],
-    reverse: true,
+    reverse: !rawLogs,
   });
 
   useEffect(() => {
     setSelectedLogsMap({});
-  }, [selectedTime]);
+  }, [selectedTime, rawLogs]);
 
   const onClose = useCallback(() => {
     closeModal();
@@ -72,6 +78,8 @@ const useLogsViewer = (
     selectedTime,
     dropdownOptions,
     setSelectedTime,
+    rawLogs,
+    setRawLogs: handleRawLogsChange,
   };
 };
 export default useLogsViewer;

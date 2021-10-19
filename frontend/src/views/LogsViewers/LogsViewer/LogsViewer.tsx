@@ -35,6 +35,8 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
     selectedTime,
     dropdownOptions,
     setSelectedTime,
+    rawLogs,
+    setRawLogs,
   } = useLogsViewer(onCloseCallback, dropdownLabel, startTime);
 
   return (
@@ -43,6 +45,8 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
         <LogsModalHeader
           setHighlightUserLogs={setHighlightUserLogs}
           selectedLogsMap={selectedLogsMap}
+          rawLogs={rawLogs}
+          setRawLogs={setRawLogs}
           logs={logs}
           headerText={headerText}
         />
@@ -53,12 +57,14 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
           setSelectedTime={setSelectedTime}
           selectedLogsMap={selectedLogsMap}
           setSelectedLogsMap={setSelectedLogsMap}
+          rawLogs={rawLogs}
           logs={logs}
           loading={loading || loadingLogs}
         />
 
         <LogsBody
           highlightUserLogs={highlightUserLogs}
+          rawLogs={rawLogs}
           loading={loading || loadingLogs}
           logs={logs}
           selectedLogsMap={selectedLogsMap}

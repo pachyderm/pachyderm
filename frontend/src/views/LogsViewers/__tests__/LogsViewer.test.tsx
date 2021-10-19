@@ -30,6 +30,10 @@ describe('Logs Viewer', () => {
     window.history.replaceState({}, '', '/project/1/pipeline/edges/logs');
   });
 
+  afterEach(() => {
+    window.localStorage.removeItem('pachyderm-console-1');
+  });
+
   it('should display empty state when there are no logs', async () => {
     const {findByRole, getByText, findAllByTestId, findByText} = render(
       <PipelineLogsViewer />,
@@ -98,9 +102,50 @@ describe('Logs Viewer', () => {
     );
     expect(await queryAllByTestId('LogRow__user_log')).toHaveLength(0);
 
-    click(await findByRole('switch'));
+    click(await findByRole('switch', {name: 'Highlight User Logs'}));
 
     expect(await findAllByTestId('LogRow__user_log')).toHaveLength(1);
+  });
+
+  it('should display raw logs', async () => {
+    const {findAllByTestId, findByRole} = render(<PipelineLogsViewer />);
+
+    click(await findByRole('switch', {name: 'Raw Logs'}));
+
+    const rows = await findAllByTestId('RawLogRow__base');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toEqual('started datum task');
+    expect(rows[1].textContent).toEqual('finished datum task');
+  });
+
+  it('should highlight raw user logs', async () => {
+    const {queryAllByTestId, findAllByTestId, findByRole} = render(
+      <PipelineLogsViewer />,
+    );
+
+    click(await findByRole('switch', {name: 'Raw Logs'}));
+
+    expect(await queryAllByTestId('RawLogRow__user_log')).toHaveLength(0);
+
+    click(await findByRole('switch', {name: 'Highlight User Logs'}));
+
+    expect(await findAllByTestId('RawLogRow__user_log')).toHaveLength(1);
+  });
+
+  it('should store logs view preference on refresh', async () => {
+    const {findAllByTestId, queryAllByTestId, findByRole} = render(
+      <PipelineLogsViewer />,
+    );
+
+    expect(await findAllByTestId('LogRow__base')).toHaveLength(2);
+    expect(await queryAllByTestId('RawLogRow__base')).toHaveLength(0);
+    click(await findByRole('switch', {name: 'Raw Logs'}));
+    expect(await queryAllByTestId('LogRow__base')).toHaveLength(0);
+    expect(await findAllByTestId('RawLogRow__base')).toHaveLength(2);
+
+    window.history.replaceState({}, '', '/project/1/pipeline/edges/logs');
+    expect(await queryAllByTestId('LogRow__base')).toHaveLength(0);
+    expect(await findAllByTestId('RawLogRow__base')).toHaveLength(2);
   });
 
   describe('Pipeline Logs Viewer', () => {

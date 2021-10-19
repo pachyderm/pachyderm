@@ -20,6 +20,12 @@
   font-weight: bold;
 }
 
+.switchItem {
+  display: flex;
+  align-items: center;
+  padding-right: .5rem;
+}
+
 .switch {
   margin-right: 0.5rem;
 }

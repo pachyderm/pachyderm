@@ -18,6 +18,8 @@ import styles from './LogsModalHeader.module.css';
 
 type LogsModalHeaderProps = {
   setHighlightUserLogs: React.Dispatch<React.SetStateAction<boolean>>;
+  rawLogs: boolean;
+  setRawLogs: (selected: boolean) => void;
   selectedLogsMap: {[key: number]: boolean};
   logs: GetLogsQuery['logs'];
   headerText: string;
@@ -25,6 +27,8 @@ type LogsModalHeaderProps = {
 
 const LogsModalHeader: React.FC<LogsModalHeaderProps> = ({
   setHighlightUserLogs,
+  rawLogs,
+  setRawLogs,
   selectedLogsMap,
   logs,
   headerText,
@@ -63,8 +67,23 @@ const LogsModalHeader: React.FC<LogsModalHeaderProps> = ({
       <h4 className={styles.title}>{headerText}</h4>
       <div className={styles.controls}>
         <div className={styles.switchGroup}>
-          <Switch className={styles.switch} onChange={setHighlightUserLogs} />
-          <span>Highlight User Logs</span>
+          <div className={styles.switchItem}>
+            <Switch
+              className={styles.switch}
+              onChange={setHighlightUserLogs}
+              aria-label="Highlight User Logs"
+            />
+            <span>Highlight User Logs</span>
+          </div>
+          <div className={styles.switchItem}>
+            <Switch
+              defaultChecked={rawLogs}
+              className={styles.switch}
+              onChange={setRawLogs}
+              aria-label="Raw Logs"
+            />
+            <span>Raw Logs</span>
+          </div>
         </div>
         <div className={styles.exportGroup}>
           <ButtonLink

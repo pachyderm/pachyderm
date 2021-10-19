@@ -1,20 +1,27 @@
 import {GetLogsQuery} from '@graphqlTypes';
 import {LoadingDots} from '@pachyderm/components';
+import classnames from 'classnames';
 import React from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import {VariableSizeList} from 'react-window';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 
-import {HEADER_HEIGHT_OFFSET} from '../../../constants/logsViewersConstants';
+import {
+  HEADER_HEIGHT_OFFSET,
+  RAW_HEADER_HEIGHT_OFFSET,
+} from '../../../constants/logsViewersConstants';
 import useLogsBody from '../../hooks/useLogsBody';
 
-import LogRow from './components';
+import LogRow from './components/LogRow';
+import RawLogRow from './components/RawLogRow';
+import styles from './LogsBody.module.css';
 
 type LogsBodyProps = {
   logs: GetLogsQuery['logs'];
   loading: boolean;
   highlightUserLogs: boolean;
+  rawLogs: boolean;
   selectedLogsMap: {[key: string]: boolean};
   setSelectedLogsMap: React.Dispatch<
     React.SetStateAction<{[key: string]: boolean}>
@@ -25,6 +32,7 @@ const LogsBody: React.FC<LogsBodyProps> = ({
   logs,
   loading,
   highlightUserLogs,
+  rawLogs,
   selectedLogsMap,
   setSelectedLogsMap,
 }) => {
@@ -36,23 +44,39 @@ const LogsBody: React.FC<LogsBodyProps> = ({
       <AutoSizer>
         {({height, width}) => (
           <VariableSizeList
+            className={classnames({[styles.raw]: rawLogs})}
             ref={listRef}
             width={width}
-            height={height - HEADER_HEIGHT_OFFSET}
+            height={
+              height -
+              (rawLogs ? RAW_HEADER_HEIGHT_OFFSET : HEADER_HEIGHT_OFFSET)
+            }
             itemCount={logs.length}
             itemSize={getSize}
             overscanCount={4}
           >
             {({...props}) => (
-              <LogRow
-                {...props}
-                width={width}
-                logs={logs}
-                selectedLogsMap={selectedLogsMap}
-                setSelectedLogsMap={setSelectedLogsMap}
-                highlightUserLogs={highlightUserLogs}
-                setSize={setSize}
-              />
+              <>
+                {rawLogs ? (
+                  <RawLogRow
+                    {...props}
+                    width={width}
+                    logs={logs}
+                    highlightUserLogs={highlightUserLogs}
+                    setSize={setSize}
+                  />
+                ) : (
+                  <LogRow
+                    {...props}
+                    width={width}
+                    logs={logs}
+                    selectedLogsMap={selectedLogsMap}
+                    setSelectedLogsMap={setSelectedLogsMap}
+                    highlightUserLogs={highlightUserLogs}
+                    setSize={setSize}
+                  />
+                )}
+              </>
             )}
           </VariableSizeList>
         )}

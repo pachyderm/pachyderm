@@ -2,6 +2,8 @@ import {DropdownItem} from '@pachyderm/components';
 
 export const DEFAULT_ROW_HEIGHT = 46;
 export const HEADER_HEIGHT_OFFSET = 153;
+export const RAW_HEADER_HEIGHT_OFFSET = 115;
+
 export const LOGS_DEFAULT_DROPDOWN_OPTIONS: DropdownItem[] = [
   {id: 'Last 30 Minutes', content: 'Last 30 Minutes', closeOnClick: true},
   {id: 'Last 24 Hours', content: 'Last 24 Hours', closeOnClick: true},
