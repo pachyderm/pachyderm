@@ -98,7 +98,7 @@ func TestSimplePipeline(t *testing.T) {
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
-		"",
+		tu.DefaultTransformImage,
 		[]string{"bash"},
 		[]string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),

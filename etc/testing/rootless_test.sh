@@ -7,6 +7,7 @@ VMDRIVER="none"
 
 # start minikube with pod security admission plugin
 minikube start \
+    --vmdriver={VMDRIVER} \
     --kubernetes-version=${VERSION} \
     --extra-config=apiserver.enable-admission-plugins=PodSecurityPolicy \
     --addons=pod-security-policy
@@ -17,6 +18,7 @@ kubectl apply -f etc/testing/pod-security-policy.yaml
 
 make docker-build
 
+./etc/testing/circle/launch-loki.sh
 ./etc/testing/circle/launch.sh
 
 # Run TestSimplePipeline
