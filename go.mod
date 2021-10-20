@@ -91,7 +91,6 @@ require (
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	google.golang.org/api v0.49.0
 	google.golang.org/grpc v1.38.0
-	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
@@ -122,4 +121,4 @@ replace github.com/prometheus/common => github.com/prometheus/common v0.9.1
 
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20191115194625-c23dd37a84c9
 
-replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20210811182333-56fc504b721f
+replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20211020185745-ebfeda600c26
