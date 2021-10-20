@@ -23,7 +23,6 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
     copy,
     copySupported,
     fileName,
-    dateDisplay,
     filePath,
     fileMajorType,
     previewSupported,
@@ -36,7 +35,6 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
         <div className={styles.fileInfo}>
           <h4 className={styles.fileName}>{fileName}</h4>
           <p className={styles.fileText}>Size: {file.sizeDisplay} </p>
-          <p className={styles.fileText}>Uploaded: {dateDisplay}</p>
         </div>
       </div>
       <Group spacing={16} className={styles.actions}>

@@ -1,4 +1,13 @@
-import {Group, ArrowSVG, Link, Search, Tooltip} from '@pachyderm/components';
+import {
+  Group,
+  ArrowSVG,
+  Link,
+  Search,
+  Tooltip,
+  InfoSVG,
+  SkeletonDisplayText,
+} from '@pachyderm/components';
+import {format, fromUnixTime, formatDistanceStrict} from 'date-fns';
 import findIndex from 'lodash/findIndex';
 import React, {useMemo} from 'react';
 
@@ -20,7 +29,7 @@ type FileHeaderProps = {
 const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
   const {repoId, commitId, branchId, projectId, filePath} = useUrlState();
   const {fileToPreview, loading} = useFileBrowser();
-  const {repo} = useCurrentRepo();
+  const {repo, loading: repoLoading} = useCurrentRepo();
 
   const {previousCommit, nextCommit} = useMemo(() => {
     const reposInBranch =
@@ -34,54 +43,34 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
     return {previousCommit, nextCommit};
   }, [branchId, commitId, repo?.commits]);
 
+  const currentCommit = useMemo(() => {
+    return repo?.commits.find((commit) => commit.id === commitId);
+  }, [commitId, repo?.commits]);
+
+  const tooltipInfo = currentCommit ? (
+    <>
+      Size: {currentCommit.sizeDisplay}
+      <br />
+      Duration:{' '}
+      {formatDistanceStrict(
+        fromUnixTime(currentCommit.started),
+        fromUnixTime(currentCommit.finished),
+      )}
+      <br />
+      Origin: {currentCommit.originKind}
+      {currentCommit.description && <br />}
+      {currentCommit.description}
+    </>
+  ) : (
+    <span />
+  );
+
   return (
-    <Header appearance="light">
-      <Group spacing={32} align="center" className={styles.header}>
+    <Header appearance="light" hasSubheader>
+      <Group spacing={8} align="center" className={styles.header}>
         <h4 className={styles.commit}>
           <CommitPath repo={repoId} branch={branchId} commit={commitId} />
         </h4>
-        {previousCommit && (
-          <Tooltip
-            tooltipText="See Previous Commit"
-            placement="bottom"
-            tooltipKey="See Previous Commit"
-          >
-            <Link
-              className={styles.navigate}
-              to={fileBrowserRoute({
-                repoId,
-                branchId,
-                projectId,
-                commitId: previousCommit,
-                filePath: filePath || undefined,
-              })}
-            >
-              <ArrowSVG className={styles.directionLeft} />
-              Older
-            </Link>
-          </Tooltip>
-        )}
-        {nextCommit && (
-          <Tooltip
-            tooltipText="See Next Commit"
-            placement="bottom"
-            tooltipKey="See Next Commit"
-          >
-            <Link
-              className={styles.navigate}
-              to={fileBrowserRoute({
-                repoId,
-                branchId,
-                projectId,
-                commitId: nextCommit,
-                filePath: filePath || undefined,
-              })}
-            >
-              Newer
-              <ArrowSVG className={styles.directionRight} />
-            </Link>
-          </Tooltip>
-        )}
         {!loading && !fileToPreview && (
           <Search
             value={fileFilter}
@@ -91,6 +80,97 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
             aria-label="search files"
           />
         )}
+        <Group spacing={32}>
+          {previousCommit && (
+            <Tooltip
+              tooltipText="See Previous Commit"
+              placement="bottom"
+              tooltipKey="See Previous Commit"
+            >
+              <Link
+                className={styles.navigate}
+                to={fileBrowserRoute({
+                  repoId,
+                  branchId,
+                  projectId,
+                  commitId: previousCommit,
+                  filePath: filePath || undefined,
+                })}
+              >
+                <ArrowSVG className={styles.directionLeft} />
+                Older
+              </Link>
+            </Tooltip>
+          )}
+          {nextCommit && (
+            <Tooltip
+              tooltipText="See Next Commit"
+              placement="bottom"
+              tooltipKey="See Next Commit"
+            >
+              <Link
+                className={styles.navigate}
+                to={fileBrowserRoute({
+                  repoId,
+                  branchId,
+                  projectId,
+                  commitId: nextCommit,
+                  filePath: filePath || undefined,
+                })}
+              >
+                Newer
+                <ArrowSVG className={styles.directionRight} />
+              </Link>
+            </Tooltip>
+          )}
+        </Group>
+      </Group>
+      <Group spacing={16} className={styles.subHeader}>
+        <span className={styles.dateField}>
+          {repoLoading ? (
+            <SkeletonDisplayText />
+          ) : (
+            currentCommit?.started && (
+              <>
+                <span className={styles.datelabel}>Started:</span>
+                {` `}
+                {format(
+                  fromUnixTime(currentCommit.started),
+                  'MM/dd/yyyy h:mm:ssaaa',
+                )}
+              </>
+            )
+          )}
+        </span>
+        <span className={styles.dateField}>
+          {repoLoading ? (
+            <SkeletonDisplayText />
+          ) : (
+            currentCommit?.finished && (
+              <span>
+                <span className={styles.datelabel}>Ended: </span>
+                {` `}
+                {format(
+                  fromUnixTime(currentCommit.finished),
+                  'MM/dd/yyyy h:mm:ssaaa',
+                )}
+              </span>
+            )
+          )}
+        </span>
+        <Tooltip
+          tooltipText={tooltipInfo}
+          size="extraLarge"
+          placement="bottom"
+          tooltipKey="See Next Commit"
+        >
+          <span className={styles.datelabel}>
+            More Info
+            <span className={styles.infoIcon}>
+              <InfoSVG />
+            </span>
+          </span>
+        </Tooltip>
       </Group>
     </Header>
   );

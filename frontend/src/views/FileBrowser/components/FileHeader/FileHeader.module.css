@@ -15,7 +15,31 @@
 
 .header {
     width: 100%;
-    margin-right: 2rem;
+    padding-right: 3rem;
+    min-height: var(--header-height);
+}
+
+.subHeader {
+    display: flex;
+    align-items: center;
+    border-top: solid 1px var(--line-grey);
+    font-size: var(--font-size-body-medium);
+    padding: 1rem 0;
+}
+
+.dateField {
+    min-width: 12rem;
+    max-height: 1rem;
+}
+
+.datelabel {
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+}
+
+.infoIcon {
+    margin-left: 0.25rem;
 }
 
 .navigate {

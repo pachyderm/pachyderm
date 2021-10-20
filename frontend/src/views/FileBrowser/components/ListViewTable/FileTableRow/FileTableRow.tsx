@@ -9,15 +9,8 @@ type FileTableRowProps = {
 };
 
 const FileTableRow: React.FC<FileTableRowProps> = ({file}) => {
-  const {
-    copy,
-    copySupported,
-    fileName,
-    dateDisplay,
-    filePath,
-    fileType,
-    previewSupported,
-  } = useFileDisplay(file);
+  const {copy, copySupported, fileName, filePath, fileType, previewSupported} =
+    useFileDisplay(file);
 
   const download =
     !file.downloadDisabled && file.download ? file.download : undefined;
@@ -26,7 +19,6 @@ const FileTableRow: React.FC<FileTableRowProps> = ({file}) => {
     <Table.Row>
       <Table.DataCell>{fileName}</Table.DataCell>
       <Table.DataCell>{file.sizeDisplay}</Table.DataCell>
-      <Table.DataCell>{dateDisplay}</Table.DataCell>
       <Table.DataCell>{fileType}</Table.DataCell>
       <Table.DataCell>
         <Group spacing={16}>

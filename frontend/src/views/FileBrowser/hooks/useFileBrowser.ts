@@ -2,6 +2,7 @@ import {useModal} from '@pachyderm/components';
 import {useState, useMemo, useCallback} from 'react';
 
 import {useFiles} from '@dash-frontend/hooks/useFiles';
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -9,7 +10,10 @@ import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 const useFileBrowser = () => {
   const {repoId, commitId, branchId, filePath, projectId} = useUrlState();
   const [fileFilter, setFileFilter] = useState('');
-  const [fileView, setFileView] = useState<'list' | 'icon'>('list');
+  const [fileView = 'list', setFileView] = useLocalProjectSettings({
+    projectId,
+    key: 'file_view',
+  });
   const {closeModal, isOpen} = useModal(true);
   const {viewState, setUrlFromViewState} = useUrlQueryState();
   const path = `/${filePath}`;

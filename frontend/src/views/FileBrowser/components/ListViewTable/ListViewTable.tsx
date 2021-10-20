@@ -11,15 +11,8 @@ type ListViewTableProps = {
 };
 
 const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
-  const {
-    comparatorName,
-    nameClick,
-    sizeClick,
-    dateClick,
-    typeClick,
-    reversed,
-    tableData,
-  } = useListViewTable(files);
+  const {comparatorName, nameClick, sizeClick, typeClick, reversed, tableData} =
+    useListViewTable(files);
 
   return (
     <div className={styles.scrolling}>
@@ -43,15 +36,6 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
               sortReversed={!reversed}
             >
               Size
-            </Table.HeaderCell>
-            <Table.HeaderCell
-              onClick={dateClick}
-              sortable={true}
-              sortLabel="date"
-              sortSelected={comparatorName === 'Date'}
-              sortReversed={!reversed}
-            >
-              Date Uploaded
             </Table.HeaderCell>
             <Table.HeaderCell
               onClick={typeClick}

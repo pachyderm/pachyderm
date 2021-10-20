@@ -19,7 +19,7 @@ describe('File Browser', () => {
   });
 
   describe('File Browser modal', () => {
-    it('should display file browser name from url', async () => {
+    it('should display file browser name from url and commit info', async () => {
       const {findByText} = render(<FileBrowser />);
 
       expect(await findByText('cron@master=0918ac9d')).toBeInTheDocument();
@@ -90,7 +90,6 @@ describe('File Browser', () => {
 
       expect(await findByText('liberty.png')).toBeInTheDocument();
       expect(await findByText('57.27 KB')).toBeInTheDocument();
-      expect(await findByText('January 8, 2021')).toBeInTheDocument();
     });
 
     it('should sort rows based on different headers', async () => {
@@ -131,18 +130,6 @@ describe('File Browser', () => {
       expect(rows[1].textContent).toContain('cats');
       expect(rows[2].textContent).toContain('commas.csv');
       expect(rows[3].textContent).toContain('tabs.csv');
-
-      const dateHeader = await findByLabelText(
-        'sort by date in descending order',
-      );
-      await act(async () => {
-        userEvent.click(dateHeader);
-      });
-
-      rows = await findAllByRole('row');
-      expect(rows[1].textContent).toContain('liberty.png');
-      expect(rows[2].textContent).toContain('AT-AT.png');
-      expect(rows[3].textContent).toContain('cats');
     });
 
     it('should navigate to dir path on action click', async () => {
@@ -192,7 +179,6 @@ describe('File Browser', () => {
 
       expect(await findByText('liberty.png')).toBeInTheDocument();
       expect(await findByText('Size: 57.27 KB')).toBeInTheDocument();
-      expect(await findByText('Uploaded: January 8, 2021')).toBeInTheDocument();
     });
 
     it('should navigate to dir path on action click', async () => {
@@ -263,13 +249,13 @@ describe('File Browser', () => {
     });
 
     it('should go to path based on breadcrumb', async () => {
-      const {queryByTestId, findByText} = render(<FileBrowser />);
+      const {queryByLabelText, findByText} = render(<FileBrowser />);
 
       const topButton = await findByText('top');
       click(topButton);
 
       await waitFor(() =>
-        expect(queryByTestId('ListViewTable__view')).toBeInTheDocument(),
+        expect(queryByLabelText('switch to list view')).toBeInTheDocument(),
       );
     });
 
