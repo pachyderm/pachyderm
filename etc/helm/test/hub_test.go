@@ -17,7 +17,7 @@ func TestHub(t *testing.T) {
 		objects []interface{}
 		checks  = map[string]bool{
 			"ingress":                             false,
-			"metricsEndpoint":                     false,
+			"metrics endpoint":                    false,
 			"console limits":                      false,
 			"etcd limits":                         false,
 			"loki logging":                        false,
@@ -78,7 +78,7 @@ func TestHub(t *testing.T) {
 							if v.Value != expected {
 								t.Errorf("metrics endpoint %q ≠ %q", v.Value, expected)
 							}
-							checks["metricsEndpoint"] = true
+							checks["metrics endpoint"] = true
 						case "LOKI_LOGGING":
 							if v.Value != "true" {
 								t.Error("Loki logging should be enabled")

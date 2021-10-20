@@ -94,9 +94,9 @@ spec:
           value: {{ .Values.pachd.worker.serviceAccount.name | quote }}
         - name: METRICS
           value: {{ .Values.pachd.metrics.enabled | quote }}
-        {{- if .Values.pachd.metricsEndpoint}}
+        {{- if .Values.pachd.metrics.endpoint}}
         - name: METRICS_ENDPOINT
-          value: "{{ .Values.pachd.metricsEndpoint }}"
+          value: "{{ .Values.pachd.metrics.endpoint }}"
         {{- end }}
         {{- if and .Values.pachd.goMaxProcs (gt .Values.pachd.goMaxProcs 0.0)}}
         - name: GOMAXPROCS # Needs to be PR'd to 2.0

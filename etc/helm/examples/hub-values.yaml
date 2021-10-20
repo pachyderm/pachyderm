@@ -43,7 +43,8 @@ pachd:
   # image.tag is configured per workspace.
   lokiLogging: true
   # metricsEndpoint is configured per Hub instance.
-  metricsEndpoint: "https://metrics.test/api/v1/metrics"
+  metrics:
+    endpoint: "https://metrics.test/api/v1/metrics"
   service:
     type: "ClusterIP"
   externalService:
