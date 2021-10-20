@@ -309,6 +309,9 @@
                 "IDTokenExpiry": {
                     "type": "string"
                 },
+                "RotationTokenExpiry": {
+                    "type": "string"
+                },
                 "issuerURI": {
                     "type": "string"
                 },

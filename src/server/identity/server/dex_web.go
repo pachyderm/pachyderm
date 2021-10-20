@@ -151,9 +151,13 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 			return nil, err
 		}
 	}
-	refreshTokenPolicy, err := dex_server.NewRefreshTokenPolicy(w.logger, true, "48h", "48h", "48h")
-	if err != nil {
-		return nil, err
+
+	var refreshTokenPolicy *dex_server.RefreshTokenPolicy
+	if config.RotationTokenExpiry != "" {
+		refreshTokenPolicy, err = dex_server.NewRefreshTokenPolicy(w.logger, false, "", config.RotationTokenExpiry, "")
+		if err != nil {
+			return nil, err
+		}
 	}
 	serverConfig := dex_server.Config{
 		Storage:            storage,
