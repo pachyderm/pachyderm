@@ -1,8 +1,6 @@
 # Concepts
 
-Pachyderm is an enterprise-grade, open source data science platform that
-makes explainable, repeatable, and scalable Machine Learning (ML) and
-Artificial Intelligence (AI) a reality. The Pachyderm platform brings
+The Pachyderm platform brings
 together version control for data with the tools to build scalable
 end-to-end ML/AI pipelines while empowering users to develop their
 code in any language, framework, or tool of their choice. Pachyderm
