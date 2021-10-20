@@ -142,7 +142,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 	}
 
 	var err error
-	idTokenExpiry := 6 * time.Hour
+	idTokenExpiry := 24 * time.Hour
 
 	if config.IdTokenExpiry != "" {
 		idTokenExpiry, err = time.ParseDuration(config.IdTokenExpiry)
