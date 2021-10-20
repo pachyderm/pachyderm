@@ -2,6 +2,7 @@ import React from 'react';
 
 import {PureCheckbox} from '../../../Checkbox';
 import {Step} from '../../lib/types';
+import TaskListItem from '../TaskListItem';
 
 import styles from './SideBar.module.css';
 
@@ -24,22 +25,21 @@ const SideBar = ({
         <div className={styles.taskList}>
           {steps[currentStep] &&
             steps[currentStep].tasks.map((task, i) => (
-              <div className={styles.taskItem} key={task.name?.toString()}>
-                <PureCheckbox
-                  selected={currentTask > i}
-                  readOnly
-                  label={task.name}
-                  checked={currentTask > i}
-                />
+              <TaskListItem
+                index={i}
+                currentTask={currentTask}
+                task={task}
+                key={i}
+              >
                 {i === currentTask && task.info && (
                   <div className={styles.taskInfo}>
-                    <span>{task.info.name}</span>
-                    {task.info.text.map((text) => (
+                    <span>{task.info?.name}</span>
+                    {task.info?.text.map((text) => (
                       <p key={text?.toString()}>{text}</p>
                     ))}
                   </div>
                 )}
-              </div>
+              </TaskListItem>
             ))}
           <div className={styles.taskItem}>
             <PureCheckbox

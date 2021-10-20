@@ -217,4 +217,43 @@ describe('TutorialModal', () => {
     click(sizeButton);
     task2Checkboxes.forEach((checkbox) => expect(checkbox).toBeChecked());
   });
+
+  it('should display the current task when minimized', async () => {
+    const {findByRole, findAllByLabelText} = render(
+      <TutorialModal steps={steps} />,
+    );
+
+    const minimizeButton = await findByRole('button', {name: 'Minimize'});
+    click(minimizeButton);
+
+    const tasks = await findAllByLabelText(
+      'Create a pipeline using the provided edges.json specification.',
+    );
+    expect(tasks.length).toBe(3);
+  });
+
+  it('should include the continue step when displaying the final task while minimized', async () => {
+    const {findByRole, findAllByLabelText} = render(
+      <TutorialModal steps={steps} />,
+    );
+
+    const pipelineButton = await findByRole('button', {
+      name: 'Create pipeline spec',
+    });
+    click(pipelineButton);
+
+    const minimizeButton = await findByRole('button', {name: 'Minimize'});
+    click(minimizeButton);
+
+    const initialTasks = await findAllByLabelText(
+      'Create a pipeline using the provided edges.json specification.',
+    );
+    expect(initialTasks.length).toBe(2);
+    const finalTasks = await findAllByLabelText(
+      'Minimize the overlay and inspect the pipeline and resulting output repo in the DAG',
+    );
+    expect(finalTasks.length).toBe(3);
+    const completeSteps = await findAllByLabelText('Continue to next step.');
+    expect(completeSteps.length).toBe(2);
+  });
 });

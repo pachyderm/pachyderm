@@ -44,7 +44,6 @@
   right: 2rem;
   bottom: 0;
   left: 2rem;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -118,4 +117,29 @@
 .followUp {
   padding: 0 10.25rem;
   white-space: pre-wrap;
+}
+
+@keyframes miniTaskOpen {
+  0% {
+    left: calc(-100% + 2rem);
+  }
+  100% {
+    left: 0;
+  }
+}
+
+.miniTaskOpen {
+  animation: miniTaskOpen 0.6s forwards 0.5s;
+}
+
+
+.miniTask {
+  left: calc(-100% + 2rem);
+  background-color: var(--grey-1);
+  border: 1px solid var(--grey-4);
+  border-radius: 3px;
+  padding: 1rem 2rem 0 1rem;
+  width: 20rem;
+  position: absolute;
+  bottom: 3rem;
 }

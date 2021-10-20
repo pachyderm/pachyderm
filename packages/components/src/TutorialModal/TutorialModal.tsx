@@ -1,7 +1,10 @@
 import classNames from 'classnames';
 import React, {useCallback, useState} from 'react';
 
+import {PureCheckbox} from '../Checkbox';
+
 import SideBar from './components/SideBar';
+import TaskListItem from './components/TaskListItem';
 import {Step} from './lib/types';
 import styles from './TutorialModal.module.css';
 
@@ -26,10 +29,36 @@ const TutorialModal: React.FC<TutorialModalProps> = ({steps}) => {
     [currentTask],
   );
 
+  const displayTaskIndex = Math.min(
+    currentTask,
+    steps[currentStep].tasks.length - 1,
+  );
+  const currentTaskInstance = steps[currentStep].tasks[displayTaskIndex];
+
   return (
     <>
       <div className={!minimized ? styles.overlay : ''} />
       <div className={classes}>
+        {currentTaskInstance ? (
+          <div
+            className={classNames(styles.miniTask, {
+              [styles.miniTaskOpen]: minimized,
+            })}
+          >
+            <TaskListItem
+              currentTask={currentTask}
+              index={displayTaskIndex}
+              task={currentTaskInstance}
+            />
+            {displayTaskIndex !== currentTask ? (
+              <PureCheckbox
+                name="Continue"
+                selected={false}
+                label={'Continue to next step.'}
+              />
+            ) : null}
+          </div>
+        ) : null}
         <div className={styles.header}>
           <button
             className={styles.button}

@@ -23,14 +23,6 @@
   color: var(--grey-10);
 }
 
-.taskList {
-  margin-top: 1.5rem;  
-}
-
-.taskItem {
-  margin-bottom: 2rem;
-}
-
 .taskInfo {
   margin-left: 1.291rem;
   padding: 1rem;
