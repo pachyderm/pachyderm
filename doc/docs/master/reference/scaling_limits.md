@@ -35,7 +35,7 @@ When `constant` parallelism > 8:
 
 - `pachctl create pipeline` and `pachctl update pipeline` fail. A message to STDERR and pachd logs is generated. You will need to update your pipeline specification file accordingly or activate an Enterprise license.
 
-## What happens when you upgrade to 1.13 and have more than 16 pipelines?
+## What happens when you upgrade to 2.x and have more than 16 pipelines?
 All existing pipelines **continue to work** after an upgrade to 1.13. pachd logs will mention the successful startup above the "update pipeline message". However, you will not be able to create additional pipelines.
 
 !!! Note
