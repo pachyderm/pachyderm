@@ -273,11 +273,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}
 
 	// Explicitly set CPU requests to zero because some cloud providers set their
-	// own defaults which are usually not what we want. Mem request defaults to
-	// 64M, but is overridden by the CacheSize setting for the sidecar.
+	// own defaults which are usually not what we want.
 	cpuZeroQuantity := resource.MustParse("0")
 	memDefaultQuantity := resource.MustParse("64M")
-	memSidecarQuantity := resource.MustParse("64M")
+	// include enough for the in-memory chunk and file writing caches
+	memSidecarQuantity := resource.MustParse("3G")
 
 	// Get service account name for worker from env or use default
 	workerServiceAccountName, ok := os.LookupEnv(assets.WorkerServiceAccountEnvVar)
