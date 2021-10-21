@@ -36,6 +36,7 @@ type dbConfig struct {
 	maxIdleConns    int
 	connMaxLifetime time.Duration
 	connMaxIdleTime time.Duration
+	sslMode         string
 }
 
 func newConfig(opts ...Option) *dbConfig {
@@ -44,6 +45,7 @@ func newConfig(opts ...Option) *dbConfig {
 		maxIdleConns:    DefaultMaxIdleConns,
 		connMaxLifetime: DefaultConnMaxLifetime,
 		connMaxIdleTime: DefaultConnMaxIdleTime,
+		sslMode:         DefaultSSLMode,
 	}
 	for _, opt := range opts {
 		opt(dbc)
@@ -53,8 +55,8 @@ func newConfig(opts ...Option) *dbConfig {
 
 func getDSN(dbc *dbConfig) string {
 	fields := map[string]string{
-		"sslmode":         "disable",
 		"connect_timeout": "30",
+		"sslmode":         dbc.sslMode,
 
 		// https://github.com/lib/pq/issues/889
 		"binary_parameters": "yes",
