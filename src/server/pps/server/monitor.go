@@ -102,15 +102,15 @@ func (op *pipelineOp) startCrashingMonitor(ctx context.Context, pipelineInfo *pp
 // cancelled. It's set by pollPipelines, which does not cancel any pipeline in
 // the database at the time that it runs
 func (m *ppsMaster) cancelAllMonitorsAndCrashingMonitors() {
-	m.opsInProcessMu.Lock()
-	defer m.opsInProcessMu.Unlock()
+	m.om.Lock()
+	defer m.om.Unlock()
 
 	maybeCancel := func(cancel func()) {
 		if cancel != nil {
 			cancel()
 		}
 	}
-	for _, op := range m.opsInProcess {
+	for _, op := range m.om.activeOps {
 		maybeCancel(op.monitorCancel)
 		maybeCancel(op.crashingMonitorCancel)
 	}

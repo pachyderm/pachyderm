@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -69,9 +68,8 @@ type pipelineOp struct {
 	monitorCancel         func()
 	crashingMonitorCancel func()
 
-	bumpChan        chan struct{}
-	opsLock         *sync.Mutex
-	allOpsInProcess map[string]*pipelineOp
+	bumpChan  chan struct{}
+	opManager *opManager
 }
 
 var (
@@ -94,15 +92,21 @@ func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc
 		pipelines:    m.a.pipelines,
 		etcdPrefix:   m.a.etcdPrefix,
 
-		bumpChan: make(chan struct{}, 1),
-
-		opsLock:         &m.opsInProcessMu,
-		allOpsInProcess: m.opsInProcess,
+		bumpChan:  make(chan struct{}, 1),
+		opManager: m.om,
 	}
 	return op
 }
 
-// this function is expected to be called synchronosly. master.run() handles this by locking with master.opsInProcessMu
+// Bump signals the pipelineOp goro to either process the  latest state
+// of the pipeline now, or once its done with its current processing iteration.
+//
+// This function is expected to be called while holding the opManager lock.
+// This helps guard the critical section when the goroutine is cleaned up
+// as part of a pipeline deletion event in pipelineOp.tryFinish().
+//
+// Note: since op.bumpChan is a buffered channel of length 1, Bump() will
+// add to the channel if it's empty, and do nothing otherwise.
 func (op *pipelineOp) Bump() {
 	select {
 	case op.bumpChan <- struct{}{}:
@@ -158,14 +162,14 @@ func (op *pipelineOp) Start(timestamp time.Time) {
 
 // finishes the op if it isn't bumped
 func (op *pipelineOp) tryFinish() {
-	op.opsLock.Lock()
-	defer op.opsLock.Unlock()
+	op.opManager.Lock()
+	defer op.opManager.Unlock()
 	select {
 	case <-op.bumpChan:
 		op.Bump()
 	default:
 		op.masterOpCancel()
-		delete(op.allOpsInProcess, op.pipeline)
+		delete(op.opManager.activeOps, op.pipeline)
 	}
 }
 

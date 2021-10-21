@@ -67,6 +67,11 @@ func (s stepError) Unwrap() error {
 	return s.error
 }
 
+type opManager struct {
+	sync.Mutex
+	activeOps map[string]*pipelineOp
+}
+
 type ppsMaster struct {
 	// The PPS APIServer that owns this struct
 	a *apiServer
@@ -81,8 +86,7 @@ type ppsMaster struct {
 	pollPodsCancel  func() // protected by pollPipelinesMu
 	watchCancel     func() // protected by pollPipelinesMu
 
-	opsInProcessMu sync.Mutex
-	opsInProcess   map[string]*pipelineOp
+	om *opManager
 
 	// channel through which pipeline events are passed
 	eventCh chan *pipelineEvent
@@ -92,8 +96,10 @@ type ppsMaster struct {
 // pipelines are created/removed.
 func (a *apiServer) master() {
 	m := &ppsMaster{
-		a:            a,
-		opsInProcess: make(map[string]*pipelineOp),
+		a: a,
+		om: &opManager{
+			activeOps: make(map[string]*pipelineOp),
+		},
 	}
 
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
@@ -157,9 +163,9 @@ eventLoop:
 		select {
 		case e := <-m.eventCh:
 			func(e *pipelineEvent) {
-				m.opsInProcessMu.Lock()
-				defer m.opsInProcessMu.Unlock()
-				if pipelineOp, ok := m.opsInProcess[e.pipeline]; ok {
+				m.om.Lock()
+				defer m.om.Unlock()
+				if pipelineOp, ok := m.om.activeOps[e.pipeline]; ok {
 					pipelineOp.Bump() // raises flag in pipelineOp to run again whenever it finishes
 				} else {
 					// Initialize op ctx (cancelled at the end of pipelineOp.Start(), to avoid leaking
@@ -168,7 +174,7 @@ eventLoop:
 					// whose lifetime is tied to the master rather than this op.
 					opCtx, opCancel := context.WithCancel(m.masterCtx)
 					pipelineOp = m.newPipelineOp(opCtx, opCancel, e.pipeline)
-					m.opsInProcess[e.pipeline] = pipelineOp
+					m.om.activeOps[e.pipeline] = pipelineOp
 					go pipelineOp.Start(e.timestamp)
 				}
 			}(e)
