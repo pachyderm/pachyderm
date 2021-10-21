@@ -158,7 +158,7 @@ jobs:
     steps:
       - checkout
       - run: etc/testing/circle/install.sh
-      - run: etc/testing/rootless_test.sh
+      - run: etc/testing/circle/rootless_test.sh
 
 workflows:
   circleci:

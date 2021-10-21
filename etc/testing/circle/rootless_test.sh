@@ -18,7 +18,7 @@ minikube start \
 kubectl delete psp restricted privileged || true
 kubectl apply -f etc/testing/pod-security-policy.yaml
 
-make docker-build
+./etc/testing/circle/build.sh
 
 ./etc/testing/circle/launch-loki.sh
 ./etc/testing/circle/launch.sh
