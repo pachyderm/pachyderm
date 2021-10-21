@@ -84,6 +84,7 @@ func TestSimplePipeline(t *testing.T) {
 	}
 
 	c := tu.GetPachClient(t)
+	c = c.WithDefaultTransformUser("1000")
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
@@ -97,7 +98,7 @@ func TestSimplePipeline(t *testing.T) {
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
-		"",
+		tu.DefaultTransformImage,
 		[]string{"bash"},
 		[]string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
