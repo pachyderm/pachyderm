@@ -1,9 +1,11 @@
+//go:build !cgo
 // +build !cgo
 
 package serviceenv
 
 import (
 	dex_sql "github.com/dexidp/dex/storage/sql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 )
 
 // InitDexDB initiates the connection to postgres to populate the Dex DB.
@@ -23,7 +25,7 @@ func (env *NonblockingServiceEnv) InitDexDB() {
 				Port:     uint16(env.Config().PGBouncerPort),
 			},
 			SSL: dex_sql.SSL{
-				Mode: env.Config().PostgresSSL,
+				Mode: dbutil.SSLModeDisable,
 			},
 		}).Open(env.Logger().WithField("source", "identity-db"))
 		return
