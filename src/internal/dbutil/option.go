@@ -57,3 +57,17 @@ func WithConnMaxIdleTime(d time.Duration) Option {
 		dbc.connMaxIdleTime = d
 	}
 }
+
+const (
+	SSLModeDisable = "disable"
+	SSLModeEnable  = "verify-full"
+
+	DefaultSSLMode = SSLModeDisable
+)
+
+// WithSSLMode sets the SSL mode for connections to the database
+func WithSSLMode(mode string) Option {
+	return func(dbc *dbConfig) {
+		dbc.sslMode = mode
+	}
+}
