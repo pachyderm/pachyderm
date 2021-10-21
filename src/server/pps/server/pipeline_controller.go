@@ -531,7 +531,7 @@ func (op *pipelineOp) startPipelineMonitor() {
 	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of op.pipelineInfo to
 	// avoid a race condition
 	pi := *op.pipelineInfo
-	op.startMonitor(op.masterOpCtx, &pi)
+	op.monitorCancel = op.startMonitor(op.masterOpCtx, &pi)
 	op.pipelineInfo.Details.WorkerRc = op.rc.ObjectMeta.Name
 }
 
@@ -540,7 +540,7 @@ func (op *pipelineOp) startCrashingPipelineMonitor() {
 	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of op.pipelineInfo to
 	// avoid a race condition
 	pi := *op.pipelineInfo
-	op.startCrashingMonitor(op.masterOpCtx, &pi)
+	op.crashingMonitorCancel = op.startCrashingMonitor(op.masterOpCtx, &pi)
 }
 
 func (op *pipelineOp) stopPipelineMonitor() {
