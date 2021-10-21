@@ -35,10 +35,15 @@ spec:
       {{-  if .Values.pachd.affinity }}
       affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
       {{- end }}
-{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
+      {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
+      {{- if and (eq (include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
+      securityContext:
+        runAsUser: 0 # Need to run as root local for hostpath support
+      {{- else }}
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
+      {{- end }} 
       containers:
       - command:
         - /pachd
@@ -173,11 +178,7 @@ spec:
         {{- if .Values.pachd.tls.enabled }}
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
-        {{- end }}
-      {{- if and (eq (include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
-      securityContext:
-        runAsUser: 0 # Need to run as root local for hostpath support
-      {{- end }}
+        {{- end }} 
       {{- if .Values.pachd.serviceAccount.name }}
       serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
       {{- end }}
