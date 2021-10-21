@@ -452,6 +452,8 @@ oidc:
   issuerURI: "" #Inferred if running locally or using ingress
   requireVerifiedEmail: false
   IDTokenExpiry: 24h
+  # (Optional) If set, enables OIDC rotation tokens, and specifies the duration where they are valid.
+  RotationTokenExpiry: 48h
   # (Optional) Only set in cases where the issuerURI is not user accessible (ie. localhost install)
   userAccessibleOauthIssuerHost: ""
   ## to set up upstream IDPs, set pachd.mockIDP to false,

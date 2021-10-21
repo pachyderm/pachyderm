@@ -94,6 +94,9 @@ var state_2_0_0 migrations.State = migrations.InitialState().
 		collections := []col.PostgresCollection{}
 		collections = append(collections, licenseserver.CollectionsV0()...)
 		return col.SetupPostgresCollections(ctx, env.Tx, collections...)
+	}).
+	Apply("add rotation_token_expiry to identity.config table", func(ctx context.Context, env migrations.Env) error {
+		return identity.AddRotationTokenExpiryConfig(ctx, env.Tx)
 	})
 	// DO NOT MODIFY THIS STATE
 	// IT HAS ALREADY SHIPPED IN A RELEASE
