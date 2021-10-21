@@ -194,7 +194,6 @@ pachd:
       name: "pachyderm-worker"
   rbac:
     create: true
-    clusterRBAC: true
 
 pgbouncer:
   service:
@@ -437,8 +436,6 @@ If any of `rootToken`,`enterpriseSecret`, or `oauthClientSecret` are blank, a va
 - `pachd.serviceAccount.create` creates a kubernetes service account for pachd. Default is true.
 
 - `pachd.rbac.create`  indicates whether RBAC resources should be created. Default is true.
-
-- `pachd.rbac.clusterRBAC` indicates that ClusterRole and ClusterRoleBinding should be used rather than Role and RoleBinding. Default is true.
 
 #### pachd.storage
 
