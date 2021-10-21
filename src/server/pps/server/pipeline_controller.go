@@ -374,13 +374,13 @@ func (op *pipelineOp) loadLatestPipelineInfo() error {
 // caller shouldn't continue with other operations
 func (op *pipelineOp) getRC(ctx context.Context, expectation rcExpectation) (retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/GetRC", "pipeline", op.pipelineInfo.Pipeline.Name)
+		"/pps.Master/GetRC", "pipeline", op.pipeline)
 	defer func(span opentracing.Span) {
 		tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
 		tracing.FinishAnySpan(span)
 	}(span)
 
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.pipelineInfo.Pipeline.Name)
+	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.pipeline)
 
 	// count error types separately, so that this only errors if the pipeline is
 	// stuck and not changing
@@ -442,7 +442,7 @@ func (op *pipelineOp) getRC(ctx context.Context, expectation rcExpectation) (ret
 			}
 			return err //return whatever the most recent error was
 		}
-		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", op.pipelineInfo.Pipeline.Name, err, d)
+		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", op.pipeline, err, d)
 		return nil
 	})
 }
