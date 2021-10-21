@@ -193,33 +193,15 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 	}()
 
 	// set op.pipelineInfo
-	errCnt := 0
-	if err := backoff.RetryNotify(func() error {
-		err := op.loadLatestPipelineInfo()
+	if err := op.tryLoadLatestPipelineInfo(); err != nil && collection.IsErrNotFound(err) {
 		// if the pipeline info is not found, interpret the operation as a delete
-		if err != nil && collection.IsErrNotFound(err) {
-			if err := op.deletePipelineResources(); err != nil {
-				log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipeline,
-					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
-			}
-			op.tryFinish()
-			return nil
+		if err := op.deletePipelineResources(); err != nil {
+			log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipeline,
+				errors.Wrapf(err, "failing pipeline %q", op.pipeline))
 		}
-		return err
-	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		errCnt++
-		// Don't put the pipeline in a failing state if we're in the middle
-		// of activating auth, retry in a bit
-		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
-			log.Errorf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
-				op.pipeline, err, d)
-			return nil
-		}
-		return stepError{
-			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q", op.pipeline),
-			retry: false,
-		}
-	}); err != nil {
+		op.tryFinish()
+		return nil
+	} else if err != nil {
 		return err
 	}
 
@@ -350,6 +332,27 @@ func (op *pipelineOp) run(stepCtx context.Context) error {
 		return op.scaleUpPipeline(stepCtx)
 	}
 	return nil
+}
+
+func (op *pipelineOp) tryLoadLatestPipelineInfo() error {
+	errCnt := 0
+	err := backoff.RetryNotify(func() error {
+		return op.loadLatestPipelineInfo()
+	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
+		errCnt++
+		// Don't put the pipeline in a failing state if we're in the middle
+		// of activating auth, retry in a bit
+		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
+			log.Errorf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
+				op.pipeline, err, d)
+			return nil
+		}
+		return stepError{
+			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q", op.pipeline),
+			retry: false,
+		}
+	})
+	return err
 }
 
 func (op *pipelineOp) loadLatestPipelineInfo() error {
