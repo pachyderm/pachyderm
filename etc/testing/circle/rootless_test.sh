@@ -5,11 +5,10 @@ set -ve
 export PATH="${PWD}:${PWD}/cached-deps:${GOPATH}/bin:${PATH}"
 
 VERSION=v1.19.0
-VMDRIVER="none"
 
 # start minikube with pod security admission plugin
 minikube start \
-    --vm-driver=${VMDRIVER} \
+    --vm-driver=docker \
     --kubernetes-version=${VERSION} \
     --extra-config=apiserver.enable-admission-plugins=PodSecurityPolicy \
     --addons=pod-security-policy
