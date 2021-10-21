@@ -6,11 +6,22 @@
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
       - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
 
-Google Cloud Platform provides seamless support for Kubernetes.
-Therefore, Pachyderm is fully supported on [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/) (GKE).
-The following section walks you through deploying a Pachyderm cluster on GKE.
+The following section walks you through deploying a Pachyderm cluster on [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/) (GKE). 
+
+In particular, you will:
+
+1. Make a few [client installations](#1-prerequisites) before you start.
+1. [Deploy Kubernetes](#2-deploy-kubernetes).
+1. [Create an GCS bucket](#3-create-a-gcs-bucket) for your data and grant Pachyderm access.
+1. [Enable Persistent Volumes Creation](#4-persistent-volumes-creation)
+1. [Create An GCP Managed PostgreSQL Instance](#5-create-a-gcp-managed-postgresql-database)
+1. [Deploy Pachyderm ](#6-deploy-pachyderm)
+1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster](#7-have-pachctl-and-your-cluster-communicate).
+1. And check that your cluster is [up and running](#8-check-that-your-cluster-is-up-and-running)
 
 ## 1. Prerequisites
+
+Install the following clients:
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/) >= 124.0.0
 - [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
@@ -18,12 +29,6 @@ The following section walks you through deploying a Pachyderm cluster on GKE.
 
 If this is the first time you use the SDK, follow
 the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts).
-
-!!! note
-    When you follow the QuickStart Guide, you might update your `~/.bash_profile`
-    and point your `$PATH` at the location where you extracted
-    `google-cloud-sdk`. However, Pachyderm recommends that you extract
-    the SDK to `~/bin`.
 
 !!! tip
     You can install `kubectl` by using the Google Cloud SDK and
@@ -33,7 +38,7 @@ the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts)
     gcloud components install kubectl
     ```
 
-Additionally, before you begin your installation, make sure to create a new Project or retrieve the ID of an existing project you want to deploy your cluster on. (See GCP's Documentation to [Create and Manage Projects](https://cloud.google.com/resource-manager/docs/creating-managing-projects).
+Additionally, before you begin your installation, make sure to [create a new Project](https://cloud.google.com/resource-manager/docs/creating-managing-projects) or retrieve the ID of an existing Project you want to deploy your cluster on. 
 
 All of the commands in this section are assuming that you are going to set your gcloud config to automatically select your project.  Please take the time to do so now with the following command, or be aware you will need to pass additional project parameters to the rest of the commands in this documentation.
 
@@ -70,7 +75,7 @@ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-ad
 ```
 
 !!! Note
-    Adding `--scopes storage-rw` to `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` will grant Pachyderm read/write access to all of your GCP resources. While this is **not recommended in any production settings**, this option can be useful for a quick development setup. In that scenario, you do not need any service account or additional GCP Bucket permission (see below).
+    Adding `--scopes storage-rw` to `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` will grant Pachyderm read/write access to all of your GCP resources. While this is **not recommended in any production settings**, this option can be useful for a quick setup in development. In that scenario, you do not need any service account or additional GCP Bucket permission (see below).
 
 This might take a few minutes to start up. You can check the status on
 the [GCP Console](https://console.cloud.google.com/compute/instances).
@@ -116,20 +121,10 @@ the following command:
 # Update your kubeconfig to point at your newly created cluster.
 gcloud container clusters get-credentials ${CLUSTER_NAME}
 ```
-
-Once your Kubernetes cluster is up, and your infrastructure is configured, you are ready to prepare for the installation of Pachyderm. Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
-
-3. [Create an GCS bucket](#3-create-a-gcs-bucket) for your data and grant Pachyderm access.
-
-
-1. [Enable Persistent Volumes Creation](#2-enable-your-persistent-volumes-creation)
-1. [Create An GCP Managed PostgreSQL Instance](#3-create-an-aws-managed-postgresql-database)
-1. [Deploy Pachyderm ](#4-deploy-pachyderm)
-1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster](#5-have-pachctl-and-your-cluster-communicate).
-1. And check that your cluster is [up and running](#6-check-that-your-cluster-is-up-and-running)
+Once your Kubernetes cluster is up, and your infrastructure configured, you are ready to prepare for the installation of Pachyderm. Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
 ## 3. Create a GCS Bucket
 
-### Create an GCS object store bucket for data
+### Create an GCS object store bucket for your data
 
 Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) (Object store) to store your data. You can create the bucket by running the following commands:
 
@@ -152,6 +147,7 @@ Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) (Object s
      gsutil ls
      # You should see the bucket you created.
     ```
+
 You now need to **give Pachyderm access to your bucket**.
 
 ### Set Up Your GCP Service Account
@@ -196,7 +192,7 @@ If you plan to deploy Pachyderm with its default bundled PostgreSQL instance, re
     size, though we recommend provisioning at least 1500 write IOPS, which requires at least 50GB of space on SSD-based PDs and 1TB of space on Standard PDs. 
 
 If you plan to deploy a managed PostgreSQL instance (Recommended in production), read the following section.
-## 5.Create a GCP Managed PostgreSQL Database
+## 5. Create a GCP Managed PostgreSQL Database
 
 By default, Pachyderm runs with a bundled version of PostgreSQL. 
 For production environments, it is **strongly recommended that you disable the bundled version and use a CloudSQL instance**. 
@@ -212,8 +208,9 @@ This section will provide guidance on the configuration settings you will need t
 
 ### Create A CloudSQL Instance
 
-Find the details of the steps and available parameters to create a CloudSQL instance in [GCP  Documentation: "Create instances: CloudSQL for PostgreSQL"](https://cloud.google.com/sql/docs/postgres/create-instance#gcloud), or run: 
+Find the details of the steps and available parameters to create a CloudSQL instance in [GCP  Documentation: "Create instances: CloudSQL for PostgreSQL"](https://cloud.google.com/sql/docs/postgres/create-instance#gcloud).
 
+Find an illustrative example below:
 ```shell
 gcloud sql instances create <YOUR_INSTANCE_NAME> \
 --database-version=POSTGRES_13 \
@@ -224,7 +221,12 @@ gcloud sql instances create <YOUR_INSTANCE_NAME> \
 --storage-size=50GB \
 --storage-type=PD_SSD \
 --storage-auto-increase \
+----root-password=<admin_user_"postgres"_password>
 ```
+
+When you create a new Cloud SQL for PostgreSQL instance, a [default admin user](https://cloud.google.com/sql/docs/postgres/users#default-users) `Username: "postgres".` is created. It will be later used by Pachyderm to access its databases. You need to set a password for this user before you can log in. To do so, add `--root-password` to your gcloud command above.
+
+Check out Google documentation for more information on how to [Create and Manage PostgreSQL Users](https://cloud.google.com/sql/docs/postgres/create-manage-users).
 
 ### Create Your Databases
 After the instance is created, those two commands create the databases that pachyderm uses.
@@ -233,15 +235,7 @@ After the instance is created, those two commands create the databases that pach
 gcloud sql databases create dex 
 gcloud sql databases create pachyderm
 ```
-
-Additionally, create a new user account (see command below) and **grant it full CRUD permissions to both `pachyderm` and `dex` databases**. Pachyderm will use the same username to connect to `pachyderm` as well as to `dex`. 
-
-```shell
-gcloud sql users create <username> --instance=<INSTANCE_ID> --password=<password>
-```
-### Connect To Your Instance Using The Cloud SQL Auth Proxy 
-Find out how to connect to your Cloud SQL instance using the Cloud SQL Auth proxy in [this documentation](https://cloud.google.com/sql/docs/postgres/connect-admin-proxy).
-
+Pachyderm will use the same user "postgres" to connect to `pachyderm` as well as to `dex`. 
 ### Update your values.yaml 
 Once your databases have been created, add the following fields to your Helm values:
 
@@ -249,8 +243,8 @@ Once your databases have been created, add the following fields to your Helm val
 ```yaml
 global:
   postgresql:
-    postgresqlUsername: "username"
-    postgresqlPassword: "password" 
+    postgresqlUsername: "postgres"
+    postgresqlPassword: "admin_user_"postgres"_password"
     # The name of the database should be Pachyderm's ("pachyderm" in the example above), not "dex" 
     postgresqlDatabase: "INSTANCE_NAME"
     # The postgresql database host to connect to. Defaults to postgres service in subchart
@@ -264,11 +258,12 @@ postgresql:
   # database server to connect to in global.postgresql
   enabled: false
 ```
-
+### Use Cloud SQL Auth Proxy To Connect To Your Instance 
+Find out how to connect to your Cloud SQL instance using the Cloud SQL Auth proxy in [this documentation](https://cloud.google.com/sql/docs/postgres/connect-admin-proxy).
 ## 6. Deploy Pachyderm
 You have set up your infrastructure, created your GCP bucket, and granted your cluster access to your bucket.
 
-You can now finalize your values.yaml and deploy Pachyderm.
+You can now finalize your values.yaml and deploy Pachyderm. Check the example below.
 
 Note that if you have created a GCP Managed PostgreSQL instance, you will have to replace the Postgresql section below with the appropriate values defined above.
 ### Update Your Values.yaml   
@@ -408,6 +403,7 @@ If you're not exposing `pachd` publicly, you can run:
 $ pachctl port-forward
 ``` 
 
+## 8. Check That Your Cluster Is Up And Running
 You are done! You can make sure that your cluster is working
 by running `pachctl version` or creating a new repo.
 
@@ -423,7 +419,7 @@ pachctl             {{ config.pach_latest_version }}
 pachd               {{ config.pach_latest_version }}
 ```
 
-## 7. Advanced Setups
+## 9. Advanced Setups
 ### Increase Ingress Throughput
 
 One way to improve Ingress performance is to restrict Pachd to
@@ -453,13 +449,3 @@ HDD disks. Additionally, you can increase the size of the SSD for
 further performance gains because the number of IOPS increases with
 disk size.
 
-### Increase merge performance
-
-Performance tweaks when it comes to merges can be done directly in
-the [Pachyderm pipeline spec](../../../reference/pipeline_spec/).
-More specifically, you can increase the number of hashtrees (hashtree spec)
-in the pipeline spec. This number determines the number of shards for the
-filesystem metadata. In general this number should be lower than the number
-of workers (parallelism spec) and should not be increased unless merge time
-(the time before the job is done and after the number of processed datums +
-skipped datums is equal to the total datums) is too slow.

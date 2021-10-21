@@ -87,6 +87,8 @@ If your `ingress` is enabled:
 ```
 See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L143) for all available fields.
 
+!!! Info
+    You might choose to deploy your preferred Ingress Controller (Traefik, NGINX). Read about the installation and configuration of [Traefik](./pach-ui-ingress/) on a cluster.
 
 === "Example on AWS EKS"
 
@@ -127,9 +129,6 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
 
 
 As of today, few Ingress Controller offer full support of the gRPC protocol. To access `pachd` over gRPC (for example, when using `pachctl` or the s3Gateway, we recommend using a Load Balancer instead.
-
-!!! Info
-    You might choose to deploy your preferred Ingress Controller (Traefik, NGINX). Read about the installation and configuration of [Traefik](./pach-ui-ingress/) on a cluster.
 
 !!! See "See Also" 
      * Kubernetes [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
