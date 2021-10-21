@@ -122,6 +122,7 @@ func (op *pipelineOp) Bump() {
 // Other errors are simply logged and ignored, assuming that some future polling
 // of the pipeline will succeed.
 func (op *pipelineOp) Start(timestamp time.Time) {
+	op.Bump()
 	for {
 		select {
 		case <-op.masterOpCtx.Done():
@@ -531,7 +532,9 @@ func (op *pipelineOp) startPipelineMonitor() {
 	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of op.pipelineInfo to
 	// avoid a race condition
 	pi := *op.pipelineInfo
-	op.monitorCancel = op.startMonitor(op.masterOpCtx, &pi)
+	if op.monitorCancel == nil {
+		op.monitorCancel = op.startMonitor(op.masterOpCtx, &pi)
+	}
 	op.pipelineInfo.Details.WorkerRc = op.rc.ObjectMeta.Name
 }
 
@@ -540,18 +543,22 @@ func (op *pipelineOp) startCrashingPipelineMonitor() {
 	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of op.pipelineInfo to
 	// avoid a race condition
 	pi := *op.pipelineInfo
-	op.crashingMonitorCancel = op.startCrashingMonitor(op.masterOpCtx, &pi)
+	if op.crashingMonitorCancel == nil {
+		op.crashingMonitorCancel = op.startCrashingMonitor(op.masterOpCtx, &pi)
+	}
 }
 
 func (op *pipelineOp) stopPipelineMonitor() {
 	if op.monitorCancel != nil {
 		op.monitorCancel()
+		op.monitorCancel = nil
 	}
 }
 
 func (op *pipelineOp) stopCrashingPipelineMonitor() {
 	if op.crashingMonitorCancel != nil {
 		op.crashingMonitorCancel()
+		op.crashingMonitorCancel = nil
 	}
 }
 

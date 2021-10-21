@@ -105,14 +105,9 @@ func (m *ppsMaster) cancelAllMonitorsAndCrashingMonitors() {
 	m.om.Lock()
 	defer m.om.Unlock()
 
-	maybeCancel := func(cancel func()) {
-		if cancel != nil {
-			cancel()
-		}
-	}
 	for _, op := range m.om.activeOps {
-		maybeCancel(op.monitorCancel)
-		maybeCancel(op.crashingMonitorCancel)
+		op.stopPipelineMonitor()
+		op.stopCrashingPipelineMonitor()
 	}
 }
 
