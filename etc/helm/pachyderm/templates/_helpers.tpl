@@ -36,11 +36,19 @@ imagePullSecrets:
 {{- end }}
 {{- end -}}
 
+{{- define "pachyderm.ingressproto" -}}
+{{- if .Values.ingress.tls.enabled -}}
+https
+{{- else -}}
+http
+{{- end -}}
+{{- end }}
+
 {{- define "pachyderm.issuerURI" -}}
 {{- if .Values.oidc.issuerURI -}}
 {{ .Values.oidc.issuerURI }}
 {{- else if .Values.ingress.host -}}
-https://{{ .Values.ingress.host }}/dex
+{{- printf "%s://%s/dex" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
 {{- else if eq .Values.deployTarget "LOCAL" -}}
 {{- if eq .Values.pachd.service.type "NodePort" -}}
 http://pachd:1658
@@ -61,7 +69,7 @@ In deployments where the issuerURI is user accessible (ie. Via ingress) this wou
 {{- if .Values.console.config.reactAppRuntimeIssuerURI -}}
 {{ .Values.console.config.reactAppRuntimeIssuerURI }}
 {{- else if .Values.ingress.host -}}
-https://{{ .Values.ingress.host }}
+{{- printf "%s://%s" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
 {{- else if eq .Values.deployTarget "LOCAL" -}}
 http://localhost:30658
 {{- end }}
@@ -71,7 +79,7 @@ http://localhost:30658
 {{- if .Values.console.config.oauthRedirectURI -}}
 {{ .Values.console.config.oauthRedirectURI }}
 {{- else if .Values.ingress.host -}}
-https://{{ .Values.ingress.host }}/oauth/callback/?inline=true
+{{- printf "%s://%s/oauth/callback/?inline=true" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
 {{- else if eq .Values.deployTarget "LOCAL" -}}
 http://localhost:4000/oauth/callback/?inline=true
 {{- else -}}
@@ -83,7 +91,7 @@ http://localhost:4000/oauth/callback/?inline=true
 {{- if .Values.pachd.oauthRedirectURI -}}
 {{ .Values.console.config.oauthRedirectURI -}}
 {{- else if .Values.ingress.host -}}
-https://{{ .Values.ingress.host }}/authorization-code/callback
+{{- printf "%s://%s/authorization-code/callback" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
 {{- else if eq .Values.deployTarget "LOCAL" -}}
 http://localhost:30657/authorization-code/callback
 {{- else -}}
