@@ -87,7 +87,9 @@ If your `ingress` is enabled:
 ```
 See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L143) for all available fields.
 
-!!! Example
+
+=== "Example on AWS EKS"
+
     In the example below, we are opening the HTTPS port and enabling TLS on AWS EKS.
 
     ```yaml
@@ -107,6 +109,21 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
             enabled: true
             secretName: "pach-tls"
     ```
+=== "Example on GCP GKE"
+
+    In the example below using the ingress controller Traefik, we are opening the HTTPS port and enabling TLS on GCP GKE.
+
+
+    ```yaml
+    ingress:
+        enabled: true
+        annotations: 
+          kubernetes.io/ingress.clas: traefik
+        host: "your_domain_name"
+        tls:
+            enabled: true
+            secretName: "pach-tls"
+    ```
 
 
 As of today, few Ingress Controller offer full support of the gRPC protocol. To access `pachd` over gRPC (for example, when using `pachctl` or the s3Gateway, we recommend using a Load Balancer instead.
@@ -120,6 +137,7 @@ As of today, few Ingress Controller offer full support of the gRPC protocol. To 
 
 ### `LoadBalancer`
 You should load balance **all gRPC and S3 incoming traffic** to a TCP LB (load balanced at L4 of the OSI model) deployed in front of the `pachd` service. To automatically provision an external load balancer in your current cloud (if supported), enable the `externalService` field of the `pachd` service in your values.yaml as follow:
+
 
 ```yaml
 # If enabled, External service creates a service which is safe to
@@ -139,17 +157,32 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
 
 Add the appropriate annotations to attach any Load Balancer configuration information to the metadata of your service.
 
-!!! Example
+=== "Example on AWS EKS"
     In the following example, we deploy an NLB and enable TLS on AWS EKS:
 
     ``` yaml
-    annotations:
-        service.beta.kubernetes.io/aws-load-balancer-type: "external"
-        service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
-        service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
-        service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-aaaaa,subnet-bbbbb,subnet-ccccc"
-        service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:region:account-id:certificate/aaa-bbb-cccc"
-        service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "30600,30650,30657,30658"
+    pachd:
+      externalService:
+        enabled: true
+        apiGRPCPort: 30650
+        s3GatewayPort: 30600
+        annotations:
+            service.beta.kubernetes.io/aws-load-balancer-type: "external"
+            service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+            service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+            service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-aaaaa,subnet-bbbbb,subnet-ccccc"
+            service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:region:account-id:certificate/aaa-bbb-cccc"
+            service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "30600,30650,30657,30658"
+    ```
+=== "Example on GCP GKE"
+
+    ``` yaml
+    pachd:
+      externalService:
+        enabled: true
+        apiGRPCPort: 30650
+        s3GatewayPort: 30600
+        loadBalancerIP: pach.ClusterIP
     ```
 
 Next:   Find the [deployment page that matches your cloud provider](../../)

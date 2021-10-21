@@ -33,6 +33,14 @@ the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts)
     gcloud components install kubectl
     ```
 
+Additionally, before you begin your installation, make sure to create a new Project or retrieve the ID of an existing project you want to deploy your cluster on. (See GCP's Documentation to [Create and Manage Projects](https://cloud.google.com/resource-manager/docs/creating-managing-projects).
+
+All of the commands in this section are assuming that you are going to set your gcloud config to automatically select your project.  Please take the time to do so now with the following command, or be aware you will need to pass additional project parameters to the rest of the commands in this documentation.
+
+```shell
+gcloud config set project PROJECT_ID
+```
+
 ## 2. Deploy Kubernetes
 
 To create a new Kubernetes cluster by using GKE, run:
@@ -49,20 +57,20 @@ gcloud config set container/cluster ${CLUSTER_NAME}
 MACHINE_TYPE=<machine type for the k8s nodes, we recommend "n1-standard-4" or larger>
 
 # By default the following command spins up a 3-node cluster. You can change the default with `--num-nodes VAL`.
-gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}
+gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE} 
 
 # By default, GKE clusters have RBAC enabled. To allow the 'helm install' to give the 'pachyderm' service account
 # the requisite privileges via clusterrolebindings, you will need to grant *your user account* the privileges
 # needed to create those clusterrolebindings.
 #
 # Note that this command is simple and concise, but gives your user account more privileges than necessary. See
-# https://docs.pachyderm.io/en/latest/deployment/rbac.html for the complete list of privileges that the
+# https://docs.pachyderm.io/en/latest/deploy-manage/deploy/rbac/ for the complete list of privileges that the
 # pachyderm serviceaccount needs.
 kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
 ```
 
 !!! Note
-    Adding `--scopes storage-rw` to `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` will grant Pachyderm read/write access to all of your GCP resources. While this is **not recommended in any production settings**, this option can be useful for a quick test setup. In that scenario, you do not need any service account or additional GCP Bucket permission.
+    Adding `--scopes storage-rw` to `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` will grant Pachyderm read/write access to all of your GCP resources. While this is **not recommended in any production settings**, this option can be useful for a quick development setup. In that scenario, you do not need any service account or additional GCP Bucket permission (see below).
 
 This might take a few minutes to start up. You can check the status on
 the [GCP Console](https://console.cloud.google.com/compute/instances).
@@ -108,54 +116,62 @@ the following command:
 # Update your kubeconfig to point at your newly created cluster.
 gcloud container clusters get-credentials ${CLUSTER_NAME}
 ```
-## 3. Set up your Storage Resources
 
-### Create a GCS Bucket
-Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) (Object store) to function correctly. You can create the bucket by running the following commands:
+Once your Kubernetes cluster is up, and your infrastructure is configured, you are ready to prepare for the installation of Pachyderm. Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
+
+3. [Create an GCS bucket](#3-create-a-gcs-bucket) for your data and grant Pachyderm access.
 
 
-```shell
-# The Pachyderm bucket name needs to be globally unique across the entire GCP region.
-BUCKET_NAME=<The name of the GCS bucket where your data will be stored>
+1. [Enable Persistent Volumes Creation](#2-enable-your-persistent-volumes-creation)
+1. [Create An GCP Managed PostgreSQL Instance](#3-create-an-aws-managed-postgresql-database)
+1. [Deploy Pachyderm ](#4-deploy-pachyderm)
+1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster](#5-have-pachctl-and-your-cluster-communicate).
+1. And check that your cluster is [up and running](#6-check-that-your-cluster-is-up-and-running)
+## 3. Create a GCS Bucket
 
-# Create the bucket.
-gsutil mb gs://${BUCKET_NAME}
-```
+### Create an GCS object store bucket for data
 
-To check that everything has been set up correctly, run:
-
-```shell
-gsutil ls
-# You should see the bucket you created.
-```
-!!! Info
-    Additionally, the metadata service (that stores PFS metadata) requires a [persistent disk](https://cloud.google.com/compute/docs/disks/).
-    
-    When deploying Pachyderm on GCP, a pv is automatically created and assigned the **default disk size of 50 GBs**. Note that StatefulSets is a default as well .
+Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) (Object store) to store your data. You can create the bucket by running the following commands:
 
 !!! Warning
-    The persistent disk generally requires a small persistent volume size but **high IOPS (1500)**. If you choose to overwrite the default disk size, depending on your disk choice, you may need to oversize the volume significantly to ensure enough IOPS. For reference, 1GB should work fine for 1000 commits on 1000 files. 10GB is often a sufficient starting
-    size, though we recommend provisioning at least 1500 write IOPS, which requires at least 50GB of space on SSD-based PDs and 1TB of space on Standard PDs. 
+     The GCS bucket name must be globally unique across the entire GCP region.
 
+* Set up the following system variables:
+
+      * `BUCKET_NAME` — A globally unique GCP bucket name where your data will be stored.
+      * `GCP_REGION` — The GCP region of your Kubernetes cluster. 
+
+* Create the bucket:
+     ```
+     gsutil mb gs://${BUCKET_NAME} -l ${GCP_REGION} 
+     ```
+
+* Check that everything has been set up correctly:
+
+     ```shell
+     gsutil ls
+     # You should see the bucket you created.
+    ```
+You now need to **give Pachyderm access to your bucket**.
 
 ### Set Up Your GCP Service Account
-To access your GCP resources, Pachyderm uses a GCP Service Account with permissioned access to your desired GCS buckets. You can either use an existing service account or create a new one then use the JSON key associated with the service account and pass it on to Pachyderm. 
+To access your GCP resources, Pachyderm uses a GCP Project Service Account with permissioned access to your desired GCS buckets. You can either use an existing service account or create a new one in your default project, then use the JSON key associated with the service account and pass it on to Pachyderm. 
 
 * **Create a Service Account**
 
-    In the "IAM & Admin" section of your Google Cloud Console sidebar, select "Service Accounts". To create a new service, select the "Create Service Account" button at the top. 
+    In the **AM & Admin** section of your Google Cloud Console sidebar, select **Service Accounts**. To create a new service, select the **Create Service Account** button at the top. 
 
-    Fill in the Service Account Name, ID and Description then click Create. Keep the full email of your servoce account handy, you will need it soon.
+    Fill in the Service Account *Name*, *ID* and *Description* then click **Create**. Keep the full email of your service account handy, you will need it soon.
     
     More infornation about the creation and management of a Service account on [GCP documentation](https://cloud.google.com/iam/docs/creating-managing-service-accounts).
 
 * **Create a Key**
-    On the service accounts home page in your Google Cloud Console, select your service account. In the "Keys" tab, select "Add Key", and then "Create New Key", select "JSON" then click "Create".
+    On the Service Accounts home page in your Google Cloud Console, select your Service Account. In the **Keys** tab, select **Add Key**, and then **Create New Key**, select **JSON** then click **Create**.
 
 ### Configure Your GCS Bucket Permissions
-For Pachyderm to access your Google Cloud Storage bucket, you must add your service account as a new member on your bucket.
+For Pachyderm to access your Google Cloud Storage bucket, you must **Add your service account as a new member on your bucket**.
 
-In the "Cloud Storage" section of your Google Cloud Console sidebar,  select the "Browser" tab and find your GCS bucket. Click the three dots on the right-hand side to select "Edit Bucket Permissions".
+In the **Cloud Storage** section of your Google Cloud Console sidebar,  select the **Browser** tab and find your GCS bucket. Click the three dots on the right-hand side to select "Edit Bucket Permissions".
 
 !!! Warning
     Be sure to input the full email (e.g. pachyderm@my-project.iam.gserviceaccount.com) of the account. 
@@ -166,80 +182,206 @@ In the "Cloud Storage" section of your Google Cloud Console sidebar,  select the
 
 For a set of standard roles, read the [GCP IAM permissions documentation](https://cloud.google.com/storage/docs/access-control/iam-permissions#bucket_permissions).
 
-## 4. Deploy Pachyderm
+## 4. Persistent Volumes Creation
 
-### Update your values.yaml
-Update your values.yaml with your bucket name.
+etcd and PostgreSQL (metadata storage) each claim the creation of a [persistent disk](https://cloud.google.com/compute/docs/disks/). 
 
-Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml)) or use `--set-file pachd.storage.google.cred=<my-key>.json` when running the following helm install. 
+If you plan to deploy Pachyderm with its default bundled PostgreSQL instance, read the following and jump to the [deployment section](#6-deploy-pachyderm): 
+
+!!! Info   
+    When deploying Pachyderm on GCP, your pvs are automatically created and assigned the **default disk size of 50 GBs**. Note that StatefulSets is a default as well .
+
+!!! Warning
+    Each persistent disk generally requires a small persistent volume size but **high IOPS (1500)**. If you choose to overwrite the default disk size, depending on your disk choice, you may need to oversize the volume significantly to ensure enough IOPS. For reference, 1GB should work fine for 1000 commits on 1000 files. 10GB is often a sufficient starting
+    size, though we recommend provisioning at least 1500 write IOPS, which requires at least 50GB of space on SSD-based PDs and 1TB of space on Standard PDs. 
+
+If you plan to deploy a managed PostgreSQL instance (Recommended in production), read the following section.
+## 5.Create a GCP Managed PostgreSQL Database
+
+By default, Pachyderm runs with a bundled version of PostgreSQL. 
+For production environments, it is **strongly recommended that you disable the bundled version and use a CloudSQL instance**. 
+
+This section will provide guidance on the configuration settings you will need to: 
+
+- Create an environment to run your GCP CloudSQL databases. 
+- Create **two databases** (`pachyderm` and `dex`).
+- Update your values.yaml to turn off the installation of the bundled postgreSQL and provide your new instance information.
 
 !!! Note
-    Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation.
+      It is assumed that you are already familiar with CloudSQL, or will be working with an administrator who is.
+
+### Create A CloudSQL Instance
+
+Find the details of the steps and available parameters to create a CloudSQL instance in [GCP  Documentation: "Create instances: CloudSQL for PostgreSQL"](https://cloud.google.com/sql/docs/postgres/create-instance#gcloud), or run: 
+
+```shell
+gcloud sql instances create <YOUR_INSTANCE_NAME> \
+--database-version=POSTGRES_13 \
+--cpu=2 \
+--memory=7680MB \
+--zone=${GCP_ZONE}
+--availability-type=ZONAL \
+--storage-size=50GB \
+--storage-type=PD_SSD \
+--storage-auto-increase \
+```
+
+### Create Your Databases
+After the instance is created, those two commands create the databases that pachyderm uses.
+
+```shell
+gcloud sql databases create dex 
+gcloud sql databases create pachyderm
+```
+
+Additionally, create a new user account (see command below) and **grant it full CRUD permissions to both `pachyderm` and `dex` databases**. Pachyderm will use the same username to connect to `pachyderm` as well as to `dex`. 
+
+```shell
+gcloud sql users create <username> --instance=<INSTANCE_ID> --password=<password>
+```
+### Connect To Your Instance Using The Cloud SQL Auth Proxy 
+Find out how to connect to your Cloud SQL instance using the Cloud SQL Auth proxy in [this documentation](https://cloud.google.com/sql/docs/postgres/connect-admin-proxy).
+
+### Update your values.yaml 
+Once your databases have been created, add the following fields to your Helm values:
+
+
+```yaml
+global:
+  postgresql:
+    postgresqlUsername: "username"
+    postgresqlPassword: "password" 
+    # The name of the database should be Pachyderm's ("pachyderm" in the example above), not "dex" 
+    postgresqlDatabase: "INSTANCE_NAME"
+    # The postgresql database host to connect to. Defaults to postgres service in subchart
+    postgresqlHost: "CloudSQL CNAME"
+    # The postgresql database port to connect to. Defaults to postgres server in subchart
+    postgresqlPort: "5432"
+
+postgresql:
+  # turns off the install of the bundled postgres.
+  # If not using the built in Postgres, you must specify a Postgresql
+  # database server to connect to in global.postgresql
+  enabled: false
+```
+
+## 6. Deploy Pachyderm
+You have set up your infrastructure, created your GCP bucket, and granted your cluster access to your bucket.
+
+You can now finalize your values.yaml and deploy Pachyderm.
+
+Note that if you have created a GCP Managed PostgreSQL instance, you will have to replace the Postgresql section below with the appropriate values defined above.
+### Update Your Values.yaml   
+
+[See an example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml). Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` or use `--set-file pachd.storage.google.cred=<my-key>.json` when running the following helm install. 
+
+```yaml
+deployTarget: GOOGLE
+
+etcd:
+  resources:
+    requests:
+        cpu: "1"
+        memory: "2G"
+
+  storageClass: "ssd-storage-class"
+  storageSize:  storageSize??
+
+pachd:
+  enabled: true
+  resources:
+    limits:
+        cpu: "4"
+        memory: "8G"   
+    requests:
+        cpu: "1"
+        memory: "8G"
+  storage:
+    google:
+      bucket: "bucket_name"
+      # You can also pass the creds on the command line using helm install --set-file storage.google.cred=creds.json 
+      cred: |
+        INSERT JSON HERE
+  serviceAccount:
+    additionalAnnotations:
+      iam.gke.io/gcp-service-account: "service account ID and Role"
+  worker:
+    serviceAccount:
+      additionalAnnotations:
+        iam.gke.io/gcp-service-account: "service account ID and Role"
+
+postgresql:
+  # If using the built in Postgres
+  enabled: true
+```
+
+!!! Note
+    Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
 ### Deploy Pachyderm on the Kubernetes cluster
 
+- You can now deploy a Pachyderm cluster by running this command:
 
-Now you can deploy a Pachyderm cluster by running this command:
+    ```shell
+    $ helm repo add pach https://helm.pachyderm.com
+    $ helm repo update
+    $ helm install pachd -f my_values.yaml pach/pachyderm --set-file pachd.storage.google.cred=<my-key>.json.
+    ```
 
-```shell
-$ helm repo add pach https://helm.pachyderm.com
-$ helm repo update
-$ helm install pachd -f my_values.yaml pach/pachyderm --set-file pachd.storage.google.cred=<my-key>.json.
-```
+    **System Response:**
 
-**System Response:**
+    ```
+    serviceaccount/pachyderm created
+    serviceaccount/pachyderm-worker created
+    clusterrole.rbac.authorization.k8s.io/pachyderm created
+    clusterrolebinding.rbac.authorization.k8s.io/pachyderm created
+    role.rbac.authorization.k8s.io/pachyderm-worker created
+    rolebinding.rbac.authorization.k8s.io/pachyderm-worker created
+    storageclass.storage.k8s.io/etcd-storage-class created
+    service/etcd-headless created
+    statefulset.apps/etcd created
+    service/etcd created
+    configmap/postgres-init-cm created
+    storageclass.storage.k8s.io/postgres-storage-class created
+    service/postgres-headless created
+    statefulset.apps/postgres created
+    service/postgres created
+    service/pachd created
+    service/pachd-peer created
+    deployment.apps/pachd created
+    secret/pachyderm-storage-secret created
 
-```shell
-serviceaccount/pachyderm created
-serviceaccount/pachyderm-worker created
-clusterrole.rbac.authorization.k8s.io/pachyderm created
-clusterrolebinding.rbac.authorization.k8s.io/pachyderm created
-role.rbac.authorization.k8s.io/pachyderm-worker created
-rolebinding.rbac.authorization.k8s.io/pachyderm-worker created
-storageclass.storage.k8s.io/etcd-storage-class created
-service/etcd-headless created
-statefulset.apps/etcd created
-service/etcd created
-configmap/postgres-init-cm created
-storageclass.storage.k8s.io/postgres-storage-class created
-service/postgres-headless created
-statefulset.apps/postgres created
-service/postgres created
-service/pachd created
-service/pachd-peer created
-deployment.apps/pachd created
-secret/pachyderm-storage-secret created
+    Pachyderm is launching. Check its status with "kubectl get all"
+    ```
 
-Pachyderm is launching. Check its status with "kubectl get all"
-```
+    !!! note "Important"
+        If RBAC authorization is a requirement or you run into any RBAC
+        errors see [Configure RBAC](rbac.md).
 
-!!! note "Important"
-    If RBAC authorization is a requirement or you run into any RBAC
-    errors see [Configure RBAC](rbac.md).
+    It may take a few minutes for the pachd nodes to be running because Pachyderm
+    pulls containers from DockerHub. You can see the cluster status with
+    `kubectl`, which should output the following when Pachyderm is up and running:
 
-It may take a few minutes for the pachd nodes to be running because Pachyderm
-pulls containers from DockerHub. You can see the cluster status with
-`kubectl`, which should output the following when Pachyderm is up and running:
+    ```shell
+    kubectl get pods
+    ```
+    Once the pods are up, you should see a pod for `pachd` running 
+    (alongside etcd, pg-bouncer or postgres, console, depending on your installation). 
 
-```shell
-kubectl get pods
-```
-Once the pods are up, you should see a pod for `pachd` running 
-(alongside etcd, pg-bouncer or postgres, console, depending on your installation). 
+    **System Response:**
 
-**System Response:**
+    ```shell
+    NAME                     READY   STATUS    RESTARTS   AGE
+    etcd-0                   1/1     Running   0          4m50s
+    pachd-5db79fb9dd-b2gdq   1/1     Running   2          4m49s
+    postgres-0               1/1     Running   0          4m50s
+    ```
 
-```shell
-NAME                     READY   STATUS    RESTARTS   AGE
-etcd-0                   1/1     Running   0          4m50s
-pachd-5db79fb9dd-b2gdq   1/1     Running   2          4m49s
-postgres-0               1/1     Running   0          4m50s
-```
+    If you see a few restarts on the `pachd` pod, you can safely ignore them.
+    That simply means that Kubernetes tried to bring up those containers
+    before other components were ready, so it restarted them.
 
-If you see a few restarts on the `pachd` pod, you can safely ignore them.
-That simply means that Kubernetes tried to bring up those containers
-before other components were ready, so it restarted them.
-
-## 5. Have 'pachctl' and your Cluster Communicate
+- Finally, make sure [`pachtl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicat
+## 7. Have 'pachctl' and your Cluster Communicate
 Finally, assuming your `pachd` is running as shown above, 
 make sure that `pachctl` can talk to the cluster.
 
@@ -281,7 +423,7 @@ pachctl             {{ config.pach_latest_version }}
 pachd               {{ config.pach_latest_version }}
 ```
 
-## 6. Advanced Setups
+## 7. Advanced Setups
 ### Increase Ingress Throughput
 
 One way to improve Ingress performance is to restrict Pachd to
