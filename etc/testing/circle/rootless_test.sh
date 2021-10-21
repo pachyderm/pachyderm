@@ -9,7 +9,7 @@ VMDRIVER="none"
 
 # start minikube with pod security admission plugin
 minikube start \
-    --driver=${VMDRIVER} \
+    --vm-driver=${VMDRIVER} \
     --kubernetes-version=${VERSION} \
     --extra-config=apiserver.enable-admission-plugins=PodSecurityPolicy \
     --addons=pod-security-policy
