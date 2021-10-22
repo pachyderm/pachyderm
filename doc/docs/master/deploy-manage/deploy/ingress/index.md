@@ -113,7 +113,7 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
     ```
 === "Example on GCP GKE"
 
-    In the example below using the ingress controller Traefik, we are opening the HTTPS port and enabling TLS on GCP GKE.
+    In the example below using the ingress controller [Traefik](./pach-ui-ingress/), we are opening the HTTPS port and enabling TLS on GCP GKE.
 
 
     ```yaml
@@ -174,6 +174,7 @@ Add the appropriate annotations to attach any Load Balancer configuration inform
             service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "30600,30650,30657,30658"
     ```
 === "Example on GCP GKE"
+    In the following example, we pre created a static IP by running `gcloud compute addresses create ADDRESS_NAME --global --ip-version IPV4`, then passed this external IP to the values.yaml as follow:
 
     ``` yaml
     pachd:
@@ -181,7 +182,7 @@ Add the appropriate annotations to attach any Load Balancer configuration inform
         enabled: true
         apiGRPCPort: 30650
         s3GatewayPort: 30600
-        loadBalancerIP: pach.ClusterIP
+        loadBalancerIP: ${ADDRESS_NAME}
     ```
 
 Next:   Find the [deployment page that matches your cloud provider](../../)

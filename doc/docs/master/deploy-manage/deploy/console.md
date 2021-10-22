@@ -8,7 +8,7 @@
 Note that this section is an add-on to the deployment of Pachyderm, locally or in the cloud. 
 It details the additional steps required to install and access your Console.
 
-- If you plan to deploy in the cloud, find Pachyderm's deployment instructions matching your target (AWS, Google, Azure...) in the [Deploy section](../) of the documentation, update your values.yaml accordingly, then complement with the following instructions.
+- If you plan to deploy in the cloud, this section will complement your values.yaml (find Pachyderm's deployment instructions matching your target (AWS, Google, Azure...) in the [Deploy section](../) of the documentation).
 - To deploy locally, follow the instructions below.
 
 ## Deploy Locally
@@ -50,10 +50,13 @@ Once your Ingress is configured in your values.yaml, you can choose one of the f
 - For a **quick installation** of Console (Not recommended in Production but an easy way to get started), set up a **mockIDP** during the deployment of Pachyderm by providing the following fields in your values.yaml then [connect to your Console](#connect-to-console):
 
     ```yaml
-    pachd.activateEnterprise = true
-    pachd.enterpriseLicenseKey = <LICENSE>
-    oidc.mockIDP = true
-    console.enabled = true
+    pachd:
+        activateEnterprise = true
+        enterpriseLicenseKey = <LICENSE>
+    oidc:
+        mockIDP = true
+    console:
+        enabled = true
     ```
 
 !!! Note

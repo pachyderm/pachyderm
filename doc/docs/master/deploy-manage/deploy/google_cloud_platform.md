@@ -13,8 +13,8 @@ In particular, you will:
 1. Make a few [client installations](#1-prerequisites) before you start.
 1. [Deploy Kubernetes](#2-deploy-kubernetes).
 1. [Create an GCS bucket](#3-create-a-gcs-bucket) for your data and grant Pachyderm access.
-1. [Enable Persistent Volumes Creation](#4-persistent-volumes-creation)
-1. [Create An GCP Managed PostgreSQL Instance](#5-create-a-gcp-managed-postgresql-database)
+1. [Enable The Creation of Persistent Volumes](#4-persistent-volumes-creation)
+1. [Create A GCP Managed PostgreSQL Instance](#5-create-a-gcp-managed-postgresql-database)
 1. [Deploy Pachyderm ](#6-deploy-pachyderm)
 1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster](#7-have-pachctl-and-your-cluster-communicate).
 1. And check that your cluster is [up and running](#8-check-that-your-cluster-is-up-and-running)
@@ -155,14 +155,14 @@ To access your GCP resources, Pachyderm uses a GCP Project Service Account with 
 
 * **Create a Service Account**
 
-    In the **AM & Admin** section of your Google Cloud Console sidebar, select **Service Accounts**. To create a new service, select the **Create Service Account** button at the top. 
+    In the **AM & Admin** section of your Google Cloud Console sidebar, select *Service Accounts*. To create a new service, select the *Create Service Account* button at the top. 
 
-    Fill in the Service Account *Name*, *ID* and *Description* then click **Create**. Keep the full email of your service account handy, you will need it soon.
+    Fill in the Service Account *Name*, *ID* and *Description* then click *Create*. Keep the full email of your service account handy, you will need it soon.
     
     More infornation about the creation and management of a Service account on [GCP documentation](https://cloud.google.com/iam/docs/creating-managing-service-accounts).
 
 * **Create a Key**
-    On the Service Accounts home page in your Google Cloud Console, select your Service Account. In the **Keys** tab, select **Add Key**, and then **Create New Key**, select **JSON** then click **Create**.
+    On the Service Accounts home page in your Google Cloud Console, select your Service Account. In the *Keys* tab, select *Add Key*, and then *Create New Key*, select *JSON* then click *Create*.
 
 ### Configure Your GCS Bucket Permissions
 For Pachyderm to access your Google Cloud Storage bucket, you must **Add your service account as a new member on your bucket**.
@@ -221,10 +221,10 @@ gcloud sql instances create <YOUR_INSTANCE_NAME> \
 --storage-size=50GB \
 --storage-type=PD_SSD \
 --storage-auto-increase \
-----root-password=<admin_user_"postgres"_password>
+--root-password=<admin_user_password>
 ```
 
-When you create a new Cloud SQL for PostgreSQL instance, a [default admin user](https://cloud.google.com/sql/docs/postgres/users#default-users) `Username: "postgres".` is created. It will be later used by Pachyderm to access its databases. You need to set a password for this user before you can log in. To do so, add `--root-password` to your gcloud command above.
+When you create a new Cloud SQL for PostgreSQL instance, a [default admin user](https://cloud.google.com/sql/docs/postgres/users#default-users) `Username: "postgres".` is created. It will later be used by Pachyderm to access its databases. You need to set a password for this user before you can log in. To do so, add `--root-password` to your gcloud command above.
 
 Check out Google documentation for more information on how to [Create and Manage PostgreSQL Users](https://cloud.google.com/sql/docs/postgres/create-manage-users).
 
@@ -244,7 +244,7 @@ Once your databases have been created, add the following fields to your Helm val
 global:
   postgresql:
     postgresqlUsername: "postgres"
-    postgresqlPassword: "admin_user_"postgres"_password"
+    postgresqlPassword: "admin_user_password"
     # The name of the database should be Pachyderm's ("pachyderm" in the example above), not "dex" 
     postgresqlDatabase: "INSTANCE_NAME"
     # The postgresql database host to connect to. Defaults to postgres service in subchart
@@ -265,7 +265,9 @@ You have set up your infrastructure, created your GCP bucket, and granted your c
 
 You can now finalize your values.yaml and deploy Pachyderm. Check the example below.
 
-Note that if you have created a GCP Managed PostgreSQL instance, you will have to replace the Postgresql section below with the appropriate values defined above.
+!!! Note 
+  - If you have created a GCP Managed PostgreSQL instance, you will have to replace the Postgresql section below with the appropriate values defined above.
+  - If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console/).
 ### Update Your Values.yaml   
 
 [See an example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml). Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` or use `--set-file pachd.storage.google.cred=<my-key>.json` when running the following helm install. 
@@ -273,24 +275,8 @@ Note that if you have created a GCP Managed PostgreSQL instance, you will have t
 ```yaml
 deployTarget: GOOGLE
 
-etcd:
-  resources:
-    requests:
-        cpu: "1"
-        memory: "2G"
-
-  storageClass: "ssd-storage-class"
-  storageSize:  storageSize??
-
 pachd:
   enabled: true
-  resources:
-    limits:
-        cpu: "4"
-        memory: "8G"   
-    requests:
-        cpu: "1"
-        memory: "8G"
   storage:
     google:
       bucket: "bucket_name"
@@ -419,33 +405,4 @@ pachctl             {{ config.pach_latest_version }}
 pachd               {{ config.pach_latest_version }}
 ```
 
-## 9. Advanced Setups
-### Increase Ingress Throughput
-
-One way to improve Ingress performance is to restrict Pachd to
-a specific, more powerful node in the cluster. This is
-accomplished by the use of [node-taints](https://cloud.google.com/kubernetes-engine/docs/how-to/node-taints)
-in GKE. By creating a node-taint for `pachd`, you configure the
-Kubernetes scheduler to run only the `pachd` pod on that node. After
-that’s completed, you can deploy Pachyderm with the `--pachd-cpu-request`
-and `--pachd-memory-request` set to match the resources limits of the
-machine type. And finally, you need to modify the `pachd` deployment
-so that it has an appropriate toleration:
-
-```shell
-tolerations:
-- key: "dedicated"
-  operator: "Equal"
-  value: "pachd"
-  effect: "NoSchedule"
-```
-
-### Increase upload performance
-
-The most straightfoward approach to increasing upload performance is
-to [leverage SSD’s as the boot disk](https://cloud.google.com/kubernetes-engine/docs/how-to/custom-boot-disks) in
-your cluster because SSDs provide higher throughput and lower latency than
-HDD disks. Additionally, you can increase the size of the SSD for
-further performance gains because the number of IOPS increases with
-disk size.
 
