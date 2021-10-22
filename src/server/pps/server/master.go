@@ -147,7 +147,7 @@ func (m *ppsMaster) run() {
 	// (which are what write to m.eventCh) have exited
 	m.eventCh = make(chan *pipelineEvent, 1)
 	defer close(m.eventCh)
-	defer m.cancelAllMonitorsAndCrashingMonitors()
+	defer m.cancelOps()
 	// start pollers in the background--cancel functions ensure poll/monitor
 	// goroutines all definitely stop (either because cancelXYZ returns or because
 	// the binary panics)
@@ -209,4 +209,12 @@ func (op *pipelineOp) transitionPipelineState(ctx context.Context, specCommit *p
 	}()
 	return ppsutil.SetPipelineState(ctx, op.env.DB, op.pipelines,
 		specCommit, from, to, reason)
+}
+
+func (m *ppsMaster) cancelOps() {
+	m.om.Lock()
+	defer m.om.Unlock()
+	for _, op := range m.om.activeOps {
+		op.opCancel()
+	}
 }

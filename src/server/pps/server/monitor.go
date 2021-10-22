@@ -92,25 +92,6 @@ func (op *pipelineOp) startCrashingMonitor(ctx context.Context, pipelineInfo *pp
 		})
 }
 
-// cancelAllMonitorsAndCrashingMonitors overlaps with cancelMonitor and
-// cancelCrashingMonitor, but also iterates over the existing members of
-// m.{crashingM,m}onitorCancels in the critical section, so that all monitors
-// can be cancelled without the risk that a new monitor is added between
-// cancellations.
-//
-// 'leave' indicates pipelines whose monitorPipeline goros shouldn't be
-// cancelled. It's set by pollPipelines, which does not cancel any pipeline in
-// the database at the time that it runs
-func (m *ppsMaster) cancelAllMonitorsAndCrashingMonitors() {
-	m.om.Lock()
-	defer m.om.Unlock()
-
-	for _, op := range m.om.activeOps {
-		op.stopPipelineMonitor()
-		op.stopCrashingPipelineMonitor()
-	}
-}
-
 //////////////////////////////////////////////////////////////////////////////
 //                     Monitor Functions                                    //
 // - These do not lock monitorCancelsMu, but they are called by the         //
