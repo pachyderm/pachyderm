@@ -17,6 +17,7 @@ message User {
 message IdentityServerConfig {
 	string issuer = 1;
 	string id_token_expiry = 2 [(gogoproto.moretags) = "db:\"id_token_expiry\""];
+	string rotation_token_expiry = 3 [(gogoproto.moretags) = "db:\"rotation_token_expiry\""];
 }
 
 message SetIdentityServerConfigRequest {
