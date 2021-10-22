@@ -107,3 +107,15 @@ You can find a list of the default variables configured in the dash container in
 - OAUTH_CLIENT_SECRET
 - OAUTH_REDIRECT_URI
 - ISSUER_URI
+
+
+### Staging and Mock Staging Deploy
+Whenever you create or update a PR, a GitHub Action runs that generates a docker image based on the code in the branch. It gets pushed to our public docker repository and is tagged as `pachyderm/haberdashery:dev-pr-${{ github.sha }}`. The action will comment the image tag on the PR once the image has been published. To get your changes into staging or mock staging, do the following:
+1. Make sure you have internal admin permissions in the environment for which you are trying to deploy to.
+2. Create a workspace in that environment and connect to the workspace through kubectl using the command from the CLI button in hub.
+4. Edit the console deployment: `kubectl edit deployments console`. 
+5. Update the image tag in the template to match the tag you want to deploy.
+6. Wait for the new console pod to spin up. You should see your changes.
+
+
+We have plans to add a console docker tag to the workspace create modal in the near future as a way to make this process easier.
