@@ -54,16 +54,16 @@ func max(is ...int) int {
 type pipelineOp struct {
 	// a pachyderm client wrapping this operation's context (child of the PPS
 	// master's context, and cancelled at the end of Start())
-	masterOpCtx    context.Context
-	masterOpCancel context.CancelFunc
-	pipeline       string
-	pipelineInfo   *pps.PipelineInfo
-	rc             *v1.ReplicationController
-	namespace      string
-	env            Env
-	txEnv          *transactionenv.TransactionEnv
-	pipelines      collection.PostgresCollection
-	etcdPrefix     string
+	opCtx        context.Context
+	opCancel     context.CancelFunc
+	pipeline     string
+	pipelineInfo *pps.PipelineInfo
+	rc           *v1.ReplicationController
+	namespace    string
+	env          Env
+	txEnv        *transactionenv.TransactionEnv
+	pipelines    collection.PostgresCollection
+	etcdPrefix   string
 
 	monitorCancel         func()
 	crashingMonitorCancel func()
@@ -81,8 +81,8 @@ var (
 
 func (m *ppsMaster) newPipelineOp(ctx context.Context, cancel context.CancelFunc, pipeline string) *pipelineOp {
 	op := &pipelineOp{
-		masterOpCtx:    ctx,
-		masterOpCancel: cancel,
+		opCtx:    ctx,
+		opCancel: cancel,
 		// pipeline name is recorded separately in the case we are running a delete Op and pipelineInfo isn't available in the DB
 		pipeline:     pipeline,
 		pipelineInfo: &pps.PipelineInfo{},
@@ -125,7 +125,7 @@ func (op *pipelineOp) Start(timestamp time.Time) {
 	op.Bump()
 	for {
 		select {
-		case <-op.masterOpCtx.Done():
+		case <-op.opCtx.Done():
 			return
 		case <-op.bumpChan:
 			var errCount int
@@ -148,7 +148,7 @@ func (op *pipelineOp) Start(timestamp time.Time) {
 			// we've given up on the step, check if the error indicated that the pipeline should fail
 			if err != nil {
 				if errors.As(err, &stepErr) && stepErr.failPipeline {
-					failError := op.setPipelineFailure(op.masterOpCtx, fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err))
+					failError := op.setPipelineFailure(op.opCtx, fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err))
 					if failError != nil {
 						log.Errorf("PPS master: error starting a pipelineOp for pipeline '%s': %v", op.pipeline,
 							errors.Wrapf(failError, "error failing pipeline %q (%v)", op.pipeline, err))
@@ -169,7 +169,7 @@ func (op *pipelineOp) tryFinish() {
 	case <-op.bumpChan:
 		op.Bump()
 	default:
-		op.masterOpCancel()
+		op.opCancel()
 		delete(op.opManager.activeOps, op.pipeline)
 	}
 }
@@ -182,7 +182,7 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 	log.Debugf("PPS master: processing event for %q", op.pipelineInfo.Pipeline)
 
 	// Handle tracing
-	span, _ := extended.AddSpanToAnyPipelineTrace(op.masterOpCtx,
+	span, _ := extended.AddSpanToAnyPipelineTrace(op.opCtx,
 		op.env.EtcdClient, op.pipeline, "/pps.Master/ProcessPipelineUpdate")
 	if !timestamp.IsZero() {
 		tracing.TagAnySpan(span, "update-time", timestamp)
@@ -206,13 +206,13 @@ func (op *pipelineOp) step(timestamp time.Time) (retErr error) {
 		return err
 	}
 
-	tracing.TagAnySpan(op.masterOpCtx,
+	tracing.TagAnySpan(op.opCtx,
 		"current-state", op.pipelineInfo.State.String(),
 		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
 	// add pipeline auth
 	// the pipelineOp's context is authorized as pps master, but we want to switch to the pipeline itself
 	// first clear the cached WhoAmI result from the context
-	pachClient := op.env.GetPachClient(middleware_auth.ClearWhoAmI(op.masterOpCtx))
+	pachClient := op.env.GetPachClient(middleware_auth.ClearWhoAmI(op.opCtx))
 	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
 	stepCtx := pachClient.Ctx()
 
@@ -344,7 +344,7 @@ func (op *pipelineOp) tryLoadLatestPipelineInfo() error {
 		// Don't put the pipeline in a failing state if we're in the middle
 		// of activating auth, retry in a bit
 		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
-			log.Errorf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
+			log.Warnf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
 				op.pipeline, err, d)
 			return nil
 		}
@@ -358,11 +358,11 @@ func (op *pipelineOp) tryLoadLatestPipelineInfo() error {
 
 func (op *pipelineOp) loadLatestPipelineInfo() error {
 	*op.pipelineInfo = pps.PipelineInfo{}
-	specCommit, err := ppsutil.FindPipelineSpecCommit(op.masterOpCtx, op.env.PFSServer, *op.txEnv, op.pipeline)
+	specCommit, err := ppsutil.FindPipelineSpecCommit(op.opCtx, op.env.PFSServer, *op.txEnv, op.pipeline)
 	if err != nil {
 		return errors.Wrapf(err, "could not find spec commit for pipeline %q", op.pipeline)
 	}
-	if err := op.pipelines.ReadOnly(op.masterOpCtx).Get(specCommit, op.pipelineInfo); err != nil {
+	if err := op.pipelines.ReadOnly(op.opCtx).Get(specCommit, op.pipelineInfo); err != nil {
 		return errors.Wrapf(err, "could not retrieve pipeline info for %q", op.pipeline)
 	}
 	return nil
@@ -533,7 +533,7 @@ func (op *pipelineOp) startPipelineMonitor() {
 	// avoid a race condition
 	pi := *op.pipelineInfo
 	if op.monitorCancel == nil {
-		op.monitorCancel = op.startMonitor(op.masterOpCtx, &pi)
+		op.monitorCancel = op.startMonitor(op.opCtx, &pi)
 	}
 	op.pipelineInfo.Details.WorkerRc = op.rc.ObjectMeta.Name
 }
@@ -544,7 +544,7 @@ func (op *pipelineOp) startCrashingPipelineMonitor() {
 	// avoid a race condition
 	pi := *op.pipelineInfo
 	if op.crashingMonitorCancel == nil {
-		op.crashingMonitorCancel = op.startCrashingMonitor(op.masterOpCtx, &pi)
+		op.crashingMonitorCancel = op.startCrashingMonitor(op.opCtx, &pi)
 	}
 }
 
@@ -710,7 +710,7 @@ func (op *pipelineOp) restartPipeline(ctx context.Context, reason string) error 
 // pipeline. It doesn't return a stepError, leaving retry behavior to the caller
 func (op *pipelineOp) deletePipelineResources() (retErr error) {
 	log.Infof("PPS master: deleting resources for pipeline %q", op.pipeline)
-	span, ctx := tracing.AddSpanToAnyExisting(op.masterOpCtx,
+	span, ctx := tracing.AddSpanToAnyExisting(op.opCtx,
 		"/pps.Master/DeletePipelineResources", "pipeline", op.pipeline)
 	defer func() {
 		tracing.TagAnySpan(ctx, "err", retErr)
