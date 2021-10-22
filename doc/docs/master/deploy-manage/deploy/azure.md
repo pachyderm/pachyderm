@@ -5,73 +5,46 @@
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
       - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
 
-You can deploy Pachyderm in a new or existing Microsoft® Azure® Kubernetes
-Service environment and use Azure's resource to run your Pachyderm
-workloads. 
-To deploy Pachyderm to AKS, you need to:
+The following section walks you through deploying a Pachyderm cluster on Microsoft® Azure® Kubernetes
+Service environment (AKS). 
+
+In particular, you will:
+
+1. [Install Prerequisites](#1-install-prerequisites)
+1. [Deploy Kubernetes](#2-deploy-kubernetes)
+
+Create an GCS bucket for your data and grant Pachyderm access.
+Enable Persistent Volumes Creation
+Create An GCP Managed PostgreSQL Instance
+Deploy Pachyderm
+Finally, you will need to install pachctl to interact with your cluster.
+And check that your cluster is up and running
 
 1. [Install Prerequisites](#install-prerequisites)
 2. [Deploy Kubernetes](#deploy-kubernetes)
 3. [Deploy Pachyderm](#deploy-pachyderm)
 4. [Point your CLI `pachctl` to your cluster](#have-pachctl-and-your-cluster-communicate)
 
-## Install Prerequisites
+## 1. Install Prerequisites
 
-Before you deploy Pachyderm on Azure, 
-make sure to have read our [infrastructure recommendations](../ingress/).
-
-Additionally, you will need to install a few
+Before your start creating your cluster, install the following
 clients on your machine. If not explicitly specified, use the
 latest available version of the components listed below.
-Install the following:
 
 * [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 * [jq](https://stedolan.github.io/jq/download/)
 * [kubectl](https://docs.microsoft.com/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli)
-* [pachctl](#install-pachctl)
+* [pachctl](../../../../getting_started/local_installation#install-pachctl)
+ 
+!!! Note
+   This page assumes that you have an [Azure Subsciption](https://docs.microsoft.com/en-us/azure/guides/developer/azure-developer-guide#understanding-accounts-subscriptions-and-billing).
 
-### Install `pachctl`
+## 2. Deploy Kubernetes
 
- `pachctl` is a primary command-line utility for interacting with Pachyderm clusters.
- You can run the tool on Linux®, macOS®, and Microsoft® Windows® 10 or later operating
- systems and install it by using your favorite command line package manager.
- This section describes how you can install `pachctl` by using
- `brew` and `curl`.
+You can deploy Kubernetes on Azure by following the official [Azure Container Service documentation](https://docs.microsoft.com/azure/aks/tutorial-kubernetes-deploy-cluster), [use the quickstart walkthrough](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough), or
+follow the steps in this section.
 
- If you are installing `pachctl` on Windows, you need to first install
- Windows Subsystem (WSL) for Linux.
-
- To install `pachctl`, complete the following steps:
-
- - To install on macOS by using `brew`, run the following command:
-
-    ```shell
-    brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
-    ```
- - To install on Linux 64-bit or Windows 10 or later, run the following command:
-
-    ```shell
-    $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
-    ```
-
- - Verify your installation by running `pachctl version`:
-
-    ```shell
-    pachctl version --client-only
-    ```
-
-    **System Response:**
-
-    ```shell
-    COMPONENT           VERSION
-    pachctl             {{ config.pach_latest_version }}
-    ```
-
-## Deploy Kubernetes
-
-You can deploy Kubernetes on Azure by following the official [Azure Container Service documentation](https://docs.microsoft.com/azure/aks/tutorial-kubernetes-deploy-cluster) or by
-following the steps in this section. When you deploy Kubernetes on Azure,
-you need to specify the following parameters:
+At a minimum, you will need to specify the parameters below:
 
 |Variable|Description|
 |--------|-----------|
@@ -80,55 +53,29 @@ you need to specify the following parameters:
 |NODE_SIZE|The size of the Kubernetes virtual machine (VM) instances. To avoid performance issues, Pachyderm recommends that you set this value to at least `Standard_DS4_v2` which gives you 8 CPUs, 28 Gib of Memory, 56 Gib SSD.|
 |CLUSTER_NAME|A unique name for the Pachyderm cluster. For example, `pach-aks-cluster`.|
 
+You can choose to follow the guided steps in [Azure Service Portal's Kubernetes Services](https://portal.azure.com/) or use Azure CLI.
 
-To deploy Kubernetes on Azure, complete the following steps:
 
-1. Log in to Azure:
+1. [Log in](https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli) to Azure:
 
     ```shell
     az login
     ```
 
-    **System Response:**
+    This command opens a browser window. Log in with your Azure credentials.
+    Resources can now be provisioned on the Azure subscription linked to your account.
+    
+    
+1. Create an [Azure resource group](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/manage-resource-groups-portal#what-is-a-resource-group) or retrieve an existing group.
 
     ```shell
-    Note, we have launched a browser for you to login. For old experience with
-    device code, use "az login --use-device-code"
-    ```
-
-    If you have not already logged in this command opens a browser window. Log in with your Azure credentials.
-    After you log in, the following message appears in the command prompt:
-
-    ```shell
-    You have logged in. Now let us find all the subscriptions to which you have access...
-    ```
-    ```json
-    [
-      {
-        "cloudName": "AzureCloud",
-        "id": "your_id",
-        "isDefault": true,
-        "name": "Microsoft Azure Sponsorship",
-        "state": "Enabled",
-        "tenantId": "your_tenant_id",
-        "user": {
-          "name": "your_contact_id",
-          "type": "user"
-        }
-      }
-    ]
-    ```
-
-1. Create an Azure resource group.
-
-    ```shell
-    az group create --name=${RESOURCE_GROUP} --location=${LOCATION}
+    az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
     ```
 
     **Example:**
 
     ```shell
-    az group create --name="test-group" --location=centralus
+    az group create --name test-group --location centralus
     ```
 
     **System Response:**
@@ -147,63 +94,41 @@ To deploy Kubernetes on Azure, complete the following steps:
     }
     ```
 
-1. Create an AKS cluster:
+1. Create an AKS cluster in the same :
+
+   For more configuration options: Find the list of [all available flags of the `az aks create` command](https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az_aks_create).
 
     ```shell
-    az aks create --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME} --generate-ssh-keys --node-vm-size ${NODE_SIZE}
+    az aks create --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME} --node-vm-size ${NODE_SIZE} --node-count <node_pool_count> --location ${LOCATION}
     ```
 
     **Example:**
 
     ```shell
-    az aks create --resource-group test-group --name test-cluster --generate-ssh-keys --node-vm-size Standard_DS4_v2
+    az aks create --resource-group test-group --name test-cluster --generate-ssh-keys --node-vm-size Standard_DS4_v2 --location centralus
     ```
 
-    **System Response:**
-
-    ```json
-    {
-      "aadProfile": null,
-      "addonProfiles": null,
-      "agentPoolProfiles": [
-        {
-          "availabilityZones": null,
-          "count": 3,
-          "enableAutoScaling": null,
-          "maxCount": null,
-          "maxPods": 110,
-          "minCount": null,
-          "name": "nodepool1",
-          "orchestratorVersion": "1.12.8",
-          "osDiskSizeGb": 100,
-          "osType": "Linux",
-          "provisioningState": "Succeeded",
-          "type": "AvailabilitySet",
-          "vmSize": "Standard_DS4_v2",
-          "vnetSubnetId": null
-        }
-      ],
-    ...
-    ```
-
-1. Confirm the version of the Kubernetes server:
-
-    ```shell
-    kubectl version
-    ```
-
-    **System Response:**
-
-    ```shell
-    Client Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.4", GitCommit:"c27b913fddd1a6c480c229191a087698aa92f0b1", GitTreeState:"clean", BuildDate:"2019-03-01T23:36:43Z", GoVersion:"go1.12", Compiler:"gc", Platform:"darwin/amd64"}
-    Server Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.4", GitCommit:"c27b913fddd1a6c480c229191a087698aa92f0b1", GitTreeState:"clean", BuildDate:"2019-02-28T13:30:26Z", GoVersion:"go1.11.5", Compiler:"gc", Platform:"linux/amd64"}
-    ```
+1. Confirm the version of the Kubernetes server by running  `kubectl version`.
 
 !!! note "See Also:"
     - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general)
 
+Once your Kubernetes cluster is up, and your infrastructure configured, you are ready to prepare for the installation of Pachyderm. Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
 
-## Add storage resources
+
+## 3. Create an Azure Blob Storage Bucket
+Create a Storage Account
+Create a Blob Container
+Upload a Blob
+### Create an ABS object store bucket for your data
+Pachyderm needs a [ABS bucket](https://docs.microsoft.com/en-us/azure/databricks/data/data-sources/azure/azure-storage) (Object store) to store your data. 
+You can create a blob container storage account using the [Azure portal](https://docs.microsoft.com/en-us/azure/container-instances/container-instances-quickstart-portal)You can create the bucket by running the following commands:
+
+Warning
+
+The GCS bucket name must be globally unique across the entire GCP region.
+
+## 4. Persistent Volumes Creation
 
 Pachyderm requires you to deploy an object store and two persistent
 volumes in your cloud environment to function correctly. For best
@@ -308,8 +233,8 @@ To create these resources, follow these steps:
 !!! note "See Also:"
     - [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)
 
-
-## Deploy Pachyderm
+## 5. Create a Azure Managed PostgreSQL Server Database
+## 6. Deploy Pachyderm
 
 After you complete all the sections above, you can deploy Pachyderm
 on Azure. If you have previously tried to run Pachyderm locally,
@@ -409,7 +334,7 @@ you might accidentally deploy your cluster on Minikube.
     the `etcd` nodes are ready which might result in the `pachd` nodes
     restarting. You can safely ignore those restarts.
 
-## Have 'pachctl' and your Cluster Communicate
+## 7. Have 'pachctl' and your Cluster Communicate
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
@@ -436,7 +361,7 @@ If you're not exposing `pachd` publicly, you can run:
 $ pachctl port-forward
 ``` 
 
-## Check That Your Cluster Is Up And Running
+## 8. Check That Your Cluster Is Up And Running
 
 ```shell
 $ pachctl version
