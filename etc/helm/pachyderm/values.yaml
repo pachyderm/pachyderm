@@ -107,6 +107,8 @@ etcd:
     labels: {}
     # type specifies the Kubernetes type of the etcd service.
     type: ClusterIP
+  securityContext:
+    enabled: true
 
 enterpriseServer:
   enabled: false
@@ -187,7 +189,8 @@ pachd:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
-
+  securityContext:
+      enabled: true
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
