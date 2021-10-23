@@ -70,10 +70,12 @@ spec:
         volumeMounts:
         - mountPath: /var/data/etcd
           name: etcd-storage
+      {{- if  .Values.etcd.securityContext.enabled }}
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+      {{- end }}
   volumeClaimTemplates:
   - metadata:
       labels:
