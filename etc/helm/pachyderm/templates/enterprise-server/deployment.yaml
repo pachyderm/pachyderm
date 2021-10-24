@@ -96,9 +96,11 @@ spec:
         secret:
           secretName: {{ required "If enterpriseServer.tls.enabled, you must set enterpriseServer.tls.secretName" .Values.enterpriseServer.tls.secretName | quote }}
       {{- end }}
+      {{- if .Values.pachd.securityContext.enabled }}
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
+      {{- end }}
       initContainers:
       - name: init-etcd
         image: busybox:1.28
