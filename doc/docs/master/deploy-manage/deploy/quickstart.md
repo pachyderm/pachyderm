@@ -5,7 +5,7 @@
     
     For each cloud provider, we will give you the option to install Pachyderm with or without Console (Pachyderm UI).
 
-    While this is **not recommended in production settings**, this page can be useful for a quick test setup. For a production grade installation, read our [infrastructure recommendations](/deploy-manage/deploy/ingress/). In particular, we recommend to deploy a TCP Load Balancer in front of your pachd service.
+    While this is **not recommended in production settings**, this page can be useful for a quick test setup. For a production grade installation, read our [infrastructure recommendations](/deploy-manage/deploy/ingress/). In particular, we recommend to deploy a TCP Load Balancer in front of your pachd service and an Ingress Controller in front of console.
 
 
 ## 1. Prerequisistes
@@ -96,12 +96,6 @@ Install [AWS CLI](https://aws.amazon.com/cli/)
         oidc:
             mockIDP: true
 
-        ingress:
-            enabled: true
-            host: "<your_domain_name>"
-            annotations:
-                kubernetes.io/ingress.class: "traefik"
-
         postgresql:
             # Uses the built in Postgres.
             enabled: true
@@ -162,12 +156,6 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
 
     oidc:
         mockIDP: true
-
-    ingress:
-        enabled: true
-        host: "<your_domain_name>"
-        annotations:
-            kubernetes.io/ingress.class: "traefik"
 
     postgresql:
         # Uses the built in Postgres.
@@ -241,12 +229,6 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
         oidc:
             mockIDP: true
 
-        ingress:
-            enabled: true
-            host: "<your_domain_name>"
-            annotations:
-                    kubernetes.io/ingress.class: "traefik"
-
         postgresql:
             # Uses the built in Postgres.
             enabled: true
@@ -260,8 +242,10 @@ Jump to [Helm install](#3-helm-install)
     ```shell
     $ helm repo add pach https://helm.pachyderm.com
     $ helm repo update
-    $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm
+    $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm 
     ```
+
+
 - Check your deployment:
 
     ```shell
