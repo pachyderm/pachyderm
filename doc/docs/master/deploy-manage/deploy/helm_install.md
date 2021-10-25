@@ -46,8 +46,20 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
 
     You are ready to deploy Pachyderm on the environment of your choice.
     ```shell
-    $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm
+    $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm --version <your_chart_version>
     ```
+    !!! Info "To choose a specific helm chart version"
+        **Each chart version is associated with a given version of Pachyderm**. You will find the list of all available chart versions and their associated version of Pachyderm on  [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm).
+        
+
+        - You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`) to your `helm install.`
+        - No additional flag will install the latest GA release of Pachyderm by default. 
+        - You can choose the latest pre-release version of the chart by using the flag `--devel` (pre-releases are versions of the chart that correspond to releases of Pachyderm that don't have the GA status yet).
+
+
+        For example: When the 2.0 version of Pachyderm was a release candidate, using the flag `--devel` would let you install the latest RC of 2.0 while no flag would retrieve the newest GA (1.13.4). 
+     
+    
 
 1. Check your deployment
     ```shell
@@ -66,10 +78,7 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
     postgres-0                     1/1     Running   0          18h
     ```
 
-!!! Info "To choose a specific helm chart version"
-     You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`). 
-     **Each version of a chart is associated with a given version of Pachyderm**. No mention of the version will install the latest available version of Pachyderm by default. 
-     [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) lists all available chart versions and their associated version of Pachyderm. 
+
 
 ### Have 'pachctl' and your Cluster Communicate
 
