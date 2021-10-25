@@ -15,6 +15,8 @@ This page gives a high level view of the steps to follow to install Pachyderm us
 ### Prerequisites
 1. Install [`Helm`](https://helm.sh/docs/intro/install/). 
 
+1. Install [`pachctl`](../../../getting_started/local_installation/#install-pachctl), the command-line utility for interacting with a Pachyderm cluster. 
+
 1. Choose the deployment [guidelines](https://docs.pachyderm.com/latest/deploy-manage/deploy/) that apply to you:
     * **Find the deployment page that applies to your Cloud provider** (or custom deployment, or on-premises deployment).
     It will help list the various installation prerequisites, Kubernetes deployment instructions, and kubectl installation that fit your own use case:
@@ -68,10 +70,6 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
      You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`). 
      **Each version of a chart is associated with a given version of Pachyderm**. No mention of the version will install the latest available version of Pachyderm by default. 
      [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm) lists all available chart versions and their associated version of Pachyderm. 
-
-### Install `pachctl`
-
-`pachctl` is a command-line utility for interacting with a Pachyderm cluster. You install it locally by [following those steps](../../../getting_started/local_installation/#install-pachctl).
 
 ### Have 'pachctl' and your Cluster Communicate
 
