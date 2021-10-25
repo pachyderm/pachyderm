@@ -407,7 +407,7 @@ If you are exposing your cluster publicly, retrieve the external IP address of y
   1. Check that your are using the right context: 
 
       ```shell
-      $ pachctl config get active-context`
+      $ pachctl config get active-context
       ```
 
       Your cluster context name should show up.

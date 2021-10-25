@@ -248,13 +248,13 @@ If you are exposing your cluster publicly, retrieve the external IP address of y
   1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 
       ```shell
-      $ echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
       ```
 
   1. Check that your are using the right context: 
 
       ```shell
-      $ pachctl config get active-context`
+      pachctl config get active-context
       ```
 
       Your cluster context name should show up.

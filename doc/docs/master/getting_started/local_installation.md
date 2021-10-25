@@ -227,7 +227,7 @@ The easiest way to have `pachctl` connect to your local cluster is to use the `p
     * Check that your are using the right context:   
   
         ```shell  
-        pachctl config get active-context`  
+        pachctl config get active-context 
         ```  
   
         Your cluster context name should show up.  
