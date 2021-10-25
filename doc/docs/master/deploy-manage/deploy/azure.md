@@ -1,6 +1,6 @@
 # Azure
 
-For a quick installation of Pachyderm on Azure, jump to our [Quickstart page](../quickstart/).
+For a quick test installation of Pachyderm on Azure (suitable for development), jump to our [Quickstart page](../quickstart/).
 
 
 !!! Important "Before your start your installation process." 

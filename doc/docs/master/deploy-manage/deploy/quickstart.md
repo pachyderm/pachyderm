@@ -5,7 +5,7 @@
     
     For each cloud provider, we will give you the option to install Pachyderm with or without Console (Pachyderm UI).
 
-    While this is **not recommended in any production settings**, this page can be useful for a quick test setup. For a production grade installation, read our [infrastructure recommendations](/deploy-manage/deploy/ingress/). In particular, we recommend to deploy a TCP Load Balancer in front of your pachd service
+    While this is **not recommended in production settings**, this page can be useful for a quick test setup. For a production grade installation, read our [infrastructure recommendations](/deploy-manage/deploy/ingress/). In particular, we recommend to deploy a TCP Load Balancer in front of your pachd service.
 
 
 ## 1. Prerequisistes
@@ -133,13 +133,6 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
             google:
                 bucket: "bucket_name"
             cred: INSERT JSON TO YOUR SERVICE ACCOUNT HERE
-        serviceAccount:
-            additionalAnnotations:
-                iam.gke.io/gcp-service-account: "service account ID and Role"
-        worker:
-            serviceAccount:
-                additionalAnnotations:
-                    iam.gke.io/gcp-service-account: "service account ID and Role"
         service:
                 type: "LoadBalancer"
 
@@ -157,13 +150,6 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
             google:
                 bucket: "bucket_name"
             cred: INSERT JSON TO YOUR SERVICE ACCOUNT HERE
-        serviceAccount:
-            additionalAnnotations:
-                iam.gke.io/gcp-service-account: "service account ID and Role"
-        worker:
-            serviceAccount:
-                additionalAnnotations:
-                    iam.gke.io/gcp-service-account: "service account ID and Role"
 
         activateEnterprise: true
         # pachyderm enterprise key
@@ -302,10 +288,11 @@ Jump to [Helm install](#3-helm-install)
 
         ```shell
         $ echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
-     
         ```
     
-    - Or you can run `pachctl port-forward` (Background this process in a new tab of your terminal).
+    - **Attention**: If you have deployed Console, before you can use `pachctl`, you will need to run `pachct auth login` then authenticate with your Mock User.
+
+    - Then run `pachctl port-forward` (Background this process in a new tab of your terminal).
 
 - Check That Your Cluster Is Up And Running
 
@@ -324,7 +311,7 @@ Jump to [Helm install](#3-helm-install)
 ## 5. Connect to Console
 To connect to your Console (Pachyderm UI):
 
-- Point your browser to `http://<external-IP-address-or-domain-name>:80` or `http://localhost:80` if you used `port-forward`
+- Point your browser to `http://localhost:80` 
 - Authenticate as the mock User using `admin` & `password` 
 
 You are all set! 
