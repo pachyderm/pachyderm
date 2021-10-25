@@ -19,8 +19,11 @@ Some of the steps below will require you to keep updating the values.yaml starte
 
 ## 1. Create an S3 bucket
 ### Create an S3 object store bucket for data
+
+Pachyderm needs an S3 bucket (Object store) to store your data. You can create the bucket by running the following commands:
+
 !!! Warning
-      The S3 bucket name must be globally unique across the whole
+      The S3 bucket name must be globally unique across the entire
       Amazon region. 
 
 * Set up the following system variables:
@@ -228,9 +231,11 @@ postgresql:
   enabled: false
 ```
 ## 4. Deploy Pachyderm
-You have created your S3 bucket, given your cluster access to your bucket, created an AWS Managed PostgreSQL instance, and, if needed, have configured your EKS cluster to create your pvs.
+You have set up your infrastructure, created your S3 bucket, granted your cluster access to your bucket, and, if needed, have configured your EKS cluster to create your pvs.
 
 You can now finalize your values.yaml and deploy Pachyderm.
+
+Note that if you have created an AWS Managed PostgreSQL instance, you will have to replace the Postgresql section below with the appropriate values defined above.
 ### Update Your Values.yaml   
 
 #### For gp3 EBS Volumes
@@ -258,7 +263,7 @@ You can now finalize your values.yaml and deploy Pachyderm.
         worker:
           serviceAccount:
             additionalAnnotations:
-              eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/pachyderm-bucket-access
+              eks.amazonaws.com/role-arn: arn:aws:iam::<ACCOUNT_ID>:role/pachyderm-bucket-access
 
       postgresql:
         persistence:
@@ -276,13 +281,13 @@ You can now finalize your values.yaml and deploy Pachyderm.
         storage:
           amazon:
             bucket: blah
-
+            region: us-east-2
             # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
             id: AKIAIOSFODNN7EXAMPLE
 
             # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
             secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-            region: us-east-2
+
 
       postgresql:
         persistence:
@@ -329,25 +334,24 @@ You can now finalize your values.yaml and deploy Pachyderm.
         storage:
           amazon:
             bucket: blah
-            
+            region: us-east-2
             # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
             id: AKIAIOSFODNN7EXAMPLE
             
             # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html           
             secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-            region: us-east-2
 
       postgresql:
         persistence:
           size: 500Gi
       ```
 
-Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
+Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation or on [github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
 
 ### Deploy Pachyderm On The Kubernetes Cluster
 
 
-- Now you can deploy a Pachyderm cluster by running this command:
+- You can now deploy a Pachyderm cluster by running this command:
 
       ```shell
       $ helm repo add pach https://helm.pachyderm.com
