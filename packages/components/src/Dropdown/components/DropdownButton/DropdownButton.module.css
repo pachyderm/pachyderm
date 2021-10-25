@@ -55,7 +55,3 @@
 .sideOpen .icon {
   transform: rotate(270deg);
 }
-
-.sideOpen {
-  width: auto;
-}
