@@ -62,11 +62,15 @@ By default, the local deployment of Pachyderm deploys the `pachd` service as  `t
 ### `Ingress` 
 An Ingress exposes HTTP and HTTPS routes from outside the cluster to services in the cluster such as Console or Authentication services. 
 
-To configure the Ingress, enable the `ingress` field in your values.yaml and provide any specific annotations to customize your ingress controller behavior.
+To configure the Ingress, enable the `ingress` field in your values.yaml, and chose one of the following:
+
+- deploy your preferred Ingress Controller ([Traefik](./pach-ui-ingress/), NGINX). 
+- or, provide any specific Kubernetes Ingress annotations to customize your ingress controller behavior.
+
 
 If your `ingress` is enabled: 
 
-- Cloud providers may provision a Load balancer automatically. For example, AWS will provision an Application Load Balancer (ALB).
+- Cloud providers may provision a Load balancer automatically. For example, AWS will provision an Application Load Balancer (ALB) in front of Console.
 - The deployment of Pachyderm (Check our [Helm documentation](../helm_install/)) automatically creates the following set of rules:
 ```yaml
     - host: <your_domain_name>
@@ -110,9 +114,6 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
 
 
 As of today, few Ingress Controller offer full support of the gRPC protocol. To access `pachd` over gRPC (for example, when using `pachctl` or the s3Gateway, we recommend using a Load Balancer instead.
-
-!!! Info
-    You might choose to deploy your preferred Ingress Controller (Traefik, NGINX). Read about the installation and configuration of [Traefik](./pach-ui-ingress/) on a cluster.
 
 !!! See "See Also" 
      * Kubernetes [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).

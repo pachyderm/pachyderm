@@ -180,8 +180,9 @@ nav:
             - Overview: deploy-manage/deploy/index.md
             - Get Started with Pachyderm Hub: hub/hub_getting_started.md
             - Deploy with Helm: deploy-manage/deploy/helm_install.md
+            - Quick Deployment in the Cloud: deploy-manage/deploy/quickstart.md
             - Production Deployments:       
-                - Infrastructure and Ingress Setup:
+                - Load Balancer and Ingress Setup:
                     - Infrastructure Recommendations: deploy-manage/deploy/ingress/index.md
                     - Set Up Traefik: deploy-manage/deploy/ingress/pach-ui-ingress.md  
                 - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md

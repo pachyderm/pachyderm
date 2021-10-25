@@ -1,5 +1,7 @@
 # Deploy Pachyderm on AWS
 
+For a quick installation of Pachyderm on AWS, jump to our [Quickstart page](./quickstart/).
+
 !!! Important "Before your start your installation process." 
       - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on  how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
@@ -228,11 +230,14 @@ postgresql:
   enabled: false
 ```
 ## 4. Deploy Pachyderm
-You have created your S3 bucket, given your cluster access to your bucket, created an AWS Managed PostgreSQL instance, and, if needed, have configured your EKS cluster to create your pvs.
+You have created your S3 bucket, given your cluster access to your bucket, created an AWS Managed PostgreSQL instance (or chosen to use the default bundled version), and, if needed, have configured your EKS cluster to create your pvs.
 
 You can now finalize your values.yaml and deploy Pachyderm.
-### Update Your Values.yaml   
 
+!!! Note 
+  - If you have created a GCP Managed PostgreSQL instance, you will have to replace the Postgresql section below with the appropriate values defined above.
+  - If you plan to deploy Pachyderm with Console, follow these [additional instructions](../../console/).
+### Update Your Values.yaml   
 #### For gp3 EBS Volumes
 
 [Check out our example of values.yaml for gp3](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp3-values.yaml) or use our minimal example below.
@@ -342,7 +347,7 @@ You can now finalize your values.yaml and deploy Pachyderm.
           size: 500Gi
       ```
 
-Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation.
+Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
 
 ### Deploy Pachyderm On The Kubernetes Cluster
 
@@ -383,7 +388,7 @@ Check the [list of all available helm values](../../../../reference/helm_values/
       Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
       Kubernetes restarted those pods. You can safely ignore this message.
 
-- Finally, make sure [`pachtl` talks with your cluster](#4-have-pachctl-and-your-cluster-communicate).
+- Finally, make sure [`pachtl` talks with your cluster](#5-have-pachctl-and-your-cluster-communicate).
 
 ## 5. Have 'pachctl' And Your Cluster Communicate
 
