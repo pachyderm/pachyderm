@@ -186,7 +186,7 @@ For a set of standard roles, read the [GCP IAM permissions documentation](https:
 
 etcd and PostgreSQL (metadata storage) each claim the creation of a [persistent disk](https://cloud.google.com/compute/docs/disks/). 
 
-If you plan to deploy Pachyderm with its default bundled PostgreSQL instance, read the following and jump to the [deployment section](#6-deploy-pachyderm): 
+If you plan to deploy Pachyderm with its default bundled PostgreSQL instance, read the warning below, and jump to the [deployment section](#6-deploy-pachyderm): 
 
 !!! Info   
     When deploying Pachyderm on GCP, your persistent volumes are automatically created and assigned the **default disk size of 50 GBs**. Note that StatefulSets is a default as well .
@@ -195,7 +195,7 @@ If you plan to deploy Pachyderm with its default bundled PostgreSQL instance, re
     Each persistent disk generally requires a small persistent volume size but **high IOPS (1500)**. If you choose to overwrite the default disk size, depending on your disk choice, you may need to oversize the volume significantly to ensure enough IOPS. For reference, 1GB should work fine for 1000 commits on 1000 files. 10GB is often a sufficient starting
     size, though we recommend provisioning at least 1500 write IOPS, which requires at least 50GB of space on SSD-based PDs and 1TB of space on Standard PDs. 
 
-If you plan to deploy a managed PostgreSQL instance (Recommended in production), read the following section.
+If you plan to deploy a managed PostgreSQL instance (**Recommended in production**), read the following section.
 ## 5. Create a GCP Managed PostgreSQL Database
 
 By default, Pachyderm runs with a bundled version of PostgreSQL. 
