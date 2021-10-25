@@ -211,6 +211,14 @@
                 "resources": {
                     "type": "object"
                 },
+                "securityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    }
+                },
                 "service": {
                     "type": "object",
                     "properties": {
@@ -435,6 +443,14 @@
                 },
                 "rootToken": {
                     "type": "string"
+                },
+                "securityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    }
                 },
                 "service": {
                     "type": "object",
