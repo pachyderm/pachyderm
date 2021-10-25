@@ -50,15 +50,17 @@ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-t
 # needed to create those clusterrolebindings.
 #
 # Note that this command is simple and concise, but gives your user account more privileges than necessary. See
-# https://docs.pachyderm.io/en/latest/deployment/rbac.html for the complete list of privileges that the
+# https://docs.pachyderm.io/en/1.11.x/deploy-manage/deploy/rbac/#rbac for the complete list of privileges that the
 # pachyderm serviceaccount needs.
 kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
 ```
 
 !!! note "Important"
-    You must create the Kubernetes cluster by using the `gcloud` command-line
-    tool rather than the Google Cloud Console, as you can grant the
-    `storage-rw` scope through the command-line tool only.
+        - You must create the Kubernetes cluster by using the `gcloud` command-line
+        tool rather than the Google Cloud Console, as you can grant the
+        `storage-rw` scope through the command-line tool only.
+        
+        - Adding `--scopes storage-rw` to `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` will grant the rw scope to whatever service account is on the cluster, which if you don’t provide it, is the default compute service account for the project which has Editor permissions. While this is **not recommended in any production settings**, this option can be useful for a quick setup in development. In that scenario, you do not need any service account or additional GCP Bucket permission.
 
 This migth take a few minutes to start up. You can check the status on
 the [GCP Console](https://console.cloud.google.com/compute/instances).
