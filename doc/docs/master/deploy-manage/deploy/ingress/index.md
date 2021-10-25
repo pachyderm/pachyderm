@@ -96,7 +96,7 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
 
 === "Example on AWS EKS"
 
-    In the example below, we are opening the HTTPS port and enabling TLS on AWS EKS.
+    In the example below, we are opening the HTTPS port and enabling TLS.
 
     ```yaml
     ingress:
@@ -117,7 +117,7 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
     ```
 === "Example on GCP GKE"
 
-    In the example below using the ingress controller [Traefik](./pach-ui-ingress/), we are opening the HTTPS port and enabling TLS on GCP GKE.
+    In the example below using the ingress controller [Traefik](./pach-ui-ingress/), we are opening the HTTPS port and enabling TLS.
 
     ```yaml
     ingress:
@@ -128,6 +128,18 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
         tls:
             enabled: true
             secretName: "pach-tls"
+    ```
+=== "Example on Azure AKS"
+
+    In the example below, we are using the ingress controller Nginx, and opening the HTTP port.
+
+    ```yaml
+    ingress:
+        enabled: true
+        annotations:
+            kubernetes.io/ingress.class: "nginx"
+        host: "your_domain_name" 
+  
     ```
 
 
@@ -178,6 +190,17 @@ Add the appropriate annotations to attach any Load Balancer configuration inform
     ```
 === "Example on GCP GKE"
     In the following example, we pre created a static IP by running `gcloud compute addresses create ADDRESS_NAME --global --ip-version IPV4`, then passed this external IP to the values.yaml as follow:
+
+    ``` yaml
+    pachd:
+      externalService:
+        enabled: true
+        apiGRPCPort: 30650
+        s3GatewayPort: 30600
+        loadBalancerIP: ${ADDRESS_NAME}
+    ```
+=== "Example on Azure AKS"
+    This example is identical to the example on Google GKE.
 
     ``` yaml
     pachd:
