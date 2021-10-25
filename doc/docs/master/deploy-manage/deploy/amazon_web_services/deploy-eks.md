@@ -6,6 +6,8 @@ Kubernetes infrastructure, EKS might be
 the right choice for your organization. Pachyderm seamlessly
 deploys on Amazon EKS.
 
+For a quick test installation of Pachyderm on AWS (suitable for development), jump to our [Quickstart page](../quickstart/).
+
 ## Prerequisites
 
 Before you can deploy Pachyderm on an EKS cluster, verify that
