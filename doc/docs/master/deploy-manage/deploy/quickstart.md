@@ -59,8 +59,11 @@ Install [AWS CLI](https://aws.amazon.com/cli/)
                     # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
                     secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
                     region: us-east-2
-            service:
-                type: "LoadBalancer"
+
+            externalService:
+                enabled: true
+                apiGRPCPort: 30650
+                s3GatewayPort: 30600
 
         postgresql:
             # Enables the built in Postgres.
@@ -87,8 +90,10 @@ Install [AWS CLI](https://aws.amazon.com/cli/)
             activateEnterprise: true
             # pachyderm enterprise key
             enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
-            service:
-                type: "LoadBalancer"
+            externalService:
+                enabled: true
+                apiGRPCPort: 30650
+                s3GatewayPort: 30600
 
         console:
             enabled: true
@@ -127,8 +132,10 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
             google:
                 bucket: "bucket_name"
             cred: INSERT JSON TO YOUR SERVICE ACCOUNT HERE
-        service:
-                type: "LoadBalancer"
+        externalService:
+            enabled: true
+            apiGRPCPort: 30650
+            s3GatewayPort: 30600
 
     postgresql:
         # Uses the built in Postgres.
@@ -148,8 +155,10 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
         activateEnterprise: true
         # pachyderm enterprise key
         enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
-        service:
-            type: "LoadBalancer"
+        externalService:
+            enabled: true
+            apiGRPCPort: 30650
+            s3GatewayPort: 30600
 
     console:
         enabled: true
@@ -194,8 +203,10 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
 
                 # storage account key
                 secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-            service:
-                type: "LoadBalancer"
+            externalService:
+                enabled: true
+                apiGRPCPort: 30650
+                s3GatewayPort: 30600
 
         postgresql:
             # Uses the built in Postgres.
@@ -220,8 +231,10 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
             activateEnterprise: true
             # pachyderm enterprise key
             enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
-            service:
-                type: "LoadBalancer"
+            externalService:
+                enabled: true
+                apiGRPCPort: 30650
+                s3GatewayPort: 30600
 
         console:
             enabled: true

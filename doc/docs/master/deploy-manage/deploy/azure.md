@@ -17,7 +17,7 @@ In particular, you will:
 1. [Deploy Kubernetes](#2-deploy-kubernetes)
 1. [Create an Azure Storage Container For Your Data](#3-create-an-azure-storage-container-for-your-data)
 1. [Persistent Volumes Creation](#4-persistent-volumes-creation)
-1. [Create an Azure Managed PostgreSQL Server Database](#5-create-an-azure-managed-postgresql-server) Database
+1. [Create an Azure Managed PostgreSQL Server Database](#5-create-an-azure-managed-postgresql-server) 
 1. [Deploy Pachyderm](#6-deploy-pachyderm)
 1. [Have 'pachctl' and your Cluster Communicate](#7-have-pachctl-and-your-cluster-communicate)
 1. [Check That Your Cluster Is Up And Running](#8-check-that-your-cluster-is-up-and-running)
