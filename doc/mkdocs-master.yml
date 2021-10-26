@@ -108,7 +108,7 @@ nav:
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting_started/index.md
-        - Quick Start - Get started on Hub: hub/hub_getting_started.md
+        - QUICK START- Get started on Hub: hub/hub_getting_started.md
         - Local Installation: getting_started/local_installation.md
         - Beginner Tutorial: getting_started/beginner_tutorial.md
         - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
@@ -180,7 +180,7 @@ nav:
             - Overview: deploy-manage/deploy/index.md
             - Get Started with Pachyderm Hub: hub/hub_getting_started.md
             - Helm Deployment Principles: deploy-manage/deploy/helm_install.md
-            - Quick Development Deployment: deploy-manage/deploy/quickstart.md
+            - QUICK Cloud Deployment: deploy-manage/deploy/quickstart.md
             - Production Deployment:       
                 - Load Balancer and Ingress Setup:
                     - Infrastructure Recommendations: deploy-manage/deploy/ingress/index.md
@@ -189,9 +189,7 @@ nav:
                 - Deploy on AWS:
                     - Overview: deploy-manage/deploy/amazon_web_services/index.md
                     - Deploy K8s with EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
-                    - Deploy K8s with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
                     - Deploy Pachyderm: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
-                    - Deploy CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Additional Customizations:

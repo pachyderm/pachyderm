@@ -1,14 +1,19 @@
 # Quickstart
 
-!!! Important  
-    These instructions will help create a simple and easy first time deployment of the latest version of Pachyderm in the cloud (Azure, Google, AWS). 
-    
-    For each cloud provider, we will give you the option to install Pachyderm with or without Console (Pachyderm UI).
+ 
+These instructions provide a simple deployment configuration of the latest GA version of Pachyderm on AWS (EKS), Google (GKS), and Azure (AKS).
 
-    While this is **not recommended in production settings**, this page can be useful for a quick test setup. For a production grade installation, read our [infrastructure recommendations](/deploy-manage/deploy/ingress/). In particular, we recommend to deploy a TCP Load Balancer in front of your pachd service and an Ingress Controller in front of console.
+For each cloud provider, we will give you the option to install Pachyderm with or without Console (Pachyderm UI).
+
+!!! Important 
+    The deployment steps highlighted in this document are **not intended for production**. If you wish to deploy Pachyderm in production, please read our [infrastructure recommendations](../ingress/). In particular, we recommend:
+
+     - the use of a **managed PostgreSQL server** (RDS, CloudSQL, or PostgreSQL Server) rather than Pachyderm's default bundled PostgreSQL.
+     - the setup of a **TCP Load Balancer** in front of your pachd service.
+     - the setup of an **Ingress Controller** in front of console. 
 
 
-## 1. Prerequisistes
+## 1. Prerequisites
 
 Before you start creating your cluster, install the following
 clients on your machine. Use the
@@ -18,16 +23,13 @@ latest available version of the components listed below.
 * [pachctl](../../../../getting_started/local_installation#install-pachctl)
 * Install [`Helm`](https://helm.sh/docs/intro/install/). 
 
+
 !!! Warning "Optional - Deployment of Pachyderm with Console"
     - The deployment of Console (Pachyderm UI) **requires a valid enterprise token**. To get your free-trial token, fill in [this form](https://www.pachyderm.com/trial), or get in touch with us at [sales@pachyderm.io](mailto:sales@pachyderm.io) or on our [Slack](http://slack.pachyderm.io/). 
-    - Additionally, you will need to set up an [Ingress](../ingress/#ingress). To get you started quickly, check our [Traefik installation](../ingress/pach-ui-ingress/) documentation. 
-    - When deploying, a mock user is setup for you to authenticate to Console:
-        - username:`admin`
-        - password: `password`
-    - Attention: You will need to run `pachctl auth login` to use pachctl.
+    - When deploying with `mockIDP: true` (see your values.yaml below), a mock user (username:`admin`, password: `password`) is created to authenticate to Console.
     
     More information about the [deployment of Pachyderm with Console](/deploy-manage/deploy/console/#deploy-in-the-cloud). 
-    Once your Ingress is configured, jump to the Cloud provider of your choice:
+
 
 Select your favorite cloud provider.
 
@@ -46,66 +48,45 @@ Install [AWS CLI](https://aws.amazon.com/cli/)
 === "Deploy Pachyderm without Console"
 
     ```yaml
-        deployTarget: AMAZON
-
-        pachd:
-            storage:
-                amazon:
-                    bucket: "bucket_name"
-                    
-                    # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
-                    id: AKIAIOSFODNN7EXAMPLE
-                    
-                    # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
-                    secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-                    region: us-east-2
-
-            externalService:
-                enabled: true
-                apiGRPCPort: 30650
-                s3GatewayPort: 30600
-
-        postgresql:
-            # Enables the built in Postgres.
-            enabled: true
-            persistence:
-                size: 500Gi
+    deployTarget: "AMAZON"
+    pachd:
+      storage:
+        amazon:
+          bucket: "bucket_name"      
+            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
+            id: "AKIAIOSFODNN7EXAMPLE"                
+            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
+            secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+            region: "us-east-2"
+      externalService:
+        enabled: true
+        apiGRPCPort: 30650
+        s3GatewayPort: 30600
     ```
 === "Deploy Pachyderm with Console"
 
     ```yaml
-        deployTarget: AMAZON
-
-        pachd:
-            storage:
-                amazon:
-                    bucket: "bucket_name"
-                    
-                    # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
-                    id: AKIAIOSFODNN7EXAMPLE
-                    
-                    # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
-                    secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-                    region: us-east-2
-            activateEnterprise: true
-            # pachyderm enterprise key
-            enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
-            externalService:
-                enabled: true
-                apiGRPCPort: 30650
-                s3GatewayPort: 30600
-
-        console:
-            enabled: true
-
-        oidc:
-            mockIDP: true
-
-        postgresql:
-            # Uses the built in Postgres.
-            enabled: true
-            persistence:
-                size: 500Gi
+    deployTarget: "AMAZON"
+    pachd:
+      storage:
+        amazon:
+          bucket: "bucket_name"                
+            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
+            id: "AKIAIOSFODNN7EXAMPLE"                
+            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
+            secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+            region: "us-east-2"
+      activateEnterprise: true
+      # pachyderm enterprise key
+      enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
+      externalService:
+        enabled: true
+        apiGRPCPort: 30650
+        s3GatewayPort: 30600
+    console:
+      enabled: true
+    oidc:
+      mockIDP: true
     ```
 
 Jump to [Helm install](#3-helm-install)
@@ -125,50 +106,37 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
 === "Deploy Pachyderm without Console"
 
     ```yaml
-    deployTarget: GOOGLE
-
+    deployTarget: "GOOGLE"
     pachd:
-        storage:
-            google:
-                bucket: "bucket_name"
-            cred: INSERT JSON TO YOUR SERVICE ACCOUNT HERE
-        externalService:
-            enabled: true
-            apiGRPCPort: 30650
-            s3GatewayPort: 30600
-
-    postgresql:
-        # Uses the built in Postgres.
+      storage:
+        google:
+          bucket: "bucket_name"
+          cred: "INSERT JSON TO YOUR SERVICE ACCOUNT HERE"
+      externalService:
         enabled: true
+        apiGRPCPort: 30650
+        s3GatewayPort: 30600
     ```
 === "Deploy Pachyderm with Console"
 
     ```yaml
-    deployTarget: GOOGLE
-
+    deployTarget: "GOOGLE"
     pachd:
-        storage:
-            google:
-                bucket: "bucket_name"
-            cred: INSERT JSON TO YOUR SERVICE ACCOUNT HERE
-
-        activateEnterprise: true
-        # pachyderm enterprise key
-        enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
-        externalService:
-            enabled: true
-            apiGRPCPort: 30650
-            s3GatewayPort: 30600
-
+      storage:
+        google:
+          bucket: "bucket_name"
+          cred: "INSERT JSON TO YOUR SERVICE ACCOUNT HERE"
+      activateEnterprise: true
+      # pachyderm enterprise key
+      enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
+      externalService:
+        enabled: true
+        apiGRPCPort: 30650
+        s3GatewayPort: 30600
     console:
-        enabled: true
-
+      enabled: true
     oidc:
-        mockIDP: true
-
-    postgresql:
-        # Uses the built in Postgres.
-        enabled: true
+      mockIDP: true
     ```
 
 Jump to [Helm install](#3-helm-install)
@@ -190,61 +158,45 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
 === "Deploy Pachyderm without Console"
 
     ```yaml
-        deployTarget: MICROSOFT
-
-        pachd:
-            storage:
-                microsoft:
-                # storage container name
-                container: blah
-
-                # storage account name
-                id: AKIAIOSFODNN7EXAMPLE
-
-                # storage account key
-                secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-            externalService:
-                enabled: true
-                apiGRPCPort: 30650
-                s3GatewayPort: 30600
-
-        postgresql:
-            # Uses the built in Postgres.
-            enabled: true
+    deployTarget: "MICROSOFT"
+    pachd:
+      storage:
+        microsoft:
+        # storage container name
+        container: "blah"
+        # storage account name
+        id: "AKIAIOSFODNN7EXAMPLE"
+        # storage account key
+        secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+      externalService:
+        enabled: true
+        apiGRPCPort: 30650
+        s3GatewayPort: 30600
     ```
 === "Deploy Pachyderm with Console"
 
     ```yaml    
-        deployTarget: MICROSOFT
-
-        pachd:
-            storage:
-                microsoft:
-                # storage container name
-                container: blah
-
-                # storage account name
-                id: AKIAIOSFODNN7EXAMPLE
-
-                # storage account key
-                secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-            activateEnterprise: true
-            # pachyderm enterprise key
-            enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
-            externalService:
-                enabled: true
-                apiGRPCPort: 30650
-                s3GatewayPort: 30600
-
-        console:
-            enabled: true
-
-        oidc:
-            mockIDP: true
-
-        postgresql:
-            # Uses the built in Postgres.
-            enabled: true
+    deployTarget: "MICROSOFT"
+    pachd:
+      storage:
+        microsoft:
+        # storage container name
+        container: "blah"
+        # storage account name
+        id: "AKIAIOSFODNN7EXAMPLE"
+        # storage account key
+        secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+      activateEnterprise: true
+      # pachyderm enterprise key
+      enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
+      externalService:
+        enabled: true
+        apiGRPCPort: 30650
+        s3GatewayPort: 30600
+    console:
+      enabled: true
+    oidc:
+      mockIDP: true
     ```
 
 Jump to [Helm install](#3-helm-install)
@@ -253,16 +205,16 @@ Jump to [Helm install](#3-helm-install)
 - Your will be deploying the [latest GA release](../../../contributing/supported-releases/#generally-available-ga) of Pachyderm:
 
     ```shell
-    $ helm repo add pach https://helm.pachyderm.com
-    $ helm repo update
-    $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm 
+    helm repo add pach https://helm.pachyderm.com
+    helm repo update
+    helm install pachyderm -f my_pachyderm_values.yaml pach/pachyderm 
     ```
 
 
 - Check your deployment:
 
     ```shell
-    $ kubectl get pods
+    kubectl get pods
     ```
 
     Once the pods are up, you should see a pod for `pachd` running 
@@ -281,10 +233,11 @@ Jump to [Helm install](#3-helm-install)
 
 - Make sure that `pachctl` can talk to the cluster:
 
-    - Retrieve the external IP address of pachd service (run `kubectl get services` and find the EXTERNAL_IP in front of pachd), then **update your context for pachctl to point at your cluster**:
+    - Retrieve the external IP address of pachd service (run `kubectl get services | grep pachd-lb | awk '{print $4}'`), then **update your context for pachctl to point at your cluster**:
 
         ```shell
-        $ echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+        echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<choose-a-cluster-context-name>" --overwrite
+        pachctl config set active-context "<choose-a-cluster-context-name>"
         ```
     
     - **Attention**: If you have deployed Console, before you can use `pachctl`, you will need to run `pachct auth login` then authenticate with your Mock User.
@@ -294,7 +247,7 @@ Jump to [Helm install](#3-helm-install)
 - Check That Your Cluster Is Up And Running
 
     ```shell
-    $ pachctl version
+    pachctl version
     ```
 
     **System Response:**
@@ -308,12 +261,12 @@ Jump to [Helm install](#3-helm-install)
 ## 5. Connect to Console
 To connect to your Console (Pachyderm UI):
 
-- Point your browser to `http://localhost:80` 
+- Point your browser to `http://localhost:4000` 
 - Authenticate as the mock User using `admin` & `password` 
 
 You are all set! 
 
-## 6. Or try our [beginner tutorial](../../-getting_started/beginner_tutorial/).
+## 6. Or try our [beginner tutorial](../../../getting_started/beginner_tutorial/).
 
 
     

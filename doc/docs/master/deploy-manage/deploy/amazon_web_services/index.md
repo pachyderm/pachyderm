@@ -1,9 +1,7 @@
 # Deploy Pachyderm on Amazon AWS
 
-Pachyderm can run in a Kubernetes cluster deployed in Amazon®
-Web Services (AWS), whether it is an Elastic Container
-Service (EKS) or a Kubernetes cluster deployed directly on
-EC2 by using a deployment tool.
+Pachyderm can run on an Elastic Container
+Service (EKS) deployed in Amazon® Web Services (AWS).
 
 Installing Pachyderm on EKS is a 2 steps process:
 
