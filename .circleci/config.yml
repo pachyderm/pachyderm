@@ -3,6 +3,7 @@ version: 2.1
 orbs:
     codecov: codecov/codecov@1.1.0
     pagerduty: fredbi/pagerduty@0.3.0
+    browser-tools: circleci/browser-tools@1.2.3
 
 jobs:
     backend-test:
@@ -31,14 +32,27 @@ jobs:
                   file: frontend/coverage/lcov.info
     e2e-test:
         resource_class: xlarge
-        docker:
-            - image: circleci/node:16-browsers # TODO: Why does cimg/node.16.11.0-browsers not work?
+        machine:
+            image: ubuntu-2004:202107-02
         steps:
             - checkout
-            - run: npm ci
-            - run: cd backend && npm ci
-            - run: cd frontend && npm ci
-            - run: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
+            - browser-tools/install-chrome
+            - browser-tools/install-chromedriver
+            - run: sudo sysctl fs.inotify.max_user_watches=524288
+            - run: sudo sysctl -p
+            - run: sudo apt-get update
+            - run: sudo apt-get install -y libgbm-dev
+            - run: nvm install 16.11.0
+            - run: nvm alias default 16.11.0
+            - run: nvm use 16.11.0 && node -v
+            - run: nvm use 16.11.0 && npm ci
+            - run: nvm use 16.11.0 && cd backend && npm ci
+            - run: nvm use 16.11.0 && cd frontend && npm ci
+            - run: nvm use 16.11.0 && npm run check-version
+            - run: etc/testing/circle/install.sh
+            - run: etc/testing/circle/start-minikube.sh
+            - run: etc/testing/circle/deploy-pachyderm.sh
+            - run: nvm use 16.11.0 && pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
     build:
         resource_class: xlarge
         docker:

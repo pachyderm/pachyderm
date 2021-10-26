@@ -26,3 +26,21 @@ import 'cypress-wait-until';
 //
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
+
+Cypress.Commands.add('login', (
+  email=Cypress.env('AUTH_EMAIL'),
+  password=Cypress.env('AUTH_PASSWORD')
+) => {
+  cy.visit('/');
+  cy.findByLabelText('Email').type(email);
+  cy.findByLabelText('Password').type(password);
+
+  return cy.findByLabelText('Log In').click();
+});
+
+Cypress.Commands.add('logout', () => {
+  cy.clearCookies();
+  cy.clearLocalStorage();
+
+  return cy.request('https://hub-e2e-testing.us.auth0.com/logout');
+});

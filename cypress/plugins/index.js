@@ -16,11 +16,10 @@
  * @type {Cypress.PluginConfig}
  */
  module.exports = (on, config) => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('@cypress/code-coverage/task')(on, config);
-  // include any other plugin code...
 
-  // It's IMPORTANT to return the config object
-  // with any changed environment variables
+  config.env.AUTH_EMAIL = process.env.PACHYDERM_AUTH_EMAIL;
+  config.env.AUTH_PASSWORD = process.env.PACHYDERM_AUTH_PASSWORD;
+
   return config;
 };

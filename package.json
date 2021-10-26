@@ -3,13 +3,14 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "check-version": "node scripts/checkVersion.js",
     "cypress:ci": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --headless --config video=false --record --parallel --group e2e",
     "cypress:open": "NODE_ENV=test dotenv-flow -- cypress open",
     "cypress:headless": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --headless --config video=false",
     "e2e": "start-server-and-test start:e2e http://localhost:4000 cypress:ci",
     "generate-types": "graphql-codegen",
     "setup": "node setup.js",
-    "start:e2e": "LOG_LEVEL=none npm run mock-and-start --prefix ./backend & npm run start:mock  --prefix ./frontend",
+    "start:e2e": "LOG_LEVEL=debug npm run start:dev --prefix ./backend & npm run start --prefix ./frontend",
     "start:mock": "LOG_LEVEL=debug npm run mock-and-start --prefix ./backend & npm run start:mock  --prefix ./frontend",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

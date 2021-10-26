@@ -73,12 +73,12 @@ const checkPachVersion = async () => {
 }
 
 const writePachdAddress = async () => {
-  console.log('Writing pachd address to .env.dev.local...');
+  console.log('Writing pachd address to .env.development.local...');
   try {
     await writeToEnv('PACHD_ADDRESS', LOCAL_PACHD_ADDRESS);
     console.log(`${LOCAL_PACHD_ADDRESS} ✅`);
   } catch (e) {
-    console.error('Problem writing pachd address to .env.dev.local:', e);
+    console.error('Problem writing pachd address to .env.development.local:', e);
     exit(1);
   }
 }
@@ -99,7 +99,7 @@ const activateAuth = async () => {
 }
 
 const setupClusterAdmin = async () => {
-  const userEmail = await askQuestion('What is the primary email associated with your Github account?');
+  const userEmail = process.env.PACHYDERM_AUTH_EMAIL || await askQuestion('What is the primary email associated with your connected account?');
 
   console.log('Setting up cluster admin...');
   try {
@@ -138,8 +138,8 @@ const configureIssuer = async () => {
 }
 
 const configureGithubConnector = async () => {
-  const clientId = await askQuestion('Enter Github Client ID:');
-  const clientSecret = await askQuestion('Enter Github Client Secret:');
+  const clientId = process.env.PACHYDERM_AUTH_CLIENT_ID || await askQuestion('Enter Github Client ID:');
+  const clientSecret = process.env.PACHYDERM_AUTH_CLIENT_SECRET || await askQuestion('Enter Github Client Secret:');
 
   console.log('Configuring Github connector...');
   try {
@@ -151,6 +151,36 @@ const configureGithubConnector = async () => {
         "config": {
           "clientID": "${clientId}",
           "clientSecret": "${clientSecret}",
+          "redirectURI": "http://localhost:30658/callback",
+          "org": "pachyderm"
+        }
+      }`);
+    console.log(`Connector configured with client ID ${clientId} ✅`);
+  } catch (e) {
+    if (String(e).includes('ID already exists')) {
+      console.log('Connector previously configured ⚠️');
+    } else {
+      console.log('Problem configuring connector:', e);
+      exit(1);
+    }
+  }
+}
+
+const configureAuth0Connector = async () => {
+  const clientId = process.env.PACHYDERM_AUTH_CLIENT_ID || await askQuestion('Enter Auth0 Client ID:');
+  const clientSecret = process.env.PACHYDERM_AUTH_CLIENT_SECRET || await askQuestion('Enter Auth0 Client Secret:');
+
+  console.log('Configuring Auth0 connector...');
+  try {
+    await executePachCommand(`idp create-connector <<EOF
+      {
+        "id": "auth0",
+        "name": "auth0",
+        "type": "oidc",
+        "config": {
+          "clientID": "${clientId}",
+          "clientSecret": "${clientSecret}",
+          "issuer": "https://hub-e2e-testing.us.auth0.com/",
           "redirectURI": "http://localhost:30658/callback",
           "org": "pachyderm"
         }
@@ -239,7 +269,11 @@ const setup = async () => {
   await activateAuth();
   await setupClusterAdmin();
   await configureIssuer();
-  await configureGithubConnector();
+  if (process.env.CI) {
+    await configureAuth0Connector();
+  } else {
+    await configureGithubConnector();
+  }
   await configureOIDCProvider();
   await configureDashClient();
   await configurePachClient();
