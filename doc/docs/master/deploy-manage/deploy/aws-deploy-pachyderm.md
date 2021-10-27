@@ -7,19 +7,74 @@ For a quick test installation of Pachyderm on AWS (suitable for development), ju
       - Read our [infrastructure recommendations](../../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
       - If you are planning to install Pachyderm UI. Read our [Console deployment](../../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../../ingress/#ingress).
 
+The following section walks you through deploying a Pachyderm cluster on [Amazon Elastic Kubernetes Service](https://aws.amazon.com/eks/) (EKS). 
+
+In particular, you will:
+
+1. Make a few [client installations](#1-prerequisites) before you start.
+1. [Deploy Kubernetes](#2-deploy-kubernetes-by-using-eksctl).
+1. [Create an S3 bucket](#3-create-an-S3-object) for your data and grant Pachyderm access.
+1. [Enable Persistent Volumes Creation](#4-enable-your-persistent-volumes-creation)
+1. [Create An AWS Managed PostgreSQL Instance](#5-create-an-aws-managed-postgresql-database)
+1. [Deploy Pachyderm ](#6-deploy-pachyderm)
+1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster](#7-have-pachctl-and-your-cluster-communicate).
+1. And check that your cluster is [up and running](#8-check-that-your-cluster-is-up-and-running)
+
+
+## 1. Prerequisites
+
+Before you can deploy Pachyderm on an EKS cluster, verify that
+you have the following prerequisites installed and configured:
+
+* [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+* [AWS CLI](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-console.html)
+* [eksctl](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-eksctl.html)
+* [aws-iam-authenticator](https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html).
+* [pachctl](../../../../getting_started/local_installation#install-pachctl)
+
+## 2. Deploy Kubernetes by using `eksctl`
+
+Use the `eksctl` tool to deploy an EKS cluster in your
+Amazon AWS environment. The `eksctl create cluster` command
+creates a virtual private cloud (VPC), a security group,
+and an IAM role for Kubernetes to create resources.
+For detailed instructions, see [Amazon documentation](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-console.html).
+
+To deploy an EKS cluster, complete the following steps:
+
+1. Deploy an EKS cluster:
+
+      ```shell
+      eksctl create cluster --name <name> --version <version> \
+      --nodegroup-name <name> --node-type <vm-flavor> \
+      --nodes <number-of-nodes> --nodes-min <min-number-nodes> \
+      --nodes-max <max-number-nodes> --node-ami auto
+      ```
+
+      **Example**
+
+      ```shell
+      eksctl create cluster --name pachyderm-cluster --region us-east-2 --profile <your named profile>
+      ```
+
+1. Verify the deployment:
+
+      ```shell
+      kubectl get all
+      ```
+
+      **System Response:**
+
+      ```
+      NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+      service/kubernetes   ClusterIP   10.100.0.1   <none>        443/TCP   23h
+      ```
+
 Once your Kubernetes cluster is up, and your infrastructure is configured, 
 you are ready to prepare for the installation of Pachyderm. 
 Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
 
-
-1. [Create an S3 bucket](#1-create-an-S3-object) for your data and grant Pachyderm access.
-1. [Enable Persistent Volumes Creation](#2-enable-your-persistent-volumes-creation)
-1. [Create An AWS Managed PostgreSQL Instance](#3-create-an-aws-managed-postgresql-database)
-1. [Deploy Pachyderm ](#4-deploy-pachyderm)
-1. Finally, you will need to install [pachctl](../../../../getting_started/local_installation#install-pachctl) to [interact with your cluster](#5-have-pachctl-and-your-cluster-communicate).
-1. And check that your cluster is [up and running](#6-check-that-your-cluster-is-up-and-running)
-
-## 1. Create an S3 bucket
+## 3. Create an S3 bucket
 ### Create an S3 object store bucket for data
 
 Pachyderm needs an S3 bucket (Object store) to store your data. You can create the bucket by running the following commands:
@@ -133,7 +188,7 @@ information, the method that you select for the bucket is applied.
 
 To set up bucket encryption, see [Amazon S3 Default Encryption for S3 Buckets](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html).
 
-## 2. Enable Your Persistent Volumes Creation
+## 4. Enable Your Persistent Volumes Creation
 
 etcd and PostgreSQL (metadata storage) each claim the creation of a pv. 
 
@@ -146,8 +201,8 @@ etcd and PostgreSQL (metadata storage) each claim the creation of a pv.
 
 If you plan on using **gp2** EBS volumes:
 
-- [Skip this section and jump to the deployment of Pachyderm](#3-deploy-pachyderm) 
-- or, for deployments in production, [jump to AWS-managed PostgreSQL](#3-optional-amazon-rds-aws-managed-postgresql-database)
+- [Skip this section and jump to the deployment of Pachyderm](#6-deploy-pachyderm) 
+- or, for deployments in production, [jump to AWS-managed PostgreSQL](#5-optional-amazon-rds-aws-managed-postgresql-database)
 
 For gp3 volumes, you will need to **deploy an Amazon EBS CSI driver to your cluster as detailed below**.
 
@@ -165,7 +220,7 @@ running or scale to thousands of jobs per commits, you might need to add
 more storage.  However, you can easily increase the size of the persistent
 volume later.
 
-## 3. Create an AWS Managed PostgreSQL Database
+## 5. Create an AWS Managed PostgreSQL Database
 
 By default, Pachyderm runs with a bundled version of PostgreSQL. 
 For production environments, it is **strongly recommended that you disable the bundled version and use an RDS PostgreSQL instance**. 
@@ -232,7 +287,7 @@ postgresql:
   # database server to connect to in global.postgresql
   enabled: false
 ```
-## 4. Deploy Pachyderm
+## 6. Deploy Pachyderm
 
 You have set up your infrastructure, created your S3 bucket, granted your cluster access to your bucket, and, if needed, have configured your EKS cluster to create your pvs.
 
@@ -257,7 +312,6 @@ Note that if you have created an AWS Managed PostgreSQL instance, you will have 
       # And a storageclass configured named gp3
       etcd:
         storageClass: gp3
-
       pachd:
         storage:
           amazon:
@@ -266,12 +320,10 @@ Note that if you have created an AWS Managed PostgreSQL instance, you will have 
         serviceAccount:
           additionalAnnotations:
             eks.amazonaws.com/role-arn: arn:aws:iam::<ACCOUNT_ID>:role/pachyderm-bucket-access
-
         worker:
           serviceAccount:
             additionalAnnotations:
               eks.amazonaws.com/role-arn: arn:aws:iam::<ACCOUNT_ID>:role/pachyderm-bucket-access
-
       postgresql:
         persistence:
           storageClass: gp3
@@ -283,7 +335,6 @@ Note that if you have created an AWS Managed PostgreSQL instance, you will have 
       # And a storageclass configured named gp3
       etcd:
         storageClass: gp3
-
       pachd:
         storage:
           amazon:
@@ -291,11 +342,8 @@ Note that if you have created an AWS Managed PostgreSQL instance, you will have 
             region: us-east-2
             # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
             id: AKIAIOSFODNN7EXAMPLE
-
             # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
             secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-
-
       postgresql:
         persistence:
           storageClass: gp3
@@ -307,11 +355,9 @@ Note that if you have created an AWS Managed PostgreSQL instance, you will have 
     
 === "For Gp2 + Service account annotations"
       ```yaml
-      deployTarget: AMAZON
-      
+      deployTarget: AMAZON      
       etcd:
-        size: 500Gi
-
+        etcd.storageSize: 500Gi
       pachd:
         storage:
           amazon:
@@ -320,34 +366,28 @@ Note that if you have created an AWS Managed PostgreSQL instance, you will have 
         serviceAccount:
           additionalAnnotations:
             eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/pachyderm-bucket-access
-
         worker:
           serviceAccount:
             additionalAnnotations:
               eks.amazonaws.com/role-arn: arn:aws:iam::190146978412:role/pachyderm-bucket-access
-
       postgresql:
         persistence:
           size: 500Gi
       ```  
 === "For Gp2 + AWS Credentials"
       ```yaml
-      deployTarget: AMAZON
-      
+      deployTarget: AMAZON      
       etcd:
-        size: 500Gi
-
+        etcd.storageSize: 500Gi
       pachd:
         storage:
           amazon:
             bucket: blah
             region: us-east-2
             # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-            id: AKIAIOSFODNN7EXAMPLE
-            
+            id: AKIAIOSFODNN7EXAMPLE            
             # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html           
             secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-
       postgresql:
         persistence:
           size: 500Gi
@@ -365,7 +405,7 @@ Check the [list of all available helm values](../../../../reference/helm_values/
       ```shell
       $ helm repo add pach https://helm.pachyderm.com
       $ helm repo update
-      $ helm install pachd -f my_values.yaml pach/pachyderm --version <version-of-the-chart>
+      $ helm install pachyderm -f values.yaml pach/pachyderm --version <version-of-the-chart>
       ```
 
       **System Response:**
@@ -396,12 +436,11 @@ Check the [list of all available helm values](../../../../reference/helm_values/
       Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
       Kubernetes restarted those pods. You can safely ignore this message.
 
-- Finally, make sure [`pachtl` talks with your cluster](#5-have-pachctl-and-your-cluster-communicate).
+- Finally, make sure [`pachtl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate).
 
-## 5. Have 'pachctl' And Your Cluster Communicate
+## 7. Have 'pachctl' And Your Cluster Communicate
 
-Install [pachctl](../../../../getting_started/local_installation#install-pachctl), then,
-assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
+Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
 If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name and:
 
@@ -426,7 +465,7 @@ If you're not exposing `pachd` publicly, you can run:
 $ pachctl port-forward
 ``` 
 
-## 6. Check That Your Cluster Is Up And Running
+## 8. Check That Your Cluster Is Up And Running
 
 ```shell
 $ pachctl version

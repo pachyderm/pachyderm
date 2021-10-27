@@ -185,11 +185,8 @@ nav:
                 - Load Balancer and Ingress Setup:
                     - Infrastructure Recommendations: deploy-manage/deploy/ingress/index.md
                     - Set Up Traefik: deploy-manage/deploy/ingress/pach-ui-ingress.md  
-                - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
-                - Deploy on AWS:
-                    - Overview: deploy-manage/deploy/amazon_web_services/index.md
-                    - Deploy K8s with EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
-                    - Deploy Pachyderm: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
+                - Deploy on GCP: deploy-manage/deploy/google_cloud_platform.md
+                - Deploy on AWS: deploy-manage/deploy/aws-deploy-pachyderm.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Additional Customizations:

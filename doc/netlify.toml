@@ -168,6 +168,18 @@
   force = true
 
 [[redirects]]
+  from = "/2.0.x/deploy-manage/deploy/amazon_web_services/*"
+  to = "/latest/deploy-manage/deploy/aws-deploy-pachyderm/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/2.0.x/deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm/"
+  to = "/latest/deploy-manage/deploy/aws-deploy-pachyderm/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/latest/how-tos/use-jupyterhub/"
   to = "/latest/how-tos/use-pachyderm-ide/"
   status = 301

@@ -3,7 +3,7 @@
  
 These instructions provide a simple deployment configuration of the latest GA version of Pachyderm on AWS (EKS), Google (GKS), and Azure (AKS).
 
-For each cloud provider, we will give you the option to install Pachyderm with or without Console (Pachyderm UI).
+#For each cloud provider, we will give you the option to install Pachyderm with or without Console(Pachyderm UI).
 
 !!! Important 
     The deployment steps highlighted in this document are **not intended for production**. If you wish to deploy Pachyderm in production, please read our [infrastructure recommendations](../ingress/). In particular, we recommend:
@@ -63,31 +63,14 @@ Install [AWS CLI](https://aws.amazon.com/cli/)
         apiGRPCPort: 30650
         s3GatewayPort: 30600
     ```
-=== "Deploy Pachyderm with Console"
+=== "Coming Soon... Deploy Pachyderm with Console"
 
-    ```yaml
-    deployTarget: "AMAZON"
-    pachd:
-      storage:
-        amazon:
-          bucket: "bucket_name"                
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
-            id: "AKIAIOSFODNN7EXAMPLE"                
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
-            secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-            region: "us-east-2"
-      activateEnterprise: true
-      # pachyderm enterprise key
-      enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
-      externalService:
-        enabled: true
-        apiGRPCPort: 30650
-        s3GatewayPort: 30600
-    console:
-      enabled: true
-    oidc:
-      mockIDP: true
-    ```
+     In the meantime... 
+
+      - Try [Console on Hub](https://hub.pachyderm.com/)
+      - Deploy Pachyderm and Console [locally](../../../getting_started/local_installation/) 
+      - Or [contact us](mailto:support@pachyderm.io)! We are happy to Help.
+     
 
 Jump to [Helm install](#3-helm-install)
 
@@ -117,27 +100,13 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
         apiGRPCPort: 30650
         s3GatewayPort: 30600
     ```
-=== "Deploy Pachyderm with Console"
+=== "Coming Soon... Deploy Pachyderm with Console"
 
-    ```yaml
-    deployTarget: "GOOGLE"
-    pachd:
-      storage:
-        google:
-          bucket: "bucket_name"
-          cred: "INSERT JSON TO YOUR SERVICE ACCOUNT HERE"
-      activateEnterprise: true
-      # pachyderm enterprise key
-      enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
-      externalService:
-        enabled: true
-        apiGRPCPort: 30650
-        s3GatewayPort: 30600
-    console:
-      enabled: true
-    oidc:
-      mockIDP: true
-    ```
+     In the meantime... 
+
+      - Try [Console on Hub](https://hub.pachyderm.com/)
+      - Deploy Pachyderm and Console [locally](../../../getting_started/local_installation/) 
+      - Or [contact us](mailto:support@pachyderm.io)! We are happy to Help.
 
 Jump to [Helm install](#3-helm-install)
 
@@ -173,31 +142,13 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
         apiGRPCPort: 30650
         s3GatewayPort: 30600
     ```
-=== "Deploy Pachyderm with Console"
+=== "Coming Soon...  Deploy Pachyderm with Console"
 
-    ```yaml    
-    deployTarget: "MICROSOFT"
-    pachd:
-      storage:
-        microsoft:
-        # storage container name
-        container: "blah"
-        # storage account name
-        id: "AKIAIOSFODNN7EXAMPLE"
-        # storage account key
-        secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-      activateEnterprise: true
-      # pachyderm enterprise key
-      enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
-      externalService:
-        enabled: true
-        apiGRPCPort: 30650
-        s3GatewayPort: 30600
-    console:
-      enabled: true
-    oidc:
-      mockIDP: true
-    ```
+     In the meantime... 
+
+      - Try [Console on Hub](https://hub.pachyderm.com/)
+      - Deploy Pachyderm and Console [locally](../../../getting_started/local_installation/) 
+      - Or [contact us](mailto:support@pachyderm.io)! We are happy to Help.
 
 Jump to [Helm install](#3-helm-install)
 

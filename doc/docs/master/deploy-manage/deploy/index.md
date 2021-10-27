@@ -1,7 +1,8 @@
 # Overview
 
-Pachyderm runs on [Kubernetes](http://kubernetes.io/) and
-is backed by an object store of your choice. In addition, we recommend using a **managed database instance** (such as RDS for AWS or CloudSQL for Google) for the storage of metadata. 
+Pachyderm runs on [Kubernetes](http://kubernetes.io/),
+is backed by an object store of your choice, and runs with a bundled version of [PostgreSQL](https://www.postgresql.org/) (metadata storage) by default. 
+We recommended that you disable the bundled version for production environments and use a **managed database instance** (such as RDS, CloudSQL, or PostgreSQL Server) instead.
 
 This section covers common
 deployment options and related topics:
