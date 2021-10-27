@@ -1,20 +1,40 @@
 syntax = "proto3";
 
-package pfsserver;
+package fileset;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/server/pfs/server";
 
-message CompactionTask {
+message ShardTask {
   int64 index = 1;
   repeated string inputs = 2;
-  PathRange range = 3;
 }
 
-message CompactionTaskResult {
+message ShardTaskResult {
   int64 index = 1;
-  string id = 2;
+  repeated CompactTask compact_tasks = 2;
 }
 
 message PathRange {
   string lower = 1;
   string upper = 2;
+}
+
+message CompactTask {
+  int64 index = 1;
+  repeated string inputs = 2;
+  PathRange path_range = 3;
+}
+
+message CompactTaskResult {
+  int64 index = 1;
+  string id = 2;
+}
+
+message ConcatTask {
+  int64 index = 1;
+  repeated string inputs = 2;
+}
+
+message ConcatTaskResult {
+  int64 index = 1;
+  string id = 2;
 }
