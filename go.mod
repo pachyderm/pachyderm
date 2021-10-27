@@ -32,6 +32,7 @@ require (
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/color v1.9.0
 	github.com/fsouza/go-dockerclient v1.4.1
+	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
