@@ -1,6 +1,7 @@
 include LICENSE
 include *.md
 include pyproject.toml
+recursive-include jupyter-config *.json
 
 include package.json
 include install.json
