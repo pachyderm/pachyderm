@@ -24,7 +24,7 @@ func GetPachClient(t testing.TB) *client.APIClient {
 		if _, ok := os.LookupEnv("PACHD_PORT_1650_TCP_ADDR"); ok {
 			pachClient, pachErr = client.NewInCluster()
 		} else {
-			pachClient, pachErr = client.NewForTest()
+			pachClient, pachErr = client.NewForTest(t)
 		}
 	})
 	if pachErr != nil {

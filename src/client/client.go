@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"golang.org/x/net/context"
@@ -460,7 +461,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 
 // NewForTest constructs a new APIClient for tests.
 // TODO(actgardner): this should probably live in testutils and accept a testing.TB
-func NewForTest() (*APIClient, error) {
+func NewForTest(t testing.TB) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
@@ -489,7 +490,7 @@ func NewForTest() (*APIClient, error) {
 
 // NewEnterpriseClientForTest constructs a new APIClient for tests.
 // TODO(actgardner): this should probably live in testutils and accept a testing.TB
-func NewEnterpriseClientForTest() (*APIClient, error) {
+func NewEnterpriseClientForTest(t testing.TB) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
@@ -646,31 +647,6 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 	}
 	// create new pachctl client
 	return NewFromURI(fmt.Sprintf("%s:%s", host, port), options...)
-}
-
-// NewInWorker constructs a new APIClient intended to be used from a worker
-// to talk to the sidecar pachd container
-func NewInWorker(options ...Option) (*APIClient, error) {
-	cfg, err := config.Read(false, true)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not read config")
-	}
-	_, context, err := cfg.ActiveContext(true)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get active context")
-	}
-
-	if localPort, ok := os.LookupEnv("PEER_PORT"); ok {
-		client, err := NewFromURI(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not create client")
-		}
-		if context.SessionToken != "" {
-			client.authenticationToken = context.SessionToken
-		}
-		return client, nil
-	}
-	return nil, errors.New("PEER_PORT not set")
 }
 
 // Close the connection to gRPC

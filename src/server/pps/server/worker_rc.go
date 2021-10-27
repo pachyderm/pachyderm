@@ -159,11 +159,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
-		// Set core pach env vars
-		{
-			Name:  "PACH_IN_WORKER",
-			Value: "true",
-		},
 		// We use Kubernetes' "Downward API" so the workers know their IP
 		// addresses, which they will then post on etcd so the job managers
 		// can discover the workers.
@@ -264,13 +259,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
 
-	// mount secret for spouts using pachctl
-	if pipelineInfo.Details.Spout != nil {
-		pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount("spout-pachctl-secret-" + pipelineInfo.Pipeline.Name)
-		options.volumes = append(options.volumes, pachctlSecretVolume)
-		sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
-		userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
-	}
+	// mount secret for using pachctl
+	pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount(makeWorkerPachctlSecretName(pipelineInfo))
+	options.volumes = append(options.volumes, pachctlSecretVolume)
+	sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
+	userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
 
 	// Explicitly set CPU requests to zero because some cloud providers set their
 	// own defaults which are usually not what we want. Mem request defaults to
@@ -652,6 +645,13 @@ func (a *apiServer) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOpt
 	}, nil
 }
 
+func makeWorkerPachctlSecretName(pipelineInfo *pps.PipelineInfo) string {
+	x := "pachctl-secret-" + pipelineInfo.Pipeline.Name
+	x = strings.ToLower(x)
+	x = strings.ReplaceAll(x, "_", "-")
+	return x
+}
+
 func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	var cfg config.Config
 	err := cfg.InitV2()
@@ -663,7 +663,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, pipelineInfo 
 		return errors.Wrapf(err, "error getting the active context")
 	}
 	context.SessionToken = pipelineInfo.AuthToken
-	context.PachdAddress = "localhost:1653"
+	context.PachdAddress = "localhost:" + strconv.Itoa(int(a.peerPort))
 
 	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -675,7 +675,7 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, pipelineInfo 
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "spout-pachctl-secret-" + pipelineInfo.Pipeline.Name,
+			Name:   makeWorkerPachctlSecretName(pipelineInfo),
 			Labels: labels(pipelineInfo.Pipeline.Name),
 		},
 		Data: map[string][]byte{
@@ -712,13 +712,9 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.
 		tracing.FinishAnySpan(span)
 	}()
 
-	// create pachctl secret used in spouts
-	if pipelineInfo.Details.Spout != nil {
-		if err := a.createWorkerPachctlSecret(ctx, pipelineInfo); err != nil {
-			return err
-		}
+	if err := a.createWorkerPachctlSecret(ctx, pipelineInfo); err != nil {
+		return err
 	}
-
 	options, err := a.getWorkerOptions(pipelineInfo)
 	if err != nil {
 		return noValidOptionsErr{err}

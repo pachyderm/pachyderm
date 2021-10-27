@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	prompt "github.com/c-bata/go-prompt"
@@ -283,7 +282,7 @@ $ {{alias}} test@fork -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := newClient("user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -334,7 +333,7 @@ $ {{alias}} test@fork -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := newClient("user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -1022,7 +1021,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if compress {
 				opts = append(opts, client.WithGZIPCompression())
 			}
-			c, err := newClient("user", opts...)
+			c, err := client.NewOnUserMachine("user", opts...)
 			if err != nil {
 				return err
 			}
@@ -1195,7 +1194,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 			if err != nil {
 				return err
 			}
-			c, err := newClient("user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -1774,19 +1773,6 @@ func forEachDiffFile(newFiles, oldFiles []*pfs.FileInfo, f func(newFile, oldFile
 			return err
 		}
 	}
-}
-
-func newClient(name string, options ...client.Option) (*client.APIClient, error) {
-	if inWorkerStr, ok := os.LookupEnv("PACH_IN_WORKER"); ok {
-		inWorker, err := strconv.ParseBool(inWorkerStr)
-		if err != nil {
-			return nil, errors.Wrap(err, "couldn't parse PACH_IN_WORKER")
-		}
-		if inWorker {
-			return client.NewInWorker(options...)
-		}
-	}
-	return client.NewOnUserMachine(name, options...)
 }
 
 func parseOriginKind(input string) (pfs.OriginKind, error) {
