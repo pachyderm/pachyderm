@@ -289,16 +289,16 @@ postgresql:
 ```
 ## 6. Deploy Pachyderm
 
-You have set up your infrastructure, created your S3 bucket, granted your cluster access to your bucket, and, if needed, have configured your EKS cluster to create your pvs.
+You have set up your infrastructure, created your S3 bucket and an AWS Managed PostgreSQL instance, granted your cluster access to both, and, if needed, have configured your EKS cluster to create your pvs.
 
 You can now finalize your values.yaml and deploy Pachyderm.
 
-Note that if you have created an AWS Managed PostgreSQL instance, you will have to replace the Postgresql section below with the appropriate values defined above.
 ### Update Your Values.yaml   
 
-!!! Note 
-  - If you have created a GCP Managed PostgreSQL instance, you will have to replace the Postgresql section below with the appropriate values defined above.
-  - If you plan to deploy Pachyderm with Console, follow these [additional instructions](../../console/).
+!!! Warning
+    - If you have created a Managed PostgreSQL instance (RDS), replace the Postgresql section below with the appropriate values defined above.
+    -If you plan to deploy Pachyderm with Console, follow these [additional instructions](../../console/) and add the relevant fields in your values.yaml.
+
 ### Update Your Values.yaml   
 #### For gp3 EBS Volumes
 

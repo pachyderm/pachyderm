@@ -3,7 +3,7 @@
  
 These instructions provide a simple deployment configuration of the latest GA version of Pachyderm on AWS (EKS), Google (GKS), and Azure (AKS).
 
-#For each cloud provider, we will give you the option to install Pachyderm with or without Console(Pachyderm UI).
+<!--For each cloud provider, we will give you the option to install Pachyderm with or without Console(Pachyderm UI).-->
 
 !!! Important 
     The deployment steps highlighted in this document are **not intended for production**. If you wish to deploy Pachyderm in production, please read our [infrastructure recommendations](../ingress/). In particular, we recommend:
@@ -217,7 +217,7 @@ To connect to your Console (Pachyderm UI):
 
 You are all set! 
 
-## 6. Or try our [beginner tutorial](../../../getting_started/beginner_tutorial/).
+## 6. Try our [beginner tutorial](../../../getting_started/beginner_tutorial/).
 
 
     

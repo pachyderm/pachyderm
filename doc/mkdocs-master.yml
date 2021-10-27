@@ -180,6 +180,7 @@ nav:
             - Overview: deploy-manage/deploy/index.md
             - Get Started with Pachyderm Hub: hub/hub_getting_started.md
             - Helm Deployment Principles: deploy-manage/deploy/helm_install.md
+            - Local Deployment: getting_started/local_installation.md
             - QUICK Cloud Deployment: deploy-manage/deploy/quickstart.md
             - Production Deployment:       
                 - Load Balancer and Ingress Setup:
@@ -189,6 +190,7 @@ nav:
                 - Deploy on AWS: deploy-manage/deploy/aws-deploy-pachyderm.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+            - Deploy Console: deploy-manage/deploy/console.md
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
                 - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
@@ -203,7 +205,6 @@ nav:
                     - List of pachd metrics: deploy-manage/deploy/prometheus/pachd_metrics.md
                     - List of pipeline metrics: deploy-manage/deploy/prometheus/job_metrics.md
                 - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
-            - Deploy Console: deploy-manage/deploy/console.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
