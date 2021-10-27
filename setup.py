@@ -57,7 +57,7 @@ setup_args = dict(
     packages=setuptools.find_packages(),
     install_requires=[
         "jupyter_server>=1.6,<2",
-        "jupyter_packaging~=0.10.0,<2"
+        "jupyter_packaging~=0.10.0,<2",
         'jupyterlab>=3.0.14'
     ],
     zip_safe=False,
