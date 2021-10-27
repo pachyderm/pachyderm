@@ -51,6 +51,14 @@ Additionally, before you begin your installation:
 
 - [Enable the GKE API on your project](https://console.cloud.google.com/apis/library/container.googleapis.com?q=kubernetes%20engine) if you have not done so already.
 
+- Enable the [CloudSQL Admin API](https://cloud.google.com/sql/docs/postgres/admin-api) to administer your instance. 
+
+    - In Google Cloud Console, on your Project's *Dashboard* View, click the *Go to APIs Overview* link in the APIs Section.
+    - On the *APIs & Services* page, click the *+Enable APIs and Services* tab, search for `CloudSQL Admin`, then click *Cloud SQL Admin API*. Click the *Enable* button. Et voilà!
+
+  ![Enable CloudSQL Admin API in Console](../images/cloudSQL_admin_api_enable.png)
+
+
 ## 2. Deploy Kubernetes
 
 To create a new Kubernetes cluster by using GKE, run:
@@ -80,7 +88,7 @@ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-ad
 ```
 
 !!! Note
-    Adding `--scopes storage-rw` to `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` will grant the rw scope to whatever service account is on the cluster, which if you don’t provide it, is the default compute service account for the project which has Editor permissions. While this is **not recommended in any production settings**, this option can be useful for a quick setup in development. In that scenario, you do not need any service account or additional GCP Bucket permission (see below).
+    Adding `--scopes storage-rw` to `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` will grant the rw scope to whatever service account is on the cluster, which if you don’t provide it, is the default compute service account for the project which, by default, has Editor permissions. While this is **not recommended in any production settings**, this option can be useful for a quick setup in development. In that scenario, you do not need any service account or additional GCP Bucket permission (see below).
 
 This might take a few minutes to start up. You can check the status on
 the [GCP Console](https://console.cloud.google.com/compute/instances).
@@ -143,7 +151,7 @@ Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) (Object s
 
 * Create the bucket:
      ```
-     gsutil mb gs://${BUCKET_NAME} -l ${GCP_REGION} 
+     gsutil mb -l ${GCP_REGION}  gs://${BUCKET_NAME} 
      ```
 
 * Check that everything has been set up correctly:
@@ -204,7 +212,7 @@ For production environments, it is **strongly recommended that you disable the b
 
 This section will provide guidance on the configuration settings you will need to: 
 
-- Create an environment to run your GCP CloudSQL databases. 
+- Create a GCP CloudSQL Instance.
 - Create **two databases** (`pachyderm` and `dex`).
 - Update your values.yaml to turn off the installation of the bundled postgreSQL and provide your new instance information.
 
@@ -215,13 +223,17 @@ This section will provide guidance on the configuration settings you will need t
 
 Find the details of the steps and available parameters to create a CloudSQL instance in [GCP  Documentation: "Create instances: CloudSQL for PostgreSQL"](https://cloud.google.com/sql/docs/postgres/create-instance#gcloud).
 
-Find an illustrative example below:
+* Set up the following system variable:
+
+      * `INSTANCE_NAME` — Your Cloud SQL instance name.
+
+* See the illustrative example below:
 ```shell
-gcloud sql instances create <YOUR_INSTANCE_NAME> \
+gcloud sql instances create ${INSTANCE_NAME}\
 --database-version=POSTGRES_13 \
 --cpu=2 \
 --memory=7680MB \
---zone=${GCP_ZONE}
+--zone=${GCP_ZONE}\
 --availability-type=ZONAL \
 --storage-size=50GB \
 --storage-type=PD_SSD \
@@ -237,17 +249,17 @@ Check out Google documentation for more information on how to [Create and Manage
 After the instance is created, those two commands create the databases that pachyderm uses.
 
 ```shell
-gcloud sql databases create dex 
-gcloud sql databases create pachyderm
+gcloud sql databases create dex -i ${INSTANCE_NAME}
+gcloud sql databases create pachyderm -i ${INSTANCE_NAME}
 ```
-Pachyderm will use the same user to connect to `pachyderm` as well as to `dex`. 
+Pachyderm will use the same user "postgres" to connect to `pachyderm` as well as to `dex`. 
 
 ### Update your values.yaml 
 Once your databases have been created, add the following fields to your Helm values:
 
 !!! Note
     - Use **Cloud SQL Auth Proxy** To Connect To Your Instance: Find out how to connect to your Cloud SQL instance using the Cloud SQL Auth proxy in [this documentation](https://cloud.google.com/sql/docs/postgres/connect-admin-proxy).
-    - To identify a Cloud SQL instance, you can find the INSTANCE_CONNECTION_NAME on the Overview page for your instance in the Google Cloud Console, or by running the following command: 
+    - To identify a Cloud SQL instance, you can find the INSTANCE_NAME on the Overview page for your instance in the Google Cloud Console, or by running the following command: 
     `gcloud sql instances describe INSTANCE_NAME`
     For example: myproject:myregion:myinstance.
 
@@ -255,7 +267,7 @@ Once your databases have been created, add the following fields to your Helm val
 ```yaml
 cloudsqlAuthProxy:
   enabled: true
-  connectionName: "INSTANCE_NAME"
+  connectionName: <ConnectionName>
   serviceAccount: <ServiceAccount>
   resources:
     requests:
@@ -264,14 +276,14 @@ cloudsqlAuthProxy:
 
 global:
   postgresql:
-    postgresqlUsername: "postgres"
-    postgresqlPassword: "admin_user_password"
-    # The name of the database should be Pachyderm's ("pachyderm" in the example above), not "dex" 
-    postgresqlDatabase: "INSTANCE_NAME"
     # The postgresql database host to connect to. Defaults to postgres service in subchart
-    postgresqlHost: "CloudSQL CNAME"
+    postgresqlHost: "cloudsql-auth-proxy.default.svc.cluster.local."
     # The postgresql database port to connect to. Defaults to postgres server in subchart
     postgresqlPort: "5432"
+    postgresqlSSL: "disable"
+    postgresqlUsername: "postgres"
+    postgresqlPassword: <InstanceRootPassword>
+
 
 postgresql:
   # turns off the install of the bundled postgres.
@@ -306,11 +318,11 @@ pachd:
         INSERT JSON HERE
   serviceAccount:
     additionalAnnotations:
-      iam.gke.io/gcp-service-account: "service account ID and Role"
+      iam.gke.io/gcp-service-account: <ServiceAccount>
   worker:
     serviceAccount:
       additionalAnnotations:
-        iam.gke.io/gcp-service-account: "service account ID and Role"
+        iam.gke.io/gcp-service-account: <ServiceAccount>
 
 postgresql:
   # If using the built in Postgres
@@ -326,7 +338,7 @@ postgresql:
     ```shell
     $ helm repo add pach https://helm.pachyderm.com
     $ helm repo update
-    $ helm install pachd -f my_values.yaml pach/pachyderm --set-file pachd.storage.google.cred=<my-key>.json.
+    $ helm install pachyderm -f my_values.yaml pach/pachyderm --set-file pachd.storage.google.cred=<my-key>.json.
     ```
 
     **System Response:**
