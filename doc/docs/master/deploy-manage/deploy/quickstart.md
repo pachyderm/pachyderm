@@ -60,8 +60,6 @@ Install [AWS CLI](https://aws.amazon.com/cli/)
             region: "us-east-2"
       externalService:
         enabled: true
-        apiGRPCPort: 30650
-        s3GatewayPort: 30600
     ```
 === "Coming Soon... Deploy Pachyderm with Console"
 
@@ -97,8 +95,6 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
           cred: "INSERT JSON TO YOUR SERVICE ACCOUNT HERE"
       externalService:
         enabled: true
-        apiGRPCPort: 30650
-        s3GatewayPort: 30600
     ```
 === "Coming Soon... Deploy Pachyderm with Console"
 
@@ -139,8 +135,6 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
         secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
       externalService:
         enabled: true
-        apiGRPCPort: 30650
-        s3GatewayPort: 30600
     ```
 === "Coming Soon...  Deploy Pachyderm with Console"
 
@@ -190,12 +184,14 @@ Jump to [Helm install](#3-helm-install)
         echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<choose-a-cluster-context-name>" --overwrite
         pachctl config set active-context "<choose-a-cluster-context-name>"
         ```
-    
-    - **Attention**: If you have deployed Console, before you can use `pachctl`, you will need to run `pachct auth login` then authenticate with your Mock User.
 
     - Then run `pachctl port-forward` (Background this process in a new tab of your terminal).
 
 - Check That Your Cluster Is Up And Running
+
+   !!! Note
+    If Authentication is activated (When you deploy Console, for example), you will need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
+
 
     ```shell
     pachctl version

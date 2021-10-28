@@ -1,5 +1,6 @@
 # Google Cloud Platform
 
+For a quick test installation of Pachyderm on GCP (suitable for development), jump to our [Quickstart page](../quickstart/).
 
 !!! Important "Before your start your installation process." 
       - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on  how to install and get started with `Helm`.

@@ -8,7 +8,7 @@
 Note that this section is an add-on to the deployment of Pachyderm, locally or in the cloud. 
 It details the additional steps required to install and access your Console.
 
-- If you plan to deploy in the cloud, this section will complement your values.yaml (find Pachyderm's deployment instructions matching your target (AWS, Google, Azure...) in the [Deploy section](../) of the documentation).
+- If you plan to deploy in the cloud, this section will complement your values.yaml (find Pachyderm's deployment instructions matching your target ([AWS](), [Google](), [Azure]()...) in the [Deploy section](../) of the documentation).
 - To deploy locally, follow the instructions below.
 
 ## Deploy Locally
@@ -17,7 +17,7 @@ It details the additional steps required to install and access your Console.
       A local installation helps you learn
       some of the Pachyderm basics and experiment with the product. It is not designed to be a production environment.
 
-We provide an easy "one line" deployment command to install pachyderm with Console on a local environment. All you need is your enterprise token.
+We provide an easy "one line" deployment command to install Pachyderm with Console on a local environment. All you need is your enterprise token and [a Kubernetes cluster running on your local environment](../../../getting_started/local_installation/#prerequisites).
 
 Run the following helm installation:
 
@@ -34,15 +34,17 @@ To connect to your Console (Pachyderm UI):
 `localhost:4000`.
 * Alternatively, you can connect to your Console (Pachyderm UI) directly by pointing your
     browser to port `4000` on your minikube IP (run `minikube ip` to retrieve minikube's external IP) or docker desktop IP `http://<dockerDesktopIdaddress-or-minikube>:4000/`.  
-* Authenticate using `admin` & `password`. 
+* Authenticate to Console using `admin` & `password`. 
+* Note that you will need to run `pachct auth login`, then authenticate to Pachyderm with your User to use `pachctl`.
 
 You are all set!
 
 !!! Note
     Note that you can set up an IDP locally (Okta, Auth0...) and authenticate as one of its users. You can choose to do so when deploying Pachyderm (in the values.yaml) or later on (using pachctl). Either way, follow the steps described in the `production environment` section below.
+
 ## Deploy In The Cloud
 
-The deployment of Console in your favorite Cloud requires, at a minimum, the set up an [Ingress](../ingress/#ingress). 
+The deployment of Console in your favorite Cloud requires, at a minimum, the set up an Ingress (see below), the activation of Authentication, and the setup of a DNS.
 
 
 Once your Ingress is configured in your values.yaml, you can choose one of the following:
@@ -50,6 +52,7 @@ Once your Ingress is configured in your values.yaml, you can choose one of the f
 - Coming Soon...  **Quick installation** of Console (Not recommended in Production but an easy way to get started).
 - For a **production environment**:
 
+    - Set up your [Ingress](../ingress/#ingress) and DNS.
     - Set up your IDP during deployment.
         To configure your Identity Provider as a part of `helm install`, see examples for the `oidc.upstreamIDPs` value in the [helm chart values specification](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L461) and read [our IDP Configuration page](../../../enterprise/auth/authentication/idp-dex) for a better understanding of each field. 
     - Or manually remove the mockIDP (i.e., update your values.yaml with `oidc.mockIDP = false`) then [set up an Identity Provider by using `pachctl`](../../../enterprise/auth/authentication/idp-dex).

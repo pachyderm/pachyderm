@@ -231,7 +231,7 @@ In the Azure console, choose the **Azure Database for PostgreSQL servers** servi
 
 | SETTING | Recommended value|
 |:----------------|:--------------------------------------------------------|
-| *subscription*  and *resource group*| Pick an existing [resource group](https://docs.microsoft.com/en-us/azure/cloud-adoption-framework/govern/resource-consistency/resource-access-management#what-is-an-azure-resource-group) or create a new one.|
+| *subscription*  and *resource group*| Pick your existing [resource group](https://docs.microsoft.com/en-us/azure/cloud-adoption-framework/govern/resource-consistency/resource-access-management#what-is-an-azure-resource-group).<br><br> **Important** Your Cluster and your Database must be deployed in the **same ressource group**.|
 |*server name*|Name your instance.|
 |*location*|Create a database **in the region matching your Pachyderm cluster**.|
 |*compute + storage*|The standard instance size (GP_Gen5_4 = Gen5 VMs with 4 cores) should work. Remember that Pachyderm's metadata services require **high IOPS (1500)**. Oversize the disk accordingly |
@@ -239,12 +239,37 @@ In the Azure console, choose the **Azure Database for PostgreSQL servers** servi
 | *Master password* | Choose your Admin password.|
 
 You are ready to create your instance. 
-Once created, go back to your newly created database, and: 
 
-- To open the access to your instance: In the **Connection Security** or your newly created server, *Allow access to Azure services* then set your range of IP addresses in the firewall rules. 
+!!! Example
+    ```shell
+    az postgres server create \
+        --resource-group <your_resource_group> \
+        --name <your_server_name>  \
+        --location westus \
+        --sku-name GP_Gen5_2 \
+        --admin-user <server_admin_username> \
+        --admin-password <server_admin_password> \
+        --ssl-enforcement Disabled \
+    ```
 
 !!! Warning
     Keep the SSL setting `Disabled`.
+
+
+Once created, go back to your newly created database, and: 
+
+- Open the access to your instance:
+
+!!! Note
+    Azure provides two options for pods running on an AKS worker nodes to access a PostgreSQL DB instance, pick what fit you best:
+
+      - Create a [firewall rule](https://docs.microsoft.com/en-us/azure/mysql/concepts-firewall-rules#connecting-from-azure) on the Azure DB Server with a range of IP addresses that encompasses all IPs of the AKS Cluster nodes (this can be a very large range if using node auto-scaling).
+      - Create a [VNet Rule](https://docs.microsoft.com/en-us/azure/mysql/concepts-data-access-and-security-vnet) on the Azure DB Server that allows access from the subnet the AKS nodes are in. This is used in conjunction with the Microsoft.Sql VNet Service Endpoint enabled on the cluster subnet.
+
+    You can also choose the more secure option to [deny public access to your PostgreSQL instance](https://docs.microsoft.com/en-us/azure/postgresql/howto-deny-public-network-access) then [Create a private endpoint in the K8s vnet](https://docs.microsoft.com/en-us/azure/postgresql/howto-configure-privatelink-cli). Read more about how to [configure a private link using CLI on Azure's documentation](https://docs.microsoft.com/en-us/azure/postgresql/concepts-data-access-and-security-private-link)
+
+   
+   Alternativelly, in the **Connection Security** of your newly created server, *Allow access to Azure services* (This is equivalent to running `az postgres server firewall-rule create --server-name <your_server_name> --resource-group <your_resource_group> --name AllowAllAzureIps --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0`). 
 
 - In the **Essentials** page of your instance, find the full **server name** and **admin username** that will be required in your [values.yaml](#update-your-values-yaml).
 
@@ -261,6 +286,7 @@ az postgres db create -g <your_group> -s <server_name> -n dex
     Note that the second database must be named `dex`. Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres).
 
 Pachyderm will use the same user to connect to `pachyderm` as well as to `dex`. 
+
 ### Update your values.yaml 
 Once your databases have been created, add the following fields to your Helm values:
 
@@ -286,18 +312,16 @@ postgresql:
 
 
 ## 6. Deploy Pachyderm
-You have created your data container, given your cluster access to those data, and created a Managed PostgreSQL instance (or chosen to use the default bundled version).
+You have set up your infrastructure, created your data container and a Managed PostgreSQL instance, and granted your cluster access to both: you can now finalize your values.yaml and deploy Pachyderm.
 
-You can now finalize your values.yaml and deploy Pachyderm.
+### Update Your Values.yaml  
 
 !!! Note 
-    - If you have created a Managed PostgreSQL Server instance, you will have to replace the Postgresql section below with the appropriate values defined above.
-    - If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console/#deploy-in-the-cloud) and update your values.yaml accordingly.
-### Update Your Values.yaml   
+    - If you have not created a Managed PostgreSQL Server instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml. This setup is **not recommended in production environments**.
+    - If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console/#deploy-in-the-cloud) and **update your values.yaml** accordingly. 
 
-After you complete all the sections above, you can deploy Pachyderm
-on Azure. If you have previously tried to run Pachyderm locally,
-make sure that you are using the right Kubernetes context. 
+If you have previously tried to run Pachyderm locally,
+make sure that you are using the right Kubernetes context first. 
 
 1. Verify cluster context:
 
@@ -336,13 +360,27 @@ make sure that you are using the right Kubernetes context.
           id: "AKIAIOSFODNN7EXAMPLE"
           # storage account key
           secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+      externalService:
+        enabled: true
+    global:
+      postgresql:
+        postgresqlUsername: "see admin username above"
+        postgresqlPassword: "password"
+        # The server name of the instance
+        postgresqlDatabase: "pachyderm"
+        # The postgresql database host to connect to. 
+        postgresqlHost: "see server name above"
+        # The postgresql database port to connect to. Defaults to postgres server in subchart
+        postgresqlPort: "5432"
     postgresql:
-      enabled: true
+      # turns off the install of the bundled postgres.
+      # If not using the built in Postgres, you must specify a Postgresql
+      # database server to connect to in global.postgresql
+      enabled: false
     ```
     Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
 
 ### Deploy Pachyderm On The Kubernetes Cluster
-
 
 - Now you can deploy a Pachyderm cluster by running this command:
 
@@ -394,12 +432,13 @@ make sure that you are using the right Kubernetes context.
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
-If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name and:
+If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name (run `kubectl get services | grep pachd-lb | awk '{print $4}'`) and:
 
   1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 
       ```shell
-      $ echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      pachctl config set active-context "<your-cluster-context-name>"
       ```
 
   1. Check that your are using the right context: 
@@ -418,6 +457,9 @@ $ pachctl port-forward
 ``` 
 
 ## 8. Check That Your Cluster Is Up And Running
+
+!!! Attention
+    If Authentication is activated (When you deploy Console, for example), you will need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
 
 ```shell
 $ pachctl version
