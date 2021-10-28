@@ -1,0 +1,23 @@
+deployTarget: GOOGLE
+
+pachd:
+  enterpriseLicenseKey: "dsdssds"
+  storage:
+    google:
+      bucket: "tyler-test-bucket"
+      cred: |
+        {
+          "type": "service_account",
+          "project_id": "tyler-dev-313615",
+          "private_key_id": "57e91501507bdf11bc9bd7c2990abd4d47ad2437",
+          "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDuoC6W36aPdigs\nEbEcW4GDOnuxbQIB27eklybRkFoEXE8qwNCg04qty5CgzkyQ2fBrolSXdieJXfT+\ns3ZnHrHkFiAjY462dE+lYd3ywk/p4nVeN1RkXKzSXKE6uEjxCtPlcvGkVQZqsQLU\n2UvPB8zqlckJ7u9hUj1dyb724IpV5kdIWEWzn8UhUx39Tdjo2gV8qWnOXBkJ9QOg\nbL1JAni0Msr1UoSMOJsEHb1IhXlTM+rdqgVLqO7YqcU9TqLdsGAbQ+VxcuL2613u\ntQcgoRotiPOsj+neY18jXRqtvwrMIaDq8BD3EQfiIo6A93UMSxckpw0zC+uTtZv3\nW/Urx8FHAgMBAAECggEAAmQSevXPEBH6mAFEq1HkViKP701YAwpIt6XBeO7FRj5D\neUXHEVwLXlFcttkrQXW0Jfs67hpHYOX4wEVFHVGgS/aTJHLs3CMF2foupHlk4g6g\nKwPLBmF3GR8S8nvY6wO3DZHIvET1Hcu6AdSLThVwklpScFkZaMzAcQHzee/FMS6I\n8iz47CH5D0WL51KOtIv1ExwK1BQ55tMUnjIDNfBmvIFGc3+qzBz+MdpkLoUjxc5i\nU7DDQRjo+VJi76C2CM2O6qw6dEi/y4X6opelaFD5m4Obme6Vh68FFcZwQ4tgmAYY\nB2Q4Djw3R1aiKj8RSR5f9C63TV9i2sIc+FBFJYpz2QKBgQD9nGhT0fprf+z6HBZ9\nUF9U+HzZYWw+2iMiNavC6BbYXUdVvDCB3vWJ5COmp3XcVvYMzWm8HCLXIltU4s7t\n80oMQsetjp8gOm/7ECy+k/YVXs5xCOj/t7A0NbhUhHVMPVNNO/r/VhD2NHVcErti\n8kr95EdktdL7Sux3ly+SOC2/SwKBgQDw36MO9xsmdqsCFPTjLiIh9lWXpeGG2g7H\nQfZv1jxijIhKSgi81wkn6VQh4LwpMfssKrQkOfxmDWE2TgX5FAVuPjpUE8FoC4cu\nRIr9Uj8UlAFT933A4djp5tW4ehsdHUWx7pF6/TMIMonGmeCFhOKrnw4C8qVMvUZH\nOlUM9UV8dQKBgE56b+5AM/XACFz9BBiTHmz01+2MsCpi5ixX32bY2vjpJIHrUjdd\n/y1EY6PWfipI3qrnhaioLD/WadzCsrX/axKQN6oFUEhwzOYsAyyWLLhANjHUSAWZ\nmfUOCpRcyM9myrhDr1AEGguWABsV0Na1k28tjMolWbxZWwNGzXm52K4xAoGBAMYv\nGxhbFEmnZbiGyZ6J/Kd46J+nalHr5DDqAvuth22GNzT4iQvm2a+u+PwOzoIOj5yd\nXi5YT2UgKRXnSF7RrE4ygQdgYcdbhNP6rWkUXLZvuE//18X1jOWWec4ZGWnxBcEK\ni0RoQ67A9j8jqGnzFhUi/wJJ5tum98XvJr9MpulpAoGBANUch8ezze9ZgKJmqR7x\nbaz4HxPJjpN1oqCOkcLos0NkWOpJr9Q8m2cj4fpXpilzNJVxed4ZjYpWXHzETjJJ\nt1YL4QODnxQLQXLDlQEjpk0CH5+u/q4dkPz3R1ixEXGAuPnnueWHG2PU7J01koqQ\nj1TcSBoU7DfigCkdRaJauSne\n-----END PRIVATE KEY-----\n",
+          "client_email": "tyler-bucket-access@tyler-dev-313615.iam.gserviceaccount.com",
+          "client_id": "103726201140576366141",
+          "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+          "token_uri": "https://oauth2.googleapis.com/token",
+          "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+          "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/tyler-bucket-access%40tyler-dev-313615.iam.gserviceaccount.com"
+        }
+
+console:
+  enabled: true
