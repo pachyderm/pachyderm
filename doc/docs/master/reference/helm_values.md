@@ -126,7 +126,7 @@ pachd:
     labels: {}
     type: "ClusterIP"
 
-  activateEnterprise: false
+  activateEnterpriseMember: false
   enterpriseLicenseKey: ""
   rootToken: ""
   enterpriseSecret: ""
@@ -415,7 +415,7 @@ This section is to configure the pachd deployment.
 
 - `pachd.service.type` specifies the Kubernetes type of the pachd service. The default is `ClusterIP`.
 
-- `pachd.activateEnterprise` specifies whether to activate enterprise features.
+- `pachd.activateEnterpriseMember` specifies whether to activate with an enterprise server.
 
 - `pachd.enterpriseLicenseKey` specify the enterprise license key if you have one.
 

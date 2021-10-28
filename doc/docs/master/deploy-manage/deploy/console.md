@@ -22,7 +22,7 @@ We provide an easy "one line" deployment command to install pachyderm with Conso
 Run the following helm installation:
 
 ```shell
-$ helm install pachd pach/pachyderm --set deployTarget=LOCAL --set pachd.activateEnterprise=true --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true
+$ helm install pachd pach/pachyderm --set deployTarget=LOCAL --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true
 ```
 
 !!! Note
@@ -51,7 +51,6 @@ Once your Ingress is configured in your values.yaml, you can choose one of the f
 
     ```yaml
     pachd:
-        activateEnterprise = true
         enterpriseLicenseKey = <LICENSE>
     oidc:
         mockIDP = true
