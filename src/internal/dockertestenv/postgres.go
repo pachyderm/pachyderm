@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -57,12 +57,12 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 	}
 }
 
-func NewTestDB(t testing.TB) *sqlx.DB {
+func NewTestDB(t testing.TB) *pachsql.DB {
 	opts := NewTestDBOptions(t)
 	return testutil.NewTestDB(t, opts)
 }
 
-func NewTestDirectDB(t testing.TB) *sqlx.DB {
+func NewTestDirectDB(t testing.TB) *pachsql.DB {
 	opts := NewTestDirectDBOptions(t)
 	return testutil.NewTestDB(t, opts)
 }

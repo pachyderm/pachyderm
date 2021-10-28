@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
@@ -109,7 +110,7 @@ func WithBackOff(bo backoff.BackOff) WithTxOption {
 // WithTx calls cb with a transaction,
 // The transaction is committed IFF cb returns nil.
 // If cb returns an error the transaction is rolled back.
-func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts ...WithTxOption) error {
+func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *sqlx.Tx) error, opts ...WithTxOption) error {
 	backoffStrategy := backoff.NewExponentialBackOff()
 	backoffStrategy.InitialInterval = 1 * time.Millisecond
 	backoffStrategy.MaxElapsedTime = 0

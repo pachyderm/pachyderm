@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
@@ -25,7 +26,7 @@ type Client interface {
 // a tracker and an kv.Store
 type trackedClient struct {
 	store   kv.Store
-	db      *sqlx.DB
+	db      *pachsql.DB
 	tracker track.Tracker
 	renewer *Renewer
 	ttl     time.Duration
@@ -33,7 +34,7 @@ type trackedClient struct {
 
 // NewClient returns a client which will write to objc, mdstore, and tracker.  Name is used
 // for the set of temporary objects
-func NewClient(store kv.Store, db *sqlx.DB, tr track.Tracker, renewer *Renewer) Client {
+func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewer) Client {
 	return &trackedClient{
 		store:   store,
 		db:      db,

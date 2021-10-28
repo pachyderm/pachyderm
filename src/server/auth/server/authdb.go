@@ -1,10 +1,9 @@
 package server
 
 import (
-	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 const (
@@ -16,7 +15,7 @@ const (
 
 var authConfigIndexes = []*col.Index{}
 
-func authConfigCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
+func authConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		authConfigCollectionName,
 		db,
@@ -28,7 +27,7 @@ func authConfigCollection(db *sqlx.DB, listener col.PostgresListener) col.Postgr
 
 var roleBindingsIndexes = []*col.Index{}
 
-func roleBindingsCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
+func roleBindingsCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		roleBindingsCollectionName,
 		db,
@@ -40,7 +39,7 @@ func roleBindingsCollection(db *sqlx.DB, listener col.PostgresListener) col.Post
 
 var membersIndexes = []*col.Index{}
 
-func membersCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
+func membersCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		membersCollectionName,
 		db,
@@ -52,7 +51,7 @@ func membersCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresC
 
 var groupsIndexes = []*col.Index{}
 
-func groupsCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
+func groupsCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		groupsCollectionName,
 		db,

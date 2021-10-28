@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -13,7 +14,6 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
 	loki "github.com/grafana/loki/pkg/logcli/client"
-	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/client-go/kubernetes"
@@ -27,7 +27,7 @@ type TestServiceEnv struct {
 	EtcdClient               *etcd.Client
 	KubeClient               *kube.Clientset
 	LokiClient               *loki.Client
-	DBClient, DirectDBClient *sqlx.DB
+	DBClient, DirectDBClient *pachsql.DB
 	PostgresListener         col.PostgresListener
 	DexDB                    dex_storage.Storage
 	Log                      *log.Logger
@@ -68,10 +68,10 @@ func (s *TestServiceEnv) GetKubeClient() *kube.Clientset {
 func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
 	return s.LokiClient, nil
 }
-func (s *TestServiceEnv) GetDBClient() *sqlx.DB {
+func (s *TestServiceEnv) GetDBClient() *pachsql.DB {
 	return s.DBClient
 }
-func (s *TestServiceEnv) GetDirectDBClient() *sqlx.DB {
+func (s *TestServiceEnv) GetDirectDBClient() *pachsql.DB {
 	return s.DirectDBClient
 }
 func (s *TestServiceEnv) GetPostgresListener() col.PostgresListener {

@@ -10,12 +10,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-// DB is an alias for sqlx.DB which is the standard database type used throughout the project
+// DB is an alias for pachsql.DB which is the standard database type used throughout the project
 type DB = sqlx.DB
 
 // OpenURL returns a database connection pool to the database specified by u
 // If password != "" then it will be used for authentication.
-// This function does not confirm that the database is reachable; callers may be interested in sqlx.DB.Ping()
+// This function does not confirm that the database is reachable; callers may be interested in pachsql.DB.Ping()
 func OpenURL(u URL, password string) (*DB, error) {
 	var driver string
 	var dsn string

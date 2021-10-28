@@ -11,13 +11,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 )
 
 func TestPostgresCollections(suite *testing.T) {
-	PostgresCollectionBasicTests(suite, newCollectionFunc(func(ctx context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
+	PostgresCollectionBasicTests(suite, newCollectionFunc(func(ctx context.Context, t *testing.T) (*pachsql.DB, col.PostgresListener) {
 		db, dsn := newTestDB(t)
 		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 			if err := col.CreatePostgresSchema(ctx, sqlTx); err != nil {
@@ -32,7 +33,7 @@ func TestPostgresCollections(suite *testing.T) {
 		})
 		return db, listener
 	}))
-	PostgresCollectionWatchTests(suite, newCollectionFunc(func(ctx context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
+	PostgresCollectionWatchTests(suite, newCollectionFunc(func(ctx context.Context, t *testing.T) (*pachsql.DB, col.PostgresListener) {
 		db, dsn := newTestDirectDB(t)
 		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 			if err := col.CreatePostgresSchema(ctx, sqlTx); err != nil {
@@ -51,7 +52,7 @@ func TestPostgresCollections(suite *testing.T) {
 
 // TODO: Add test for filling up watcher buffer.
 func TestPostgresCollectionsProxy(suite *testing.T) {
-	watchTests(suite, newCollectionFunc(func(_ context.Context, t *testing.T) (*sqlx.DB, col.PostgresListener) {
+	watchTests(suite, newCollectionFunc(func(_ context.Context, t *testing.T) (*pachsql.DB, col.PostgresListener) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		listener := client.NewProxyPostgresListener(func() (proxy.APIClient, error) { return env.PachClient.ProxyClient, nil })
 		t.Cleanup(func() {
@@ -61,7 +62,7 @@ func TestPostgresCollectionsProxy(suite *testing.T) {
 	}))
 }
 
-func newCollectionFunc(setup func(context.Context, *testing.T) (*sqlx.DB, col.PostgresListener)) func(context.Context, *testing.T) (ReadCallback, WriteCallback) {
+func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col.PostgresListener)) func(context.Context, *testing.T) (ReadCallback, WriteCallback) {
 	return func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
 		db, listener := setup(ctx, t)
 
@@ -201,7 +202,7 @@ func PostgresCollectionWatchTests(suite *testing.T, newCollection func(context.C
 	watchTests(suite, newCollection)
 }
 
-func newTestDB(t testing.TB) (*sqlx.DB, string) {
+func newTestDB(t testing.TB) (*pachsql.DB, string) {
 	options := dockertestenv.NewTestDBOptions(t)
 	dsn := dbutil.GetDSN(options...)
 	db, err := dbutil.NewDB(options...)
@@ -212,7 +213,7 @@ func newTestDB(t testing.TB) (*sqlx.DB, string) {
 	return db, dsn
 }
 
-func newTestDirectDB(t testing.TB) (*sqlx.DB, string) {
+func newTestDirectDB(t testing.TB) (*pachsql.DB, string) {
 	options := dockertestenv.NewTestDirectDBOptions(t)
 	dsn := dbutil.GetDSN(options...)
 	db, err := dbutil.NewDB(options...)

@@ -1,10 +1,9 @@
 package server
 
 import (
-	"github.com/jmoiron/sqlx"
-
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 const (
@@ -13,7 +12,7 @@ const (
 
 var licenseIndexes = []*col.Index{}
 
-func licenseCollection(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
+func licenseCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		licenseCollectionName,
 		db,

@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -44,12 +45,12 @@ var _ commitStore = &postgresCommitStore{}
 // TODO: add deleter for the commitStore and stop making permanent filesets, keep the filesets
 // around, by referencing them with commit-fileset objects.
 type postgresCommitStore struct {
-	db *sqlx.DB
+	db *pachsql.DB
 	s  *fileset.Storage
 	tr track.Tracker
 }
 
-func newPostgresCommitStore(db *sqlx.DB, tr track.Tracker, s *fileset.Storage) *postgresCommitStore {
+func newPostgresCommitStore(db *pachsql.DB, tr track.Tracker, s *fileset.Storage) *postgresCommitStore {
 	return &postgresCommitStore{
 		db: db,
 		s:  s,

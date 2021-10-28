@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -22,7 +23,7 @@ var (
 // MetadataStore stores filesets. A fileset is a path -> index relationship
 // All filesets exist in the same keyspace and can be merged by prefix
 type MetadataStore interface {
-	DB() *sqlx.DB
+	DB() *pachsql.DB
 	SetTx(tx *sqlx.Tx, id ID, md *Metadata) error
 	Get(ctx context.Context, id ID) (*Metadata, error)
 	GetTx(tx *sqlx.Tx, id ID) (*Metadata, error)

@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -114,13 +115,13 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 }
 
 // FailPipeline updates the pipeline's state to failed and sets the failure reason
-func FailPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, reason string) error {
+func FailPipeline(ctx context.Context, db *pachsql.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, reason string) error {
 	return SetPipelineState(ctx, db, pipelinesCollection, specCommit,
 		nil, pps.PipelineState_PIPELINE_FAILURE, reason)
 }
 
 // CrashingPipeline updates the pipeline's state to crashing and sets the reason
-func CrashingPipeline(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, reason string) error {
+func CrashingPipeline(ctx context.Context, db *pachsql.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, reason string) error {
 	return SetPipelineState(ctx, db, pipelinesCollection, specCommit,
 		nil, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
@@ -179,7 +180,7 @@ func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.Pipel
 //
 // This function logs a lot for a library function, but it's mostly (maybe
 // exclusively?) called by the PPS master
-func SetPipelineState(ctx context.Context, db *sqlx.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	pipeline := specCommit.Branch.Repo.Name
 	logSetPipelineState(pipeline, from, to, reason)
 	var resultMessage string
@@ -411,7 +412,7 @@ func ErrorState(s pps.PipelineState) bool {
 // GetWorkerPipelineInfo gets the PipelineInfo proto describing the pipeline that this
 // worker is part of.
 // getPipelineInfo has the side effect of adding auth to the passed pachClient
-func GetWorkerPipelineInfo(pachClient *client.APIClient, db *sqlx.DB, l collection.PostgresListener, pipelineName, specCommitID string) (*pps.PipelineInfo, error) {
+func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l collection.PostgresListener, pipelineName, specCommitID string) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	pipelines := ppsdb.Pipelines(db, l)

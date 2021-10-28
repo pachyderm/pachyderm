@@ -10,20 +10,21 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 var _ Tracker = &postgresTracker{}
 
 type postgresTracker struct {
-	db *sqlx.DB
+	db *pachsql.DB
 }
 
 // NewPostgresTracker returns a
-func NewPostgresTracker(db *sqlx.DB) Tracker {
+func NewPostgresTracker(db *pachsql.DB) Tracker {
 	return &postgresTracker{db: db}
 }
 
-func (t *postgresTracker) DB() *sqlx.DB {
+func (t *postgresTracker) DB() *pachsql.DB {
 	return t.db
 }
 

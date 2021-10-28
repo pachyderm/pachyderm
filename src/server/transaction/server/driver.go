@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -24,7 +25,7 @@ type driver struct {
 	// txnEnv stores references to other pachyderm APIServer instances so we can
 	// make calls within the same transaction without serializing through RPCs
 	txnEnv       *txnenv.TransactionEnv
-	db           *sqlx.DB
+	db           *pachsql.DB
 	transactions col.PostgresCollection
 }
 

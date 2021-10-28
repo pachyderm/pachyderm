@@ -17,13 +17,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
 type postgresCollection struct {
 	table    string
-	db       *sqlx.DB
+	db       *pachsql.DB
 	listener PostgresListener
 	template proto.Message
 	indexes  []*Index
@@ -72,7 +73,7 @@ func WithNotFoundMessage(format func(interface{}) string) Option {
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(name string, db *sqlx.DB, listener PostgresListener, template proto.Message, indexes []*Index, opts ...Option) PostgresCollection {
+func NewPostgresCollection(name string, db *pachsql.DB, listener PostgresListener, template proto.Message, indexes []*Index, opts ...Option) PostgresCollection {
 	col := &postgresCollection{
 		table:    name,
 		db:       db,
@@ -122,7 +123,7 @@ func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection 
 
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
 // transaction instead of committing it.
-func NewDryrunSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
+func NewDryrunSQLTx(ctx context.Context, db *pachsql.DB, apply func(*sqlx.Tx) error) error {
 	err := dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
 		if err := apply(tx); err != nil {
 			return err

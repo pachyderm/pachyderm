@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 )
@@ -20,14 +21,14 @@ import (
 var _ MetadataStore = &postgresStore{}
 
 type postgresStore struct {
-	db      *sqlx.DB
+	db      *pachsql.DB
 	cache   kv.GetPut
 	deduper *miscutil.WorkDeduper
 }
 
 // NewPostgresStore returns a Store backed by db
 // TODO: Expose configuration for cache size?
-func NewPostgresStore(db *sqlx.DB) MetadataStore {
+func NewPostgresStore(db *pachsql.DB) MetadataStore {
 	return &postgresStore{
 		db:      db,
 		cache:   kv.NewMemCache(100),
@@ -35,7 +36,7 @@ func NewPostgresStore(db *sqlx.DB) MetadataStore {
 	}
 }
 
-func (s *postgresStore) DB() *sqlx.DB {
+func (s *postgresStore) DB() *pachsql.DB {
 	return s.db
 }
 
@@ -151,7 +152,7 @@ func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
 }
 
 // NewTestStore returns a Store scoped to the lifetime of the test.
-func NewTestStore(t testing.TB, db *sqlx.DB) MetadataStore {
+func NewTestStore(t testing.TB, db *pachsql.DB) MetadataStore {
 	ctx := context.Background()
 	tx := db.MustBegin()
 	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)

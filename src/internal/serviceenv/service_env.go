@@ -13,7 +13,6 @@ import (
 	"github.com/dlmiddlecote/sqlstats"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -27,6 +26,7 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -56,8 +56,8 @@ type ServiceEnv interface {
 	GetEtcdClient() *etcd.Client
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
-	GetDBClient() *sqlx.DB
-	GetDirectDBClient() *sqlx.DB
+	GetDBClient() *pachsql.DB
+	GetDirectDBClient() *pachsql.DB
 	GetPostgresListener() col.PostgresListener
 	GetDexDB() dex_storage.Storage
 	ClusterID() string
@@ -112,7 +112,7 @@ type NonblockingServiceEnv struct {
 	dexDBEg errgroup.Group
 
 	// dbClient and directDBClient are database clients.
-	dbClient, directDBClient *sqlx.DB
+	dbClient, directDBClient *pachsql.DB
 	// dbEg coordinates the initialization of dbClient (see pachdEg)
 	dbEg errgroup.Group
 
@@ -425,7 +425,7 @@ func (env *NonblockingServiceEnv) GetLokiClient() (*loki.Client, error) {
 }
 
 // GetDBClient returns the already connected database client without modification.
-func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
+func (env *NonblockingServiceEnv) GetDBClient() *pachsql.DB {
 	if err := env.dbEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover
 	}
@@ -435,7 +435,7 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 	return env.dbClient
 }
 
-func (env *NonblockingServiceEnv) GetDirectDBClient() *sqlx.DB {
+func (env *NonblockingServiceEnv) GetDirectDBClient() *pachsql.DB {
 	if env.isWorker() {
 		panic("worker cannot get direct db client")
 	}

@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
@@ -22,7 +22,7 @@ const (
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
 	objClient     obj.Client
-	db            *sqlx.DB
+	db            *pachsql.DB
 	tracker       track.Tracker
 	store         kv.Store
 	memCache      kv.GetPut
@@ -33,7 +33,7 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objC obj.Client, memCache kv.GetPut, db *sqlx.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
+func NewStorage(objC obj.Client, memCache kv.GetPut, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
 		objClient:     objC,
 		db:            db,

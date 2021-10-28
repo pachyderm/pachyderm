@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 // ID uniquely identifies a chunk. It is the hash of its content
@@ -98,10 +99,10 @@ type KeyStore interface {
 }
 
 type postgresKeyStore struct {
-	db *sqlx.DB
+	db *pachsql.DB
 }
 
-func NewPostgresKeyStore(db *sqlx.DB) *postgresKeyStore {
+func NewPostgresKeyStore(db *pachsql.DB) *postgresKeyStore {
 	return &postgresKeyStore{
 		db: db,
 	}

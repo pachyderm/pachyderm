@@ -9,6 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/sirupsen/logrus"
 )
 
@@ -83,7 +84,7 @@ func InitialState() State {
 
 // ApplyMigrations does the necessary work to actualize state.
 // It will manipulate the objects available in baseEnv, and use the migrations table in db.
-func ApplyMigrations(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) error {
+func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state State) error {
 	for _, state := range collectStates(make([]State, 0, state.n+1), state) {
 		if err := applyMigration(ctx, db, baseEnv, state); err != nil {
 			return err
@@ -100,7 +101,7 @@ func collectStates(slice []State, s State) []State {
 	return append(slice, s)
 }
 
-func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) error {
+func applyMigration(ctx context.Context, db *pachsql.DB, baseEnv Env, state State) error {
 	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -149,7 +150,7 @@ func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) 
 // It makes no attempt to perform migrations, hopefully another process is working on that
 // by calling ApplyMigrations.
 // If the cluster ever enters a state newer than the state passed to BlockUntil, it errors.
-func BlockUntil(ctx context.Context, db *sqlx.DB, state State) error {
+func BlockUntil(ctx context.Context, db *pachsql.DB, state State) error {
 	const (
 		schemaName = "public"
 		tableName  = "migrations"

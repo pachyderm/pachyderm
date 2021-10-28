@@ -4,11 +4,12 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 
 	"github.com/jmoiron/sqlx"
 )
 
-func listUsers(ctx context.Context, db *sqlx.DB) ([]*identity.User, error) {
+func listUsers(ctx context.Context, db *pachsql.DB) ([]*identity.User, error) {
 	users := make([]*identity.User, 0)
 	err := db.SelectContext(ctx, &users, "SELECT email, last_authenticated FROM identity.users WHERE enabled=true;")
 	if err != nil {
