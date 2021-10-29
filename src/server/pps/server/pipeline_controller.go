@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -37,6 +38,8 @@ const (
 	rcExpected
 )
 
+const maxConcurrentK8sRequests int = 10
+
 func max(is ...int) int {
 	if len(is) == 0 {
 		return 0
@@ -53,6 +56,16 @@ func max(is ...int) int {
 type pcManager struct {
 	sync.Mutex
 	pcs map[string]*pipelineController
+	// the limiter intends to guard the k8s API server from being overwhelmed by many concurrent requests
+	// that could arise from many concurrent pipelineController goros.
+	limiter limit.ConcurrencyLimiter
+}
+
+func newPcManager() *pcManager {
+	return &pcManager{
+		pcs:     make(map[string]*pipelineController),
+		limiter: limit.New(int(maxConcurrentK8sRequests)),
+	}
 }
 
 // pipelineController contains all of the relevent current state for a pipeline. It's
@@ -614,6 +627,9 @@ func (pc *pipelineController) getRC(ctx context.Context, expectation rcExpectati
 		tracing.FinishAnySpan(span)
 	}(span)
 
+	pc.pcMgr.limiter.Acquire()
+	defer pc.pcMgr.limiter.Release()
+
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pc.pipeline)
 
 	// count error types separately, so that this only errors if the pipeline is
@@ -688,6 +704,10 @@ func (pc *pipelineController) getRC(ctx context.Context, expectation rcExpectati
 // called muliple times if the k8s write fails. It may be helpful to think of
 // the rc passed to update() as mutable, while pc.rc is immutable.
 func (pc *pipelineController) updateRC(update func(rc *v1.ReplicationController)) error {
+
+	pc.pcMgr.limiter.Acquire()
+	defer pc.pcMgr.limiter.Release()
+
 	rc := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace)
 
 	newRC := *pc.rc
@@ -703,6 +723,10 @@ func (pc *pipelineController) updateRC(update func(rc *v1.ReplicationController)
 // createPipelineResources creates the RC and any services for pc's pipeline.
 func (pc *pipelineController) createPipelineResources(ctx context.Context) error {
 	log.Infof("PPS master: creating resources for pipeline %q", pc.pipelineInfo.Pipeline.Name)
+
+	pc.pcMgr.limiter.Acquire()
+	defer pc.pcMgr.limiter.Release()
+
 	if err := pc.createWorkerSvcAndRc(ctx, pc.pipelineInfo); err != nil {
 		if errors.As(err, &noValidOptionsErr{}) {
 			// these errors indicate invalid pipelineInfo, don't retry
@@ -726,6 +750,9 @@ func (pc *pipelineController) deletePipelineResources() (retErr error) {
 		tracing.TagAnySpan(ctx, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
+
+	pc.pcMgr.limiter.Acquire()
+	defer pc.pcMgr.limiter.Release()
 
 	// Cancel any running monitorPipeline call
 	pc.stopPipelineMonitor()
