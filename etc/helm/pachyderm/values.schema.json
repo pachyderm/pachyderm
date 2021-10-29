@@ -337,7 +337,7 @@
         "pachd": {
             "type": "object",
             "properties": {
-                "activateEnterprise": {
+                "activateEnterpriseMember": {
                     "type": "boolean"
                 },
                 "affinity": {

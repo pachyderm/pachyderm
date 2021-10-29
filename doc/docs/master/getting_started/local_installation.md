@@ -170,7 +170,7 @@ deploy Pachyderm on your local cluster by following these steps:
 
 * To install pachyderm **with Console** (Pachyderm UI) and authentication set up, run the following helm installation:
    ```shell
-   $ helm install pachd pach/pachyderm --set deployTarget=LOCAL --set pachd.activateEnterprise=true --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true
+   $ helm install pachd pach/pachyderm --set deployTarget=LOCAL --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true
    ```
 !!! Note
      * You will need an Enterprise Key. To request a FREE trial enterprise license key, [click here](../../enterprise).
