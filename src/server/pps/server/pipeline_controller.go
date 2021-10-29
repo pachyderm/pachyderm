@@ -99,7 +99,7 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		etcdPrefix:   m.a.etcdPrefix,
 
 		bumpChan:  make(chan struct{}, 1),
-		opManager: m.pcm,
+		opManager: m.pcMgr,
 	}
 	return pc
 }

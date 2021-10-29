@@ -81,7 +81,7 @@ type ppsMaster struct {
 	pollPodsCancel  func() // protected by pollPipelinesMu
 	watchCancel     func() // protected by pollPipelinesMu
 
-	pcm *pcManager
+	pcMgr *pcManager
 
 	// channel through which pipeline events are passed
 	eventCh chan *pipelineEvent
@@ -92,7 +92,7 @@ type ppsMaster struct {
 func (a *apiServer) master() {
 	m := &ppsMaster{
 		a: a,
-		pcm: &pcManager{
+		pcMgr: &pcManager{
 			pcs: make(map[string]*pipelineController),
 		},
 	}
@@ -158,9 +158,9 @@ eventLoop:
 		select {
 		case e := <-m.eventCh:
 			func(e *pipelineEvent) {
-				m.pcm.Lock()
-				defer m.pcm.Unlock()
-				if pc, ok := m.pcm.pcs[e.pipeline]; ok {
+				m.pcMgr.Lock()
+				defer m.pcMgr.Unlock()
+				if pc, ok := m.pcMgr.pcs[e.pipeline]; ok {
 					pc.Bump() // raises flag in pipelineController to run again whenever it finishes
 				} else {
 					// Initialize op ctx (cancelled at the end of pipelineController.Start(), to avoid leaking
@@ -169,7 +169,7 @@ eventLoop:
 					// whose lifetime is tied to the master rather than this op.
 					pcCtx, pcCancel := context.WithCancel(m.masterCtx)
 					pc = m.newPipelineController(pcCtx, pcCancel, e.pipeline)
-					m.pcm.pcs[e.pipeline] = pc
+					m.pcMgr.pcs[e.pipeline] = pc
 					go pc.Start(e.timestamp)
 				}
 			}(e)
@@ -207,9 +207,9 @@ func (pc *pipelineController) transitionPipelineState(ctx context.Context, specC
 }
 
 func (m *ppsMaster) cancelPCs() {
-	m.pcm.Lock()
-	defer m.pcm.Unlock()
-	for _, pc := range m.pcm.pcs {
+	m.pcMgr.Lock()
+	defer m.pcMgr.Unlock()
+	for _, pc := range m.pcMgr.pcs {
 		pc.cancel()
 	}
 }
