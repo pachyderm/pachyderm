@@ -198,7 +198,7 @@ pachd:
   # If enabled, External service creates a service which is safe to
   # be exposed externally
   externalService:
-    enabled: true
+    enabled: false
     # (Optional) specify the existing IP Address of the load balancer
     loadBalancerIP: ""
     apiGRPCPort: 30650
