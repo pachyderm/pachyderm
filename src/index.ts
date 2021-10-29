@@ -8,7 +8,7 @@ import { requestAPI } from './handler';
 /**
  * Initialization data for the jupyterlab-pachyderm extension.
  */
-export const mount: JupyterFrontEndPlugin<void> = {
+const mount: JupyterFrontEndPlugin<void> = {
   id: 'jupyterlab-pachyderm:mount',
   autoStart: true,
   activate: (app: JupyterFrontEnd) => {
