@@ -142,7 +142,7 @@ func (m *ppsMaster) run() {
 	// (which are what write to m.eventCh) have exited
 	m.eventCh = make(chan *pipelineEvent, 1)
 	defer close(m.eventCh)
-	defer m.cancelOps()
+	defer m.cancelPCs()
 	// start pollers in the background--cancel functions ensure poll/monitor
 	// goroutines all definitely stop (either because cancelXYZ returns or because
 	// the binary panics)
@@ -160,17 +160,17 @@ eventLoop:
 			func(e *pipelineEvent) {
 				m.pcm.Lock()
 				defer m.pcm.Unlock()
-				if pipelineOp, ok := m.pcm.pcs[e.pipeline]; ok {
-					pipelineOp.Bump() // raises flag in pipelineController to run again whenever it finishes
+				if pc, ok := m.pcm.pcs[e.pipeline]; ok {
+					pc.Bump() // raises flag in pipelineController to run again whenever it finishes
 				} else {
 					// Initialize op ctx (cancelled at the end of pipelineController.Start(), to avoid leaking
 					// resources), whereas masterClient is passed by the
 					// PPS master and used in case a monitor needs to be spawned for 'pipeline',
 					// whose lifetime is tied to the master rather than this op.
-					ctrlCtx, ctrlCancel := context.WithCancel(m.masterCtx)
-					pipelineOp = m.newPipelineController(ctrlCtx, ctrlCancel, e.pipeline)
-					m.pcm.pcs[e.pipeline] = pipelineOp
-					go pipelineOp.Start(e.timestamp)
+					pcCtx, pcCancel := context.WithCancel(m.masterCtx)
+					pc = m.newPipelineController(pcCtx, pcCancel, e.pipeline)
+					m.pcm.pcs[e.pipeline] = pc
+					go pc.Start(e.timestamp)
 				}
 			}(e)
 		case <-m.masterCtx.Done():
@@ -206,10 +206,10 @@ func (pc *pipelineController) transitionPipelineState(ctx context.Context, specC
 		specCommit, from, to, reason)
 }
 
-func (m *ppsMaster) cancelOps() {
+func (m *ppsMaster) cancelPCs() {
 	m.pcm.Lock()
 	defer m.pcm.Unlock()
-	for _, op := range m.pcm.pcs {
-		op.cancel()
+	for _, pc := range m.pcm.pcs {
+		pc.cancel()
 	}
 }
