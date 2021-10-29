@@ -4,6 +4,7 @@ import {
 } from '@jupyterlab/application';
 
 import { requestAPI } from './handler';
+import telemetry from './plugins/telemetry';
 
 /**
  * Initialization data for the jupyterlab-pachyderm extension.
@@ -37,6 +38,6 @@ const hub: JupyterFrontEndPlugin<void> = {
 /**
  * Export the plugins as default.
  */
-const plugins: JupyterFrontEndPlugin<any>[] = [mount, hub];
+const plugins: JupyterFrontEndPlugin<any>[] = [mount, hub, telemetry];
 
 export default plugins;
