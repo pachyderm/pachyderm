@@ -32,7 +32,6 @@ Update your values.yaml with your enterprise license key, and auth configuration
 
 	```yaml
 	pachd:
-		activateEnterprise: true
 		enterpriseLicenseKey: "<ENTERPRISE-LICENSE-KEY>"
 		oauthClientID: "pachd"
 		oauthRedirectURI: "http://<PACHD-IP>:30657/authorization-code/callback"

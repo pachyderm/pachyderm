@@ -3,9 +3,14 @@ SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
 
-{{- if eq .Values.deployTarget "LOCAL" -}}
+{{- if and (not .Values.ingress.enabled) (not .Values.pachd.externalService.enabled)  -}}
 To connect to your new pachyderm instance, run:
 pachctl config import-kube local --overwrite
 pachctl config set active-context local
 pachctl port-forward
 {{- end -}}
+
+{{ if and (.Values.oidc.mockIDP) (.Values.pachd.enterpriseLicenseKey) }}
+WARNING: Your cluster is configured with a default login of admin:password
+{{- end -}}
+
