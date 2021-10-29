@@ -2,17 +2,20 @@ package datum
 
 import (
 	"archive/tar"
+	"context"
+	"encoding/hex"
+	"encoding/json"
 	"io"
 	"path"
-	"sort"
 	"strings"
 
-	"github.com/cevaris/ordered_map"
 	"github.com/gogo/protobuf/jsonpb"
 	glob "github.com/pachyderm/ohmyglob"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -193,6 +196,13 @@ func NewFileSetIterator(pachClient *client.APIClient, fsID string) Iterator {
 	}
 }
 
+func newFileSetMultiIterator(pachClient *client.APIClient, fsID string) Iterator {
+	return &fileSetMultiIterator{
+		pachClient: pachClient,
+		commit:     client.NewRepo(client.FileSetsRepoName).NewCommit("", fsID),
+	}
+}
+
 func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
 	r, err := fsi.pachClient.GetFileTAR(fsi.commit, path.Join("/", MetaPrefix, "*", MetaFileName))
 	if err != nil {
@@ -217,12 +227,52 @@ func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
 	}
 }
 
-// TODO: Improve the scalability (in-memory operation for now).
-// Probably should take advantage of PFS filesets for this.
+type fileSetMultiIterator struct {
+	pachClient *client.APIClient
+	commit     *pfs.Commit
+}
+
+func (mi *fileSetMultiIterator) Iterate(cb func(*Meta) error) error {
+	r, err := mi.pachClient.GetFileTAR(mi.commit, "/*")
+	if err != nil {
+		return err
+	}
+	tr := tar.NewReader(r)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if pfsserver.IsFileNotFoundErr(err) || errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+		var meta Meta
+		// kind of an abuse of the field, just stick this to key off of
+		meta.Hash = hdr.Name
+		decoder := json.NewDecoder(tr)
+		for {
+			input := new(common.Input)
+			if err := jsonpb.UnmarshalNext(decoder, input); err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return errors.Wrap(err, "error unmarshalling input")
+			}
+			meta.Inputs = append(meta.Inputs, input)
+		}
+		if err := cb(&meta); err != nil {
+			return err
+		}
+	}
+}
+
+func existingMetaHash(meta *Meta) string {
+	return meta.Hash
+}
+
 type joinIterator struct {
 	pachClient *client.APIClient
 	iterators  []Iterator
-	metas      []*Meta
 }
 
 func newJoinIterator(pachClient *client.APIClient, inputs []*pps.Input) (Iterator, error) {
@@ -240,65 +290,84 @@ func newJoinIterator(pachClient *client.APIClient, inputs []*pps.Input) (Iterato
 }
 
 func (ji *joinIterator) Iterate(cb func(*Meta) error) error {
-	if ji.metas == nil {
-		if err := ji.computeJoin(); err != nil {
+	return ji.pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		filesets, err := computeDatumKeyFilesets(ji.pachClient, renewer, ji.iterators, true)
+		if err != nil {
 			return err
 		}
-	}
-	for _, meta := range ji.metas {
-		if err := cb(meta); err != nil {
-			return err
+		var dits []Iterator
+		for _, fs := range filesets {
+			dits = append(dits, newFileSetMultiIterator(ji.pachClient, fs))
 		}
-	}
-	return nil
-
+		return mergeByKey(dits, existingMetaHash, func(metas []*Meta) error {
+			var crossInputs [][]*common.Input
+			for _, m := range metas {
+				crossInputs = append(crossInputs, m.Inputs)
+			}
+			return newCrossListIterator(crossInputs).Iterate(func(meta *Meta) error {
+				if len(meta.Inputs) == len(ji.iterators) {
+					// all inputs represented, include all inputs
+					return cb(meta)
+				}
+				var filtered []*common.Input
+				for _, in := range meta.Inputs {
+					if in.OuterJoin {
+						filtered = append(filtered, in)
+					}
+				}
+				if len(filtered) > 0 {
+					return cb(&Meta{Inputs: filtered})
+				}
+				return nil
+			})
+		})
+	})
 }
 
-func (ji *joinIterator) computeJoin() error {
-	om := ordered_map.NewOrderedMap()
-	for i, di := range ji.iterators {
-		if err := di.Iterate(func(meta *Meta) error {
-			for _, input := range meta.Inputs {
-				tupleI, ok := om.Get(input.JoinOn)
-				var tuple [][]*common.Input
-				if !ok {
-					tuple = make([][]*common.Input, len(ji.iterators))
-				} else {
-					tuple = tupleI.([][]*common.Input)
-				}
-				tuple[i] = append(tuple[i], input)
-				om.Set(input.JoinOn, tuple)
+func computeDatumKeyFilesets(pachClient *client.APIClient, renewer *renew.StringSet, iterators []Iterator, isJoin bool) ([]string, error) {
+	eg, ctx := errgroup.WithContext(pachClient.Ctx())
+	pachClient = pachClient.WithCtx(ctx)
+	filesets := make([]string, len(iterators))
+	for i, di := range iterators {
+		i := i
+		di := di
+		keyHasher := pfs.NewHash()
+		marshaller := new(jsonpb.Marshaler)
+		eg.Go(func() error {
+			resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
+				return di.Iterate(func(meta *Meta) error {
+					for _, input := range meta.Inputs {
+						// hash input keys to ensure consistently-shaped filepaths
+						keyHasher.Reset()
+						rawKey := input.GroupBy
+						if isJoin {
+							rawKey = input.JoinOn
+						}
+						keyHasher.Write([]byte(rawKey))
+						key := hex.EncodeToString(keyHasher.Sum(nil))
+						out, err := marshaller.MarshalToString(input)
+						if err != nil {
+							return errors.Wrap(err, "marshalling input for key aggregation")
+						}
+						if err := mf.PutFile(key, strings.NewReader(out), client.WithAppendPutFile()); err != nil {
+							return err
+						}
+					}
+					return nil
+				})
+			})
+			if err != nil {
+				return err
 			}
+			renewer.Add(ctx, resp.FileSetId)
+			filesets[i] = resp.FileSetId
 			return nil
-		}); err != nil {
-			return err
-		}
+		})
 	}
-	iter := om.IterFunc()
-	for kv, ok := iter(); ok; kv, ok = iter() {
-		tuple := kv.Value.([][]*common.Input)
-		missing := false
-		var filteredTuple [][]*common.Input
-		for _, inputs := range tuple {
-			if len(inputs) == 0 {
-				missing = true
-				continue
-			}
-			if inputs[0].OuterJoin {
-				filteredTuple = append(filteredTuple, inputs)
-			}
-		}
-		if missing {
-			tuple = filteredTuple
-		}
-		if err := newCrossListIterator(tuple).Iterate(func(meta *Meta) error {
-			ji.metas = append(ji.metas, meta)
-			return nil
-		}); err != nil {
-			return err
-		}
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
-	return nil
+	return filesets, nil
 }
 
 func newCrossListIterator(crossInputs [][]*common.Input) Iterator {
@@ -330,12 +399,9 @@ func (li *listIterator) Iterate(cb func(*Meta) error) error {
 	return nil
 }
 
-// TODO: Improve the scalability (in-memory operation for now).
-// Probably should take advantage of PFS filesets for this.
 type groupIterator struct {
 	pachClient *client.APIClient
 	iterators  []Iterator
-	metas      []*Meta
 }
 
 func newGroupIterator(pachClient *client.APIClient, inputs []*pps.Input) (Iterator, error) {
@@ -353,51 +419,40 @@ func newGroupIterator(pachClient *client.APIClient, inputs []*pps.Input) (Iterat
 }
 
 func (gi *groupIterator) Iterate(cb func(*Meta) error) error {
-	if gi.metas == nil {
-		if err := gi.computeGroup(); err != nil {
+	return gi.pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		filesets, err := computeDatumKeyFilesets(gi.pachClient, renewer, gi.iterators, false)
+		if err != nil {
 			return err
 		}
-	}
-	for _, meta := range gi.metas {
-		if err := cb(meta); err != nil {
-			return err
+		var dits []Iterator
+		for _, fs := range filesets {
+			dits = append(dits, newFileSetMultiIterator(gi.pachClient, fs))
 		}
-	}
-	return nil
-
+		return mergeByKey(dits, existingMetaHash, func(metas []*Meta) error {
+			var allInputs []*common.Input
+			for _, m := range metas {
+				allInputs = append(allInputs, m.Inputs...)
+			}
+			return cb(&Meta{Inputs: allInputs})
+		})
+	})
 }
 
-func (gi *groupIterator) computeGroup() error {
-	groupMap := make(map[string][]*common.Input)
-	keys := make([]string, 0, len(gi.iterators))
-	for _, di := range gi.iterators {
-		if err := di.Iterate(func(meta *Meta) error {
-			for _, input := range meta.Inputs {
-				groupDatum, ok := groupMap[input.GroupBy]
-				if !ok {
-					keys = append(keys, input.GroupBy)
-				}
-				groupMap[input.GroupBy] = append(groupDatum, input)
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		gi.metas = append(gi.metas, &Meta{
-			Inputs: groupMap[key],
-		})
-	}
-	return nil
+type idGenerator = func(*Meta) string
+
+func metaInputID(meta *Meta) string {
+	return common.DatumID(meta.Inputs)
 }
 
 // Merge merges multiple datum iterators (key is datum ID).
 func Merge(dits []Iterator, cb func([]*Meta) error) error {
+	return mergeByKey(dits, metaInputID, cb)
+}
+
+func mergeByKey(dits []Iterator, idFunc idGenerator, cb func([]*Meta) error) error {
 	var ss []stream.Stream
 	for _, dit := range dits {
-		ss = append(ss, newDatumStream(dit, len(ss)))
+		ss = append(ss, newDatumStream(dit, len(ss), idFunc))
 	}
 	pq := stream.NewPriorityQueue(ss, compare)
 	return pq.Iterate(func(ss []stream.Stream) error {
@@ -414,9 +469,10 @@ type datumStream struct {
 	id       string
 	metaChan chan *Meta
 	errChan  chan error
+	idFunc   idGenerator
 }
 
-func newDatumStream(dit Iterator, priority int) *datumStream {
+func newDatumStream(dit Iterator, priority int, idFunc idGenerator) *datumStream {
 	metaChan := make(chan *Meta)
 	errChan := make(chan error, 1)
 	go func() {
@@ -432,6 +488,7 @@ func newDatumStream(dit Iterator, priority int) *datumStream {
 	return &datumStream{
 		metaChan: metaChan,
 		errChan:  errChan,
+		idFunc:   idFunc,
 	}
 }
 
@@ -442,7 +499,7 @@ func (ds *datumStream) Next() error {
 			return io.EOF
 		}
 		ds.meta = meta
-		ds.id = common.DatumID(meta.Inputs)
+		ds.id = ds.idFunc(meta)
 		return nil
 	case err := <-ds.errChan:
 		return err

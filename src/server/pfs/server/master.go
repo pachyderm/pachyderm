@@ -75,7 +75,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 			return nil
 		}
 		commit := commitInfo.Commit
-		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit.ID), func() error {
+		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit), func() error {
 			return backoff.RetryUntilCancel(ctx, func() error {
 				id, err := d.getFileSet(ctx, commit)
 				if err != nil {
@@ -144,7 +144,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 					})
 				})
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				log.Errorf("error finishing commit %v: %v, retrying in %v", commit.ID, err, d)
+				log.Errorf("error finishing commit %v: %v, retrying in %v", commit, err, d)
 				return nil
 			})
 		})
