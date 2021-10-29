@@ -163,7 +163,7 @@ eventLoop:
 				if pc, ok := m.pcMgr.pcs[e.pipeline]; ok {
 					pc.Bump() // raises flag in pipelineController to run again whenever it finishes
 				} else {
-					// pc's ctx is cancelled at the end of pipelineController.Start(), to avoid leaking resources
+					// pc's ctx is cancelled in pipelineController.tryFinish(), to avoid leaking resources
 					pcCtx, pcCancel := context.WithCancel(m.masterCtx)
 					pc = m.newPipelineController(pcCtx, pcCancel, e.pipeline)
 					m.pcMgr.pcs[e.pipeline] = pc
