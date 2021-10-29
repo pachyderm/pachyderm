@@ -163,10 +163,7 @@ eventLoop:
 				if pc, ok := m.pcMgr.pcs[e.pipeline]; ok {
 					pc.Bump() // raises flag in pipelineController to run again whenever it finishes
 				} else {
-					// Initialize op ctx (cancelled at the end of pipelineController.Start(), to avoid leaking
-					// resources), whereas masterClient is passed by the
-					// PPS master and used in case a monitor needs to be spawned for 'pipeline',
-					// whose lifetime is tied to the master rather than this op.
+					// pc's ctx is cancelled in pipelineController.tryFinish(), to avoid leaking resources
 					pcCtx, pcCancel := context.WithCancel(m.masterCtx)
 					pc = m.newPipelineController(pcCtx, pcCancel, e.pipeline)
 					m.pcMgr.pcs[e.pipeline] = pc
