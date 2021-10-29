@@ -47,7 +47,7 @@ Update your values.yaml with your enterprise license key, and auth configuration
 		## userAccessibleOauthIssuerHost is necessary in localhost settings or anytime the registered Issuer address isn't accessible outside the cluster
 		# userAccessibleOauthIssuerHost: "localhost:30658"
 		## if `mockIDP` is set to true, `pachd.upstreamIDPs` will be ignored in favor of a testing placeholder IDP with username/password: admin/password
-		mockIDP: true
+		mockIDP: false
 		## to set up upstream IDPs, set pachd.mockIDP to false,
 		## and populate the pachd.upstreamIDPs with an array of Dex Connector configurations.
 		## See the example below or https://dexidp.io/docs/connectors/
@@ -71,7 +71,7 @@ Update your values.yaml with your enterprise license key, and auth configuration
 !!! Note
      Update the following values as follow:
 
-	 - `PACHD-IP`: The address of your Pachyderm host. Check the [Expose your Enterprise Server with a Load Balancer](#3-register-your-clusters) note to retrieve Pachyderm external IP address if necessary.
+	 - `PACHD-IP`: The address of Pachyderm's IP. Retrieve Pachyderm external IP address if necessary.
 	 - `ISSUER`, `CLIENT-ID`, `CLIENT-SECRET`: Refer to our [Identity Provider Configuration page](../../authentication/idp-dex/#create-a-connector-configuration-file).
 
 This results in a single pachd pod, with authentication enabled, and an IDP integration configured. The cluster's root token can be found in the kubernetes secret called `pachyderm-bootstrap-config`.
