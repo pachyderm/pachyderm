@@ -94,6 +94,7 @@ oidc:
   issuerURI: "" #Inferred if running locally or using ingress
   requireVerifiedEmail: false
   IDTokenExpiry: 24h
+  RotationTokenExpiry: 48h
   upstreamIDPs: []
   mockIDP: false
   userAccessibleOauthIssuerHost: ""
@@ -378,6 +379,8 @@ This section is to configure the oidc settings within pachyderm.
 - `oidc.requireVerifiedEmail` specifies whether email verification is required for authentication.
 
 - `oidc.IDTokenExpiry` specifies the duration where OIDC ID Tokens are valid.
+
+- `oidc.RotationTokenExpiry` if set, enables OIDC Rotation Tokens and specifies the duration where they are valid.
 
 - `oidc.upstreamIDPs` specifies a list of Identity Providers to use for authentication.
 
