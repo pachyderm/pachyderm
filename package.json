@@ -84,7 +84,8 @@
     }, 
     "extension": true,
     "outputDir": "jupyterlab_pachyderm/labextension",
-    "schemaDir": "schema"
+    "schemaDir": "schema",
+    "disabledExtensions": ["jupyterlab-pachyderm:hub"]
   },
   "jupyter-releaser": {
     "hooks": {
