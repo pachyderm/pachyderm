@@ -22,7 +22,7 @@ We provide an easy "one line" deployment command to install Pachyderm with Conso
 Run the following helm installation:
 
 ```shell
-$ helm install pachd pach/pachyderm --set deployTarget=LOCAL --set pachd.activateEnterprise=true --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true
+$ helm install pachd pach/pachyderm --set deployTarget=LOCAL --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true
 ```
 
 !!! Note
@@ -49,7 +49,19 @@ The deployment of Console in your favorite Cloud requires, at a minimum, the set
 
 Once your Ingress is configured in your values.yaml, you can choose one of the following:
 
-- Coming Soon...  **Quick installation** of Console (Not recommended in Production but an easy way to get started).
+- For a **quick installation** of Console (Not recommended in Production but an easy way to get started), set up a **mockIDP** during the deployment of Pachyderm by providing the following fields in your values.yaml then [connect to your Console](#connect-to-console):
+
+    ```yaml
+    pachd:
+        enterpriseLicenseKey = <LICENSE>
+    console:
+        enabled = true
+    ```
+
+!!! Note
+    - By default, the mock Identity Provider will be set up with username & password set to `admin` &`password`, respectively. 
+    - You can set up an Identity Provider later on by using `pachctl`, see [our IDP Configuration document](../../../enterprise/auth/authentication/idp-dex).
+
 - For a **production environment**:
 
     - Set up your [Ingress](../ingress/#ingress) and DNS.

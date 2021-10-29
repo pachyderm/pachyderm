@@ -49,7 +49,7 @@ http
 {{ .Values.oidc.issuerURI }}
 {{- else if .Values.ingress.host -}}
 {{- printf "%s://%s/dex" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
-{{- else if eq .Values.deployTarget "LOCAL" -}}
+{{- else if not .Values.ingress.enabled -}}
 {{- if eq .Values.pachd.service.type "NodePort" -}}
 http://pachd:1658
 {{- else -}}
@@ -70,7 +70,7 @@ In deployments where the issuerURI is user accessible (ie. Via ingress) this wou
 {{ .Values.console.config.reactAppRuntimeIssuerURI }}
 {{- else if .Values.ingress.host -}}
 {{- printf "%s://%s" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
-{{- else if eq .Values.deployTarget "LOCAL" -}}
+{{- else if not .Values.ingress.enabled -}}
 http://localhost:30658
 {{- end }}
 {{- end }}
@@ -80,7 +80,7 @@ http://localhost:30658
 {{ .Values.console.config.oauthRedirectURI }}
 {{- else if .Values.ingress.host -}}
 {{- printf "%s://%s/oauth/callback/?inline=true" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
-{{- else if eq .Values.deployTarget "LOCAL" -}}
+{{- else if not .Values.ingress.enabled -}}
 http://localhost:4000/oauth/callback/?inline=true
 {{- else -}}
 {{ fail "To connect Console to Pachyderm, Console's Redirect URI must be set." }}
@@ -92,7 +92,7 @@ http://localhost:4000/oauth/callback/?inline=true
 {{ .Values.console.config.oauthRedirectURI -}}
 {{- else if .Values.ingress.host -}}
 {{- printf "%s://%s/authorization-code/callback" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
-{{- else if eq .Values.deployTarget "LOCAL" -}}
+{{- else if not .Values.ingress.enabled -}}
 http://localhost:30657/authorization-code/callback
 {{- else -}}
 {{ fail "For Authentication, an OIDC Redirect URI for this pachd must be set." }}
@@ -112,7 +112,7 @@ pachd-peer.{{ .Release.Namespace }}.svc.cluster.local:30653
   {{- else -}}
     {{- fail "pachd.localhostIssuer must either be set to the string value of \"true\" or \"false\"" }}
   {{- end -}}
-{{- else if eq .Values.deployTarget "LOCAL" -}}
+{{- else if not .Values.ingress.enabled -}}
 true
 {{- else if .Values.ingress.host -}}
 false
@@ -122,7 +122,7 @@ false
 {{- define "pachyderm.userAccessibleOauthIssuerHost" -}}
 {{- if .Values.oidc.userAccessibleOauthIssuerHost -}}
 {{ .Values.oidc.userAccessibleOauthIssuerHost }}
-{{- else if eq .Values.deployTarget "LOCAL" -}}
+{{- else if not .Values.ingress.enabled -}}
 localhost:30658
 {{- end -}}
 {{- end }}
@@ -130,7 +130,7 @@ localhost:30658
 {{- define "pachyderm.idps" -}}
 {{- if .Values.oidc.upstreamIDPs }}
 {{ toYaml .Values.oidc.upstreamIDPs | indent 4 }}
-{{- else if or (.Values.oidc.mockIDP) (eq .Values.deployTarget "LOCAL") }}
+{{- else if .Values.oidc.mockIDP }}
     - id: test
       name: test
       type: mockPassword

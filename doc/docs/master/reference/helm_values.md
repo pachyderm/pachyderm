@@ -94,6 +94,7 @@ oidc:
   issuerURI: "" #Inferred if running locally or using ingress
   requireVerifiedEmail: false
   IDTokenExpiry: 24h
+  RotationTokenExpiry: 48h
   upstreamIDPs: []
   mockIDP: false
   userAccessibleOauthIssuerHost: ""
@@ -126,7 +127,7 @@ pachd:
     labels: {}
     type: "ClusterIP"
 
-  activateEnterprise: false
+  activateEnterpriseMember: false
   enterpriseLicenseKey: ""
   rootToken: ""
   enterpriseSecret: ""
@@ -379,6 +380,8 @@ This section is to configure the oidc settings within pachyderm.
 
 - `oidc.IDTokenExpiry` specifies the duration where OIDC ID Tokens are valid.
 
+- `oidc.RotationTokenExpiry` if set, enables OIDC Rotation Tokens and specifies the duration where they are valid.
+
 - `oidc.upstreamIDPs` specifies a list of Identity Providers to use for authentication.
 
 - `oidc.mockIDP` when set to `true`, specifes to ignore `upstreamIDPs` in favor of a placeholder IDP with a username/password preset to "admin" and "password".
@@ -415,7 +418,7 @@ This section is to configure the pachd deployment.
 
 - `pachd.service.type` specifies the Kubernetes type of the pachd service. The default is `ClusterIP`.
 
-- `pachd.activateEnterprise` specifies whether to activate enterprise features.
+- `pachd.activateEnterpriseMember` specifies whether to activate with an enterprise server.
 
 - `pachd.enterpriseLicenseKey` specify the enterprise license key if you have one.
 

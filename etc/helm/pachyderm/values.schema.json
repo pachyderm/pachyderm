@@ -317,6 +317,9 @@
                 "IDTokenExpiry": {
                     "type": "string"
                 },
+                "RotationTokenExpiry": {
+                    "type": "string"
+                },
                 "issuerURI": {
                     "type": "string"
                 },
@@ -337,7 +340,7 @@
         "pachd": {
             "type": "object",
             "properties": {
-                "activateEnterprise": {
+                "activateEnterpriseMember": {
                     "type": "boolean"
                 },
                 "affinity": {

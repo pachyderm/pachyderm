@@ -46,3 +46,13 @@ ALTER TABLE identity.config ADD COLUMN
 	id_token_expiry VARCHAR(4096)`)
 	return err
 }
+
+// AddRotationTokenExpiryConfig adds expiry fields for the rotation token lifespan to the server config
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func AddRotationTokenExpiryConfig(ctx context.Context, tx *sqlx.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+ALTER TABLE identity.config ADD COLUMN
+	rotation_token_expiry VARCHAR(4096)`)
+	return err
+}
