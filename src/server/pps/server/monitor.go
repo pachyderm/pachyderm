@@ -64,15 +64,15 @@ const scaleUpInterval = time.Second * 30
 // and out of standby in response to new output commits appearing in that
 // pipeline's output repo.
 // returns a cancel()
-func (op *pipelineOp) startMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
+func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
 	pipeline := pipelineInfo.Pipeline.Name
 	return startMonitorThread(ctx,
 		"monitorPipeline for "+pipeline, func(ctx context.Context) {
 			// monitorPipeline needs auth privileges to call subscribeCommit and
 			// inspectCommit
-			pachClient := op.env.GetPachClient(ctx)
+			pachClient := pc.env.GetPachClient(ctx)
 			pachClient.SetAuthToken(pipelineInfo.AuthToken)
-			op.monitorPipeline(pachClient.Ctx(), pipelineInfo)
+			pc.monitorPipeline(pachClient.Ctx(), pipelineInfo)
 		})
 }
 
@@ -83,12 +83,12 @@ func (op *pipelineOp) startMonitor(ctx context.Context, pipelineInfo *pps.Pipeli
 // monitorCrashingPipeline that checks to see if the issues have resolved
 // themselves and moves the pipeline out of crashing if they have.
 // returns a cancel for the crashing monitor
-func (op *pipelineOp) startCrashingMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
+func (pc *pipelineController) startCrashingMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
 	pipeline := pipelineInfo.Pipeline.Name
 	return startMonitorThread(ctx,
 		"monitorCrashingPipeline for "+pipeline,
 		func(ctx context.Context) {
-			op.monitorCrashingPipeline(ctx, pipelineInfo)
+			pc.monitorCrashingPipeline(ctx, pipelineInfo)
 		})
 }
 
@@ -128,7 +128,7 @@ func startMonitorThread(ctx context.Context, name string, f func(ctx context.Con
 	}
 }
 
-func (op *pipelineOp) monitorPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
+func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	log.Printf("PPS master: monitoring pipeline %q", pipeline)
 	var eg errgroup.Group
@@ -136,7 +136,7 @@ func (op *pipelineOp) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pip
 		if in.Cron != nil {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
-					return makeCronCommits(ctx, op.env, in)
+					return makeCronCommits(ctx, pc.env, in)
 				}, backoff.NewInfiniteBackOff(),
 					backoff.NotifyCtx(ctx, "cron for "+in.Cron.Name))
 			})
@@ -150,7 +150,7 @@ func (op *pipelineOp) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pip
 		eg.Go(func() error {
 			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
-				pachClient := op.env.GetPachClient(ctx)
+				pachClient := pc.env.GetPachClient(ctx)
 				return pachClient.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 					ciChan <- ci
 					return nil
@@ -171,9 +171,9 @@ func (op *pipelineOp) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pip
 				}()
 				// start span to capture & contextualize etcd state transition
 				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-					op.env.EtcdClient, pipeline,
+					pc.env.EtcdClient, pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
-				if err := op.transitionPipelineState(ctx,
+				if err := pc.transitionPipelineState(ctx,
 					pipelineInfo.SpecCommit,
 					[]pps.PipelineState{
 						pps.PipelineState_PIPELINE_RUNNING,
@@ -213,11 +213,11 @@ func (op *pipelineOp) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pip
 							continue
 						}
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-							op.env.EtcdClient, pipeline,
+							pc.env.EtcdClient, pipeline,
 							"/pps.Master/MonitorPipeline/SpinUp",
 							"commit", ci.Commit.ID)
 
-						if err := op.transitionPipelineState(ctx,
+						if err := pc.transitionPipelineState(ctx,
 							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{pps.PipelineState_PIPELINE_STANDBY},
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
@@ -235,7 +235,7 @@ func (op *pipelineOp) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pip
 						for {
 							// Wait for the commit to be finished before blocking on the
 							// job because the job may not exist yet.
-							pachClient := op.env.GetPachClient(ctx)
+							pachClient := pc.env.GetPachClient(ctx)
 							if _, err := pachClient.WaitCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID); err != nil {
 								return err
 							}
@@ -251,7 +251,7 @@ func (op *pipelineOp) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pip
 									return nil // subscribeCommit exited, nothing left to do
 								}
 								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-									op.env.EtcdClient, pipeline,
+									pc.env.EtcdClient, pipeline,
 									"/pps.Master/MonitorPipeline/WatchNext",
 									"commit", ci.Commit.ID)
 							default:
@@ -259,7 +259,7 @@ func (op *pipelineOp) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pip
 							}
 						}
 
-						if err := op.transitionPipelineState(ctx,
+						if err := pc.transitionPipelineState(ctx,
 							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{
 								pps.PipelineState_PIPELINE_RUNNING,
@@ -285,11 +285,11 @@ func (op *pipelineOp) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pip
 		})
 		if pipelineInfo.Details.ParallelismSpec != nil && pipelineInfo.Details.ParallelismSpec.Constant > 1 && pipelineInfo.Details.Autoscaling {
 			eg.Go(func() error {
-				pachClient := op.env.GetPachClient(ctx)
+				pachClient := pc.env.GetPachClient(ctx)
 				return backoff.RetryUntilCancel(ctx, func() error {
 					worker := work.NewWorker(
-						op.env.EtcdClient,
-						op.etcdPrefix,
+						pc.env.EtcdClient,
+						pc.etcdPrefix,
 						driver.WorkNamespace(pipelineInfo),
 					)
 					for {
@@ -298,8 +298,8 @@ func (op *pipelineOp) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pip
 							return err
 						}
 						if nClaims < nTasks {
-							kubeClient := op.env.KubeClient
-							namespace := op.namespace
+							kubeClient := pc.env.KubeClient
+							namespace := pc.namespace
 							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
 							scale, err := rc.GetScale(pipelineInfo.Details.WorkerRc, metav1.GetOptions{})
 							n := nTasks
@@ -336,7 +336,7 @@ func (op *pipelineOp) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pip
 	}
 }
 
-func (op *pipelineOp) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
+func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	ctx, cancelInner := context.WithCancel(ctx)
 	parallelism := pipelineInfo.Parallelism
@@ -346,12 +346,12 @@ func (op *pipelineOp) monitorCrashingPipeline(ctx context.Context, pipelineInfo 
 	pipelineRCName := ppsutil.PipelineRcName(pipeline, pipelineInfo.Version)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		workerStatus, err := workerserver.Status(ctx, pipelineRCName,
-			op.env.EtcdClient, op.etcdPrefix, op.env.Config.PPSWorkerPort)
+			pc.env.EtcdClient, pc.etcdPrefix, pc.env.Config.PPSWorkerPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
 		}
 		if int(parallelism) == len(workerStatus) {
-			if err := op.transitionPipelineState(ctx,
+			if err := pc.transitionPipelineState(ctx,
 				pipelineInfo.SpecCommit,
 				[]pps.PipelineState{pps.PipelineState_PIPELINE_CRASHING},
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {

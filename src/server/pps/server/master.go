@@ -67,9 +67,9 @@ func (s stepError) Unwrap() error {
 	return s.error
 }
 
-type opManager struct {
+type pcManager struct {
 	sync.Mutex
-	activeOps map[string]*pipelineOp
+	pcs map[string]*pipelineController
 }
 
 type ppsMaster struct {
@@ -86,7 +86,7 @@ type ppsMaster struct {
 	pollPodsCancel  func() // protected by pollPipelinesMu
 	watchCancel     func() // protected by pollPipelinesMu
 
-	om *opManager
+	pcm *pcManager
 
 	// channel through which pipeline events are passed
 	eventCh chan *pipelineEvent
@@ -97,8 +97,8 @@ type ppsMaster struct {
 func (a *apiServer) master() {
 	m := &ppsMaster{
 		a: a,
-		om: &opManager{
-			activeOps: make(map[string]*pipelineOp),
+		pcm: &pcManager{
+			pcs: make(map[string]*pipelineController),
 		},
 	}
 
@@ -163,18 +163,18 @@ eventLoop:
 		select {
 		case e := <-m.eventCh:
 			func(e *pipelineEvent) {
-				m.om.Lock()
-				defer m.om.Unlock()
-				if pipelineOp, ok := m.om.activeOps[e.pipeline]; ok {
+				m.pcm.Lock()
+				defer m.pcm.Unlock()
+				if pipelineOp, ok := m.pcm.pcs[e.pipeline]; ok {
 					pipelineOp.Bump() // raises flag in pipelineOp to run again whenever it finishes
 				} else {
 					// Initialize op ctx (cancelled at the end of pipelineOp.Start(), to avoid leaking
 					// resources), whereas masterClient is passed by the
 					// PPS master and used in case a monitor needs to be spawned for 'pipeline',
 					// whose lifetime is tied to the master rather than this op.
-					opCtx, opCancel := context.WithCancel(m.masterCtx)
-					pipelineOp = m.newPipelineOp(opCtx, opCancel, e.pipeline)
-					m.om.activeOps[e.pipeline] = pipelineOp
+					ctrlCtx, ctrlCancel := context.WithCancel(m.masterCtx)
+					pipelineOp = m.newPipelineController(ctrlCtx, ctrlCancel, e.pipeline)
+					m.pcm.pcs[e.pipeline] = pipelineOp
 					go pipelineOp.Start(e.timestamp)
 				}
 			}(e)
@@ -199,7 +199,7 @@ func setPipelineState(ctx context.Context, db *sqlx.DB, pipelines collection.Pos
 
 // transitionPipelineState is similar to setPipelineState, except that it sets
 // 'from' and logs a different trace
-func (op *pipelineOp) transitionPipelineState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+func (pc *pipelineController) transitionPipelineState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/TransitionPipelineState", "pipeline", specCommit.Branch.Repo.Name,
 		"from-state", from, "to-state", to)
@@ -207,14 +207,14 @@ func (op *pipelineOp) transitionPipelineState(ctx context.Context, specCommit *p
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
-	return ppsutil.SetPipelineState(ctx, op.env.DB, op.pipelines,
+	return ppsutil.SetPipelineState(ctx, pc.env.DB, pc.pipelines,
 		specCommit, from, to, reason)
 }
 
 func (m *ppsMaster) cancelOps() {
-	m.om.Lock()
-	defer m.om.Unlock()
-	for _, op := range m.om.activeOps {
-		op.opCancel()
+	m.pcm.Lock()
+	defer m.pcm.Unlock()
+	for _, op := range m.pcm.pcs {
+		op.cancel()
 	}
 }
