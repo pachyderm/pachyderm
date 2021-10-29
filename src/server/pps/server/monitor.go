@@ -1,21 +1,5 @@
 package server
 
-// monitor.go contains methods of s/s/pps/server/api_server.go:APIServer that
-// pertain to these fields of APIServer:
-//   - monitorCancels,
-//   - crashingMonitorCancels,
-//   - pollCancel, and
-//   - monitorCancelsMu (which protects all of the other fields).
-//
-// Other functions of APIServer.go should not access any of
-// these fields directly (particularly APIServer.monitorCancelsMu, to avoid
-// deadlocks) and should instead interact with monitorPipeline and such via
-// methods in this file.
-//
-// Likewise, to avoid reentrancy deadlocks (A -> B -> A), methods in this file
-// should avoid calling other methods of APIServer defined outside this file and
-// shouldn't call each other.
-
 import (
 	"bytes"
 	"context"
@@ -44,17 +28,6 @@ import (
 
 const crashingBackoff = time.Second * 15
 const scaleUpInterval = time.Second * 30
-
-//////////////////////////////////////////////////////////////////////////////
-//                     Locking Functions                                    //
-// - These functions lock monitorCancelsMu in order to start or stop a      //
-// monitor function (and store any cancel() functions in 'm'). They can     //
-// call any of the monitor functions at the bottom of this file, but after  //
-// locking, they should not call each other or any function outside of this //
-// file (or else they will trigger a reentrancy deadlock):                  //
-//         master.go -> monitor.go -> master.go -> monitor.go               //
-//                   (lock succeeds)          (lock fails, deadlock)        //
-//////////////////////////////////////////////////////////////////////////////
 
 // startMonitor starts a new goroutine running monitorPipeline for
 // 'pipelineInfo.Pipeline'.
@@ -91,18 +64,6 @@ func (pc *pipelineController) startCrashingMonitor(ctx context.Context, pipeline
 			pc.monitorCrashingPipeline(ctx, pipelineInfo)
 		})
 }
-
-//////////////////////////////////////////////////////////////////////////////
-//                     Monitor Functions                                    //
-// - These do not lock monitorCancelsMu, but they are called by the         //
-// functions above, which do. They should not be called by functions        //
-// outside monitor.go (to avoid data races). They can in turn call each     //
-// other but also should not call any of the functions above or any         //
-// functions outside this file (or else they will trigger a reentrancy      //
-// deadlock):                                                               //
-//         master.go -> monitor.go -> master.go -> monitor.go               //
-//                   (lock succeeds)          (lock fails, deadlock)        //
-//////////////////////////////////////////////////////////////////////////////
 
 // startMonitorThread is a helper used by startMonitor, startCrashingMonitor,
 // and startPipelinePoller (in poller.go). It doesn't manipulate any of
