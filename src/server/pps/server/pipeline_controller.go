@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -49,6 +50,11 @@ func max(is ...int) int {
 	return max
 }
 
+type pcManager struct {
+	sync.Mutex
+	pcs map[string]*pipelineController
+}
+
 // pipelineController contains all of the relevent current state for a pipeline. It's
 // used by step() to take any necessary actions
 type pipelineController struct {
@@ -69,7 +75,7 @@ type pipelineController struct {
 	crashingMonitorCancel func()
 
 	bumpChan  chan struct{}
-	opManager *controllerManager
+	opManager *pcManager
 }
 
 var (
@@ -93,7 +99,7 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		etcdPrefix:   m.a.etcdPrefix,
 
 		bumpChan:  make(chan struct{}, 1),
-		opManager: m.cm,
+		opManager: m.pcm,
 	}
 	return pc
 }
@@ -170,7 +176,7 @@ func (op *pipelineController) tryFinish() {
 		op.Bump()
 	default:
 		op.cancel()
-		delete(op.opManager.activeOps, op.pipeline)
+		delete(op.opManager.pcs, op.pipeline)
 	}
 }
 

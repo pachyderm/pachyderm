@@ -67,11 +67,6 @@ func (s stepError) Unwrap() error {
 	return s.error
 }
 
-type pcManager struct {
-	sync.Mutex
-	pcs map[string]*pipelineController
-}
-
 type ppsMaster struct {
 	// The PPS APIServer that owns this struct
 	a *apiServer
