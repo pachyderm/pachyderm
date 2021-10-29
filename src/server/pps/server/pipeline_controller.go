@@ -74,8 +74,8 @@ type pipelineController struct {
 	monitorCancel         func()
 	crashingMonitorCancel func()
 
-	bumpChan  chan struct{}
-	opManager *pcManager
+	bumpChan chan struct{}
+	pcMgr    *pcManager
 }
 
 var (
@@ -98,8 +98,8 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		pipelines:    m.a.pipelines,
 		etcdPrefix:   m.a.etcdPrefix,
 
-		bumpChan:  make(chan struct{}, 1),
-		opManager: m.pcMgr,
+		bumpChan: make(chan struct{}, 1),
+		pcMgr:    m.pcMgr,
 	}
 	return pc
 }
@@ -107,15 +107,15 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 // Bump signals the pipelineController goro to either process the  latest state
 // of the pipeline now, or once its done with its current processing iteration.
 //
-// This function is expected to be called while holding the opManager lock.
+// This function is expected to be called while holding the pcMgr lock.
 // This helps guard the critical section when the goroutine is cleaned up
 // as part of a pipeline deletion event in pipelineController.tryFinish().
 //
-// Note: since op.bumpChan is a buffered channel of length 1, Bump() will
+// Note: since pc.bumpChan is a buffered channel of length 1, Bump() will
 // add to the channel if it's empty, and do nothing otherwise.
-func (op *pipelineController) Bump() {
+func (pc *pipelineController) Bump() {
 	select {
-	case op.bumpChan <- struct{}{}:
+	case pc.bumpChan <- struct{}{}:
 	default:
 	}
 }
@@ -127,56 +127,56 @@ func (op *pipelineController) Bump() {
 //
 // Other errors are simply logged and ignored, assuming that some future polling
 // of the pipeline will succeed.
-func (op *pipelineController) Start(timestamp time.Time) {
-	op.Bump()
+func (pc *pipelineController) Start(timestamp time.Time) {
+	pc.Bump()
 	for {
 		select {
-		case <-op.ctx.Done():
+		case <-pc.ctx.Done():
 			return
-		case <-op.bumpChan:
+		case <-pc.bumpChan:
 			var errCount int
 			var stepErr stepError
 			err := backoff.RetryNotify(func() error {
 				// Create/Modify/Delete pipeline resources as needed per new state
-				return op.step(timestamp)
+				return pc.step(timestamp)
 			}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 				errCount++
 				if errors.As(err, &stepErr) {
 					if stepErr.retry && errCount < maxErrCount {
 						log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
-							op.pipeline, err, d)
+							pc.pipeline, err, d)
 						return nil
 					}
 				}
-				return errors.Wrapf(err, "could not update resource for pipeline %q", op.pipeline)
+				return errors.Wrapf(err, "could not update resource for pipeline %q", pc.pipeline)
 			})
 
 			// we've given up on the step, check if the error indicated that the pipeline should fail
 			if err != nil {
 				if errors.As(err, &stepErr) && stepErr.failPipeline {
-					failError := op.setPipelineFailure(op.ctx, fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err))
+					failError := pc.setPipelineFailure(pc.ctx, fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err))
 					if failError != nil {
-						log.Errorf("PPS master: error starting a pipelineController for pipeline '%s': %v", op.pipeline,
-							errors.Wrapf(failError, "error failing pipeline %q (%v)", op.pipeline, err))
+						log.Errorf("PPS master: error starting a pipelineController for pipeline '%s': %v", pc.pipeline,
+							errors.Wrapf(failError, "error failing pipeline %q (%v)", pc.pipeline, err))
 					}
 				}
-				log.Errorf("PPS master: error starting a pipelineController for pipeline '%s': %v", op.pipeline,
-					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
+				log.Errorf("PPS master: error starting a pipelineController for pipeline '%s': %v", pc.pipeline,
+					errors.Wrapf(err, "failing pipeline %q", pc.pipeline))
 			}
 		}
 	}
 }
 
-// finishes the op if it isn't bumped
-func (op *pipelineController) tryFinish() {
-	op.opManager.Lock()
-	defer op.opManager.Unlock()
+// finishes the pc if it isn't bumped
+func (pc *pipelineController) tryFinish() {
+	pc.pcMgr.Lock()
+	defer pc.pcMgr.Unlock()
 	select {
-	case <-op.bumpChan:
-		op.Bump()
+	case <-pc.bumpChan:
+		pc.Bump()
 	default:
-		op.cancel()
-		delete(op.opManager.pcs, op.pipeline)
+		pc.cancel()
+		delete(pc.pcMgr.pcs, pc.pipeline)
 	}
 }
 
@@ -184,12 +184,12 @@ func (op *pipelineController) tryFinish() {
 // 1. retrieves its full pipeline spec and RC into the 'Details' field
 // 2. makes whatever changes are needed to bring the RC in line with the (new) spec
 // 3. updates 'pipelineInfo', if needed, to reflect the action it just took
-func (op *pipelineController) step(timestamp time.Time) (retErr error) {
-	log.Debugf("PPS master: processing event for %q", op.pipelineInfo.Pipeline)
+func (pc *pipelineController) step(timestamp time.Time) (retErr error) {
+	log.Debugf("PPS master: processing event for %q", pc.pipelineInfo.Pipeline)
 
 	// Handle tracing
-	span, _ := extended.AddSpanToAnyPipelineTrace(op.ctx,
-		op.env.EtcdClient, op.pipeline, "/pps.Master/ProcessPipelineUpdate")
+	span, _ := extended.AddSpanToAnyPipelineTrace(pc.ctx,
+		pc.env.EtcdClient, pc.pipeline, "/pps.Master/ProcessPipelineUpdate")
 	if !timestamp.IsZero() {
 		tracing.TagAnySpan(span, "update-time", timestamp)
 	} else {
@@ -199,117 +199,117 @@ func (op *pipelineController) step(timestamp time.Time) (retErr error) {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
 
-	// set op.pipelineInfo
-	if err := op.tryLoadLatestPipelineInfo(); err != nil && collection.IsErrNotFound(err) {
+	// set pc.pipelineInfo
+	if err := pc.tryLoadLatestPipelineInfo(); err != nil && collection.IsErrNotFound(err) {
 		// if the pipeline info is not found, interpret the operation as a delete
-		if err := op.deletePipelineResources(); err != nil {
-			log.Errorf("PPS master: error deleting pipelineController resources for pipeline '%s': %v", op.pipeline,
-				errors.Wrapf(err, "failing pipeline %q", op.pipeline))
+		if err := pc.deletePipelineResources(); err != nil {
+			log.Errorf("PPS master: error deleting pipelineController resources for pipeline '%s': %v", pc.pipeline,
+				errors.Wrapf(err, "failing pipeline %q", pc.pipeline))
 		}
-		op.tryFinish()
+		pc.tryFinish()
 		return nil
 	} else if err != nil {
 		return err
 	}
 
-	tracing.TagAnySpan(op.ctx,
-		"current-state", op.pipelineInfo.State.String(),
-		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
+	tracing.TagAnySpan(pc.ctx,
+		"current-state", pc.pipelineInfo.State.String(),
+		"spec-commit", pretty.CompactPrintCommitSafe(pc.pipelineInfo.SpecCommit))
 	// add pipeline auth
 	// the pipelineController's context is authorized as pps master, but we want to switch to the pipeline itself
 	// first clear the cached WhoAmI result from the context
-	pachClient := op.env.GetPachClient(middleware_auth.ClearWhoAmI(op.ctx))
-	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
+	pachClient := pc.env.GetPachClient(middleware_auth.ClearWhoAmI(pc.ctx))
+	pachClient.SetAuthToken(pc.pipelineInfo.AuthToken)
 	stepCtx := pachClient.Ctx()
 
-	// set op.rc
+	// set pc.rc
 	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
 	// the pipeline indefinitely)
-	if err := op.getRC(stepCtx, noExpectation); err != nil && !errors.Is(err, errRCNotFound) {
+	if err := pc.getRC(stepCtx, noExpectation); err != nil && !errors.Is(err, errRCNotFound) {
 		return err
 	}
 
 	// Process the pipeline event
-	return op.run(stepCtx)
+	return pc.run(stepCtx)
 }
 
-func (op *pipelineController) run(stepCtx context.Context) error {
+func (pc *pipelineController) run(stepCtx context.Context) error {
 	// Bring 'pipeline' into the correct state by taking appropriate action
-	switch op.pipelineInfo.State {
+	switch pc.pipelineInfo.State {
 	case pps.PipelineState_PIPELINE_STARTING, pps.PipelineState_PIPELINE_RESTARTING:
-		if op.rc != nil && !op.rcIsFresh() {
+		if pc.rc != nil && !pc.rcIsFresh() {
 			// old RC is not down yet
-			return op.restartPipeline(stepCtx, "stale RC") // step() will be called again after collection write
-		} else if op.rc == nil {
+			return pc.restartPipeline(stepCtx, "stale RC") // step() will be called again after collection write
+		} else if pc.rc == nil {
 			// default: old RC (if any) is down but new RC is not up yet
-			if err := op.createPipelineResources(stepCtx); err != nil {
+			if err := pc.createPipelineResources(stepCtx); err != nil {
 				return err
 			}
 		}
-		if op.pipelineInfo.Stopped {
-			return op.setPipelineState(stepCtx, pps.PipelineState_PIPELINE_PAUSED, "")
+		if pc.pipelineInfo.Stopped {
+			return pc.setPipelineState(stepCtx, pps.PipelineState_PIPELINE_PAUSED, "")
 		}
-		op.stopCrashingPipelineMonitor()
+		pc.stopCrashingPipelineMonitor()
 		// trigger another event
 		target := pps.PipelineState_PIPELINE_RUNNING
-		if op.pipelineInfo.Details.Autoscaling && op.pipelineInfo.State == pps.PipelineState_PIPELINE_STARTING {
+		if pc.pipelineInfo.Details.Autoscaling && pc.pipelineInfo.State == pps.PipelineState_PIPELINE_STARTING {
 			// start in standby
 			target = pps.PipelineState_PIPELINE_STANDBY
 		}
-		return op.setPipelineState(stepCtx, target, "")
+		return pc.setPipelineState(stepCtx, target, "")
 	case pps.PipelineState_PIPELINE_RUNNING:
-		if !op.rcIsFresh() {
-			return op.restartPipeline(stepCtx, "stale RC") // step() will be called again after collection write
+		if !pc.rcIsFresh() {
+			return pc.restartPipeline(stepCtx, "stale RC") // step() will be called again after collection write
 		}
-		if op.pipelineInfo.Stopped {
-			return op.setPipelineState(stepCtx, pps.PipelineState_PIPELINE_PAUSED, "")
+		if pc.pipelineInfo.Stopped {
+			return pc.setPipelineState(stepCtx, pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 
-		op.stopCrashingPipelineMonitor()
-		op.startPipelineMonitor()
+		pc.stopCrashingPipelineMonitor()
+		pc.startPipelineMonitor()
 		// default: scale up if pipeline start hasn't propagated to the collection yet
 		// Note: mostly this should do nothing, as this runs several times per job
-		return op.scaleUpPipeline(stepCtx)
+		return pc.scaleUpPipeline(stepCtx)
 	case pps.PipelineState_PIPELINE_STANDBY:
-		if !op.rcIsFresh() {
-			return op.restartPipeline(stepCtx, "stale RC") // step() will be called again after collection write
+		if !pc.rcIsFresh() {
+			return pc.restartPipeline(stepCtx, "stale RC") // step() will be called again after collection write
 		}
-		if op.pipelineInfo.Stopped {
-			return op.setPipelineState(stepCtx, pps.PipelineState_PIPELINE_PAUSED, "")
+		if pc.pipelineInfo.Stopped {
+			return pc.setPipelineState(stepCtx, pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 
-		op.stopCrashingPipelineMonitor()
+		pc.stopCrashingPipelineMonitor()
 		// Make sure pipelineMonitor is running to pull it out of standby
-		op.startPipelineMonitor()
+		pc.startPipelineMonitor()
 		// default: scale down if standby hasn't propagated to kube RC yet
-		return op.scaleDownPipeline(stepCtx)
+		return pc.scaleDownPipeline(stepCtx)
 	case pps.PipelineState_PIPELINE_PAUSED:
-		if !op.rcIsFresh() {
-			return op.restartPipeline(stepCtx, "stale RC") // step() will be called again after collection write
+		if !pc.rcIsFresh() {
+			return pc.restartPipeline(stepCtx, "stale RC") // step() will be called again after collection write
 		}
-		if !op.pipelineInfo.Stopped {
+		if !pc.pipelineInfo.Stopped {
 			// StartPipeline has been called (so spec commit is updated), but new spec
 			// commit hasn't been propagated to PipelineInfo or RC yet
 			target := pps.PipelineState_PIPELINE_RUNNING
-			if op.pipelineInfo.Details.Autoscaling {
+			if pc.pipelineInfo.Details.Autoscaling {
 				target = pps.PipelineState_PIPELINE_STANDBY
 			}
-			return op.setPipelineState(stepCtx, target, "")
+			return pc.setPipelineState(stepCtx, target, "")
 		}
 		// don't want cron commits or STANDBY state changes while pipeline is
 		// stopped
-		op.stopPipelineMonitor()
-		op.stopCrashingPipelineMonitor()
+		pc.stopPipelineMonitor()
+		pc.stopCrashingPipelineMonitor()
 		// default: scale down if pause/standby hasn't propagated to collection yet
-		return op.scaleDownPipeline(stepCtx)
+		return pc.scaleDownPipeline(stepCtx)
 	case pps.PipelineState_PIPELINE_FAILURE:
 		// pipeline fails if it encounters an unrecoverable error
-		if err := op.finishPipelineOutputCommits(stepCtx); err != nil {
+		if err := pc.finishPipelineOutputCommits(stepCtx); err != nil {
 			return err
 		}
 		// deletePipelineResources calls cancelMonitor() and cancelCrashingMonitor()
 		// in addition to deleting the RC, so those calls aren't necessary here.
-		if err := op.deletePipelineResources(); err != nil {
+		if err := pc.deletePipelineResources(); err != nil {
 			// retry, but the pipeline has already failed
 			return stepError{
 				error: errors.Wrap(err, "error deleting resources for failing pipeline"),
@@ -318,15 +318,15 @@ func (op *pipelineController) run(stepCtx context.Context) error {
 		}
 		return nil
 	case pps.PipelineState_PIPELINE_CRASHING:
-		if !op.rcIsFresh() {
-			return op.restartPipeline(stepCtx, "stale RC") // step() will be called again after collection write
+		if !pc.rcIsFresh() {
+			return pc.restartPipeline(stepCtx, "stale RC") // step() will be called again after collection write
 		}
-		if op.pipelineInfo.Stopped {
-			return op.setPipelineState(stepCtx, pps.PipelineState_PIPELINE_PAUSED, "")
+		if pc.pipelineInfo.Stopped {
+			return pc.setPipelineState(stepCtx, pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 		// start a monitor to poll k8s and update us when it goes into a running state
-		op.startPipelineMonitor()
-		op.startCrashingPipelineMonitor()
+		pc.startPipelineMonitor()
+		pc.startCrashingPipelineMonitor()
 		// Surprisingly, scaleUpPipeline() is necessary, in case a pipelines is
 		// quickly transitioned to CRASHING after coming out of STANDBY. Because the
 		// pipeline controller reads the current state of the pipeline after each
@@ -336,45 +336,45 @@ func (op *pipelineController) run(stepCtx context.Context) error {
 		//
 		// In general, CRASHING is actually almost identical to RUNNING (except for
 		// the monitorCrashing goro)
-		return op.scaleUpPipeline(stepCtx)
+		return pc.scaleUpPipeline(stepCtx)
 	}
 	return nil
 }
 
-func (op *pipelineController) tryLoadLatestPipelineInfo() error {
+func (pc *pipelineController) tryLoadLatestPipelineInfo() error {
 	errCnt := 0
 	err := backoff.RetryNotify(func() error {
-		return op.loadLatestPipelineInfo()
+		return pc.loadLatestPipelineInfo()
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		errCnt++
 		// Don't put the pipeline in a failing state if we're in the middle
 		// of activating auth, retry in a bit
 		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
 			log.Warnf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
-				op.pipeline, err, d)
+				pc.pipeline, err, d)
 			return nil
 		}
 		return stepError{
-			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q", op.pipeline),
+			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q", pc.pipeline),
 			retry: false,
 		}
 	})
 	return err
 }
 
-func (op *pipelineController) loadLatestPipelineInfo() error {
-	*op.pipelineInfo = pps.PipelineInfo{}
-	specCommit, err := ppsutil.FindPipelineSpecCommit(op.ctx, op.env.PFSServer, *op.txEnv, op.pipeline)
+func (pc *pipelineController) loadLatestPipelineInfo() error {
+	*pc.pipelineInfo = pps.PipelineInfo{}
+	specCommit, err := ppsutil.FindPipelineSpecCommit(pc.ctx, pc.env.PFSServer, *pc.txEnv, pc.pipeline)
 	if err != nil {
-		return errors.Wrapf(err, "could not find spec commit for pipeline %q", op.pipeline)
+		return errors.Wrapf(err, "could not find spec commit for pipeline %q", pc.pipeline)
 	}
-	if err := op.pipelines.ReadOnly(op.ctx).Get(specCommit, op.pipelineInfo); err != nil {
-		return errors.Wrapf(err, "could not retrieve pipeline info for %q", op.pipeline)
+	if err := pc.pipelines.ReadOnly(pc.ctx).Get(specCommit, pc.pipelineInfo); err != nil {
+		return errors.Wrapf(err, "could not retrieve pipeline info for %q", pc.pipeline)
 	}
 	return nil
 }
 
-// getRC reads the RC associated with 'op's pipeline. op.pipelineInfo must be
+// getRC reads the RC associated with 'pc's pipeline. pc.pipelineInfo must be
 // set already. 'expectation' indicates whether the PPS master expects an RC to
 // exist--if set to 'rcExpected', getRC will restart the pipeline if no RC is
 // found after three retries. If set to 'noRCExpected', then getRC will return
@@ -383,18 +383,18 @@ func (op *pipelineController) loadLatestPipelineInfo() error {
 // is found
 //
 // Unlike other functions in this file, getRC takes responsibility for restarting
-// op's pipeline if it can't read the pipeline's RC (or if the RC is stale or
+// pc's pipeline if it can't read the pipeline's RC (or if the RC is stale or
 // redundant), and then returns an error to the caller to indicate that the
 // caller shouldn't continue with other operations
-func (op *pipelineController) getRC(ctx context.Context, expectation rcExpectation) (retErr error) {
+func (pc *pipelineController) getRC(ctx context.Context, expectation rcExpectation) (retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/GetRC", "pipeline", op.pipeline)
+		"/pps.Master/GetRC", "pipeline", pc.pipeline)
 	defer func(span opentracing.Span) {
 		tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
 		tracing.FinishAnySpan(span)
 	}(span)
 
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.pipeline)
+	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pc.pipeline)
 
 	// count error types separately, so that this only errors if the pipeline is
 	// stuck and not changing
@@ -402,28 +402,28 @@ func (op *pipelineController) getRC(ctx context.Context, expectation rcExpectati
 		otherErrCount int
 	return backoff.RetryNotify(func() error {
 		// List all RCs, so stale RCs from old pipelines are noticed and deleted
-		rcs, err := op.env.KubeClient.CoreV1().ReplicationControllers(op.namespace).List(
+		rcs, err := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace).List(
 			metav1.ListOptions{LabelSelector: selector})
 		if err != nil && !errutil.IsNotFoundError(err) {
 			return err
 		}
 		if len(rcs.Items) == 0 {
-			op.rc = nil
+			pc.rc = nil
 			return errRCNotFound
 		}
 
-		op.rc = &rcs.Items[0]
+		pc.rc = &rcs.Items[0]
 		switch {
 		case len(rcs.Items) > 1:
 			// select stale RC if possible, so that we delete it in restartPipeline
 			for i := range rcs.Items {
-				op.rc = &rcs.Items[i]
-				if !op.rcIsFresh() {
+				pc.rc = &rcs.Items[i]
+				if !pc.rcIsFresh() {
 					break
 				}
 			}
 			return errTooManyRCs
-		case !op.rcIsFresh():
+		case !pc.rcIsFresh():
 			return errStaleRC
 		case expectation == noRCExpected:
 			return errUnexpectedRC
@@ -452,57 +452,57 @@ func (op *pipelineController) getRC(ctx context.Context, expectation rcExpectati
 			missingExpectedRC := expectation == rcExpected && errors.Is(err, errRCNotFound)
 			invalidRCState := errors.Is(err, errTooManyRCs) || errors.Is(err, errStaleRC)
 			if missingExpectedRC || invalidRCState {
-				return op.restartPipeline(ctx, fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
+				return pc.restartPipeline(ctx, fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
 			}
 			return err //return whatever the most recent error was
 		}
-		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", op.pipeline, err, d)
+		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", pc.pipeline, err, d)
 		return nil
 	})
 }
 
-// rcIsFresh returns a boolean indicating whether op.rc has the right labels
-// corresponding to op.pipelineInfo. If this returns false, it likely means the
+// rcIsFresh returns a boolean indicating whether pc.rc has the right labels
+// corresponding to pc.pipelineInfo. If this returns false, it likely means the
 // current RC is using e.g. an old spec commit or something.
-func (op *pipelineController) rcIsFresh() bool {
-	if op.rc == nil {
-		log.Errorf("PPS master: RC for %q is nil", op.pipelineInfo.Pipeline.Name)
+func (pc *pipelineController) rcIsFresh() bool {
+	if pc.rc == nil {
+		log.Errorf("PPS master: RC for %q is nil", pc.pipelineInfo.Pipeline.Name)
 		return false
 	}
 	expectedName := ""
-	if op.pipelineInfo != nil {
-		expectedName = ppsutil.PipelineRcName(op.pipelineInfo.Pipeline.Name, op.pipelineInfo.Version)
+	if pc.pipelineInfo != nil {
+		expectedName = ppsutil.PipelineRcName(pc.pipelineInfo.Pipeline.Name, pc.pipelineInfo.Version)
 	}
 
 	// establish current RC properties
-	rcName := op.rc.ObjectMeta.Name
-	rcPachVersion := op.rc.ObjectMeta.Annotations[pachVersionAnnotation]
-	rcAuthTokenHash := op.rc.ObjectMeta.Annotations[hashedAuthTokenAnnotation]
-	rcPipelineVersion := op.rc.ObjectMeta.Annotations[pipelineVersionAnnotation]
+	rcName := pc.rc.ObjectMeta.Name
+	rcPachVersion := pc.rc.ObjectMeta.Annotations[pachVersionAnnotation]
+	rcAuthTokenHash := pc.rc.ObjectMeta.Annotations[hashedAuthTokenAnnotation]
+	rcPipelineVersion := pc.rc.ObjectMeta.Annotations[pipelineVersionAnnotation]
 	switch {
-	case rcAuthTokenHash != hashAuthToken(op.pipelineInfo.AuthToken):
+	case rcAuthTokenHash != hashAuthToken(pc.pipelineInfo.AuthToken):
 		log.Errorf("PPS master: auth token in %q is stale %s != %s",
-			op.pipelineInfo.Pipeline.Name, rcAuthTokenHash, hashAuthToken(op.pipelineInfo.AuthToken))
+			pc.pipelineInfo.Pipeline.Name, rcAuthTokenHash, hashAuthToken(pc.pipelineInfo.AuthToken))
 		return false
-	case rcPipelineVersion != strconv.FormatUint(op.pipelineInfo.Version, 10):
+	case rcPipelineVersion != strconv.FormatUint(pc.pipelineInfo.Version, 10):
 		log.Errorf("PPS master: pipeline version in %q looks stale %s != %d",
-			op.pipelineInfo.Pipeline.Name, rcPipelineVersion, op.pipelineInfo.Version)
+			pc.pipelineInfo.Pipeline.Name, rcPipelineVersion, pc.pipelineInfo.Version)
 		return false
 	case rcPachVersion != version.PrettyVersion():
 		log.Errorf("PPS master: %q is using stale pachd v%s != current v%s",
-			op.pipelineInfo.Pipeline.Name, rcPachVersion, version.PrettyVersion())
+			pc.pipelineInfo.Pipeline.Name, rcPachVersion, version.PrettyVersion())
 		return false
 	case expectedName != "" && rcName != expectedName:
 		log.Errorf("PPS master: %q has an unexpected (likely stale) name %q != %q",
-			op.pipelineInfo.Pipeline.Name, rcName, expectedName)
+			pc.pipelineInfo.Pipeline.Name, rcName, expectedName)
 	}
 	return true
 }
 
-// setPipelineState set's op's state in the collection to 'state'. This will trigger a
+// setPipelineState set's pc's state in the collection to 'state'. This will trigger a
 // collection watch event and cause step() to eventually run again.
-func (op *pipelineController) setPipelineState(ctx context.Context, state pps.PipelineState, reason string) error {
-	if err := setPipelineState(ctx, op.env.DB, op.pipelines, op.pipelineInfo.SpecCommit, state, reason); err != nil {
+func (pc *pipelineController) setPipelineState(ctx context.Context, state pps.PipelineState, reason string) error {
+	if err := setPipelineState(ctx, pc.env.DB, pc.pipelines, pc.pipelineInfo.SpecCommit, state, reason); err != nil {
 		// don't bother failing if we can't set the state
 		return stepError{
 			error: errors.Wrapf(err, "could not set pipeline state to %v"+
@@ -513,10 +513,10 @@ func (op *pipelineController) setPipelineState(ctx context.Context, state pps.Pi
 	return nil
 }
 
-// createPipelineResources creates the RC and any services for op's pipeline.
-func (op *pipelineController) createPipelineResources(ctx context.Context) error {
-	log.Infof("PPS master: creating resources for pipeline %q", op.pipelineInfo.Pipeline.Name)
-	if err := op.createWorkerSvcAndRc(ctx, op.pipelineInfo); err != nil {
+// createPipelineResources creates the RC and any services for pc's pipeline.
+func (pc *pipelineController) createPipelineResources(ctx context.Context) error {
+	log.Infof("PPS master: creating resources for pipeline %q", pc.pipelineInfo.Pipeline.Name)
+	if err := pc.createWorkerSvcAndRc(ctx, pc.pipelineInfo); err != nil {
 		if errors.As(err, &noValidOptionsErr{}) {
 			// these errors indicate invalid pipelineInfo, don't retry
 			return stepError{
@@ -533,38 +533,38 @@ func (op *pipelineController) createPipelineResources(ctx context.Context) error
 // one doesn't exist already), which manages standby and cron inputs, and
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
-func (op *pipelineController) startPipelineMonitor() {
-	// since *op.pipelineInfo may be modified on a Bump, and startMonitor() passes its
-	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of op.pipelineInfo to
+func (pc *pipelineController) startPipelineMonitor() {
+	// since *pc.pipelineInfo may be modified on a Bump, and startMonitor() passes its
+	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of pc.pipelineInfo to
 	// avoid a race condition
-	pi := *op.pipelineInfo
-	if op.monitorCancel == nil {
-		op.monitorCancel = op.startMonitor(op.ctx, &pi)
+	pi := *pc.pipelineInfo
+	if pc.monitorCancel == nil {
+		pc.monitorCancel = pc.startMonitor(pc.ctx, &pi)
 	}
-	op.pipelineInfo.Details.WorkerRc = op.rc.ObjectMeta.Name
+	pc.pipelineInfo.Details.WorkerRc = pc.rc.ObjectMeta.Name
 }
 
-func (op *pipelineController) startCrashingPipelineMonitor() {
-	// since *op.pipelineInfo may be modified on a Bump, and startMonitor() passes its
-	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of op.pipelineInfo to
+func (pc *pipelineController) startCrashingPipelineMonitor() {
+	// since *pc.pipelineInfo may be modified on a Bump, and startMonitor() passes its
+	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of pc.pipelineInfo to
 	// avoid a race condition
-	pi := *op.pipelineInfo
-	if op.crashingMonitorCancel == nil {
-		op.crashingMonitorCancel = op.startCrashingMonitor(op.ctx, &pi)
+	pi := *pc.pipelineInfo
+	if pc.crashingMonitorCancel == nil {
+		pc.crashingMonitorCancel = pc.startCrashingMonitor(pc.ctx, &pi)
 	}
 }
 
-func (op *pipelineController) stopPipelineMonitor() {
-	if op.monitorCancel != nil {
-		op.monitorCancel()
-		op.monitorCancel = nil
+func (pc *pipelineController) stopPipelineMonitor() {
+	if pc.monitorCancel != nil {
+		pc.monitorCancel()
+		pc.monitorCancel = nil
 	}
 }
 
-func (op *pipelineController) stopCrashingPipelineMonitor() {
-	if op.crashingMonitorCancel != nil {
-		op.crashingMonitorCancel()
-		op.crashingMonitorCancel = nil
+func (pc *pipelineController) stopCrashingPipelineMonitor() {
+	if pc.crashingMonitorCancel != nil {
+		pc.crashingMonitorCancel()
+		pc.crashingMonitorCancel = nil
 	}
 }
 
@@ -576,31 +576,31 @@ func (op *pipelineController) stopCrashingPipelineMonitor() {
 //
 // Unlike other functions in this file, finishPipelineOutputCommits doesn't
 // cause retries if it encounters an error. Currently. it's only called by step()
-// in the case where op's pipeline is already in FAILURE. If it returns an error in
+// in the case where pc's pipeline is already in FAILURE. If it returns an error in
 // that case, the pps master will log the error and move on to the next pipeline
 // event. This pipeline's output commits will stay open until another watch
 // event arrives for the pipeline and finishPipelineOutputCommits is retried.
-func (op *pipelineController) finishPipelineOutputCommits(ctx context.Context) (retErr error) {
-	log.Infof("PPS master: finishing output commits for pipeline %q", op.pipelineInfo.Pipeline.Name)
+func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context) (retErr error) {
+	log.Infof("PPS master: finishing output commits for pipeline %q", pc.pipelineInfo.Pipeline.Name)
 
-	pachClient := op.env.GetPachClient(ctx)
+	pachClient := pc.env.GetPachClient(ctx)
 	if span, _ctx := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/FinishPipelineOutputCommits", "pipeline", op.pipelineInfo.Pipeline.Name); span != nil {
+		"/pps.Master/FinishPipelineOutputCommits", "pipeline", pc.pipelineInfo.Pipeline.Name); span != nil {
 		pachClient = pachClient.WithCtx(_ctx) // copy span back into pachClient
 		defer func() {
 			tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
 			tracing.FinishAnySpan(span)
 		}()
 	}
-	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
+	pachClient.SetAuthToken(pc.pipelineInfo.AuthToken)
 
-	if err := pachClient.ListCommitF(client.NewRepo(op.pipelineInfo.Pipeline.Name), client.NewCommit(op.pipelineInfo.Pipeline.Name, op.pipelineInfo.Details.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopJob(op.pipelineInfo.Pipeline.Name, commitInfo.Commit.ID)
+	if err := pachClient.ListCommitF(client.NewRepo(pc.pipelineInfo.Pipeline.Name), client.NewCommit(pc.pipelineInfo.Pipeline.Name, pc.pipelineInfo.Details.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
+		return pachClient.StopJob(pc.pipelineInfo.Pipeline.Name, commitInfo.Commit.ID)
 	}); err != nil {
 		if errutil.IsNotFoundError(err) {
 			return nil // already deleted
 		}
-		return errors.Wrapf(err, "could not finish output commits of pipeline %q", op.pipelineInfo.Pipeline.Name)
+		return errors.Wrapf(err, "could not finish output commits of pipeline %q", pc.pipelineInfo.Pipeline.Name)
 	}
 	return nil
 }
@@ -608,13 +608,13 @@ func (op *pipelineController) finishPipelineOutputCommits(ctx context.Context) (
 // updateRC is a helper for {scaleUp,scaleDown}Pipeline. It includes all of the
 // logic for writing an updated RC spec to kubernetes, and updating/retrying if
 // k8s rejects the write. It presents a strange API, since the the RC being
-// updated is already available to the caller in op.rc, but update() may be
+// updated is already available to the caller in pc.rc, but update() may be
 // called muliple times if the k8s write fails. It may be helpful to think of
-// the rc passed to update() as mutable, while op.rc is immutable.
-func (op *pipelineController) updateRC(update func(rc *v1.ReplicationController)) error {
-	rc := op.env.KubeClient.CoreV1().ReplicationControllers(op.namespace)
+// the rc passed to update() as mutable, while pc.rc is immutable.
+func (pc *pipelineController) updateRC(update func(rc *v1.ReplicationController)) error {
+	rc := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace)
 
-	newRC := *op.rc
+	newRC := *pc.rc
 	// Apply op's update to rc
 	update(&newRC)
 	// write updated RC to k8s
@@ -624,12 +624,12 @@ func (op *pipelineController) updateRC(update func(rc *v1.ReplicationController)
 	return nil
 }
 
-// scaleUpPipeline edits the RC associated with op's pipeline & spins up the
+// scaleUpPipeline edits the RC associated with pc's pipeline & spins up the
 // configured number of workers.
-func (op *pipelineController) scaleUpPipeline(ctx context.Context) (retErr error) {
-	log.Debugf("PPS master: ensuring correct k8s resources for %q", op.pipelineInfo.Pipeline.Name)
+func (pc *pipelineController) scaleUpPipeline(ctx context.Context) (retErr error) {
+	log.Debugf("PPS master: ensuring correct k8s resources for %q", pc.pipelineInfo.Pipeline.Name)
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/ScaleUpPipeline", "pipeline", op.pipelineInfo.Pipeline.Name)
+		"/pps.Master/ScaleUpPipeline", "pipeline", pc.pipelineInfo.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			log.Errorf("PPS master: error scaling up: %v", retErr)
@@ -640,17 +640,17 @@ func (op *pipelineController) scaleUpPipeline(ctx context.Context) (retErr error
 
 	// compute target pipeline parallelism
 	parallelism := uint64(1)
-	if op.pipelineInfo.Details.ParallelismSpec != nil {
-		parallelism = op.pipelineInfo.Details.ParallelismSpec.Constant
+	if pc.pipelineInfo.Details.ParallelismSpec != nil {
+		parallelism = pc.pipelineInfo.Details.ParallelismSpec.Constant
 	}
 
 	// update pipeline RC
-	return op.updateRC(func(rc *v1.ReplicationController) {
-		if rc.Spec.Replicas != nil && *op.rc.Spec.Replicas > 0 {
+	return pc.updateRC(func(rc *v1.ReplicationController) {
+		if rc.Spec.Replicas != nil && *pc.rc.Spec.Replicas > 0 {
 			return // prior attempt succeeded
 		}
 		rc.Spec.Replicas = new(int32)
-		if op.pipelineInfo.Details.Autoscaling {
+		if pc.pipelineInfo.Details.Autoscaling {
 			*rc.Spec.Replicas = 1
 		} else {
 			*rc.Spec.Replicas = int32(parallelism)
@@ -658,12 +658,12 @@ func (op *pipelineController) scaleUpPipeline(ctx context.Context) (retErr error
 	})
 }
 
-// scaleDownPipeline edits the RC associated with op's pipeline & spins down the
+// scaleDownPipeline edits the RC associated with pc's pipeline & spins down the
 // configured number of workers.
-func (op *pipelineController) scaleDownPipeline(ctx context.Context) (retErr error) {
-	log.Infof("PPS master: scaling down workers for %q", op.pipelineInfo.Pipeline.Name)
+func (pc *pipelineController) scaleDownPipeline(ctx context.Context) (retErr error) {
+	log.Infof("PPS master: scaling down workers for %q", pc.pipelineInfo.Pipeline.Name)
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/ScaleDownPipeline", "pipeline", op.pipelineInfo.Pipeline.Name)
+		"/pps.Master/ScaleDownPipeline", "pipeline", pc.pipelineInfo.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			log.Errorf("PPS master: error scaling down: %v", retErr)
@@ -672,18 +672,18 @@ func (op *pipelineController) scaleDownPipeline(ctx context.Context) (retErr err
 		tracing.FinishAnySpan(span)
 	}()
 
-	return op.updateRC(func(rc *v1.ReplicationController) {
-		if rc.Spec.Replicas != nil && *op.rc.Spec.Replicas == 0 {
+	return pc.updateRC(func(rc *v1.ReplicationController) {
+		if rc.Spec.Replicas != nil && *pc.rc.Spec.Replicas == 0 {
 			return // prior attempt succeeded
 		}
 		rc.Spec.Replicas = &zero
 	})
 }
 
-// restartPipeline updates the RC/service associated with op's pipeline, and
+// restartPipeline updates the RC/service associated with pc's pipeline, and
 // then sets its state to RESTARTING. Note that restartPipeline only deletes
-// op.rc if it's stale--a prior bug was that it would delete all of op's
-// resources, and then get stuck in a loop deleting and recreating op's RC if
+// pc.rc if it's stale--a prior bug was that it would delete all of pc's
+// resources, and then get stuck in a loop deleting and recreating pc's RC if
 // the cluster was busy and the RC was taking too long to start.
 //
 // restartPipeline is an error-handling
@@ -692,47 +692,47 @@ func (op *pipelineController) scaleDownPipeline(ctx context.Context) (retErr err
 // callers can use it like so:
 //
 // if errorState {
-//   return op.restartPipeline("entered error state")
+//   return pc.restartPipeline("entered error state")
 // }
-func (op *pipelineController) restartPipeline(ctx context.Context, reason string) error {
-	if op.rc != nil && !op.rcIsFresh() {
+func (pc *pipelineController) restartPipeline(ctx context.Context, reason string) error {
+	if pc.rc != nil && !pc.rcIsFresh() {
 		// delete old RC, monitorPipeline goro, and worker service
-		if err := op.deletePipelineResources(); err != nil {
+		if err := pc.deletePipelineResources(); err != nil {
 			return newRetriableError(err, "error deleting resources for restart")
 		}
 	}
 	// create up-to-date RC
-	if err := op.createPipelineResources(ctx); err != nil {
+	if err := pc.createPipelineResources(ctx); err != nil {
 		return errors.Wrap(err, "error creating resources for restart")
 	}
-	if err := op.setPipelineState(ctx, pps.PipelineState_PIPELINE_RESTARTING, ""); err != nil {
+	if err := pc.setPipelineState(ctx, pps.PipelineState_PIPELINE_RESTARTING, ""); err != nil {
 		return errors.Wrap(err, "error restarting pipeline")
 	}
 
-	return errors.Errorf("restarting pipeline %q: %s", op.pipelineInfo.Pipeline.Name, reason)
+	return errors.Errorf("restarting pipeline %q: %s", pc.pipelineInfo.Pipeline.Name, reason)
 }
 
-// deletePipelineResources deletes the RC and services associated with op's
+// deletePipelineResources deletes the RC and services associated with pc's
 // pipeline. It doesn't return a stepError, leaving retry behavior to the caller
-func (op *pipelineController) deletePipelineResources() (retErr error) {
-	log.Infof("PPS master: deleting resources for pipeline %q", op.pipeline)
-	span, ctx := tracing.AddSpanToAnyExisting(op.ctx,
-		"/pps.Master/DeletePipelineResources", "pipeline", op.pipeline)
+func (pc *pipelineController) deletePipelineResources() (retErr error) {
+	log.Infof("PPS master: deleting resources for pipeline %q", pc.pipeline)
+	span, ctx := tracing.AddSpanToAnyExisting(pc.ctx,
+		"/pps.Master/DeletePipelineResources", "pipeline", pc.pipeline)
 	defer func() {
 		tracing.TagAnySpan(ctx, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
 
 	// Cancel any running monitorPipeline call
-	op.stopPipelineMonitor()
+	pc.stopPipelineMonitor()
 	// Same for cancelCrashingMonitor
-	op.stopCrashingPipelineMonitor()
+	pc.stopCrashingPipelineMonitor()
 
-	kubeClient := op.env.KubeClient
-	namespace := op.namespace
+	kubeClient := pc.env.KubeClient
+	namespace := pc.namespace
 
-	// Delete any services associated with op.pipeline
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.pipeline)
+	// Delete any services associated with pc.pipeline
+	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pc.pipeline)
 	opts := &metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
@@ -748,7 +748,7 @@ func (op *pipelineController) deletePipelineResources() (retErr error) {
 		}
 	}
 
-	// Delete any secrets associated with op.pipeline
+	// Delete any secrets associated with pc.pipeline
 	secrets, err := kubeClient.CoreV1().Secrets(namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list secrets")
@@ -761,7 +761,7 @@ func (op *pipelineController) deletePipelineResources() (retErr error) {
 		}
 	}
 
-	// Finally, delete op.pipeline's RC, which will cause pollPipelines to stop
+	// Finally, delete pc.pipeline's RC, which will cause pollPipelines to stop
 	// polling it.
 	rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
@@ -778,6 +778,6 @@ func (op *pipelineController) deletePipelineResources() (retErr error) {
 	return nil
 }
 
-func (op *pipelineController) setPipelineFailure(ctx context.Context, reason string) error {
-	return op.setPipelineState(ctx, pps.PipelineState_PIPELINE_FAILURE, reason)
+func (pc *pipelineController) setPipelineFailure(ctx context.Context, reason string) error {
+	return pc.setPipelineState(ctx, pps.PipelineState_PIPELINE_FAILURE, reason)
 }
