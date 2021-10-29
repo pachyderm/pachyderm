@@ -89,7 +89,7 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 	pc := &pipelineController{
 		ctx:    ctx,
 		cancel: cancel,
-		// pipeline name is recorded separately in the case we are running a delete Op and pipelineInfo isn't available in the DB
+		// pipeline name is recorded separately in the case we are running a delete operation and pipelineInfo isn't available in the DB
 		pipeline:     pipeline,
 		pipelineInfo: &pps.PipelineInfo{},
 		namespace:    m.a.namespace,
@@ -104,12 +104,12 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 	return pc
 }
 
-// Bump signals the pipelineOp goro to either process the  latest state
+// Bump signals the pipelineController goro to either process the  latest state
 // of the pipeline now, or once its done with its current processing iteration.
 //
 // This function is expected to be called while holding the opManager lock.
 // This helps guard the critical section when the goroutine is cleaned up
-// as part of a pipeline deletion event in pipelineOp.tryFinish().
+// as part of a pipeline deletion event in pipelineController.tryFinish().
 //
 // Note: since op.bumpChan is a buffered channel of length 1, Bump() will
 // add to the channel if it's empty, and do nothing otherwise.
@@ -156,11 +156,11 @@ func (op *pipelineController) Start(timestamp time.Time) {
 				if errors.As(err, &stepErr) && stepErr.failPipeline {
 					failError := op.setPipelineFailure(op.ctx, fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err))
 					if failError != nil {
-						log.Errorf("PPS master: error starting a pipelineOp for pipeline '%s': %v", op.pipeline,
+						log.Errorf("PPS master: error starting a pipelineController for pipeline '%s': %v", op.pipeline,
 							errors.Wrapf(failError, "error failing pipeline %q (%v)", op.pipeline, err))
 					}
 				}
-				log.Errorf("PPS master: error starting a pipelineOp for pipeline '%s': %v", op.pipeline,
+				log.Errorf("PPS master: error starting a pipelineController for pipeline '%s': %v", op.pipeline,
 					errors.Wrapf(err, "failing pipeline %q", op.pipeline))
 			}
 		}
@@ -203,7 +203,7 @@ func (op *pipelineController) step(timestamp time.Time) (retErr error) {
 	if err := op.tryLoadLatestPipelineInfo(); err != nil && collection.IsErrNotFound(err) {
 		// if the pipeline info is not found, interpret the operation as a delete
 		if err := op.deletePipelineResources(); err != nil {
-			log.Errorf("PPS master: error deleting pipelineOp resources for pipeline '%s': %v", op.pipeline,
+			log.Errorf("PPS master: error deleting pipelineController resources for pipeline '%s': %v", op.pipeline,
 				errors.Wrapf(err, "failing pipeline %q", op.pipeline))
 		}
 		op.tryFinish()
@@ -216,7 +216,7 @@ func (op *pipelineController) step(timestamp time.Time) (retErr error) {
 		"current-state", op.pipelineInfo.State.String(),
 		"spec-commit", pretty.CompactPrintCommitSafe(op.pipelineInfo.SpecCommit))
 	// add pipeline auth
-	// the pipelineOp's context is authorized as pps master, but we want to switch to the pipeline itself
+	// the pipelineController's context is authorized as pps master, but we want to switch to the pipeline itself
 	// first clear the cached WhoAmI result from the context
 	pachClient := op.env.GetPachClient(middleware_auth.ClearWhoAmI(op.ctx))
 	pachClient.SetAuthToken(op.pipelineInfo.AuthToken)
