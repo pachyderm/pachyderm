@@ -444,6 +444,7 @@ const pipelines: {[projectId: string]: PipelineInfo[]} = {
   '5': tutorial,
   '6': [],
   '7': traitDiscovery,
+  '8': [],
   default: [...tutorial, ...customerTeam],
 };
 

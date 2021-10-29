@@ -60,8 +60,21 @@ const projects: {[projectId: string]: Project} = {
     ),
 };
 
+const tutorialProjects: {[projectId: string]: Project} = {
+  '8': new Project()
+    .setId('8')
+    .setName('OpenCV Tutorial')
+    .setCreatedat(new Timestamp().setSeconds(1614126189))
+    .setStatus(ProjectStatus.HEALTHY)
+    .setDescription(
+      'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+    ),
+};
+
 export const projectInfo = new Projects().setProjectInfoList(
   Object.values(projects),
 );
+
+export const allProjects = {...projects, ...tutorialProjects};
 
 export default projects;

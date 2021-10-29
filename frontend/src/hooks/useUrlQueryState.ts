@@ -11,6 +11,7 @@ export interface UrlState {
   skipCenterOnSelect?: boolean;
   jobFilters?: JobState[];
   prevFileBrowserPath?: string;
+  tutorialId?: string;
 }
 
 const getViewStateFromSearchParams = (searchParams: URLSearchParams) => {

@@ -137,6 +137,7 @@ const jobs: {[projectId: string]: JobInfo[]} = {
   '5': [],
   '6': [],
   '7': [],
+  '8': tutorial,
   default: [...tutorial, ...customerTeam],
 };
 

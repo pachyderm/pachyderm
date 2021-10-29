@@ -3,7 +3,7 @@ import {Status} from '@grpc/grpc-js/build/src/constants';
 import {ProjectsIAPIServer} from '@pachyderm/node-pachyderm';
 
 import {
-  default as projectFixtures,
+  allProjects as projectFixtures,
   projectInfo,
 } from '@dash-backend/mock/fixtures/projects';
 

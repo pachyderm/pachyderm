@@ -280,6 +280,7 @@ const repos: {[projectId: string]: RepoInfo[]} = {
   '5': tutorial,
   '6': [],
   '7': traitDiscovery,
+  '8': tutorial,
   default: [...tutorial, ...customerTeam],
 };
 

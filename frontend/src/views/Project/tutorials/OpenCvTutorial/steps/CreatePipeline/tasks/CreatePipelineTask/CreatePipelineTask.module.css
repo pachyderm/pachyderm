@@ -1,0 +1,34 @@
+.splitCode {
+    display: flex;
+}
+
+.json {
+    margin-right: 1rem;
+    background-color: #fff;
+}
+
+.json, .console {
+    flex: 1;
+    overflow: hidden;
+    border-radius: 2px;
+    border: 1px solid var(--grey-4);
+}
+
+.json pre, .console pre {
+    overflow-x: hidden;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    padding: 1rem;
+}
+
+.console {
+    background-color: #000;
+    color: #fff;
+    display: flex;
+    align-items: flex-end;
+}
+
+.console pre {
+    color: #fff;
+}
