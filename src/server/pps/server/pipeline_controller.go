@@ -38,8 +38,6 @@ const (
 	rcExpected
 )
 
-const maxConcurrentK8sRequests int = 10
-
 func max(is ...int) int {
 	if len(is) == 0 {
 		return 0
@@ -61,10 +59,10 @@ type pcManager struct {
 	limiter limit.ConcurrencyLimiter
 }
 
-func newPcManager() *pcManager {
+func newPcManager(maxConcurrentK8sRequests int) *pcManager {
 	return &pcManager{
 		pcs:     make(map[string]*pipelineController),
-		limiter: limit.New(int(maxConcurrentK8sRequests)),
+		limiter: limit.New(maxConcurrentK8sRequests),
 	}
 }
 

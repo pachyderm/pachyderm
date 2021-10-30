@@ -92,7 +92,7 @@ type ppsMaster struct {
 func (a *apiServer) master() {
 	m := &ppsMaster{
 		a:     a,
-		pcMgr: newPcManager(),
+		pcMgr: newPcManager(a.env.Config.PPSMaxConcurrentK8sRequests),
 	}
 
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))

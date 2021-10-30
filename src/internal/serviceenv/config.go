@@ -69,6 +69,9 @@ type GlobalConfiguration struct {
 	// the target project.  If set on a pachd pod, propagates to workers and sidecars (which
 	// also need permission).
 	GoogleCloudProfilerProject string `env:"GOOGLE_CLOUD_PROFILER_PROJECT"`
+
+	// The number of concurrent requests that the PPS Master can make against kubernetes
+	PPSMaxConcurrentK8sRequests int `env:"PPS_MAX_CONCURRENT_K8S_REQUESTS,default=10"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.
