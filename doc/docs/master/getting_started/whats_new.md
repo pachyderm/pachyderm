@@ -88,7 +88,7 @@ In other words, an initial change to your data (For example, a `put file` in a r
 Visit the [Global ID](../../concepts/advanced-concepts/globalID/) page to learn more about Global ID or check this didactical example to understand how [one single ID lets you track all provenance-dependent commits and jobs](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID) at once.  
 
 !!! Note
-    Pachyderm [transactions](../../how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands/#use-transactions) also uses Global ID. 
+    Pachyderm [transactions](../../how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands/#use-transactions) also use Global ID. 
 
 
 ## New Enterprise Features And Tooling
