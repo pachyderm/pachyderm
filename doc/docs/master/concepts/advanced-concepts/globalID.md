@@ -12,7 +12,8 @@ Pachyderm associates a commit ID to each new commit. You can quickly check this 
     - the ID of any commits created along due to provenance relationships, 
     - and the ID of any jobs triggered by the creation of those commits. 
 
-This ability to track down related commits and jobs with one global identifier brought the need to introduce a new scope to our original concepts of [job](./job.md) and [commit](./commit.md). The nuance in the scope of a commit or a job ( "Global" or "Local") gives the term two possible meanings.
+This ability to track down related commits and jobs with one global identifier brought the need to introduce a new scope to our original concepts of [job](../../pipeline-concepts/job/) and [commit](../../data-concepts/commit/). The nuance in the scope of a commit or a job ( "Global" or "Local") gives the term two possible meanings.
+
 
 | CONCEPT | SCOPE | DEFINITION |
 | ---------| --------- | -------------------- |

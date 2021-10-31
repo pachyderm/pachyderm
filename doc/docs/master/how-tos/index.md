@@ -86,10 +86,6 @@ data operations in Pachyderm.
            Delete a Pipeline
            </a>
            </li>
-          <li><a href="pipeline-operations/monitor-job-progress" class="md-typeset md-link">
-           Monitor Job Progress
-           </a>
-           </li>
         </ul>
       </div>
     </div>

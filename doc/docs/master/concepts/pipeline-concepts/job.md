@@ -1,7 +1,7 @@
 # Job
 
 !!! Note "Attention"
-         Note that Pachyderm uses the term `job` at two different levels. A global level (check [GlobalID](../globalID) for more details) and jobs that are an execution of a particular pipeline. The following page details the latter.
+         Note that Pachyderm uses the term `job` at two different levels. A global level (check [GlobalID](../../advanced-concepts/globalID) for more details) and jobs that are an execution of a particular pipeline. The following page details the latter.
 
 ## Definition
 

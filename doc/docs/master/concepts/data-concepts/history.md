@@ -16,7 +16,7 @@ The following abstractions store the history of your data:
  
 - **Branches**
 
-    [Branches](./branch/) are pointers to commits that are similar to Git branches. Typically,
+    [Branches](../branch/) are pointers to commits that are similar to Git branches. Typically,
     branches have semantically meaningful names such as `master` and `staging`.
     Branches are mutable, and they move along a growing chain of commits as you
     commit to the branch, and can even be reassigned to any commit within the
