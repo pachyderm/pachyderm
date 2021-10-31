@@ -5,7 +5,7 @@ For a quick test installation of Pachyderm on AWS (suitable for development), ju
 !!! Important "Before your start your installation process." 
       - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on  how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../../ingress/#ingress).
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../ingress/#ingress).
 
 The following section walks you through deploying a Pachyderm cluster on [Amazon Elastic Kubernetes Service](https://aws.amazon.com/eks/) (EKS). 
 
@@ -13,7 +13,7 @@ In particular, you will:
 
 1. Make a few [client installations](#1-prerequisites) before you start.
 1. [Deploy Kubernetes](#2-deploy-kubernetes-by-using-eksctl).
-1. [Create an S3 bucket](#3-create-an-S3-object) for your data and grant Pachyderm access.
+1. [Create an S3 bucket](#3-create-an-s3-bucket) for your data and grant Pachyderm access.
 1. [Enable Persistent Volumes Creation](#4-enable-your-persistent-volumes-creation)
 1. [Create An AWS Managed PostgreSQL Instance](#5-create-an-aws-managed-postgresql-database)
 1. [Deploy Pachyderm ](#6-deploy-pachyderm)
@@ -202,7 +202,7 @@ etcd and PostgreSQL (metadata storage) each claim the creation of a pv.
 If you plan on using **gp2** EBS volumes:
 
 - [Skip this section and jump to the deployment of Pachyderm](#6-deploy-pachyderm) 
-- or, for deployments in production, [jump to AWS-managed PostgreSQL](#5-optional-amazon-rds-aws-managed-postgresql-database)
+- or, for deployments in production, [jump to AWS-managed PostgreSQL](#5-create-an-aws-managed-postgresql-database)
 
 For gp3 volumes, you will need to **deploy an Amazon EBS CSI driver to your cluster as detailed below**.
 
@@ -451,7 +451,7 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
       ```
 
 
-Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
+Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
 
 
 ### Deploy Pachyderm On The Kubernetes Cluster

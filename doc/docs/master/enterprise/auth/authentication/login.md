@@ -6,7 +6,7 @@
 
 ## Login to a cluster as an IDP user
 1. We will illustrate the login flow of an IdP user, 
-by login in as the [user created in Auth0](./idp-dex/#1-register-a-pachyderm-application-with-auth0):`one-pachyderm-user@gmail.com`
+by login in as the [user created in Auth0](../idp-dex/#1-register-a-pachyderm-application-with-your-idp):`one-pachyderm-user@gmail.com`
 
       To start a login flow, run the following command in your terminal:
 

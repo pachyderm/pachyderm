@@ -50,10 +50,6 @@ data operations in Pachyderm.
           Ingest/Export Strategies Overview
           </a>
           </li>
-          <li><a href="basic-data-operations/ingressing_from_diff_cloud/" class="md-typeset md-link">
-          Ingress/Egress Data from an External Object Store
-          </a>
-          </li>
           <li><a href="basic-data-operations/removing_data_from_pachyderm" class="md-typeset md-link">
           Delete Data
           </a>

@@ -25,7 +25,7 @@ clients on your machine. Use the
 latest available version of the components listed below.
 
 * [kubectl](https://docs.microsoft.com/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli): the cli to interact with your cluster.
-* [pachctl](../../../../getting_started/local_installation#install-pachctl): the cli to interact with Pachyderm.
+* [pachctl](../../../getting_started/local_installation#install-pachctl): the cli to interact with Pachyderm.
 * Install [`Helm`](https://helm.sh/docs/intro/install/) for your deployment. 
 
 
@@ -33,7 +33,7 @@ latest available version of the components listed below.
     - The deployment of Console (Pachyderm UI) **requires a valid enterprise token**. To get your free-trial token, fill in [this form](https://www.pachyderm.com/trial), or get in touch with us at [sales@pachyderm.io](mailto:sales@pachyderm.io) or on our [Slack](http://slack.pachyderm.io/). 
     - When deploying with Console, we create a default mock user (username:`admin`, password: `password`) to authenticate to Console without the hassle of connecting your Identity Provider. 
 
-    For a better understanding of the additional steps and helm values needed when deploying with Console in a production environment, read about the [deployment of Pachyderm with Console](/deploy-manage/deploy/console/#deploy-in-the-cloud) page. 
+    For a better understanding of the additional steps and helm values needed when deploying with Console in a production environment, read about the [deployment of Pachyderm with Console](../console/#deploy-in-the-cloud) page. 
 
 
 Select your favorite cloud provider.
@@ -44,9 +44,9 @@ Select your favorite cloud provider.
 1. Additional client installation:
 Install [AWS CLI](https://aws.amazon.com/cli/)
 
-1. [Create an EKS cluster](../amazon_web_services/deploy-eks/) 
+1. [Create an EKS cluster](../aws-deploy-pachyderm/#2-deploy-kubernetes-by-using-eksctl) 
 
-1. [Create an S3 bucket](../amazon_web_services/aws-deploy-pachyderm/#1-create-an-s3-bucket) for your data
+1. [Create an S3 bucket](../aws-deploy-pachyderm/#3-create-an-s3-bucket) for your data
 
 1. Create a values.yaml
 
@@ -96,7 +96,7 @@ Install [Google Cloud SDK](https://cloud.google.com/sdk/)
 Note: 
 Add `--scopes storage-rw` to your `gcloud container clusters create` command. 
 
-1. [Create a GCS Bucket](../google_cloud_platform/#create-a-gcs-bucket) for your data
+1. [Create a GCS Bucket](../google_cloud_platform/#3-create-a-gcs-bucket) for your data
 
 1. Create a values.yaml
 

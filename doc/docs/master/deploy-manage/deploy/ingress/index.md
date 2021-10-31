@@ -10,7 +10,7 @@ Before we dive into the delivery of external traffic to Pachyderm,
 read the following recommendations to set up your infrastructure in production.
 
 !!! Note
-    - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on how to install and get started with `Helm`.
+    - Refer to our generic ["Helm Install"](../helm_install/) page for more information on how to install and get started with `Helm`.
 ## Pachyderm Infrastructure Recommendations
 
 For production deployments,

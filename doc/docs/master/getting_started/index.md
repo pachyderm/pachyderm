@@ -58,7 +58,7 @@ Got questions? [Contact us](mailto:support@pachyderm.io), [Request a demo](https
           Install pachctl Autocompletion
           </a>
           </li>
-          <li><a href="../deploy-manage/manage/pachctl_shell.md/" class="md-typeset md-link">
+          <li><a href="../deploy-manage/manage/pachctl_shell/" class="md-typeset md-link">
           Use pachctl Shell
           </a>
           </li>

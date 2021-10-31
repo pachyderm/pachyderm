@@ -57,7 +57,7 @@ deployment options and related topics:
           Deploy on GKE
           </a>
           </li>
-          <li><a href="amazon_web_services/" class="md-typeset md-link">
+          <li><a href="aws-deploy-pachyderm/" class="md-typeset md-link">
           Deploy on AWS
           </a>
           </li>
@@ -100,10 +100,6 @@ deployment options and related topics:
            </li>
            <li><a href="namespaces/" class="md-typeset md-link">
            Deploy in a Custom Namespace
-           </a>
-           </li>
-           <li><a href="non-cloud-object-stores/" class="md-typeset md-link">
-           Deploy On-Premises With Non-Cloud Object Stores
            </a>
            </li>
            <li><a href="rbac/" class="md-typeset md-link">

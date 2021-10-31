@@ -17,7 +17,7 @@ In particular, you will:
 1. [Deploy Kubernetes](#2-deploy-kubernetes)
 1. [Create an Azure Storage Container For Your Data](#3-create-an-azure-storage-container-for-your-data)
 1. [Persistent Volumes Creation](#4-persistent-volumes-creation)
-1. [Create an Azure Managed PostgreSQL Server Database](#5-create-an-azure-managed-postgresql-server) 
+1. [Create an Azure Managed PostgreSQL Server Database](#5-create-an-azure-managed-postgresql-server-database) 
 1. [Deploy Pachyderm](#6-deploy-pachyderm)
 1. [Have 'pachctl' and your Cluster Communicate](#7-have-pachctl-and-your-cluster-communicate)
 1. [Check That Your Cluster Is Up And Running](#8-check-that-your-cluster-is-up-and-running)
@@ -271,7 +271,7 @@ Once created, go back to your newly created database, and:
    
    Alternativelly, in the **Connection Security** of your newly created server, *Allow access to Azure services* (This is equivalent to running `az postgres server firewall-rule create --server-name <your_server_name> --resource-group <your_resource_group> --name AllowAllAzureIps --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0`). 
 
-- In the **Essentials** page of your instance, find the full **server name** and **admin username** that will be required in your [values.yaml](#update-your-values-yaml).
+- In the **Essentials** page of your instance, find the full **server name** and **admin username** that will be required in your [values.yaml](#update-your-valuesyaml).
 
 ![Instance overview page](../images/azure_postgresql_overview.png)
 

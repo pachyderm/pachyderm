@@ -135,5 +135,4 @@ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/down
 ## Deploy Pachyderm
 
 After you complete all the steps above, start your Minikube VM by running
-`minikube start` and deploy Pachyderm in Ubuntu WSL by running
-pachctl deploy local` as described in [Deploy Pachyderm](../local_installation/#deploy-pachyderm).
+`minikube start` and follow the steps in our [Local Deployment](../local_installation/) page.

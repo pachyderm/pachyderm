@@ -60,7 +60,7 @@ in your filepath:
 
 !!! note
     If you are configuring a local cluster to access an external bucket,
-    make sure that Pachyderm has been given the proper access [by configuring your storage credentials](../ingressing_from_diff_cloud)
+    make sure that Pachyderm has been given the proper access.
 
 * Add multiple files at once by using the `-i` option or multiple `-f` flags.
 In the case of `-i`, the target file must be a list of files, paths, or URLs
