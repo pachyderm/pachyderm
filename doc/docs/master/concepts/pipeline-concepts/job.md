@@ -31,9 +31,9 @@ Each job has the following stages:
 
 ## List Jobs
 
-- The `pachctl list job` command returns list of all global jobs. This command is detailed in [this section of Global ID](../globalID/#list-all-global-commits-and-global-jobs).
+- The `pachctl list job` command returns list of all global jobs. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-global-commits-and-global-jobs).
 
-- The `pachctl list job <jobID>` commands returns the list of all jobs sharing the same `<jobID>`. This command is detailed in [this section of Global ID](../globalID/#list-all-commits-and-jobs-with-a-global-id). 
+- The `pachctl list job <jobID>` commands returns the list of all jobs sharing the same `<jobID>`. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-commits-and-jobs-with-a-global-id). 
 
 - Note that you can also track your jobs downstream as they complete by running `pachctl wait job <jobID>`. 
 
