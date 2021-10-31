@@ -78,14 +78,15 @@ and `skips` processing other datums.
 This incremental behavior ensures efficient resource utilization.
 
 ## Overwriting files
+
 By default, Pachyderm
-overwriting new data. For example, if you
+overwrites new data. For example, if you
 have a file `foo` in the repository `A`
 and add the same file `foo` to that repository again by
 using the `pachctl put file` command, Pachyderm will
 overwrite that file in the repo. 
 
-For more information, and learn how to change this behavior, see [File](../../data-concepts/file.md).
+For more information, and learn how to change this behavior, see [File](../../data-concepts/file/).
  
 ## Note: Data persistence between datums
 Pachyderm only controls and wipes the `/pfs` directories between datums. If scratch/temp space is used during execution, the user needs to be careful to clean that up. Not cleaning temporary directories may cause unexpected bugs where one datum accesses temporary files that were previously used by another datum!
