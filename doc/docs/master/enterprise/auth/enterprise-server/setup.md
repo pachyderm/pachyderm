@@ -82,7 +82,7 @@ Check the [list of all available helm values](../../../../reference/helm_values/
 1. [Install your favorite version of `pachctl`](../../../../getting_started/local_installation/#install-pachctl).
 1. [Deploy Pachyderm](../../../../deploy-manage/deploy/helm_install/): `helm install ...`.
 1. [Activate your enterprise Key](../../../deployment/#activate-pachyderm-enterprise-edition): `pachctl license activate`
-1. [Enable authentication](../../authorization/#activate-user-access-management): `pachctl auth activate` 
+1. [Enable authentication](../../#activate-user-access-management): `pachctl auth activate` 
 
 
 This results in a single pachd pod, with authentication enabled. Proceed to [configuring IDP integrations](../../authentication/idp-dex).

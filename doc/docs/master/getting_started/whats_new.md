@@ -55,7 +55,7 @@ All existing `pachctl deploy` commands are [EOL](../../contributing/supported-re
  
 In Pachyderm 1, multiple [datums](../../concepts/pipeline-concepts/datum/) from the same input repo, in a same job, could write to the same output file. The results would be automatically merged, with an indeterminate ordering of results in the merged file. 
 
-In Pachyderm 2, **if two datums from the same repo write to the same output file, it will raise an error**.   All pipelines relying on a merge behavior now  need to **add a following "Reduce" pipeline** that groups the files into single datums (using filename metadata) and merges them by using their own code. As a result, you now  **control your own [merge behavior](../../concepts/pipeline-concepts/datum/relationship-between-datums/#5-next-add-a-reduce-pipeline)**.
+In Pachyderm 2, **if two datums from the same repo write to the same output file, it will raise an error**.   All pipelines relying on a merge behavior now  need to **add a following "Reduce" pipeline** that groups the files into single datums (using filename metadata) and merges them by using their own code. As a result, you now  **control your own [merge behavior](../../concepts/pipeline-concepts/datum/relationship-between-datums/#5-next-add-a-reduce-merge-pipeline)**.
 
 
 Check our illustration of this new [`Single Datum Provenance Rule`](../../concepts/pipeline-concepts/datum/relationship-between-datums/#example-two-steps-mapreduce-pattern-and-single-datum-provenance-rule) in our documentation. 

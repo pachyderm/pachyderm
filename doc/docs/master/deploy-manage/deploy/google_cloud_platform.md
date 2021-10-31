@@ -26,7 +26,7 @@ Install the following clients:
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/) >= 124.0.0
 - [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
-- [pachctl](#install-pachctl)
+- [pachctl](../../../../getting_started/local_installation/#install-pachctl)
 
 If this is the first time you use the SDK, follow
 the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts).

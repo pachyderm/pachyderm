@@ -89,7 +89,7 @@ Then follow the [Using boto](https://boto3.amazonaws.com/v1/documentation/api/la
 
 
 ## Set Your Credentials
-- If [authentication is enabled](../../../enterprise/auth/), 
+- If [authentication is enabled](../../../../enterprise/auth/), 
 retrieve your session token in your active context:
 
       ```shell
