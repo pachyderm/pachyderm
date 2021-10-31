@@ -18,9 +18,9 @@ It delivers the most recent version of the Community Edition of Pachyderm along 
 
 Pachyderm Enterprise unlocks a series of additional administrative and security features needed for enterprise-scale deployments of Pachyderm, namely:
 
-- [**Authentication**](../auth/authentication/): Pachyderm allows for authentication **against any OIDC provider**. Users can authenticate to Pachyderm by logging into their favorite Identity Provider. 
+- [**Authentication**](../auth/authentication/idp-dex): Pachyderm allows for authentication **against any OIDC provider**. Users can authenticate to Pachyderm by logging into their favorite Identity Provider. 
 - [**Role-Based Access Control - RBAC**](../auth/authorization/): Enterprise-scale deployments require access control.  Pachyderm Enterprise Edition gives teams the ability to control access to production pipelines and data.  Administrators can silo data, prevent unintended modifications to production pipelines, and support multiple data scientists or even multiple data science groups by controlling users' access to Pachyderm resources.
-- [**Enterprise Server**](../auth/enterprise-server/): An organization can have **many Pachyderm clusters registered with one single Enterprise Server** that manages the Enterprise licensing and the integration with a company's Identity Provider.
+- [**Enterprise Server**](../auth/enterprise-server/setup/): An organization can have **many Pachyderm clusters registered with one single Enterprise Server** that manages the Enterprise licensing and the integration with a company's Identity Provider.
 
 ### Tooling
 
