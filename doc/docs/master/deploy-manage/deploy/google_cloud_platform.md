@@ -383,16 +383,24 @@ postgresql:
     before other components were ready, so it restarted them.
 
 - Finally, make sure [`pachtl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicat
+
 ## 7. Have 'pachctl' and your Cluster Communicate
 Finally, assuming your `pachd` is running as shown above, 
 make sure that `pachctl` can talk to the cluster.
 
-If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name and:
+If you are exposing your cluster publicly:
+  1. Retrieve the external IP address of your TCP load balancer or your domain name:
+    ```shell
+    kubectl get services | grep pachd-lb | awk '{print $4}'
+    ```
 
   1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 
       ```shell
-      echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set 
+      ```
+      ```shell
+      context "<your-cluster-context-name>" --overwrite
       ```
 
   1. Check that your are using the right context: 
@@ -413,6 +421,9 @@ $ pachctl port-forward
 ## 8. Check That Your Cluster Is Up And Running
 You are done! You can make sure that your cluster is working
 by running `pachctl version` or creating a new repo.
+
+!!! Attention
+    If Authentication is activated (When you deploy Console, for example), you will need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
 
 ```shell
 pachctl version

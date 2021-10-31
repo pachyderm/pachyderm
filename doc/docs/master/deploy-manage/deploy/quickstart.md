@@ -1,34 +1,39 @@
 # Quickstart
 
  
-These instructions provide a simple deployment configuration of the latest GA version of Pachyderm on AWS (EKS), Google (GKS), and Azure (AKS).
+On this page, you will find simplified deployment instructions and Helm values to get you started with the latest release of Pachyderm on the Kubernetes Engine of your choice (AWS (EKS), Google (GKS), and Azure (AKS)).
 
-<!--For each cloud provider, we will give you the option to install Pachyderm with or without Console(Pachyderm UI).-->
+
+For each cloud provider, we will give you the option to "quick deploy" Pachyderm with or without Console (Pachyderm UI).
 
 !!! Important 
-    The deployment steps highlighted in this document are **not intended for production**. If you wish to deploy Pachyderm in production, please read our [infrastructure recommendations](../ingress/). In particular, we recommend:
+    The deployment steps highlighted in this document are **not intended for production**. For production settings, please read our [infrastructure recommendations](../ingress/). In particular, we recommend:
 
      - the use of a **managed PostgreSQL server** (RDS, CloudSQL, or PostgreSQL Server) rather than Pachyderm's default bundled PostgreSQL.
      - the setup of a **TCP Load Balancer** in front of your pachd service.
-     - the setup of an **Ingress Controller** in front of console. 
+     - the setup of an **Ingress Controller** in front of Console. 
+
+    Then find your targeted Cloud provider in the [Deploy and Manage](../) ection of this documentation.
 
 
 ## 1. Prerequisites
 
-Before you start creating your cluster, install the following
+Pachyderm in deployed on a Kubernetes Cluster.
+
+Just before you start creating your cluster, install the following
 clients on your machine. Use the
 latest available version of the components listed below.
 
-* [kubectl](https://docs.microsoft.com/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli)
-* [pachctl](../../../../getting_started/local_installation#install-pachctl)
-* Install [`Helm`](https://helm.sh/docs/intro/install/). 
+* [kubectl](https://docs.microsoft.com/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli): the cli to interact with your cluster.
+* [pachctl](../../../../getting_started/local_installation#install-pachctl): the cli to interact with Pachyderm.
+* Install [`Helm`](https://helm.sh/docs/intro/install/) for your deployment. 
 
 
-!!! Warning "Optional - Deployment of Pachyderm with Console"
+!!! Warning "Optional - Quick deployment of Pachyderm with Console"
     - The deployment of Console (Pachyderm UI) **requires a valid enterprise token**. To get your free-trial token, fill in [this form](https://www.pachyderm.com/trial), or get in touch with us at [sales@pachyderm.io](mailto:sales@pachyderm.io) or on our [Slack](http://slack.pachyderm.io/). 
-    - When deploying with `mockIDP: true` (see your values.yaml below), a mock user (username:`admin`, password: `password`) is created to authenticate to Console.
-    
-    More information about the [deployment of Pachyderm with Console](/deploy-manage/deploy/console/#deploy-in-the-cloud). 
+    - When deploying with Console, we create a default mock user (username:`admin`, password: `password`) to authenticate to Console without the hassle of connecting your Identity Provider. 
+
+    For a better understanding of the additional steps and helm values needed when deploying with Console in a production environment, read about the [deployment of Pachyderm with Console](/deploy-manage/deploy/console/#deploy-in-the-cloud) page. 
 
 
 Select your favorite cloud provider.
@@ -61,13 +66,24 @@ Install [AWS CLI](https://aws.amazon.com/cli/)
       externalService:
         enabled: true
     ```
-=== "Coming Soon... Deploy Pachyderm with Console"
+=== "Deploy Pachyderm with Console"
 
-     In the meantime... 
-
-      - Try [Console on Hub](https://hub.pachyderm.com/)
-      - Deploy Pachyderm and Console [locally](../../../getting_started/local_installation/) 
-      - Or [contact us](mailto:support@pachyderm.io)! We are happy to Help.
+    ```yaml
+    deployTarget: "AMAZON"
+    pachd:
+      storage:
+        amazon:
+          bucket: "bucket_name"                
+            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
+            id: "AKIAIOSFODNN7EXAMPLE"                
+            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
+            secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+            region: "us-east-2"
+      # pachyderm enterprise key 
+      enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
+    console:
+      enabled: true
+    ```
      
 
 Jump to [Helm install](#3-helm-install)
@@ -96,13 +112,20 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
       externalService:
         enabled: true
     ```
-=== "Coming Soon... Deploy Pachyderm with Console"
+=== "Deploy Pachyderm with Console"
 
-     In the meantime... 
-
-      - Try [Console on Hub](https://hub.pachyderm.com/)
-      - Deploy Pachyderm and Console [locally](../../../getting_started/local_installation/) 
-      - Or [contact us](mailto:support@pachyderm.io)! We are happy to Help.
+    ```yaml
+    deployTarget: "GOOGLE"
+    pachd:
+      storage:
+        google:
+          bucket: "bucket_name"
+          cred: "INSERT JSON TO YOUR SERVICE ACCOUNT HERE"
+      # pachyderm enterprise key
+      enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
+    console:
+      enabled: true
+    ```
 
 Jump to [Helm install](#3-helm-install)
 
@@ -136,25 +159,35 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
       externalService:
         enabled: true
     ```
-=== "Coming Soon...  Deploy Pachyderm with Console"
+=== "Deploy Pachyderm with Console"
 
-     In the meantime... 
-
-      - Try [Console on Hub](https://hub.pachyderm.com/)
-      - Deploy Pachyderm and Console [locally](../../../getting_started/local_installation/) 
-      - Or [contact us](mailto:support@pachyderm.io)! We are happy to Help.
+   ```yaml    
+    deployTarget: "MICROSOFT"
+    pachd:
+      storage:
+        microsoft:
+        # storage container name
+        container: "blah"
+        # storage account name
+        id: "AKIAIOSFODNN7EXAMPLE"
+        # storage account key
+        secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+      # pachyderm enterprise key
+      enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
+    console:
+      enabled: true
+    ```
 
 Jump to [Helm install](#3-helm-install)
 
 ## 3. [Helm Install](../helm_install/#install-the-pachyderm-helm-chart)
-- Your will be deploying the [latest GA release](../../../contributing/supported-releases/#generally-available-ga) of Pachyderm:
+- You will be deploying the [latest GA release](../../../contributing/supported-releases/#generally-available-ga) of Pachyderm:
 
     ```shell
     helm repo add pach https://helm.pachyderm.com
     helm repo update
     helm install pachyderm -f my_pachyderm_values.yaml pach/pachyderm 
     ```
-
 
 - Check your deployment:
 
@@ -164,6 +197,7 @@ Jump to [Helm install](#3-helm-install)
 
     Once the pods are up, you should see a pod for `pachd` running 
     (alongside etcd, pg-bouncer or postgres, console, depending on your installation). 
+    If you are curious about the architecture of Pachyderm, take a look at our high-level diagram(../../).
     
     **System Response:**
 
@@ -176,22 +210,37 @@ Jump to [Helm install](#3-helm-install)
 
 ## 4. Have 'pachctl' And Your Cluster Communicate
 
-- Make sure that `pachctl` can talk to the cluster:
+=== "You have deployed Pachyderm without Console"
 
-    - Retrieve the external IP address of pachd service (run `kubectl get services | grep pachd-lb | awk '{print $4}'`), then **update your context for pachctl to point at your cluster**:
+    - Retrieve the external IP address of pachd service:
+        ```shell
+        kubectl get services | grep pachd-lb | awk '{print $4}'
+        ```
+    - Then **update your context for pachctl to point at your cluster**:
 
         ```shell
         echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<choose-a-cluster-context-name>" --overwrite
-        pachctl config set active-context "<choose-a-cluster-context-name>"
+        ```
+
+        ```shell
+        pachctl config set active-context "<your-cluster-context-name>"
+        ```
+
+=== "You have deployed Pachyderm with Console"
+    - To connect to your new Pachyderm instance, run:
+
+        ```shell
+        pachctl config import-kube local --overwrite
+        ```
+        ```shell
+        pachctl config set active-context local
         ```
 
     - Then run `pachctl port-forward` (Background this process in a new tab of your terminal).
 
-- Check That Your Cluster Is Up And Running
+    - Note that you will need to run `pachctl auth login` then authenticate to Pachyderm with the mock User (`username`, `password`) to use `pachctl`
 
-   !!! Note
-    If Authentication is activated (When you deploy Console, for example), you will need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
-
+- Finally, check that your cluster is up and running
 
     ```shell
     pachctl version

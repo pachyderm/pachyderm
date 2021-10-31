@@ -432,12 +432,19 @@ make sure that you are using the right Kubernetes context first.
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
-If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name (run `kubectl get services | grep pachd-lb | awk '{print $4}'`) and:
+If you are exposing your cluster publicly:
+  1. Retrieve the external IP address of your TCP load balancer or your domain name:
+  
+     ```shell
+     kubectl get services | grep pachd-lb | awk '{print $4}'
+     ```
 
   1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 
       ```shell
       echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      ```
+      ```shell
       pachctl config set active-context "<your-cluster-context-name>"
       ```
 
