@@ -1,26 +1,29 @@
 # Global Identifier
 
 ## Definition
-Pachyderm provides users with a simple way to follow a change throughout their DAG (i.e., Traverse Provenance and Subvenance).
+Pachyderm provides users with a simple way to follow a change throughout their DAG (i.e., traverse `Provenance` and `Subvenance`).
 
-When you commit data to Pachyderm, your new commit has an ID associated with it that you can easily check by running `pachctl list commit repo@branch`. 
-**All resulting downstream commits and jobs will then share that ID (Global Identifier).**
+Pachyderm associates a commit ID to each new commit. You can quickly check this new commit by running `pachctl list commit repo@branch`. **All resulting downstream commits and jobs in your DAG will then share that same ID (Global Identifier).**
 
 !!! Info "TLDR"
-    Commit and job IDs **represent a logically-related set of objects**. 
-    The ID of a commit is also the ID of any commits created along with it due to provenance relationships, 
-    as well as the ID of any jobs that were triggered because of the creation of those commits. 
+    The commits and jobs sharing the same ID **represent a logically-related set of objects**. 
+    The ID of a commit is also:
 
-This ability to track down related commits and jobs with one global identifier brought the need to introduce a new scope to our original concepts of [job](./job.md) and [commit](./commit.md):
+    - the ID of any commits created along due to provenance relationships, 
+    - and the ID of any jobs triggered by the creation of those commits. 
 
-- A commit with a `global` scope (**global commit**), referred to in our CLI as `pachctl list commit <commitID>` represents "the set of all provenance-dependent commits sharing the same ID". The same term of `commit`, applied to the more focused scope of a repo (`pachctl list commit <repo>@<commitID>` or `pachctl list commit <repo>@<branch>=<commitID>`), represents "a Git-like record of the state of a single repository's file system".
+This ability to track down related commits and jobs with one global identifier brought the need to introduce a new scope to our original concepts of [job](./job.md) and [commit](./commit.md). The nuance in the scope of a commit or a job ( "Global" or "Local") gives the term two possible meanings.
 
-Similarly, the same nuances in the scope of a job give the term two possible meanings:
+| CONCEPT | SCOPE | DEFINITION |
+| ---------| --------- | -------------------- |
+| Commit | Global | A commit with `global` scope (global commit) represents **the set of all provenance-dependent commits sharing the same ID**. <br> You can retrieve a global commit by running `pachctl list commit <commitID>`.| 
+| Commit| Local Repo| The same term of `commit`, applied to the more focused scope of a repo (`pachctl list commit <repo>@<commitID>` or `pachctl list commit <repo>@<branch>=<commitID>`), represents **"the Git-like" record of one commit in a single branch of a repository's file system**. |
+| Job | Global | A job with `global` scope (global job) is **the set of jobs triggered due to commits in a global commit**.<br> You can retrieve a global job by running `pachctl list job <commitID>`.|
+|Job | Local Pipeline |  Narrowing down the scope to a single pipeline (`pachctl list job <pipeline>@<commitID>`) shifts the meaning to **the execution of a given job in a pipeline of your DAG**. |
 
-- A job with a `global` scope (**global job**),  referred to in our CLI as `pachctl list job <commitID>`, is "the set of jobs created due to commits in a global commit". Narrowing down the scope to a single pipeline (`pachctl list job <pipeline>@<commitID>`) shifts the meaning to "an execution of a given pipeline of your DAG".
 
 ## List All Global Commits And Global Jobs
-You can list all global commits by running the following command:
+You can list all global commits by running the following command: 
 ```shell
 $ pachctl list commit
 ```
