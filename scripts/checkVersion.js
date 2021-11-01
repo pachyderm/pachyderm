@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
 // The last part of the npm version is only for npm usage
-const packageVersion = require('../package.json').dependencies[
-  '@pachyderm/proto'
-].replace(/\.\d+$/, '');
+const packageVersion =
+  require('../package.json').dependencies['@pachyderm/proto'];
 const versionVersion = require('../version.json').pachyderm;
 
 if (packageVersion !== versionVersion) {
