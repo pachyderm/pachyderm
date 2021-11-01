@@ -58,13 +58,51 @@ func (d *driver) master(ctx context.Context) {
 }
 
 func (d *driver) finishCommits(ctx context.Context) error {
-	compactor, err := newCompactor(d.env.BackgroundContext, d.storage, d.etcdClient, d.prefix, d.env.StorageConfig.StorageCompactionMaxFanIn)
+	repos := make(map[string]context.CancelFunc)
+	compactor, err := newCompactor(ctx, d.storage, d.etcdClient, d.prefix, d.env.StorageConfig.StorageCompactionMaxFanIn)
 	if err != nil {
 		return err
 	}
-	return d.commits.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
+	return d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
 		if ev.Type == watch.EventError {
 			return ev.Err
+		}
+		var key string
+		repoInfo := &pfs.RepoInfo{}
+		if err := ev.Unmarshal(&key, repoInfo); err != nil {
+			return err
+		}
+		if ev.Type == watch.EventDelete {
+			if cancel, ok := repos[pfsdb.RepoKey(repoInfo.Repo)]; ok {
+				cancel()
+			}
+			delete(repos, pfsdb.RepoKey(repoInfo.Repo))
+			return nil
+		}
+		if _, ok := repos[pfsdb.RepoKey(repoInfo.Repo)]; ok {
+			return nil
+		}
+		ctx, cancel := context.WithCancel(ctx)
+		repos[pfsdb.RepoKey(repoInfo.Repo)] = cancel
+		go func() {
+			backoff.RetryUntilCancel(ctx, func() error {
+				return d.finishRepoCommits(ctx, compactor, repoInfo.Repo)
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				log.Errorf("error finishing commits for repo %v: %v, retrying in %v", pfsdb.RepoKey(repoInfo.Repo), err, d)
+				return nil
+			})
+		}()
+		return nil
+	})
+}
+
+func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, repo *pfs.Repo) error {
+	return d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), func(ev *watch.Event) error {
+		if ev.Type == watch.EventError {
+			return ev.Err
+		}
+		if ev.Type == watch.EventDelete {
+			return nil
 		}
 		var key string
 		commitInfo := &pfs.CommitInfo{}
@@ -76,6 +114,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 		}
 		commit := commitInfo.Commit
 		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit.ID), func() error {
+			// TODO: This retry might not be getting us much if the outer watch still errors due to a transient error.
 			return backoff.RetryUntilCancel(ctx, func() error {
 				id, err := d.getFileSet(ctx, commit)
 				if err != nil {
