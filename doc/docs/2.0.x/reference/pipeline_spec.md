@@ -854,7 +854,7 @@ thus will consume no resources.
 
 ### Reprocess Datums (optional)
 
-Per default, Pachyderm avoids repeated processing of unchanged datums (i.e., it processes only the datums that have changed and skip the unchanged datums). This [**incremental behavior**](../../concepts/pipeline-concepts/datum/relationship-between-datums/#example-1-one-file-in-the-input-datum-one-file-in-the-output-datum) ensures efficient resource utilization. However, you might need to alter this behavior for specific use cases and **force the reprocessing of all of your datums systematically**. This is especially useful when your pipeline makes an external call to other resources, such as a deployment or triggering an external pipeline system.  Set `"reprocess_spec": "every_job"` in order to enable this behavior. 
+Per default, Pachyderm avoids repeated processing of unchanged datums (i.e., it processes only the datums that have changed and skip the unchanged datums). This [**incremental behavior**](../../concepts/pipeline-concepts/datum/relationship-between-datums/#incrementality) ensures efficient resource utilization. However, you might need to alter this behavior for specific use cases and **force the reprocessing of all of your datums systematically**. This is especially useful when your pipeline makes an external call to other resources, such as a deployment or triggering an external pipeline system.  Set `"reprocess_spec": "every_job"` in order to enable this behavior. 
 
 !!! Note "About the default behavior"
     `"reprocess_spec": "until_success"` is the default behavior.
