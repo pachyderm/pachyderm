@@ -378,7 +378,7 @@ make sure that you are using the right Kubernetes context first.
       # database server to connect to in global.postgresql
       enabled: false
     ```
-    Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
+    Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
 
 ### Deploy Pachyderm On The Kubernetes Cluster
 
