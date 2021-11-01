@@ -374,93 +374,6 @@ func (pc *pipelineController) loadLatestPipelineInfo() error {
 	return nil
 }
 
-// getRC reads the RC associated with 'pc's pipeline. pc.pipelineInfo must be
-// set already. 'expectation' indicates whether the PPS master expects an RC to
-// exist--if set to 'rcExpected', getRC will restart the pipeline if no RC is
-// found after three retries. If set to 'noRCExpected', then getRC will return
-// after the first "not found" error. If set to noExpectation, then getRC will
-// retry the kubeclient.List() RPC, but will not restart the pipeline if no RC
-// is found
-//
-// Unlike other functions in this file, getRC takes responsibility for restarting
-// pc's pipeline if it can't read the pipeline's RC (or if the RC is stale or
-// redundant), and then returns an error to the caller to indicate that the
-// caller shouldn't continue with other operations
-func (pc *pipelineController) getRC(ctx context.Context, expectation rcExpectation) (retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/GetRC", "pipeline", pc.pipeline)
-	defer func(span opentracing.Span) {
-		tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
-		tracing.FinishAnySpan(span)
-	}(span)
-
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pc.pipeline)
-
-	// count error types separately, so that this only errors if the pipeline is
-	// stuck and not changing
-	var notFoundErrCount, unexpectedErrCount, staleErrCount, tooManyErrCount,
-		otherErrCount int
-	return backoff.RetryNotify(func() error {
-		// List all RCs, so stale RCs from old pipelines are noticed and deleted
-		rcs, err := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace).List(
-			metav1.ListOptions{LabelSelector: selector})
-		if err != nil && !errutil.IsNotFoundError(err) {
-			return err
-		}
-		if len(rcs.Items) == 0 {
-			pc.rc = nil
-			return errRCNotFound
-		}
-
-		pc.rc = &rcs.Items[0]
-		switch {
-		case len(rcs.Items) > 1:
-			// select stale RC if possible, so that we delete it in restartPipeline
-			for i := range rcs.Items {
-				pc.rc = &rcs.Items[i]
-				if !pc.rcIsFresh() {
-					break
-				}
-			}
-			return errTooManyRCs
-		case !pc.rcIsFresh():
-			return errStaleRC
-		case expectation == noRCExpected:
-			return errUnexpectedRC
-		default:
-			return nil
-		}
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		if expectation == noRCExpected && errors.Is(err, errRCNotFound) {
-			return err // rc has come down successfully--no need to keep looking
-		}
-		switch {
-		case errors.Is(err, errRCNotFound):
-			notFoundErrCount++
-		case errors.Is(err, errUnexpectedRC):
-			unexpectedErrCount++
-		case errors.Is(err, errTooManyRCs):
-			tooManyErrCount++
-		case errors.Is(err, errStaleRC):
-			staleErrCount++ // don't return immediately b/c RC might be changing
-		default:
-			otherErrCount++
-		}
-		errCount := max(notFoundErrCount, unexpectedErrCount, staleErrCount,
-			tooManyErrCount, otherErrCount)
-		if errCount >= maxErrCount {
-			missingExpectedRC := expectation == rcExpected && errors.Is(err, errRCNotFound)
-			invalidRCState := errors.Is(err, errTooManyRCs) || errors.Is(err, errStaleRC)
-			if missingExpectedRC || invalidRCState {
-				return pc.restartPipeline(ctx, fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
-			}
-			return err //return whatever the most recent error was
-		}
-		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", pc.pipeline, err, d)
-		return nil
-	})
-}
-
 // rcIsFresh returns a boolean indicating whether pc.rc has the right labels
 // corresponding to pc.pipelineInfo. If this returns false, it likely means the
 // current RC is using e.g. an old spec commit or something.
@@ -509,22 +422,6 @@ func (pc *pipelineController) setPipelineState(ctx context.Context, state pps.Pi
 				"(you may need to restart pachd to un-stick the pipeline)", state),
 			retry: true,
 		}
-	}
-	return nil
-}
-
-// createPipelineResources creates the RC and any services for pc's pipeline.
-func (pc *pipelineController) createPipelineResources(ctx context.Context) error {
-	log.Infof("PPS master: creating resources for pipeline %q", pc.pipelineInfo.Pipeline.Name)
-	if err := pc.createWorkerSvcAndRc(ctx, pc.pipelineInfo); err != nil {
-		if errors.As(err, &noValidOptionsErr{}) {
-			// these errors indicate invalid pipelineInfo, don't retry
-			return stepError{
-				error:        errors.Wrap(err, "could not generate RC options"),
-				failPipeline: true,
-			}
-		}
-		return newRetriableError(err, "error creating resources")
 	}
 	return nil
 }
@@ -601,25 +498,6 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context) (
 			return nil // already deleted
 		}
 		return errors.Wrapf(err, "could not finish output commits of pipeline %q", pc.pipelineInfo.Pipeline.Name)
-	}
-	return nil
-}
-
-// updateRC is a helper for {scaleUp,scaleDown}Pipeline. It includes all of the
-// logic for writing an updated RC spec to kubernetes, and updating/retrying if
-// k8s rejects the write. It presents a strange API, since the the RC being
-// updated is already available to the caller in pc.rc, but update() may be
-// called muliple times if the k8s write fails. It may be helpful to think of
-// the rc passed to update() as mutable, while pc.rc is immutable.
-func (pc *pipelineController) updateRC(update func(rc *v1.ReplicationController)) error {
-	rc := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace)
-
-	newRC := *pc.rc
-	// Apply op's update to rc
-	update(&newRC)
-	// write updated RC to k8s
-	if _, err := rc.Update(&newRC); err != nil {
-		return newRetriableError(err, "error updating RC")
 	}
 	return nil
 }
@@ -712,6 +590,132 @@ func (pc *pipelineController) restartPipeline(ctx context.Context, reason string
 	return errors.Errorf("restarting pipeline %q: %s", pc.pipelineInfo.Pipeline.Name, reason)
 }
 
+func (pc *pipelineController) setPipelineFailure(ctx context.Context, reason string) error {
+	return pc.setPipelineState(ctx, pps.PipelineState_PIPELINE_FAILURE, reason)
+}
+
+// getRC reads the RC associated with 'pc's pipeline. pc.pipelineInfo must be
+// set already. 'expectation' indicates whether the PPS master expects an RC to
+// exist--if set to 'rcExpected', getRC will restart the pipeline if no RC is
+// found after three retries. If set to 'noRCExpected', then getRC will return
+// after the first "not found" error. If set to noExpectation, then getRC will
+// retry the kubeclient.List() RPC, but will not restart the pipeline if no RC
+// is found
+//
+// Unlike other functions in this file, getRC takes responsibility for restarting
+// pc's pipeline if it can't read the pipeline's RC (or if the RC is stale or
+// redundant), and then returns an error to the caller to indicate that the
+// caller shouldn't continue with other operations
+func (pc *pipelineController) getRC(ctx context.Context, expectation rcExpectation) (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(ctx,
+		"/pps.Master/GetRC", "pipeline", pc.pipeline)
+	defer func(span opentracing.Span) {
+		tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
+		tracing.FinishAnySpan(span)
+	}(span)
+
+	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pc.pipeline)
+
+	// count error types separately, so that this only errors if the pipeline is
+	// stuck and not changing
+	var notFoundErrCount, unexpectedErrCount, staleErrCount, tooManyErrCount,
+		otherErrCount int
+	return backoff.RetryNotify(func() error {
+		// List all RCs, so stale RCs from old pipelines are noticed and deleted
+		rcs, err := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace).List(
+			metav1.ListOptions{LabelSelector: selector})
+		if err != nil && !errutil.IsNotFoundError(err) {
+			return err
+		}
+		if len(rcs.Items) == 0 {
+			pc.rc = nil
+			return errRCNotFound
+		}
+
+		pc.rc = &rcs.Items[0]
+		switch {
+		case len(rcs.Items) > 1:
+			// select stale RC if possible, so that we delete it in restartPipeline
+			for i := range rcs.Items {
+				pc.rc = &rcs.Items[i]
+				if !pc.rcIsFresh() {
+					break
+				}
+			}
+			return errTooManyRCs
+		case !pc.rcIsFresh():
+			return errStaleRC
+		case expectation == noRCExpected:
+			return errUnexpectedRC
+		default:
+			return nil
+		}
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		if expectation == noRCExpected && errors.Is(err, errRCNotFound) {
+			return err // rc has come down successfully--no need to keep looking
+		}
+		switch {
+		case errors.Is(err, errRCNotFound):
+			notFoundErrCount++
+		case errors.Is(err, errUnexpectedRC):
+			unexpectedErrCount++
+		case errors.Is(err, errTooManyRCs):
+			tooManyErrCount++
+		case errors.Is(err, errStaleRC):
+			staleErrCount++ // don't return immediately b/c RC might be changing
+		default:
+			otherErrCount++
+		}
+		errCount := max(notFoundErrCount, unexpectedErrCount, staleErrCount,
+			tooManyErrCount, otherErrCount)
+		if errCount >= maxErrCount {
+			missingExpectedRC := expectation == rcExpected && errors.Is(err, errRCNotFound)
+			invalidRCState := errors.Is(err, errTooManyRCs) || errors.Is(err, errStaleRC)
+			if missingExpectedRC || invalidRCState {
+				return pc.restartPipeline(ctx, fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
+			}
+			return err //return whatever the most recent error was
+		}
+		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", pc.pipeline, err, d)
+		return nil
+	})
+}
+
+// updateRC is a helper for {scaleUp,scaleDown}Pipeline. It includes all of the
+// logic for writing an updated RC spec to kubernetes, and updating/retrying if
+// k8s rejects the write. It presents a strange API, since the the RC being
+// updated is already available to the caller in pc.rc, but update() may be
+// called muliple times if the k8s write fails. It may be helpful to think of
+// the rc passed to update() as mutable, while pc.rc is immutable.
+func (pc *pipelineController) updateRC(update func(rc *v1.ReplicationController)) error {
+	rc := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace)
+
+	newRC := *pc.rc
+	// Apply op's update to rc
+	update(&newRC)
+	// write updated RC to k8s
+	if _, err := rc.Update(&newRC); err != nil {
+		return newRetriableError(err, "error updating RC")
+	}
+	return nil
+}
+
+// createPipelineResources creates the RC and any services for pc's pipeline.
+func (pc *pipelineController) createPipelineResources(ctx context.Context) error {
+	log.Infof("PPS master: creating resources for pipeline %q", pc.pipelineInfo.Pipeline.Name)
+	if err := pc.createWorkerSvcAndRc(ctx, pc.pipelineInfo); err != nil {
+		if errors.As(err, &noValidOptionsErr{}) {
+			// these errors indicate invalid pipelineInfo, don't retry
+			return stepError{
+				error:        errors.Wrap(err, "could not generate RC options"),
+				failPipeline: true,
+			}
+		}
+		return newRetriableError(err, "error creating resources")
+	}
+	return nil
+}
+
 // deletePipelineResources deletes the RC and services associated with pc's
 // pipeline. It doesn't return a stepError, leaving retry behavior to the caller
 func (pc *pipelineController) deletePipelineResources() (retErr error) {
@@ -776,8 +780,4 @@ func (pc *pipelineController) deletePipelineResources() (retErr error) {
 	}
 
 	return nil
-}
-
-func (pc *pipelineController) setPipelineFailure(ctx context.Context, reason string) error {
-	return pc.setPipelineState(ctx, pps.PipelineState_PIPELINE_FAILURE, reason)
 }
