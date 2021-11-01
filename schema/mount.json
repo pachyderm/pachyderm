@@ -1,0 +1,7 @@
+{
+  "title": "Mount for Pachyderm",
+  "description": "Mount for Pachyderm.",
+  "properties": {},
+  "additionalProperties": false,
+  "type": "object"
+}

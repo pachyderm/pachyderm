@@ -19,10 +19,14 @@ for the frontend extension.
     - If you are using [nvm](https://github.com/nvm-sh/nvm) first run `nvm install`. This will install and switch the version of node to the one defined in the `.nvmrc`. If you are upgrading the version of node used in the project, please check and make sure that the versions defined in the `.nvmrc`.
 
 
-## Virtual Environment Setup
+# Development Environment
+There are two ways you can work on this project. One is setting up a local python virtual environment and the other is using a docker image developing on a virtual machine.
 
+## Dev Container Workflow
+You can also set up your local dev environment using a docker image ([Guide here](https://github.com/pachyderm/pachyderm-notebooks/blob/ide/doc/extensions_dev_container_workflow.md)). This way you do not need to worry about setting up the python virtual environment. Using this virtual development environment also allows you to use the pachyderm mount feature if you are developing on a mac.
+
+## Local Virtual Environment Setup 
 When developing in python, it is good practice to set up a virtual environment. A simple guid to set up a virtual environment is as follows:
-
 create a virtual environment using venv
 
 `python -m venv venv`
@@ -34,7 +38,7 @@ Activate the environment
 When you are done using the environment you can close your shell or deactivate the environment: 
 `deactivate`
 
-### Development install
+## Development install
 
 Note: You will need NodeJS to build the extension package.
 
@@ -60,7 +64,7 @@ You can watch the source directory and run JupyterLab at the same time in differ
 
 ```bash
 # Watch the source directory in one terminal, automatically rebuilding when needed
-jlpm run build
+jlpm run watch
 # Run JupyterLab in another terminal
 jupyter lab
 ```
@@ -73,7 +77,7 @@ By default, the `npm run build` command generates the source maps for this exten
 jupyter lab build --minimize=False
 ```
 
-### Development uninstall
+## Development uninstall
 
 ```bash
 # Server extension must be manually disabled in develop mode
@@ -103,6 +107,35 @@ pip uninstall jupyterlab_pachyderm
 ```
 
 
+# Project Structure
+Jupyter extensions are composed of several plugins. These plugins can be selectively enabled or disabled. Because of this we have decided separate the functionality in the extension using plugins. Plugins exported in this extension are as follows.
+
+### Hub
+This plugin contains custom styling and other features only used by hub. By default this extension is disabled.
+
+### Mount
+This plugin contains the mount feature currently under development.
+
+
+## Plugin settings
+You can disable certain plugins by specifying the following config data in the `<jupyter_config_path>/labconfig/page_config.json`:
+
+```
+{
+  "disabledExtensions": {
+    "jupyterlab-pachyderm:hub": true
+  }
+} 
+```
+Setting this config file is not part of the built extension and needs to be done by the user.
+
+Adding the following to the package.json in the `jupyterlab` object will disable the hub plugin by default.
+```
+"disabledExtensions": ["jupyterlab-pachyderm:hub"]
+```
+So we can build the extension with hub features turned off and override the setting for hub.
+
+
 ## Troubleshoot
 
 If you are seeing the frontend extension, but it is not working, check
@@ -118,7 +151,6 @@ the frontend extension, check the frontend extension is installed:
 ```bash
 jupyter labextension list
 ```
-
 
 ## Contributing
 
