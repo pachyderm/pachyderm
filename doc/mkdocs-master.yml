@@ -14,7 +14,7 @@ edit_uri: ""
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
 pach_featured_version: '1.13.4'
-pach_latest_version: '2.0.0-rc.4'
+pach_latest_version: '2.0.0-rc.6'
 pach_major_minor_version: '2.0'
 search_index_version: '2.0.x-rc'
 
@@ -108,6 +108,7 @@ nav:
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting_started/index.md
+        - WHAT'S NEW?: getting_started/whats_new.md
         - Quick Start - Get started on Hub: hub/hub_getting_started.md
         - Local Installation: getting_started/local_installation.md
         - Beginner Tutorial: getting_started/beginner_tutorial.md
@@ -160,7 +161,6 @@ nav:
                 - Export Your Data with pachctl: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl.md
                 - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md
                 - Mount a Repo to a Local Computer: how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer.md        
-            - Ingress and Egress Data from an External Object Store: how-tos/basic-data-operations/ingressing_from_diff_cloud.md
             - Delete Data: how-tos/basic-data-operations/removing_data_from_pachyderm.md
         - Pipeline Operations:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
@@ -179,20 +179,18 @@ nav:
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
             - Get Started with Pachyderm Hub: hub/hub_getting_started.md
-            - Deploy with Helm: deploy-manage/deploy/helm_install.md
-            - Production Deployments:       
-                - Infrastructure and Ingress Setup:
+            - Helm Deployment Principles: deploy-manage/deploy/helm_install.md
+            - Local Deployment: getting_started/local_installation.md
+            - QUICK Cloud Deployment: deploy-manage/deploy/quickstart.md
+            - Production Deployment:       
+                - Load Balancer and Ingress Setup:
                     - Infrastructure Recommendations: deploy-manage/deploy/ingress/index.md
                     - Set Up Traefik: deploy-manage/deploy/ingress/pach-ui-ingress.md  
-                - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
-                - Deploy on AWS:
-                    - Overview: deploy-manage/deploy/amazon_web_services/index.md
-                    - Deploy K8s with EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
-                    - Deploy K8s with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
-                    - Deploy Pachyderm: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
-                    - Deploy CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
+                - Deploy on GCP: deploy-manage/deploy/google_cloud_platform.md
+                - Deploy on AWS: deploy-manage/deploy/aws-deploy-pachyderm.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+            - Deploy Console: deploy-manage/deploy/console.md
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
                 - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
@@ -207,7 +205,6 @@ nav:
                     - List of pachd metrics: deploy-manage/deploy/prometheus/pachd_metrics.md
                     - List of pipeline metrics: deploy-manage/deploy/prometheus/job_metrics.md
                 - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
-            - Deploy Console: deploy-manage/deploy/console.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
@@ -220,7 +217,6 @@ nav:
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
             - Upgrades and Migrations:
                 - Overview: deploy-manage/manage/upgrades_migrations.md
-                - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Backup and Restore: deploy-manage/manage/backup_restore.md
             - Optimize Performance:
                 - Storage Use Optimization: deploy-manage/manage/data_management.md

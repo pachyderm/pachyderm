@@ -24,7 +24,7 @@ const pollBackoffTime = 2 * time.Second
 func (m *ppsMaster) startPipelinePoller() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.pollCancel = m.startMonitorThread("pollPipelines", m.pollPipelines)
+	m.pollCancel = startMonitorThread(m.masterCtx, "pollPipelines", m.pollPipelines)
 }
 
 func (m *ppsMaster) cancelPipelinePoller() {
@@ -40,7 +40,7 @@ func (m *ppsMaster) cancelPipelinePoller() {
 func (m *ppsMaster) startPipelinePodsPoller() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.pollPodsCancel = m.startMonitorThread("pollPipelinePods", m.pollPipelinePods)
+	m.pollPodsCancel = startMonitorThread(m.masterCtx, "pollPipelinePods", m.pollPipelinePods)
 }
 
 func (m *ppsMaster) cancelPipelinePodsPoller() {
@@ -56,7 +56,7 @@ func (m *ppsMaster) cancelPipelinePodsPoller() {
 func (m *ppsMaster) startPipelineWatcher() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.watchCancel = m.startMonitorThread("watchPipelines", m.watchPipelines)
+	m.watchCancel = startMonitorThread(m.masterCtx, "watchPipelines", m.watchPipelines)
 }
 
 func (m *ppsMaster) cancelPipelineWatcher() {
@@ -221,7 +221,7 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 						&pipelineInfo); err != nil {
 						return errors.Wrapf(err, "couldn't retrieve pipeline information")
 					}
-					return m.a.setPipelineCrashing(ctx, pipelineInfo.SpecCommit, reason)
+					return m.setPipelineCrashing(ctx, pipelineInfo.SpecCommit, reason)
 				}
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {

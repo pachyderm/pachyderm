@@ -142,7 +142,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 	}
 
 	var err error
-	idTokenExpiry := 6 * time.Hour
+	idTokenExpiry := 24 * time.Hour
 
 	if config.IdTokenExpiry != "" {
 		idTokenExpiry, err = time.ParseDuration(config.IdTokenExpiry)
@@ -151,6 +151,13 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 		}
 	}
 
+	var refreshTokenPolicy *dex_server.RefreshTokenPolicy
+	if config.RotationTokenExpiry != "" {
+		refreshTokenPolicy, err = dex_server.NewRefreshTokenPolicy(w.logger, false, "", config.RotationTokenExpiry, "")
+		if err != nil {
+			return nil, err
+		}
+	}
 	serverConfig := dex_server.Config{
 		Storage:            storage,
 		Issuer:             config.Issuer,
@@ -162,7 +169,8 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 			Theme:   "pachyderm",
 			Dir:     webDir,
 		},
-		Logger: w.logger,
+		Logger:             w.logger,
+		RefreshTokenPolicy: refreshTokenPolicy,
 	}
 
 	var ctx context.Context

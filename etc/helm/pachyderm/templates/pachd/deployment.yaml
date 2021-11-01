@@ -35,10 +35,17 @@ spec:
       {{-  if .Values.pachd.affinity }}
       affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
       {{- end }}
-{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
+      {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
+      {{- if .Values.pachd.securityContext.enabled }}
+      {{- if and (eq (include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
+      securityContext:
+        runAsUser: 0 # Need to run as root local for hostpath support
+      {{- else }}
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
+      {{- end }} 
+      {{- end }}
       containers:
       - command:
         - /pachd
@@ -94,9 +101,9 @@ spec:
           value: {{ .Values.pachd.worker.serviceAccount.name | quote }}
         - name: METRICS
           value: {{ .Values.pachd.metrics.enabled | quote }}
-        {{- if .Values.pachd.metricsEndpoint}}
+        {{- if .Values.pachd.metrics.endpoint}}
         - name: METRICS_ENDPOINT
-          value: "{{ .Values.pachd.metricsEndpoint }}"
+          value: "{{ .Values.pachd.metrics.endpoint }}"
         {{- end }}
         {{- if and .Values.pachd.goMaxProcs (gt .Values.pachd.goMaxProcs 0.0)}}
         - name: GOMAXPROCS # Needs to be PR'd to 2.0
@@ -173,11 +180,7 @@ spec:
         {{- if .Values.pachd.tls.enabled }}
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
-        {{- end }}
-      {{- if and (eq (include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
-      securityContext:
-        runAsUser: 0 # Need to run as root local for hostpath support
-      {{- end }}
+        {{- end }} 
       {{- if .Values.pachd.serviceAccount.name }}
       serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
       {{- end }}

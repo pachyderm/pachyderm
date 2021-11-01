@@ -18,7 +18,7 @@ to know the current job ID, you can use the `PACH_JOB_ID`
 environment variable to refer to the current job ID.
 
 !!! note "See Also:"
-    [Deploy Pachyderm](../../../getting_started/local_installation/#deploy-pachyderm)
+    [Local Deployment](../../../getting_started/local_installation/)
 
 ## `pachd` Environment Variables
 

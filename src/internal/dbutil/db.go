@@ -37,6 +37,7 @@ type dbConfig struct {
 	maxIdleConns    int
 	connMaxLifetime time.Duration
 	connMaxIdleTime time.Duration
+	sslMode         string
 }
 
 func newConfig(opts ...Option) *dbConfig {
@@ -45,6 +46,7 @@ func newConfig(opts ...Option) *dbConfig {
 		maxIdleConns:    DefaultMaxIdleConns,
 		connMaxLifetime: DefaultConnMaxLifetime,
 		connMaxIdleTime: DefaultConnMaxIdleTime,
+		sslMode:         DefaultSSLMode,
 	}
 	for _, opt := range opts {
 		opt(dbc)
@@ -54,8 +56,8 @@ func newConfig(opts ...Option) *dbConfig {
 
 func getDSN(dbc *dbConfig) string {
 	fields := map[string]string{
-		"sslmode":         "disable",
 		"connect_timeout": "30",
+		"sslmode":         dbc.sslMode,
 
 		// https://github.com/jackc/pgx/issues/650#issuecomment-568212888
 		// both of the options below are mentioned as solutions for working with pg_bouncer

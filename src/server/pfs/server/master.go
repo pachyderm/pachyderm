@@ -183,7 +183,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 					})
 				})
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				log.Errorf("error finishing commit %v: %v, retrying in %v", commit.ID, err, d)
+				log.Errorf("error finishing commit %v: %v, retrying in %v", commit, err, d)
 				return nil
 			})
 		})

@@ -8,6 +8,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 )
 
+const DefaultTransformImage = "pachyderm/testuser:local"
+
 var (
 	pachClient *client.APIClient
 	pachErr    error

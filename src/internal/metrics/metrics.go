@@ -378,5 +378,4 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 		metrics.Bytes = sz
 		metrics.MaxBranches = mbranch
 	}
-	//log.Infof("Metrics logged: %v", metrics)
 }

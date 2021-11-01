@@ -2,7 +2,7 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{ if .Values.pachd.activateEnterprise }}
+{{ if or (.Values.pachd.enterpriseLicenseKey) (.Values.pachd.activateEnterpriseMember) }}
 apiVersion: batch/v1
 kind: Job
 metadata:

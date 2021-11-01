@@ -299,6 +299,7 @@ func (env *NonblockingServiceEnv) initDirectDBClient() error {
 		dbutil.WithMaxIdleConns(env.config.PostgresMaxIdleConns),
 		dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
 		dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
+		dbutil.WithSSLMode(env.config.PostgresSSL),
 	)
 	if err != nil {
 		return err
@@ -322,6 +323,7 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 		dbutil.WithMaxIdleConns(env.config.PGBouncerMaxIdleConns),
 		dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
 		dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
+		dbutil.WithSSLMode(dbutil.SSLModeDisable),
 	)
 	if err != nil {
 		return err

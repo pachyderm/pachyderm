@@ -211,6 +211,14 @@
                 "resources": {
                     "type": "object"
                 },
+                "securityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    }
+                },
                 "service": {
                     "type": "object",
                     "properties": {
@@ -309,6 +317,9 @@
                 "IDTokenExpiry": {
                     "type": "string"
                 },
+                "RotationTokenExpiry": {
+                    "type": "string"
+                },
                 "issuerURI": {
                     "type": "string"
                 },
@@ -329,7 +340,7 @@
         "pachd": {
             "type": "object",
             "properties": {
-                "activateEnterprise": {
+                "activateEnterpriseMember": {
                     "type": "boolean"
                 },
                 "affinity": {
@@ -435,6 +446,14 @@
                 },
                 "rootToken": {
                     "type": "string"
+                },
+                "securityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    }
                 },
                 "service": {
                     "type": "object",
