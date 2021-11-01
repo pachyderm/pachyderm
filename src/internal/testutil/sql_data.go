@@ -158,18 +158,18 @@ COPY public.cars (make, model, year, note) FROM stdin;
 --
 `
 
-const SeedCarsTable = `
-CREATE TABLE public.cars (
-    make character varying(50),
-    model character varying(50),
-    year smallint,
-    note character varying(100) DEFAULT 'literally a rocket'::character varying
+const CreateCarsTable = `
+CREATE TABLE cars (
+    make VARCHAR(50),
+    model VARCHAR(50),
+    year SMALLINT,
+    note VARCHAR(100) DEFAULT 'literally a rocket'
 );
-INSERT INTO public.cars (make, model, year, note) VALUES
-    ('Tesla', 'Roadster', 2008, 'literally a rocket'),
-    ('Bugatti', 'Chiron', 2016, 'literally a rocket'),
-    ('Dodge', 'Viper', 2015, 'literally a rocket'),
-    ('Honda', 'Civic', 1998, 'only a rocket if it has a spoiler'),
-    ('Toyota', 'Corolla', 2005, 'greatest car ever made')
-;
+`
+const SeedCarsTable = `INSERT INTO cars (make, model, year, note) VALUES
+('Tesla', 'Roadster', 2008, 'literally a rocket'),
+('Bugatti', 'Chiron', 2016, 'literally a rocket'),
+('Dodge', 'Viper', 2015, 'literally a rocket'),
+('Honda', 'Civic', 1998, 'only a rocket if it has a spoiler'),
+('Toyota', 'Corolla', 2005, 'greatest car ever made');
 `

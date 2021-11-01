@@ -3,6 +3,7 @@ package sdata
 
 import (
 	"bufio"
+	"database/sql"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -72,6 +73,16 @@ func (m *CSVWriter) WriteTuple(row Tuple) error {
 			record[i] = *x
 		case *float64:
 			record[i] = strconv.FormatFloat(*x, 'f', -1, 64)
+		case *sql.RawBytes:
+			// TODO: what to do here?
+			y := strconv.Quote(string(*x))
+			record[i] = y[1 : len(y)-1]
+		case *sql.NullInt64:
+			if x.Valid {
+				record[i] = strconv.FormatInt(x.Int64, 10)
+			} else {
+				record[i] = "null"
+			}
 		default:
 			return errors.Errorf("unrecognized value (%v: %T) in tuple (%v)", x, x, row)
 		}

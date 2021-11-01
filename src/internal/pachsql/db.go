@@ -10,6 +10,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
+const (
+	ProtocolPostgres = "postgres"
+	ProtocolMySQL    = "mysql"
+)
+
 // DB is an alias for sqlx.DB which is the standard database type used throughout the project
 type DB = sqlx.DB
 
@@ -23,10 +28,10 @@ func OpenURL(u URL, password string) (*DB, error) {
 	var driver string
 	var dsn string
 	switch u.Protocol {
-	case "postgresql", "postgres":
+	case ProtocolPostgres, "postgresql":
 		driver = "pgx"
 		dsn = postgresDSN(u, password)
-	case "mysql":
+	case ProtocolMySQL:
 		driver = "mysql"
 		dsn = mySQLDSN(u, password)
 	default:
@@ -57,11 +62,13 @@ func postgresDSN(u URL, password string) string {
 
 func mySQLDSN(u URL, password string) string {
 	config := mysql.Config{
-		User:   u.User,
-		Passwd: password,
-		Addr:   net.JoinHostPort(u.Host, strconv.Itoa(int(u.Port))),
-		DBName: u.Database,
-		Params: u.Params,
+		User:                 u.User,
+		Passwd:               password,
+		Net:                  "tcp",
+		Addr:                 net.JoinHostPort(u.Host, strconv.Itoa(int(u.Port))),
+		DBName:               u.Database,
+		Params:               u.Params,
+		AllowNativePasswords: true,
 	}
 	return config.FormatDSN()
 }

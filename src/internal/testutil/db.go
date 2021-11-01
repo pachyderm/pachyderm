@@ -61,6 +61,16 @@ func OpenDB(t testing.TB, opts ...dbutil.Option) *pachsql.DB {
 	return db
 }
 
+// OpenDBURL connects to a database using u and returns it.
+// The database will be closed at the end of the test.
+func OpenDBURL(t testing.TB, u pachsql.URL, password string) *pachsql.DB {
+	db, err := pachsql.OpenURL(u, password)
+	require.NoError(t, err)
+	require.NoError(t, db.Ping())
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	return db
+}
+
 // CreateEphemeralDB creates a new database using db with a lifetime scoped to the test t
 // and returns its name
 func CreateEphemeralDB(t testing.TB, db *pachsql.DB) string {
@@ -69,7 +79,11 @@ func CreateEphemeralDB(t testing.TB, db *pachsql.DB) string {
 	require.NoError(t, err)
 	if cleanup {
 		t.Cleanup(func() {
-			_, err := db.Exec(fmt.Sprintf(`DROP DATABASE %s WITH (FORCE)`, dbName))
+			q := fmt.Sprintf("DROP DATABASE %s", dbName)
+			if db.DriverName() == "pgx" || db.DriverName() == "postgres" {
+				q += " WITH (FORCE)"
+			}
+			_, err := db.Exec(q)
 			require.NoError(t, err)
 		})
 	}

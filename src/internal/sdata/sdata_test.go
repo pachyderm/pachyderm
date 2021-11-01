@@ -24,6 +24,10 @@ func TestMaterializeSQL(t *testing.T) {
 			"Postgres",
 			dockertestenv.NewTestDB,
 		},
+		{
+			"MySQL",
+			dockertestenv.NewMySQL,
+		},
 	}
 	writerSpecs := []struct {
 		Name string
@@ -44,11 +48,14 @@ func TestMaterializeSQL(t *testing.T) {
 	}
 	for _, dbSpec := range dbSpecs {
 		for _, writerSpec := range writerSpecs {
-			t.Run(fmt.Sprintf("%s-%s", dbSpec.Name, writerSpec.Name), func(t *testing.T) {
+			testName := fmt.Sprintf("%s-%s", dbSpec.Name, writerSpec.Name)
+			t.Run(testName, func(t *testing.T) {
 				db := dbSpec.New(t)
-				_, err := db.Exec(testutil.SeedCarsTable)
+				_, err := db.Exec(testutil.CreateCarsTable)
 				require.NoError(t, err)
-				rows, err := db.Query(`SELECT * FROM public.cars`)
+				_, err = db.Exec(testutil.SeedCarsTable)
+				require.NoError(t, err)
+				rows, err := db.Query(`SELECT * FROM cars`)
 				require.NoError(t, err)
 				defer rows.Close()
 				buf := &bytes.Buffer{}
