@@ -47,7 +47,7 @@ All existing `pachctl deploy` commands are [EOL](../../contributing/supported-re
 - Look at how to configure your Helm values:
 
     - For a quick deployment on a [specific Cloud target](../../deploy-manage/deploy/quickstart/), or [Locally](../local_installation/), on your machine's Docker Desktop or Minikube.
-    - for [Production](../../deploy-manage/deploy/) settings.
+    - For [Production](../../deploy-manage/deploy/) settings.
 
 - As a reference, check the complete list of all configurable fields in our [Reference](../../reference/helm_values/) section or on [GitHub](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
 
@@ -120,14 +120,14 @@ We have entirely re-worked our Web UI (`Console`) and are launching a beta versi
      Along with being accessible on Hub's workspaces, Console is also an Enterprise feature. By adding the relevant fields in your Helm values, you can [deploy Console with Pachyderm](../../deploy-manage/deploy/console/). The deployment of Console in production requires the setup of an [Ingress Controller and a DNS](../../deploy-manage/deploy/ingress/).
 
 !!! Note
-    [Deploy Console Locally](../../deploy-manage/deploy/console/#deploy-locally) on your Minikube or Docker Desktop and browse through your DAGs' pipelines, check the content or your commits in a repo, look at the files they contain, check your DAG's jobs, or zoom in on their logs.
+    [Deploy Console Locally](../../deploy-manage/deploy/console/#deploy-locally) on your Minikube or Docker Desktop and browse through your DAGs' pipelines, check the content of your commits in a repo, look at the files they contain, check your DAG's jobs, or zoom in on their logs.
 
 - Additionally, we are releasing the first iteration of our `Notebooks` product (In its beta version), accessible on [Hub](https://hub.pachyderm.com/). The coming GA release of Notebooks will be an Enterprise Feature. 
 
      You can now run and test your pipelines and data experiments from your favorite Jupiter notebooks.
 
 
-!!! See Also
+!!! Info "See Also"
     Check our [Changelog](https://github.com/pachyderm/pachyderm/blob/master/CHANGELOG.md).
 
 
