@@ -16,7 +16,8 @@ To upload your files to a Pachyderm repository, run the
 command, you can put both files and directories into a Pachyderm repository.
 
 !!! Warning
-     It is important to note that directories are not stored and will not exist **unless they contain files**. 
+     It is important to note that **directories are implied from the paths of the files**. Directories are not stored and will not exist **unless they contain files**. 
+     
 ## File Processing Strategies
 
 Pachyderm provides the following file processing strategies:
