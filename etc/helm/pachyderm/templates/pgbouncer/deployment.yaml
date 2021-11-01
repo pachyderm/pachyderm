@@ -35,7 +35,7 @@ spec:
         - name: POSTGRESQL_HOST
          {{- if .Values.postgresql.enabled }}
           value: {{ .Values.global.postgresql.postgresqlHost }}.{{ .Release.Namespace }}.svc.cluster.local  
-         {{ else }}
+         {{- else }}
           value: {{ .Values.global.postgresql.postgresqlHost }}
          {{- end }}
         - name: PGBOUNCER_PORT
