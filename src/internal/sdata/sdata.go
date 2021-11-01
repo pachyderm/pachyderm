@@ -54,7 +54,15 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 func newTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
 	row := make([]interface{}, len(colTypes))
 	for i, cType := range colTypes {
-		row[i] = reflect.New(cType.ScanType()).Interface()
+		var rType reflect.Type
+		switch cType.DatabaseTypeName() {
+		case "VARCHAR", "TEXT":
+			// force scan type to be string
+			rType = reflect.TypeOf("")
+		default:
+			rType = cType.ScanType()
+		}
+		row[i] = reflect.New(rType).Interface()
 	}
 	return row
 }

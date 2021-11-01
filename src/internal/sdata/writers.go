@@ -60,34 +60,44 @@ func (m *CSVWriter) WriteTuple(row Tuple) error {
 		m.headersWritten = true
 	}
 	for i := range row {
-		switch x := row[i].(type) {
-		case *int16:
-			record[i] = strconv.FormatInt(int64(*x), 10)
-		case *int32:
-			record[i] = strconv.FormatInt(int64(*x), 10)
-		case *int64:
-			record[i] = strconv.FormatInt(*x, 10)
-		case *uint64:
-			record[i] = strconv.FormatUint(*x, 10)
-		case *string:
-			record[i] = *x
-		case *float64:
-			record[i] = strconv.FormatFloat(*x, 'f', -1, 64)
-		case *sql.RawBytes:
-			// TODO: what to do here?
-			y := strconv.Quote(string(*x))
-			record[i] = y[1 : len(y)-1]
-		case *sql.NullInt64:
-			if x.Valid {
-				record[i] = strconv.FormatInt(x.Int64, 10)
-			} else {
-				record[i] = "null"
-			}
-		default:
-			return errors.Errorf("unrecognized value (%v: %T) in tuple (%v)", x, x, row)
+		var err error
+		record[i], err = m.format(row[i])
+		if err != nil {
+			return err
 		}
 	}
 	return m.cw.Write(record)
+}
+
+func (m *CSVWriter) format(x interface{}) (string, error) {
+	var y string
+	switch x := x.(type) {
+	case *int16:
+		y = strconv.FormatInt(int64(*x), 10)
+	case *int32:
+		y = strconv.FormatInt(int64(*x), 10)
+	case *int64:
+		y = strconv.FormatInt(*x, 10)
+	case *uint64:
+		y = strconv.FormatUint(*x, 10)
+	case *string:
+		y = *x
+	case *float64:
+		y = strconv.FormatFloat(*x, 'f', -1, 64)
+	case *sql.RawBytes:
+		// TODO: what to do here? might not be printable.
+		// Maybe have a list of base64 encoded columns.
+		y = string(*x)
+	case *sql.NullInt64:
+		if x.Valid {
+			y = strconv.FormatInt(x.Int64, 10)
+		} else {
+			y = "null"
+		}
+	default:
+		return "", errors.Errorf("unrecognized value (%v: %T)", x, x)
+	}
+	return y, nil
 }
 
 func (m *CSVWriter) Flush() error {
@@ -120,7 +130,18 @@ func (m *JSONWriter) WriteTuple(row Tuple) error {
 	}
 	record := m.record
 	for i := range row {
-		record[m.fields[i]] = row[i]
+		var y interface{}
+		switch x := row[i].(type) {
+		case *sql.NullInt64:
+			if x.Valid {
+				y = x.Int64
+			} else {
+				y = nil
+			}
+		default:
+			y = row[i]
+		}
+		record[m.fields[i]] = y
 	}
 	return m.enc.Encode(record)
 }
