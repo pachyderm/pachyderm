@@ -59,6 +59,12 @@
   force = true
 
 [[redirects]]
+  from = "/1.11.x/*"
+  to = "/latest/archive/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/1.10.x/*"
   to = "/latest/archive/"
   status = 301
@@ -101,80 +107,74 @@
   force = true
 
 [[redirects]]
-  from = "/2.0.x/how-tos/advanced-data-operations/splitting-data/*"
+  from = "/latest/how-tos/advanced-data-operations/splitting-data/*"
   to = "/latest/"
   status = 301
   force = true 
   
 [[redirects]]
-  from = "/2.0.x/how-tos/pipeline-operations/run_pipeline/"
+  from = "/latest/how-tos/pipeline-operations/run_pipeline/"
   to = "/latest/"
   status = 301
   force = true 
 
 [[redirects]]
-  from = "/2.0.x/how-tos/developer-workflow/build-pipelines/"
+  from = "/latest/how-tos/developer-workflow/build-pipelines/"
   to = "/latest/"
   status = 301
   force = true 
 
 
 [[redirects]]
-  from = "/2.0.x/how-tos/developer-workflow/build-flag/"
+  from = "/latest/how-tos/developer-workflow/build-flag/"
   to = "/latest/how-tos/developer-workflow/push-images-flag/"
   status = 301
   force = true
 
 [[redirects]]
-  from = "/2.0.x/how-tos/basic-data-operations/ingressing_from_diff_cloud/"
+  from = "/latest/how-tos/basic-data-operations/ingressing_from_diff_cloud/"
   to = "/latest/"
   status = 301
   force = true
 
 [[redirects]]
-  from = "/2.0.x/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
+  from = "/latest/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
   to = "/latest/how-tos/use-pachyderm-ide/"
   status = 301
   force = true
   
 [[redirects]]
-  from = "/2.0.x/deploy-manage/deploy/deploy_custom/*"
+  from = "/latest/deploy-manage/deploy/deploy_custom/*"
   to = "/latest/deploy-manage/"
   status = 301
   force = true
 
 [[redirects]]
-  from = "/2.0.x/deploy-manage/deploy/deploy-pachyderm-ide/"
+  from = "/latest/deploy-manage/deploy/deploy-pachyderm-ide/"
   to = "/latest/deploy-manage/"
   status = 301
   force = true
 
 [[redirects]]
-  from = "/2.0.x/deploy-manage/deploy/single-node/"
+  from = "/latest/deploy-manage/deploy/single-node/"
   to = "/latest/"
   status = 301
   force = true
 
 [[redirects]]
-  from = "/2.0.x/deploy-manage/deploy/non-cloud-object-stores/"
+  from = "/latest/deploy-manage/deploy/non-cloud-object-stores/"
   to = "/latest/"
   status = 301
   force = true
 
 [[redirects]]
-  from = "/2.0.x/deploy-manage/deploy/docker_registries/"
+  from = "/latest/deploy-manage/deploy/docker_registries/"
   to = "/latest/"
   status = 301
   force = true
 
 [[redirects]]
-  from = "/2.0.x/deploy-manage/deploy/amazon_web_services/*"
-  to = "/latest/deploy-manage/deploy/aws-deploy-pachyderm/"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/2.0.x/deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm/"
+  from = "/latest/deploy-manage/deploy/amazon_web_services/*"
   to = "/latest/deploy-manage/deploy/aws-deploy-pachyderm/"
   status = 301
   force = true
@@ -288,7 +288,7 @@
   force = true
 
 [[redirects]]
-  from = "/2.0.x/how-tos/pipeline-operations/monitor-job-progress/"
+  from = "/latest/how-tos/pipeline-operations/monitor-job-progress/"
   to = "/latest/concepts/pipeline-concepts/job/"
   status = 301
   force = true 
@@ -330,7 +330,7 @@
   force = true
 
 [[redirects]]
-  from = "/2.0.x/deploy-manage/manage/migrations/"
+  from = "/latest/deploy-manage/manage/migrations/"
   to = "/latest/"
   status = 301
   force = true
