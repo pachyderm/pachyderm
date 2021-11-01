@@ -250,11 +250,12 @@ You are ready to create your instance.
         --admin-user <server_admin_username> \
         --admin-password <server_admin_password> \
         --ssl-enforcement Disabled \
+        --version 11
     ```
 
 !!! Warning
-    Keep the SSL setting `Disabled`.
-
+    - Make sure that your PostgreSQL version is `>= 11`
+    - Keep the SSL setting `Disabled`.
 
 Once created, go back to your newly created database, and: 
 
