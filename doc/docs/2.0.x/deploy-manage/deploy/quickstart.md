@@ -161,7 +161,7 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
     ```
 === "Deploy Pachyderm with Console"
 
-   ```yaml    
+    ```yaml    
     deployTarget: "MICROSOFT"
     pachd:
       storage:
@@ -177,6 +177,8 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
     console:
       enabled: true
     ```
+
+
 
 Jump to [Helm install](#3-helm-install)
 
