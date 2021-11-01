@@ -13,3 +13,4 @@ The following table includes the links to earlier Pachyderm versions.
 | ------- | ---- |
 | 1.9.8 | https://github.com/pachyderm/pachyderm/tree/master/doc/docs/archived/1.9.x|
 |1.10.5|https://github.com/pachyderm/pachyderm/tree/master/doc/docs/archived/1.10.x|
+|1.11.9|https://github.com/pachyderm/pachyderm/tree/master/doc/docs/archived/1.11.x|
