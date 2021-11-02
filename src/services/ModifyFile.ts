@@ -49,13 +49,15 @@ export class ModifyFile {
       onCallObservers.forEach((cb) => cb({requestName: 'modifyFile'}));
       this.stream = this.client.modifyFile(credentialMetadata, (err) => {
         if (err) {
+          reject(err);
           onErrorObservers.forEach((cb) =>
             cb({error: err, requestName: 'modifyFile'}),
           );
-          reject(err);
+          return;
         } else {
+          resolve({});
           onCompleteObservers.forEach((cb) => cb({requestName: 'modifyFile'}));
-          return resolve({});
+          return;
         }
       });
     });
