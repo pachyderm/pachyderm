@@ -76,7 +76,7 @@
   border: 1px solid var(--grey-4);
   background-color:var(--white);
   overflow-y: scroll;
-  height: min-content;
+  height: calc(100% - 0.5rem);
   display: grid;
   grid-template-columns: auto auto;
 }

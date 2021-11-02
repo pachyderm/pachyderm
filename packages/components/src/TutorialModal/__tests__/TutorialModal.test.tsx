@@ -215,7 +215,14 @@ describe('TutorialModal', () => {
 
     click(sizeButton);
     click(sizeButton);
-    task2Checkboxes.forEach((checkbox) => expect(checkbox).toBeChecked());
+
+    const updatedTask2Checkboxes = await findAllByLabelText(
+      'Minimize the overlay and inspect the pipeline and resulting output repo in the DAG',
+    );
+
+    updatedTask2Checkboxes.forEach((checkbox) =>
+      expect(checkbox).toBeChecked(),
+    );
   });
 
   it('should display the current task when minimized', async () => {

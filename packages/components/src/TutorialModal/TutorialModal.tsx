@@ -1,45 +1,69 @@
 import classNames from 'classnames';
-import React, {useCallback, useState} from 'react';
+import React, {useMemo} from 'react';
 
 import {PureCheckbox} from '../Checkbox';
 
 import SideBar from './components/SideBar';
 import TaskListItem from './components/TaskListItem';
+import useTutorialModal from './hooks/useTutorialModal';
 import {Step} from './lib/types';
 import styles from './TutorialModal.module.css';
 
 type TutorialModalProps = {
   steps: Step[];
+  initialStep?: number;
+  iniitalTask?: number;
 };
 
-const TutorialModal: React.FC<TutorialModalProps> = ({steps}) => {
-  const [minimized, setMinimized] = useState(false);
-  const [currentTask, setCurrentTask] = useState(0);
-  const [currentStep, setCurrentStep] = useState(0);
+const TutorialModal: React.FC<TutorialModalProps> = ({
+  steps,
+  initialStep = 0,
+  iniitalTask = 0,
+}) => {
+  const {
+    currentStep,
+    currentTask,
+    displayTaskIndex,
+    displayTaskInstance,
+    handleTaskCompletion,
+    handleNextStep,
+    minimized,
+    nextTaskIndex,
+    setMinimized,
+  } = useTutorialModal(steps, initialStep, iniitalTask);
 
   const classes = classNames(styles.modal, {
     [styles.minimize]: minimized,
     [styles.maximize]: !minimized,
   });
 
-  const handleTaskCompletion = useCallback(
-    (index: number) => {
-      if (currentTask === index) setCurrentTask((prevValue) => prevValue + 1);
-    },
-    [currentTask],
-  );
-
-  const displayTaskIndex = Math.min(
-    currentTask,
-    steps[currentStep].tasks.length - 1,
-  );
-  const currentTaskInstance = steps[currentStep].tasks[displayTaskIndex];
+  const nextTaskInstance = useMemo(() => {
+    if (currentTask === steps[currentStep].tasks.length) {
+      return (
+        <PureCheckbox
+          name="Continue"
+          selected={false}
+          label={'Continue to next step.'}
+        />
+      );
+    } else if (currentTask === 0) {
+      return null;
+    } else {
+      return (
+        <TaskListItem
+          currentTask={currentTask}
+          index={nextTaskIndex}
+          task={steps[currentStep].tasks[nextTaskIndex]}
+        />
+      );
+    }
+  }, [nextTaskIndex, currentTask, currentStep, steps]);
 
   return (
     <>
       <div className={!minimized ? styles.overlay : ''} />
       <div className={classes}>
-        {currentTaskInstance ? (
+        {displayTaskInstance ? (
           <div
             className={classNames(styles.miniTask, {
               [styles.miniTaskOpen]: minimized,
@@ -48,21 +72,15 @@ const TutorialModal: React.FC<TutorialModalProps> = ({steps}) => {
             <TaskListItem
               currentTask={currentTask}
               index={displayTaskIndex}
-              task={currentTaskInstance}
+              task={displayTaskInstance}
             />
-            {displayTaskIndex !== currentTask ? (
-              <PureCheckbox
-                name="Continue"
-                selected={false}
-                label={'Continue to next step.'}
-              />
-            ) : null}
+            {nextTaskInstance}
           </div>
         ) : null}
         <div className={styles.header}>
           <button
             className={styles.button}
-            onClick={() => setCurrentStep((prevValue) => prevValue + 1)}
+            onClick={handleNextStep}
             disabled={
               currentStep === steps.length - 1 ||
               currentTask <= steps[currentStep]?.tasks.length - 1
