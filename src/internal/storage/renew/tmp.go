@@ -31,7 +31,7 @@ func NewTmpComposer(tr track.Tracker, name string) ComposeFunc {
 	if name == "" {
 		panic("must provide non-empty name for tmp ComposeFunc")
 	}
-	prefix := fmt.Sprintf("%s/%s-%s/", TmpTrackerPrefix, name, uuid.NewWithoutDashes())
+	prefix := fmt.Sprintf("%s/%s-%s", TmpTrackerPrefix, name, uuid.NewWithoutDashes())
 	var n int
 	var mu sync.Mutex
 	return func(ctx context.Context, ids []string, ttl time.Duration) (string, error) {
