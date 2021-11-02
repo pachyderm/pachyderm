@@ -42,6 +42,9 @@ func postgresDSN(u URL, password string) string {
 	if password != "" {
 		fields["password"] = password
 	}
+	for k, v := range u.Params {
+		fields[k] = v
+	}
 	var dsnParts []string
 	for k, v := range fields {
 		dsnParts = append(dsnParts, k+"="+v)
