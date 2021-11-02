@@ -149,6 +149,9 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 				})
 				require.NoError(t, err)
 				require.ElementsEqual(t, []string{"expire"}, toExpire)
+
+				runGC(t, tracker)
+				shouldNotExist(t, tracker, "expire")
 			},
 		},
 		{
