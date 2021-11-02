@@ -38,7 +38,7 @@ type Renewer struct {
 }
 
 // NewRenewer returns a renewer renewing objects in tracker with ttl
-func NewRenewer(tracker Tracker, name string, ttl time.Duration) *Renewer {
+func NewRenewer(ctx context.Context, tracker Tracker, name string, ttl time.Duration) *Renewer {
 	if ttl == 0 {
 		panic("must provide non-zero TTL for track.Renewer")
 	}
@@ -50,7 +50,7 @@ func NewRenewer(tracker Tracker, name string, ttl time.Duration) *Renewer {
 		tracker: tracker,
 		ttl:     ttl,
 	}
-	r.r = renew.NewRenewer(context.Background(), ttl, func(ctx context.Context, ttl time.Duration) error {
+	r.r = renew.NewRenewer(ctx, ttl, func(ctx context.Context, ttl time.Duration) error {
 		_, _, err := r.tracker.SetTTLPrefix(ctx, r.id+"/", ttl)
 		return err
 	})

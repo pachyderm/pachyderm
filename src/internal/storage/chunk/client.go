@@ -33,26 +33,21 @@ type trackedClient struct {
 
 // NewClient returns a client which will write to objc, mdstore, and tracker.  Name is used
 // for the set of temporary objects
-func NewClient(store kv.Store, db *sqlx.DB, tr track.Tracker, name string) Client {
-	var renewer *track.Renewer
-	if name != "" {
-		renewer = track.NewRenewer(tr, name, defaultChunkTTL)
-	}
-	c := &trackedClient{
+func NewClient(store kv.Store, db *sqlx.DB, tr track.Tracker, renewer *track.Renewer) Client {
+	return &trackedClient{
 		store:   store,
 		db:      db,
 		tracker: tr,
 		renewer: renewer,
 		ttl:     defaultChunkTTL,
 	}
-	return c
 }
 
 // Create creates a new chunk from metadata and chunkData.
 // It returns the ID for the chunk
 func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byte) (_ ID, retErr error) {
 	if c.renewer == nil {
-		panic("client must be named to create chunks")
+		panic("client must have a renewer to create chunks")
 	}
 	chunkID := Hash(chunkData)
 	var pointsTo []string

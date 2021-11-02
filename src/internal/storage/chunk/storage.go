@@ -55,8 +55,8 @@ func NewStorage(objC obj.Client, memCache kv.GetPut, db *sqlx.DB, tracker track.
 
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
-	// using the empty string for the tmp id to disable the renewer
-	client := NewClient(s.store, s.db, s.tracker, "")
+	// using nil for the renewer to disable renewing
+	client := NewClient(s.store, s.db, s.tracker, nil)
 	return newReader(ctx, client, s.memCache, s.deduper, s.prefetchLimit, dataRefs, opts...)
 }
 
@@ -67,7 +67,7 @@ func (s *Storage) NewWriter(ctx context.Context, name string, cb WriterCallback,
 	if name == "" {
 		panic("name must not be empty")
 	}
-	client := NewClient(s.store, s.db, s.tracker, name)
+	client := NewClient(s.store, s.db, s.tracker, track.NewRenewer(ctx, s.tracker, name, defaultChunkTTL))
 	return newWriter(ctx, client, s.memCache, s.deduper, s.createOpts, cb, opts...)
 }
 
