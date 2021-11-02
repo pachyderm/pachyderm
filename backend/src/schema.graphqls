@@ -365,6 +365,18 @@ input CreatePipelineArgs {
   update: Boolean
 }
 
+input FileFromURL {
+  url: String!
+  path: String!
+}
+
+input PutFilesFromURLsArgs {
+  files: [FileFromURL!]!
+  branch: String!
+  repo: String!
+  projectId: String
+} 
+
 type Log {
   message: String!
   timestamp: Timestamp
@@ -400,4 +412,5 @@ type Mutation {
   exchangeCode(code: String!): Tokens!
   createRepo(args: CreateRepoArgs!): Repo!
   createPipeline(args: CreatePipelineArgs!): Pipeline!
+  putFilesFromURLs(args: PutFilesFromURLsArgs!): String!
 }

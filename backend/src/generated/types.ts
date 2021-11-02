@@ -103,6 +103,11 @@ export type File = {
   type: FileType;
 };
 
+export type FileFromUrl = {
+  url: Scalars['String'];
+  path: Scalars['String'];
+};
+
 export type FileQueryArgs = {
   commitId?: Maybe<Scalars['String']>;
   path?: Maybe<Scalars['String']>;
@@ -223,6 +228,7 @@ export type Mutation = {
   exchangeCode: Tokens;
   createRepo: Repo;
   createPipeline: Pipeline;
+  putFilesFromURLs: Scalars['String'];
 };
 
 export type MutationExchangeCodeArgs = {
@@ -235,6 +241,10 @@ export type MutationCreateRepoArgs = {
 
 export type MutationCreatePipelineArgs = {
   args: CreatePipelineArgs;
+};
+
+export type MutationPutFilesFromUrLsArgs = {
+  args: PutFilesFromUrLsArgs;
 };
 
 export type NodeSelector = {
@@ -362,6 +372,13 @@ export enum ProjectStatus {
   HEALTHY = 'HEALTHY',
   UNHEALTHY = 'UNHEALTHY',
 }
+
+export type PutFilesFromUrLsArgs = {
+  files: Array<FileFromUrl>;
+  branch: Scalars['String'];
+  repo: Scalars['String'];
+  projectId?: Maybe<Scalars['String']>;
+};
 
 export type Query = {
   __typename?: 'Query';
@@ -662,6 +679,7 @@ export type ResolversTypes = ResolversObject<{
   DagQueryArgs: DagQueryArgs;
   File: ResolverTypeWrapper<File>;
   Float: ResolverTypeWrapper<Scalars['Float']>;
+  FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
   FileType: FileType;
   GitInput: ResolverTypeWrapper<GitInput>;
@@ -693,6 +711,7 @@ export type ResolversTypes = ResolversObject<{
   ProjectDetails: ResolverTypeWrapper<ProjectDetails>;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
   ProjectStatus: ProjectStatus;
+  PutFilesFromURLsArgs: PutFilesFromUrLsArgs;
   Query: ResolverTypeWrapper<{}>;
   Repo: ResolverTypeWrapper<Repo>;
   RepoInput: RepoInput;
@@ -724,6 +743,7 @@ export type ResolversParentTypes = ResolversObject<{
   DagQueryArgs: DagQueryArgs;
   File: File;
   Float: Scalars['Float'];
+  FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
   GitInput: GitInput;
   Input: Input;
@@ -746,6 +766,7 @@ export type ResolversParentTypes = ResolversObject<{
   Project: Project;
   ProjectDetails: ProjectDetails;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
+  PutFilesFromURLsArgs: PutFilesFromUrLsArgs;
   Query: {};
   Repo: Repo;
   RepoInput: RepoInput;
@@ -991,6 +1012,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationCreatePipelineArgs, 'args'>
+  >;
+  putFilesFromURLs?: Resolver<
+    ResolversTypes['String'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationPutFilesFromUrLsArgs, 'args'>
   >;
 }>;
 
@@ -1426,6 +1453,15 @@ export type ExchangeCodeMutationVariables = Exact<{
 export type ExchangeCodeMutation = {__typename?: 'Mutation'} & {
   exchangeCode: {__typename?: 'Tokens'} & Pick<Tokens, 'pachToken' | 'idToken'>;
 };
+
+export type PutFilesFromUrLsMutationVariables = Exact<{
+  args: PutFilesFromUrLsArgs;
+}>;
+
+export type PutFilesFromUrLsMutation = {__typename?: 'Mutation'} & Pick<
+  Mutation,
+  'putFilesFromURLs'
+>;
 
 export type GetAccountQueryVariables = Exact<{[key: string]: never}>;
 

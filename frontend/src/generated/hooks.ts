@@ -209,6 +209,54 @@ export type ExchangeCodeMutationOptions = Apollo.BaseMutationOptions<
   Types.ExchangeCodeMutation,
   Types.ExchangeCodeMutationVariables
 >;
+export const PutFilesFromUrLsDocument = gql`
+  mutation putFilesFromURLs($args: PutFilesFromURLsArgs!) {
+    putFilesFromURLs(args: $args)
+  }
+`;
+export type PutFilesFromUrLsMutationFn = Apollo.MutationFunction<
+  Types.PutFilesFromUrLsMutation,
+  Types.PutFilesFromUrLsMutationVariables
+>;
+
+/**
+ * __usePutFilesFromUrLsMutation__
+ *
+ * To run a mutation, you first call `usePutFilesFromUrLsMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `usePutFilesFromUrLsMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [putFilesFromUrLsMutation, { data, loading, error }] = usePutFilesFromUrLsMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function usePutFilesFromUrLsMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.PutFilesFromUrLsMutation,
+    Types.PutFilesFromUrLsMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.PutFilesFromUrLsMutation,
+    Types.PutFilesFromUrLsMutationVariables
+  >(PutFilesFromUrLsDocument, options);
+}
+export type PutFilesFromUrLsMutationHookResult = ReturnType<
+  typeof usePutFilesFromUrLsMutation
+>;
+export type PutFilesFromUrLsMutationResult =
+  Apollo.MutationResult<Types.PutFilesFromUrLsMutation>;
+export type PutFilesFromUrLsMutationOptions = Apollo.BaseMutationOptions<
+  Types.PutFilesFromUrLsMutation,
+  Types.PutFilesFromUrLsMutationVariables
+>;
 export const GetAccountDocument = gql`
   query getAccount {
     account {

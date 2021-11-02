@@ -1,6 +1,6 @@
 import {FileInfo} from '@pachyderm/node-pachyderm';
 
-import {QueryResolvers} from '@dash-backend/generated/types';
+import {MutationResolvers, QueryResolvers} from '@dash-backend/generated/types';
 import {FILE_DOWNLOAD_LIMIT} from '@dash-backend/lib/constants';
 import formatBytes from '@dash-backend/lib/formatBytes';
 import {toGQLFileType} from '@dash-backend/lib/gqlEnumMappers';
@@ -8,6 +8,9 @@ import {toGQLFileType} from '@dash-backend/lib/gqlEnumMappers';
 interface FileResolver {
   Query: {
     files: QueryResolvers['files'];
+  };
+  Mutation: {
+    putFilesFromURLs: MutationResolvers['putFilesFromURLs'];
   };
 }
 
@@ -52,6 +55,25 @@ const fileResolver: FileResolver = {
         sizeDisplay: formatBytes(file.sizeBytes || 0),
         type: toGQLFileType(file.fileType),
       }));
+    },
+  },
+  Mutation: {
+    putFilesFromURLs: async (
+      _field,
+      {args: {branch, files, repo}},
+      {pachClient},
+    ) => {
+      const commit = await pachClient.pfs().startCommit({
+        branch: {name: branch, repo: {name: repo}},
+      });
+
+      const fileClient = pachClient.modifyFile().setCommit(commit);
+      files.forEach((file) => {
+        fileClient.putFileFromURL(file.path, file.url);
+      });
+      await fileClient.end();
+      await pachClient.pfs().finishCommit({commit});
+      return commit.id;
     },
   },
 };

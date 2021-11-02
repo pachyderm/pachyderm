@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import {PUT_FILES_FROM_URLS_MUTATION} from '@dash-frontend/mutations/PutFilesFromURLs';
 import {GET_FILES_QUERY} from '@dash-frontend/queries/GetFilesQuery';
 
-import {executeQuery} from '@dash-backend/testHelpers';
-import {File, FileType} from '@graphqlTypes';
+import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
+import {File, FileType, PutFilesFromUrLsMutation} from '@graphqlTypes';
 
 describe('File Resolver', () => {
   describe('files', () => {
@@ -62,6 +63,57 @@ describe('File Resolver', () => {
       expect(errors?.length).toBe(0);
       expect(files?.length).toEqual(1);
       expect(files?.[0]?.path).toEqual('/cats/kitten.png');
+    });
+  });
+  describe('putFilesFromURLs', () => {
+    it('should put files into the repo from the specified urls', async () => {
+      const {data: files, errors = []} = await executeQuery<{files: File[]}>(
+        GET_FILES_QUERY,
+        {
+          args: {
+            commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
+            path: '/',
+            branchName: 'master',
+            repoName: 'images',
+          },
+        },
+      );
+
+      expect(errors?.length).toBe(0);
+      expect(files?.files.length).toEqual(6);
+
+      const {errors: mutationErrors = []} =
+        await executeMutation<PutFilesFromUrLsMutation>(
+          PUT_FILES_FROM_URLS_MUTATION,
+          {
+            args: {
+              branch: 'master',
+              repo: 'images',
+              files: [
+                {
+                  url: 'https://imgur.com/a/rN7hjOQ',
+                  path: '/puppy.png',
+                },
+              ],
+              projectId: '1',
+            },
+          },
+        );
+      expect(mutationErrors?.length).toBe(0);
+
+      const {data: updatedFiles, errors: updatedErrors = []} =
+        await executeQuery<{
+          files: File[];
+        }>(GET_FILES_QUERY, {
+          args: {
+            commitId: '1',
+            path: '/',
+            branchName: 'master',
+            repoName: 'images',
+          },
+        });
+      expect(updatedErrors.length).toBe(0);
+      expect(updatedFiles?.files.length).toEqual(7);
     });
   });
 });
