@@ -108,7 +108,8 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
       storage:
         google:
           bucket: "bucket_name"
-          cred: "INSERT JSON TO YOUR SERVICE ACCOUNT HERE"
+          cred: |
+            INSERT JSON CONTENT HERE
       externalService:
         enabled: true
     ```
@@ -120,7 +121,8 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
       storage:
         google:
           bucket: "bucket_name"
-          cred: "INSERT JSON TO YOUR SERVICE ACCOUNT HERE"
+          cred: |
+            INSERT JSON CONTENT HERE
       # pachyderm enterprise key
       enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
     console:
