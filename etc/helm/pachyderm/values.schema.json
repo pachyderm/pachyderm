@@ -355,10 +355,19 @@
                 "enabled": {
                     "type": "boolean"
                 },
+                "enterpriseCallbackAddress": {
+                    "type": "string"
+                },
                 "enterpriseLicenseKey": {
                     "type": "string"
                 },
+                "enterpriseRootToken": {
+                    "type": "string"
+                },
                 "enterpriseSecret": {
+                    "type": "string"
+                },
+                "enterpriseServerAddress": {
                     "type": "string"
                 },
                 "externalService": {
@@ -440,6 +449,9 @@
                             "type": "boolean"
                         }
                     }
+                },
+                "registerWithEnterpriseServer": {
+                    "type": "boolean"
                 },
                 "requireCriticalServersOnly": {
                     "type": "boolean"

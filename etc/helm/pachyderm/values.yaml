@@ -226,6 +226,14 @@ pachd:
   oauthClientID: pachd
   oauthClientSecret: ""
   oauthRedirectURI: ""
+  # if registerWithEnterpriseServer == true, pachd cluster will register with an
+  # enterprise server that has an active license
+  registerWithEnterpriseServer: false
+  # only used if registerWithEnterpriseServer == true
+  enterpriseRootToken: ""
+  # only used if registerWithEnterpriseServer == true
+  enterpriseServerAddress: ""
+  enterpriseCallbackAddress: ""
   # Indicates to pachd whether dex is embedded in its process.
   localhostIssuer: "" # "true", "false", or "" (used string as bool doesn't support empty value)
   serviceAccount:
