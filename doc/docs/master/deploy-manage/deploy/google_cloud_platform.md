@@ -258,8 +258,7 @@ Pachyderm will use the same user "postgres" to connect to `pachyderm` as well as
 Once your databases have been created, add the following fields to your Helm values:
 
 !!! Note
-    - Use **Cloud SQL Auth Proxy** To Connect To Your Instance: Find out how to connect to your Cloud SQL instance using the Cloud SQL Auth proxy in [this documentation](https://cloud.google.com/sql/docs/postgres/connect-admin-proxy).
-    - To identify a Cloud SQL instance, you can find the INSTANCE_NAME on the Overview page for your instance in the Google Cloud Console, or by running the following command: 
+    To identify a Cloud SQL instance, you can find the INSTANCE_NAME on the Overview page for your instance in the Google Cloud Console, or by running the following command: 
     `gcloud sql instances describe INSTANCE_NAME`
     For example: myproject:myregion:myinstance.
 
@@ -313,9 +312,6 @@ pachd:
   storage:
     google:
       bucket: "bucket_name"
-      # You can also pass the creds on the command line using helm install --set-file storage.google.cred=creds.json 
-      cred: |
-        INSERT JSON HERE
   serviceAccount:
     additionalAnnotations:
       iam.gke.io/gcp-service-account: <ServiceAccount>

@@ -151,7 +151,7 @@ Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) (Object s
 
 * Create the bucket:
      ```
-     gsutil mb -l ${GCP_REGION}  gs://${BUCKET_NAME}
+     gsutil mb -l ${GCP_REGION}  gs://${BUCKET_NAME} 
      ```
 
 * Check that everything has been set up correctly:
@@ -212,7 +212,7 @@ For production environments, it is **strongly recommended that you disable the b
 
 This section will provide guidance on the configuration settings you will need to: 
 
-- Create a GCP CloudSQL Instance. 
+- Create a GCP CloudSQL Instance.
 - Create **two databases** (`pachyderm` and `dex`).
 - Update your values.yaml to turn off the installation of the bundled postgreSQL and provide your new instance information.
 
@@ -258,8 +258,7 @@ Pachyderm will use the same user "postgres" to connect to `pachyderm` as well as
 Once your databases have been created, add the following fields to your Helm values:
 
 !!! Note
-    - Use **Cloud SQL Auth Proxy** To Connect To Your Instance: Find out how to connect to your Cloud SQL instance using the Cloud SQL Auth proxy in [this documentation](https://cloud.google.com/sql/docs/postgres/connect-admin-proxy).
-    - To identify a Cloud SQL instance, you can find the INSTANCE_NAME on the Overview page for your instance in the Google Cloud Console, or by running the following command: 
+    To identify a Cloud SQL instance, you can find the INSTANCE_NAME on the Overview page for your instance in the Google Cloud Console, or by running the following command: 
     `gcloud sql instances describe INSTANCE_NAME`
     For example: myproject:myregion:myinstance.
 
@@ -276,13 +275,14 @@ cloudsqlAuthProxy:
 
 global:
   postgresql:
-      # The postgresql database host to connect to. Defaults to postgres service in subchart
+    # The postgresql database host to connect to. Defaults to postgres service in subchart
     postgresqlHost: "cloudsql-auth-proxy.default.svc.cluster.local."
     # The postgresql database port to connect to. Defaults to postgres server in subchart
     postgresqlPort: "5432"
     postgresqlSSL: "disable"
     postgresqlUsername: "postgres"
     postgresqlPassword: <InstanceRootPassword>
+
 
 postgresql:
   # turns off the install of the bundled postgres.
@@ -312,9 +312,6 @@ pachd:
   storage:
     google:
       bucket: "bucket_name"
-      # You can also pass the creds on the command line using helm install --set-file storage.google.cred=creds.json 
-      cred: |
-        INSERT JSON HERE
   serviceAccount:
     additionalAnnotations:
       iam.gke.io/gcp-service-account: <ServiceAccount>
