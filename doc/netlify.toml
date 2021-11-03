@@ -78,7 +78,7 @@
 
 [[redirects]]
   from = "/2.0.x-rc/*"
-  to = "/2.0.0/:splat"
+  to = "/2.0.x/:splat"
   status = 301
   force = true
 
