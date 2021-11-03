@@ -27,16 +27,16 @@ type trackedClient struct {
 	store   kv.Store
 	db      *sqlx.DB
 	tracker track.Tracker
-	renewer *track.Renewer
+	renewer *Renewer
 	ttl     time.Duration
 }
 
 // NewClient returns a client which will write to objc, mdstore, and tracker.  Name is used
 // for the set of temporary objects
 func NewClient(store kv.Store, db *sqlx.DB, tr track.Tracker, name string) Client {
-	var renewer *track.Renewer
+	var renewer *Renewer
 	if name != "" {
-		renewer = track.NewRenewer(tr, name, defaultChunkTTL)
+		renewer = NewRenewer(tr, name, defaultChunkTTL)
 	}
 	c := &trackedClient{
 		store:   store,
@@ -89,7 +89,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	}); err != nil {
 		return nil, err
 	}
-	if err := c.renewer.Add(ctx, chunkTID); err != nil {
+	if err := c.renewer.Add(ctx, chunkID); err != nil {
 		return nil, err
 	}
 	if !needUpload {
