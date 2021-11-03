@@ -91,10 +91,8 @@ type ppsMaster struct {
 // pipelines are created/removed.
 func (a *apiServer) master() {
 	m := &ppsMaster{
-		a: a,
-		pcMgr: &pcManager{
-			pcs: make(map[string]*pipelineController),
-		},
+		a:     a,
+		pcMgr: newPcManager(a.env.Config.PPSMaxConcurrentK8sRequests),
 	}
 
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))

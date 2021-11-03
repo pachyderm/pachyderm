@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -53,6 +54,16 @@ func max(is ...int) int {
 type pcManager struct {
 	sync.Mutex
 	pcs map[string]*pipelineController
+	// the limiter intends to guard the k8s API server from being overwhelmed by many concurrent requests
+	// that could arise from many concurrent pipelineController goros.
+	limiter limit.ConcurrencyLimiter
+}
+
+func newPcManager(maxConcurrentK8sRequests int) *pcManager {
+	return &pcManager{
+		pcs:     make(map[string]*pipelineController),
+		limiter: limit.New(maxConcurrentK8sRequests),
+	}
 }
 
 // pipelineController contains all of the relevent current state for a pipeline. It's
@@ -594,6 +605,24 @@ func (pc *pipelineController) setPipelineFailure(ctx context.Context, reason str
 	return pc.setPipelineState(ctx, pps.PipelineState_PIPELINE_FAILURE, reason)
 }
 
+// deletePipelineResources deletes the monitors, k8s RC and k8s services associated with pc's
+// pipeline. It doesn't return a stepError, leaving retry behavior to the caller
+func (pc *pipelineController) deletePipelineResources() (retErr error) {
+	// Cancel any running monitorPipeline call
+	pc.stopPipelineMonitor()
+	// Same for cancelCrashingMonitor
+	pc.stopCrashingPipelineMonitor()
+	return pc.deletePipelineKubeResources()
+}
+
+//============================================================================================
+//
+// The below functions all acquire the counting semaphore lock: the pc.pcMgr.limiter to
+// prevent too many concurrent requests against kubernetes on behalf of different pipelines.
+// The functions below this block should not call the functions above it to avoid deadlocks.
+//
+//============================================================================================
+
 // getRC reads the RC associated with 'pc's pipeline. pc.pipelineInfo must be
 // set already. 'expectation' indicates whether the PPS master expects an RC to
 // exist--if set to 'rcExpected', getRC will restart the pipeline if no RC is
@@ -613,6 +642,9 @@ func (pc *pipelineController) getRC(ctx context.Context, expectation rcExpectati
 		tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
 		tracing.FinishAnySpan(span)
 	}(span)
+
+	pc.pcMgr.limiter.Acquire()
+	defer pc.pcMgr.limiter.Release()
 
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pc.pipeline)
 
@@ -688,6 +720,10 @@ func (pc *pipelineController) getRC(ctx context.Context, expectation rcExpectati
 // called muliple times if the k8s write fails. It may be helpful to think of
 // the rc passed to update() as mutable, while pc.rc is immutable.
 func (pc *pipelineController) updateRC(update func(rc *v1.ReplicationController)) error {
+
+	pc.pcMgr.limiter.Acquire()
+	defer pc.pcMgr.limiter.Release()
+
 	rc := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace)
 
 	newRC := *pc.rc
@@ -703,6 +739,10 @@ func (pc *pipelineController) updateRC(update func(rc *v1.ReplicationController)
 // createPipelineResources creates the RC and any services for pc's pipeline.
 func (pc *pipelineController) createPipelineResources(ctx context.Context) error {
 	log.Infof("PPS master: creating resources for pipeline %q", pc.pipelineInfo.Pipeline.Name)
+
+	pc.pcMgr.limiter.Acquire()
+	defer pc.pcMgr.limiter.Release()
+
 	if err := pc.createWorkerSvcAndRc(ctx, pc.pipelineInfo); err != nil {
 		if errors.As(err, &noValidOptionsErr{}) {
 			// these errors indicate invalid pipelineInfo, don't retry
@@ -716,9 +756,9 @@ func (pc *pipelineController) createPipelineResources(ctx context.Context) error
 	return nil
 }
 
-// deletePipelineResources deletes the RC and services associated with pc's
+// deletePipelineKubeResources deletes the RC and services associated with pc's
 // pipeline. It doesn't return a stepError, leaving retry behavior to the caller
-func (pc *pipelineController) deletePipelineResources() (retErr error) {
+func (pc *pipelineController) deletePipelineKubeResources() (retErr error) {
 	log.Infof("PPS master: deleting resources for pipeline %q", pc.pipeline)
 	span, ctx := tracing.AddSpanToAnyExisting(pc.ctx,
 		"/pps.Master/DeletePipelineResources", "pipeline", pc.pipeline)
@@ -727,10 +767,8 @@ func (pc *pipelineController) deletePipelineResources() (retErr error) {
 		tracing.FinishAnySpan(span)
 	}()
 
-	// Cancel any running monitorPipeline call
-	pc.stopPipelineMonitor()
-	// Same for cancelCrashingMonitor
-	pc.stopCrashingPipelineMonitor()
+	pc.pcMgr.limiter.Acquire()
+	defer pc.pcMgr.limiter.Release()
 
 	kubeClient := pc.env.KubeClient
 	namespace := pc.namespace
