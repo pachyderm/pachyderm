@@ -84,7 +84,7 @@ func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 func Conns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, workerIP ...string) ([]*grpc.ClientConn, error) {
 	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, WorkerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	var result []*grpc.ClientConn
 	for _, kv := range resp.Kvs {
@@ -97,7 +97,7 @@ func Conns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, 
 		conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", wIP, workerGrpcPort),
 			append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		result = append(result, conn)
 	}
@@ -137,14 +137,14 @@ func Clients(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client
 func NewClient(address string) (Client, error) {
 	port, err := strconv.Atoi(os.Getenv(client.PPSWorkerPortEnv))
 	if err != nil {
-		return Client{}, err
+		return Client{}, errors.EnsureStack(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", address, port),
 		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 	if err != nil {
-		return Client{}, err
+		return Client{}, errors.EnsureStack(err)
 	}
 	return newClient(conn), nil
 }

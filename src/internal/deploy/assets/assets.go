@@ -892,21 +892,21 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 				return errors.EnsureStack(err)
 			}
 			if err := encoder.Encode(RoleBinding(opts)); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		} else {
 			if err := encoder.Encode(ClusterRole(opts)); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if err := encoder.Encode(ClusterRoleBinding(opts)); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 		if err := encoder.Encode(workerRole(opts)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := encoder.Encode(workerRoleBinding(opts)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 
@@ -921,18 +921,18 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 	// If we're deploying the enterprise server, use a different service definition with the correct ports.
 	if opts.EnterpriseServer {
 		if err := encoder.Encode(EnterpriseService(opts)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	} else {
 		if err := encoder.Encode(PachdService(opts)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	if err := encoder.Encode(PachdPeerService(opts)); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if err := encoder.Encode(PachdDeployment(opts, objectStoreBackend, hostPath)); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if opts.TLS != nil {
 		if err := WriteTLSSecret(encoder, opts); err != nil {
@@ -979,7 +979,7 @@ func WriteTLSSecret(encoder serde.Encoder, opts *AssetOpts) error {
 			tls.KeyFile:  keyBytes,
 		},
 	}
-	return encoder.Encode(secret)
+	return errors.EnsureStack(encoder.Encode(secret))
 }
 
 // WriteLocalAssets writes assets to a local backend.

@@ -81,12 +81,13 @@ func (c APIClient) InspectRepo(repoName string) (_ *pfs.RepoInfo, retErr error) 
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	return errors.EnsureStack(c.PfsAPIClient.InspectRepo(
+	res, err := c.PfsAPIClient.InspectRepo(
 		c.Ctx(),
 		&pfs.InspectRepoRequest{
 			Repo: NewRepo(repoName),
 		},
-	))
+	)
+	return res, errors.EnsureStack(err)
 }
 
 // ListRepo returns info about user Repos
@@ -142,12 +143,13 @@ func (c APIClient) StartCommit(repoName string, branchName string) (_ *pfs.Commi
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	return errors.EnsureStack(c.PfsAPIClient.StartCommit(
+	res, err := c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
 			Branch: NewBranch(repoName, branchName),
 		},
-	))
+	)
+	return res, errors.EnsureStack(err)
 }
 
 // StartCommitParent begins the process of committing data to a Repo. Once started

@@ -100,9 +100,10 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			t.Parallel()
 			err := emptyWriter(context.Background(), func(rw col.ReadWriteCollection) error {
 				pgrw := rw.(col.PostgresReadWriteCollection)
-				return pgrw.GetByIndex(TestSecondaryIndex, "foo", &col.TestItem{}, col.DefaultOptions(), func(string) error {
+				err := pgrw.GetByIndex(TestSecondaryIndex, "foo", &col.TestItem{}, col.DefaultOptions(), func(string) error {
 					return errors.New("GetByIndex callback should not have been called for an empty collection")
 				})
+				return errors.EnsureStack(err)
 			})
 			require.NoError(t, err)
 			count, err := emptyRead(context.Background()).Count()
@@ -116,7 +117,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			err := defaultWriter(context.Background(), func(rw col.ReadWriteCollection) error {
 				testProto := &col.TestItem{}
 				pgrw := rw.(col.PostgresReadWriteCollection)
-				return pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
+				err := pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
 					require.Equal(t, testProto.ID, key)
 					require.Equal(t, testProto.Value, originalValue)
 					keys = append(keys, key)
@@ -125,6 +126,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 					testProto.Value = ""
 					return nil
 				})
+				return errors.EnsureStack(err)
 			})
 			require.NoError(t, err)
 			require.ElementsEqual(t, keys, idRange(0, defaultCollectionSize))
@@ -136,9 +138,10 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			err := defaultWriter(context.Background(), func(rw col.ReadWriteCollection) error {
 				testProto := &col.TestItem{}
 				pgrw := rw.(col.PostgresReadWriteCollection)
-				return pgrw.GetByIndex(TestSecondaryIndex, changedValue, testProto, col.DefaultOptions(), func(string) error {
+				err := pgrw.GetByIndex(TestSecondaryIndex, changedValue, testProto, col.DefaultOptions(), func(string) error {
 					return errors.New("GetByIndex callback should not have been called for an index value with no rows")
 				})
+				return errors.EnsureStack(err)
 			})
 			require.NoError(t, err)
 			checkDefaultCollection(t, defaultRead, RowDiff{})
@@ -148,9 +151,10 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			t.Parallel()
 			err := defaultWriter(context.Background(), func(rw col.ReadWriteCollection) error {
 				pgrw := rw.(col.PostgresReadWriteCollection)
-				return pgrw.GetByIndex(&col.Index{}, "", &col.TestItem{}, col.DefaultOptions(), func(key string) error {
+				err := pgrw.GetByIndex(&col.Index{}, "", &col.TestItem{}, col.DefaultOptions(), func(key string) error {
 					return errors.New("GetByIndex callback should not have been called when using an invalid index")
 				})
+				return errors.EnsureStack(err)
 			})
 			require.YesError(t, err)
 			require.Matches(t, "Unknown collection index", err.Error())
@@ -165,7 +169,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			err := defaultWriter(context.Background(), func(rw col.ReadWriteCollection) error {
 				testProto := &col.TestItem{}
 				pgrw := rw.(col.PostgresReadWriteCollection)
-				return pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
+				err := pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
 					outerKeys = append(outerKeys, testProto.ID)
 					if err := pgrw.Get(innerID, testProto); err != nil {
 						return err
@@ -176,6 +180,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 					testProto.Value = ""
 					return nil
 				})
+				return errors.EnsureStack(err)
 			})
 			require.NoError(t, err)
 			require.ElementsEqual(t, idRange(0, defaultCollectionSize), outerKeys)

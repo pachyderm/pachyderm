@@ -29,7 +29,8 @@ func (f *RandomFile) Path() string {
 }
 
 func (f *RandomFile) Read(data []byte) (int, error) {
-	return errors.EnsureStack(f.r.Read(data))
+	res, err := f.r.Read(data)
+	return res, errors.EnsureStack(err)
 }
 
 type FileSourceSpec struct {
@@ -156,7 +157,8 @@ type FileSpec struct {
 }
 
 func File(env *Env, spec *FileSpec) (*RandomFile, error) {
-	return errors.EnsureStack(env.FileSource(spec.Source).Next())
+	res, err := env.FileSource(spec.Source).Next()
+	return res, errors.EnsureStack(err)
 }
 
 type SizeSpec struct {

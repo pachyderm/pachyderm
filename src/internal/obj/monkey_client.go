@@ -52,7 +52,7 @@ func (c *monkeyClient) Get(ctx context.Context, path string, w io.Writer) error 
 	if enabled && localRand.Float64() < failProb {
 		return errMsg
 	}
-	return c.c.Get(ctx, path, w)
+	return errors.EnsureStack(c.c.Get(ctx, path, w))
 }
 
 // Put wraps the put operation.
@@ -60,7 +60,7 @@ func (c *monkeyClient) Put(ctx context.Context, path string, r io.Reader) error 
 	if enabled && localRand.Float64() < failProb {
 		return errMsg
 	}
-	return c.c.Put(ctx, path, r)
+	return errors.EnsureStack(c.c.Put(ctx, path, r))
 }
 
 // Delete wraps the delete operation.
@@ -68,7 +68,7 @@ func (c *monkeyClient) Delete(ctx context.Context, path string) error {
 	if enabled && localRand.Float64() < failProb {
 		return errMsg
 	}
-	return c.c.Delete(ctx, path)
+	return errors.EnsureStack(c.c.Delete(ctx, path))
 }
 
 // Walk wraps the walk operation.
@@ -76,7 +76,7 @@ func (c *monkeyClient) Walk(ctx context.Context, dir string, walkFn func(name st
 	if enabled && localRand.Float64() < failProb {
 		return errMsg
 	}
-	return c.c.Walk(ctx, dir, walkFn)
+	return errors.EnsureStack(c.c.Walk(ctx, dir, walkFn))
 }
 
 // Exists wraps the existance check.
@@ -84,7 +84,8 @@ func (c *monkeyClient) Exists(ctx context.Context, path string) (bool, error) {
 	if enabled && localRand.Float64() < failProb {
 		return false, errMsg
 	}
-	return c.c.Exists(ctx, path)
+	res, err := c.c.Exists(ctx, path)
+	return res, errors.EnsureStack(err)
 }
 
 func (c *monkeyClient) BucketURL() ObjectStoreURL {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/prometheus/client_golang/prometheus"
@@ -72,12 +73,13 @@ func (o *tracingObjClient) Put(ctx context.Context, name string, r io.Reader) (r
 	defer func() {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
-	return o.Client.Put(ctx, name, &promutil.CountingReader{
+	err := o.Client.Put(ctx, name, &promutil.CountingReader{
 		Reader: r,
 		// The bytes are written to storage after being read from this reader.  Thus,
 		// they're "bytes written", not "bytes read".
 		Counter: objectBytesWrittenMetrics.WithLabelValues(o.provider),
 	})
+	return errors.EnsureStack(err)
 }
 
 // Get implements the corresponding method in the Client interface
@@ -103,7 +105,7 @@ func (o *tracingObjClient) Delete(ctx context.Context, name string) (retErr erro
 	defer func() {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
-	return o.Client.Delete(ctx, name)
+	return errors.EnsureStack(o.Client.Delete(ctx, name))
 }
 
 // Walk implements the corresponding method in the Client interface
@@ -114,7 +116,7 @@ func (o *tracingObjClient) Walk(ctx context.Context, prefix string, fn func(name
 	defer func() {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
-	return o.Client.Walk(ctx, prefix, fn)
+	return errors.EnsureStack(o.Client.Walk(ctx, prefix, fn))
 }
 
 // Exists implements the corresponding method in the Client interface
@@ -126,5 +128,5 @@ func (o *tracingObjClient) Exists(ctx context.Context, name string) (retVal bool
 		tracing.FinishAnySpan(span, "exists", retVal)
 	}()
 	defer tracing.FinishAnySpan(span)
-	return o.Client.Exists(ctx, name)
+	return errors.EnsureStack(o.Client.Exists(ctx, name))
 }

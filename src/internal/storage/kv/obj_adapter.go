@@ -45,7 +45,8 @@ func (s *objectAdapter) Delete(ctx context.Context, key []byte) error {
 }
 
 func (s *objectAdapter) Exists(ctx context.Context, key []byte) (bool, error) {
-	return errors.EnsureStack(s.objC.Exists(ctx, string(key)))
+	res, err := s.objC.Exists(ctx, string(key))
+	return res, errors.EnsureStack(err)
 }
 
 func (s *objectAdapter) Walk(ctx context.Context, prefix []byte, cb func(key []byte) error) error {

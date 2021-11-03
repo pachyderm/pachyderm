@@ -130,14 +130,14 @@ func validate(client Client, commit *pfs.Commit, files []*file) (retErr error) {
 		}
 		hdr, err := file.Header()
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if strings.HasSuffix(hdr.Name, "/") {
 			return nil
 		}
 		h := pfs.NewHash()
 		if err := file.Content(h); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if !bytes.Equal(files[0].hash, h.Sum(nil)) {
 			return errors.Errorf("file %v's content is incorrect (actual file path: %v)", files[0].name, hdr.Name)
@@ -157,7 +157,7 @@ type validatorClient struct {
 }
 
 func (vc *validatorClient) WithModifyFileClient(ctx context.Context, commit *pfs.Commit, cb func(client.ModifyFile) error) error {
-	return vc.Client.WithModifyFileClient(ctx, commit, func(mf client.ModifyFile) (retErr error) {
+	err := vc.Client.WithModifyFileClient(ctx, commit, func(mf client.ModifyFile) (retErr error) {
 		vmfc := &validatorModifyFileClient{
 			ModifyFile: mf,
 			buffer:     fileset.NewBuffer(),
@@ -172,9 +172,10 @@ func (vc *validatorClient) WithModifyFileClient(ctx context.Context, commit *pfs
 			vc.validator.files = nil
 			w := vc.validator.buffer.Add(p, tag)
 			_, err := io.Copy(w, r)
-			return err
+			return errors.EnsureStack(err)
 		})
 	})
+	return errors.EnsureStack(err)
 }
 
 type validatorModifyFileClient struct {
@@ -186,17 +187,17 @@ type validatorModifyFileClient struct {
 func (vmfc *validatorModifyFileClient) PutFile(path string, r io.Reader, opts ...client.PutFileOption) error {
 	h := pfs.NewHash()
 	if err := vmfc.ModifyFile.PutFile(path, io.TeeReader(r, h), opts...); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	vmfc.buffer.Delete(path, fileset.DefaultFileDatum)
 	w := vmfc.buffer.Add(path, fileset.DefaultFileDatum)
 	_, err := io.Copy(w, bytes.NewReader(h.Sum(nil)))
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (vmfc *validatorModifyFileClient) DeleteFile(path string, opts ...client.DeleteFileOption) error {
 	if err := vmfc.ModifyFile.DeleteFile(path, opts...); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	vmfc.deletes = append(vmfc.deletes, path)
 	vmfc.buffer.Delete(path, fileset.DefaultFileDatum)

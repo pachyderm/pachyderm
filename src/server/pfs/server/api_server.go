@@ -63,16 +63,17 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	var repoInfo pfs.RepoInfo
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.repos.ReadOnly(ctx).List(&repoInfo, col.DefaultOptions(), func(string) error {
+		err := a.driver.repos.ReadOnly(ctx).List(&repoInfo, col.DefaultOptions(), func(string) error {
 			err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
 				Type: auth.ResourceType_REPO,
 				Name: repoInfo.Repo.Name,
 			})
 			if err != nil && !col.IsErrExists(err) {
-				return err
+				return errors.EnsureStack(err)
 			}
 			return nil
 		})
+		return errors.EnsureStack(err)
 	}); err != nil {
 		return nil, err
 	}
@@ -93,7 +94,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.CreateRepo(request)
+		return errors.EnsureStack(txn.CreateRepo(request))
 	}, nil); err != nil {
 		return nil, err
 	}
@@ -149,7 +150,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.DeleteRepo(request)
+		return errors.EnsureStack(txn.DeleteRepo(request))
 	}, nil); err != nil {
 		return nil, err
 	}
@@ -170,9 +171,9 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	commit := &pfs.Commit{}
 	if err = a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		commit, err = txn.StartCommit(request)
-		return err
+		return errors.EnsureStack(err)
 	}, nil); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return commit, nil
 }
@@ -190,7 +191,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.FinishCommit(request)
+		return errors.EnsureStack(txn.FinishCommit(request))
 	}, nil); err != nil {
 		return nil, err
 	}
@@ -220,7 +221,7 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	}(time.Now())
 	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.Number, request.Reverse, request.All, request.OriginKind, func(ci *pfs.CommitInfo) error {
 		sent++
-		return respServer.Send(ci)
+		return errors.EnsureStack(respServer.Send(ci))
 	})
 }
 
@@ -247,7 +248,7 @@ func (a *apiServer) ListCommitSet(request *pfs.ListCommitSetRequest, serv pfs.AP
 	}(time.Now())
 	return a.driver.listCommitSet(serv.Context(), func(commitSetInfo *pfs.CommitSetInfo) error {
 		sent++
-		return serv.Send(commitSetInfo)
+		return errors.EnsureStack(serv.Send(commitSetInfo))
 	})
 }
 
@@ -262,7 +263,7 @@ func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashComm
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.SquashCommitSet(request)
+		return errors.EnsureStack(txn.SquashCommitSet(request))
 	}, nil); err != nil {
 		return nil, err
 	}
@@ -306,7 +307,7 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.CreateBranch(request)
+		return errors.EnsureStack(txn.CreateBranch(request))
 	}, func(txnCtx *txncontext.TransactionContext) (string, error) {
 		if request.Head == nil || request.NewCommitSet {
 			return "", nil
@@ -374,7 +375,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.DeleteBranch(request)
+		return errors.EnsureStack(txn.DeleteBranch(request))
 	}, nil); err != nil {
 		return nil, err
 	}
@@ -400,7 +401,7 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 		}); err != nil {
 			return bytesRead, err
 		}
-		return bytesRead, server.SendAndClose(&types.Empty{})
+		return bytesRead, errors.EnsureStack(server.SendAndClose(&types.Empty{}))
 	})
 }
 
@@ -418,7 +419,7 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			if err == io.EOF {
 				break
 			}
-			return bytesRead, err
+			return bytesRead, errors.EnsureStack(err)
 		}
 		switch mod := msg.Body.(type) {
 		case *pfs.ModifyFileRequest_AddFile:
@@ -471,7 +472,7 @@ func putFileRaw(uw *fileset.UnorderedWriter, path, tag string, src *types.BytesV
 func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
 	url, err := url.Parse(src.URL)
 	if err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 	switch url.Scheme {
 	case "http":
@@ -479,7 +480,7 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 	case "https":
 		resp, err := http.Get(src.URL)
 		if err != nil {
-			return 0, err
+			return 0, errors.EnsureStack(err)
 		} else if resp.StatusCode >= 400 {
 			return 0, errors.Errorf("error retrieving content from %q: %s", src.URL, resp.Status)
 		}
@@ -500,16 +501,17 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 		}
 		if src.Recursive {
 			path := strings.TrimPrefix(url.Object, "/")
-			return 0, objClient.Walk(ctx, path, func(name string) error {
+			err := objClient.Walk(ctx, path, func(name string) error {
 				return miscutil.WithPipe(func(w io.Writer) error {
-					return objClient.Get(ctx, name, w)
+					return errors.EnsureStack(objClient.Get(ctx, name, w))
 				}, func(r io.Reader) error {
 					return uw.Put(filepath.Join(dstPath, strings.TrimPrefix(name, path)), tag, true, r)
 				})
 			})
+			return 0, errors.EnsureStack(err)
 		}
 		return 0, miscutil.WithPipe(func(w io.Writer) error {
-			return objClient.Get(ctx, url.Object, w)
+			return errors.EnsureStack(objClient.Get(ctx, url.Object, w))
 		}, func(r io.Reader) error {
 			return uw.Put(dstPath, tag, true, r)
 		})
@@ -566,10 +568,10 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 		if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
 			n = fileset.SizeFromIndex(file.Index())
 			return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
-				return file.Content(ctx, w, chunk.WithOffsetBytes(request.Offset))
+				return errors.EnsureStack(file.Content(ctx, w, chunk.WithOffsetBytes(request.Offset)))
 			})
 		}); err != nil {
-			return 0, err
+			return 0, errors.EnsureStack(err)
 		}
 		return n, nil
 	})
@@ -591,16 +593,16 @@ func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
 			return nil
 		}
 		if err := miscutil.WithPipe(func(w io.Writer) error {
-			return file.Content(ctx, w)
+			return errors.EnsureStack(file.Content(ctx, w))
 		}, func(r io.Reader) error {
-			return objClient.Put(ctx, filepath.Join(parsedURL.Object, fi.File.Path), r)
+			return errors.EnsureStack(objClient.Put(ctx, filepath.Join(parsedURL.Object, fi.File.Path), r))
 		}); err != nil {
 			return err
 		}
 		bytesWritten += int64(fi.SizeBytes)
 		return nil
 	})
-	return bytesWritten, err
+	return bytesWritten, errors.EnsureStack(err)
 }
 
 func withGetFileWriter(w io.Writer, cb func(io.Writer) error) (int64, error) {
@@ -617,7 +619,7 @@ type getFileWriter struct {
 func (gfw *getFileWriter) Write(data []byte) (int, error) {
 	n, err := gfw.w.Write(data)
 	gfw.bytesWritten += int64(n)
-	return n, err
+	return n, errors.EnsureStack(err)
 }
 
 func getFileTar(ctx context.Context, w io.Writer, src Source) error {
@@ -632,9 +634,9 @@ func getFileTar(ctx context.Context, w io.Writer, src Source) error {
 	if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
 		return fileset.WriteTarEntry(ctx, w, file)
 	}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return tar.NewWriter(w).Close()
+	return errors.EnsureStack(tar.NewWriter(w).Close())
 }
 
 // InspectFile implements the protobuf pfs.InspectFile RPC
@@ -653,7 +655,7 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 	}(time.Now())
 	return a.driver.listFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
 		sent++
-		return server.Send(fi)
+		return errors.EnsureStack(server.Send(fi))
 	})
 }
 
@@ -666,7 +668,7 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 	}(time.Now())
 	return a.driver.walkFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
 		sent++
-		return server.Send(fi)
+		return errors.EnsureStack(server.Send(fi))
 	})
 }
 
@@ -679,7 +681,7 @@ func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_Gl
 	}(time.Now())
 	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
 		sent++
-		return respServer.Send(fi)
+		return errors.EnsureStack(respServer.Send(fi))
 	})
 }
 
@@ -692,10 +694,10 @@ func (a *apiServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFi
 	}(time.Now())
 	return a.driver.diffFile(server.Context(), request.OldFile, request.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
 		sent++
-		return server.Send(&pfs.DiffFileResponse{
+		return errors.EnsureStack(server.Send(&pfs.DiffFileResponse{
 			OldFile: oldFi,
 			NewFile: newFi,
-		})
+		}))
 	})
 }
 
@@ -718,7 +720,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	}(time.Now())
 	if err := a.driver.fsck(fsckServer.Context(), request.Fix, func(resp *pfs.FsckResponse) error {
 		sent++
-		return fsckServer.Send(resp)
+		return errors.EnsureStack(fsckServer.Send(resp))
 	}); err != nil {
 		return err
 	}
@@ -736,9 +738,9 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 	if err != nil {
 		return err
 	}
-	return server.SendAndClose(&pfs.CreateFileSetResponse{
+	return errors.EnsureStack(server.SendAndClose(&pfs.CreateFileSetResponse{
 		FileSetId: fsID.HexString(),
-	})
+	}))
 }
 
 func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
@@ -851,7 +853,7 @@ func (a *apiServer) runLoadTest(pachClient *client.APIClient, branch *pfs.Branch
 	d.KnownFields(true)
 	spec := &pfsload.CommitsSpec{}
 	if err := d.Decode(spec); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return pfsload.Commits(pachClient, branch.Repo.Name, branch.Name, spec, seed)
 }
@@ -957,7 +959,7 @@ fileSources:
 func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 	msg, err := srv.Recv()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	switch x := msg.Body.(type) {
 	case *pfs.ModifyFileRequest_SetCommit:

@@ -299,19 +299,22 @@ func lookExtensions(path, dir string) (string, error) {
 		path = filepath.Join(".", path)
 	}
 	if dir == "" {
-		return errors.EnsureStack(exec.LookPath(path))
+		res, err := exec.LookPath(path)
+		return res, errors.EnsureStack(err)
 	}
 	if filepath.VolumeName(path) != "" {
-		return errors.EnsureStack(exec.LookPath(path))
+		res, err := exec.LookPath(path)
+		return res, errors.EnsureStack(err)
 	}
 	if len(path) > 1 && os.IsPathSeparator(path[0]) {
-		return errors.EnsureStack(exec.LookPath(path))
+		res, err := exec.LookPath(path)
+		return res, errors.EnsureStack(err)
 	}
 	dirandpath := filepath.Join(dir, path)
 	// We assume that LookPath will only add file extension.
 	lp, err := exec.LookPath(dirandpath)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	ext := strings.TrimPrefix(lp, dirandpath)
 	return path + ext, nil

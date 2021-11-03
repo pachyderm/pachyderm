@@ -83,7 +83,7 @@ func WriteEtcdAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend 
 	// claim, and run etcd as a replication controller with a single node.
 	if persistentDiskBackend == LocalBackend {
 		if err := encoder.Encode(EtcdDeployment(opts, hostPath)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	} else if opts.EtcdOpts.Nodes > 0 {
 		// Create a StorageClass, if the user didn't provide one.

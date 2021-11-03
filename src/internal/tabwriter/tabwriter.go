@@ -51,7 +51,8 @@ func (w *Writer) Write(buf []byte) (int, error) {
 		w.lines++
 	}
 	w.lines += bytes.Count(buf, []byte{'\n'})
-	return errors.EnsureStack(w.w.Write(buf))
+	res, err := w.w.Write(buf)
+	return res, errors.EnsureStack(err)
 }
 
 // Flush flushes the underlying tab writer.

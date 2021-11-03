@@ -149,7 +149,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			method, _ := grpc.MethodFromServerStream(stream)
-			return fmt.Errorf("unknown service %v", method)
+			return errors.Errorf("unknown service %v", method)
 		}),
 		grpc.ChainUnaryInterceptor(
 			version_middleware.UnaryServerInterceptor,
@@ -571,7 +571,7 @@ func doFullMode(config interface{}) (retErr error) {
 		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			method, _ := grpc.MethodFromServerStream(stream)
-			return fmt.Errorf("unknown service %v", method)
+			return errors.Errorf("unknown service %v", method)
 		}),
 		grpc.ChainUnaryInterceptor(
 			version_middleware.UnaryServerInterceptor,
@@ -886,7 +886,7 @@ func doFullMode(config interface{}) (retErr error) {
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
 			log.Warnf("s3gateway TLS disabled: %v", err)
-			return server.ListenAndServe()
+			return errors.EnsureStack(server.ListenAndServe())
 		}
 		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
 		// Read TLS cert and key
@@ -895,11 +895,11 @@ func doFullMode(config interface{}) (retErr error) {
 			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
 		}
 		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return server.ListenAndServeTLS(certPath, keyPath)
+		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
 	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		http.Handle("/metrics", promhttp.Handler())
-		return http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil)
+		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil))
 	})
 	return <-errChan
 }

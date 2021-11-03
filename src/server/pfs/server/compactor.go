@@ -144,7 +144,7 @@ func compactionWorker(ctx context.Context, storage *fileset.Storage, etcdClient 
 func serializeCompactionTask(task *CompactionTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -155,7 +155,7 @@ func serializeCompactionTask(task *CompactionTask) (*types.Any, error) {
 func deserializeCompactionTask(taskAny *types.Any) (*CompactionTask, error) {
 	task := &CompactionTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
@@ -163,7 +163,7 @@ func deserializeCompactionTask(taskAny *types.Any) (*CompactionTask, error) {
 func serializeCompactionResult(res *CompactionTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(res)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(res),
@@ -174,7 +174,7 @@ func serializeCompactionResult(res *CompactionTaskResult) (*types.Any, error) {
 func deserializeCompactionResult(any *types.Any) (*CompactionTaskResult, error) {
 	res := &CompactionTaskResult{}
 	if err := types.UnmarshalAny(any, res); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return res, nil
 }

@@ -53,7 +53,7 @@ func (cc *uniformClient) Walk(ctx context.Context, prefix string, fn func(name s
 	defer func() {
 		retErr = errors.EnsureStack(retErr)
 	}()
-	return cc.c.Walk(ctx, prefix, fn)
+	return errors.EnsureStack(cc.c.Walk(ctx, prefix, fn))
 }
 
 func (uc *uniformClient) Exists(ctx context.Context, p string) (_ bool, retErr error) {
