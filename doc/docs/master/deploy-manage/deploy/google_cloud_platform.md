@@ -88,7 +88,7 @@ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-ad
 ```
 
 !!! Note
-    Adding `--scopes storage-rw` to `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` will grant the rw scope to whatever service account is on the cluster, which if you don’t provide it, is the default compute service account for the project which, by default, has Editor permissions. While this is **not recommended in any production settings**, this option can be useful for a quick setup in development. In that scenario, you do not need any service account or additional GCP Bucket permission (see below).
+    Adding `--scopes storage-rw` to `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` will grant the rw scope to whatever service account is on the cluster, which if you don’t provide it, is the default compute service account for the project which has Editor permissions. While this is **not recommended in any production settings**, this option can be useful for a quick setup in development. In that scenario, you do not need any service account or additional GCP Bucket permission (see below).
 
 This might take a few minutes to start up. You can check the status on
 the [GCP Console](https://console.cloud.google.com/compute/instances).
