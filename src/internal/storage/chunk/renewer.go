@@ -1,0 +1,36 @@
+package chunk
+
+import (
+	"context"
+	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+)
+
+type Renewer struct {
+	ss *renew.StringSet
+}
+
+func NewRenewer(tr track.Tracker, name string, ttl time.Duration) *Renewer {
+	renewFunc := func(ctx context.Context, x string, ttl time.Duration) error {
+		_, err := tr.SetTTL(ctx, x, ttl)
+		return err
+	}
+	composeFunc := renew.NewTmpComposer(tr, name)
+	return &Renewer{
+		ss: renew.NewStringSet(context.TODO(), ttl, renewFunc, composeFunc),
+	}
+}
+
+func (r *Renewer) Add(ctx context.Context, id ID) error {
+	return r.ss.Add(ctx, id.TrackerID())
+}
+
+func (r *Renewer) Close() error {
+	return r.ss.Close()
+}
+
+func (r *Renewer) Context() context.Context {
+	return r.ss.Context()
+}

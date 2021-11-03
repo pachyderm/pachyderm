@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
@@ -33,8 +34,8 @@ func TestGC(t *testing.T) {
 		switch {
 		case strings.HasPrefix(tid, TrackerPrefix):
 			return s.NewDeleter()
-		case strings.HasPrefix(tid, track.TmpTrackerPrefix):
-			return track.NewTmpDeleter()
+		case strings.HasPrefix(tid, renew.TmpTrackerPrefix):
+			return renew.NewTmpDeleter()
 		default:
 			return nil
 		}

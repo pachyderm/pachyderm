@@ -27,10 +27,3 @@ func Drop(ctx context.Context, tr Tracker, id string) error {
 	_, err := tr.SetTTL(ctx, id, ExpireNow)
 	return err
 }
-
-// DropPrefix sets all objects with prefix to expire now.
-// It returns the number of objects affected or an error.
-func DropPrefix(ctx context.Context, tr Tracker, prefix string) (int, error) {
-	_, n, err := tr.SetTTLPrefix(ctx, prefix, ExpireNow)
-	return n, err
-}

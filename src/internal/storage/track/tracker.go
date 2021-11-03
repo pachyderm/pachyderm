@@ -38,10 +38,6 @@ type Tracker interface {
 	// It errors with ErrDanglingRef if any of the elements in pointsTo do not exist
 	CreateTx(tx *sqlx.Tx, id string, pointsTo []string, ttl time.Duration) error
 
-	// SetTTLPrefix sets the expiration time to current_time + ttl for all objects with ids starting with prefix.
-	// It returns the number of objects with that prefix.
-	SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, int, error)
-
 	// SetTTL sets the expiration time to current_time + ttl for the specified object
 	SetTTL(ctx context.Context, id string, ttl time.Duration) (time.Time, error)
 
@@ -153,6 +149,9 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 				})
 				require.NoError(t, err)
 				require.ElementsEqual(t, []string{"expire"}, toExpire)
+
+				runGC(t, tracker)
+				shouldNotExist(t, tracker, "expire")
 			},
 		},
 		{
@@ -191,23 +190,6 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 				for i := 0; i < N; i++ {
 					require.Equal(t, 1, runGC(t, tracker))
 				}
-			},
-		},
-		{
-			"SetTTLPrefix",
-			func(t *testing.T, tracker Tracker) {
-				// should not return error on empty prefix
-				_, _, err := tracker.SetTTLPrefix(ctx, "1", time.Hour)
-				require.NoError(t, err)
-
-				// should update the prefix
-				require.NoError(t, Create(ctx, tracker, "1", []string{}, time.Hour))
-				_, err = tracker.GetExpiresAt(ctx, "1")
-				require.NoError(t, err)
-				_, _, err = tracker.SetTTLPrefix(ctx, "1", -time.Hour)
-				require.NoError(t, err)
-				runGC(t, tracker)
-				shouldNotExist(t, tracker, "1")
 			},
 		},
 	}
