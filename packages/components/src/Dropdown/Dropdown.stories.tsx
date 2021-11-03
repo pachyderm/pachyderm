@@ -4,7 +4,6 @@ import {SearchableDropdown} from './Dropdown';
 
 import {DefaultDropdown, DropdownItem} from './';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Dropdown'};
 
 const items: DropdownItem[] = [

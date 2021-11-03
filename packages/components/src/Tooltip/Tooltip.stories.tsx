@@ -2,7 +2,6 @@ import React from 'react';
 
 import Tooltip from './Tooltip';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Tooltip'};
 
 export const Default = () => {
@@ -51,6 +50,7 @@ Additionally its max width is 24.75rem`;
         tooltipText={tooltipText}
         size="extraLarge"
         placement="bottom"
+        showCloseButton
         defaultShow
       >
         <span>Show Extra Large Tooltip</span>

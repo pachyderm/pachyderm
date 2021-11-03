@@ -1,88 +1,11 @@
 import React from 'react';
 
-import {
-  AgBiomeLogoSVG,
-  AmexSVG,
-  ArrowSVG,
-  BillingSVG,
-  BoxSVG,
-  CardsSVG,
-  CheckboxCheckedSVG,
-  CheckboxSVG,
-  CheckmarkSVG,
-  ChevronDownSVG,
-  ChevronRight,
-  CloseSVG,
-  CollaborationSVG,
-  CopySVG,
-  CopyLinkSVG,
-  CubeSVG,
-  DigitalReasoningLogoSVG,
-  DiscoverSVG,
-  DocumentationSVG,
-  DownloadSVG,
-  DrawerElephantSVG,
-  DrawerRingsSVG,
-  ElephantCtaSVG,
-  ElephantHeadExtraLargeSVG,
-  ElephantHeadLargeSVG,
-  ElephantHeadSVG,
-  ElephantSVG,
-  EllipsisSVG,
-  EnlargeSVG,
-  ExclamationErrorSVG,
-  ExitSVG,
-  GeneralFusionLogoSVG,
-  GenericErrorSVG,
-  GithubLogoSVG,
-  GithubWithTextSVG,
-  GoogleLogoSVG,
-  GroupSVG,
-  InfoSVG,
-  KubernetesElephantSVG,
-  LinkSVG,
-  LogMeInLogoSVG,
-  MastercardSVG,
-  MaximizeSVG,
-  MembersFreeSVG,
-  MembersSVG,
-  MinusSVG,
-  OvalSVG,
-  PachydermLogoBaseSVG,
-  PachydermLogoFooterSVG,
-  PachydermLogoSVG,
-  PencilSVG,
-  PipelinesSVG,
-  PlusSVG,
-  ProgressCheckSVG,
-  RectangleSVG,
-  SearchSVG,
-  SectionRectangleSVG,
-  SettingsSVG,
-  SlackLogoSVG,
-  SlackWithTextSVG,
-  SupportSVG,
-  TimesSVG,
-  TrashSVG,
-  TriangleSVG,
-  VisaSVG,
-  WorkspaceSVG,
-  FileAudioSVG,
-  FileCSVSVG,
-  FileDocSVG,
-  FileFolderSVG,
-  FileImageSVG,
-  FileJSONSVG,
-  FileUnknownSVG,
-  FileVideoSVG,
-  ListViewSVG,
-  IconViewSVG,
-  ElephantEmptyState,
-} from '..';
+import * as CompaniesSVG from '../Companies';
+import * as IconsSVG from '../Icons';
+import * as PachydermSVG from '../Pachyderm';
 
 import styles from './SvgStory.module.css';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'SVGs'};
 
 type SVGWrapperProps = {
@@ -103,31 +26,31 @@ export const Companies = () => {
     <div className={styles.base}>
       <div className={styles.grid}>
         <SVGWrapper title="AgBiomeLogoSVG">
-          <AgBiomeLogoSVG />
+          <CompaniesSVG.AgBiomeLogoSVG />
         </SVGWrapper>
         <SVGWrapper title="DigitalReasoningLogoSVG">
-          <DigitalReasoningLogoSVG />
+          <CompaniesSVG.DigitalReasoningLogoSVG />
         </SVGWrapper>
         <SVGWrapper title="GeneralFusionLogoSVG">
-          <GeneralFusionLogoSVG />
+          <CompaniesSVG.GeneralFusionLogoSVG />
         </SVGWrapper>
         <SVGWrapper title="GithubLogoSVG">
-          <GithubLogoSVG width="24" height="24" />
+          <CompaniesSVG.GithubLogoSVG width="24" height="24" />
         </SVGWrapper>
         <SVGWrapper title="GithubWithTextSVG">
-          <GithubWithTextSVG />
+          <CompaniesSVG.GithubWithTextSVG />
         </SVGWrapper>
         <SVGWrapper title="GoogleLogoSVG">
-          <GoogleLogoSVG />
+          <CompaniesSVG.GoogleLogoSVG />
         </SVGWrapper>
         <SVGWrapper title="LogMeInLogoSVG">
-          <LogMeInLogoSVG />
+          <CompaniesSVG.LogMeInLogoSVG />
         </SVGWrapper>
         <SVGWrapper title="SlackLogoSVG">
-          <SlackLogoSVG width="54" height="54" />
+          <CompaniesSVG.SlackLogoSVG width="54" height="54" />
         </SVGWrapper>
         <SVGWrapper title="SlackWithTextSVG">
-          <SlackWithTextSVG />
+          <CompaniesSVG.SlackWithTextSVG />
         </SVGWrapper>
       </div>
     </div>
@@ -138,62 +61,77 @@ export const Pachyderm = () => {
   return (
     <div className={styles.wrapper}>
       <div className={styles.grid}>
+        <SVGWrapper title="BillingTrunkSVG">
+          <PachydermSVG.BillingTrunkSVG viewBox="0 0 589 718" />
+        </SVGWrapper>
         <SVGWrapper title="BoxSVG">
-          <BoxSVG />
+          <PachydermSVG.BoxSVG />
+        </SVGWrapper>
+        <SVGWrapper title="CollaborationSVG">
+          <PachydermSVG.CollaborationSVG />
         </SVGWrapper>
         <SVGWrapper title="CubeSVG">
-          <CubeSVG />
-        </SVGWrapper>
-        <SVGWrapper title="DrawerRingsSVG">
-          <DrawerRingsSVG viewBox="0 0 287 173" />
+          <PachydermSVG.CubeSVG />
         </SVGWrapper>
         <SVGWrapper title="DrawerElephantSVG">
-          <DrawerElephantSVG viewBox="0 0 235 298" />
+          <PachydermSVG.DrawerElephantSVG viewBox="0 0 235 298" />
+        </SVGWrapper>
+        <SVGWrapper title="DrawerRingsSVG">
+          <PachydermSVG.DrawerRingsSVG viewBox="0 0 287 173" />
         </SVGWrapper>
         <SVGWrapper title="ElephantCtaSVG">
-          <ElephantCtaSVG viewBox="0 0 500 625" />
-        </SVGWrapper>
-        <SVGWrapper title="ElephantHeadExtraLargeSVG">
-          <ElephantHeadExtraLargeSVG viewBox="0 0 127 118" />
-        </SVGWrapper>
-        <SVGWrapper title="ElephantHeadLargeSVG">
-          <ElephantHeadLargeSVG viewBox="0 0 127 118" />
-        </SVGWrapper>
-        <SVGWrapper title="ElephantHeadSVG">
-          <ElephantHeadSVG />
-        </SVGWrapper>
-        <SVGWrapper title="ElephantSVG">
-          <ElephantSVG width="641.58" height="588.92" />
-        </SVGWrapper>
-        <SVGWrapper title="GenericErrorSVG">
-          <GenericErrorSVG viewBox="0 0 701 251" />
-        </SVGWrapper>
-        <SVGWrapper title="KubernetesElephantSVG">
-          <KubernetesElephantSVG width="583" height="389" />
-        </SVGWrapper>
-        <SVGWrapper title="MembersFreeSVG">
-          <MembersFreeSVG viewBox="0 0 500 339" />
-        </SVGWrapper>
-        <SVGWrapper title="OvalSVG">
-          <OvalSVG />
-        </SVGWrapper>
-        <SVGWrapper title="PachydermLogoBaseSVG">
-          <PachydermLogoBaseSVG width="451" height="97" />
-        </SVGWrapper>
-        <SVGWrapper title="PachydermLogoFooterSVG">
-          <PachydermLogoFooterSVG viewBox="0 0 100 170" />
-        </SVGWrapper>
-        <SVGWrapper title="PachydermLogoSVG">
-          <PachydermLogoSVG viewBox="0 0 160 32" />
-        </SVGWrapper>
-        <SVGWrapper title="RectangleSVG">
-          <RectangleSVG />
-        </SVGWrapper>
-        <SVGWrapper title="TriangleSVG">
-          <TriangleSVG />
+          <PachydermSVG.ElephantCtaSVG viewBox="0 0 500 625" />
         </SVGWrapper>
         <SVGWrapper title="ElephantEmptyState">
-          <ElephantEmptyState />
+          <PachydermSVG.ElephantEmptyState />
+        </SVGWrapper>
+        <SVGWrapper title="ElephantHeadExtraLargeSVG">
+          <PachydermSVG.ElephantHeadExtraLargeSVG viewBox="0 0 127 118" />
+        </SVGWrapper>
+        <SVGWrapper title="ElephantHeadLargeSVG">
+          <PachydermSVG.ElephantHeadLargeSVG viewBox="0 0 127 118" />
+        </SVGWrapper>
+        <SVGWrapper title="ElephantHeadSVG">
+          <PachydermSVG.ElephantHeadSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ElephantSVG">
+          <PachydermSVG.ElephantSVG width="641.58" height="588.92" />
+        </SVGWrapper>
+        <SVGWrapper title="GenericErrorSVG">
+          <PachydermSVG.GenericErrorSVG viewBox="0 0 701 251" />
+        </SVGWrapper>
+        <SVGWrapper title="KubernetesElephantSVG">
+          <PachydermSVG.KubernetesElephantSVG width="583" height="389" />
+        </SVGWrapper>
+        <SVGWrapper title="MembersFreeSVG">
+          <PachydermSVG.MembersFreeSVG viewBox="0 0 500 339" />
+        </SVGWrapper>
+        <SVGWrapper title="OvalSVG">
+          <PachydermSVG.OvalSVG />
+        </SVGWrapper>
+        <SVGWrapper title="PachydermLogoBaseSVG">
+          <PachydermSVG.PachydermLogoBaseSVG width="451" height="97" />
+        </SVGWrapper>
+        <SVGWrapper title="PachydermLogoFooterSVG">
+          <PachydermSVG.PachydermLogoFooterSVG viewBox="0 0 100 170" />
+        </SVGWrapper>
+        <SVGWrapper title="PachydermLogoSVG">
+          <PachydermSVG.PachydermLogoSVG viewBox="0 0 160 32" />
+        </SVGWrapper>
+        <SVGWrapper title="PipelinesSVG">
+          <PachydermSVG.PipelinesSVG />
+        </SVGWrapper>
+        <SVGWrapper title="RectangleSVG">
+          <PachydermSVG.RectangleSVG />
+        </SVGWrapper>
+        <SVGWrapper title="SectionRectangleSVG">
+          <PachydermSVG.SectionRectangleSVG />
+        </SVGWrapper>
+        <SVGWrapper title="TriangleSVG">
+          <PachydermSVG.TriangleSVG />
+        </SVGWrapper>
+        <SVGWrapper title="WorkspaceSVG">
+          <PachydermSVG.WorkspaceSVG />
         </SVGWrapper>
       </div>
     </div>
@@ -204,155 +142,227 @@ export const UIIcons = () => {
   return (
     <div className={styles.wrapper}>
       <div className={styles.grid}>
-        <SVGWrapper title="AmexSVG">
-          <AmexSVG />
+        <SVGWrapper title="AddCircleSVG">
+          <IconsSVG.AddCircleSVG />
         </SVGWrapper>
-        <SVGWrapper title="ArrowSVG">
-          <ArrowSVG />
+        <SVGWrapper title="ArrowCircleDownSVG">
+          <IconsSVG.ArrowCircleDownSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ArrowCircleLeftSVG">
+          <IconsSVG.ArrowCircleLeftSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ArrowCircleRightSVG">
+          <IconsSVG.ArrowCircleRightSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ArrowCircleUpSVG">
+          <IconsSVG.ArrowCircleUpSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ArrowDownSVG">
+          <IconsSVG.ArrowDownSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ArrowLeftSVG">
+          <IconsSVG.ArrowLeftSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ArrowRightSVG">
+          <IconsSVG.ArrowRightSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ArrowUpSVG">
+          <IconsSVG.ArrowUpSVG />
         </SVGWrapper>
         <SVGWrapper title="BillingSVG">
-          <BillingSVG />
-        </SVGWrapper>
-        <SVGWrapper title="CardsSVG">
-          <CardsSVG width="121" height="18" />
-        </SVGWrapper>
-        <SVGWrapper title="CheckboxSVG">
-          <CheckboxSVG />
+          <IconsSVG.BillingSVG />
         </SVGWrapper>
         <SVGWrapper title="CheckboxCheckedSVG">
-          <CheckboxCheckedSVG />
+          <IconsSVG.CheckboxCheckedSVG />
+        </SVGWrapper>
+        <SVGWrapper title="CheckboxSVG">
+          <IconsSVG.CheckboxSVG />
         </SVGWrapper>
         <SVGWrapper title="CheckmarkSVG">
-          <CheckmarkSVG />
+          <IconsSVG.CheckmarkSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ChevronDoubleLeftSVG">
+          <IconsSVG.ChevronDoubleLeftSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ChevronDoubleRightSVG">
+          <IconsSVG.ChevronDoubleRightSVG />
         </SVGWrapper>
         <SVGWrapper title="ChevronDownSVG">
-          <ChevronDownSVG />
+          <IconsSVG.ChevronDownSVG />
         </SVGWrapper>
-        <SVGWrapper title="ChevronRight">
-          <ChevronRight />
+        <SVGWrapper title="ChevronLeftSVG">
+          <IconsSVG.ChevronLeftSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ChevronRightSVG">
+          <IconsSVG.ChevronRightSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ChevronUpSVG">
+          <IconsSVG.ChevronUpSVG />
+        </SVGWrapper>
+        <SVGWrapper title="CloseCircleSVG">
+          <IconsSVG.CloseCircleSVG />
         </SVGWrapper>
         <SVGWrapper title="CloseSVG">
-          <CloseSVG />
+          <IconsSVG.CloseSVG />
         </SVGWrapper>
-        <SVGWrapper title="CollaborationSVG">
-          <CollaborationSVG />
+        <SVGWrapper title="CodeSVG">
+          <IconsSVG.CodeSVG />
         </SVGWrapper>
         <SVGWrapper title="CopySVG">
-          <CopySVG />
+          <IconsSVG.CopySVG />
         </SVGWrapper>
-        <SVGWrapper title="CopyLinkSVG">
-          <CopyLinkSVG />
+        <SVGWrapper title="DirectionsSVG">
+          <IconsSVG.DirectionsSVG />
         </SVGWrapper>
-        <SVGWrapper title="DiscoverSVG">
-          <DiscoverSVG />
+        <SVGWrapper title="DocumentAddSVG">
+          <IconsSVG.DocumentAddSVG />
         </SVGWrapper>
-        <SVGWrapper title="DocumentationSVG">
-          <DocumentationSVG />
+        <SVGWrapper title="DocumentSVG">
+          <IconsSVG.DocumentSVG />
         </SVGWrapper>
         <SVGWrapper title="DownloadSVG">
-          <DownloadSVG />
+          <IconsSVG.DownloadSVG />
         </SVGWrapper>
-        <SVGWrapper title="EllipsisSVG">
-          <EllipsisSVG />
+        <SVGWrapper title="EditSVG">
+          <IconsSVG.EditSVG />
         </SVGWrapper>
-        <SVGWrapper title="EnlargeSVG">
-          <EnlargeSVG />
+        <SVGWrapper title="ExpandSVG">
+          <IconsSVG.ExpandSVG />
         </SVGWrapper>
-        <SVGWrapper title="ExclamationErrorSVG">
-          <ExclamationErrorSVG />
+        <SVGWrapper title="ExternalLinkSVG">
+          <IconsSVG.ExternalLinkSVG />
         </SVGWrapper>
-        <SVGWrapper title="ExitSVG">
-          <ExitSVG />
-        </SVGWrapper>
-        <SVGWrapper title="GroupSVG">
-          <GroupSVG />
+        <SVGWrapper title="FullscreenSVG">
+          <IconsSVG.FullscreenSVG />
         </SVGWrapper>
         <SVGWrapper title="InfoSVG">
-          <InfoSVG />
+          <IconsSVG.InfoSVG />
         </SVGWrapper>
         <SVGWrapper title="LinkSVG">
-          <LinkSVG />
+          <IconsSVG.LinkSVG />
         </SVGWrapper>
-        <SVGWrapper title="MastercardSVG">
-          <MastercardSVG />
+        <SVGWrapper title="MinimizeSVG">
+          <IconsSVG.MinimizeSVG />
         </SVGWrapper>
-        <SVGWrapper title="MaximizeSVG">
-          <MaximizeSVG width="17" height="17" />
+        <SVGWrapper title="OverflowSVG">
+          <IconsSVG.OverflowSVG />
         </SVGWrapper>
-        <SVGWrapper title="MembersSVG">
-          <MembersSVG />
-        </SVGWrapper>
-        <SVGWrapper title="MinusSVG">
-          <MinusSVG width="20" height="2" />
-        </SVGWrapper>
-        <SVGWrapper title="PencilSVG">
-          <PencilSVG />
-        </SVGWrapper>
-        <SVGWrapper title="PipelinesSVG">
-          <PipelinesSVG />
-        </SVGWrapper>
-        <SVGWrapper title="PlusSVG">
-          <PlusSVG width="14" height="14" />
-        </SVGWrapper>
-        <SVGWrapper title="ProgressCheckSVG">
-          <ProgressCheckSVG
-            viewBox="0 0 18 13"
-            className={styles.progressCheck}
-          />
+        <SVGWrapper title="RotateSVG">
+          <IconsSVG.RotateSVG />
         </SVGWrapper>
         <SVGWrapper title="SearchSVG">
-          <SearchSVG />
-        </SVGWrapper>
-        <SVGWrapper title="SectionRectangleSVG">
-          <SectionRectangleSVG />
+          <IconsSVG.SearchSVG />
         </SVGWrapper>
         <SVGWrapper title="SettingsSVG">
-          <SettingsSVG />
+          <IconsSVG.SettingsSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ShrinkSVG">
+          <IconsSVG.ShrinkSVG />
         </SVGWrapper>
         <SVGWrapper title="SupportSVG">
-          <SupportSVG />
+          <IconsSVG.SupportSVG />
         </SVGWrapper>
-        <SVGWrapper title="TimesSVG">
-          <TimesSVG width="16" height="16" />
+        <SVGWrapper title="TeamsSVG">
+          <IconsSVG.TeamsSVG />
+        </SVGWrapper>
+        <SVGWrapper title="TerminalSVG">
+          <IconsSVG.TerminalSVG />
         </SVGWrapper>
         <SVGWrapper title="TrashSVG">
-          <TrashSVG width="18" height="18" />
+          <IconsSVG.TrashSVG />
         </SVGWrapper>
-        <SVGWrapper title="VisaSVG">
-          <VisaSVG />
+        <SVGWrapper title="UploadSVG">
+          <IconsSVG.UploadSVG />
         </SVGWrapper>
-        <SVGWrapper title="WorkspaceSVG">
-          <WorkspaceSVG />
+        <SVGWrapper title="UserSVG">
+          <IconsSVG.UserSVG />
         </SVGWrapper>
+        <SVGWrapper title="ViewIconSVG">
+          <IconsSVG.ViewIconSVG />
+        </SVGWrapper>
+        <SVGWrapper title="ViewListSVG">
+          <IconsSVG.ViewListSVG />
+        </SVGWrapper>
+        <SVGWrapper title="WorkspacesSVG">
+          <IconsSVG.WorkspacesSVG />
+        </SVGWrapper>
+      </div>
+    </div>
+  );
+};
+
+export const FileIcons = () => {
+  return (
+    <div className={styles.wrapper}>
+      <div className={styles.grid}>
         <SVGWrapper title="FileAudioSVG">
-          <FileAudioSVG />
+          <IconsSVG.FileAudioSVG />
         </SVGWrapper>
         <SVGWrapper title="FileCSVSVG">
-          <FileCSVSVG />
+          <IconsSVG.FileCSVSVG />
         </SVGWrapper>
         <SVGWrapper title="FileDocSVG">
-          <FileDocSVG />
+          <IconsSVG.FileDocSVG />
         </SVGWrapper>
         <SVGWrapper title="FileFolderSVG">
-          <FileFolderSVG />
+          <IconsSVG.FileFolderSVG />
         </SVGWrapper>
         <SVGWrapper title="FileImageSVG">
-          <FileImageSVG />
+          <IconsSVG.FileImageSVG />
         </SVGWrapper>
         <SVGWrapper title="FileJSONSVG">
-          <FileJSONSVG />
+          <IconsSVG.FileJSONSVG />
         </SVGWrapper>
         <SVGWrapper title="FileUnknownSVG">
-          <FileUnknownSVG />
+          <IconsSVG.FileUnknownSVG />
         </SVGWrapper>
         <SVGWrapper title="FileVideoSVG">
-          <FileVideoSVG />
+          <IconsSVG.FileVideoSVG />
         </SVGWrapper>
-        <SVGWrapper title="ListViewSVG">
-          <ListViewSVG />
+      </div>
+    </div>
+  );
+};
+
+export const StatusIcons = () => {
+  return (
+    <div className={styles.wrapper}>
+      <div className={styles.grid}>
+        <SVGWrapper title="StatusBlockedSVG">
+          <IconsSVG.StatusBlockedSVG />
         </SVGWrapper>
-        <SVGWrapper title="IconViewSVG">
-          <IconViewSVG />
+        <SVGWrapper title="StatusCheckmarkSVG">
+          <IconsSVG.StatusCheckmarkSVG />
+        </SVGWrapper>
+        <SVGWrapper title="StatusPausedSVG">
+          <IconsSVG.StatusPausedSVG />
+        </SVGWrapper>
+        <SVGWrapper title="StatusWarningSVG">
+          <IconsSVG.StatusWarningSVG />
+        </SVGWrapper>
+      </div>
+    </div>
+  );
+};
+
+export const BillingIcons = () => {
+  return (
+    <div className={styles.wrapper}>
+      <div className={styles.grid}>
+        <SVGWrapper title="AmexSVG">
+          <IconsSVG.AmexSVG />
+        </SVGWrapper>
+        <SVGWrapper title="CardsSVG">
+          <IconsSVG.CardsSVG width="121" height="18" />
+        </SVGWrapper>
+        <SVGWrapper title="DiscoverSVG">
+          <IconsSVG.DiscoverSVG />
+        </SVGWrapper>
+        <SVGWrapper title="MastercardSVG">
+          <IconsSVG.MastercardSVG />
+        </SVGWrapper>
+        <SVGWrapper title="VisaSVG">
+          <IconsSVG.VisaSVG />
         </SVGWrapper>
       </div>
     </div>

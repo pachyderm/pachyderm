@@ -2,7 +2,7 @@ import classnames from 'classnames';
 import React, {ButtonHTMLAttributes, useRef} from 'react';
 
 import useDropdownButton from 'Dropdown/hooks/useDropdownButton';
-import {ChevronDownSVG} from 'Svg';
+import {ChevronDownSVG, ChevronRightSVG} from 'Svg';
 
 import styles from './DropdownButton.module.css';
 
@@ -46,7 +46,12 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
     >
       <span className={styles.children}>{children}</span>
 
-      {!hideChevron && <ChevronDownSVG aria-hidden className={styles.icon} />}
+      {!hideChevron &&
+        (sideOpen ? (
+          <ChevronRightSVG aria-hidden className={styles.icon} />
+        ) : (
+          <ChevronDownSVG aria-hidden className={styles.icon} />
+        ))}
     </button>
   );
 };

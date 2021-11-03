@@ -6,7 +6,6 @@ import {Label} from '../Label';
 
 import TextArea from './TextArea';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'TextArea'};
 
 interface FormValues {
@@ -61,7 +60,7 @@ export const ValidationError = () => {
   );
 };
 
-export const WithLabel = () => {
+export const ClearableWithLabel = () => {
   const formCtx = useForm<FormValues>();
 
   return (
@@ -71,6 +70,7 @@ export const WithLabel = () => {
         style={{height: '7rem'}}
         name="name"
         placeholder={placeholder}
+        clearable
       />
     </Form>
   );

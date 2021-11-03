@@ -7,7 +7,7 @@ import BootstrapModal, {
 import usePopUp from 'hooks/usePopUp';
 
 import {Button} from './../../Button';
-import {ExitSVG} from './../../Svg';
+import {CloseSVG} from './../../Svg';
 import styles from './FullPageModal.module.css';
 
 export interface FullPageModalProps
@@ -53,7 +53,7 @@ const FullPageModal: React.FC<FullPageModalProps> = ({
             onClick={onHide}
             className={styles.close}
           >
-            <ExitSVG className={styles.icon} />
+            <CloseSVG className={styles.icon} />
           </button>
         )}
       </BootstrapModal.Header>

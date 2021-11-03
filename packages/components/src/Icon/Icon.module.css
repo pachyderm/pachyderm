@@ -1,32 +1,31 @@
 .base {
   display: inline-block;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   line-height: 0.5;
   --icon-shadow: #000000;
 }
 
-.white {
+.white path:last-of-type {
   --icon-color: var(--background-grey);
   fill: var(--background-grey);
 }
 
-.black {
+.black path:last-of-type {
   --icon-color: var(--pachyderm-black);
   fill: var(--pachyderm-black);
 }
 
-.purple {
+.purple path:last-of-type {
   --icon-color: var(--pachyderm-plum);
   fill: var(--pachyderm-plum);
 }
 
-.silver {
+.silver path:last-of-type {
   --icon-color: var(--placeholder-grey);
   fill: var(--placeholder-grey);
 }
 
 .small {
-  width: 12px;
-  height: 12px;
+  transform: scale(calc(2/3));
 }

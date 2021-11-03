@@ -7,7 +7,7 @@
 .input {
   width: 21.0625rem;
   font-size: 0.75rem;
-  padding-left: 1.25rem;
+  padding-left: 2rem;
   padding-right: 0.6875rem;
   border: none;
   font-weight: 600;
@@ -30,7 +30,7 @@
   position: absolute;
   left: 0;
   top: 50%;
-  transform: scale(.7) translateY(calc(-50% - 3px));
+  transform: scale(0.75) translateY(calc(-50% - 3px));
 }
 
 .close {
@@ -48,9 +48,9 @@
 }
 
 .closeIcon {
-  transform: scale(1.25);
+  transform: scale(0.75);
 }
 
-.closeIcon path {
+.closeIcon path:last-of-type {
   fill: var(--placeholder-grey);
 }

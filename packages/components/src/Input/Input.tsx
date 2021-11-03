@@ -6,7 +6,7 @@ import useRHFInputProps from 'hooks/useRHFInputProps';
 
 import useClearableInput from '../hooks/useClearableInput';
 import useFormField from '../hooks/useFormField';
-import {ExitSVG} from '../Svg';
+import {CloseSVG} from '../Svg';
 
 import styles from './Input.module.css';
 
@@ -117,7 +117,7 @@ const Input: React.ForwardRefRenderFunction<HTMLInputElement, InputProps> = (
             aria-label={`Clear ${name} input`}
             type="button"
           >
-            <ExitSVG aria-hidden width={10} height={10} />
+            <CloseSVG aria-hidden />
           </button>
         )}
       </div>

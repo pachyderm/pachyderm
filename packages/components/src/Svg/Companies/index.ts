@@ -1,0 +1,9 @@
+export {ReactComponent as AgBiomeLogoSVG} from './agBiomeLogo.svg';
+export {ReactComponent as DigitalReasoningLogoSVG} from './digitalReasoningLogo.svg';
+export {ReactComponent as GeneralFusionLogoSVG} from './generalFusionLogo.svg';
+export {ReactComponent as GithubLogoSVG} from './githubLogo.svg';
+export {ReactComponent as GithubWithTextSVG} from './GithubWithText.svg';
+export {ReactComponent as GoogleLogoSVG} from './googleLogo.svg';
+export {ReactComponent as LogMeInLogoSVG} from './logMeInLogo.svg';
+export {ReactComponent as SlackLogoSVG} from './slackLogo.svg';
+export {ReactComponent as SlackWithTextSVG} from './SlackWithText.svg';

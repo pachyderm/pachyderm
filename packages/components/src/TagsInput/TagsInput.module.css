@@ -39,13 +39,14 @@
   color: var(--error-red)
 }
 
-.tagError .close {
+.tagError .close path:last-of-type {
   fill: var(--error-red);
 }
 
 .close {
   cursor: pointer;
   margin-left: 0.5rem;
+  transform: scale(0.75);
 }
 
 .inline {

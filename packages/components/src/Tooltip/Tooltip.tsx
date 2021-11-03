@@ -6,7 +6,7 @@ import OverlayTrigger, {
 } from 'react-bootstrap/OverlayTrigger';
 import BootstrapTooltip from 'react-bootstrap/Tooltip';
 
-import {ExitSVG} from '../Svg';
+import {CloseSVG} from '../Svg';
 
 import styles from './Tooltip.module.css';
 
@@ -59,7 +59,7 @@ const Tooltip: React.FC<TooltipProps> = ({
               onClick={onToggle || noop}
               className={styles.close}
             >
-              <ExitSVG className={styles.icon} />
+              <CloseSVG className={styles.icon} />
             </button>
           )}
         </BootstrapTooltip>

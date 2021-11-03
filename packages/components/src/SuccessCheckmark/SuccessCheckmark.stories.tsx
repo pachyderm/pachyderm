@@ -2,7 +2,6 @@ import React, {useEffect, useState} from 'react';
 
 import {SuccessCheckmark} from './';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'SuccessCheckmark'};
 
 export const Default = () => {

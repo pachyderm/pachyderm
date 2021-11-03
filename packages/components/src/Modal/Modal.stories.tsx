@@ -4,7 +4,6 @@ import {Button} from './../Button';
 
 import {BasicModal, useModal, WizardModal, FullPageModal} from './';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Modal'};
 
 export const Default = () => {
@@ -72,7 +71,7 @@ export const ErrorState = () => {
         hideActions
         loading={false}
         actionable
-        errorMessage="Promo has expired on 01/01/2020. Please contact us for new promo."
+        errorMessage="Promo has expired on 01/01/2020."
       >
         This Modal has an error
       </BasicModal>
@@ -110,7 +109,7 @@ export const FullPage = () => {
       <Button autoWidth autoHeight onClick={openModal}>
         Open Modal
       </Button>
-      <FullPageModal show={isOpen} onHide={closeModal}>
+      <FullPageModal show={isOpen} onHide={closeModal} hideType="exit">
         This is a full page modal
       </FullPageModal>
     </>

@@ -10,17 +10,16 @@
   opacity: 0;
 
   /* Match the sizing from the SVG */
-  width: 14px;
-  height: 14px;
-
-  /* adjusting for line-height, flex stretch */
-  top: 7px;
+  width: 20px;
+  height: 20px;
 
   cursor: pointer;
 }
 
 .checkboxContainer {
   align-self: flex-start;
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
 }
 

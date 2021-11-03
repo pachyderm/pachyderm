@@ -117,6 +117,6 @@
 
 .close.sideOpen {
   transform: translate3d(0, 0rem, 0) scaleY(0);
-  animation: slide-left .3s linear;
+  animation: slide-left .1s linear;
 
 }

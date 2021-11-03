@@ -31,7 +31,7 @@
   width: 2rem;
   border-radius: 3px 0 0 3px;
   background-color: var(--success-green);
-  display: flex
+  display: flex;
 }
 
 .iconError {
@@ -43,7 +43,9 @@
 }
 
 .exclamation {
-  color: var(--white);
   margin: auto;
-  font-size: 1.5rem;
+}
+
+.icon path:last-of-type {
+  fill: var(--white);
 }

@@ -6,7 +6,6 @@ import {Label} from '../Label';
 
 import {Input} from './';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Input'};
 
 interface FormValues {
@@ -55,6 +54,16 @@ export const WithLabel = () => {
     <Form formContext={formCtx}>
       <Label htmlFor="name" label="Name" />
       <Input name="name" placeholder="Peter" />
+    </Form>
+  );
+};
+
+export const Clearable = () => {
+  const formCtx = useForm<FormValues>();
+
+  return (
+    <Form formContext={formCtx}>
+      <Input name="name" placeholder="Peter" clearable />
     </Form>
   );
 };

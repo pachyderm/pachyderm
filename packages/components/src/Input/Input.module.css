@@ -32,25 +32,16 @@
 } 
 
 .button {
-  --button-size: 26px;
   border: none;
   background: none;
   position: absolute;
-  height:var(--button-size);
   right: 0.5rem;
-  top: calc((2.85rem - var(--button-size)) / 2);
+  top: calc((2.85rem - 20px) / 2);
 }
 
 .button > svg {
   vertical-align: baseline;
-}
-
-.button > svg > path {
-  transform: scale(0.65);
-}
-
-.button:hover > svg > path {
-  fill: var(--pachyderm-black)
+  transform: scale(0.75);
 }
 
 .button:focus:not([class$='focus-visible']) {

@@ -7,7 +7,6 @@ import {PureCheckbox} from './Checkbox';
 
 import {Checkbox} from './';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Checkbox'};
 
 interface FormValues {

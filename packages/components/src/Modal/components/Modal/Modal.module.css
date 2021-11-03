@@ -41,16 +41,12 @@
   right: -2rem;
 }
 
-.notActionable path {
+.notActionable path:last-of-type {
   fill: var(--white);
 }
 
 .icon {
   cursor: pointer;
-}
-
-.icon:hover path {
-  fill: var(--pachyderm-black);
 }
 
 :global(.modal-backdrop) { /* stylelint-disable-line selector-class-pattern */

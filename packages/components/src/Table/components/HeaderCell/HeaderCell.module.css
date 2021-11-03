@@ -22,7 +22,7 @@
   cursor: pointer;
 }
 
-.selectedColumn > path {
+.selectedColumn > path:last-of-type {
   fill: var(--pachyderm-green);
 }
 

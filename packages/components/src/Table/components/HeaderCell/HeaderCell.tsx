@@ -3,7 +3,7 @@ import noop from 'lodash/noop';
 import React, {ThHTMLAttributes, useMemo} from 'react';
 
 import {Group} from './../../../Group';
-import {ArrowSVG} from './../../../Svg';
+import {ChevronDownSVG} from './../../../Svg';
 import styles from './HeaderCell.module.css';
 
 export interface HeaderCellProps
@@ -66,7 +66,7 @@ const HeaderCell: React.FC<HeaderCellProps> = ({
         >
           <Group spacing={8} align="center">
             {children}
-            <ArrowSVG className={sortClasses} />
+            <ChevronDownSVG className={sortClasses} />
           </Group>
         </button>
       ) : (

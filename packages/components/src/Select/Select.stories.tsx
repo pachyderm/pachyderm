@@ -5,7 +5,6 @@ import {Form} from '../Form';
 
 import {Select} from './';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Select'};
 
 export const Default = () => {

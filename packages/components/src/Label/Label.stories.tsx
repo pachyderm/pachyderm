@@ -6,7 +6,6 @@ import {Input} from '../Input';
 
 import {Label} from './';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Label'};
 
 interface FormValues {

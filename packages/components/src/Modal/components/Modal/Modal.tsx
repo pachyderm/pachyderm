@@ -6,7 +6,7 @@ import BootstrapModal, {
 } from 'react-bootstrap/Modal';
 
 import usePopUp from './../../../hooks/usePopUp';
-import {ExitSVG} from './../../../Svg';
+import {CloseSVG} from './../../../Svg';
 import styles from './Modal.module.css';
 
 export interface ModalProps
@@ -51,7 +51,7 @@ const Modal: React.FC<ModalProps> = ({
           [styles.notActionable]: !actionable,
         })}
       >
-        <ExitSVG className={styles.icon} />
+        <CloseSVG className={styles.icon} />
       </button>
 
       {children}

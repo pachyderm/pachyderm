@@ -7,12 +7,11 @@
 }
 
 .exclamation {
-  position: absolute;
-  transform: scale3d(.6, .6, 0);
-  left: 1.8rem;
-  top: 1.3rem;
+  margin-right: 0.5rem;
 }
 
 .content {
   padding: 0 2.5rem;
+  display: flex;
+  align-items: center;
 }

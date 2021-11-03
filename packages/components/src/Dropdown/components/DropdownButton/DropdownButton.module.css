@@ -17,7 +17,7 @@
   color: var(--pachyderm-plum);
 }
 
-.base:not(:disabled):hover .icon path {
+.base:not(:disabled):hover .icon path:last-of-type {
   fill: var(--pachyderm-plum);
 }
 
@@ -37,21 +37,12 @@
 
 .icon {
   margin-left: 0.25rem;
-  min-width: 0.875rem;
-}
-
-.icon path {
-  fill: var(--pachyderm-black);
 }
 
 .purple {
   color: var(--pachyderm-plum);
 }
 
-.purple .icon path {
+.purple .icon path:last-of-type {
   fill: var(--pachyderm-plum);
-}
-
-.sideOpen .icon {
-  transform: rotate(270deg);
 }

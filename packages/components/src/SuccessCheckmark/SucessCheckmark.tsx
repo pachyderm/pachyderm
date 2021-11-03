@@ -1,7 +1,7 @@
 import classNames from 'classnames';
 import React, {SVGAttributes} from 'react';
 
-import {ProgressCheckSVG} from '../Svg';
+import {CheckmarkSVG} from '../Svg';
 
 import styles from './SuccessCheckmark.module.css';
 
@@ -16,10 +16,7 @@ const SuccessCheckmark: React.FC<SuccessCheckmarkProps> = ({
 }) => {
   return (
     (show && (
-      <ProgressCheckSVG
-        {...rest}
-        className={classNames(styles.base, className)}
-      />
+      <CheckmarkSVG {...rest} className={classNames(styles.base, className)} />
     )) ||
     null
   );

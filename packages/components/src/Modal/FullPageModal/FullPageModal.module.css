@@ -46,7 +46,7 @@
   outline: none;
 }
 
-.notActionable path {
+.notActionable path:last-of-type {
   fill: var(--white);
 }
 
@@ -54,10 +54,6 @@
   cursor: pointer;
 }
 
-.icon path {
-  fill: var(--pachyderm-black);
-}
-
-.icon:hover path {
+.icon:hover path:last-of-type {
   fill: var(--placeholder-grey);
 }

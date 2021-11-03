@@ -2,7 +2,6 @@ import React from 'react';
 
 import Table from './Table';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
 export default {title: 'Table'};
 
 const bruinsPointLeaders = [
@@ -41,8 +40,8 @@ export const StickyHeader = () => {
       <Table>
         <Table.Head>
           <Table.Row sticky>
-            <Table.HeaderCell>Name</Table.HeaderCell>
-            <Table.HeaderCell>Points</Table.HeaderCell>
+            <Table.HeaderCell sortable={true}>Name</Table.HeaderCell>
+            <Table.HeaderCell sortable={true}>Points</Table.HeaderCell>
           </Table.Row>
         </Table.Head>
 
