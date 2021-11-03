@@ -1,4 +1,9 @@
 deployTarget: LOCAL
+
+oidc:
+  mockIDP: true
+  issuerURI: "http://pach-enterprise.enterprise.svc.cluster.local:1658/"
+
 console:
   enabled: false
 enterpriseServer:
@@ -9,4 +14,3 @@ enterpriseServer:
     tag: local
 pachd:
   enabled: false
-
