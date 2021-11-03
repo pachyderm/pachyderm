@@ -68,7 +68,7 @@ func DeletePachdPod(t testing.TB) {
 				)),
 			})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if len(podList.Items) == 0 {
 			return nil
@@ -88,7 +88,7 @@ func DeletePachdPod(t testing.TB) {
 				)),
 			})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if len(podList.Items) == 0 {
 			return errors.Errorf("no pachd pod up yet")
@@ -104,7 +104,7 @@ func DeletePachdPod(t testing.TB) {
 				)),
 			})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if len(podList.Items) == 0 {
 			return errors.Errorf("no pachd pod up yet")
@@ -112,7 +112,7 @@ func DeletePachdPod(t testing.TB) {
 		if podList.Items[0].Status.Phase != v1.PodRunning {
 			return errors.Errorf("pachd not running yet")
 		}
-		return err
+		return nil
 	})
 }
 
@@ -140,7 +140,7 @@ func DeletePipelineRC(t testing.TB, pipeline string) {
 				)),
 			})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if len(rcs.Items) != 0 {
 			return errors.Errorf("RC %q not deleted yet", pipeline)

@@ -127,7 +127,7 @@ func NewDryrunSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error
 		if err := apply(tx); err != nil {
 			return err
 		}
-		return tx.Rollback()
+		return errors.EnsureStack(tx.Rollback())
 	})
 	if err == sql.ErrTxDone {
 		err = nil

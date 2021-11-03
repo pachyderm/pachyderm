@@ -81,12 +81,12 @@ func (c APIClient) InspectRepo(repoName string) (_ *pfs.RepoInfo, retErr error) 
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	return c.PfsAPIClient.InspectRepo(
+	return errors.EnsureStack(c.PfsAPIClient.InspectRepo(
 		c.Ctx(),
 		&pfs.InspectRepoRequest{
 			Repo: NewRepo(repoName),
 		},
-	)
+	))
 }
 
 // ListRepo returns info about user Repos
@@ -142,12 +142,12 @@ func (c APIClient) StartCommit(repoName string, branchName string) (_ *pfs.Commi
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	return c.PfsAPIClient.StartCommit(
+	return errors.EnsureStack(c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
 			Branch: NewBranch(repoName, branchName),
 		},
-	)
+	))
 }
 
 // StartCommitParent begins the process of committing data to a Repo. Once started
@@ -189,7 +189,7 @@ func (c APIClient) FinishCommit(repoName string, branchName string, commitID str
 			Commit: NewCommit(repoName, branchName, commitID),
 		},
 	)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // InspectCommit returns info about a specific Commit.
@@ -214,7 +214,7 @@ func (c APIClient) inspectCommit(repoName string, branchName string, commitID st
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return commitInfo, nil
 }
@@ -375,7 +375,7 @@ func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInf
 	defer cf()
 	client, err := c.PfsAPIClient.InspectCommitSet(ctx, req)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	for {
 		ci, err := client.Recv()
@@ -383,7 +383,7 @@ func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInf
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(ci); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -470,7 +470,7 @@ func (c APIClient) SubscribeCommit(repo *pfs.Repo, branchName string, from strin
 	}
 	client, err := c.PfsAPIClient.SubscribeCommit(c.Ctx(), req)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	for {
 		ci, err := client.Recv()
@@ -478,7 +478,7 @@ func (c APIClient) SubscribeCommit(repo *pfs.Repo, branchName string, from strin
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(ci); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -500,7 +500,7 @@ func (c APIClient) ClearCommit(repoName string, branchName string, commitID stri
 			Commit: NewCommit(repoName, branchName, commitID),
 		},
 	)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // Fsck performs checks on pfs. Errors that are encountered will be passed

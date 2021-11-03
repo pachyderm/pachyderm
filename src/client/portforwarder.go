@@ -46,12 +46,12 @@ func NewPortForwarder(context *config.Context, namespace string) (*PortForwarder
 
 	kubeClientConfig, err := kubeConfig.ClientConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	client, err := kubernetes.NewForConfig(kubeClientConfig)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	core := client.CoreV1()
@@ -88,7 +88,7 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16, select
 		},
 	})
 	if err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 	if len(podList.Items) == 0 {
 		return 0, errors.Errorf("no pods found for app %s", appName)
@@ -106,7 +106,7 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16, select
 
 	transport, upgrader, err := spdy.RoundTripperFor(f.config)
 	if err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", url)
@@ -126,7 +126,7 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16, select
 
 	fw, err := portforward.New(dialer, ports, stopChan, readyChan, ioutil.Discard, f.logger)
 	if err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 
 	errChan := make(chan error, 1)

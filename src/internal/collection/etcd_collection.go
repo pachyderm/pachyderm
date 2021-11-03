@@ -30,7 +30,7 @@ const (
 var (
 	// ErrNotClaimed is an error used to indicate that a different requester beat
 	// the current requester to a key claim.
-	ErrNotClaimed = errors.Errorf("NOT_CLAIMED")
+	ErrNotClaimed = errors.New("NOT_CLAIMED")
 	ttl           = int64(30)
 )
 
@@ -96,10 +96,10 @@ func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Messag
 		readWriteC := c.ReadWrite(stm)
 		if err := readWriteC.Get(key, val); err != nil {
 			if !IsErrNotFound(err) {
-				return err
+				return errors.EnsureStack(err)
 			}
 			claimed = true
-			return readWriteC.PutTTL(key, val, ttl)
+			return errors.EnsureStack(readWriteC.PutTTL(key, val, ttl))
 		}
 		claimed = false
 		return nil
@@ -120,9 +120,9 @@ func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Messag
 				if _, err := NewSTM(claimCtx, c.etcdClient, func(stm STM) error {
 					readWriteC := c.ReadWrite(stm)
 					if err := readWriteC.Get(key, val); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
-					return readWriteC.PutTTL(key, val, ttl)
+					return errors.EnsureStack(readWriteC.PutTTL(key, val, ttl))
 				}); err != nil {
 					cancel()
 					return
@@ -180,10 +180,10 @@ func (c *etcdReadWriteCollection) Get(maybeKey interface{}, val proto.Message) (
 		if IsErrNotFound(err) {
 			return ErrNotFound{Type: c.prefix, Key: key}
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 	c.stm.SetSafePutCheck(c.path(key), reflect.ValueOf(val).Pointer())
-	return proto.Unmarshal([]byte(valStr), val)
+	return errors.EnsureStack(proto.Unmarshal([]byte(valStr), val))
 }
 
 func cloneProtoMsg(original proto.Message) proto.Message {
@@ -213,7 +213,7 @@ func (c *etcdReadWriteCollection) TTL(key string) (int64, error) {
 	if IsErrNotFound(err) {
 		return ttl, ErrNotFound{Type: c.prefix, Key: key}
 	}
-	return ttl, err
+	return ttl, errors.EnsureStack(err)
 }
 
 func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
@@ -257,15 +257,15 @@ func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int6
 			// Put the index even if it already exists, so that watchers may be
 			// notified that the value has been updated.
 			if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 	}
 	bytes, err := proto.Marshal(val)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return c.stm.Put(c.path(key), string(bytes), ttl, ptr)
+	return errors.EnsureStack(c.stm.Put(c.path(key), string(bytes), ttl, ptr))
 }
 
 // Update reads the current value associated with 'key', calls 'f' to update
@@ -320,7 +320,7 @@ func (c *etcdReadWriteCollection) Create(maybeKey interface{}, val proto.Message
 	fullKey := c.path(key)
 	_, err := c.stm.Get(fullKey)
 	if err != nil && !IsErrNotFound(err) {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if err == nil {
 		return ErrExists{Type: c.prefix, Key: key}
@@ -335,7 +335,7 @@ func (c *etcdReadWriteCollection) Delete(maybeKey interface{}) error {
 	}
 	fullKey := c.path(key)
 	if _, err := c.stm.Get(fullKey); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if c.indexes != nil && c.template != nil {
 		val := proto.Clone(c.template)
@@ -399,7 +399,7 @@ func (c *etcdReadOnlyCollection) Get(maybeKey interface{}, val proto.Message) er
 		return ErrNotFound{Type: c.prefix, Key: key}
 	}
 
-	return proto.Unmarshal(resp.Kvs[0].Value, val)
+	return errors.EnsureStack(proto.Unmarshal(resp.Kvs[0].Value, val))
 }
 
 func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(key string) error) error {
@@ -455,7 +455,7 @@ func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func(k
 	}
 	return c.list(c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return f(strings.TrimPrefix(string(kv.Key), c.prefix))
 	})
@@ -474,7 +474,7 @@ func (c *etcdReadOnlyCollection) ListRev(val proto.Message, opts *Options, f fun
 	}
 	return c.list(c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return f(strings.TrimPrefix(string(kv.Key), c.prefix), kv.CreateRevision)
 	})
@@ -537,7 +537,7 @@ func watchF(ctx context.Context, watcher watch.Watcher, f func(e *watch.Event) e
 				return err
 			}
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		}
 	}
 }

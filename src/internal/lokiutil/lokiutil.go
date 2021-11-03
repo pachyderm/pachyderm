@@ -56,7 +56,7 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 		// Unfortunately there's no way to pass ctx to this function.
 		resp, err := c.QueryRange(queryStr, maxLogMessages, from, through, logproto.FORWARD, 0, 0, true)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		nMsgs := 0
 		if err := forEachLine(resp, func(t time.Time, line string) error {
@@ -73,7 +73,7 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 		// check if the context has been cancelled
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		default:
 		}
 	}

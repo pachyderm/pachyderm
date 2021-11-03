@@ -3,5 +3,30 @@ run:
   skip-dirs:
     - cached-deps
 linters:
+  enable:
+    - wrapcheck
   disable:
     - errcheck
+    - deadcode
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - structcheck
+    - typecheck
+    - unused
+    - varcheck
+linters-settings:
+  wrapcheck:
+    ignoreSigs:
+      - github.com/pachyderm/pachyderm/v2/src/internal/errors.Errorf
+      - github.com/pachyderm/pachyderm/v2/src/internal/errors.New
+      - github.com/pachyderm/pachyderm/v2/src/internal/errors.Unwrap
+      - github.com/pachyderm/pachyderm/v2/src/internal/errors.EnsureStack
+      - .Wrap(
+      - .Wrapf(
+      - .WithMessage(
+      - .WithMessagef(
+      - .WithStack(
+    ignorePackageGlobs:
+      - github.com/pachyderm/pachyderm/v2/src/*

@@ -9,6 +9,7 @@ import (
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -111,7 +112,7 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 	dsn := getDSN(dbc)
 	db, err := sqlx.Open("pgx", dsn)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if dbc.maxOpenConns != 0 {
 		db.SetMaxOpenConns(dbc.maxOpenConns)
@@ -135,7 +136,7 @@ func WaitUntilReady(ctx context.Context, log *logrus.Logger, db *sqlx.DB) error 
 		defer cf()
 		if err := db.PingContext(ctx); err != nil {
 			log.Infof("db is not ready: %v", err)
-			return err
+			return errors.EnsureStack(err)
 		}
 		log.Infof("db is ready")
 		return nil

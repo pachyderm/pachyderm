@@ -47,7 +47,7 @@ func NewPool(kubeClient *kube.Clientset, namespace string, serviceName string, p
 		Watch: true,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	pool := &Pool{

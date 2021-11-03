@@ -63,7 +63,7 @@ func (r *PGDumpReader) readHeader() error {
 			if errors.Is(err, io.EOF) {
 				return errors.Errorf("invalid header - missing row inserts")
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if strings.HasPrefix(string(b), "COPY") {
 			done = true
@@ -78,7 +78,7 @@ func (r *PGDumpReader) readFooter() error {
 		b, err := r.rd.ReadBytes('\n')
 		r.Footer = append(r.Footer, b...)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 }

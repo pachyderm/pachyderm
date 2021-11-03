@@ -93,7 +93,7 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
 	if err := v.buffer.WalkAdditive(func(p, tag string, r io.Reader) error {
 		buf := &bytes.Buffer{}
 		if _, err := io.Copy(buf, r); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		files = append(files, &file{
 			name: p,
@@ -103,12 +103,13 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
 	}); err != nil {
 		return err
 	}
-	return client.WaitCommitSet(commit.ID, func(ci *pfs.CommitInfo) error {
+	err := client.WaitCommitSet(commit.ID, func(ci *pfs.CommitInfo) error {
 		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType {
 			return nil
 		}
 		return validate(client, ci.Commit, files)
 	})
+	return errors.EnsureStack(err)
 }
 
 func validate(client Client, commit *pfs.Commit, files []*file) (retErr error) {
@@ -121,7 +122,7 @@ func validate(client Client, commit *pfs.Commit, files []*file) (retErr error) {
 	}()
 	r, err := client.GetFileTAR(client.Ctx(), commit, "**")
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	err = tarutil.Iterate(r, func(file tarutil.File) error {
 		if len(files) == 0 {

@@ -43,7 +43,7 @@ func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier) (*Transacti
 	// check auth once now so that we can refer to it later
 	if authServer != nil {
 		if me, err := authServer.WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil && !auth.IsErrNotActivated(err) {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		} else if err == nil {
 			username = me.Username
 		}
@@ -90,7 +90,7 @@ func (t *TransactionContext) FinishJob(commitInfo *pfs.CommitInfo) {
 // (if all operations complete successfully).  This is used to batch together
 // propagations and dedupe downstream commits in PFS.
 func (t *TransactionContext) PropagateBranch(branch *pfs.Branch) error {
-	return t.PfsPropagater.PropagateBranch(branch)
+	return errors.EnsureStack(t.PfsPropagater.PropagateBranch(branch))
 }
 
 // DeleteBranch removes a branch from the list of branches to propagate, if
@@ -104,22 +104,22 @@ func (t *TransactionContext) DeleteBranch(branch *pfs.Branch) {
 func (t *TransactionContext) Finish() error {
 	if t.PfsPropagater != nil {
 		if err := t.PfsPropagater.Run(); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	if t.PpsPropagater != nil {
 		if err := t.PpsPropagater.Run(); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	if t.PpsJobStopper != nil {
 		if err := t.PpsJobStopper.Run(); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	if t.PpsJobFinisher != nil {
 		if err := t.PpsJobFinisher.Run(); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil

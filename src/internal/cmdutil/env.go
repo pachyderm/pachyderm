@@ -147,7 +147,7 @@ func getDecoderMap(decoders []Decoder) (map[string]string, error) {
 	for _, decoder := range decoders {
 		subEnv, err := decoder.Decode()
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		for key, value := range subEnv {
 			if value != "" {

@@ -6,6 +6,8 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // DLock is a handle to a distributed lock.
@@ -41,12 +43,12 @@ func (d *etcdImpl) Lock(ctx context.Context) (context.Context, error) {
 	// still holds the lock for 60 secs, which is too high.
 	session, err := concurrency.NewSession(d.client, concurrency.WithContext(ctx), concurrency.WithTTL(15))
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	mutex := concurrency.NewMutex(session, d.prefix)
 	if err := mutex.Lock(ctx); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -65,7 +67,7 @@ func (d *etcdImpl) Lock(ctx context.Context) (context.Context, error) {
 
 func (d *etcdImpl) Unlock(ctx context.Context) error {
 	if err := d.mutex.Unlock(ctx); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return d.session.Close()
+	return errors.EnsureStack(d.session.Close())
 }

@@ -71,12 +71,12 @@ func (ppl *proxyPostgresListener) listen(notifier col.Notifier) {
 				Channel: channel,
 			})
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			for {
 				resp, err := listenClient.Recv()
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				ppl.mu.Lock()
 				if ci, ok := ppl.channelInfos[channel]; ok {

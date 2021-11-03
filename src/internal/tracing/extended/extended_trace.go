@@ -97,7 +97,7 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 	)
 	if _, err := col.NewSTM(ctx, c, func(stm col.STM) error {
 		tracesCol := TracesCol(c).ReadWrite(stm)
-		return tracesCol.PutTTL(pipeline, traceProto, int64(duration.Seconds()))
+		return errors.EnsureStack(tracesCol.PutTTL(pipeline, traceProto, int64(duration.Seconds())))
 	}); err != nil {
 		log.Errorf("could not persist extended trace for pipeline %q to etcd: %v",
 			pipeline, err)

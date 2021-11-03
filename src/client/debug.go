@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
 
@@ -18,7 +19,7 @@ func (c APIClient) Profile(profile *debug.Profile, filter *debug.Filter, w io.Wr
 		Filter:  filter,
 	})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return grpcutil.WriteFromStreamingBytesClient(profileC, w)
 }
@@ -30,7 +31,7 @@ func (c APIClient) Binary(filter *debug.Filter, w io.Writer) (retErr error) {
 	}()
 	binaryC, err := c.DebugClient.Binary(c.Ctx(), &debug.BinaryRequest{Filter: filter})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return grpcutil.WriteFromStreamingBytesClient(binaryC, w)
 }
@@ -47,7 +48,7 @@ func (c APIClient) Dump(filter *debug.Filter, limit int64, w io.Writer) (retErr 
 		Limit:  limit,
 	})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return grpcutil.WriteFromStreamingBytesClient(dumpC, w)
 }

@@ -2,7 +2,6 @@ package tls
 
 import (
 	"crypto/tls"
-	"fmt"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -56,7 +55,7 @@ func (l *CertLoader) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, e
 	certPtr := atomic.LoadPointer(&l.cert)
 	cert := (*tls.Certificate)(certPtr)
 	if cert == nil {
-		return nil, fmt.Errorf("no cached TLS certificate available")
+		return nil, errors.Errorf("no cached TLS certificate available")
 	}
 	return cert, nil
 }

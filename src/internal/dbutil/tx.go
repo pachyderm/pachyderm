@@ -3,13 +3,13 @@ package dbutil
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgconn"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
@@ -142,7 +142,7 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 		tx, err := db.BeginTxx(ctx, &c.TxOptions)
 		if err != nil {
 			underlyingTxFinishMetric.WithLabelValues("failed_start").Inc()
-			return err
+			return errors.EnsureStack(err)
 		}
 		return tryTxFunc(tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
@@ -176,7 +176,7 @@ func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) error {
 	}
 	if err := tx.Commit(); err != nil {
 		underlyingTxFinishMetric.WithLabelValues("commit_failed").Inc()
-		return err
+		return errors.EnsureStack(err)
 	}
 	underlyingTxFinishMetric.WithLabelValues("commit_ok").Inc()
 	return nil

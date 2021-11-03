@@ -374,7 +374,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 				options = append(options, WithAdditionalRootCAs(pemBytes))
 				return nil
 			}); err != nil {
-				return nil, err
+				return nil, errors.EnsureStack(err)
 			}
 		}
 	}
@@ -599,7 +599,7 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	clusterInfo, err := client.InspectCluster()
 	if err != nil {
 		if strings.Contains("unknown service admin_v2.API", err.Error()) {
-			return nil, fmt.Errorf("this client is for pachyderm 2.x, but the server has a different version - please install the correct client for your server")
+			return nil, errors.Errorf("this client is for pachyderm 2.x, but the server has a different version - please install the correct client for your server")
 
 		}
 		return nil, errors.Wrap(err, "could not get cluster ID")
@@ -676,7 +676,7 @@ func NewInWorker(options ...Option) (*APIClient, error) {
 // Close the connection to gRPC
 func (c *APIClient) Close() error {
 	if err := c.clientConn.Close(); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	if c.portForwarder != nil {
@@ -808,7 +808,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 
 	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)

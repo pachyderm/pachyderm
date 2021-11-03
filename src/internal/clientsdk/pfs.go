@@ -3,6 +3,7 @@ package clientsdk
 import (
 	"io"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -14,7 +15,7 @@ func ForEachBranchInfo(client pfs.API_ListBranchClient, cb func(*pfs.BranchInfo)
 			if err == io.EOF {
 				break
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
 			if err == pacherr.ErrBreak {
@@ -44,7 +45,7 @@ func ForEachRepoInfo(client pfs.API_ListRepoClient, cb func(*pfs.RepoInfo) error
 			if err == io.EOF {
 				break
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
 			if err == pacherr.ErrBreak {
@@ -74,7 +75,7 @@ func ForEachCommitSet(client pfs.API_ListCommitSetClient, cb func(*pfs.CommitSet
 			if err == io.EOF {
 				break
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
 			if err == pacherr.ErrBreak {
@@ -93,7 +94,7 @@ func ForEachCommit(client pfs.API_ListCommitClient, cb func(*pfs.CommitInfo) err
 			if err == io.EOF {
 				break
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
 			if err == pacherr.ErrBreak {
@@ -123,7 +124,7 @@ func ForEachSubscribeCommit(client pfs.API_SubscribeCommitClient, cb func(*pfs.C
 			if err == io.EOF {
 				break
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
 			if err == pacherr.ErrBreak {

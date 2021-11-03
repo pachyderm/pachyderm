@@ -58,7 +58,7 @@ func (r *readWriter) Read(val proto.Message) error {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	return proto.Unmarshal(buf, val)
+	return errors.EnsureStack(proto.Unmarshal(buf, val))
 }
 
 func (r *readWriter) WriteBytes(bytes []byte) (int64, error) {

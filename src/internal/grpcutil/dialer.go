@@ -4,6 +4,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"google.golang.org/grpc"
 )
@@ -49,7 +50,7 @@ func (d *dialer) Dial(addr string) (*grpc.ClientConn, error) {
 	}
 	conn, err := grpc.Dial(daddr, opts...)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	d.connMap[addr] = conn
 	return conn, nil
@@ -60,7 +61,7 @@ func (d *dialer) CloseConns() error {
 	defer d.lock.Unlock()
 	for addr, conn := range d.connMap {
 		if err := conn.Close(); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		delete(d.connMap, addr)
 	}

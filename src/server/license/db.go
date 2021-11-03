@@ -34,7 +34,7 @@ func AddUserContextsToClustersTable(ctx context.Context, tx *sqlx.Tx) error {
 	ADD COLUMN user_address VARCHAR(4096),
 	ADD COLUMN is_enterprise_server BOOLEAN
 	;`)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // DO NOT MODIFY THIS FUNCTION
@@ -44,5 +44,5 @@ func AddClusterClientIdColumn(ctx context.Context, tx *sqlx.Tx) error {
 	ALTER TABLE license.clusters
 	ADD COLUMN client_id VARCHAR(4096)
 	;`)
-	return err
+	return errors.EnsureStack(err)
 }

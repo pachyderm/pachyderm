@@ -125,7 +125,7 @@ func getWithLimit(c *etcdReadOnlyCollection, key string, limitPtr *int64, opts [
 				atomic.CompareAndSwapInt64(limitPtr, limit, limit/2)
 				continue
 			}
-			return nil, false, err
+			return nil, false, errors.EnsureStack(err)
 		}
 		if len(resp.Kvs) < int(limit) {
 			return resp, true, nil

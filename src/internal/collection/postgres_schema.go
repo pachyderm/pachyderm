@@ -12,7 +12,7 @@ import (
 
 func CreatePostgresSchema(ctx context.Context, sqlTx *sqlx.Tx) error {
 	_, err := sqlTx.ExecContext(ctx, `CREATE SCHEMA collections`)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // DO NOT MODIFY THIS FUNCTION

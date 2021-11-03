@@ -234,7 +234,7 @@ func (c APIClient) inspectJobSet(id string, wait bool, details bool, cb func(*pp
 	}
 	client, err := c.PpsAPIClient.InspectJobSet(ctx, req)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	for {
 		ci, err := client.Recv()
@@ -242,7 +242,7 @@ func (c APIClient) inspectJobSet(id string, wait bool, details bool, cb func(*pp
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(ci); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -492,7 +492,7 @@ func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) 
 	defer cf()
 	client, err := c.PpsAPIClient.ListDatum(ctx, req)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	for {
 		di, err := client.Recv()
@@ -500,7 +500,7 @@ func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) 
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(di); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {

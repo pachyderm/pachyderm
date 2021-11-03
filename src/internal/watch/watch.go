@@ -79,7 +79,7 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 	getOptions := []etcd.OpOption{etcd.WithPrefix(), etcd.WithSort(options.SortTarget, options.SortOrder)}
 	resp, err := client.Get(ctx, prefix, getOptions...)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	nextRevision := resp.Header.Revision + 1
@@ -136,7 +136,7 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 			}
 			if !ok {
 				if err := internalWatcher.Close(); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				// use new "nextRevision"
 				internalWatcher = etcd.NewWatcher(client)
@@ -144,7 +144,7 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 				continue
 			}
 			if err := resp.Err(); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			for _, etcdEv := range resp.Events {
 				ev := &Event{

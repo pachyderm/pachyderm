@@ -90,7 +90,7 @@ func basicTest(c obj.Client) error {
 	name := "0"
 	// Confirm that an existence check and deletion for a non-existent object works correctly.
 	if exists, err := c.Exists(ctx, name); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	} else if !exists {
 		return errors.Errorf("existence check returns true when the object should not exist")
 	}
@@ -125,11 +125,11 @@ func basicTest(c obj.Client) error {
 	// Walk the objects and for each check the existence and delete it.
 	if err := walk(ctx, c, 5, func(name string) error {
 		if exists, err := c.Exists(ctx, name); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		} else if !exists {
 			return errors.Errorf("existence check returns false when the object should exist")
 		}
-		return c.Delete(ctx, name)
+		return errors.EnsureStack(c.Delete(ctx, name))
 	}); err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func basicTest(c obj.Client) error {
 		return err
 	}
 	if err := c.Delete(ctx, "zero"); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	// Confirm that no objects exist after deletion.
 	return walk(ctx, c, 0, nil)
@@ -157,7 +157,7 @@ func walk(ctx context.Context, c obj.Client, expected int, f func(string) error)
 		}
 		return nil
 	}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if objCount != expected {
 		return errors.Errorf("walk should have returned %v objects, not %v", expected, objCount)
@@ -166,13 +166,13 @@ func walk(ctx context.Context, c obj.Client, expected int, f func(string) error)
 }
 
 func writeObject(ctx context.Context, c obj.Client, name string, data []byte) (retErr error) {
-	return c.Put(ctx, name, bytes.NewReader(data))
+	return errors.EnsureStack(c.Put(ctx, name, bytes.NewReader(data)))
 }
 
 func readObject(ctx context.Context, c obj.Client, name string, p []byte) (retErr error) {
 	buf := &bytes.Buffer{}
 	if err := c.Get(ctx, name, buf); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	copy(p, buf.Bytes())
 	return nil
@@ -211,8 +211,8 @@ func loadTest(c obj.Client) error {
 			if !bytes.Equal(data, buf) {
 				return errors.Errorf("data written does not equal data read for object %v", i)
 			}
-			return c.Delete(ctx, name)
+			return errors.EnsureStack(c.Delete(ctx, name))
 		})
 	}
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }

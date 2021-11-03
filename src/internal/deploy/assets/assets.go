@@ -811,7 +811,7 @@ func WriteSecret(encoder serde.Encoder, data map[string][]byte, opts *AssetOpts)
 		ObjectMeta: objectMeta(client.StorageSecretName, labels(client.StorageSecretName), nil, opts.Namespace),
 		Data:       data,
 	}
-	return encoder.Encode(secret)
+	return errors.EnsureStack(encoder.Encode(secret))
 }
 
 // LocalSecret creates an empty secret.
@@ -881,7 +881,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 
 	for _, sa := range ServiceAccounts(opts) {
 		if err := encoder.Encode(sa); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	// Don't apply the cluster role binding for the enterprise server,
@@ -889,7 +889,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 	if !opts.NoRBAC && !opts.EnterpriseServer {
 		if opts.LocalRoles {
 			if err := encoder.Encode(Role(opts)); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if err := encoder.Encode(RoleBinding(opts)); err != nil {
 				return err
