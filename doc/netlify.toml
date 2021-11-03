@@ -77,6 +77,12 @@
   force = true
 
 [[redirects]]
+  from = "/2.0.x-rc/*"
+  to = "/2.0.0/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "https://docs.pachyderm.io/*"
   to = "https://docs.pachyderm.com/:splat"
   status = 301
