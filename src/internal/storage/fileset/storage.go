@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"golang.org/x/sync/semaphore"
 )
@@ -297,14 +298,14 @@ func (s *Storage) GC(ctx context.Context) error {
 
 func (s *Storage) newGC() *track.GarbageCollector {
 	const period = 10 * time.Second
-	tmpDeleter := track.NewTmpDeleter()
+	tmpDeleter := renew.NewTmpDeleter()
 	chunkDeleter := s.chunks.NewDeleter()
 	filesetDeleter := &deleter{
 		store: s.store,
 	}
 	mux := track.DeleterMux(func(id string) track.Deleter {
 		switch {
-		case strings.HasPrefix(id, track.TmpTrackerPrefix):
+		case strings.HasPrefix(id, renew.TmpTrackerPrefix):
 			return tmpDeleter
 		case strings.HasPrefix(id, chunk.TrackerPrefix):
 			return chunkDeleter
