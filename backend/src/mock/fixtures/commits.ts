@@ -170,6 +170,7 @@ const customerTeam = [
 const commits: {[projectId: string]: CommitInfo[]} = {
   '1': tutorial,
   '2': customerTeam,
+  '3': tutorial,
   default: [...tutorial],
   '7': [],
 };

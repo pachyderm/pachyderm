@@ -133,8 +133,18 @@ type InputPipeline {
 }
 
 type Branch {
-  id: ID!
   name: ID!
+  repo: RepoInfo
+}
+
+type BranchInfo {
+  branch: Branch
+  head: Commit
+}
+
+type RepoInfo {
+  name: String
+  type: String
 }
 
 type Commit {
@@ -298,6 +308,11 @@ input PipelineQueryArgs {
   id: ID!
 }
 
+input BranchQueryArgs {
+  projectId: String!
+  branch: BranchInput!
+}
+
 input RepoQueryArgs {
   projectId: String!
   id: ID!
@@ -365,6 +380,23 @@ input CreatePipelineArgs {
   update: Boolean
 }
 
+input CommitInput {
+  id: ID!
+}
+
+input BranchInput {
+  name: ID!
+  repo: RepoInput!
+}
+
+input CreateBranchArgs {
+  head: CommitInput
+  branch: BranchInput
+  provenance: [BranchInput!]
+  newCommitSet: Boolean
+  projectId: String!
+}
+
 input FileFromURL {
   url: String!
   path: String!
@@ -400,6 +432,7 @@ type Query {
   jobSets(args: JobSetsQueryArgs!): [JobSet!]!
   workspaceLogs(args: WorkspaceLogsArgs!): [Log]!
   logs(args: LogsArgs!): [Log]!
+  branch(args: BranchQueryArgs!): Branch!
 }
 
 type Subscription {
@@ -412,5 +445,6 @@ type Mutation {
   exchangeCode(code: String!): Tokens!
   createRepo(args: CreateRepoArgs!): Repo!
   createPipeline(args: CreatePipelineArgs!): Pipeline!
+  createBranch(args: CreateBranchArgs!): Branch!
   putFilesFromURLs(args: PutFilesFromURLsArgs!): String!
 }

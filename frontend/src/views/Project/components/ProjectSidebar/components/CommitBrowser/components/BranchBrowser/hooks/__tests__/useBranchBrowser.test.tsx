@@ -8,10 +8,10 @@ import useBranchBrowser from '../useBranchBrowser';
 const BranchBrowserComponent: React.FC = withContextProviders(() => {
   const {dropdownItems} = useBranchBrowser({
     branches: [
-      {id: 'master', name: 'master'},
-      {id: 'develop', name: 'develop'},
-      {id: 'feature', name: 'feature'},
-      {id: 'alpha', name: 'alpha'},
+      {name: 'master'},
+      {name: 'develop'},
+      {name: 'feature'},
+      {name: 'alpha'},
     ],
   });
   const items = dropdownItems.map((item) => item.value).join('-');

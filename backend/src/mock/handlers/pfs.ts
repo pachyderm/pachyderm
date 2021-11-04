@@ -10,6 +10,7 @@ import {
   RepoInfo,
   Branch,
   Repo,
+  BranchInfo,
   ModifyFileRequest,
   Commit,
   FileType,
@@ -64,6 +65,8 @@ const pfs = () => {
       | 'listFile'
       | 'createRepo'
       | 'getFile'
+      | 'createBranch'
+      | 'inspectBranch'
       | 'modifyFile'
       | 'startCommit'
       | 'finishCommit'
@@ -202,6 +205,118 @@ const pfs = () => {
             }
           }
           callback(null, new Empty());
+        },
+        inspectBranch: (call, callback) => {
+          const [projectId] = call.metadata.get('project-id');
+          const requestBranch = call.request.getBranch();
+          const projectRepos = repos[projectId.toString()];
+          if (!projectRepos) {
+            callback({
+              code: Status.NOT_FOUND,
+              details: `project ${projectId.toString()} does not exist`,
+            });
+            return;
+          }
+          const repo = projectRepos.find(
+            (repo) =>
+              repo.getRepo()?.getName() === requestBranch?.getRepo()?.getName(),
+          );
+          if (!repo) {
+            callback({
+              code: Status.NOT_FOUND,
+              details: `repo ${
+                requestBranch?.getRepo()?.getName
+              } does not exist`,
+            });
+            return;
+          }
+          const branch = repo
+            .getBranchesList()
+            .find((branch) => branch.getName() === requestBranch?.getName());
+          if (!repo) {
+            callback({
+              code: Status.NOT_FOUND,
+              details: `branch ${requestBranch?.getName()} does not exist`,
+            });
+            return;
+          }
+          const projectCommits = commits[projectId.toString()] || [];
+          const head = projectCommits.find(
+            (commitInfo) =>
+              commitInfo.getCommit()?.getBranch()?.getName() ===
+              requestBranch?.getName(),
+          );
+          const branchInfo = new BranchInfo()
+            .setBranch(branch)
+            .setHead(head?.getCommit());
+          callback(null, branchInfo);
+        },
+        createBranch: (call, callback) => {
+          try {
+            const [projectId] = call.metadata.get('project-id');
+            const requestBranch = call.request.getBranch();
+            if (requestBranch) {
+              const branchName = requestBranch.getName();
+              const repoName = requestBranch.getRepo()?.getName();
+              const projectRepos = repos[projectId.toString()];
+              if (!projectRepos) {
+                callback({
+                  code: Status.NOT_FOUND,
+                  details: `project ${projectId.toString()} does not exist`,
+                });
+                return;
+              }
+              const repo = projectRepos.find(
+                (repoInfo) => repoInfo.getRepo()?.getName() === repoName,
+              );
+              if (!repo) {
+                callback({
+                  code: Status.NOT_FOUND,
+                  details: `repo ${repoName} does not exist`,
+                });
+              }
+              const branches = repo?.getBranchesList();
+
+              if (call.request.getHead()) {
+                const commitIndex = commits[projectId.toString()].findIndex(
+                  (commit) =>
+                    commit.getCommit()?.getId() ===
+                    call.request.getHead()?.getId(),
+                );
+                if (commitIndex === -1) {
+                  callback({
+                    code: Status.NOT_FOUND,
+                    details: `commit ${call.request
+                      .getHead()
+                      ?.getId()} does not exist`,
+                  });
+                  return;
+                }
+                commits[projectId.toString()] = commits[
+                  projectId.toString()
+                ].filter((commit, index) => {
+                  return (
+                    commit.getCommit()?.getBranch()?.getName() !== branchName ||
+                    index >= commitIndex
+                  );
+                });
+              }
+              const existingBranch = branches?.find(
+                (b) => b.getName() === branchName,
+              );
+              if (!existingBranch) {
+                branches?.push(
+                  new Branch()
+                    .setName(branchName || '')
+                    .setRepo(call.request.getBranch()?.getRepo()),
+                );
+              }
+            }
+
+            callback(null, new Empty());
+          } catch (e) {
+            console.error(e);
+          }
         },
         modifyFile: (call, callback) => {
           const [projectId] = call.metadata.get('project-id');

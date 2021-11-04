@@ -4,13 +4,11 @@ export const GET_REPO_QUERY = gql`
   query repo($args: RepoQueryArgs!) {
     repo(args: $args) {
       branches {
-        id
         name
       }
       commits {
         repoName
         branch {
-          id
           name
         }
         originKind

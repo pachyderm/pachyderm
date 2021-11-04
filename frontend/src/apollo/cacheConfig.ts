@@ -20,6 +20,9 @@ const cacheConfig: InMemoryCacheConfig = {
     Commit: {
       keyFields: ['id', 'repoName'],
     },
+    Branch: {
+      keyFields: ['name'],
+    },
   },
 };
 

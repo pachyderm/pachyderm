@@ -4,6 +4,7 @@ import authenticated from '@dash-backend/middleware/authenticated';
 import {Resolvers} from '@graphqlTypes';
 
 import authResolver from './Auth';
+import branchResolver from './Branch';
 import dagResolver from './Dag';
 import fileResolver from './File';
 import jobResolver from './Job';
@@ -23,6 +24,7 @@ const resolvers: Resolvers = merge(
   jobResolver,
   searchResolver,
   pipelineResolver,
+  branchResolver,
   {},
 );
 

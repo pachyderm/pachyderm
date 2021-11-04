@@ -139,10 +139,10 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
   };
 };
 
-const branchInfoToGQLBranch = (branch: Branch.AsObject): GQLBranch => {
+export const branchInfoToGQLBranch = (branch: Branch.AsObject): GQLBranch => {
   return {
-    id: branch.name,
     name: branch.name,
+    repo: (branch.repo && {name: branch.repo?.name}) || undefined,
   };
 };
 

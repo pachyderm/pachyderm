@@ -30,7 +30,7 @@ const useBranchBrowser = ({branches = []}: useBranchBrowserOpts = {}) => {
       {id: 'master', value: 'master', content: 'master', closeOnClick: true},
       ...branches
         .map((branch) => ({
-          id: branch.id,
+          id: branch.name,
           value: branch.name,
           content: branch.name,
           closeOnClick: true,

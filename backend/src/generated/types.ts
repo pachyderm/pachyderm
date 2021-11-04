@@ -42,8 +42,24 @@ export type AuthConfig = {
 
 export type Branch = {
   __typename?: 'Branch';
-  id: Scalars['ID'];
   name: Scalars['ID'];
+  repo?: Maybe<RepoInfo>;
+};
+
+export type BranchInfo = {
+  __typename?: 'BranchInfo';
+  branch?: Maybe<Branch>;
+  head?: Maybe<Commit>;
+};
+
+export type BranchInput = {
+  name: Scalars['ID'];
+  repo: RepoInput;
+};
+
+export type BranchQueryArgs = {
+  projectId: Scalars['String'];
+  branch: BranchInput;
 };
 
 export type Commit = {
@@ -58,6 +74,18 @@ export type Commit = {
   finished: Scalars['Int'];
   sizeBytes: Scalars['Int'];
   sizeDisplay: Scalars['String'];
+};
+
+export type CommitInput = {
+  id: Scalars['ID'];
+};
+
+export type CreateBranchArgs = {
+  head?: Maybe<CommitInput>;
+  branch?: Maybe<BranchInput>;
+  provenance?: Maybe<Array<BranchInput>>;
+  newCommitSet?: Maybe<Scalars['Boolean']>;
+  projectId: Scalars['String'];
 };
 
 export type CreatePipelineArgs = {
@@ -228,6 +256,7 @@ export type Mutation = {
   exchangeCode: Tokens;
   createRepo: Repo;
   createPipeline: Pipeline;
+  createBranch: Branch;
   putFilesFromURLs: Scalars['String'];
 };
 
@@ -241,6 +270,10 @@ export type MutationCreateRepoArgs = {
 
 export type MutationCreatePipelineArgs = {
   args: CreatePipelineArgs;
+};
+
+export type MutationCreateBranchArgs = {
+  args: CreateBranchArgs;
 };
 
 export type MutationPutFilesFromUrLsArgs = {
@@ -384,6 +417,7 @@ export type Query = {
   __typename?: 'Query';
   account: Account;
   authConfig: AuthConfig;
+  branch: Branch;
   dag: Array<Vertex>;
   files: Array<File>;
   job: Job;
@@ -399,6 +433,10 @@ export type Query = {
   repo: Repo;
   searchResults: SearchResults;
   workspaceLogs: Array<Maybe<Log>>;
+};
+
+export type QueryBranchArgs = {
+  args: BranchQueryArgs;
 };
 
 export type QueryDagArgs = {
@@ -464,6 +502,12 @@ export type Repo = {
   sizeBytes: Scalars['Int'];
   sizeDisplay: Scalars['String'];
   linkedPipeline?: Maybe<Pipeline>;
+};
+
+export type RepoInfo = {
+  __typename?: 'RepoInfo';
+  name?: Maybe<Scalars['String']>;
+  type?: Maybe<Scalars['String']>;
 };
 
 export type RepoInput = {
@@ -670,9 +714,14 @@ export type ResolversTypes = ResolversObject<{
   String: ResolverTypeWrapper<Scalars['String']>;
   AuthConfig: ResolverTypeWrapper<AuthConfig>;
   Branch: ResolverTypeWrapper<Branch>;
+  BranchInfo: ResolverTypeWrapper<BranchInfo>;
+  BranchInput: BranchInput;
+  BranchQueryArgs: BranchQueryArgs;
   Commit: ResolverTypeWrapper<Commit>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
+  CommitInput: CommitInput;
+  CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
   CreateRepoArgs: CreateRepoArgs;
   CronInput: ResolverTypeWrapper<CronInput>;
@@ -714,6 +763,7 @@ export type ResolversTypes = ResolversObject<{
   PutFilesFromURLsArgs: PutFilesFromUrLsArgs;
   Query: ResolverTypeWrapper<{}>;
   Repo: ResolverTypeWrapper<Repo>;
+  RepoInfo: ResolverTypeWrapper<RepoInfo>;
   RepoInput: RepoInput;
   RepoQueryArgs: RepoQueryArgs;
   SchedulingSpec: ResolverTypeWrapper<SchedulingSpec>;
@@ -734,9 +784,14 @@ export type ResolversParentTypes = ResolversObject<{
   String: Scalars['String'];
   AuthConfig: AuthConfig;
   Branch: Branch;
+  BranchInfo: BranchInfo;
+  BranchInput: BranchInput;
+  BranchQueryArgs: BranchQueryArgs;
   Commit: Commit;
   Boolean: Scalars['Boolean'];
   Int: Scalars['Int'];
+  CommitInput: CommitInput;
+  CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
   CreateRepoArgs: CreateRepoArgs;
   CronInput: CronInput;
@@ -769,6 +824,7 @@ export type ResolversParentTypes = ResolversObject<{
   PutFilesFromURLsArgs: PutFilesFromUrLsArgs;
   Query: {};
   Repo: Repo;
+  RepoInfo: RepoInfo;
   RepoInput: RepoInput;
   RepoQueryArgs: RepoQueryArgs;
   SchedulingSpec: SchedulingSpec;
@@ -806,8 +862,17 @@ export type BranchResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Branch'] = ResolversParentTypes['Branch'],
 > = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  repo?: Resolver<Maybe<ResolversTypes['RepoInfo']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type BranchInfoResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['BranchInfo'] = ResolversParentTypes['BranchInfo'],
+> = ResolversObject<{
+  branch?: Resolver<Maybe<ResolversTypes['Branch']>, ParentType, ContextType>;
+  head?: Resolver<Maybe<ResolversTypes['Commit']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1013,6 +1078,12 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationCreatePipelineArgs, 'args'>
   >;
+  createBranch?: Resolver<
+    ResolversTypes['Branch'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreateBranchArgs, 'args'>
+  >;
   putFilesFromURLs?: Resolver<
     ResolversTypes['String'],
     ParentType,
@@ -1133,6 +1204,12 @@ export type QueryResolvers<
 > = ResolversObject<{
   account?: Resolver<ResolversTypes['Account'], ParentType, ContextType>;
   authConfig?: Resolver<ResolversTypes['AuthConfig'], ParentType, ContextType>;
+  branch?: Resolver<
+    ResolversTypes['Branch'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryBranchArgs, 'args'>
+  >;
   dag?: Resolver<
     Array<ResolversTypes['Vertex']>,
     ParentType,
@@ -1236,6 +1313,15 @@ export type RepoResolvers<
     ParentType,
     ContextType
   >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type RepoInfoResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['RepoInfo'] = ResolversParentTypes['RepoInfo'],
+> = ResolversObject<{
+  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  type?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1346,6 +1432,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Account?: AccountResolvers<ContextType>;
   AuthConfig?: AuthConfigResolvers<ContextType>;
   Branch?: BranchResolvers<ContextType>;
+  BranchInfo?: BranchInfoResolvers<ContextType>;
   Commit?: CommitResolvers<ContextType>;
   CronInput?: CronInputResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
@@ -1364,6 +1451,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   ProjectDetails?: ProjectDetailsResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Repo?: RepoResolvers<ContextType>;
+  RepoInfo?: RepoInfoResolvers<ContextType>;
   SchedulingSpec?: SchedulingSpecResolvers<ContextType>;
   SearchResults?: SearchResultsResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
@@ -1411,6 +1499,16 @@ export type LogFieldsFragment = {__typename?: 'Log'} & Pick<
       {__typename?: 'Timestamp'} & Pick<Timestamp, 'seconds' | 'nanos'>
     >;
   };
+
+export type CreateBranchMutationVariables = Exact<{
+  args: CreateBranchArgs;
+}>;
+
+export type CreateBranchMutation = {__typename?: 'Mutation'} & {
+  createBranch: {__typename?: 'Branch'} & Pick<Branch, 'name'> & {
+      repo?: Maybe<{__typename?: 'RepoInfo'} & Pick<RepoInfo, 'name'>>;
+    };
+};
 
 export type CreatePipelineMutationVariables = Exact<{
   args: CreatePipelineArgs;
@@ -1687,7 +1785,7 @@ export type RepoQuery = {__typename?: 'Query'} & {
     Repo,
     'createdAt' | 'description' | 'id' | 'name' | 'sizeDisplay'
   > & {
-      branches: Array<{__typename?: 'Branch'} & Pick<Branch, 'id' | 'name'>>;
+      branches: Array<{__typename?: 'Branch'} & Pick<Branch, 'name'>>;
       commits: Array<
         {__typename?: 'Commit'} & Pick<
           Commit,
@@ -1699,11 +1797,7 @@ export type RepoQuery = {__typename?: 'Query'} & {
           | 'started'
           | 'finished'
           | 'sizeDisplay'
-        > & {
-            branch?: Maybe<
-              {__typename?: 'Branch'} & Pick<Branch, 'id' | 'name'>
-            >;
-          }
+        > & {branch?: Maybe<{__typename?: 'Branch'} & Pick<Branch, 'name'>>}
       >;
       linkedPipeline?: Maybe<
         {__typename?: 'Pipeline'} & Pick<Pipeline, 'id' | 'name'>
