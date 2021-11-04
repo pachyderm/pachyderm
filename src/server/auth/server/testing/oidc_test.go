@@ -7,11 +7,17 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 )
+
+func newClient(t *testing.T) *client.APIClient {
+	return minikubetestenv.NewPachClient(t)
+}
 
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
 // auth code flow
@@ -19,11 +25,12 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	tu.ConfigureOIDCProvider(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	tu.ConfigureOIDCProvider(t, c)
+	defer tu.DeleteAll(t, c)
 
-	testClient := tu.GetUnauthenticatedPachClient(t)
+	testClient := tu.GetUnauthenticatedPachClient(t, c)
 	loginInfo, err := testClient.GetOIDCLogin(testClient.Ctx(), &auth.GetOIDCLoginRequest{})
 	require.NoError(t, err)
 
@@ -39,7 +46,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, user(tu.DexMockConnectorEmail), whoAmIResp.Username)
 
-	tu.DeleteAll(t)
+	tu.DeleteAll(t, c)
 }
 
 // TestOIDCTrustedApp tests using an ID token issued to another OIDC app to authenticate.
@@ -47,12 +54,13 @@ func TestOIDCTrustedApp(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	tu.ConfigureOIDCProvider(t)
-	defer tu.DeleteAll(t)
-	testClient := tu.GetUnauthenticatedPachClient(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	tu.ConfigureOIDCProvider(t, c)
+	defer tu.DeleteAll(t, c)
+	testClient := tu.GetUnauthenticatedPachClient(t, c)
 
-	token := tu.GetOIDCTokenForTrustedApp(t)
+	token := tu.GetOIDCTokenForTrustedApp(t, c)
 
 	// Use the id token from the previous OAuth flow with Pach
 	authResp, err := testClient.Authenticate(testClient.Ctx(),
@@ -65,7 +73,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, user(tu.DexMockConnectorEmail), whoAmIResp.Username)
 
-	tu.DeleteAll(t)
+	tu.DeleteAll(t, c)
 }
 
 // TestCannotAuthenticateWithExpiredLicense tests that we cannot login when the
@@ -75,18 +83,19 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	tu.ConfigureOIDCProvider(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	tu.ConfigureOIDCProvider(t, c)
+	defer tu.DeleteAll(t, c)
 
-	testClient := tu.GetUnauthenticatedPachClient(t)
+	testClient := tu.GetUnauthenticatedPachClient(t, c)
 	loginInfo, err := testClient.GetOIDCLogin(testClient.Ctx(), &auth.GetOIDCLoginRequest{})
 	require.NoError(t, err)
 
 	tu.DoOAuthExchange(t, testClient, testClient, loginInfo.LoginURL)
 
 	// Expire Enterprise License
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 	// set Enterprise Token value to have expired
 	ts := &types.Timestamp{Seconds: time.Now().Unix() - 100}
 	resp, err := adminClient.License.Activate(adminClient.Ctx(),
@@ -128,5 +137,5 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, user(tu.DexMockConnectorEmail), whoAmIResp.Username)
 
-	tu.DeleteAll(t)
+	tu.DeleteAll(t, c)
 }

@@ -149,14 +149,15 @@ func TestLoginIDToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
 	// Configure OIDC login
-	tu.ConfigureOIDCProvider(t)
+	tu.ConfigureOIDCProvider(t, c)
 
 	// Get an ID token for a trusted peer app
-	token := tu.GetOIDCTokenForTrustedApp(t)
+	token := tu.GetOIDCTokenForTrustedApp(t, c)
 
 	require.NoError(t, tu.BashCmd(`
 		echo '{{.token}}' | pachctl auth login --id-token
@@ -184,12 +185,13 @@ func TestCheckGetSet(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	defer tu.DeleteAll(t, c)
 
 	alice, bob := tu.UniqueString("robot:alice"), tu.UniqueString("robot:bob")
 	// Test both forms of the 'pachctl auth get' command, as well as 'pachctl auth check'
 
-	loginAsUser(t, alice)
+	loginAsUser(t, c, alice)
 	require.NoError(t, tu.BashCmd(`
 		pachctl create repo {{.repo}}
 		pachctl auth check repo {{.repo}} \
@@ -216,7 +218,7 @@ func TestCheckGetSet(t *testing.T) {
 	).Run())
 
 	// Test checking another user's permissions
-	loginAsUser(t, auth.RootUser)
+	loginAsUser(t, c, auth.RootUser)
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth check repo {{.repo}} {{.alice}} \
 			| match "Roles: \[repoOwner\]" 
@@ -233,8 +235,9 @@ func TestAdmins(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
+	c := minikubetestenv.NewPachClient(t)
+	tu.ActivateAuth(t, c)
+	defer tu.DeleteAll(t, c)
 
 	// Modify the list of admins to add 'admin2'
 	require.NoError(t, tu.BashCmd(`
@@ -256,7 +259,7 @@ func TestAdmins(t *testing.T) {
 	// Now 'admin2' is the only admin. Login as admin2, and swap 'admin' back in
 	// (so that deactivateAuth() runs), and call 'list-admin' (to make sure it
 	// works for non-admins)
-	loginAsUser(t, "robot:admin2")
+	loginAsUser(t, c, "robot:admin2")
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth set cluster clusterAdmin robot:admin 
 		pachctl auth set cluster none robot:admin2
@@ -273,8 +276,9 @@ func TestGetAndUseRobotToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	tu.ActivateAuth(t, c)
+	defer tu.DeleteAll(t, c)
 
 	// Test both get-robot-token and use-auth-token; make sure that they work
 	// together with -q
@@ -289,9 +293,10 @@ func TestConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.ActivateAuth(t)
-	tu.ConfigureOIDCProvider(t)
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	tu.ActivateAuth(t, c)
+	tu.ConfigureOIDCProvider(t, c)
+	defer tu.DeleteAll(t, c)
 
 	require.NoError(t, tu.BashCmd(`
         pachctl auth set-config <<EOF
@@ -325,8 +330,9 @@ func TestGetRobotTokenTTL(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	tu.ActivateAuth(t, c)
+	defer tu.DeleteAll(t, c)
 
 	alice := tu.UniqueString("alice")
 
@@ -349,12 +355,13 @@ func TestGetOwnGroups(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	tu.ActivateAuth(t, c)
+	defer tu.DeleteAll(t, c)
 
 	group := tu.UniqueString("group")
 
-	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	rootClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 	_, err := rootClient.ModifyMembers(rootClient.Ctx(), &auth.ModifyMembersRequest{
 		Group: group,
 		Add:   []string{auth.RootUser}},
@@ -371,13 +378,14 @@ func TestGetGroups(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	tu.ActivateAuth(t, c)
+	defer tu.DeleteAll(t, c)
 
 	alice := auth.RobotPrefix + tu.UniqueString("alice")
 	group := tu.UniqueString("group")
 
-	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	rootClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 	_, err := rootClient.ModifyMembers(rootClient.Ctx(), &auth.ModifyMembersRequest{
 		Group: group,
 		Add:   []string{alice}},
