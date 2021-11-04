@@ -450,9 +450,6 @@
                         }
                     }
                 },
-                "registerWithEnterpriseServer": {
-                    "type": "boolean"
-                },
                 "requireCriticalServersOnly": {
                     "type": "boolean"
                 },
