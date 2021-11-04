@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -159,8 +160,9 @@ func TestConfigListContext(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := minikubetestenv.NewPachClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
 	// Verify the * marker exists for the active-context when enterprise is disabled and the enterprise context isn't set
 	require.NoError(t, run(t, `

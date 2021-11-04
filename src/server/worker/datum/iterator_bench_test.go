@@ -6,12 +6,17 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
+func newClient(t testing.TB) *client.APIClient {
+	return minikubetestenv.NewPachClient(t)
+}
+
 func benchmarkIterators(j int, b *testing.B) {
-	c := tu.GetPachClient(b)
+	c := newClient(b)
 	defer require.NoError(b, c.DeleteAll())
 
 	b.ResetTimer()

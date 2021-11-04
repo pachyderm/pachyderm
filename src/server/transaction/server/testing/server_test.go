@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -472,7 +473,7 @@ func TestTransactions(suite *testing.T) {
 }
 
 func TestCreatePipelineTransaction(t *testing.T) {
-	c := testutil.GetPachClient(t)
+	c := minikubetestenv.NewPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	repo := testutil.UniqueString("in")
 	pipeline := testutil.UniqueString("pipeline")

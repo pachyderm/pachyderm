@@ -3,16 +3,23 @@ package cmds
 import (
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
+
+func newTestClient(t *testing.T) *client.APIClient {
+	return minikubetestenv.NewPachClient(t)
+}
 
 func TestConnectorCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	tu.ActivateAuth(t, c)
+	defer tu.DeleteAll(t, c)
 	require.NoError(t, tu.BashCmd(`
 		echo '{"id": "{{.id}}", "name": "testconn", "type": "github", "config": {"id": 1234}}' | pachctl idp create-connector 
 		pachctl idp list-connector | match '{{.id}}'
@@ -43,8 +50,9 @@ func TestClientCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	tu.ActivateAuth(t, c)
+	defer tu.DeleteAll(t, c)
 	require.NoError(t, tu.BashCmd(`
 		echo '{"id": "{{.id}}", "name": "testclient", "secret": "a secret", "redirect_uris": ["https://localhost:1234"]}' | pachctl idp create-client  \
 		  | match 'secret: "a secret"'
@@ -72,8 +80,9 @@ func TestGetSetConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	tu.ActivateAuth(t, c)
+	defer tu.DeleteAll(t, c)
 	require.NoError(t, tu.BashCmd(`
 		echo '{"issuer": "http://example.com:1234"}' | pachctl idp set-config 
 		pachctl idp get-config | match 'issuer: http://example.com:1234' 

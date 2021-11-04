@@ -3,17 +3,23 @@ package cmds
 import (
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
+
+func newTestClient(t testing.TB) *client.APIClient {
+	return minikubetestenv.NewPachClient(t)
+}
 
 func TestActivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 	code := tu.GetTestEnterpriseCode(t)
 
 	require.NoError(t, tu.BashCmd(`echo {{.license}} | pachctl license activate --no-register`,
@@ -26,9 +32,10 @@ func TestClusterCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	tu.ActivateEnterprise(t, tu.GetPachClient(t))
-	defer tu.DeleteAll(t)
+	c := newTestClient(t)
+	tu.DeleteAll(t, c)
+	tu.ActivateEnterprise(t, c)
+	defer tu.DeleteAll(t, c)
 	require.NoError(t, tu.BashCmd(`
 		pachctl license add-cluster --id {{.id}} --address grpc://localhost:1653
 		pachctl license list-clusters \

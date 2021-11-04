@@ -170,9 +170,10 @@ func TestWhoAmI(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	c := newTestClient(t)
 	alice := tu.UniqueString("robot:alice")
-	loginAsUser(t, alice)
-	defer tu.DeleteAll(t)
+	loginAsUser(t, c, alice)
+	defer tu.DeleteAll(t, c)
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth whoami | match {{.alice}}`,
 		"alice", alice,

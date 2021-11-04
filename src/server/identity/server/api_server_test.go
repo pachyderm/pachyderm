@@ -8,21 +8,27 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
+
+func newClient(t testing.TB) *client.APIClient {
+	return minikubetestenv.NewPachClient(t)
+}
 
 // TestAuthNotActivated checks that no RPCs can be made when the auth service is disabled
 func TestAuthNotActivated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	client := newClient(t)
+	tu.DeleteAll(t, client)
+	defer tu.DeleteAll(t, client)
 
-	client := tu.GetPachClient(t)
 	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
@@ -81,11 +87,12 @@ func TestUserNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
 	alice := tu.UniqueString("robot:alice")
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.GetAuthenticatedPachClient(t, c, alice)
 
 	_, err := aliceClient.SetIdentityServerConfig(aliceClient.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
@@ -145,10 +152,11 @@ func TestSetConfiguration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 
 	// Configure an IDP connector, so the web server will start
 	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
@@ -189,10 +197,11 @@ func TestOIDCClientCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 
 	client := &identity.OIDCClient{
 		Id:           "id",
@@ -236,10 +245,11 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 
 	conn := &identity.IDPConnector{
 		Id:         "id",
@@ -282,12 +292,12 @@ func TestShortenIDTokenExpiry(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	defer tu.DeleteAll(t, c)
 
-	tu.ConfigureOIDCProvider(t)
+	tu.ConfigureOIDCProvider(t, c)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
 			Issuer:              "http://pachd:1658/",
@@ -297,10 +307,10 @@ func TestShortenIDTokenExpiry(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	token := tu.GetOIDCTokenForTrustedApp(t)
+	token := tu.GetOIDCTokenForTrustedApp(t, c)
 
 	// Exchange the ID token for a pach token and confirm the expiration is < 1h
-	testClient := tu.GetUnauthenticatedPachClient(t)
+	testClient := tu.GetUnauthenticatedPachClient(t, c)
 	authResp, err := testClient.Authenticate(testClient.Ctx(),
 		&auth.AuthenticateRequest{IdToken: token})
 	require.NoError(t, err)

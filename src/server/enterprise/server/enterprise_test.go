@@ -6,16 +6,22 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 )
 
 const year = 365 * 24 * time.Hour
+
+func newClient(t testing.TB) *client.APIClient {
+	return minikubetestenv.NewPachClient(t)
+}
 
 func TestValidateActivationCode(t *testing.T) {
 	_, err := license.Validate(testutil.GetTestEnterpriseCode(t))
@@ -26,9 +32,9 @@ func TestGetState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	testutil.DeleteAll(t)
-	defer testutil.DeleteAll(t)
-	client := testutil.GetPachClient(t)
+	client := newClient(t)
+	testutil.DeleteAll(t, client)
+	defer testutil.DeleteAll(t, client)
 
 	testutil.ActivateEnterprise(t, client)
 
@@ -79,9 +85,9 @@ func TestGetActivationCode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	testutil.DeleteAll(t)
-	defer testutil.DeleteAll(t)
-	client := testutil.GetPachClient(t)
+	client := newClient(t)
+	testutil.DeleteAll(t, client)
+	defer testutil.DeleteAll(t, client)
 
 	testutil.ActivateEnterprise(t, client)
 
@@ -118,10 +124,10 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	testutil.DeleteAll(t)
-	defer testutil.DeleteAll(t)
-	aliceClient := testutil.GetAuthenticatedPachClient(t, "robot:alice")
+	c := newClient(t)
+	testutil.DeleteAll(t, c)
+	defer testutil.DeleteAll(t, c)
+	aliceClient := testutil.GetAuthenticatedPachClient(t, c, "robot:alice")
 	_, err := aliceClient.Enterprise.GetActivationCode(aliceClient.Ctx(), &enterprise.GetActivationCodeRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -132,9 +138,9 @@ func TestDeactivate(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	testutil.DeleteAll(t)
-	defer testutil.DeleteAll(t)
-	client := testutil.GetPachClient(t)
+	client := newClient(t)
+	testutil.DeleteAll(t, client)
+	defer testutil.DeleteAll(t, client)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	testutil.ActivateEnterprise(t, client)
@@ -160,9 +166,9 @@ func TestDoubleDeactivate(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	testutil.DeleteAll(t)
-	defer testutil.DeleteAll(t)
-	client := testutil.GetPachClient(t)
+	client := newClient(t)
+	testutil.DeleteAll(t, client)
+	defer testutil.DeleteAll(t, client)
 
 	// Deactivate cluster and make sure its state is NONE (enterprise might be
 	// active at the start of this test?)
@@ -191,9 +197,9 @@ func TestHeartbeatDeleted(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	testutil.DeleteAll(t)
-	defer testutil.DeleteAll(t)
-	client := testutil.GetPachClient(t)
+	client := newClient(t)
+	testutil.DeleteAll(t, client)
+	defer testutil.DeleteAll(t, client)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	testutil.ActivateEnterprise(t, client)
