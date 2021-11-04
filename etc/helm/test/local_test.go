@@ -5,7 +5,6 @@ package helmtest
 
 import (
 	"path"
-	"strings"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
@@ -27,8 +26,7 @@ func TestLocal(t *testing.T) {
 					"pachd.enterpriseLicenseKey":   "licenseKey",
 				},
 				SetValues: map[string]string{
-					"pachd.activateEnterprise": "true",
-					"oidc.mockIDP":             "true",
+					"oidc.mockIDP": "true",
 				},
 			},
 			"../pachyderm/", "release-name", nil))
@@ -82,12 +80,8 @@ func TestLocal(t *testing.T) {
 
 		case *v1.Secret:
 			if object.Name == "pachyderm-bootstrap-config" {
-				enterpriseSecret := object.StringData["enterpriseSecret"]
-				if !strings.Contains(object.StringData["enterpriseClusters"], enterpriseSecret) {
-					t.Errorf("enterprise secret %s should be present in the enterpriseClusters config %v", enterpriseSecret, object.StringData["enterpriseClusters"])
-				}
-				if !strings.Contains(object.StringData["enterpriseConfig"], enterpriseSecret) {
-					t.Errorf("enterprise secret %s should be present in the enterpriseConfig %v", enterpriseSecret, object.StringData["enterpriseConfig"])
+				if object.StringData["license"] != "licenseKey" {
+					t.Errorf("license key: %s, should equal pachyderm-bootstrap-config.license: %v", "licenseKey", object.StringData["license"])
 				}
 			}
 		}

@@ -3,7 +3,8 @@
 deployTarget: custom
 
 oidc:
-  issuerURI: "http://pach-enterprise.enterprise.svc.cluster.local:1658/"
+  issuerURI: "http://pach-enterprise.enterprise.svc.cluster.local:1658"
+  userAccessibleOauthIssuerHost: localhost:31658
 
 pachd:
   image:
@@ -22,7 +23,9 @@ pachd:
   activateEnterpriseMember: true
   enterpriseServerAddress: "grpc://pach-enterprise.enterprise.svc.cluster.local:1650"
   enterpriseCallbackAddress: "grpc://pachd.default.svc.cluster.local:1650"
-  enterpriseRootToken: "valid-enterprise-token"
+  enterpriseRootToken: "" # the same root token of the enterprise cluster
+  enterpriseSecret: "super-secret"
+  oauthClientSecret: "oauth-secret"
   storage:
     backend: MINIO
     minio:
@@ -40,3 +43,9 @@ etcd:
 postgresql:
   service:
     type: NodePort
+
+console:
+  enabled: true
+  config:
+    reactAppRuntimeIssuerURI: http://localhost:31658
+    oauthClientSecret: "console-secret"
