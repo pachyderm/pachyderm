@@ -1,7 +1,11 @@
 
 # Changelog
 
-
+## 2.0.1
+- Fixes a goroutine leak that can occur when a modify file operation is canceled - #7055
+- Improves performance by reducing the number of postgres requests needed when renewing chunks being uploaded - #7052
+- Improves usability by changing helm defaults- activate enterprise automatically and use default localhost URIs when ingress is disabled - #7039
+- Improves memory scaling of join and group inputs beyond millions of datums and - - - - Increases logging verbosity by including etcd and pg-bouncer logs in debug dumps - #7053
 ## 2.0.0 
 Introducing Pachyderm 2.0 with several foundational improvements. Read more details [here](https://www.pachyderm.com/blog/getting-ready-for-pachyderm-2/)
 
