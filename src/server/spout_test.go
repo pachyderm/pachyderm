@@ -33,9 +33,10 @@ func TestSpoutPachctl(t *testing.T) {
 	}
 
 	t.Run("SpoutAuth", func(t *testing.T) {
-		tu.DeleteAll(t)
-		defer tu.DeleteAll(t)
-		c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+		c := newClient(t)
+		c = tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
+		tu.DeleteAll(t, c)
+		defer tu.DeleteAll(t, c)
 
 		// create a spout pipeline
 		pipeline := tu.UniqueString("pipelinespoutauth")
@@ -95,8 +96,7 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 	})
 	t.Run("SpoutAuthEnabledAfter", func(t *testing.T) {
-		tu.DeleteAll(t)
-		c := tu.GetPachClient(t)
+		c := newClient(t)
 
 		// create a spout pipeline
 		pipeline := tu.UniqueString("pipelinespoutauthenabledafter")
@@ -136,8 +136,8 @@ func TestSpoutPachctl(t *testing.T) {
 
 		// activate auth, which will generate a new PPS token for the pipeline and trigger
 		// the RC to be recreated
-		c = tu.GetAuthenticatedPachClient(t, auth.RootUser)
-		defer tu.DeleteAll(t)
+		c = tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
+		defer tu.DeleteAll(t, c)
 
 		// make sure we can delete commits
 		commitInfo, err := c.InspectCommit(pipeline, "master", "")
@@ -179,8 +179,8 @@ func TestSpoutPachctl(t *testing.T) {
 }
 
 func testSpout(t *testing.T, usePachctl bool) {
-	tu.DeleteAll(t)
-	c := tu.GetPachClient(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
 
 	putFileCommand := func(branch, flags, file string) string {
 		if usePachctl {

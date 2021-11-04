@@ -19,9 +19,8 @@ const (
 )
 
 // ActivateAuth activates the auth service in the test cluster, if it isn't already enabled
-func ActivateAuth(tb testing.TB) {
+func ActivateAuth(tb testing.TB, client *client.APIClient) {
 	tb.Helper()
-	client := GetPachClient(tb)
 	client.SetAuthToken(RootToken)
 
 	ActivateEnterprise(tb, client)
@@ -45,25 +44,24 @@ func ActivateAuth(tb testing.TB) {
 
 // GetAuthenticatedPachClient activates auth, if it is not activated, and returns
 // an authenticated client for the specified subject.
-func GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient {
+func GetAuthenticatedPachClient(tb testing.TB, client *client.APIClient, subject string) *client.APIClient {
 	tb.Helper()
-	ActivateAuth(tb)
-	rootClient := GetUnauthenticatedPachClient(tb)
+	ActivateAuth(tb, client)
+	rootClient := GetUnauthenticatedPachClient(tb, client)
 	rootClient.SetAuthToken(RootToken)
 	if subject == auth.RootUser {
 		return rootClient
 	}
 	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: subject})
 	require.NoError(tb, err)
-	client := GetUnauthenticatedPachClient(tb)
+	client = GetUnauthenticatedPachClient(tb, client)
 	client.SetAuthToken(token.Token)
 	return client
 }
 
 // GetUnauthenticatedPachClient returns a copy of the testing pach client with no auth token
-func GetUnauthenticatedPachClient(tb testing.TB) *client.APIClient {
+func GetUnauthenticatedPachClient(tb testing.TB, client *client.APIClient) *client.APIClient {
 	tb.Helper()
-	client := GetPachClient(tb)
 	client = client.WithCtx(context.Background())
 	client.SetAuthToken("")
 	return client
@@ -73,13 +71,13 @@ func GetUnauthenticatedPachClient(tb testing.TB) *client.APIClient {
 // tokens, so all pachyderm clients must be recreated after calling deleteAll()
 // (it should generally be called at the beginning or end of tests, before any
 // clients have been created or after they're done being used).
-func DeleteAll(tb testing.TB) {
+func DeleteAll(tb testing.TB, client *client.APIClient) {
 	tb.Helper()
 
 	// Setting the auth token has no effect if auth is disabled. If it's enabled,
 	// the root user must be an admin so this will always succeed (unless auth was
 	// activated with an unknown root token).
-	client := GetUnauthenticatedPachClient(tb)
+	client = GetUnauthenticatedPachClient(tb, client)
 	client.SetAuthToken(RootToken)
 	require.NoError(tb, client.DeleteAll())
 }

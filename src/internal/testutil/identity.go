@@ -34,9 +34,8 @@ func OIDCOIDCConfig() *auth.OIDCConfig {
 
 // ConfigureOIDCProvider configures the identity service and the auth service to
 // use a mock connector.
-func ConfigureOIDCProvider(t *testing.T) error {
-	adminClient := GetAuthenticatedPachClient(t, auth.RootUser)
-
+func ConfigureOIDCProvider(t *testing.T, client *client.APIClient) error {
+	adminClient := GetAuthenticatedPachClient(t, client, auth.RootUser)
 	_, err := adminClient.IdentityAPIClient.DeleteAll(adminClient.Ctx(), &identity.DeleteAllRequest{})
 	require.NoError(t, err)
 
@@ -132,7 +131,7 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	require.NoError(t, err)
 }
 
-func GetOIDCTokenForTrustedApp(t testing.TB) string {
+func GetOIDCTokenForTrustedApp(t testing.TB, client *client.APIClient) string {
 	// Create an HTTP client that doesn't follow redirects.
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
@@ -141,7 +140,7 @@ func GetOIDCTokenForTrustedApp(t testing.TB) string {
 	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	testClient := GetUnauthenticatedPachClient(t)
+	testClient := GetUnauthenticatedPachClient(t, client)
 
 	oauthConfig := oauth2.Config{
 		ClientID:     "testapp",
