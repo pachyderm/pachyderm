@@ -24,7 +24,7 @@ func (dm DeleterMux) DeleteTx(tx *sqlx.Tx, id string) error {
 	if deleter == nil {
 		return errors.Errorf("deleter mux does not have deleter for (%s)", id)
 	}
-	return deleter.DeleteTx(tx, id)
+	return errors.EnsureStack(deleter.DeleteTx(tx, id))
 }
 
 // GarbageCollector periodically runs garbage collection on tracker objects
@@ -54,7 +54,7 @@ func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		case <-ticker.C:
 		}
 	}
@@ -85,15 +85,15 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (int, error) {
 		}
 		return nil
 	})
-	return n, err
+	return n, errors.EnsureStack(err)
 }
 
 func (gc *GarbageCollector) deleteObject(ctx context.Context, id string) error {
 	db := gc.tracker.DB()
 	return dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
 		if err := gc.tracker.DeleteTx(tx, id); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
-		return gc.deleter.DeleteTx(tx, id)
+		return errors.EnsureStack(gc.deleter.DeleteTx(tx, id))
 	})
 }

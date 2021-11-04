@@ -453,7 +453,7 @@ func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string)
 	return d.NewSQLTx(func(sqlTx *sqlx.Tx) error {
 		jobInfo := &pps.JobInfo{}
 		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))
 	})
@@ -463,7 +463,7 @@ func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string)
 // that should be deleted rather than marked failed.  Jobs may be deleted if
 // their output commit is deleted.
 func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobInfo *pps.JobInfo) error {
-	return d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job))
+	return errors.EnsureStack(d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job)))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {

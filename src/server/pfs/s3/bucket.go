@@ -8,6 +8,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	glob "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -19,7 +20,7 @@ import (
 func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 	t, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		return s2.Contents{}, err
+		return s2.Contents{}, errors.EnsureStack(err)
 	}
 
 	return s2.Contents{
@@ -42,11 +43,11 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	_, err = c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 
 	return globalLocation, nil
@@ -70,11 +71,11 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	result := s2.ListObjectsResult{
@@ -160,7 +161,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	_, err = pc.PfsAPIClient.CreateRepo(pc.Ctx(), &pfs.CreateRepoRequest{Repo: bucket.Commit.Branch.Repo})
@@ -209,7 +210,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	// `DeleteBranch` does not return an error if a non-existing branch is
@@ -276,11 +277,11 @@ func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (st
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 
 	if bucketCaps.historicVersions {
@@ -299,11 +300,11 @@ func (c *controller) SetBucketVersioning(r *http.Request, bucketName, status str
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	if bucketCaps.historicVersions {

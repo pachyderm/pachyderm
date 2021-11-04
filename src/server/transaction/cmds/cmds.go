@@ -65,7 +65,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				encoder := cmdutil.Encoder(output, os.Stdout)
 				for _, transaction := range transactions {
 					if err := encoder.EncodeProto(transaction); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				return nil
@@ -252,7 +252,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return errors.Errorf("transaction %s not found", txn.ID)
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(info)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(info))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}

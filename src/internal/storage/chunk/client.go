@@ -64,14 +64,14 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	var gen uint64
 	if err := dbutil.WithTx(ctx, c.db, func(tx *sqlx.Tx) error {
 		if err := c.tracker.CreateTx(tx, chunkTID, pointsTo, c.ttl); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		var ents []Entry
 		if err := tx.Select(&ents, `
 		SELECT chunk_id, gen
 		FROM storage.chunk_objects
 		WHERE uploaded = TRUE AND tombstone = FALSE AND chunk_id = $1`, chunkID); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if len(ents) > 0 {
 			needUpload = false
@@ -82,7 +82,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 		VALUES ($1, $2)
 		RETURNING gen
 		`, chunkID, md.Size); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		needUpload = true
 		return nil
@@ -97,7 +97,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	}
 	key := chunkKey(chunkID, gen)
 	if err := c.store.Put(ctx, key, chunkData); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	_, err := c.db.ExecContext(ctx, `
 	UPDATE storage.chunk_objects
@@ -105,7 +105,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	WHERE chunk_id = $1 AND gen = $2
 	`, chunkID, gen)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return chunkID, nil
 }
@@ -126,7 +126,7 @@ func (c *trackedClient) Get(ctx context.Context, chunkID ID, cb kv.ValueCallback
 		return err
 	}
 	key := chunkKey(chunkID, gen)
-	return c.store.Get(ctx, key, cb)
+	return errors.EnsureStack(c.store.Get(ctx, key, cb))
 }
 
 // Close closes the client, stopping the background renewal of created objects
@@ -162,5 +162,5 @@ func (d *deleter) DeleteTx(tx *sqlx.Tx, id string) error {
 		SET tombstone = TRUE
 		WHERE chunk_id = $1
 	`, chunkID)
-	return err
+	return errors.EnsureStack(err)
 }

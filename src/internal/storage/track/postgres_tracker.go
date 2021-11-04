@@ -72,7 +72,7 @@ func (t *postgresTracker) putObject(tx *sqlx.Tx, id string, ttl time.Duration) (
 				WHERE storage.tracker_objects.str_id = $1
 			RETURNING int_id, xmax
 		`, id, ttl.Microseconds()); err != nil {
-			return 0, false, err
+			return 0, false, errors.EnsureStack(err)
 		}
 	} else {
 		if err := tx.Get(&res,
@@ -83,7 +83,7 @@ func (t *postgresTracker) putObject(tx *sqlx.Tx, id string, ttl time.Duration) (
 				WHERE storage.tracker_objects.str_id = $1
 			RETURNING int_id, xmax
 		`, id); err != nil {
-			return 0, false, err
+			return 0, false, errors.EnsureStack(err)
 		}
 	}
 	inserted := res.XMax == 0
@@ -100,7 +100,7 @@ func (t *postgresTracker) addReferences(tx *sqlx.Tx, intID int, pointsTo []strin
 			SELECT $1, int_id FROM storage.tracker_objects WHERE str_id = ANY($2)
 		RETURNING to_id`,
 		intID, pointsTo); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if len(pointsToInts) != len(pointsTo) {
 		return ErrDanglingRef
@@ -140,7 +140,7 @@ func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl t
 		SELECT COUNT(*) as count, COALESCE(MIN(expires_at), CURRENT_TIMESTAMP + $2 * interval '1 microsecond') as expires_at FROM rows
 		`, prefix, ttl.Microseconds())
 	if err != nil {
-		return time.Time{}, 0, err
+		return time.Time{}, 0, errors.EnsureStack(err)
 	}
 	return x.ExpiresAt, x.Count, nil
 }
@@ -157,7 +157,7 @@ func (t *postgresTracker) GetDownstream(ctx context.Context, id string) ([]strin
 			SELECT to_id FROM storage.tracker_refs WHERE from_id IN (SELECT int_id FROM target)
 		)
 	`, id); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return dwn, nil
 }
@@ -173,7 +173,7 @@ func (t *postgresTracker) GetUpstream(ctx context.Context, id string) ([]string,
 		WHERE int_id IN (
 			SELECT from_id FROM storage.tracker_refs WHERE to_id IN (SELECT int_id FROM TARGET)
 		)`, id); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return ups, nil
 }
@@ -186,7 +186,7 @@ func (t *postgresTracker) GetExpiresAt(ctx context.Context, id string) (time.Tim
 		if err == sql.ErrNoRows {
 			return time.Time{}, pacherr.NewNotExist("tracker", id)
 		}
-		return time.Time{}, err
+		return time.Time{}, errors.EnsureStack(err)
 	}
 	return expiresAt, nil
 }
@@ -199,7 +199,7 @@ func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
 		)
 		SELECT count(distinct from_id) FROM storage.tracker_refs WHERE to_id IN (SELECT int_id FROM target)
 	`, id); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if count > 0 {
 		return ErrDanglingRef
@@ -211,10 +211,10 @@ func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
 		DELETE FROM storage.tracker_refs WHERE from_id IN (SELECT int_id FROM target)
 	`, id)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	_, err = tx.Exec(`DELETE FROM storage.tracker_objects WHERE str_id = $1`, id)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id string) error) (retErr error) {
@@ -223,7 +223,7 @@ func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id strin
 		WHERE int_id NOT IN (SELECT to_id FROM storage.tracker_refs)
 		AND expires_at <= CURRENT_TIMESTAMP`)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := rows.Close(); retErr == nil {
@@ -233,13 +233,13 @@ func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id strin
 	for rows.Next() {
 		var id string
 		if err := rows.Scan(&id); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(id); err != nil {
 			return err
 		}
 	}
-	return rows.Err()
+	return errors.EnsureStack(rows.Err())
 }
 
 func (t *postgresTracker) getDownstream(tx *sqlx.Tx, intID int) ([]string, error) {
@@ -249,7 +249,7 @@ func (t *postgresTracker) getDownstream(tx *sqlx.Tx, intID int) ([]string, error
 		JOIN storage.tracker_refs ON int_id = to_id
 		WHERE from_id = $1
 	`, intID); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return dwn, nil
 }

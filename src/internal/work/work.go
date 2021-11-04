@@ -76,7 +76,7 @@ func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Me
 func (tq *TaskQueue) RunTask(ctx context.Context, f func(*Master)) (retErr error) {
 	task := &Task{ID: uuid.NewWithoutDashes()}
 	if _, err := col.NewSTM(ctx, tq.etcdClient, func(stm col.STM) error {
-		return tq.taskCol.ReadWrite(stm).Put(task.ID, task)
+		return errors.EnsureStack(tq.taskCol.ReadWrite(stm).Put(task.ID, task))
 	}); err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (m *Master) RunSubtasks(subtasks []*Task, collectFunc CollectFunc) (retErr 
 		select {
 		case subtaskChan <- subtask:
 		case <-m.taskEntry.ctx.Done():
-			return m.taskEntry.ctx.Err()
+			return errors.EnsureStack(m.taskEntry.ctx.Err())
 		}
 	}
 	return nil
@@ -158,7 +158,7 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(m.taskEntry.ctx)
 	eg.Go(func() error {
-		return m.subtaskCol.ReadOnly(ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
+		err := m.subtaskCol.ReadOnly(ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
 			var key string
 			subtaskInfo := &TaskInfo{}
 			if e.Type == watch.EventDelete {
@@ -188,6 +188,7 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 			}
 			return nil
 		})
+		return errors.EnsureStack(err)
 	})
 	defer func() {
 		close(done)
@@ -220,7 +221,7 @@ func (m *Master) createSubtask(subtask *Task) error {
 	subtaskKey := path.Join(m.taskID, subtask.ID)
 	subtaskInfo := &TaskInfo{Task: subtask, State: State_RUNNING}
 	if _, err := col.NewSTM(m.taskEntry.ctx, m.etcdClient, func(stm col.STM) error {
-		return m.subtaskCol.ReadWrite(stm).Put(subtaskKey, subtaskInfo)
+		return errors.EnsureStack(m.subtaskCol.ReadWrite(stm).Put(subtaskKey, subtaskInfo))
 	}); err != nil {
 		return err
 	}
@@ -240,7 +241,7 @@ func (tq *TaskQueue) deleteTask(taskID string) error {
 	_, err := col.NewSTM(context.Background(), tq.etcdClient, func(stm col.STM) error {
 		tq.subtaskCol.ReadWrite(stm).DeleteAllPrefix(taskID)
 		tq.claimCol.ReadWrite(stm).DeleteAllPrefix(taskID)
-		return tq.taskCol.ReadWrite(stm).Delete(taskID)
+		return errors.EnsureStack(tq.taskCol.ReadWrite(stm).Delete(taskID))
 	})
 	return err
 }
@@ -277,7 +278,7 @@ type ProcessFunc func(context.Context, *Task) (*types.Any, error)
 // The worker will continue to watch the task collection until the context is canceled.
 func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 	taskQueue := newTaskQueue(ctx)
-	return w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
+	err := w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
 		taskID := string(e.Key)
 		task := &Task{}
 		if e.Type == watch.EventDelete {
@@ -293,17 +294,18 @@ func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 			}
 		})
 	})
+	return errors.EnsureStack(err)
 }
 
 func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessFunc) error {
 	claimWatch, err := w.claimCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.IgnorePut)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer claimWatch.Close()
 	subtaskWatch, err := w.subtaskCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.IgnoreDelete)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer subtaskWatch.Close()
 	for {
@@ -324,7 +326,7 @@ func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessF
 			}
 			taskEntry.runSubtask(w.subtaskFunc(subtaskKey, processFunc))
 		case <-taskEntry.ctx.Done():
-			return taskEntry.ctx.Err()
+			return errors.EnsureStack(taskEntry.ctx.Err())
 		}
 	}
 }
@@ -337,14 +339,14 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 			// than ideal because a subtask could get run once more than necessary.
 			subtaskInfo := &TaskInfo{}
 			if _, err := col.NewSTM(ctx, w.etcdClient, func(stm col.STM) error {
-				return w.subtaskCol.ReadWrite(stm).Get(subtaskKey, subtaskInfo)
+				return errors.EnsureStack(w.subtaskCol.ReadWrite(stm).Get(subtaskKey, subtaskInfo))
 			}); err != nil {
 				return err
 			}
 			if subtaskInfo.State != State_RUNNING {
 				return nil
 			}
-			return w.claimCol.Claim(ctx, subtaskKey, &Claim{}, func(claimCtx context.Context) (retErr error) {
+			err := w.claimCol.Claim(ctx, subtaskKey, &Claim{}, func(claimCtx context.Context) (retErr error) {
 				subtask := subtaskInfo.Task
 				var result *types.Any
 				defer func() {
@@ -355,7 +357,7 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 					}
 					subtaskInfo := &TaskInfo{}
 					if _, err := col.NewSTM(claimCtx, w.etcdClient, func(stm col.STM) error {
-						return w.subtaskCol.ReadWrite(stm).Update(subtaskKey, subtaskInfo, func() error {
+						err := w.subtaskCol.ReadWrite(stm).Update(subtaskKey, subtaskInfo, func() error {
 							// (bryce) remove when check and claim are in the same stm.
 							if subtaskInfo.State != State_RUNNING {
 								return nil
@@ -370,6 +372,7 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 							}
 							return nil
 						})
+						return errors.EnsureStack(err)
 					}); retErr == nil {
 						retErr = err
 					}
@@ -378,6 +381,7 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 				result, err = processFunc(claimCtx, subtask)
 				return err
 			})
+			return errors.EnsureStack(err)
 		}(); err != nil {
 			// If the task context was canceled or the subtask was deleted / not claimed, then no error should be logged.
 			if errors.Is(ctx.Err(), context.Canceled) ||
@@ -393,11 +397,11 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 func (w *Worker) TaskCount(ctx context.Context) (subTasks int64, claims int64, _ error) {
 	nSubTasks, rev, err := w.subtaskCol.ReadOnly(ctx).CountRev(0)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.EnsureStack(err)
 	}
 	nClaims, _, err := w.claimCol.ReadOnly(ctx).CountRev(rev)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.EnsureStack(err)
 	}
 	return nSubTasks, nClaims, nil
 }

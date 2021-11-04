@@ -64,7 +64,7 @@ func Get(ctx context.Context, client Client, cache kv.GetPut, deduper *miscutil.
 			return err
 		}
 		return deduper.Do(ctx, ref.Key(), func() error {
-			return client.Get(ctx, ref.Id, func(ctext []byte) error {
+			err := client.Get(ctx, ref.Id, func(ctext []byte) error {
 				if err := verifyData(ref.Id, ctext); err != nil {
 					return err
 				}
@@ -78,10 +78,11 @@ func Get(ctx context.Context, client Client, cache kv.GetPut, deduper *miscutil.
 				}
 				rawData, err := ioutil.ReadAll(r)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				return putInCache(ctx, cache, ref, rawData)
 			})
+			return errors.EnsureStack(err)
 		})
 	})
 }
@@ -100,7 +101,7 @@ func compress(algo CompressionAlgo, dst, src []byte) (CompressionAlgo, int, erro
 		err := func() (retErr error) {
 			gw, err := gzip.NewWriterLevel(lw, gzip.BestSpeed)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			defer func() {
 				if err := gw.Close(); retErr == nil {
@@ -109,9 +110,9 @@ func compress(algo CompressionAlgo, dst, src []byte) (CompressionAlgo, int, erro
 			}()
 			_, err = gw.Write(src)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
-			return gw.Close()
+			return errors.EnsureStack(gw.Close())
 		}()
 		if err == io.ErrShortWrite {
 			return compress(CompressionAlgo_NONE, dst, src)
@@ -129,7 +130,7 @@ func decompress(algo CompressionAlgo, r io.Reader) (io.Reader, error) {
 	case CompressionAlgo_GZIP_BEST_SPEED:
 		gr, err := gzip.NewReader(r)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		return gr, nil
 	default:
@@ -173,7 +174,7 @@ func decrypt(dek []byte, r io.Reader) (io.Reader, error) {
 	nonce := [chacha20.NonceSize]byte{}
 	ciph, err := chacha20.NewUnauthenticatedCipher(dek, nonce[:])
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return cipher.StreamReader{S: ciph, R: r}, nil
 }
@@ -215,10 +216,10 @@ func (r *Ref) Key() pachhash.Output {
 
 func getFromCache(ctx context.Context, cache kv.GetPut, ref *Ref, cb kv.ValueCallback) error {
 	key := ref.Key()
-	return cache.Get(ctx, key[:], cb)
+	return errors.EnsureStack(cache.Get(ctx, key[:], cb))
 }
 
 func putInCache(ctx context.Context, cache kv.GetPut, ref *Ref, data []byte) error {
 	key := ref.Key()
-	return cache.Put(ctx, key[:], data)
+	return errors.EnsureStack(cache.Put(ctx, key[:], data))
 }

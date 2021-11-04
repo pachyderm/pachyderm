@@ -90,15 +90,15 @@ func WriteEtcdAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend 
 		if opts.EtcdOpts.StorageClassName == "" {
 			if sc := EtcdStorageClass(opts, persistentDiskBackend); sc != nil {
 				if err := encoder.Encode(sc); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 			}
 		}
 		if err := encoder.Encode(EtcdHeadlessService(opts)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	} else if opts.EtcdOpts.Volume != "" {
 		volume, err := EtcdVolume(persistentDiskBackend, opts, hostPath, opts.EtcdOpts.Volume, volumeSize)
@@ -106,18 +106,18 @@ func WriteEtcdAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend 
 			return err
 		}
 		if err = encoder.Encode(volume); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err = encoder.Encode(EtcdVolumeClaim(volumeSize, opts)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err = encoder.Encode(EtcdDeployment(opts, "")); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	} else {
 		return errors.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
-	return encoder.Encode(EtcdNodePortService(opts))
+	return errors.EnsureStack(encoder.Encode(EtcdNodePortService(opts)))
 }
 
 // EtcdDeployment returns an etcd k8s Deployment.

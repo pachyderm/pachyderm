@@ -27,7 +27,7 @@ func seedStr(seed int64) string {
 func serializeTestData(testData *TestData) (*types.Any, error) {
 	serializedTestData, err := proto.Marshal(testData)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(testData),
@@ -38,7 +38,7 @@ func serializeTestData(testData *TestData) (*types.Any, error) {
 func deserializeTestData(testDataAny *types.Any) (*TestData, error) {
 	testData := &TestData{}
 	if err := types.UnmarshalAny(testDataAny, testData); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return testData, nil
 }

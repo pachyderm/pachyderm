@@ -122,7 +122,7 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.EnsureStack(err)
 		}
 		if err := rw.Get(ppsdb.JobKey(j4.Job), job); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		rw.DeleteAllPrefix("p@prefix")
@@ -136,12 +136,12 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j3.Job.ID)
 		}
 		if err := rw.Get(ppsdb.JobKey(j4.Job), job); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		rw.Put(ppsdb.JobKey(j1.Job), j1)
 		if err := rw.Get(ppsdb.JobKey(j1.Job), job); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		rw.DeleteAllPrefix("p@prefix/suffix")
@@ -151,7 +151,7 @@ func TestDeletePrefix(t *testing.T) {
 
 		rw.Put(ppsdb.JobKey(j2.Job), j2)
 		if err := rw.Get(ppsdb.JobKey(j2.Job), job); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		return nil
@@ -401,7 +401,7 @@ func TestIteration(t *testing.T) {
 		for i := 0; i < numVals; i++ {
 			_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 				id := fmt.Sprintf("%d", i)
-				return c.ReadWrite(stm).Put(id, &col.TestItem{ID: id, Value: longString})
+				return errors.EnsureStack(c.ReadWrite(stm).Put(id, &col.TestItem{ID: id, Value: longString}))
 			})
 			require.NoError(t, err)
 		}

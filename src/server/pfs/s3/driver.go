@@ -61,7 +61,7 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 		}
 		t, err := types.TimestampFromProto(repo.Created)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		for _, branch := range repo.Branches {
 			var name string
@@ -164,7 +164,7 @@ func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 	for _, repo := range repos {
 		timestamp, err := types.TimestampFromProto(repo.Created)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		timestamps[pfsdb.RepoKey(repo.Repo)] = timestamp
 	}

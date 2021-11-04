@@ -86,7 +86,7 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 	sem := semaphore.NewWeighted(int64(r.prefetchLimit))
 	return r.Iterate(func(dr *DataReader) error {
 		if err := sem.Acquire(ctx, 1); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return taskChain.CreateTask(func(ctx context.Context, serial func(func() error) error) error {
 			if err := Get(ctx, r.client, r.memCache, r.deduper, dr.dataRef.Ref, func(_ []byte) error { return nil }); err != nil {
@@ -134,6 +134,6 @@ func (dr *DataReader) Get(w io.Writer) error {
 		}
 		data := chunk[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
 		_, err := w.Write(data)
-		return err
+		return errors.EnsureStack(err)
 	})
 }

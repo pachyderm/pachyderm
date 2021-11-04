@@ -33,7 +33,7 @@ func newConnectorConfig(conn *identity.IDPConnector) (*connectorConfig, error) {
 	}
 
 	if err := json.Unmarshal([]byte(conn.JsonConfig), &config.Config); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &config, nil
 }
@@ -41,7 +41,7 @@ func newConnectorConfig(conn *identity.IDPConnector) (*connectorConfig, error) {
 func (c connectorConfig) toIDPConnector() (*identity.IDPConnector, error) {
 	jsonConfig, err := json.Marshal(c.Config)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &identity.IDPConnector{
 		Id:            c.ID,

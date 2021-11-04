@@ -378,7 +378,7 @@ Environment variables:
 
 			if clientOnly {
 				if raw {
-					return cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version)
+					return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version))
 				}
 				fmt.Println(version.PrettyPrintVersion(version.Version))
 				return nil
@@ -396,13 +396,13 @@ Environment variables:
 			writer := ansiterm.NewTabWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			if raw {
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 			} else {
 				printVersionHeader(writer)
 				printVersion(writer, "pachctl", version.Version)
 				if err := writer.Flush(); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 			}
 
@@ -437,10 +437,10 @@ Environment variables:
 
 			// print server version
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(version)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(version))
 			}
 			printVersion(writer, "pachd", version)
-			return writer.Flush()
+			return errors.EnsureStack(writer.Flush())
 		}),
 	}
 	versionCmd.Flags().BoolVar(&clientOnly, "client-only", false, "If set, "+
@@ -502,7 +502,7 @@ This resets the cluster to its initial state.`,
 			}
 			c, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{Details: false})
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if err := clientsdk.ForEachPipelineInfo(c, func(pi *pps.PipelineInfo) error {
 				pipelines = append(pipelines, red(pi.Pipeline.Name))
@@ -956,7 +956,7 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 		t := template.New("top")
 		t.Funcs(templateFuncs)
 		template.Must(t.Parse(text))
-		return t.Execute(cmd.OutOrStderr(), cmd)
+		return errors.EnsureStack(t.Execute(cmd.OutOrStderr(), cmd))
 	})
 }
 

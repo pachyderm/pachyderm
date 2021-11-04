@@ -3,6 +3,7 @@ package chunk
 import (
 	"context"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -32,7 +33,7 @@ func NewTaskChain(ctx context.Context) *TaskChain {
 func (c *TaskChain) CreateTask(cb func(context.Context, func(func() error) error) error) error {
 	select {
 	case <-c.ctx.Done():
-		return c.eg.Wait()
+		return errors.EnsureStack(c.eg.Wait())
 	default:
 	}
 	scb := c.serialCallback()
@@ -46,7 +47,7 @@ func (c *TaskChain) CreateTask(cb func(context.Context, func(func() error) error
 func (c *TaskChain) Wait() error {
 	select {
 	case <-c.ctx.Done():
-		return c.eg.Wait()
+		return errors.EnsureStack(c.eg.Wait())
 	case <-c.prevChan:
 		return nil
 	}
@@ -62,7 +63,7 @@ func (c *TaskChain) serialCallback() func(func() error) error {
 		case <-prevChan:
 			return cb()
 		case <-c.ctx.Done():
-			return c.ctx.Err()
+			return errors.EnsureStack(c.ctx.Err())
 		}
 	}
 }

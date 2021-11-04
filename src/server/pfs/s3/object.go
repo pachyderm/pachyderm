@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
@@ -26,11 +27,11 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if !bucketCaps.readable {
 		return nil, s2.NoSuchKeyError(r)
@@ -51,7 +52,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 
 	modTime, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	content, err := pc.GetFileReadSeeker(bucket.Commit, file)
@@ -84,18 +85,18 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 
 	srcBucket, err := c.driver.bucket(pc, r, srcBucketName)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	// srcBucket capabilities were already verified, since s2 will call
 	// `GetObject` under the hood before calling `CopyObject`
 
 	destBucket, err := c.driver.bucket(pc, r, destBucketName)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	destBucketCaps, err := c.driver.bucketCapabilities(pc, r, destBucket)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	if !destBucketCaps.writable {
 		return "", s2.NotImplementedError(r)
@@ -138,11 +139,11 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if !bucketCaps.writable {
 		return nil, s2.NotImplementedError(r)
@@ -191,11 +192,11 @@ func (c *controller) DeleteObject(r *http.Request, bucketName, file, version str
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if !bucketCaps.writable {
 		return nil, s2.NotImplementedError(r)

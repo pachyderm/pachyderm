@@ -49,7 +49,7 @@ func (c *microsoftClient) Put(ctx context.Context, name string, r io.Reader) (re
 	w := newMicrosoftWriter(ctx, c, name)
 	if _, err := io.Copy(w, r); err != nil {
 		w.Close()
-		return err
+		return errors.EnsureStack(err)
 	}
 	return w.Close()
 }
@@ -67,7 +67,7 @@ func (c *microsoftClient) Get(_ context.Context, name string, w io.Writer) (retE
 		}
 	}()
 	_, err = io.Copy(w, r)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // TODO: should respect context

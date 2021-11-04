@@ -2426,7 +2426,7 @@ func TestPFS(suite *testing.T) {
 				return nil
 			})
 
-			return eg.Wait()
+			return errors.EnsureStack(eg.Wait())
 		})
 	})
 

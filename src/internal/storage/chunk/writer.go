@@ -6,6 +6,7 @@ import (
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 )
@@ -157,7 +158,7 @@ func (w *Writer) maybeDone(cb func() error) (retErr error) {
 	}()
 	select {
 	case <-w.ctx.Done():
-		return w.ctx.Err()
+		return errors.EnsureStack(w.ctx.Err())
 	default:
 	}
 	return cb()
@@ -268,7 +269,8 @@ func (w *Writer) maybeUpload(ctx context.Context, chunkBytes []byte, pointsTo []
 		}
 	} else {
 		createFunc = func(ctx context.Context, data []byte) (ID, error) {
-			return w.client.Create(ctx, md, data)
+			res, err := w.client.Create(ctx, md, data)
+			return res, errors.EnsureStack(err)
 		}
 	}
 	return Create(ctx, CreateOptions{}, chunkBytes, createFunc)

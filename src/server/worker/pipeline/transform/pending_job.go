@@ -7,6 +7,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -60,14 +61,14 @@ func (pj *pendingJob) load() error {
 			Wait:   pfs.CommitState_STARTED,
 		})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if _, err := pachClient.PfsAPIClient.ClearCommit(
 		pachClient.Ctx(),
 		&pfs.ClearCommitRequest{
 			Commit: pj.ji.OutputCommit,
 		}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	// Load and clear the meta commit.
 	pj.metaCommitInfo, err = pachClient.PfsAPIClient.InspectCommit(
@@ -77,14 +78,14 @@ func (pj *pendingJob) load() error {
 			Wait:   pfs.CommitState_STARTED,
 		})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if _, err := pachClient.PfsAPIClient.ClearCommit(
 		pachClient.Ctx(),
 		&pfs.ClearCommitRequest{
 			Commit: ppsutil.MetaCommit(pj.ji.OutputCommit),
 		}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	// Find the most recent successful ancestor commit to use as the
 	// base for this job.
@@ -98,7 +99,7 @@ func (pj *pendingJob) load() error {
 				Wait:   pfs.CommitState_STARTED,
 			})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if ci.Error == "" {
 			if ci.Finishing != nil {
@@ -293,9 +294,9 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, cb func(context.Cont
 
 func uploadDatumFileSet(pachClient *client.APIClient, dit datum.Iterator) (string, error) {
 	return withDatumFileSet(pachClient, func(s *datum.Set) error {
-		return dit.Iterate(func(meta *datum.Meta) error {
+		return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
 			return s.UploadMeta(meta)
-		})
+		}))
 	})
 }
 

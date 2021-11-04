@@ -85,7 +85,7 @@ func (c *minioClient) Get(ctx context.Context, name string, w io.Writer) (retErr
 		}
 	}()
 	_, err = io.Copy(w, rc)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // TODO: should respect context

@@ -60,7 +60,7 @@ func WritePostgresAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBack
 	persistentDiskBackend Backend, volumeSize int,
 	hostPath string) error {
 	if err := encoder.Encode(PostgresInitConfigMap(opts)); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	// In the dynamic route, we create a storage class which dynamically
@@ -69,7 +69,7 @@ func WritePostgresAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBack
 	// claim, and run postgres as a replication controller with a single node.
 	if persistentDiskBackend == LocalBackend {
 		if err := encoder.Encode(PostgresDeployment(opts, hostPath)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	} else if opts.PostgresOpts.Nodes > 0 {
 		// TODO: Add support for multiple Postgres pods?
@@ -80,15 +80,15 @@ func WritePostgresAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBack
 		if opts.PostgresOpts.StorageClassName == "" {
 			if sc := PostgresStorageClass(opts, persistentDiskBackend); sc != nil {
 				if err := encoder.Encode(sc); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 			}
 		}
 		if err := encoder.Encode(PostgresHeadlessService(opts)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := encoder.Encode(PostgresStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	} else if opts.PostgresOpts.Volume != "" {
 		volume, err := PostgresVolume(persistentDiskBackend, opts, hostPath, opts.PostgresOpts.Volume, volumeSize)
@@ -96,18 +96,18 @@ func WritePostgresAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBack
 			return err
 		}
 		if err = encoder.Encode(volume); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err = encoder.Encode(PostgresVolumeClaim(volumeSize, opts)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err = encoder.Encode(PostgresDeployment(opts, "")); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	} else {
 		return errors.Errorf("unless deploying locally, either --dynamic-postgres-nodes or --static-postgres-volume needs to be provided")
 	}
-	return encoder.Encode(PostgresService(opts))
+	return errors.EnsureStack(encoder.Encode(PostgresService(opts)))
 }
 
 // PostgresDeployment generates a Deployment for the pachyderm postgres instance.

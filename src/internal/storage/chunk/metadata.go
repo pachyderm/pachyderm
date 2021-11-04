@@ -29,7 +29,8 @@ func ParseTrackerID(trackerID string) (ID, error) {
 
 // IDFromHex parses a hex string into an ID
 func IDFromHex(h string) (ID, error) {
-	return hex.DecodeString(h)
+	res, err := hex.DecodeString(h)
+	return res, errors.EnsureStack(err)
 }
 
 func (id ID) String() string {
@@ -111,13 +112,13 @@ func (s *postgresKeyStore) Create(ctx context.Context, name string, data []byte)
 	_, err := s.db.ExecContext(ctx, `
 	INSERT INTO storage.keys (name, data) VALUES ($1, $2)
 	`, name, data)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (s *postgresKeyStore) Get(ctx context.Context, name string) ([]byte, error) {
 	var data []byte
 	if err := s.db.GetContext(ctx, &data, `SELECT data FROM storage.keys WHERE name = $1 LIMIT 1`, name); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return data, nil
 }

@@ -26,7 +26,7 @@ type UnorderedWriter struct {
 
 func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int64, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	if err := storage.filesetSem.Acquire(ctx, 1); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	// Half of the memory will be for buffering in the unordered writer.
 	// The other half will be for buffering in the chunk writer.
@@ -62,7 +62,7 @@ func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (r
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if uw.memAvailable == 0 {
 			if err := uw.serialize(); err != nil {
@@ -148,9 +148,10 @@ func (uw *UnorderedWriter) Delete(p, datum string) error {
 		if err != nil {
 			return err
 		}
-		return fs.Iterate(uw.ctx, func(f File) error {
+		err = fs.Iterate(uw.ctx, func(f File) error {
 			return uw.Delete(f.Index().Path, datum)
 		})
+		return errors.EnsureStack(err)
 	}
 	uw.buffer.Delete(p, datum)
 	return nil
@@ -164,7 +165,7 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 		datum = DefaultFileDatum
 	}
 	return uw.withWriter(func(w *Writer) error {
-		return fs.Iterate(ctx, func(f File) error {
+		err := fs.Iterate(ctx, func(f File) error {
 			if !appendFile {
 				if err := w.Delete(f.Index().Path, datum); err != nil {
 					return err
@@ -172,6 +173,7 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 			}
 			return w.Copy(f, datum)
 		})
+		return errors.EnsureStack(err)
 	})
 }
 

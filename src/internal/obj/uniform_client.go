@@ -26,7 +26,7 @@ func (uc *uniformClient) Put(ctx context.Context, name string, r io.Reader) (ret
 		retErr = errors.EnsureStack(retErr)
 	}()
 	name = strings.Trim(name, "/")
-	return uc.c.Put(ctx, name, r)
+	return errors.EnsureStack(uc.c.Put(ctx, name, r))
 }
 
 func (cc *uniformClient) Get(ctx context.Context, name string, w io.Writer) (retErr error) {
@@ -34,7 +34,7 @@ func (cc *uniformClient) Get(ctx context.Context, name string, w io.Writer) (ret
 		retErr = errors.EnsureStack(retErr)
 	}()
 	name = strings.Trim(name, "/")
-	return cc.c.Get(ctx, name, w)
+	return errors.EnsureStack(cc.c.Get(ctx, name, w))
 }
 
 func (cc *uniformClient) Delete(ctx context.Context, name string) (retErr error) {

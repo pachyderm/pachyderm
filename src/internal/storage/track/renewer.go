@@ -52,7 +52,7 @@ func NewRenewer(tracker Tracker, name string, ttl time.Duration) *Renewer {
 	}
 	r.r = renew.NewRenewer(context.Background(), ttl, func(ctx context.Context, ttl time.Duration) error {
 		_, _, err := r.tracker.SetTTLPrefix(ctx, r.id+"/", ttl)
-		return err
+		return errors.EnsureStack(err)
 	})
 	return r
 }
@@ -76,13 +76,13 @@ func (r *Renewer) Close() (retErr error) {
 	ctx := context.Background()
 	_, n, err := r.tracker.SetTTLPrefix(ctx, r.id+"/", ExpireNow)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	// TODO: try to check this earlier. beware of the race when incrementing r.n and creating a new entry.
 	if n != r.n {
 		return errors.Errorf("renewer prefix has wrong count HAVE: %d WANT: %d", n, r.n)
 	}
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (r *Renewer) nextInt() int {

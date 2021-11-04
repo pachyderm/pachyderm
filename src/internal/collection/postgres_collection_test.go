@@ -172,7 +172,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 				err := pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
 					outerKeys = append(outerKeys, testProto.ID)
 					if err := pgrw.Get(innerID, testProto); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 					innerKeys = append(innerKeys, testProto.ID)
 					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time

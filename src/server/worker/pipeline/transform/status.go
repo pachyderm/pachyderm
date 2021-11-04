@@ -6,6 +6,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
@@ -63,7 +64,7 @@ func (s *Status) withDatum(inputs []*common.Input, cancel func(), cb func() erro
 		s.cancel = cancel
 	})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	defer s.withLock(func() {

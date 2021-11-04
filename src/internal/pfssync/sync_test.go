@@ -40,7 +40,7 @@ func BenchmarkDownload(b *testing.B) {
 			require.NoError(b, WithDownloader(cacheClient, func(d Downloader) error {
 				for _, fi := range fis {
 					if err := d.Download(dir, fi.File); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				return nil

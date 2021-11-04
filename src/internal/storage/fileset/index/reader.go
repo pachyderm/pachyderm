@@ -52,7 +52,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		// Return if done.
 		if r.atEnd(idx.Path) {
@@ -173,7 +173,7 @@ func (lr *levelReader) setup() error {
 func (lr *levelReader) next() error {
 	lr.idx.Reset()
 	if err := lr.parent.Read(lr.idx); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	r := lr.chunks.NewReader(lr.ctx, []*chunk.DataRef{lr.idx.Range.ChunkRef})
 	lr.buf.Reset()

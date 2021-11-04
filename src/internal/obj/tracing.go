@@ -89,12 +89,13 @@ func (o *tracingObjClient) Get(ctx context.Context, name string, w io.Writer) (r
 	defer func() {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
-	return o.Client.Get(ctx, name, &promutil.CountingWriter{
+	err := o.Client.Get(ctx, name, &promutil.CountingWriter{
 		Writer: w,
 		// The bytes are read from storage, and then written to this writer.  Thus, they're
 		// "bytes read", not "bytes written".
 		Counter: objectBytesReadMetrics.WithLabelValues(o.provider),
 	})
+	return errors.EnsureStack(err)
 }
 
 // Delete implements the corresponding method in the Client interface
@@ -128,5 +129,6 @@ func (o *tracingObjClient) Exists(ctx context.Context, name string) (retVal bool
 		tracing.FinishAnySpan(span, "exists", retVal)
 	}()
 	defer tracing.FinishAnySpan(span)
-	return errors.EnsureStack(o.Client.Exists(ctx, name))
+	res, err := o.Client.Exists(ctx, name)
+	return res, errors.EnsureStack(err)
 }

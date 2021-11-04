@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -58,7 +59,7 @@ func countObjects(ctx context.Context, client obj.Client) (int, error) {
 		count++
 		return nil
 	}); err != nil {
-		return -1, err
+		return -1, errors.EnsureStack(err)
 	}
 	return count, nil
 }

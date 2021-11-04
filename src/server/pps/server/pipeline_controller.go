@@ -625,7 +625,7 @@ func (pc *pipelineController) getRC(ctx context.Context, expectation rcExpectati
 		rcs, err := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace).List(
 			metav1.ListOptions{LabelSelector: selector})
 		if err != nil && !errutil.IsNotFoundError(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if len(rcs.Items) == 0 {
 			pc.rc = nil
