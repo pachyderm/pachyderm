@@ -1,6 +1,13 @@
 
 # Changelog
 
+2.0.1
+
+- Fixes a goroutine leak that can occur when a modify file operation is canceled - #7055
+- Improves performance by reducing the number of postgres requests needed when renewing chunks being uploaded - #7052
+- Improves usability by changing helm defaults- activate enterprise automatically and use default localhost URIs when ingress is disabled - #7039
+- Improves memory scaling of join and group inputs beyond millions of datums and Increases logging verbosity by including etcd and pg-bouncer logs in debug dumps - #7053
+
 2.0.0 (11/1/2021)
 2.0.0 is a major release of Pachyderm. It's a complete rewrite of the 1.* series of releases. The following major architectural changes have happened since 1.*:
 - New storage architecture and FileSets for better support for small files, content defined chunking for better de-duplication, automatic compression and encryption of chunks, automatic garbage collection, and more
