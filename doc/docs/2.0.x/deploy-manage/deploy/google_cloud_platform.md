@@ -1,5 +1,8 @@
 # Google Cloud Platform
 
+!!! Warning
+  We are working on finalizing this page. In particular, we will add instructions on how to use `Workload Identity` to run Pachyderm Services as a Service Account soon.
+
 For a quick test installation of Pachyderm on GCP (suitable for development), jump to our [Quickstart page](../quickstart/).
 
 !!! Important "Before your start your installation process." 
