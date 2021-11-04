@@ -141,13 +141,12 @@ func (dr *DataReader) Get(w io.Writer) error {
 	ref := dr.dataRef.Ref
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = 1 * time.Millisecond
-	cb := func(chunk []byte) error {
-		data := chunk[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
-		_, err := w.Write(data)
-		return err
-	}
 	return backoff.RetryUntilCancel(dr.ctx, func() error {
-		return getFromCache(dr.ctx, dr.memCache, ref, cb)
+		return getFromCache(dr.ctx, dr.memCache, ref, func(chunk []byte) error {
+			data := chunk[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
+			_, err := w.Write(data)
+			return err
+		})
 	}, b, func(err error, _ time.Duration) error {
 		if !pacherr.IsNotExist(err) {
 			return err
