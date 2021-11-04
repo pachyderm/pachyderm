@@ -98,6 +98,15 @@ gcloud container clusters create ${CLUSTER_NAME} \
  --enable-autoupgrade \
  --disk-type="pd-ssd" \
  --image-type="COS_CONTAINERD"
+
+# By default, GKE clusters have RBAC enabled. To allow the 'helm install' to give the 'pachyderm' service account
+# the requisite privileges via clusterrolebindings, you will need to grant *your user account* the privileges
+# needed to create those clusterrolebindings.
+#
+# Note that this command is simple and concise, but gives your user account more privileges than necessary. See
+# https://docs.pachyderm.io/en/latest/deploy-manage/deploy/rbac/ for the complete list of privileges that the
+# pachyderm serviceaccount needs.
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
 ```
 
 !!! Note
@@ -403,6 +412,15 @@ pachd:
     create: true
     name:   "pachyderm-worker"
 
+cloudsqlAuthProxy:
+  enabled: true
+  connectionName: ${CLOUDSQL_CONNECTION_NAME}
+  serviceAccount: "${SERVICE_ACCOUNT}"
+  resources:
+    requests:
+      memory: "500Mi"
+      cpu:    "250m" 
+
 postgresql:
   enabled: false
 
@@ -424,7 +442,7 @@ global:
     ```shell
     $ helm repo add pach https://helm.pachyderm.com
     $ helm repo update
-    $ helm install pachyderm -f my_values.yaml pach/pachyderm --set-file pachd.storage.google.cred=<my-key>.json.
+    $ helm install pachyderm -f my_values.yaml pach/pachyderm
     ```
 
     **System Response:**
