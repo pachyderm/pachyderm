@@ -47,7 +47,7 @@ Additionally, before you begin your installation:
     All of the commands in this section are **assuming that you are going to set your gcloud config to automatically select your project**.  Please take the time to do so now with the following command, or be aware you will need to pass additional project parameters to the rest of the commands in this documentation.
 
     ```shell
-    ${PROJECT_ID}=<your project ID>
+    PROJECT_ID=<your project ID>
 
     gcloud config set project ${PROJECT_ID}
     ```
@@ -194,7 +194,7 @@ To access your GCP resources, Pachyderm uses a GCP Project Service Account with 
 * Alternatively, you can use Google cli 
 
     ```
-    ${GSA_NAME}=<Your Google Service Account Name>
+    GSA_NAME=<Your Google Service Account Name>
 
     gcloud iam service-accounts create ${GSA_NAME}
     ```
