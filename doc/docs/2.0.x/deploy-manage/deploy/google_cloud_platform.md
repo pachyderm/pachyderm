@@ -1,8 +1,5 @@
 # Google Cloud Platform
 
-!!! Warning
-   We are working on finalizing this page. In particular, we will add instructions on how to use `Workload Identity` to run Pachyderm Services as a Service Account soon.
-
 For a quick test installation of Pachyderm on GCP (suitable for development), jump to our [Quickstart page](../quickstart/).
 
 !!! Important "Before your start your installation process." 
@@ -30,6 +27,7 @@ Install the following clients:
 - [Google Cloud SDK](https://cloud.google.com/sdk/) >= 124.0.0
 - [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
 - [pachctl](../../../getting_started/local_installation/#install-pachctl)
+- [jq](https://stedolan.github.io/jq/download/)
 
 If this is the first time you use the SDK, follow
 the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts).
@@ -49,7 +47,9 @@ Additionally, before you begin your installation:
     All of the commands in this section are **assuming that you are going to set your gcloud config to automatically select your project**.  Please take the time to do so now with the following command, or be aware you will need to pass additional project parameters to the rest of the commands in this documentation.
 
     ```shell
-    gcloud config set project PROJECT_ID
+    PROJECT_ID=<your project ID>
+
+    gcloud config set project ${PROJECT_ID}
     ```
 
 - [Enable the GKE API on your project](https://console.cloud.google.com/apis/library/container.googleapis.com?q=kubernetes%20engine) if you have not done so already.
@@ -76,9 +76,25 @@ gcloud config set compute/zone ${GCP_ZONE}
 gcloud config set container/cluster ${CLUSTER_NAME}
 
 MACHINE_TYPE=<machine type for the k8s nodes, we recommend "n1-standard-4" or larger>
+```
 
+```shell
 # By default the following command spins up a 3-node cluster. You can change the default with `--num-nodes VAL`.
-gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE} 
+
+gcloud container clusters create ${CLUSTER_NAME} \
+ --machine-type=${MACHINE_TYPE} \
+ --workload-pool=${PROJECT_ID}.svc.id.goog \
+ --enable-ip-alias \
+ --create-subnetwork="" \
+ --enable-stackdriver-kubernetes \
+ --enable-dataplane-v2 \
+ --enable-shielded-nodes \
+ --release-channel="regular" \
+ --workload-metadata="GKE_METADATA" \
+ --enable-autorepair \
+ --enable-autoupgrade \
+ --disk-type="pd-ssd" \
+ --image-type="COS_CONTAINERD"
 
 # By default, GKE clusters have RBAC enabled. To allow the 'helm install' to give the 'pachyderm' service account
 # the requisite privileges via clusterrolebindings, you will need to grant *your user account* the privileges
@@ -164,33 +180,75 @@ Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) (Object s
      # You should see the bucket you created.
     ```
 
-You now need to **give Pachyderm access to your bucket**.
+You now need to **give Pachyderm access to your GCP resources**.
 
 ### Set Up Your GCP Service Account
-To access your GCP resources, Pachyderm uses a GCP Project Service Account with permissioned access to your desired GCS buckets. You can either use an existing service account or create a new one in your default project, then use the JSON key associated with the service account and pass it on to Pachyderm. 
+To access your GCP resources, Pachyderm uses a GCP Project Service Account with permissioned access to your desired resources. 
 
-* **Create a Service Account**
+* Create a Service Account with Google Cloud Console
 
     In the **IAM & Admin** section of your Google Cloud Console sidebar, select *Service Accounts*. To create a new service, select the *Create Service Account* button at the top. 
 
-    Fill in the Service Account *Name*, *ID* and *Description* then click *Create*. Keep the full email of your service account handy, you will need it soon.
+    Fill in the Service Account *Name*, *ID* and *Description* then click *Create*. Keep the full name of your service account handy, you will need it soon.
+
+* Alternatively, you can use Google cli 
+
+    ```
+    GSA_NAME=<Your Google Service Account Name>
+
+    gcloud iam service-accounts create ${GSA_NAME}
+    ```
     
-    More infornation about the creation and management of a Service account on [GCP documentation](https://cloud.google.com/iam/docs/creating-managing-service-accounts).
+More infornation about the creation and management of a Service account on [GCP documentation](https://cloud.google.com/iam/docs/creating-managing-service-accounts).
 
-* **Create a Key**
-    On the Service Accounts home page in your Google Cloud Console, select your Service Account. In the *Keys* tab, select *Add Key*, and then *Create New Key*, select *JSON* then click *Create*.
+### Configure Your Service Account Permissions
 
-### Configure Your GCS Bucket Permissions
-For Pachyderm to access your Google Cloud Storage bucket, you must **Add your service account as a new member on your bucket**.
+For Pachyderm to access your Google Cloud Resources, run the following:
 
-In the **Cloud Storage** section of your Google Cloud Console sidebar,  select the **Browser** tab and find your GCS bucket. Click the three dots on the right-hand side to select "Edit Bucket Permissions".
+- Create the following set of variables
 
-!!! Warning
-    Be sure to input the full email (e.g. pachyderm@my-project.iam.gserviceaccount.com) of the account. 
+  ```shell
+  SERVICE_ACCOUNT="${GSA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 
- Add the service account as a new member with the `Cloud Storage/Storage Object Admin` Role.
+  # "default" or the namespace in which your cluster was deployed
+  K8S_NAMESPACE="default" 
 
-![Add service account as a new member of GCP bucket](../images/gcp_addmemberandroles_to_bucket.png)
+  PACH_WI="serviceAccount:${PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/pachyderm]"
+  SIDECAR_WI="serviceAccount:${PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/pachyderm-worker]"
+  CLOUDSQLAUTHPROXY_WI="serviceAccount:${PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/k8s-cloudsql-auth-proxy]"
+  ```
+
+- Grant access to cloudSQL and your bucket to the Service Account
+
+  ```shell
+  # Grant access to cloudSQL to the Service Account
+  gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+      --member="serviceAccount:${SERVICE_ACCOUNT}" \
+      --role="roles/cloudsql.client"
+
+  # Grant access to storage (bucket + volumes) to the Service Account
+  gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+      --member="serviceAccount:${SERVICE_ACCOUNT}" \
+      --role="roles/storage.admin"
+  ```
+
+- Use Workload Identity to run Pachyderm Services as the Service Account
+
+  [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) is the recommended way to access Google Cloud services from applications running within GKE. 
+
+  ```shell
+  gcloud iam service-accounts add-iam-policy-binding ${SERVICE_ACCOUNT} \
+      --role roles/iam.workloadIdentityUser \
+      --member "${PACH_WI}"
+
+  gcloud iam service-accounts add-iam-policy-binding ${SERVICE_ACCOUNT} \
+      --role roles/iam.workloadIdentityUser \
+      --member "${SIDECAR_WI}"
+
+  gcloud iam service-accounts add-iam-policy-binding ${SERVICE_ACCOUNT} \
+      --role roles/iam.workloadIdentityUser \
+      --member "${CLOUDSQLAUTHPROXY_WI}"
+  ```
 
 For a set of standard roles, read the [GCP IAM permissions documentation](https://cloud.google.com/storage/docs/access-control/iam-permissions#bucket_permissions).
 
@@ -265,16 +323,28 @@ Once your databases have been created, add the following fields to your Helm val
     `gcloud sql instances describe INSTANCE_NAME`
     For example: myproject:myregion:myinstance.
 
+You will need to retrieve the name of your Cloud SQL connection: 
+
+```shell
+CLOUDSQL_CONNECTION_NAME=$(gcloud sql instances describe ${INSTANCE_NAME} --format=json | jq ."connectionName")
+```
+
 
 ```yaml
 cloudsqlAuthProxy:
   enabled: true
-  connectionName: <ConnectionName>
-  serviceAccount: <ServiceAccount>
+  connectionName: ${CLOUDSQL_CONNECTION_NAME}
+  serviceAccount: "${SERVICE_ACCOUNT}"
   resources:
     requests:
       memory: "500Mi"
       cpu:    "250m"
+
+postgresql:
+  # turns off the install of the bundled postgres.
+  # If not using the built in Postgres, you must specify a Postgresql
+  # database server to connect to in global.postgresql
+  enabled: false
 
 global:
   postgresql:
@@ -285,13 +355,6 @@ global:
     postgresqlSSL: "disable"
     postgresqlUsername: "postgres"
     postgresqlPassword: <InstanceRootPassword>
-
-
-postgresql:
-  # turns off the install of the bundled postgres.
-  # If not using the built in Postgres, you must specify a Postgresql
-  # database server to connect to in global.postgresql
-  enabled: false
 ```
 
 ## 6. Deploy Pachyderm
@@ -305,27 +368,66 @@ You can now finalize your values.yaml and deploy Pachyderm. Check the example be
 
 ### Update Your Values.yaml   
 
-[See an example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml). Additionally, you can copy/paste the json key to your service account in `pachd.storage.google.cred` or use `--set-file pachd.storage.google.cred=<my-key>.json` when running the following helm install. 
+[See an example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml). 
+
+!!! Warning
+    - If you have not created a Managed CloudSQL instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml and remove the `cloudsqlAuthProxy` fields. This setup is **not recommended in production environments**.
+    - If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console) and **add the relevant fields in your values.yaml**.
+ 
+
+You might want to create a static IP address to access your cluster externally. Refer to our [infrastructure documentation](../ingress/#loadbalancer) for more details.
+
+```shell
+${STATIC_IP_NAME}=<your address name>
+
+gcloud compute addresses create ${STATIC_IP_NAME} --region=${GCP_REGION}
+
+STATIC_IP_ADDR=$(gcloud compute addresses describe ${STATIC_IP_NAME} --region=${GCP_REGION} --format=json --flatten=address | jq .[] )
+```
 
 ```yaml
 deployTarget: GOOGLE
 
 pachd:
   enabled: true
+  externalService:
+    enabled: true
+    aPIGrpcport:    31400
+    loadBalancerIP: ${STATIC_IP_ADDR}
   storage:
     google:
       bucket: "bucket_name"
   serviceAccount:
     additionalAnnotations:
-      iam.gke.io/gcp-service-account: <ServiceAccount>
+      iam.gke.io/gcp-service-account: "${SERVICE_ACCOUNT}"
+    create: true
+    name:   "pachyderm"
   worker:
     serviceAccount:
       additionalAnnotations:
-        iam.gke.io/gcp-service-account: <ServiceAccount>
+        iam.gke.io/gcp-service-account: "${SERVICE_ACCOUNT}"
+    create: true
+    name:   "pachyderm-worker"
+
+cloudsqlAuthProxy:
+  enabled: true
+  connectionName: ${CLOUDSQL_CONNECTION_NAME}
+  serviceAccount: "${SERVICE_ACCOUNT}"
+  resources:
+    requests:
+      memory: "500Mi"
+      cpu:    "250m" 
 
 postgresql:
-  # If using the built in Postgres
-  enabled: true
+  enabled: false
+
+global:
+  postgresql:
+    postgresqlHost: "cloudsql-auth-proxy.default.svc.cluster.local."
+    postgresqlPort: "5432"
+    postgresqlSSL: "disable"
+    postgresqlUsername: "postgres"
+    postgresqlPassword: <InstanceRootPassword>
 ```
 
 !!! Note
@@ -337,7 +439,7 @@ postgresql:
     ```shell
     $ helm repo add pach https://helm.pachyderm.com
     $ helm repo update
-    $ helm install pachyderm -f my_values.yaml pach/pachyderm --set-file pachd.storage.google.cred=<my-key>.json.
+    $ helm install pachyderm -f my_values.yaml pach/pachyderm
     ```
 
     **System Response:**

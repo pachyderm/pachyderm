@@ -293,7 +293,7 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
 
 ### Update Your Values.yaml   
 !!! Warning
-    - If you have not created a Managed PostgreSQL Server instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml. This setup is **not recommended in production environments**.
+    - If you have not created a Managed PostgreSQL RDS instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml. This setup is **not recommended in production environments**.
     - If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console) and **add the relevant fields in your values.yaml**.
  
 #### For gp3 EBS Volumes
