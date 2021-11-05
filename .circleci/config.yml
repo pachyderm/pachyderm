@@ -4,7 +4,7 @@ jobs:
     components-test:
         resource_class: large
         docker:
-            - image: circleci/node:14.15.0
+            - image: cimg/node:16.11.0
         steps:
             - checkout
             - run: cd packages/components && npm ci
@@ -14,7 +14,7 @@ jobs:
             - run: cd packages/components && npm run build:storybook
     components-storybook-release:
         docker:
-            - image: circleci/node:14.15.0
+            - image: cimg/node:16.11.0
         steps:
             - checkout
             - run: ./scripts/upload-storybook.sh
