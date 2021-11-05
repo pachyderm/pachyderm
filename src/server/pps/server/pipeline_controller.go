@@ -192,8 +192,9 @@ func (pc *pipelineController) step(timestamp time.Time) (retErr error) {
 	}()
 
 	// query pipelineInfo
-	pi := &pps.PipelineInfo{}
-	if err := pc.tryLoadLatestPipelineInfo(pi); err != nil && collection.IsErrNotFound(err) {
+	var pi *pps.PipelineInfo
+	var err error
+	if pi, err = pc.tryLoadLatestPipelineInfo(); err != nil && collection.IsErrNotFound(err) {
 		// if the pipeline info is not found, interpret the operation as a delete
 		if err := pc.deletePipelineResources(); err != nil {
 			log.Errorf("PPS master: error deleting pipelineController resources for pipeline '%s': %v", pc.pipeline,
@@ -221,17 +222,17 @@ func (pc *pipelineController) step(timestamp time.Time) (retErr error) {
 		pipelineInfo: pi,
 	}
 
-	// set pc.rc
-	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
-	// the pipeline indefinitely)
-	if err := step.getRC(stepCtx, noExpectation); err != nil && !errors.Is(err, errRCNotFound) {
-		return err
-	}
-
 	// Process the pipeline event
 	var errCount int
 	var stepErr stepError
-	err := backoff.RetryNotify(func() error {
+	err = backoff.RetryNotify(func() error {
+		// set pc.rc
+		// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
+		// the pipeline indefinitely)
+		if err := step.getRC(stepCtx, noExpectation); err != nil && !errors.Is(err, errRCNotFound) {
+			return err
+		}
+
 		// Create/Modify/Delete pipeline resources as needed per new state
 		return step.run()
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
@@ -363,10 +364,11 @@ func (step *pcStep) run() error {
 	return nil
 }
 
-func (pc *pipelineController) tryLoadLatestPipelineInfo(message *pps.PipelineInfo) error {
+func (pc *pipelineController) tryLoadLatestPipelineInfo() (*pps.PipelineInfo, error) {
+	pi := &pps.PipelineInfo{}
 	errCnt := 0
 	err := backoff.RetryNotify(func() error {
-		return pc.loadLatestPipelineInfo(message)
+		return pc.loadLatestPipelineInfo(pi)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		errCnt++
 		// Don't put the pipeline in a failing state if we're in the middle
