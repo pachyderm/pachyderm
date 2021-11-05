@@ -70,7 +70,7 @@ spec:
         volumeMounts:
         - mountPath: /var/data/etcd
           name: etcd-storage
-      {{- if  .Values.etcd.securityContext.enabled }}
+      {{- if and .Values.etcd.securityContext.enabled (not .Values.global.disableSecurityContexts) }}
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000

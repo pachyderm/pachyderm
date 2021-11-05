@@ -96,7 +96,7 @@ spec:
         secret:
           secretName: {{ required "If enterpriseServer.tls.enabled, you must set enterpriseServer.tls.secretName" .Values.enterpriseServer.tls.secretName | quote }}
       {{- end }}
-      {{- if .Values.pachd.securityContext.enabled }}
+      {{- if and .Values.pachd.securityContext.enabled (not .Values.global.disableSecurityContexts) }}
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000

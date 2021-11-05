@@ -62,7 +62,7 @@ spec:
       {{- if .Values.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- end }}
-      {{- if .Values.securityContext.enabled }}
+      {{- if and .Values.securityContext.enabled (not .Values.global.disableSecurityContexts) }}
       securityContext: {{- omit .Values.securityContext "enabled" | toYaml | nindent 8 }}
       {{- end }}
       automountServiceAccountToken: {{ .Values.serviceAccount.autoMount }}
@@ -148,7 +148,7 @@ spec:
           {{- if .Values.lifecycleHooks }}
           lifecycle: {{- include "common.tplvalues.render" (dict "value" .Values.lifecycleHooks "context" $) | nindent 12 }}
           {{- end }}
-          {{- if .Values.containerSecurityContext.enabled }}
+          {{- if and (.Values.containerSecurityContext.enabled) (not .Values.global.disableSecurityContexts) }}
           securityContext: {{- omit .Values.containerSecurityContext "enabled" | toYaml | nindent 12 }}
           {{- end }}
           env:
