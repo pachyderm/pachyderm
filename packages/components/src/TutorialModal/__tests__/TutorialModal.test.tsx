@@ -120,7 +120,7 @@ describe('TutorialModal', () => {
     const {findByRole} = render(<TutorialModal steps={steps} />);
 
     const nextButton = await findByRole('button', {
-      name: 'Continue to next step',
+      name: 'Next Story',
     });
     expect(nextButton).toBeDisabled();
   });
@@ -137,7 +137,7 @@ describe('TutorialModal', () => {
     click(minimizeButton);
 
     const nextButton = await findByRole('button', {
-      name: 'Continue to next step',
+      name: 'Next Story',
     });
     expect(nextButton).toBeDisabled();
   });
@@ -165,7 +165,7 @@ describe('TutorialModal', () => {
     click(minimizeButton);
 
     const nextButton = await findByRole('button', {
-      name: 'Continue to next step',
+      name: 'Next Story',
     });
     userEvent.click(nextButton);
 

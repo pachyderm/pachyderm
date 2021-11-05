@@ -19,7 +19,7 @@ const useTutorialModal = (
   );
 
   const handleNextStep = () => {
-    setCurrentStep((prevValue) => prevValue + 1);
+    setCurrentStep((prevValue) => Math.min(prevValue + 1, steps.length - 1));
     setCurrentTask(0);
   };
 

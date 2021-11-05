@@ -3,13 +3,13 @@
     top: 1.375rem;
   }
   100% {
-    top: calc(100% - 2rem);
+    top: calc(100% - 3rem);
   }
 }
 
 @keyframes maximize {
   0% {
-    top: calc(100% - 2rem);
+    top: calc(100% - 3rem);
   }
   100% {
     top: 1.375rem;
@@ -36,6 +36,8 @@
 
 .minimize .body {
   overflow: hidden;
+  border-radius: 3px 3px 0px 0px;
+  border-bottom: 0px;
 }
 
 .modal {
@@ -51,24 +53,30 @@
 .header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: -0.875rem;
-  padding: 0 1rem;
+  margin-bottom: calc(-1rem - 4px);
+  padding: 0 2rem;
 }
 
 .button {
-  height: 1.75rem;
-  border-radius: 14.5px;
-  color: var(--plum-7);
-  border: 1px solid var(--plum-5);
-  font-weight: 700;
-  font-size: 0.75rem;
-  background-color: var(--grey-1);
-  padding-left: 1rem;
   z-index: 10;
+  font-weight: 400;
+  width: auto;
 }
 
 .button:disabled {
-  color: rgba(88, 47, 107, 0.6)
+  background-color: var(--plum-5);
+  opacity: 1;
+}
+
+.buttonBackground {
+  width: 100%;
+  height:100%;
+  z-index: 10;
+  background-color: #fff;
+}
+
+.button svg {
+  margin-left: 1rem;
 }
 
 .body {
@@ -76,7 +84,7 @@
   border: 1px solid var(--grey-4);
   background-color:var(--white);
   overflow-y: scroll;
-  height: calc(100% - 0.5rem);
+  height: calc(100% - 1rem);
   display: grid;
   grid-template-columns: auto auto;
 }
@@ -141,5 +149,5 @@
   padding: 1rem 2rem 0 1rem;
   width: 20rem;
   position: absolute;
-  bottom: 3rem;
+  bottom: 4rem;
 }

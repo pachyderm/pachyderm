@@ -1,6 +1,9 @@
 import classNames from 'classnames';
 import React, {useMemo} from 'react';
 
+import {Button} from 'Button';
+import {ArrowRightSVG, ChevronUpSVG, ChevronDownSVG} from 'Svg';
+
 import {PureCheckbox} from '../Checkbox';
 
 import SideBar from './components/SideBar';
@@ -78,7 +81,7 @@ const TutorialModal: React.FC<TutorialModalProps> = ({
           </div>
         ) : null}
         <div className={styles.header}>
-          <button
+          <Button
             className={styles.button}
             onClick={handleNextStep}
             disabled={
@@ -86,14 +89,26 @@ const TutorialModal: React.FC<TutorialModalProps> = ({
               currentTask <= steps[currentStep]?.tasks.length - 1
             }
           >
-            Continue to next step
-          </button>
-          <button
+            Next Story
+            <ArrowRightSVG />
+          </Button>
+          <Button
             className={styles.button}
+            buttonType="secondary"
             onClick={() => setMinimized((prevValue) => !prevValue)}
           >
-            {minimized ? 'Maximize' : 'Minimize'}
-          </button>
+            {minimized ? (
+              <>
+                Maximize
+                <ChevronUpSVG />
+              </>
+            ) : (
+              <>
+                Minimize
+                <ChevronDownSVG />
+              </>
+            )}
+          </Button>
         </div>
         <div className={styles.body}>
           <SideBar
