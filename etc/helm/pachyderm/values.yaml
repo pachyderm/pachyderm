@@ -212,6 +212,8 @@ pachd:
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
+  # instruct the config-pod to bootstrap enterprise on the cluster, even in upgrade releases
+  activateEnterprise: false
   ## if pachd.activateEnterpriseMember is set, enterprise will be activated and connected to an existing enterprise server.
   ## if pachd.enterpriseLicenseKey is set, enterprise will be activated.
   activateEnterpriseMember: false
