@@ -383,7 +383,7 @@ func (pc *pipelineController) tryLoadLatestPipelineInfo() (*pps.PipelineInfo, er
 			retry: false,
 		}
 	})
-	return err
+	return pi, err
 }
 
 func (pc *pipelineController) loadLatestPipelineInfo(message *pps.PipelineInfo) error {
