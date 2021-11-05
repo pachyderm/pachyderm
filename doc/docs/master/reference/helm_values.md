@@ -437,8 +437,6 @@ This section is to configure the pachd deployment.
 
 - `pachd.localhostIssuer` specifies to pachd whether dex is embedded in its process. This value can be set to "true", "false", or "".
 
-- `pachd.activateEnterpriseMember` specifies whether to activate with an enterprise server.
-
 - `pachd.enterpriseRootToken` specifies the root token of the enterprise server. If pachd.activateEnterpriseMember is set to true, the enterprise root token will be used to register the newly deployed pachyderm cluster with the enterprise server.
 
 - `pachd.enterpriseServerAddress` specifies the grpc address of the enterprise server. If pachd.activateEnterpriseMember is set to true, the newly deployed pachyderm cluster will use the address to communicate with the enterprise server.
