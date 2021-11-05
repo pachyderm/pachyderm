@@ -226,6 +226,11 @@ pachd:
   oauthClientID: pachd
   oauthClientSecret: ""
   oauthRedirectURI: ""
+  # only used if pachd.activateEnterpriseMember == true
+  enterpriseRootToken: ""
+  # only used if pachd.activateEnterpriseMember == true
+  enterpriseServerAddress: ""
+  enterpriseCallbackAddress: ""
   # Indicates to pachd whether dex is embedded in its process.
   localhostIssuer: "" # "true", "false", or "" (used string as bool doesn't support empty value)
   serviceAccount:

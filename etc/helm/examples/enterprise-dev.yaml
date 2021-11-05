@@ -1,4 +1,10 @@
 deployTarget: LOCAL
+
+oidc:
+  mockIDP: true
+  issuerURI: "http://pach-enterprise.enterprise.svc.cluster.local:1658"
+  userAccessibleOauthIssuerHost: localhost:31658
+
 console:
   enabled: false
 enterpriseServer:
@@ -7,6 +13,10 @@ enterpriseServer:
     type: NodePort
   image:
     tag: local
+
 pachd:
   enabled: false
-
+  rootToken: ""
+  enterpriseLicenseKey: ""
+  oauthClientID: "enterprise-pach"
+  oauthRedirectURI: "http://localhost:31657/authorization-code/callback"
