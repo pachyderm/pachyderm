@@ -149,23 +149,7 @@ func (pc *pipelineController) Start(timestamp time.Time) {
 		case <-pc.ctx.Done():
 			return
 		case <-pc.bumpChan:
-			var errCount int
-			var stepErr stepError
-			err := backoff.RetryNotify(func() error {
-				// Create/Modify/Delete pipeline resources as needed per new state
-				return pc.step(timestamp)
-			}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-				errCount++
-				if errors.As(err, &stepErr) {
-					if stepErr.retry && errCount < maxErrCount {
-						log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
-							pc.pipeline, err, d)
-						return nil
-					}
-				}
-				return errors.Wrapf(err, "could not update resource for pipeline %q", pc.pipeline)
-			})
-
+			err := pc.step(timestamp)
 			// we've given up on the step, check if the error indicated that the pipeline should fail
 			if err != nil {
 				log.Errorf("PPS master: error starting a pipelineController for pipeline '%s': %v", pc.pipeline,
@@ -245,8 +229,22 @@ func (pc *pipelineController) step(timestamp time.Time) (retErr error) {
 	}
 
 	// Process the pipeline event
+	var errCount int
 	var stepErr stepError
-	err := step.run()
+	err := backoff.RetryNotify(func() error {
+		// Create/Modify/Delete pipeline resources as needed per new state
+		return step.run()
+	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
+		errCount++
+		if errors.As(err, &stepErr) {
+			if stepErr.retry && errCount < maxErrCount {
+				log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
+					pc.pipeline, err, d)
+				return nil
+			}
+		}
+		return errors.Wrapf(err, "could not update resource for pipeline %q", pc.pipeline)
+	})
 	if errors.As(err, &stepErr) && stepErr.failPipeline {
 		failError := step.setPipelineFailure(fmt.Sprintf("could not update resources: %v", err))
 		if failError != nil {
