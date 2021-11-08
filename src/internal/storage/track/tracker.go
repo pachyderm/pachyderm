@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -31,12 +31,12 @@ const ExpireNow = time.Duration(math.MinInt32)
 // Tracker tracks objects and their references to one another.
 type Tracker interface {
 	// DB returns the database the tracker is using
-	DB() *sqlx.DB
+	DB() *pachsql.DB
 
 	// CreateTx creates an object with id=id, and pointers to everything in pointsTo
 	// It errors with ErrDifferentObjectExists if the object already exists.  Callers may be able to ignore this.
 	// It errors with ErrDanglingRef if any of the elements in pointsTo do not exist
-	CreateTx(tx *sqlx.Tx, id string, pointsTo []string, ttl time.Duration) error
+	CreateTx(tx *pachsql.Tx, id string, pointsTo []string, ttl time.Duration) error
 
 	// SetTTL sets the expiration time to current_time + ttl for the specified object
 	SetTTL(ctx context.Context, id string, ttl time.Duration) (time.Time, error)
@@ -52,7 +52,7 @@ type Tracker interface {
 
 	// DeleteTx deletes the object, or returns ErrDanglingRef if deleting it would create dangling refs.
 	// If the id doesn't exist, no error is returned
-	DeleteTx(tx *sqlx.Tx, id string) error
+	DeleteTx(tx *pachsql.Tx, id string) error
 
 	// IterateDeletable calls cb with all the objects objects which are no longer referenced and have expired
 	IterateDeletable(ctx context.Context, cb func(id string) error) error
@@ -219,7 +219,7 @@ func runGC(t *testing.T, tracker Tracker) int {
 }
 
 // NewTestTracker returns a tracker scoped to the lifetime of the test
-func NewTestTracker(t testing.TB, db *sqlx.DB) Tracker {
+func NewTestTracker(t testing.TB, db *pachsql.DB) Tracker {
 	db.MustExec("CREATE SCHEMA IF NOT EXISTS storage")
 	db.MustExec(schema)
 	return NewPostgresTracker(db)

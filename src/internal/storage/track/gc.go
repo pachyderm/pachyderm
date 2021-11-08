@@ -4,22 +4,22 @@ import (
 	"context"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/sirupsen/logrus"
 )
 
 // Deleter is used to delete external data associated with a tracked object
 type Deleter interface {
-	DeleteTx(tx *sqlx.Tx, id string) error
+	DeleteTx(tx *pachsql.Tx, id string) error
 }
 
 // DeleterMux returns a Deleter based on the id being deleted
 type DeleterMux func(string) Deleter
 
 // DeleteTx implements Deleter
-func (dm DeleterMux) DeleteTx(tx *sqlx.Tx, id string) error {
+func (dm DeleterMux) DeleteTx(tx *pachsql.Tx, id string) error {
 	deleter := dm(id)
 	if deleter == nil {
 		return errors.Errorf("deleter mux does not have deleter for (%s)", id)
@@ -90,7 +90,7 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (int, error) {
 
 func (gc *GarbageCollector) deleteObject(ctx context.Context, id string) error {
 	db := gc.tracker.DB()
-	return dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
+	return dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
 		if err := gc.tracker.DeleteTx(tx, id); err != nil {
 			return err
 		}

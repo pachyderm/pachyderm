@@ -3,10 +3,10 @@ package collection
 import (
 	"context"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/jmoiron/sqlx"
 )
 
 // Collection implements helper functions that makes common operations
@@ -21,7 +21,7 @@ type PostgresCollection interface {
 	// invalidated at the end of the transaction.  Basically, it's
 	// software transactional memory.  See this blog post for details:
 	// https://coreos.com/blog/transactional-memory-with-etcd3.html
-	ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection
+	ReadWrite(tx *pachsql.Tx) PostgresReadWriteCollection
 
 	// For read-only operations, use the ReadOnly for better performance
 	ReadOnly(ctx context.Context) PostgresReadOnlyCollection

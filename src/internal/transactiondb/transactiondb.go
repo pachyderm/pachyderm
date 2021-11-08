@@ -3,9 +3,8 @@
 package transactiondb
 
 import (
-	"github.com/jmoiron/sqlx"
-
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
@@ -16,7 +15,7 @@ const (
 var transactionsIndexes = []*col.Index{}
 
 // Transactions returns a collection of open transactions
-func Transactions(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
+func Transactions(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		transactionsCollectionName,
 		db,

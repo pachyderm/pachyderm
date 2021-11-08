@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
@@ -21,7 +21,7 @@ func NewTmpDeleter() track.Deleter {
 	return &tmpDeleter{}
 }
 
-func (*tmpDeleter) DeleteTx(tx *sqlx.Tx, _ string) error {
+func (*tmpDeleter) DeleteTx(tx *pachsql.Tx, _ string) error {
 	return nil
 }
 

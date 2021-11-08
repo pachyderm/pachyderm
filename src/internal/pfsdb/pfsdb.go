@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -49,7 +49,7 @@ func repoKeyCheck(key string) error {
 }
 
 // Repos returns a collection of repos
-func Repos(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
+func Repos(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		reposCollectionName,
 		db,
@@ -105,7 +105,7 @@ func CommitBranchlessKey(commit *pfs.Commit) string {
 }
 
 // Commits returns a collection of commits
-func Commits(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
+func Commits(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		commitsCollectionName,
 		db,
@@ -142,7 +142,7 @@ func BranchKey(branch *pfs.Branch) string {
 }
 
 // Branches returns a collection of branches
-func Branches(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
+func Branches(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		branchesCollectionName,
 		db,

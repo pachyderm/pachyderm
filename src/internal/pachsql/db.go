@@ -13,9 +13,12 @@ import (
 // DB is an alias for sqlx.DB which is the standard database type used throughout the project
 type DB = sqlx.DB
 
+// Tx is an alias for sqlx.Tx which is the standard transaction type used throughout the project
+type Tx = sqlx.Tx
+
 // OpenURL returns a database connection pool to the database specified by u
 // If password != "" then it will be used for authentication.
-// This function does not confirm that the database is reachable; callers may be interested in sqlx.DB.Ping()
+// This function does not confirm that the database is reachable; callers may be interested in pachsql.DB.Ping()
 func OpenURL(u URL, password string) (*DB, error) {
 	var driver string
 	var dsn string

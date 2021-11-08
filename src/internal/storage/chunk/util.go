@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -15,7 +15,7 @@ import (
 
 // NewTestStorage creates a local storage instance for testing during the lifetime of
 // the callback.
-func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker, opts ...StorageOption) (obj.Client, *Storage) {
+func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...StorageOption) (obj.Client, *Storage) {
 	objC := dockertestenv.NewTestObjClient(t)
 	db.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
 	require.NoError(t, dbutil.WithTx(context.Background(), db, SetupPostgresStoreV0))

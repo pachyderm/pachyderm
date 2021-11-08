@@ -15,13 +15,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/exec"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -91,12 +90,12 @@ type Driver interface {
 
 	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
-	DeleteJob(*sqlx.Tx, *pps.JobInfo) error
+	DeleteJob(*pachsql.Tx, *pps.JobInfo) error
 	UpdateJobState(*pps.Job, pps.JobState, string) error
 
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
-	NewSQLTx(func(*sqlx.Tx) error) error
+	NewSQLTx(func(*pachsql.Tx) error) error
 }
 
 type driver struct {
@@ -301,7 +300,7 @@ func (d *driver) PachClient() *client.APIClient {
 	return d.pachClient.WithCtx(d.ctx)
 }
 
-func (d *driver) NewSQLTx(cb func(*sqlx.Tx) error) error {
+func (d *driver) NewSQLTx(cb func(*pachsql.Tx) error) error {
 	return dbutil.WithTx(d.ctx, d.env.GetDBClient(), cb)
 }
 
@@ -450,7 +449,7 @@ func (d *driver) RunUserErrorHandlingCode(
 }
 
 func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
-	return d.NewSQLTx(func(sqlTx *sqlx.Tx) error {
+	return d.NewSQLTx(func(sqlTx *pachsql.Tx) error {
 		jobInfo := &pps.JobInfo{}
 		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
 			return err
@@ -462,7 +461,7 @@ func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string)
 // DeleteJob is identical to updateJobState, except that jobInfo points to a job
 // that should be deleted rather than marked failed.  Jobs may be deleted if
 // their output commit is deleted.
-func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobInfo *pps.JobInfo) error {
+func (d *driver) DeleteJob(sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
 	return d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job))
 }
 

@@ -6,10 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -108,13 +107,13 @@ func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger,
 func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return td.inner.RunUserErrorHandlingCode(ctx, logger, env)
 }
-func (td *testDriver) DeleteJob(sqlTx *sqlx.Tx, ji *pps.JobInfo) error {
+func (td *testDriver) DeleteJob(sqlTx *pachsql.Tx, ji *pps.JobInfo) error {
 	return td.inner.DeleteJob(sqlTx, ji)
 }
 func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return td.inner.UpdateJobState(job, state, reason)
 }
-func (td *testDriver) NewSQLTx(cb func(*sqlx.Tx) error) error {
+func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
 	return td.inner.NewSQLTx(cb)
 }
 
