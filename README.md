@@ -39,7 +39,7 @@ This feature is still under development, and will likely change.
 1. [Install helm](https://helm.sh/docs/intro/install/).
 1. Grab the latest pachyderm helm chart: `helm repo add pachyderm https://pachyderm.github.io/helmchart`
 1. If you haven't already, start up minikube
-1. Install pachyderm locally: `helm install pachyderm --set deployTarget=LOCAL --version 2.0.0-rc.5 pachyderm/pachyderm`
+1. Install pachyderm locally: `helm install pachyderm --set deployTarget=LOCAL --version 2.0.0 pachyderm/pachyderm`
 1. Delete your existing pre-2.0 pachctl config file: `rm ~/.pachyderm/config.json`
 
 #### Configuring Auth
