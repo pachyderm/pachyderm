@@ -52,6 +52,7 @@ jobs:
             - run: etc/testing/circle/install.sh
             - run: etc/testing/circle/start-minikube.sh
             - run: etc/testing/circle/deploy-pachyderm.sh
+            - run: etc/testing/circle/setup-project.sh
             - run: nvm use 16.11.0 && pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
     build:
         resource_class: xlarge
