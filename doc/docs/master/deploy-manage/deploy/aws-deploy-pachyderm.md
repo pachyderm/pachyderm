@@ -494,7 +494,7 @@ Check the [list of all available helm values](../../../reference/helm_values/) a
       Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
       Kubernetes restarted those pods. You can safely ignore this message.
 
-- Finally, make sure [`pachtl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate).
+- Finally, make sure that [`pachctl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate).
 
 ## 7. Have 'pachctl' And Your Cluster Communicate
 

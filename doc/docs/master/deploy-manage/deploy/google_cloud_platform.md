@@ -301,7 +301,7 @@ gcloud sql instances create ${INSTANCE_NAME} \
 --storage-size=50GB \
 --storage-type=SSD \
 --storage-auto-increase \
---root-password= "<InstanceRootPassword>"
+--root-password="<InstanceRootPassword>"
 ```
 
 When you create a new Cloud SQL for PostgreSQL instance, a [default admin user](https://cloud.google.com/sql/docs/postgres/users#default-users) `Username: "postgres"` is created. It will later be used by Pachyderm to access its databases. Note that the `--root-password` flag above sets the password for this user.
@@ -380,7 +380,15 @@ STATIC_IP_ADDR=$(gcloud compute addresses describe ${STATIC_IP_NAME} --region=${
 ```
 
 !!! Note
-     If you have not created a Managed CloudSQL instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml and remove the `cloudsqlAuthProxy` fields. This setup is **not recommended in production environments**.
+     - If you have not created a Managed CloudSQL instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml and remove the `cloudsqlAuthProxy` fields. This setup is **not recommended in production environments**.
+     
+Retrieve these additional variables, then fill in their values in the YAML file below:
+
+```shell
+echo $BUCKET_NAME
+echo $SERVICE_ACCOUNT
+echo $CLOUDSQL_CONNECTION_NAME
+```
 
 ```yaml
 deployTarget: GOOGLE
@@ -474,7 +482,7 @@ global:
     That simply means that Kubernetes tried to bring up those containers
     before other components were ready, so it restarted them.
 
-- Finally, make sure [`pachtl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate)
+- Finally, make sure that [`pachctl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate)
 
 ## 7. Have 'pachctl' and your Cluster Communicate
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
