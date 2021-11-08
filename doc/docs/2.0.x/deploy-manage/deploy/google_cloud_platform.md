@@ -362,30 +362,25 @@ global:
 ## 6. Deploy Pachyderm
 You have set up your infrastructure, created your GCP bucket and a CloudSQL instance, and granted your cluster access to both: you can now finalize your values.yaml and deploy Pachyderm.
 
-Check the example below.
-
-!!! Note 
-    - If you have created a GCP Managed PostgreSQL instance, you will have to replace the Postgresql section below with the appropriate values defined above.
-    - If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console/) and update your values.yaml accordingly.
+!!! Warning "Optional: If you plan to deploy with Console"
+    If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console) and **add the relevant fields in your values.yaml**.
 
 ### Update Your Values.yaml   
 
 [See an example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml). 
-
-!!! Warning
-    - If you have not created a Managed CloudSQL instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml and remove the `cloudsqlAuthProxy` fields. This setup is **not recommended in production environments**.
-    - If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console) and **add the relevant fields in your values.yaml**.
  
-
-You might want to create a static IP address to access your cluster externally. Refer to our [infrastructure documentation](../ingress/#loadbalancer) for more details.
+You might want to create a static IP address to access your cluster externally. Refer to our [infrastructure documentation](../ingress/#loadbalancer) for more details or check the example below:
 
 ```shell
-${STATIC_IP_NAME}=<your address name>
+STATIC_IP_NAME=<your address name>
 
 gcloud compute addresses create ${STATIC_IP_NAME} --region=${GCP_REGION}
 
 STATIC_IP_ADDR=$(gcloud compute addresses describe ${STATIC_IP_NAME} --region=${GCP_REGION} --format=json --flatten=address | jq '.[]' )
 ```
+
+!!! Note
+     If you have not created a Managed CloudSQL instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml and remove the `cloudsqlAuthProxy` fields. This setup is **not recommended in production environments**.
 
 ```yaml
 deployTarget: GOOGLE
@@ -398,7 +393,7 @@ pachd:
     loadBalancerIP: "<STATIC_IP_ADDR>"
   storage:
     google:
-      bucket: "<BUCKET_NAME>"
+      bucket: "<BUCKET_NAME"
   serviceAccount:
     additionalAnnotations:
       iam.gke.io/gcp-service-account: "<SERVICE_ACCOUNT>"
