@@ -308,6 +308,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "uriHttpsProtoOverride": {
+                    "type": "boolean"
                 }
             }
         },
