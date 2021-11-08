@@ -93,20 +93,20 @@ Pachyderm needs an S3 bucket (Object store) to store your data. You can create t
       command:
 
       ```shell
-      $ aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
+      aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
       ```
 
 * If you are creating an S3 bucket in any region but the `us-east-1`
 region, run the following command:
 
       ```shell
-      $ aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
+      aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
       ```
 
 * Verify that the S3 bucket was created:
 
       ```shell   
-      $ aws s3 ls
+      aws s3 ls
       ```
 
 You now need to **give Pachyderm access to your bucket** either by:
@@ -459,9 +459,9 @@ Check the [list of all available helm values](../../../reference/helm_values/) a
 - You can now deploy a Pachyderm cluster by running this command:
 
       ```shell
-      $ helm repo add pach https://helm.pachyderm.com
-      $ helm repo update
-      $ helm install pachyderm -f values.yaml pach/pachyderm --version <version-of-the-chart>
+      helm repo add pach https://helm.pachyderm.com
+      helm repo update
+      helm install pachyderm -f values.yaml pach/pachyderm --version <version-of-the-chart>
       ```
 
       **System Response:**
@@ -479,7 +479,7 @@ Check the [list of all available helm values](../../../reference/helm_values/) a
       shows all pods as `READY`:
 
       ```shell
-      $ kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+      kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
       ```
 
       **System Response**
@@ -526,7 +526,7 @@ If you're not exposing `pachd` publicly, you can run:
 
 ```shell
 # Background this process because it blocks.
-$ pachctl port-forward
+pachctl port-forward
 ``` 
 
 ## 8. Check That Your Cluster Is Up And Running
@@ -535,7 +535,7 @@ $ pachctl port-forward
     If Authentication is activated (When you deploy Console, for example), you will need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
 
 ```shell
-$ pachctl version
+pachctl version
 ```
 
 **System Response:**
