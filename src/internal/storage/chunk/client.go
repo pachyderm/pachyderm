@@ -7,7 +7,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -58,7 +57,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	chunkTID := chunkID.TrackerID()
 	var needUpload bool
 	var gen uint64
-	if err := dbutil.WithTx(ctx, c.db, func(tx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) error {
 		if err := c.tracker.CreateTx(tx, chunkTID, pointsTo, c.ttl); err != nil {
 			return err
 		}
@@ -148,7 +147,7 @@ var _ track.Deleter = &deleter{}
 
 type deleter struct{}
 
-func (d *deleter) DeleteTx(tx *sqlx.Tx, id string) error {
+func (d *deleter) DeleteTx(tx *pachsql.Tx, id string) error {
 	chunkID, err := ParseTrackerID(id)
 	if err != nil {
 		return errors.Wrapf(err, "cannot delete")

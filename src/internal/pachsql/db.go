@@ -10,8 +10,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-// DB is an alias for pachsql.DB which is the standard database type used throughout the project
+// DB is an alias for sqlx.DB which is the standard database type used throughout the project
 type DB = sqlx.DB
+
+// Tx is an alias for sqlx.Tx which is the standard transaction type used throughout the project
+type Tx = sqlx.Tx
 
 // OpenURL returns a database connection pool to the database specified by u
 // If password != "" then it will be used for authentication.

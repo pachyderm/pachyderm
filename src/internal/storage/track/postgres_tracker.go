@@ -6,8 +6,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -28,7 +26,7 @@ func (t *postgresTracker) DB() *pachsql.DB {
 	return t.db
 }
 
-func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, ttl time.Duration) error {
+func (t *postgresTracker) CreateTx(tx *pachsql.Tx, id string, pointsTo []string, ttl time.Duration) error {
 	for _, dwn := range pointsTo {
 		if dwn == id {
 			return ErrSelfReference
@@ -55,7 +53,7 @@ func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, tt
 
 // putObject creates or updates the object at id, to have the max of the current and new ttl.
 // If ttl == NoTTL, then the ttl is removed.
-func (t *postgresTracker) putObject(tx *sqlx.Tx, id string, ttl time.Duration) (int, bool, error) {
+func (t *postgresTracker) putObject(tx *pachsql.Tx, id string, ttl time.Duration) (int, bool, error) {
 	// About xmax https://stackoverflow.com/a/39204667
 	res := struct {
 		IntID int `db:"int_id"`
@@ -91,7 +89,7 @@ func (t *postgresTracker) putObject(tx *sqlx.Tx, id string, ttl time.Duration) (
 	return res.IntID, inserted, nil
 }
 
-func (t *postgresTracker) addReferences(tx *sqlx.Tx, intID int, pointsTo []string) error {
+func (t *postgresTracker) addReferences(tx *pachsql.Tx, intID int, pointsTo []string) error {
 	if len(pointsTo) == 0 {
 		return nil
 	}
@@ -192,7 +190,7 @@ func (t *postgresTracker) GetExpiresAt(ctx context.Context, id string) (time.Tim
 	return expiresAt, nil
 }
 
-func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
+func (t *postgresTracker) DeleteTx(tx *pachsql.Tx, id string) error {
 	var count int
 	if err := tx.Get(&count, `
 		WITH target AS (
@@ -243,7 +241,7 @@ func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id strin
 	return rows.Err()
 }
 
-func (t *postgresTracker) getDownstream(tx *sqlx.Tx, intID int) ([]string, error) {
+func (t *postgresTracker) getDownstream(tx *pachsql.Tx, intID int) ([]string, error) {
 	dwn := []string{}
 	if err := tx.Select(&dwn, `
 		SELECT str_id FROM storage.tracker_objects
@@ -290,7 +288,7 @@ func removeDuplicates(xs []string) []string {
 // SetupPostgresTrackerV0 sets up the table for the postgres tracker
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
-func SetupPostgresTrackerV0(ctx context.Context, tx *sqlx.Tx) error {
+func SetupPostgresTrackerV0(ctx context.Context, tx *pachsql.Tx) error {
 	_, err := tx.ExecContext(ctx, schema)
 	return errors.EnsureStack(err)
 }

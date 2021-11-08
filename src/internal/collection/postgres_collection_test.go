@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -20,7 +18,7 @@ import (
 func TestPostgresCollections(suite *testing.T) {
 	PostgresCollectionBasicTests(suite, newCollectionFunc(func(ctx context.Context, t *testing.T) (*pachsql.DB, col.PostgresListener) {
 		db, dsn := newTestDB(t)
-		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
+		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *pachsql.Tx) error {
 			if err := col.CreatePostgresSchema(ctx, sqlTx); err != nil {
 				return err
 			}
@@ -35,7 +33,7 @@ func TestPostgresCollections(suite *testing.T) {
 	}))
 	PostgresCollectionWatchTests(suite, newCollectionFunc(func(ctx context.Context, t *testing.T) (*pachsql.DB, col.PostgresListener) {
 		db, dsn := newTestDirectDB(t)
-		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
+		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *pachsql.Tx) error {
 			if err := col.CreatePostgresSchema(ctx, sqlTx); err != nil {
 				return err
 			}
@@ -67,7 +65,7 @@ func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col
 		db, listener := setup(ctx, t)
 
 		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex})
-		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
+		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *pachsql.Tx) error {
 			return col.SetupPostgresCollections(ctx, sqlTx, testCol)
 		}))
 
@@ -76,7 +74,7 @@ func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col
 		}
 
 		writeCallback := func(ctx context.Context, f func(col.ReadWriteCollection) error) error {
-			return dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
+			return dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
 				return f(testCol.ReadWrite(tx))
 			})
 		}

@@ -40,7 +40,7 @@ func (s *postgresStore) DB() *pachsql.DB {
 	return s.db
 }
 
-func (s *postgresStore) SetTx(tx *sqlx.Tx, id ID, md *Metadata) error {
+func (s *postgresStore) SetTx(tx *pachsql.Tx, id ID, md *Metadata) error {
 	if md == nil {
 		md = &Metadata{}
 	}
@@ -127,11 +127,11 @@ func (s *postgresStore) putInCache(ctx context.Context, id ID, md *Metadata) err
 	return s.cache.Put(ctx, id[:], mdData)
 }
 
-func (s *postgresStore) GetTx(tx *sqlx.Tx, id ID) (*Metadata, error) {
+func (s *postgresStore) GetTx(tx *pachsql.Tx, id ID) (*Metadata, error) {
 	return s.get(context.Background(), tx, id)
 }
 
-func (s *postgresStore) DeleteTx(tx *sqlx.Tx, id ID) error {
+func (s *postgresStore) DeleteTx(tx *pachsql.Tx, id ID) error {
 	_, err := tx.Exec(`DELETE FROM storage.filesets WHERE id = $1`, id)
 	return err
 }
@@ -139,7 +139,7 @@ func (s *postgresStore) DeleteTx(tx *sqlx.Tx, id ID) error {
 // SetupPostgresStoreV0 sets up the tables for a Store
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
-func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
+func SetupPostgresStoreV0(ctx context.Context, tx *pachsql.Tx) error {
 	const schema = `
 	CREATE TABLE storage.filesets (
 		id UUID NOT NULL PRIMARY KEY,

@@ -117,14 +117,14 @@ func (c *postgresCollection) ReadOnly(ctx context.Context) PostgresReadOnlyColle
 	return &postgresReadOnlyCollection{c, ctx}
 }
 
-func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection {
+func (c *postgresCollection) ReadWrite(tx *pachsql.Tx) PostgresReadWriteCollection {
 	return &postgresReadWriteCollection{c, tx}
 }
 
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
 // transaction instead of committing it.
-func NewDryrunSQLTx(ctx context.Context, db *pachsql.DB, apply func(*sqlx.Tx) error) error {
-	err := dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
+func NewDryrunSQLTx(ctx context.Context, db *pachsql.DB, apply func(*pachsql.Tx) error) error {
+	err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
 		if err := apply(tx); err != nil {
 			return err
 		}
@@ -607,7 +607,7 @@ func (c *postgresReadOnlyCollection) WatchByIndexF(index *Index, indexVal string
 
 type postgresReadWriteCollection struct {
 	*postgresCollection
-	tx *sqlx.Tx
+	tx *pachsql.Tx
 }
 
 func (c *postgresReadWriteCollection) Get(key interface{}, val proto.Message) error {

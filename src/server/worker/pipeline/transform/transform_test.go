@@ -11,7 +11,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/jmoiron/sqlx"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -19,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -90,7 +90,7 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	require.NoError(t, err)
 
 	// Put the pipeline info into the collection (which is read by the master)
-	err = env.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
+	err = env.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
 		pipelineInfo := &pps.PipelineInfo{
 			State:       pps.PipelineState_PIPELINE_STARTING,
 			Version:     1,

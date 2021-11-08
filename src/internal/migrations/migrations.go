@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -18,7 +17,7 @@ import (
 type Env struct {
 	// TODO: etcd
 	ObjectClient obj.Client
-	Tx           *sqlx.Tx
+	Tx           *pachsql.Tx
 }
 
 // MakeEnv returns a new Env
@@ -186,7 +185,7 @@ func BlockUntil(ctx context.Context, db *pachsql.DB, state State) error {
 	}
 }
 
-func isFinished(ctx context.Context, tx *sqlx.Tx, state State) (bool, error) {
+func isFinished(ctx context.Context, tx *pachsql.Tx, state State) (bool, error) {
 	var name string
 	if err := tx.GetContext(ctx, &name, `
 	SELECT name

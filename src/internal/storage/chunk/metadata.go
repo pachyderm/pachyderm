@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -69,7 +68,7 @@ type Entry struct {
 // SetupPostgresStoreV0 sets up tables in db
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
-func SetupPostgresStoreV0(tx *sqlx.Tx) error {
+func SetupPostgresStoreV0(tx *pachsql.Tx) error {
 	_, err := tx.Exec(`
 	CREATE TABLE storage.chunk_objects (
 		chunk_id BYTEA NOT NULL,
