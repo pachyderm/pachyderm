@@ -14,7 +14,7 @@ const mount: JupyterFrontEndPlugin<void> = {
   activate: (app: JupyterFrontEnd) => {
     console.log('The Mount plugin is active!');
 
-    requestAPI<any>('get_example')
+    requestAPI<any>('/v1/repos')
       .then(data => {
         console.log(data);
       })

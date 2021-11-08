@@ -107,6 +107,52 @@ pip uninstall jupyterlab_pachyderm
 ```
 
 
+## Server extension
+
+First make sure the server extension is enabled:
+
+```
+jupyter labextension list 2>&1 | grep -ie "jupyterlab-pachyderm.*OK"
+```
+
+### API endpoints
+
+Single
+
+```
+GET /repos/:repo_id # returns the state of a single repo
+PUT /repos/:repo_id/_mount # mounts a single repo
+PUT /repos/:repo_id/_unmount # unmounts a single repo
+PUT /repos/:repo_id/_commit # commits any changes to the repo
+```
+
+Batch
+
+```
+GET /repos # returns a list of all repos and their mount_state
+PUT /repos/_mount # mounts all repos by default unless request body contains a list of specific repos
+PUT /repos/_unmount # unmounts all repos
+```
+
+The servers-side extension extends jupyter server, so it automatically starts as part of `jupyter lab`.
+
+API endpoints can be accessed via `localhost:8888/pachyderm/v1`
+
+The frontend can access the endpoints via `/v1`, for example:
+
+```js
+requestAPI<any>('/v1/repos')
+      .then(data => {
+        console.log(data);
+      })
+      .catch(reason => {
+        console.error(reason);
+      });
+```
+
+You can also access it via `localhost:8888/v1
+
+
 # Project Structure
 Jupyter extensions are composed of several plugins. These plugins can be selectively enabled or disabled. Because of this we have decided separate the functionality in the extension using plugins. Plugins exported in this extension are as follows.
 
