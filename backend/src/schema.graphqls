@@ -191,6 +191,11 @@ type Job {
   outputBranch: String
   reason: String
   jsonDetails: String!
+  dataProcessed: Int!
+  dataSkipped: Int!
+  dataFailed: Int!
+  dataRecovered: Int!
+  dataTotal: Int!
 }
 
 enum NodeType {

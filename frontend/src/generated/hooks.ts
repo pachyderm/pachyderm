@@ -12,6 +12,11 @@ export const JobOverviewFragmentDoc = gql`
     finishedAt
     pipelineName
     reason
+    dataProcessed
+    dataSkipped
+    dataFailed
+    dataTotal
+    dataRecovered
   }
 `;
 export const JobSetFieldsFragmentDoc = gql`

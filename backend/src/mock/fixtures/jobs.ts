@@ -23,6 +23,8 @@ const tutorial = [
         },
       },
     },
+    dataFailed: 0,
+    dataTotal: 100,
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
@@ -42,6 +44,8 @@ const tutorial = [
         },
       },
     },
+    dataFailed: 0,
+    dataTotal: 100,
   }),
   jobInfoFromObject({
     state: JobState.JOB_FAILURE,
@@ -90,6 +94,8 @@ const customerTeam = [
       id: '23b9af7d5d4343219bc8e02ff4acd33a',
       pipeline: {name: 'likelihoods'},
     },
+    dataFailed: 100,
+    dataTotal: 100,
   }),
   jobInfoFromObject({
     state: JobState.JOB_EGRESSING,
@@ -105,6 +111,8 @@ const customerTeam = [
         },
       },
     },
+    dataFailed: 0,
+    dataTotal: 100,
   }),
   jobInfoFromObject({
     state: JobState.JOB_KILLED,
@@ -114,18 +122,24 @@ const customerTeam = [
       id: '23b9af7d5d4343219bc8e02ff4acd33a',
       pipeline: {name: 'joint_call'},
     },
+    dataFailed: 0,
+    dataTotal: 0,
   }),
   jobInfoFromObject({
     state: JobState.JOB_RUNNING,
     createdAt: {seconds: 1614136189, nanos: 100},
     startedAt: {seconds: 1614136193, nanos: 100},
     job: {id: '23b9af7d5d4343219bc8e02ff4acd33a', pipeline: {name: 'split'}},
+    dataFailed: 0,
+    dataTotal: 100,
   }),
   jobInfoFromObject({
     state: JobState.JOB_STARTING,
     createdAt: {seconds: 1614136189, nanos: 100},
     startedAt: {seconds: 1614136194, nanos: 100},
     job: {id: '23b9af7d5d4343219bc8e02ff4acd33a', pipeline: {name: 'test'}},
+    dataFailed: 0,
+    dataTotal: 100,
   }),
 ];
 

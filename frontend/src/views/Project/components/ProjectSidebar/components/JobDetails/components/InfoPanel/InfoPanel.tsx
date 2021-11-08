@@ -182,6 +182,46 @@ const InfoPanel = () => {
         {duration}
       </Description>
 
+      <Description
+        term="Datums Processed"
+        loading={loading}
+        data-testid="InfoPanel__processed"
+      >
+        {job?.dataProcessed}
+      </Description>
+
+      <Description
+        term="Datums Skipped"
+        loading={loading}
+        data-testid="InfoPanel__skipped"
+      >
+        {job?.dataSkipped}
+      </Description>
+
+      <Description
+        term="Datums Failed"
+        loading={loading}
+        data-testid="InfoPanel__failed"
+      >
+        {job?.dataFailed}
+      </Description>
+
+      <Description
+        term="Datums Recovered"
+        loading={loading}
+        data-testid="InfoPanel__recovered"
+      >
+        {job?.dataRecovered}
+      </Description>
+
+      <Description
+        term="Datums Total"
+        loading={loading}
+        data-testid="InfoPanel__total"
+      >
+        {job?.dataTotal}
+      </Description>
+
       <hr className={styles.divider} />
 
       <Description

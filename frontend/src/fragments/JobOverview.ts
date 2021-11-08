@@ -9,5 +9,10 @@ export const JobOverviewFragment = gql`
     finishedAt
     pipelineName
     reason
+    dataProcessed
+    dataSkipped
+    dataFailed
+    dataTotal
+    dataRecovered
   }
 `;

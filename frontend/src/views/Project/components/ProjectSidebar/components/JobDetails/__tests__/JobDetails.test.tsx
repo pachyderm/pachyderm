@@ -124,6 +124,11 @@ describe('Job Details', () => {
         addSuffix: true,
       }),
     );
+    expect(getByTestId('InfoPanel__processed')).toHaveTextContent(/^0$/);
+    expect(getByTestId('InfoPanel__failed')).toHaveTextContent(/^100$/);
+    expect(getByTestId('InfoPanel__skipped')).toHaveTextContent(/^0$/);
+    expect(getByTestId('InfoPanel__recovered')).toHaveTextContent(/^0$/);
+    expect(getByTestId('InfoPanel__total')).toHaveTextContent(/^100$/);
   });
 
   it('should display correct pipeline job based on url', async () => {

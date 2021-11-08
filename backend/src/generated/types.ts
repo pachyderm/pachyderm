@@ -193,6 +193,11 @@ export type Job = {
   outputBranch?: Maybe<Scalars['String']>;
   reason?: Maybe<Scalars['String']>;
   jsonDetails: Scalars['String'];
+  dataProcessed: Scalars['Int'];
+  dataSkipped: Scalars['Int'];
+  dataFailed: Scalars['Int'];
+  dataRecovered: Scalars['Int'];
+  dataTotal: Scalars['Int'];
 };
 
 export type JobQueryArgs = {
@@ -1028,6 +1033,11 @@ export type JobResolvers<
   >;
   reason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   jsonDetails?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  dataProcessed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  dataSkipped?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  dataFailed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  dataRecovered?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  dataTotal?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1476,6 +1486,11 @@ export type JobOverviewFragment = {__typename?: 'Job'} & Pick<
   | 'finishedAt'
   | 'pipelineName'
   | 'reason'
+  | 'dataProcessed'
+  | 'dataSkipped'
+  | 'dataFailed'
+  | 'dataTotal'
+  | 'dataRecovered'
 >;
 
 export type JobSetFieldsFragment = {__typename?: 'JobSet'} & Pick<
