@@ -474,7 +474,7 @@ global:
     That simply means that Kubernetes tried to bring up those containers
     before other components were ready, so it restarted them.
 
-- Finally, make sure [`pachtl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicat
+- Finally, make sure [`pachtl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate)
 
 ## 7. Have 'pachctl' and your Cluster Communicate
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
