@@ -250,10 +250,12 @@ You are ready to create your instance.
         --admin-user <server_admin_username> \
         --admin-password <server_admin_password> \
         --ssl-enforcement Disabled \
+        --version 11
     ```
 
 !!! Warning
-    Keep the SSL setting `Disabled`.
+    - Make sure that your PostgreSQL version is `>= 11`
+    - Keep the SSL setting `Disabled`.
 
 
 Once created, go back to your newly created database, and: 
@@ -314,11 +316,12 @@ postgresql:
 ## 6. Deploy Pachyderm
 You have set up your infrastructure, created your data container and a Managed PostgreSQL instance, and granted your cluster access to both: you can now finalize your values.yaml and deploy Pachyderm.
 
+!!! Warning "Optional: If you plan to deploy with Console"
+    If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console) and **add the relevant fields in your values.yaml**.
 ### Update Your Values.yaml  
 
 !!! Note 
-    - If you have not created a Managed PostgreSQL Server instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml. This setup is **not recommended in production environments**.
-    - If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console/#deploy-in-the-cloud) and **update your values.yaml** accordingly. 
+     If you have not created a Managed PostgreSQL Server instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml. This setup is **not recommended in production environments**.
 
 If you have previously tried to run Pachyderm locally,
 make sure that you are using the right Kubernetes context first. 
@@ -427,7 +430,7 @@ make sure that you are using the right Kubernetes context first.
     the `etcd` nodes are ready which might result in the `pachd` nodes
     restarting. You can safely ignore those restarts.
 
-- Finally, make sure [`pachtl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate).
+- Finally, make sure that [`pachctl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate).
 ## 7. Have 'pachctl' And Your Cluster Communicate
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
