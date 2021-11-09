@@ -126,3 +126,15 @@ pachd               {{ config.pach_latest_version }}
 ```shell
 $ helm uninstall pachd 
 ```
+
+We recommend making sure that everything is properly removed following a helm uninstall:
+
+- The uninstall leaves your persistent volumes. To clean them up, run `kubectl get pvc` and delete the claims `data-postgres-0` and `etcd-storage-etcd-0`. 
+
+!!! Attention
+     Deleting pvs will result in the loss of your data.
+
+- All other resources should have been removed by Helm. Run `kubectl get all | grep "etcd\|\pachd\|postgres\|pg-bouncer"` to make sure of it and delete any remaining resources where necessary.
+
+- If your uninstall failed, there might be config jobs still running. Run `kubectl get jobs.batch | grep pachyderm` and delete any remaining job.
+
