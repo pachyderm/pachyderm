@@ -2108,18 +2108,16 @@ func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 
 func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) ([]byte, error) {
 	secret, err := keyStore.Get(ctx, name)
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return secret, errors.EnsureStack(err)
 	}
-	if err == sql.ErrNoRows {
-		secret = make([]byte, 32)
-		if _, err := rand.Read(secret); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		log.Infof("generated new secret: %q", name)
-		if err := keyStore.Create(ctx, name, secret); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
+	secret = make([]byte, 32)
+	if _, err := rand.Read(secret); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	log.Infof("generated new secret: %q", name)
+	if err := keyStore.Create(ctx, name, secret); err != nil {
+		return nil, errors.EnsureStack(err)
 	}
 	res, err := keyStore.Get(ctx, name)
 	return res, errors.EnsureStack(err)

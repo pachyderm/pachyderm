@@ -1,7 +1,6 @@
 package cmdutil
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -37,10 +36,7 @@ func Main(do func(interface{}) error, appEnv interface{}, decoders ...Decoder) {
 }
 
 func mainError(err error) {
-	if errString := strings.TrimSpace(err.Error()); errString != "" {
-		fmt.Fprintf(os.Stderr, "%s\n", errString)
-	}
-	os.Exit(1)
+	ErrorAndExit("%v\n", err)
 }
 
 const (

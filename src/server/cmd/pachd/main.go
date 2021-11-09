@@ -73,6 +73,7 @@ func init() {
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
 	maxprocs.Set(maxprocs.Logger(log.Printf))
+	cmdutil.PrintErrorStacks = true
 
 	switch {
 	case readiness:
