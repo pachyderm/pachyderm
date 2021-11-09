@@ -1,7 +1,0 @@
-{
-  "title": "Pachyderm Hub",
-  "description": "Pachyderm Hub related features.",
-  "properties": {},
-  "additionalProperties": false,
-  "type": "object"
-}

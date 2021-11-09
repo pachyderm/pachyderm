@@ -1,24 +1,10 @@
 {
   "compilerOptions": {
-    "allowSyntheticDefaultImports": true,
-    "composite": true,
-    "declaration": true,
-    "esModuleInterop": true,
-    "incremental": true,
-    "jsx": "react",
-    "module": "esnext",
-    "moduleResolution": "node",
-    "noEmitOnError": true,
-    "noImplicitAny": true,
-    "noUnusedLocals": true,
-    "preserveWatchOutput": true,
-    "resolveJsonModule": true,
-    "outDir": "lib",
-    "rootDir": "src",
-    "strict": true,
-    "strictNullChecks": true,
-    "target": "es2017",
-    "types": []
+    "target": "ES6",
+    "outDir": "./lib",
+    "baseUrl": "./src",
+    "noEmit": false
   },
+  "extends": "@pachyderm/config/ts.config.json",
   "include": ["src/**/*"]
 }
