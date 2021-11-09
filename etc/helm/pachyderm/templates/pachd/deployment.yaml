@@ -13,7 +13,7 @@ metadata:
   name: pachd
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.pachd.replicas }}
   selector:
     matchLabels:
       app: pachd
@@ -179,9 +179,15 @@ spec:
         {{- if .Values.pachd.tls.enabled }}
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
-        {{- end }} 
+        {{- end }}
+      {{-  if .Values.pachd.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.pachd.nodeSelector | nindent 8 }}
+      {{- end }}
       {{- if .Values.pachd.serviceAccount.name }}
       serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
+      {{- end }}
+      {{-  if .Values.pachd.tolerations }}
+      tolerations: {{ toYaml .Values.pachd.tolerations | nindent 8 }}
       {{- end }}
       volumes:
       - name: pach-disk
