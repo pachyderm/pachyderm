@@ -366,7 +366,9 @@ $ {{alias}} test@fork -p XXX`,
 		Long:  "Return info about a commit.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			commit, err := cmdutil.ParseCommit(args[0])
-			if err != nil {
+			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
+				return errors.New(`Use "list commit <id>" to see commits with a given ID across different repos `)
+			} else {
 				return err
 			}
 			c, err := client.NewOnUserMachine("user")
