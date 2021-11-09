@@ -108,5 +108,6 @@ A release under development may undergo several pre-release stages before becomi
 | Spouts: Named Pipes | 2.0.0   | 2021-07-25 |
 | Vault Plugin        | 2.0.0   | 2021-07-25 |
 | `pachctl put file --split`| 2.0.0 | 2021-07-25|
+| MaxQueueSize | 2.0.0 | 2021-07-25|
 | S3v2 signatures   | 1.12.0  | 2021-01-05 |
 | atom inputs       | 1.9.0   | 2019-06-12 |
