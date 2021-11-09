@@ -6,6 +6,7 @@ recursive-include jupyter-config *.json
 include package.json
 include install.json
 include ts*.json
+include schema/*.json
 include yarn.lock
 
 graft jupyterlab_pachyderm/labextension

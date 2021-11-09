@@ -1,4 +1,5 @@
 name: Check Release
+
 on:
   push:
     branches:
@@ -49,12 +50,12 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install .
-      - name: Check Release
-        uses: jupyter-server/jupyter_releaser/.github/actions/check-release@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload Distributions
-        uses: actions/upload-artifact@v2
-        with:
-          name: {{ cookiecutter.python_name }}-releaser-dist-${{ github.run_number }}
-          path: .jupyter_releaser_checkout/dist
+      # - name: Check Release
+      #   uses: jupyter-server/jupyter_releaser/.github/actions/check-release@v1
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Upload Distributions
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     name: jupyterlab_pachyderm-releaser-dist-${{ github.run_number }}
+      #     path: .jupyter_releaser_checkout/dist
