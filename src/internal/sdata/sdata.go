@@ -3,6 +3,7 @@ package sdata
 import (
 	"database/sql"
 	"reflect"
+	"time"
 )
 
 // MaterializationResult is returned by MaterializeSQL
@@ -30,7 +31,7 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 	var count uint64
 	row := newTupleFromSQL(cTypes)
 	for rows.Next() {
-		if err := readTuple(row, rows); err != nil {
+		if err := rows.Scan(row...); err != nil {
 			return nil, err
 		}
 		if err := tw.WriteTuple(row); err != nil {
@@ -62,11 +63,24 @@ func newTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
 		default:
 			rType = cType.ScanType()
 		}
-		row[i] = reflect.New(rType).Interface()
+		v := reflect.New(rType).Interface()
+		if nullable, ok := cType.Nullable(); !ok || nullable {
+			switch v.(type) {
+			case *int16:
+				v = &sql.NullInt16{}
+			case *int32:
+				v = &sql.NullInt32{}
+			case *int64:
+				v = &sql.NullInt64{}
+			case *float64:
+				v = &sql.NullFloat64{}
+			case *string:
+				v = &sql.NullString{}
+			case *time.Time:
+				v = &sql.NullTime{}
+			}
+		}
+		row[i] = v
 	}
 	return row
-}
-
-func readTuple(x Tuple, rows *sql.Rows) error {
-	return rows.Scan(x...)
 }

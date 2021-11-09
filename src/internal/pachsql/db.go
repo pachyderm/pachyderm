@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -61,14 +62,24 @@ func postgresDSN(u URL, password string) string {
 }
 
 func mySQLDSN(u URL, password string) string {
+	params := copyParams(u.Params)
+	params["parseTime"] = "true"
 	config := mysql.Config{
 		User:                 u.User,
 		Passwd:               password,
 		Net:                  "tcp",
 		Addr:                 net.JoinHostPort(u.Host, strconv.Itoa(int(u.Port))),
 		DBName:               u.Database,
-		Params:               u.Params,
+		Params:               params,
 		AllowNativePasswords: true,
 	}
 	return config.FormatDSN()
+}
+
+func copyParams(x map[string]string) map[string]string {
+	y := make(map[string]string, len(x))
+	for k, v := range x {
+		y[k] = v
+	}
+	return y
 }

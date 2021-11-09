@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -70,6 +71,7 @@ func (m *CSVWriter) WriteTuple(row Tuple) error {
 }
 
 func (m *CSVWriter) format(x interface{}) (string, error) {
+	const null = "null"
 	var y string
 	switch x := x.(type) {
 	case *int16:
@@ -82,17 +84,49 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 		y = strconv.FormatUint(*x, 10)
 	case *string:
 		y = *x
+	case *float32:
+		y = strconv.FormatFloat(float64(*x), 'f', -1, 32)
 	case *float64:
 		y = strconv.FormatFloat(*x, 'f', -1, 64)
 	case *sql.RawBytes:
 		// TODO: what to do here? might not be printable.
 		// Maybe have a list of base64 encoded columns.
 		y = string(*x)
+	case *sql.NullInt16:
+		if x.Valid {
+			y = strconv.FormatInt(int64(x.Int16), 10)
+		} else {
+			y = null
+		}
+	case *sql.NullInt32:
+		if x.Valid {
+			y = strconv.FormatInt(int64(x.Int32), 10)
+		} else {
+			y = null
+		}
 	case *sql.NullInt64:
 		if x.Valid {
 			y = strconv.FormatInt(x.Int64, 10)
 		} else {
-			y = "null"
+			y = null
+		}
+	case *sql.NullFloat64:
+		if x.Valid {
+			y = strconv.FormatFloat(x.Float64, 'f', -1, 64)
+		} else {
+			y = null
+		}
+	case *sql.NullString:
+		if x.Valid {
+			y = x.String
+		} else {
+			y = null
+		}
+	case *sql.NullTime:
+		if x.Valid {
+			y = x.Time.Format(time.RFC3339Nano)
+		} else {
+			y = null
 		}
 	default:
 		return "", errors.Errorf("unrecognized value (%v: %T)", x, x)
@@ -132,9 +166,39 @@ func (m *JSONWriter) WriteTuple(row Tuple) error {
 	for i := range row {
 		var y interface{}
 		switch x := row[i].(type) {
+		case *sql.NullInt16:
+			if x.Valid {
+				y = x.Int16
+			} else {
+				y = nil
+			}
+		case *sql.NullInt32:
+			if x.Valid {
+				y = x.Int32
+			} else {
+				y = nil
+			}
 		case *sql.NullInt64:
 			if x.Valid {
 				y = x.Int64
+			} else {
+				y = nil
+			}
+		case *sql.NullFloat64:
+			if x.Valid {
+				y = x.Float64
+			} else {
+				y = nil
+			}
+		case *sql.NullString:
+			if x.Valid {
+				y = x.String
+			} else {
+				y = nil
+			}
+		case *sql.NullTime:
+			if x.Valid {
+				y = x.Time
 			} else {
 				y = nil
 			}
