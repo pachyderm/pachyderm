@@ -5,7 +5,7 @@ import {
 
 import { requestAPI } from './handler';
 import telemetry from './plugins/telemetry';
-import help from './plugins/hub-help';
+import help from './plugins/help';
 
 import '@pachyderm/components/dist/style.css';
 

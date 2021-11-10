@@ -7,7 +7,7 @@ import { IMainMenu } from '@jupyterlab/mainmenu';
 import { init } from './help';
 
 const help: JupyterFrontEndPlugin<void> = {
-  id: 'jupyterlab-pachyderm:hub-help',
+  id: 'jupyterlab-pachyderm:help',
   autoStart: true,
   requires: [IMainMenu],
   activate: (app: JupyterFrontEnd, mainMenu?: IMainMenu) => {
