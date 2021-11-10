@@ -112,7 +112,7 @@ pip uninstall jupyterlab_pachyderm
 First make sure the server extension is enabled:
 
 ```
-jupyter labextension list 2>&1 | grep -ie "jupyterlab-pachyderm.*OK"
+jupyter server extension list 2>&1 | grep -ie "jupyterlab_pachyderm.*OK"
 ```
 
 ### API endpoints
