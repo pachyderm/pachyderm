@@ -3,7 +3,7 @@
   max-width: 19rem;
   width: 100%;
   display: flex;
-  height: 100%;
+  height: calc(100vh - var(--header-height));
   flex-direction: column;
   border-left: solid 1px var(--line-grey);
   pointer-events: all;
