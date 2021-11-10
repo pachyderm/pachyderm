@@ -54,7 +54,6 @@ const useLogsViewer = (
     pipelineName: pipelineId,
     jobId: jobId,
     start: dropdownValues[selectedTime],
-    reverse: !rawLogs,
   });
 
   useEffect(() => {

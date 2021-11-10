@@ -84,15 +84,15 @@ describe('Logs Viewer', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0].textContent).toEqual(
       `${format(
-        fromUnixTime(pipelineAndJobLogs['1'][1].getTs()?.getSeconds() || 0),
-        LOGS_DATE_FORMAT,
-      )}finished datum task`,
-    );
-    expect(rows[1].textContent).toEqual(
-      `${format(
         fromUnixTime(pipelineAndJobLogs['1'][0].getTs()?.getSeconds() || 0),
         LOGS_DATE_FORMAT,
       )}started datum task`,
+    );
+    expect(rows[1].textContent).toEqual(
+      `${format(
+        fromUnixTime(pipelineAndJobLogs['1'][1].getTs()?.getSeconds() || 0),
+        LOGS_DATE_FORMAT,
+      )}finished datum task`,
     );
   });
 
@@ -146,6 +146,18 @@ describe('Logs Viewer', () => {
     window.history.replaceState({}, '', '/project/1/pipeline/edges/logs');
     expect(await queryAllByTestId('LogRow__base')).toHaveLength(0);
     expect(await findAllByTestId('RawLogRow__base')).toHaveLength(2);
+  });
+
+  it('should scroll to the latest log on first load', async () => {
+    window.history.replaceState({}, '', '/project/2/pipeline/likelihoods/logs');
+    const {queryByText, findAllByTestId} = render(<PipelineLogsViewer />);
+    expect((await findAllByTestId('LogRow__checkbox')).length).toBeGreaterThan(
+      2,
+    );
+
+    await waitFor(() =>
+      expect(queryByText('last message')).toBeInTheDocument(),
+    );
   });
 
   describe('Pipeline Logs Viewer', () => {

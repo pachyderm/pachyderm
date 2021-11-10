@@ -1,6 +1,6 @@
 import {DropdownItem} from '@pachyderm/components';
 
-export const DEFAULT_ROW_HEIGHT = 46;
+export const DEFAULT_ROW_HEIGHT = 24;
 export const HEADER_HEIGHT_OFFSET = 153;
 export const RAW_HEADER_HEIGHT_OFFSET = 115;
 

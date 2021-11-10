@@ -3,7 +3,6 @@ import {LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
-import {VariableSizeList} from 'react-window';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 
@@ -14,6 +13,7 @@ import {
 import useLogsBody from '../../hooks/useLogsBody';
 
 import LogRow from './components/LogRow';
+import LogsList from './components/LogsList';
 import RawLogRow from './components/RawLogRow';
 import styles from './LogsBody.module.css';
 
@@ -43,9 +43,9 @@ const LogsBody: React.FC<LogsBodyProps> = ({
     return (
       <AutoSizer>
         {({height, width}) => (
-          <VariableSizeList
+          <LogsList
             className={classnames({[styles.raw]: rawLogs})}
-            ref={listRef}
+            forwardRef={listRef}
             width={width}
             height={
               height -
@@ -78,7 +78,7 @@ const LogsBody: React.FC<LogsBodyProps> = ({
                 )}
               </>
             )}
-          </VariableSizeList>
+          </LogsList>
         )}
       </AutoSizer>
     );

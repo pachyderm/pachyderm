@@ -72,6 +72,20 @@ const tutorial = [
     ),
 ];
 
+const duplicatedLogs = [...new Array(100).keys()].map((i) =>
+  new LogMessage()
+    .setPipelineName('likelihoods')
+    .setJobId('23b9af7d5d4k343219bc8e02ff4acd33a')
+    .setUser(false)
+    .setMessage(i === 99 ? 'last message' : tutorial[i % 5].getMessage())
+    .setTs(
+      timestampFromObject({
+        seconds: 1616533106 + i * 1000,
+        nanos: 0,
+      }),
+    ),
+);
+
 export const workspaceLogs = [
   new LogMessage()
     .setUser(false)
@@ -100,7 +114,7 @@ export const workspaceLogs = [
 
 export const pipelineAndJobLogs: {[projectId: string]: LogMessage[]} = {
   '1': tutorial,
-  '2': [],
+  '2': duplicatedLogs,
   '3': [],
   '4': [],
   '5': [],
