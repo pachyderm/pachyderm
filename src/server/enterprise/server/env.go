@@ -3,11 +3,11 @@ package server
 import (
 	"context"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/auth"
 	logrus "github.com/sirupsen/logrus"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type Env struct {

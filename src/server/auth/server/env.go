@@ -1,13 +1,13 @@
 package server
 
 import (
-	etcd "github.com/coreos/etcd/clientv3"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	logrus "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/net/context"
 )
 

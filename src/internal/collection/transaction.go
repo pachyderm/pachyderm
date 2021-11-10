@@ -23,10 +23,10 @@ import (
 	"strings"
 	"sync"
 
-	v3 "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
+	v3 "go.etcd.io/etcd/client/v3"
 	"golang.org/x/net/context"
 )
 
