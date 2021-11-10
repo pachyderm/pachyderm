@@ -5,6 +5,9 @@ import {
 
 import { requestAPI } from './handler';
 import telemetry from './plugins/telemetry';
+import help from './plugins/help';
+
+import '@pachyderm/components/dist/style.css';
 
 /**
  * Initialization data for the jupyterlab-pachyderm extension.
@@ -27,17 +30,9 @@ const mount: JupyterFrontEndPlugin<void> = {
   }
 };
 
-const hub: JupyterFrontEndPlugin<void> = {
-  id: 'jupyterlab-pachyderm:hub',
-  autoStart: true,
-  activate: (app: JupyterFrontEnd) => {
-    console.log('The Hub plugin is active!');
-  }
-};
-
 /**
  * Export the plugins as default.
  */
-const plugins: JupyterFrontEndPlugin<any>[] = [mount, hub, telemetry];
+const plugins: JupyterFrontEndPlugin<any>[] = [mount, telemetry, help];
 
 export default plugins;

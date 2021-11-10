@@ -45,15 +45,27 @@
     "watch:labextension": "jupyter labextension watch ."
   },
   "dependencies": {
+    "@apollo/client": "^3.4.17",
     "@jupyterlab/application": "^3.1.0",
     "@jupyterlab/coreutils": "^5.1.0",
+    "@jupyterlab/mainmenu": "^3.2.2",
     "@jupyterlab/notebook": "^3.2.1",
     "@jupyterlab/services": "^6.1.0",
     "@jupyterlab/terminal": "^3.2.1",
-    "rudder-sdk-js": "^1.2.1"
+    "@pachyderm/components": "^1.14.0",
+    "@pachyderm/config": "^0.7.0",
+    "@sentry/react": "^6.14.1",
+    "graphql": "^16.0.1",
+    "react": "^17.0.2",
+    "react-helmet": "^6.1.0",
+    "react-hook-form": "^7.19.1",
+    "react-router-dom": "^6.0.1",
+    "rudder-sdk-js": "^1.2.1",
+    "svg-url-loader": "^7.1.1"
   },
   "devDependencies": {
     "@jupyterlab/builder": "^3.1.0",
+    "@types/react": "^17.0.34",
     "@typescript-eslint/eslint-plugin": "^4.8.1",
     "@typescript-eslint/parser": "^4.8.1",
     "eslint": "^7.14.0",
@@ -74,6 +86,7 @@
     "access": "public"
   },
   "jupyterlab": {
+    "webpackConfig": "./webpack.config.js",
     "discovery": {
       "server": {
         "managers": [
@@ -86,8 +99,7 @@
     },
     "extension": true,
     "outputDir": "jupyterlab_pachyderm/labextension",
-    "schemaDir": "schema",
-    "disabledExtensions": ["jupyterlab-pachyderm:hub"]
+    "schemaDir": "schema"
   },
   "jupyter-releaser": {
     "hooks": {

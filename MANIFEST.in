@@ -8,6 +8,7 @@ include install.json
 include ts*.json
 include schema/*.json
 include yarn.lock
+include webpack.config.js
 
 graft jupyterlab_pachyderm/labextension
 

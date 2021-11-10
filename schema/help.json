@@ -1,0 +1,7 @@
+{
+  "title": "Pachyderm Help",
+  "description": "Help menu items for Pachyderm.",
+  "properties": {},
+  "additionalProperties": false,
+  "type": "object"
+}
