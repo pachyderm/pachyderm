@@ -33,6 +33,7 @@
     "@testing-library/react": "^11.2.3",
     "@testing-library/user-event": "^12.6.0",
     "@types/classnames": "^2.2.11",
+    "@types/highlight.js": "^10.1.0",
     "@types/jest": "^26.0.15",
     "@types/js-cookie": "^2.2.1",
     "@types/react": "^16.9.56",
@@ -99,9 +100,9 @@
     "js-cookie": ">=2.2.1",
     "react": ">=17.0.0",
     "react-dom": ">=17.0.0",
-    "react-router-dom": ">=5.2.0",
     "react-helmet": ">=6.1.0",
-    "react-hook-form": ">=7.4.0"
+    "react-hook-form": ">=7.4.0",
+    "react-router-dom": ">=5.2.0"
   },
   "license": "Apache License 2.0"
 }
