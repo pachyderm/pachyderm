@@ -55,7 +55,7 @@ type ServiceEnv interface {
 	GetPachClient(ctx context.Context) *client.APIClient
 	GetEtcdClient() *etcd.Client
 	GetKubeClient() *kube.Clientset
-	GetLokiClient() (*loki.Client, error)
+	GetLokiClient() (loki.Client, error)
 	GetDBClient() *pachsql.DB
 	GetDirectDBClient() *pachsql.DB
 	GetPostgresListener() col.PostgresListener
@@ -101,7 +101,7 @@ type NonblockingServiceEnv struct {
 	// lokiClient is a loki (log aggregator) client that is shared by all users
 	// of this environment, it doesn't require an initialization funcion, so
 	// there's no errgroup associated with it.
-	lokiClient *loki.Client
+	lokiClient loki.Client
 
 	// clusterId is the unique ID for this pach cluster
 	clusterId   string
@@ -162,7 +162,7 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 	}
 	env.listener = env.newListener()
 	if env.config.LokiHost != "" && env.config.LokiPort != "" {
-		env.lokiClient = &loki.Client{
+		env.lokiClient = &loki.DefaultClient{
 			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.config.LokiHost, env.config.LokiPort)),
 		}
 	}
@@ -417,7 +417,7 @@ func (env *NonblockingServiceEnv) GetKubeClient() *kube.Clientset {
 
 // GetLokiClient returns the loki client, it doesn't require blocking on a
 // connection because the client is just a dumb struct with no init function.
-func (env *NonblockingServiceEnv) GetLokiClient() (*loki.Client, error) {
+func (env *NonblockingServiceEnv) GetLokiClient() (loki.Client, error) {
 	if env.lokiClient == nil {
 		return nil, errors.Errorf("loki not configured, is it running in the same namespace as pachd?")
 	}

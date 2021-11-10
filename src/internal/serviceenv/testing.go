@@ -26,7 +26,7 @@ type TestServiceEnv struct {
 	PachClient               *client.APIClient
 	EtcdClient               *etcd.Client
 	KubeClient               *kube.Clientset
-	LokiClient               *loki.Client
+	LokiClient               loki.Client
 	DBClient, DirectDBClient *pachsql.DB
 	PostgresListener         col.PostgresListener
 	DexDB                    dex_storage.Storage
@@ -65,7 +65,7 @@ func (s *TestServiceEnv) GetEtcdClient() *etcd.Client {
 func (s *TestServiceEnv) GetKubeClient() *kube.Clientset {
 	return s.KubeClient
 }
-func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
+func (s *TestServiceEnv) GetLokiClient() (loki.Client, error) {
 	return s.LokiClient, nil
 }
 func (s *TestServiceEnv) GetDBClient() *pachsql.DB {

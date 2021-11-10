@@ -28,9 +28,9 @@ type Env struct {
 	Listener   collection.PostgresListener
 	KubeClient *kubernetes.Clientset
 	EtcdClient *etcd.Client
-	// TODO: make this just a *loki.Client
+	// TODO: make this just a loki.Client
 	// This is not a circular dependency
-	GetLokiClient func() (*loki.Client, error)
+	GetLokiClient func() (loki.Client, error)
 
 	PFSServer  pfsserver.APIServer
 	AuthServer authserver.APIServer
