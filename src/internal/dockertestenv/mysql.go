@@ -23,6 +23,8 @@ const (
 // The database is cleaned up after the test is closed.
 func NewMySQL(t testing.TB) *pachsql.DB {
 	ctx := context.Background()
+	log := logrus.StandardLogger()
+
 	dclient := newDockerClient()
 	err := ensureContainer(ctx, dclient, "pach_test_mysql", containerSpec{
 		Image: "mysql:latest",
@@ -44,7 +46,7 @@ func NewMySQL(t testing.TB) *pachsql.DB {
 	db := testutil.OpenDBURL(t, u, mysqlPassword)
 	ctx, cf := context.WithTimeout(ctx, 30*time.Second)
 	defer cf()
-	require.NoError(t, dbutil.WaitUntilReady(ctx, logrus.StandardLogger(), db))
+	require.NoError(t, dbutil.WaitUntilReady(ctx, log, db))
 	dbName := testutil.CreateEphemeralDB(t, db)
 	u2 := u
 	u2.Database = dbName

@@ -66,7 +66,6 @@ func OpenDB(t testing.TB, opts ...dbutil.Option) *pachsql.DB {
 func OpenDBURL(t testing.TB, u pachsql.URL, password string) *pachsql.DB {
 	db, err := pachsql.OpenURL(u, password)
 	require.NoError(t, err)
-	require.NoError(t, db.Ping())
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	return db
 }

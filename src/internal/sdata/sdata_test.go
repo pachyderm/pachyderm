@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	fuzz "github.com/google/gofuzz"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -110,9 +111,17 @@ func setupTable(t testing.TB, db *pachsql.DB) {
 	)`)
 	require.NoError(t, err)
 	const N = 10
+	fz := fuzz.New()
+	fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
+		*ti = time.Now()
+	})
+	fz.Funcs(fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc())
 	for i := 0; i < N; i++ {
 		var x rowType
 		x.Time = time.Now()
+		if i > 0 {
+			fz.Fuzz(&x)
+		}
 		_, err = db.Exec(`INSERT INTO test_data `+formatColumns(x)+` VALUES `+formatValues(x, db), makeArgs(x)...)
 		require.NoError(t, err)
 	}

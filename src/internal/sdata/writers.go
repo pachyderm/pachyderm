@@ -147,6 +147,7 @@ type JSONWriter struct {
 	record map[string]interface{}
 }
 
+// TODO: figure out some way to specify a projection so that we can write nested structures.
 func NewJSONWriter(w io.Writer, fieldNames []string) *JSONWriter {
 	bufw := bufio.NewWriter(w)
 	enc := json.NewEncoder(bufw)
