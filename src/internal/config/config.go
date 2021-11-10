@@ -126,7 +126,10 @@ func validateCachedConfig() (bool, error) {
 	if cachedConfig.UserID == "" {
 		updated = true
 		log.Debugln("No UserID present in config - generating new one.")
-		uuid := uuid.NewV4()
+		uuid, err := uuid.NewV4()
+		if err != nil {
+			return false, err
+		}
 		cachedConfig.UserID = uuid.String()
 	}
 
