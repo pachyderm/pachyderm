@@ -15,7 +15,6 @@ require (
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/containerd/containerd v1.4.3 // indirect
 	github.com/containerd/continuity v0.0.0-20200107194136-26c1120b8d41 // indirect
-	// github.com/coreos/etcd v3.3.13+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 	github.com/dexidp/dex v0.0.0-20210629090108-0780edbcbe43
@@ -243,8 +242,10 @@ require (
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
-replace k8s.io/client-go => k8s.io/client-go v0.22.3
-
+// until the changes in github.com/pachyderm/dex are upstreamed to github.com/dexidp/dex, we swap in our repo
 replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20211020185745-ebfeda600c26
+
+// The following replace directives are meant to help with prometheus versioning. The newest version of prometheus
+replace k8s.io/client-go => k8s.io/client-go v0.22.3
 
 replace github.com/prometheus/common => github.com/prometheus/common v0.9.1
