@@ -2,7 +2,8 @@ import classNames from 'classnames';
 import React, {useMemo} from 'react';
 
 import {Button} from 'Button';
-import {ArrowRightSVG, ChevronUpSVG, ChevronDownSVG} from 'Svg';
+import {ArrowRightSVG, ChevronUpSVG, ChevronDownSVG, MinimizeSVG} from 'Svg';
+import {TaskCard} from 'TutorialModal';
 
 import {PureCheckbox} from '../Checkbox';
 
@@ -41,12 +42,12 @@ const TutorialModal: React.FC<TutorialModalProps> = ({
   });
 
   const nextTaskInstance = useMemo(() => {
-    if (currentTask === steps[currentStep].tasks.length) {
+    if (currentTask === steps[currentStep].sections.length) {
       return (
         <PureCheckbox
           name="Continue"
           selected={false}
-          label={'Continue to next step.'}
+          label={'Continue to the next story'}
         />
       );
     } else if (currentTask === 0) {
@@ -56,7 +57,7 @@ const TutorialModal: React.FC<TutorialModalProps> = ({
         <TaskListItem
           currentTask={currentTask}
           index={nextTaskIndex}
-          task={steps[currentStep].tasks[nextTaskIndex]}
+          task={steps[currentStep].sections[nextTaskIndex].taskName}
         />
       );
     }
@@ -86,7 +87,7 @@ const TutorialModal: React.FC<TutorialModalProps> = ({
             onClick={handleNextStep}
             disabled={
               currentStep === steps.length - 1 ||
-              currentTask <= steps[currentStep]?.tasks.length - 1
+              currentTask <= steps[currentStep]?.sections.length - 1
             }
           >
             Next Story
@@ -117,30 +118,52 @@ const TutorialModal: React.FC<TutorialModalProps> = ({
             steps={steps}
           />
           <div className={styles.content}>
-            <div className={styles.instructions}>
-              <h2 className={styles.instructionsHeader}>
-                {steps[currentStep].instructionsHeader}
-              </h2>
-              <div className={styles.instructionsBody}>
-                <div className={styles.instructionsText}>
-                  {steps[currentStep].instructionsText}
-                </div>
-              </div>
-            </div>
-            {steps[currentStep].tasks.map((task, i) => {
+            {steps[currentStep].sections.map((section, i) => {
               return (
-                <React.Fragment key={task.name?.toString()}>
-                  <task.Task
+                <div
+                  className={styles.section}
+                  key={section.taskName?.toString()}
+                >
+                  <div className={styles.headerInfo}>
+                    <div
+                      className={
+                        section.isSubHeader
+                          ? styles.sectionSubHeader
+                          : styles.sectionHeader
+                      }
+                    >
+                      {section.header}
+                    </div>
+                    {section.info}
+                  </div>
+                  <section.Task
                     currentTask={currentTask}
                     onCompleted={() => handleTaskCompletion(i)}
                     minimized={minimized}
                     index={i}
-                    name={task.name}
+                    name={section.taskName}
                   />
-                  <div className={styles.followUp}>{task.followUp}</div>
-                </React.Fragment>
+                  <div className={styles.followUp}>{section.followUp}</div>
+                </div>
               );
             })}
+            <TaskCard
+              index={steps[currentStep].sections.length}
+              currentTask={currentTask}
+              task={
+                <div>
+                  <MinimizeSVG className={styles.minimizeSVG} /> Contine to the
+                  next story
+                </div>
+              }
+              action={handleNextStep}
+              actionText={
+                <>
+                  Next Story
+                  <ArrowRightSVG className={styles.rightArrow} />
+                </>
+              }
+            />
           </div>
         </div>
       </div>

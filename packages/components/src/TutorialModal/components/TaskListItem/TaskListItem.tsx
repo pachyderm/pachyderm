@@ -1,14 +1,14 @@
 import React from 'react';
 
 import {PureCheckbox} from '../../../Checkbox';
-import {Task} from '../../lib/types';
+import {Section} from '../../lib/types';
 
 import styles from './TaskListItem.module.css';
 
 type TaskListItemProps = {
   index: number;
   currentTask: number;
-  task: Task;
+  task: Section['taskName'];
 };
 
 const TaskListItem: React.FC<TaskListItemProps> = ({
@@ -22,7 +22,7 @@ const TaskListItem: React.FC<TaskListItemProps> = ({
       <PureCheckbox
         selected={currentTask > index}
         readOnly
-        label={task?.name}
+        label={task}
         checked={currentTask > index}
       />
       {children}

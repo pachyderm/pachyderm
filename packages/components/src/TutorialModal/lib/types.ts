@@ -1,26 +1,24 @@
+import React from 'react';
+
 export type TaskComponentProps = {
   currentTask: number;
   onCompleted: () => void;
   minimized: boolean;
   index: number;
-  name: Task['name'];
+  name: Section['taskName'];
 };
 
-export type Task = {
-  name: React.ReactNode;
-  info?: {
-    name: string;
-    text: React.ReactNode[];
-  };
+export type Section = {
+  header?: React.ReactNode;
+  info?: React.ReactNode;
+  taskName: React.ReactNode;
   Task: React.FC<TaskComponentProps>;
   followUp?: React.ReactNode;
+  isSubHeader?: boolean;
 };
 
 export type Step = {
   label?: string;
   name: string;
-  tasks: Task[];
-  instructionsHeader: string;
-  instructionsText: React.ReactNode;
-  prerequisites?: React.ReactNode;
+  sections: Section[];
 };

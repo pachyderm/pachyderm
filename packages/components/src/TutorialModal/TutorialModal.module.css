@@ -90,42 +90,38 @@
 }
 
 .content {
-  padding: 4rem;
+  padding: 5rem 11.5rem;
   font-size: 0.875rem;
   font-weight: 400;
   line-height: 1.714;
 }
 
-.content > * {
-  margin-bottom: 2rem;
+.section {
+  margin-bottom: 8rem;
 }
-
-.instructions {
-  padding: 0 10.25rem;
-}
-
-.instructionsHeader {
-  font-size: 1.6875rem;
-  font-weight: 800;
-  margin-bottom: 1rem;
-}
-
-.instructionsText {
-  white-space: pre-wrap;
-  margin-bottom: 0;
-}
-
-.instructionsSubheader {
-  font-size: 1rem;
-  font-weight: 700;
-  margin-top: 3rem;
-  margin-bottom: 1rem;
+.headerInfo {
+  padding: 0 2rem;
+  margin-bottom: 3rem;
 }
 
 .followUp {
-  padding: 0 10.25rem;
-  white-space: pre-wrap;
+  padding: 2rem 2rem 0 2rem;;
 }
+
+.sectionHeader {
+  font-size: 1.6875rem;
+  font-weight: 800;
+  margin-bottom: 3rem;
+  color: var(--grey-10)
+}
+
+.sectionSubHeader {
+  font-weight: 700;
+  font-size: 0.825rem;
+  color: var(--grey-10);
+  margin-bottom: 1.5rem;
+}
+
 
 @keyframes miniTaskOpen {
   0% {
@@ -150,4 +146,16 @@
   width: 20rem;
   position: absolute;
   bottom: 4rem;
+}
+
+.rightArrow {
+  margin-left: 1rem
+}
+
+.rightArrow path + path {
+  fill: var(--white)
+}
+
+.minimizeSVG {
+  margin-right: 1rem;
 }

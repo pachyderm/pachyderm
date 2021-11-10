@@ -24,28 +24,19 @@ const SideBar = ({
         <div className={styles.subHeaderXS}>{steps[currentStep]?.name}</div>
         <div className={styles.taskList}>
           {steps[currentStep] &&
-            steps[currentStep].tasks.map((task, i) => (
+            steps[currentStep].sections.map((section, i) => (
               <TaskListItem
                 index={i}
                 currentTask={currentTask}
-                task={task}
+                task={section.taskName}
                 key={i}
-              >
-                {i === currentTask && task.info && (
-                  <div className={styles.taskInfo}>
-                    <span>{task.info?.name}</span>
-                    {task.info?.text.map((text) => (
-                      <p key={text?.toString()}>{text}</p>
-                    ))}
-                  </div>
-                )}
-              </TaskListItem>
+              />
             ))}
           <div className={styles.taskItem}>
             <PureCheckbox
               name="Continue"
               selected={false}
-              label={'Continue to next step.'}
+              label={'Continue to the next story'}
             />
           </div>
         </div>

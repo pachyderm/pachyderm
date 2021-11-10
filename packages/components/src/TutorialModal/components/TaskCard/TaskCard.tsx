@@ -1,43 +1,82 @@
+import classNames from 'classnames';
 import React from 'react';
 
 import {Button} from '../../../Button';
-import {PureCheckbox} from '../../../Checkbox';
+import {CheckmarkSVG, InfoSVG} from '../../../Svg';
 
 import styles from './TaskCard.module.css';
 
 type TaskCardProps = {
-  name: React.ReactNode;
+  task: React.ReactNode;
   action?: () => void;
   index: number;
   currentTask: number;
-  actionText?: string;
+  actionText?: React.ReactNode;
+  taskInfoTitle?: string;
+  taskInfo?: React.ReactNode;
 };
 
 const TaskCard: React.FC<TaskCardProps> = ({
   children,
   index,
   currentTask,
-  name,
   action,
   actionText,
+  task,
+  taskInfoTitle,
+  taskInfo,
 }) => {
   return (
     <div className={styles.taskCard}>
       <div className={styles.taskHeaderWrapper}>
-        <h6 className={styles.taskHeader}>{`Task ${index + 1}`}</h6>
-        {action && (
-          <Button autoSize onClick={action} disabled={currentTask !== index}>
-            {actionText}
-          </Button>
-        )}
+        <div
+          className={`${styles.taskHeader} 
+        ${styles.taskHeaderWrapperChild}`}
+        >
+          <h6 className={styles.task}>{`Task ${index + 1}`}</h6>
+          {currentTask > index && (
+            <div className={styles.headerComplete}>
+              <CheckmarkSVG />
+            </div>
+          )}
+        </div>
+        <div className={styles.taskHeaderWrapperChild}>{task}</div>
       </div>
-      <PureCheckbox
-        selected={currentTask > index}
-        label={name}
-        readOnly
-        checked={currentTask > index}
-      />
+      {taskInfo && taskInfoTitle && (
+        <div className={styles.taskInfoWrapper}>
+          <InfoSVG className={styles.infoSVG} />
+          <strong>{taskInfoTitle}</strong>
+          <div className={styles.taskInfo}>{taskInfo}</div>
+        </div>
+      )}
       {children}
+      {action && (
+        <div
+          className={classNames(styles.action, {
+            [styles.completed]: currentTask > index,
+          })}
+        >
+          {currentTask > index && (
+            <div className={styles.taskCompleted}>
+              <div className={styles.svgWrapper}>
+                <CheckmarkSVG />
+              </div>
+              <div className={styles.completedText}>Task Completed!</div>
+            </div>
+          )}
+          {currentTask <= index && (
+            <div>
+              <Button
+                disabled={currentTask < index}
+                onClick={action}
+                className={styles.button}
+              >
+                {actionText}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -24,7 +24,8 @@ const useTutorialModal = (
   };
 
   const displayTaskIndex = currentTask === 0 ? 0 : currentTask - 1;
-  const displayTaskInstance = steps[currentStep].tasks[displayTaskIndex];
+  const displayTaskInstance =
+    steps[currentStep].sections[displayTaskIndex].taskName;
   const nextTaskIndex = displayTaskIndex === 0 ? 1 : displayTaskIndex + 1;
 
   return {

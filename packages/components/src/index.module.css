@@ -47,9 +47,12 @@
   --chart-hover-light-blue: #59d1f2;
 
   /* NEW COLORS */
+  --cyan: #19CAAA;
   --cyan-2: #E5F7FF;
   --cyan-6: #6FB3C3;
   --cyan-7: #5BA3B1;
+  --cyan-10: #F0F6F8;
+  --cyan-30: #BDD4E0;
 
   --dropshadow: rgba(28, 6, 48, 0.3);
 
@@ -65,6 +68,8 @@
   --plum-2: #e1cfe5;
   --plum-5: #926AA1;
   --plum-7: #582F6B;
+
+  --green: #118873;
   
   /* sizes */
   --border-radius-bottom-level: 5px;

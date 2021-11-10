@@ -1,20 +1,105 @@
 .taskCard {
   border: 1px solid var(--grey-4);
-  background-color: var(--grey-1);
-  padding: 1rem 2rem;
   box-shadow: 1px 1px 4px 0px var(--dropshadow);
-  margin-bottom: 2rem;
+}
+
+.task {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
 }
 
 .taskHeader {
-  font-size: 1rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+.taskHeader path + path {
+  fill: var(--white);
+}
+
+.headerComplete {
+  background-color: var(--green);
+  height: 1.25rem;
+  width: 1.25rem;
+  border-radius: 50%;
+  display: flex;
+  padding: 0.1rem;
+  align-items: center;
+  margin-right: -2rem;
 }
 
 .taskHeaderWrapper {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 1rem 4rem 2rem 2rem;
+}
 
+.taskHeaderWrapperChild {
+  margin-top: 0.5rem;
+}
+
+.taskHeaderWrapper:first-child {
+  margin-top: 0;
+}
+
+.taskInfoWrapper {
+  padding: 2rem 4rem 2rem 2rem;
+  background-color: var(--cyan-10);
+}
+
+.taskInfo {
+  padding: 0 2.25rem 2rem 2rem;
+  margin-top: 0.5rem;
+}
+
+.infoSVG {
+  margin-right: 1rem;
+}
+
+.action {
+  padding: 1rem;
+}
+
+.completed {
+  background-color: var(--cyan-30);
+}
+
+.taskCompleted {
+  display: flex;
+  align-items: center;
+  box-shadow: 0 1 4  1 var(--dropshadow);
+}
+
+.svgWrapper {
+  background-color: var(--cyan);
+  border-radius: 3px 0 0 3px;
+  border: 1px solid transparent;
+  width: 2.625rem;
+  height: 2.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.taskCompleted path + path {
+  fill: var(--white);
+}
+
+.completedText {
+  padding: 0.75rem;
+  background-color: var(--white);
+  color: var(--white);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+  width: 100%;
+  border-radius: 0 3px 3px 0;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.625rem;
+}
+
+.button {
+  box-shadow: 0 1 4  1 var(--dropshadow);
 }
