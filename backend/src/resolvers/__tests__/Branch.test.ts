@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import {CREATE_BRANCH_MUTATION} from '@dash-frontend/mutations/CreateBranch';
+import {GET_COMMITS_QUERY} from '@dash-frontend/queries/GetCommitsQuery';
 import {GET_REPO_QUERY} from '@dash-frontend/queries/GetRepoQuery';
 
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
-import {RepoQuery, CreateBranchMutation} from '@graphqlTypes';
+import {RepoQuery, CreateBranchMutation, GetCommitsQuery} from '@graphqlTypes';
 
 describe('createBranch', () => {
   const projectId = '3';
@@ -31,10 +32,13 @@ describe('createBranch', () => {
   });
 
   it('should update a branch head', async () => {
-    const {data: response} = await executeQuery<RepoQuery>(GET_REPO_QUERY, {
-      args: {id: 'cron', projectId},
-    });
-    expect(response?.repo.commits.length).toBe(3);
+    const {data: response} = await executeQuery<GetCommitsQuery>(
+      GET_COMMITS_QUERY,
+      {
+        args: {repoName: 'cron', projectId},
+      },
+    );
+    expect(response?.commits.length).toBe(3);
 
     const {data, errors = []} = await executeMutation<CreateBranchMutation>(
       CREATE_BRANCH_MUTATION,
@@ -48,9 +52,12 @@ describe('createBranch', () => {
     );
     expect(errors.length).toBe(0);
     expect(data?.createBranch?.name).toBe('master');
-    const {data: response2} = await executeQuery<RepoQuery>(GET_REPO_QUERY, {
-      args: {id: 'cron', projectId},
-    });
-    expect(response2?.repo.commits.length).toBe(2);
+    const {data: response2} = await executeQuery<GetCommitsQuery>(
+      GET_COMMITS_QUERY,
+      {
+        args: {repoName: 'cron', projectId},
+      },
+    );
+    expect(response2?.commits.length).toBe(2);
   });
 });

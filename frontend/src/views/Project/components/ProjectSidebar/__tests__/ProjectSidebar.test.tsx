@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
@@ -74,11 +74,14 @@ describe('ProjectSidebar', () => {
 
       const repoName = await findByTestId('Title__name');
       const size = getByText('607.28 KB');
-      const commit = getByText('ID 9d5daa0918ac4c43a476b86e3bb5e88e');
 
       expect(repoName).toHaveTextContent('cron');
       expect(size).toBeInTheDocument();
-      expect(commit).toBeInTheDocument();
+      await waitFor(() =>
+        expect(
+          getByText('ID 9d5daa0918ac4c43a476b86e3bb5e88e'),
+        ).toBeInTheDocument(),
+      );
     });
 
     it('should not show a linked job when there is no job for the commit', async () => {
@@ -94,11 +97,11 @@ describe('ProjectSidebar', () => {
     it('should show a linked job for a commit', async () => {
       window.history.replaceState('', '', '/project/2/repo/test/branch/master');
 
-      const {findByTestId, queryByRole} = render(<Project />);
+      const {queryByRole} = render(<Project />);
 
-      await findByTestId('Title__name');
-
-      expect(queryByRole('link', {name: 'Linked Job'})).toBeInTheDocument();
+      await waitFor(() =>
+        expect(queryByRole('link', {name: 'Linked Job'})).toBeInTheDocument(),
+      );
     });
 
     it('should show no commits when the branch has no commits', async () => {
@@ -149,6 +152,6 @@ describe('ProjectSidebar', () => {
     const hideAutoCommits = await findByLabelText('Show auto commits');
     expect(queryAllByText('View Files').length).toBe(3);
     userEvent.click(hideAutoCommits);
-    expect(queryAllByText('View Files').length).toBe(2);
+    await waitFor(() => expect(queryAllByText('View Files').length).toBe(2));
   });
 });

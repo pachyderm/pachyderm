@@ -108,6 +108,8 @@ const pfs = () => {
           const [accountId] = call.metadata.get('authn-token');
 
           const repoName = call.request.getRepo()?.getName();
+          const branchName = call.request.getTo()?.getBranch()?.getName();
+          const originKind = call.request.getOriginKind();
           const authInfo =
             repoAuthInfos[accountId.toString()] || repoAuthInfos['default'];
 
@@ -134,7 +136,11 @@ const pfs = () => {
 
           allCommits.forEach((commit) => {
             if (
-              commit.getCommit()?.getBranch()?.getRepo()?.getName() === repoName
+              commit.getCommit()?.getBranch()?.getRepo()?.getName() ===
+                repoName &&
+              (!branchName ||
+                commit.getCommit()?.getBranch()?.getName() === branchName) &&
+              (!originKind || commit.getOrigin()?.getKind() === originKind)
             ) {
               call.write(commit);
             }

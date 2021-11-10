@@ -1,10 +1,11 @@
 import {OriginKind, RepoQuery} from '@graphqlTypes';
 import {Link, LoadingDots, Tooltip, PureCheckbox} from '@pachyderm/components';
 import formatDistanceToNow from 'date-fns/formatDistanceToNow';
-import React, {useMemo} from 'react';
+import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
+import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
@@ -23,24 +24,19 @@ type CommitBrowserProps = {
   loading: boolean;
 };
 
-const CommitBrowser: React.FC<CommitBrowserProps> = ({
-  loading,
-  repo,
-  repoBaseRef,
-}) => {
+const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
   const {branchId, projectId, repoId} = useUrlState();
   const [hideAutoCommits, handleHideAutoCommitChange] = useLocalProjectSettings(
     {projectId, key: 'hide_auto_commits'},
   );
-  const currentCommits = useMemo(
-    () =>
-      (repo?.commits || []).filter(
-        (commit) =>
-          commit?.branch?.name === branchId &&
-          (!hideAutoCommits || commit?.originKind === OriginKind.USER),
-      ),
-    [branchId, repo, hideAutoCommits],
-  );
+  const {commits, loading} = useCommits({
+    projectId,
+    repoName: repo?.name || '',
+    originKind: hideAutoCommits ? OriginKind.USER : undefined,
+    branchName: branchId,
+    number: COMMIT_LIMIT,
+    desc: true,
+  });
 
   if (loading) {
     return (
@@ -50,7 +46,11 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({
     );
   }
 
-  if (repo?.commits.length === 0) {
+  if (
+    !hideAutoCommits &&
+    (repo?.branches?.length || 0) <= 1 &&
+    commits?.length === 0
+  ) {
     return <EmptyState title={LETS_START_TITLE} message={emptyRepoMessage} />;
   }
 
@@ -66,8 +66,8 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({
         />
       </div>
       <div className={styles.commits}>
-        {currentCommits.length ? (
-          currentCommits.map((commit) => {
+        {commits?.length ? (
+          commits.map((commit) => {
             return (
               <div className={styles.commit} key={commit.id}>
                 <div className={styles.commitTime}>
