@@ -23,6 +23,8 @@ describe('resolvers/Repo', () => {
       expect(data?.repo.name).toBe(id);
       expect(data?.repo.description).toBe('');
       expect(data?.repo.sizeDisplay).toBe('607.28 KB');
+      expect(data?.repo.commits).toHaveLength(3);
+      expect(data?.repo.commits[0].hasLinkedJob).toBeFalsy();
       expect(data?.repo.linkedPipeline).toBeNull();
     });
 

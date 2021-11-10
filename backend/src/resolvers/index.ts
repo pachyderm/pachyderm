@@ -5,7 +5,6 @@ import {Resolvers} from '@graphqlTypes';
 
 import authResolver from './Auth';
 import branchResolver from './Branch';
-import commitResolver from './Commit';
 import dagResolver from './Dag';
 import fileResolver from './File';
 import jobResolver from './Job';
@@ -25,7 +24,6 @@ const resolvers: Resolvers = merge(
   jobResolver,
   searchResolver,
   pipelineResolver,
-  commitResolver,
   branchResolver,
   {},
 );

@@ -87,44 +87,6 @@ const customerTeam = [
   }),
   commitInfoFromObject({
     commit: {
-      id: '23b9af7d5d4343219bc8e02ff4acd33b',
-      branch: {
-        name: 'test',
-        repo: {name: 'training'},
-      },
-    },
-    sizeBytes: 44276,
-    started: {
-      seconds: 1614136389,
-      nanos: 0,
-    },
-    finished: {
-      seconds: 1614136391,
-      nanos: 0,
-    },
-    originKind: OriginKind.USER,
-  }),
-  commitInfoFromObject({
-    commit: {
-      id: '23b9af7d5d4343219bc8e02ff4acd33c',
-      branch: {
-        name: 'test',
-        repo: {name: 'training'},
-      },
-    },
-    sizeBytes: 44276,
-    started: {
-      seconds: 1614136389,
-      nanos: 0,
-    },
-    finished: {
-      seconds: 1614136391,
-      nanos: 0,
-    },
-    originKind: OriginKind.USER,
-  }),
-  commitInfoFromObject({
-    commit: {
       id: '23b9af7d5d4343219bc8e02ff4acd33a',
       branch: {
         name: 'master',

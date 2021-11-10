@@ -111,20 +111,3 @@ export const toGQLCommitOrigin = (originKind?: OriginKind) => {
       throw new ApolloError(`Unknown origin kind ${originKind}`);
   }
 };
-
-export const toProtoCommitOrigin = (originKind?: GQLOriginKind): OriginKind => {
-  switch (originKind) {
-    case GQLOriginKind.ALIAS:
-      return OriginKind.ALIAS;
-    case GQLOriginKind.AUTO:
-      return OriginKind.AUTO;
-    case GQLOriginKind.FSCK:
-      return OriginKind.FSCK;
-    case GQLOriginKind.USER:
-      return OriginKind.USER;
-    case GQLOriginKind.ORIGIN_KIND_UNKNOWN:
-      return OriginKind.ORIGIN_KIND_UNKNOWN;
-    default:
-      throw new ApolloError(`Unknown origin kind ${originKind}`);
-  }
-};

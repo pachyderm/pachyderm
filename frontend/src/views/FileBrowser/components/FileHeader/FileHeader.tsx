@@ -13,7 +13,6 @@ import React, {useMemo} from 'react';
 
 import CommitPath from '@dash-frontend/components/CommitPath';
 import Header from '@dash-frontend/components/Header';
-import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -32,16 +31,9 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
   const {fileToPreview, loading} = useFileBrowser();
   const {repo, loading: repoLoading} = useCurrentRepo();
 
-  const {commits} = useCommits({
-    projectId,
-    repoName: repo?.name || '',
-    branchName: branchId,
-    number: COMMIT_LIMIT,
-    desc: true,
-  });
-
   const {previousCommit, nextCommit} = useMemo(() => {
-    const reposInBranch = commits || [];
+    const reposInBranch =
+      repo?.commits.filter((commit) => commit.branch?.name === branchId) || [];
     const index = findIndex(reposInBranch, (commit) => commit.id === commitId);
 
     const previousCommit =
@@ -49,11 +41,11 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
     const nextCommit = index > 0 ? reposInBranch[index - 1].id : null;
 
     return {previousCommit, nextCommit};
-  }, [commitId, commits]);
+  }, [branchId, commitId, repo?.commits]);
 
   const currentCommit = useMemo(() => {
-    return (commits || []).find((commit) => commit.id === commitId);
-  }, [commitId, commits]);
+    return repo?.commits.find((commit) => commit.id === commitId);
+  }, [commitId, repo?.commits]);
 
   const tooltipInfo = currentCommit ? (
     <>

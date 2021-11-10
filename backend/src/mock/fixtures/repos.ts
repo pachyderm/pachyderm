@@ -38,7 +38,6 @@ const customerTeam = [
     .setBranchesList([
       new Branch().setName('master'),
       new Branch().setName('develop'),
-      new Branch().setName('test'),
     ]),
   new RepoInfo()
     .setRepo(new Repo().setName('models').setType('user'))

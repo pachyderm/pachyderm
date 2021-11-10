@@ -80,15 +80,6 @@ export type CommitInput = {
   id: Scalars['ID'];
 };
 
-export type CommitsQueryArgs = {
-  projectId: Scalars['String'];
-  repoName: Scalars['String'];
-  branchName?: Maybe<Scalars['String']>;
-  originKind?: Maybe<OriginKind>;
-  number?: Maybe<Scalars['Int']>;
-  desc?: Maybe<Scalars['Boolean']>;
-};
-
 export type CreateBranchArgs = {
   head?: Maybe<CommitInput>;
   branch?: Maybe<BranchInput>;
@@ -432,7 +423,6 @@ export type Query = {
   account: Account;
   authConfig: AuthConfig;
   branch: Branch;
-  commits: Array<Commit>;
   dag: Array<Vertex>;
   files: Array<File>;
   job: Job;
@@ -452,10 +442,6 @@ export type Query = {
 
 export type QueryBranchArgs = {
   args: BranchQueryArgs;
-};
-
-export type QueryCommitsArgs = {
-  args: CommitsQueryArgs;
 };
 
 export type QueryDagArgs = {
@@ -513,6 +499,7 @@ export type QueryWorkspaceLogsArgs = {
 export type Repo = {
   __typename?: 'Repo';
   branches: Array<Branch>;
+  commits: Array<Commit>;
   createdAt: Scalars['Int'];
   description: Scalars['String'];
   id: Scalars['ID'];
@@ -739,7 +726,6 @@ export type ResolversTypes = ResolversObject<{
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
   CommitInput: CommitInput;
-  CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
   CreateRepoArgs: CreateRepoArgs;
@@ -810,7 +796,6 @@ export type ResolversParentTypes = ResolversObject<{
   Boolean: Scalars['Boolean'];
   Int: Scalars['Int'];
   CommitInput: CommitInput;
-  CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
   CreateRepoArgs: CreateRepoArgs;
@@ -1235,12 +1220,6 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryBranchArgs, 'args'>
   >;
-  commits?: Resolver<
-    Array<ResolversTypes['Commit']>,
-    ParentType,
-    ContextType,
-    RequireFields<QueryCommitsArgs, 'args'>
-  >;
   dag?: Resolver<
     Array<ResolversTypes['Vertex']>,
     ParentType,
@@ -1332,6 +1311,7 @@ export type RepoResolvers<
   ParentType extends ResolversParentTypes['Repo'] = ResolversParentTypes['Repo'],
 > = ResolversObject<{
   branches?: Resolver<Array<ResolversTypes['Branch']>, ParentType, ContextType>;
+  commits?: Resolver<Array<ResolversTypes['Commit']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
@@ -1611,27 +1591,6 @@ export type AuthConfigQuery = {__typename?: 'Query'} & {
   >;
 };
 
-export type GetCommitsQueryVariables = Exact<{
-  args: CommitsQueryArgs;
-}>;
-
-export type GetCommitsQuery = {__typename?: 'Query'} & {
-  commits: Array<
-    {__typename?: 'Commit'} & Pick<
-      Commit,
-      | 'repoName'
-      | 'description'
-      | 'originKind'
-      | 'id'
-      | 'started'
-      | 'finished'
-      | 'sizeBytes'
-      | 'sizeDisplay'
-      | 'hasLinkedJob'
-    > & {branch?: Maybe<{__typename?: 'Branch'} & Pick<Branch, 'name'>>}
-  >;
-};
-
 export type GetDagQueryVariables = Exact<{
   args: DagQueryArgs;
 }>;
@@ -1842,6 +1801,19 @@ export type RepoQuery = {__typename?: 'Query'} & {
     'createdAt' | 'description' | 'id' | 'name' | 'sizeDisplay'
   > & {
       branches: Array<{__typename?: 'Branch'} & Pick<Branch, 'name'>>;
+      commits: Array<
+        {__typename?: 'Commit'} & Pick<
+          Commit,
+          | 'repoName'
+          | 'originKind'
+          | 'description'
+          | 'hasLinkedJob'
+          | 'id'
+          | 'started'
+          | 'finished'
+          | 'sizeDisplay'
+        > & {branch?: Maybe<{__typename?: 'Branch'} & Pick<Branch, 'name'>>}
+      >;
       linkedPipeline?: Maybe<
         {__typename?: 'Pipeline'} & Pick<Pipeline, 'id' | 'name'>
       >;

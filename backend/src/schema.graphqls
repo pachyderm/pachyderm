@@ -162,6 +162,7 @@ type Commit {
 
 type Repo {
   branches: [Branch!]!
+  commits: [Commit!]!
   createdAt: Int!
   description: String!
   id: ID!
@@ -322,15 +323,6 @@ input RepoQueryArgs {
   id: ID!
 }
 
-input CommitsQueryArgs {
-  projectId: String!
-  repoName: String!
-  branchName: String
-  originKind: OriginKind
-  number: Int
-  desc: Boolean
-}
-
 input SearchResultQueryArgs {
   projectId: String!
   query: String!
@@ -445,7 +437,6 @@ type Query {
   jobSets(args: JobSetsQueryArgs!): [JobSet!]!
   workspaceLogs(args: WorkspaceLogsArgs!): [Log]!
   logs(args: LogsArgs!): [Log]!
-  commits(args: CommitsQueryArgs!): [Commit!]!
   branch(args: BranchQueryArgs!): Branch!
 }
 
