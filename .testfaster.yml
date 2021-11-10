@@ -14,7 +14,7 @@ base:
    - gcr.io/k8s-minikube/storage-provisioner:v1.8.1
    - giantswarm/tiny-tools:latest
    - golang:1.14.2
-   - golang:1.16.4
+   - golang:1.17.3
    - grafana/grafana:4.2.0
    - grafana/loki:2.0.0
    - grafana/promtail:2.0.0
