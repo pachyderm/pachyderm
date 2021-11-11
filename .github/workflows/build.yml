@@ -49,8 +49,8 @@ jobs:
     - name: Build the extension
       run: |
         set -eux
-        jlpm
-        jlpm run eslint:check
+        npm
+        npm run eslint:check
         python -m pip install -e '.[dev]'
 
         # Run the Python unit tests
