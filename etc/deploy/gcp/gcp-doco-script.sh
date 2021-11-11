@@ -163,6 +163,6 @@ helm repo add pach https://helm.pachyderm.com
 helm repo update
 helm install pachyderm -f ./${NAME}.values.yaml pach/pachyderm
 
-STATIC_IP_ADDR_NO_QUOTES=$(echo $STATIC_IP_ADDR | tr -d '"')
+STATIC_IP_ADDR_NO_QUOTES=$(echo "$STATIC_IP_ADDR" | tr -d '"')
 echo "{\"pachd_address\": \"grpc://${STATIC_IP_ADDR_NO_QUOTES}:30650\"}" | pachctl config set context "${CLUSTER_NAME}" --overwrite
 pachctl config set active-context ${CLUSTER_NAME}
