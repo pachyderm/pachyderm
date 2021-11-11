@@ -11,6 +11,7 @@ include install.json
 include ts*.json
 include schema/*.json
 include webpack.config.js
+include *.config.js
 
 graft jupyterlab_pachyderm/labextension
 
