@@ -51,11 +51,23 @@ jobs:
         set -eux
         jlpm
         jlpm run eslint:check
+        python -m pip install -e '.[dev]'
+
+        # Run the Python unit tests
+        pytest jupyterlab_pachyderm
+
+        # Uninstall local package for fresh install
+        python -m pip uninstall -y jupyterlab-pachyderm
+
+        # Run integration test
         python -m pip install .
 
+        jupyter server extension list 2>&1 | grep -ie "jupyterlab_pachyderm.*OK"
         jupyter labextension list 2>&1 | grep -ie "jupyterlab-pachyderm.*OK"
+
         python -m jupyterlab.browser_check
 
+        # Build distribution
         check-manifest -v
 
         pip install build
