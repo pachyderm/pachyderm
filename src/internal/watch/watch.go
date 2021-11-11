@@ -141,6 +141,9 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 				// use new "nextRevision"
 				internalWatcher = etcd.NewWatcher(client)
 				rch = internalWatcher.Watch(ctx, prefix, watchOptions(nextRevision)...)
+				if resp.Err() == nil && len(resp.Events) == 0 {
+					return context.Canceled
+				}
 				continue
 			}
 			if err := resp.Err(); err != nil {
