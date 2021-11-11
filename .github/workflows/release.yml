@@ -1,6 +1,6 @@
-name: Publish Docker image
+name: Release to Docker Hub
 on:
-  push:
+  release:
     branches:
       - master
 jobs:
@@ -17,4 +17,4 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
           path: ./
           repository: pachyderm/haberdashery
-          tags: ${{ github.sha }}
+          tags: ${{ github.event.release.tag_name }}
