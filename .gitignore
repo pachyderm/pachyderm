@@ -5,7 +5,7 @@ node_modules/
 .ipynb_checkpoints
 *.tsbuildinfo
 jupyterlab_pachyderm/labextension
-/.jestcache
+.jestcache
 
 # Created by https://www.gitignore.io/api/python
 # Edit at https://www.gitignore.io/?templates=python
