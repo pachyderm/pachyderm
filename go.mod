@@ -245,7 +245,15 @@ require (
 // until the changes in github.com/pachyderm/dex are upstreamed to github.com/dexidp/dex, we swap in our repo
 replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20211020185745-ebfeda600c26
 
-// The following replace directives are meant to help with prometheus versioning. The newest version of prometheus
+// loki requires k8s.io/client-go@v12.0.0+incompatible via dependency chain ending in:
+// ... -> github.com/prometheus/alertmanager@v0.19.0
+// -> github.com/prometheus/prometheus@v0.0.0-20190818123050-43acd0e2e93f
 replace k8s.io/client-go => k8s.io/client-go v0.22.3
 
+// Depending on both etcd v3.5.1 and loki v1.6.0 causes a conflict
+// since etcd requires more up to date dependencies on prometheus. Specifically:
+// 1.) etcd version v3.5.1 requires client_golang@v1.11.0 which requires github.com/prometheus/common@v0.26.0
+// 2.) loki v1.6.0 requires github.com/prometheus/common@v0.10.0
+// the two cannot live in harmony because the config.NewClientFromConfig functions signature changed several times,
+// and was updated to the signature present in v0.26.0 during the v0.21.0 release
 replace github.com/prometheus/common => github.com/prometheus/common v0.9.1

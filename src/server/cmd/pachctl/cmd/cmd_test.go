@@ -94,8 +94,11 @@ func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 	pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
 	require.NoError(t, err)
 
+	uid, err := uuid.NewV4()
+	require.NoError(t, err)
+
 	cfg := &config.Config{
-		UserID: uuid.NewV4().String(),
+		UserID: uid.String(),
 		V2: &config.ConfigV2{
 			ActiveContext: "test",
 			Contexts: map[string]*config.Context{

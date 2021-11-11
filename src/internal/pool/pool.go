@@ -40,7 +40,7 @@ type Pool struct {
 func NewPool(kubeClient *kube.Clientset, namespace string, serviceName string, port int, queueSize int64, opts ...grpc.DialOption) (*Pool, error) {
 	endpointsInterface := kubeClient.CoreV1().Endpoints(namespace)
 
-	watch, err := endpointsInterface.Watch(metav1.ListOptions{
+	watch, err := endpointsInterface.Watch(context.TODO(), metav1.ListOptions{
 		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 			map[string]string{"app": serviceName},
 		)),

@@ -41,7 +41,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
-	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/status"
@@ -350,7 +349,7 @@ Environment variables:
 				// redundantly sent to the info logger. See:
 				// https://godoc.org/google.golang.org/grpc/grpclog#NewLoggerV2
 				logger := log.StandardLogger()
-				etcd.SetLogger(grpclog.NewLoggerV2(
+				grpclog.SetLoggerV2(grpclog.NewLoggerV2(
 					logutil.NewGRPCLogWriter(logger, "etcd/grpc"),
 					ioutil.Discard,
 					ioutil.Discard,

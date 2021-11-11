@@ -49,7 +49,6 @@ func NewEnv(t testing.TB) *Env {
 	etcdwal.SegmentSizeBytes = 1 * 1000 * 1000 // 1 MB
 
 	etcdConfig := embed.NewConfig()
-	etcdConfig.LogOutput = "default"
 	etcdConfig.MaxTxnOps = 10000
 
 	// Create test dirs for etcd data
