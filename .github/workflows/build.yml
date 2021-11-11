@@ -49,7 +49,7 @@ jobs:
     - name: Build the extension
       run: |
         set -eux
-        npm
+        npm ci
         npm run eslint:check
         python -m pip install -e '.[dev]'
 

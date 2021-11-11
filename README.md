@@ -57,14 +57,14 @@ jupyter labextension develop . --overwrite
 # Server extension must be manually installed in develop mode
 jupyter server extension enable jupyterlab_pachyderm
 # Rebuild extension Typescript source after making changes
-jlpm run build
+npm run build
 ```
 
 You can watch the source directory and run JupyterLab at the same time in different terminals to watch for changes in the extension's source and automatically rebuild the extension.
 
 ```bash
 # Watch the source directory in one terminal, automatically rebuilding when needed
-jlpm run watch
+npm run watch
 # Run JupyterLab in another terminal
 jupyter lab
 ```
