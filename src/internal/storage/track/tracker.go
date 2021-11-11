@@ -54,7 +54,8 @@ type Tracker interface {
 	// If the id doesn't exist, no error is returned
 	DeleteTx(tx *sqlx.Tx, id string) error
 
-	// IterateDeletable calls cb with all the objects objects which are no longer referenced and have expired
+	// IterateDeletable calls cb with some top-level objects which are no longer referenced and have expired
+	// Even if it deletes all top-level objects, there may be more to delete after it runs
 	IterateDeletable(ctx context.Context, cb func(id string) error) error
 }
 
