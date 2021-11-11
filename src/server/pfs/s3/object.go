@@ -5,12 +5,33 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
 )
+
+func permissiveTimestampFromProto(fileInfo *pfsClient.FileInfo) (time.Time, error) {
+	// fileInfo.Committed can be nil in the case of reading from an open
+	// commit. In that case, it's better to list the file with no known
+	// timestamp than to return an error.
+
+	// TODO: it would be less wrong to use the commit start time than to return
+	// the zero value for time.Time (e.g. 1970-01-01) here
+
+	var timestamp time.Time
+	var err error
+	if fileInfo.Committed != nil {
+		timestamp, err = types.TimestampFromProto(fileInfo.Committed)
+		if err != nil {
+			return timestamp, err
+		}
+	}
+	return timestamp, nil
+}
 
 func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {
 	c.logger.Debugf("GetObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
@@ -49,7 +70,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 		return nil, maybeNotFoundError(r, err)
 	}
 
-	modTime, err := types.TimestampFromProto(fileInfo.Committed)
+	modTime, err := permissiveTimestampFromProto(fileInfo)
 	if err != nil {
 		return nil, err
 	}

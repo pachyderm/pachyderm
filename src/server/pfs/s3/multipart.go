@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -131,7 +130,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 			return errutil.ErrBreak
 		}
 
-		timestamp, err := types.TimestampFromProto(fileInfo.Committed)
+		timestamp, err := permissiveTimestampFromProto(fileInfo)
 		if err != nil {
 			return err
 		}
