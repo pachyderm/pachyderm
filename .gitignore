@@ -6,6 +6,7 @@ node_modules/
 *.tsbuildinfo
 jupyterlab_pachyderm/labextension
 .jestcache
+yarn.lock
 
 # Created by https://www.gitignore.io/api/python
 # Edit at https://www.gitignore.io/?templates=python

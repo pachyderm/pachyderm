@@ -42,10 +42,6 @@ When you are done using the environment you can close your shell or deactivate t
 
 Note: You will need NodeJS to build the extension package.
 
-The `npm` command is JupyterLab's pinned version of
-[yarn](https://yarnpkg.com/) that is installed with JupyterLab. You may use
-`yarn` or `npm` in lieu of `npm` below.
-
 ```bash
 # Clone the repo to your local environment
 # Change directory to the jupyterlab_pachyderm directory

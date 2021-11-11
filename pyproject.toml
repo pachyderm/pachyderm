@@ -14,4 +14,4 @@ build_cmd = "build:prod"
 npm = ["npm"]
 
 [tool.check-manifest]
-ignore = ["jupyterlab_pachyderm/labextension/**", "yarn.lock", ".*", "package-lock.json"]
+ignore = ["jupyterlab_pachyderm/labextension/**", ".*", "package-lock.json"]
