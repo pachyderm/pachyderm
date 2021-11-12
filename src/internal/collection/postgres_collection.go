@@ -17,13 +17,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
 type postgresCollection struct {
 	table    string
-	db       *sqlx.DB
+	db       *pachsql.DB
 	listener PostgresListener
 	template proto.Message
 	indexes  []*Index
@@ -72,7 +73,7 @@ func WithNotFoundMessage(format func(interface{}) string) Option {
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(name string, db *sqlx.DB, listener PostgresListener, template proto.Message, indexes []*Index, opts ...Option) PostgresCollection {
+func NewPostgresCollection(name string, db *pachsql.DB, listener PostgresListener, template proto.Message, indexes []*Index, opts ...Option) PostgresCollection {
 	col := &postgresCollection{
 		table:    name,
 		db:       db,
@@ -116,14 +117,14 @@ func (c *postgresCollection) ReadOnly(ctx context.Context) PostgresReadOnlyColle
 	return &postgresReadOnlyCollection{c, ctx}
 }
 
-func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection {
+func (c *postgresCollection) ReadWrite(tx *pachsql.Tx) PostgresReadWriteCollection {
 	return &postgresReadWriteCollection{c, tx}
 }
 
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
 // transaction instead of committing it.
-func NewDryrunSQLTx(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
-	err := dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
+func NewDryrunSQLTx(ctx context.Context, db *pachsql.DB, apply func(*pachsql.Tx) error) error {
+	err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
 		if err := apply(tx); err != nil {
 			return err
 		}
@@ -606,7 +607,7 @@ func (c *postgresReadOnlyCollection) WatchByIndexF(index *Index, indexVal string
 
 type postgresReadWriteCollection struct {
 	*postgresCollection
-	tx *sqlx.Tx
+	tx *pachsql.Tx
 }
 
 func (c *postgresReadWriteCollection) Get(key interface{}, val proto.Message) error {

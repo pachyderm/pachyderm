@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
@@ -51,7 +51,7 @@ const (
 )
 
 type postgresWatcher struct {
-	db       *sqlx.DB
+	db       *pachsql.DB
 	listener PostgresListener
 	c        chan *watch.Event
 	buf      chan *postgresEvent // buffer for messages before the initial table list is complete
@@ -68,7 +68,7 @@ type postgresWatcher struct {
 }
 
 func newPostgresWatcher(
-	db *sqlx.DB,
+	db *pachsql.DB,
 	listener PostgresListener,
 	channel string,
 	template proto.Message,
@@ -290,7 +290,7 @@ func parsePostgresEvent(payload string) *postgresEvent {
 	return result
 }
 
-func (pe *postgresEvent) WatchEvent(ctx context.Context, db *sqlx.DB, template proto.Message) *watch.Event {
+func (pe *postgresEvent) WatchEvent(ctx context.Context, db *pachsql.DB, template proto.Message) *watch.Event {
 	if pe.err != nil {
 		return &watch.Event{Err: pe.err, Type: watch.EventError}
 	}

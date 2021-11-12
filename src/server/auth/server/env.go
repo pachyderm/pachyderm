@@ -2,8 +2,8 @@ package server
 
 import (
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/jmoiron/sqlx"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
@@ -13,7 +13,7 @@ import (
 
 // Env is the environment required for an apiServer
 type Env struct {
-	DB         *sqlx.DB
+	DB         *pachsql.DB
 	EtcdClient *etcd.Client
 	Listener   col.PostgresListener
 	TxnEnv     *txnenv.TransactionEnv

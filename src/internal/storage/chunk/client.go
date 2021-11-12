@@ -7,9 +7,9 @@ import (
 	"path"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
@@ -25,15 +25,15 @@ type Client interface {
 // a tracker and an kv.Store
 type trackedClient struct {
 	store   kv.Store
-	db      *sqlx.DB
+	db      *pachsql.DB
 	tracker track.Tracker
-	renewer *track.Renewer
+	renewer *Renewer
 	ttl     time.Duration
 }
 
 // NewClient returns a client which will write to objc, mdstore, and tracker.  Name is used
 // for the set of temporary objects
-func NewClient(store kv.Store, db *sqlx.DB, tr track.Tracker, renewer *track.Renewer) Client {
+func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewer) Client {
 	return &trackedClient{
 		store:   store,
 		db:      db,
@@ -57,7 +57,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	chunkTID := chunkID.TrackerID()
 	var needUpload bool
 	var gen uint64
-	if err := dbutil.WithTx(ctx, c.db, func(tx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) error {
 		if err := c.tracker.CreateTx(tx, chunkTID, pointsTo, c.ttl); err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	}); err != nil {
 		return nil, err
 	}
-	if err := c.renewer.Add(ctx, chunkTID); err != nil {
+	if err := c.renewer.Add(ctx, chunkID); err != nil {
 		return nil, err
 	}
 	if !needUpload {
@@ -147,7 +147,7 @@ var _ track.Deleter = &deleter{}
 
 type deleter struct{}
 
-func (d *deleter) DeleteTx(tx *sqlx.Tx, id string) error {
+func (d *deleter) DeleteTx(tx *pachsql.Tx, id string) error {
 	chunkID, err := ParseTrackerID(id)
 	if err != nil {
 		return errors.Wrapf(err, "cannot delete")

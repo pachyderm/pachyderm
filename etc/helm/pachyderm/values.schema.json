@@ -340,6 +340,9 @@
         "pachd": {
             "type": "object",
             "properties": {
+                "activateEnterprise": {
+                    "type": "boolean"
+                },
                 "activateEnterpriseMember": {
                     "type": "boolean"
                 },
@@ -352,10 +355,19 @@
                 "enabled": {
                     "type": "boolean"
                 },
+                "enterpriseCallbackAddress": {
+                    "type": "string"
+                },
                 "enterpriseLicenseKey": {
                     "type": "string"
                 },
+                "enterpriseRootToken": {
+                    "type": "string"
+                },
                 "enterpriseSecret": {
+                    "type": "string"
+                },
+                "enterpriseServerAddress": {
                     "type": "string"
                 },
                 "externalService": {

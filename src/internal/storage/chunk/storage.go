@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
@@ -22,7 +22,7 @@ const (
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
 	objClient     obj.Client
-	db            *sqlx.DB
+	db            *pachsql.DB
 	tracker       track.Tracker
 	store         kv.Store
 	memCache      kv.GetPut
@@ -33,7 +33,7 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objC obj.Client, memCache kv.GetPut, db *sqlx.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
+func NewStorage(objC obj.Client, memCache kv.GetPut, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
 		objClient:     objC,
 		db:            db,
@@ -55,7 +55,6 @@ func NewStorage(objC obj.Client, memCache kv.GetPut, db *sqlx.DB, tracker track.
 
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
-	// using nil for the renewer to disable renewing
 	client := NewClient(s.store, s.db, s.tracker, nil)
 	return newReader(ctx, client, s.memCache, s.deduper, s.prefetchLimit, dataRefs, opts...)
 }
@@ -67,7 +66,7 @@ func (s *Storage) NewWriter(ctx context.Context, name string, cb WriterCallback,
 	if name == "" {
 		panic("name must not be empty")
 	}
-	client := NewClient(s.store, s.db, s.tracker, track.NewRenewer(ctx, s.tracker, name, defaultChunkTTL))
+	client := NewClient(s.store, s.db, s.tracker, NewRenewer(ctx, s.tracker, name, defaultChunkTTL))
 	return newWriter(ctx, client, s.memCache, s.deduper, s.createOpts, cb, opts...)
 }
 

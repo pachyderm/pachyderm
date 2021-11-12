@@ -26,7 +26,7 @@ type StringSet struct {
 func NewStringSet(ctx context.Context, ttl time.Duration, renewFunc RenewFunc, composeFunc ComposeFunc) *StringSet {
 	ss := &StringSet{
 		ttl:         ttl,
-		strings:     [][]string{[]string{}},
+		strings:     [][]string{{}},
 		composeFunc: composeFunc,
 	}
 	ss.Renewer = NewRenewer(ctx, ttl, func(ctx context.Context, ttl time.Duration) error {
@@ -41,7 +41,7 @@ func NewStringSet(ctx context.Context, ttl time.Duration, renewFunc RenewFunc, c
 			if err != nil {
 				return err
 			}
-			ss.strings = [][]string{[]string{x}}
+			ss.strings = [][]string{{x}}
 		}
 		if len(ss.strings[0]) == 0 {
 			return nil

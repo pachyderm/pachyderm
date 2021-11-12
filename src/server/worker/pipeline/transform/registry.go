@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/jmoiron/sqlx"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -18,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -221,7 +221,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 			}
 			// Output commit was deleted. Delete job as well
 			// TODO: This should be handled through a transaction defer when the commit is squashed.
-			if err := pj.driver.NewSQLTx(func(sqlTx *sqlx.Tx) error {
+			if err := pj.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
 				// Delete the job if no other worker has deleted it yet
 				jobInfo := &pps.JobInfo{}
 				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobInfo); err != nil {

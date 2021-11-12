@@ -6,7 +6,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/jmoiron/sqlx"
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -16,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 )
@@ -73,7 +73,7 @@ func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp
 		Expires:        expirationProto,
 	}
 
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
 		return a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord)
 	}); err != nil {
 		return nil, err
@@ -250,7 +250,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 		return nil, errors.Wrapf(err, "unable to delete clusters in database")
 	}
 
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
 		err := a.license.ReadWrite(sqlTx).Delete(licenseRecordKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return err

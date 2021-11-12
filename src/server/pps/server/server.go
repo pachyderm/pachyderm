@@ -6,11 +6,11 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	loki "github.com/grafana/loki/pkg/logcli/client"
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -23,7 +23,7 @@ import (
 
 // Env contains the dependencies needed to create an API Server
 type Env struct {
-	DB         *sqlx.DB
+	DB         *pachsql.DB
 	TxnEnv     *txnenv.TransactionEnv
 	Listener   collection.PostgresListener
 	KubeClient *kubernetes.Clientset

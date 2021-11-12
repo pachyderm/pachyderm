@@ -5,19 +5,18 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
-func CreatePostgresSchema(ctx context.Context, sqlTx *sqlx.Tx) error {
+func CreatePostgresSchema(ctx context.Context, sqlTx *pachsql.Tx) error {
 	_, err := sqlTx.ExecContext(ctx, `CREATE SCHEMA collections`)
 	return err
 }
 
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
-func SetupPostgresV0(ctx context.Context, sqlTx *sqlx.Tx) error {
+func SetupPostgresV0(ctx context.Context, sqlTx *pachsql.Tx) error {
 	updatedAtFunction := `
 create or replace function collections.updatedat_trigger_fn() returns trigger as $$
 begin
@@ -171,7 +170,7 @@ create trigger updatedat_trigger
 	return nil
 }
 
-func SetupPostgresCollections(ctx context.Context, sqlTx *sqlx.Tx, collections ...PostgresCollection) error {
+func SetupPostgresCollections(ctx context.Context, sqlTx *pachsql.Tx, collections ...PostgresCollection) error {
 	for _, pgc := range collections {
 		col := pgc.(*postgresCollection)
 		columns := []string{
