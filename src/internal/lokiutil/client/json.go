@@ -129,7 +129,6 @@ type sliceEntryDecoder struct{}
 
 // From: https://github.com/grafana/loki/blob/d9380eaac950c669864c0af60fd99eae281d2438/pkg/loghttp/entry.go
 func (sliceEntryDecoder) Decode(ptr unsafe.Pointer, iter *json.Iterator) {
-	fmt.Println("Decode called")
 	*((*[]Entry)(ptr)) = (*((*[]Entry)(ptr)))[:0]
 	iter.ReadArrayCB(func(iter *json.Iterator) bool {
 		i := 0
