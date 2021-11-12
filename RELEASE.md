@@ -1,8 +1,18 @@
 # Making a new release of jupyterlab_pachyderm
 
-The extension can be published to `PyPI` and `npm` manually or using the [Jupyter Releaser](https://github.com/jupyter-server/jupyter_releaser).
+The extension can be published to `PyPI` and `npm` manually.
 
 ## Manual release
+
+Assuming we want to release a new version `v1.2.3`:
+
+- From `main` branch, run `git checkout -b v1.2.3-release`
+- Bump up `"version"` in `package.json`
+- Update `CHANGELOG.md`
+  - What to include? You can try to summarize the changes by comparing the previous release to the latest main, something like `https://github.com/pachyderm/jupyterlab-pachyderm/compare/v1.2.2...main`
+  - You can also add `[Changes](https://github.com/pachyderm/jupyterlab-pachyderm/compare/v1.2.2...v1.2.3)` to the changelog
+- `git commit -m "v1.2.3 Release"`, make PR and merge back into `main`
+- back in `main`, run `git tag -a v1.2.3 -m "Release version 1.2.3" && git push origin v1.2.3`
 
 ### Python package
 
@@ -29,6 +39,12 @@ Then to upload the package to PyPI, do:
 twine upload dist/*
 ```
 
+Or try uploading to TestPyPI, first:
+
+```bash
+twine upload --repository testpypi dist/*
+```
+
 ### NPM package
 
 To publish the frontend part of the extension as a NPM package, do:
@@ -37,22 +53,14 @@ To publish the frontend part of the extension as a NPM package, do:
 npm login
 npm publish --access public
 ```
+### GitHub Releases
 
-## Automated releases with the Jupyter Releaser
+Follow [instructions](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)
 
-The extension repository should already be compatible with the Jupyter Releaser.
-
-Check out the [workflow documentation](https://github.com/jupyter-server/jupyter_releaser#typical-workflow) for more information.
-
-Here is a summary of the steps to cut a new release:
-
-- Fork the [`jupyter-releaser` repo](https://github.com/jupyter-server/jupyter_releaser)
-- Add `ADMIN_GITHUB_TOKEN`, `PYPI_TOKEN` and `NPM_TOKEN` to the Github Secrets in the fork
-- Go to the Actions panel
-- Run the "Draft Changelog" workflow
-- Merge the Changelog PR
-- Run the "Draft Release" workflow
-- Run the "Publish Release" workflow
+- Choose the tag we just created
+- The Python package should be at `dist/*.tar.gz`, whish is produced by the `python -m build` command
+  - Upload the tar file via the GitHub Web GUI ([Step 8])[https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#:~:text=generate%20release%20notes.-,Optionally,-%2C%20to%20include%20binary]
+- If we produce a npm package, upload that as well
 
 ## Publishing to `conda-forge`
 
