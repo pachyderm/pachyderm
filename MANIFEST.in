@@ -3,11 +3,13 @@ include *.md
 include pyproject.toml
 recursive-include jupyter-config *.json
 
+exclude ci-requirements.txt
+exclude .circleci/*
+
 include package.json
 include install.json
 include ts*.json
 include schema/*.json
-include yarn.lock
 include webpack.config.js
 
 graft jupyterlab_pachyderm/labextension

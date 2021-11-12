@@ -12,8 +12,8 @@ for the frontend extension.
 
 - JupyterLab >= 3.0
 
-- Python 3.7
-    - [pyenv](https://github.com/pyenv/pyenv) is a great way to manage and install different versions of python. You can check which version you are using by running `pyenv versions`. If you are upgrading the version of python used in the project, please check and make sure that the versions defined in the `.python-version`. 
+- Python >=3.6,<4
+    - [pyenv](https://github.com/pyenv/pyenv) is a great way to manage and install different versions of python. You can check which version you are using by running `pyenv versions`. Our Python extension is built to be compatible with Python versions 3.6 to 3.9. Therefore, it is best to run the lowest version (3.6.x) for highest compatibility.
 
 - Node
     - If you are using [nvm](https://github.com/nvm-sh/nvm) first run `nvm install`. This will install and switch the version of node to the one defined in the `.nvmrc`. If you are upgrading the version of node used in the project, please check and make sure that the versions defined in the `.nvmrc`.
