@@ -1,6 +1,6 @@
 module github.com/pachyderm/pachyderm/examples/spouts/go-rabbitmq-spout/source
 
-go 1.16
+go 1.17
 
 require (
 	github.com/golang/protobuf v1.4.3 // indirect
