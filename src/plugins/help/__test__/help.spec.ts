@@ -2,7 +2,6 @@ import { JupyterLab } from '@jupyterlab/application';
 import { MainMenu } from '@jupyterlab/mainmenu';
 import { CommandRegistry } from '@lumino/commands';
 import { showDialog } from '@jupyterlab/apputils';
-import { render } from '@testing-library/react';
 
 import help from '../index';
 
