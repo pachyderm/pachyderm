@@ -76,7 +76,9 @@ If the job fails, the output commit will not be populated with data.`,
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			job, err := cmdutil.ParseJob(args[0])
-			if err != nil {
+			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
+				return errors.New(`Use "list job <id>" to see jobs with a given ID across different pipelines`)
+			} else {
 				return err
 			}
 			client, err := pachdclient.NewOnUserMachine("user")
