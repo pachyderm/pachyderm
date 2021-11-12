@@ -77,7 +77,7 @@ If the job fails, the output commit will not be populated with data.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			job, err := cmdutil.ParseJob(args[0])
 			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
-				return errors.New(`Use "list job <id>" to see jobs with a given ID across different pipelines `)
+				return errors.New(`Use "list job <id>" to see jobs with a given ID across different pipelines`)
 			} else {
 				return err
 			}
