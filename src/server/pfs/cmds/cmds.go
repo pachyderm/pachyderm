@@ -769,10 +769,10 @@ The squash will fail if it includes a commit with no children`,
 	shell.RegisterCompletionFunc(squashCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(squashCommit, "squash commit"))
 
-	dropCommit := &cobra.Command{
+	deleteCommit := &cobra.Command{
 		Use:   "{{alias}} <commit-id>",
-		Short: "Drop the sub-commits of a commit.",
-		Long: `Drop the sub-commits of a commit.  The data in the sub-commits will be lost.
+		Short: "Delete the sub-commits of a commit.",
+		Long: `Delete the sub-commits of a commit.  The data in the sub-commits will be lost.
 This operation is only supported if the commit has no children.`,
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -787,8 +787,8 @@ This operation is only supported if the commit has no children.`,
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(dropCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(dropCommit, "drop commit"))
+	shell.RegisterCompletionFunc(deleteCommit, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
