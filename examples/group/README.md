@@ -7,12 +7,12 @@
 
 ## Intro
 
-- Our first examples will walk you through a simple use of group applied to the files in a single repository. 
-- Our second example will showcase a more complex group setting where information is grouped accross 3 repositories. 
+- Our first examples will walk you through the use of a group input applied to the files in a single repository. 
+- Our second example will showcase a more complex group setting where information is grouped across three repositories.
 
-At the end of this page, you will understand how a group input aggregates the input data of a pipeline and what their resulting datums look like. 
+At the end of this page, you will understand how a group input aggregates the data and what their resulting datums look like. 
 
-You configure a group in the [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/) file by adding a `group` input around the one or many pfs repositories you want to aggregate together. At each input repo level included in your group, you then need to specify a `group_by` that will define the captured group (from your glob pattern) to consider to group your files. 
+You configure a group in the [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/) file by adding a `group` input around the one or many pfs repositories you want to aggregate together. At each input repo level included in your group, you need to specify a `group_by` that will define the captured group (from your glob pattern) to consider grouping your files. 
 
 >![pach_logo](./img/pach_logo.svg) Remember, in Pachyderm, the group operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
 
@@ -69,19 +69,22 @@ For information, here is what the content of one of those txt files looks like.
 ![labresultsample.png](./img/labresultsample.png)
 
 ***Goal***
-We  want to aggregate our labresults by patient or by hospital. We will create two separate use cases out of the same input repository.
+
+We want to aggregate our labresults by patient or by hospital. We will create two separate use cases out of the same input repository.
 
 Following the 2 steps pattern described in our [datum processing documentation](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/), we will need 2 pipelines:
 
-- One that performs a group by patient ID or lab/hospital ID (depending on the use case) then outputs one text file per match. We designed the source code of the pipeline so that it sorts those text files into directories named after the patient ID or the hospital ID.
+- One performs a group by patient ID or lab/hospital ID (depending on the use case) then outputs one text file per match. We designed the source code of the pipeline to sort those text files into directories named after the patient ID or the hospital ID.
 
-    1. **Pipeline input repository**: `labresults` 
-        - For group by patient: the group will be done on PATID 
-        - For group by hospital: the group will be done on CLIA
+    1. **Pipeline input repository**: `labresults`. 
+        - For group by patient: We group by PATID. 
+        - For group by hospital: We group by CLIA.
 
     1. **Pipeline**: Executes a set of command lines creating a new directory named after each capture group and copying the files that match the given group. (See our 2 pipelines:[`lab_group_by_hospital.json`](./lab_group_by_hospital.json) and [`lab_group_by_patient.json`](./lab_group_by_patient.json)).
 
-    1. **Pipeline output repository**: `group_by_hospital`or `group_by_patient` depending on which use case you run - Each output repo will contain a list or sub-directories named after each capture group and populated with a copy of their matching files.
+    1. **Pipeline output repository**: `group_by_hospital`or `group_by_patient` depending on which use case you run.
+
+        Each output repo will contain a list of sub-directories named after each capture group and populated with a copy of their matching files.
 
 - A following pipeline will then "glob" all files in each directory then merge their content into a final text file.
 
@@ -111,7 +114,7 @@ Following the 2 steps pattern described in our [datum processing documentation](
     ```shell
     pachctl list datum -f lab_group_by_patient.json 
     ```
-    For example, in the case of a "group by patient", note that one datum is created for each patient ID. Each datum containig all the lab results for this patient:
+    For example, in the case of a "group by patient", note that one datum is created for each patient ID. Each datum containing all the lab results for this patient:
         
     | PATIENT ID| FILES IN DATUM |
     |-----------|----------------|                                    
@@ -144,7 +147,7 @@ Following the 2 steps pattern described in our [datum processing documentation](
 
     ![labresults repo](./img/list_file_labresults_master.png)
 
-    The commit in your entry repository has triggered the execution of your pipelines (i.e., a job). Your pipelines' jobs should be sucessful:
+    The commit in your entry repository has triggered the execution of your pipelines (i.e., a job). 
     ```shell
     pachctl list pipeline
     ```    
@@ -169,11 +172,11 @@ Following the 2 steps pattern described in our [datum processing documentation](
     ```
     and notice the 2 text files /24D9871327.txt and /24D9871328.txt, one for each lab/hospital ID.
 
-    You can also check their content by running:
+    You can check their content by running:
     ```shell
     pachctl get file  reduce_group_by_hospital@master:/24D9871327.txt
     ```
-    and notice that all labresults coming from this lab ID are group in this txt file.
+    and notice the list of all labresults coming from this lab ID in this txt file.
 
     Repeat for `pachctl list file reduce_group_by_patient@master`.
 
@@ -188,36 +191,17 @@ The second example is derived from a simplified retail use case:
 - Those stores have a given location (here, a zip code). 
 - There are 0 to many stores in a given zip code.
 
-This dataset is shared with the "Join pipelines"' examples. Read about the [structure of the data and naming conventions](https://github.com/pachyderm/pachyderm/blob/master/examples/joins/README.md#2-data-structure-and-naming-convention).
+This dataset is shared with the "Join pipelines"' examples. Read about the [structure of the data and our file naming conventions](https://github.com/pachyderm/pachyderm/blob/master/examples/joins/README.md#2-data-structure-and-naming-convention).
 
 
 ***Goal***
-For each store, we are going to group all purchases and returns then calculate the net amount of all transactions (net_amount = order_total - return_total) and save it to a text file named after the store identifier.
+
+We will group all purchases and returns for each store, then calculate the net amount of all transactions (net_amount = order_total - return_total) and save it to a text file named after the store identifier.
 
 1. **Pipeline input repositories**: `stores` , `returns`, `purchases`. 
-We are going to apply a group by STOREID on all 3 repositories. 
+    We will apply a group by STOREID on all 3 repositories. 
     
-    Each match (i.e., all purchases and returns having occured at a given store along with the store information itself) will generate one datum.
-
-1. Before we create our pipeline, let's preview what our datums will look like by running the following command in the `examples/group` directory:
-
-    ```shell
-    pachctl list datum -f retail_group.json 
-    ```
-    Note that one datum is created for each store ID. Each datum containig all the purchases and returns made at a given store:
-
-|STORE ID| DATUM | 
-|---------|---------|
-|0|ORDERW261452_STOREID0.txt|
-|1|STOREID1.txt <br> ORDERW080520_STOREID1.txt<br> ORDERW080521_STOREID1.txt<br> ORDERW080520_STOREID1.txt | 
-|2| STOREID2.txt <br> ORDERW078929_STOREID2.txt |
-|3| STOREID3.txt <br> ORDERW598471_STOREID3.txt|
-|4| STOREID4.txt|
-|5| STOREID4.txt<br> ORDERW080231_STOREID5.txt<br> ORDERW080528_STOREID5.txt<br> ORDERW080231_STOREID5.txt <br>ORDERW080528_STOREID5.txt|
-
-
-
-
+    Each match (i.e., all purchases and returns having occurred at a given store along with the store information itself) will generate one datum.
 
 1. **Pipeline**: Executes a python code reading the `purchases` and `returns` for each matching STOREID and writing the corresponding net_amount to a text file named after the STOREID. (See our pipeline: [`retail_group.json`](./retail_group.json))
 
@@ -243,6 +227,21 @@ The following table lists the expected result (the "net amount") for each store.
     ```shell
     ls ./purchases
     ```
+1. Before we create our pipeline, let's preview what our datums will look like by running the following command in the `examples/group` directory:
+
+    ```shell
+    pachctl list datum -f retail_group.json 
+    ```
+    Note that one datum is created for each store ID. Each datum contains all the purchases and returns made at a given store:
+
+    |STORE ID| DATUM | 
+    |---------|---------|
+    |0|ORDERW261452_STOREID0.txt|
+    |1|STOREID1.txt <br> ORDERW080520_STOREID1.txt<br> ORDERW080521_STOREID1.txt<br> ORDERW080520_STOREID1.txt | 
+    |2| STOREID2.txt <br> ORDERW078929_STOREID2.txt |
+    |3| STOREID3.txt <br> ORDERW598471_STOREID3.txt|
+    |4| STOREID4.txt|
+    |5| STOREID4.txt<br> ORDERW080231_STOREID5.txt<br> ORDERW080528_STOREID5.txt<br> ORDERW080231_STOREID5.txt <br>ORDERW080528_STOREID5.txt|
 
 1. Create/populate Pachyderm’s repository and create your pipelines:
 
@@ -281,7 +280,7 @@ The following table lists the expected result (the "net amount") for each store.
     ```shell
     pachctl list file group_store_revenue@master
     ```
-    Now visual confirmation of the content of each specific file:
+    For visual confirmation of the content of each specific file:
     ```shell
     pachctl get file group_store_revenue@master:/5.txt
     ```

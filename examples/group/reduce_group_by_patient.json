@@ -1,0 +1,17 @@
+{
+  "pipeline": {
+    "name": "reduce_group_by_patient"
+  },
+  "description": "A pipeline that consolidates all lab results by patient in one file.",
+  "input": {
+      "pfs": {
+      "repo": "group_by_patient",
+      "branch": "master",
+      "glob": "/*"
+      }
+ },
+ "transform": {
+  "cmd": [ "bash" ],
+  "stdin": [ "set -x", "FILES=/pfs/group_by_patient/*/*", "for f in $FILES", "do", "directory=`dirname $f`", "out=`basename $directory`",  "cat $f >> /pfs/out/${out}.txt", "done" ]
+}
+}
