@@ -196,4 +196,6 @@ You can use the `pachctl list datum <job_number>` command to check the datums pr
 !!! note "Note"  
     Now that the 3 datums have been processed, their ID field is showing.
 
-
+!!! info "Enabling Stats"
+    - Running `list datum` on a given job execution of a pipeline that [enables stats](https://docs.pachyderm.com/latest/enterprise/stats/#enabling-stats-for-a-pipeline) allows you to additionally display the STATUS (running, failed, success) and TIME of each datum.
+    - You might want to follow up with [inspect datum <ID>](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_datum/) to detail the files that a specific datum includes.

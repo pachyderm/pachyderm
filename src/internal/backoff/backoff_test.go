@@ -1,18 +1,19 @@
-package backoff
+package backoff_test
 
 import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 func TestNextBackOffMillis(t *testing.T) {
-	subtestNextBackOff(t, 0, new(ZeroBackOff))
-	subtestNextBackOff(t, Stop, new(StopBackOff))
+	subtestNextBackOff(t, 0, new(backoff.ZeroBackOff))
+	subtestNextBackOff(t, backoff.Stop, new(backoff.StopBackOff))
 }
 
-func subtestNextBackOff(t *testing.T, expectedValue time.Duration, backOffPolicy BackOff) {
+func subtestNextBackOff(t *testing.T, expectedValue time.Duration, backOffPolicy backoff.BackOff) {
 	for i := 0; i < 10; i++ {
 		next := backOffPolicy.NextBackOff()
 		if next != expectedValue {
@@ -22,7 +23,7 @@ func subtestNextBackOff(t *testing.T, expectedValue time.Duration, backOffPolicy
 }
 
 func TestConstantBackOff(t *testing.T) {
-	backoff := NewConstantBackOff(time.Second)
+	backoff := backoff.NewConstantBackOff(time.Second)
 	if backoff.NextBackOff() != time.Second {
 		t.Error("invalid interval")
 	}
@@ -39,11 +40,11 @@ func TestConstantBackOffCompare(t *testing.T) {
 	var callTimes [10]time.Time
 	idx := 0
 	start := time.Now()
-	err := Retry(func() error {
+	err := backoff.Retry(func() error {
 		callTimes[idx] = time.Now()
 		idx++
 		return errors.Errorf("expected error")
-	}, RetryEvery(time.Second).For(9*time.Second))
+	}, backoff.RetryEvery(time.Second).For(9*time.Second))
 	if err.Error() != "expected error" {
 		t.Fatalf("Retry loop didn't return internal error to caller")
 	}

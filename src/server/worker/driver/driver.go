@@ -15,14 +15,15 @@ import (
 	"syscall"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
-
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/exec"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -30,15 +31,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
 
-// TODO:
-// s3 input / gateway stuff (need more information here).
-// egress (maybe should be a part of the datum package).
+// TODO(2.0 optional):
 // Prometheus stats? (refer to old driver code and tests)
 // capture logs (refer to old driver code and tests).
 // In general, need to spend some time walking through the old driver
 // tests to see what can be reused.
 
-func workNamespace(pipelineInfo *pps.PipelineInfo) string {
+// WorkNamespace returns the namespace used by the work package for this
+// pipeline.
+func WorkNamespace(pipelineInfo *pps.PipelineInfo) string {
 	return fmt.Sprintf("/pipeline-%s/v%d", pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 }
 
@@ -48,8 +49,8 @@ func workNamespace(pipelineInfo *pps.PipelineInfo) string {
 // interface can be used to mock out external calls to make unit-testing
 // simpler.
 type Driver interface {
-	Jobs() col.Collection
-	Pipelines() col.Collection
+	Jobs() col.PostgresCollection
+	Pipelines() col.PostgresCollection
 
 	NewTaskWorker() *work.Worker
 	NewTaskQueue() (*work.TaskQueue, error)
@@ -89,26 +90,23 @@ type Driver interface {
 
 	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
-	DeleteJob(col.STM, *pps.EtcdJobInfo) error
-	UpdateJobState(string, pps.JobState, string) error
+	DeleteJob(*pachsql.Tx, *pps.JobInfo) error
+	UpdateJobState(*pps.Job, pps.JobState, string) error
 
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
-	NewSTM(func(col.STM) error) (*etcd.TxnResponse, error)
+	NewSQLTx(func(*pachsql.Tx) error) error
 }
 
 type driver struct {
-	pipelineInfo    *pps.PipelineInfo
+	env             serviceenv.ServiceEnv
+	ctx             context.Context
 	pachClient      *client.APIClient
-	etcdClient      *etcd.Client
-	etcdPrefix      string
+	pipelineInfo    *pps.PipelineInfo
 	activeDataMutex *sync.Mutex
 
-	jobs col.Collection
-
-	pipelines col.Collection
-
-	namespace string
+	jobs      col.PostgresCollection
+	pipelines col.PostgresCollection
 
 	// User and group IDs used for running user code, determined in the constructor
 	uid *uint32
@@ -128,31 +126,30 @@ type driver struct {
 // the user code on the current worker node, as well as determining if
 // enterprise features are activated (for exporting stats).
 func NewDriver(
-	pipelineInfo *pps.PipelineInfo,
+	env serviceenv.ServiceEnv,
 	pachClient *client.APIClient,
-	etcdClient *etcd.Client,
-	etcdPrefix string,
+	pipelineInfo *pps.PipelineInfo,
 	rootPath string,
-	namespace string,
 ) (Driver, error) {
 	pfsPath := filepath.Join(rootPath, client.PPSInputPrefix)
 	if err := os.MkdirAll(pfsPath, 0777); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	jobs := ppsdb.Jobs(env.GetDBClient(), env.GetPostgresListener())
+	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
 	result := &driver{
-		pipelineInfo:    pipelineInfo,
+		env:             env,
+		ctx:             env.Context(),
 		pachClient:      pachClient,
-		etcdClient:      etcdClient,
-		etcdPrefix:      etcdPrefix,
+		pipelineInfo:    pipelineInfo,
 		activeDataMutex: &sync.Mutex{},
-		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
+		jobs:            jobs,
+		pipelines:       pipelines,
 		rootDir:         rootPath,
 		inputDir:        pfsPath,
-		namespace:       namespace,
 	}
-	if pipelineInfo.Transform.User != "" {
-		user, err := lookupDockerUser(pipelineInfo.Transform.User)
+	if pipelineInfo.Details.Transform.User != "" {
+		user, err := lookupDockerUser(pipelineInfo.Details.Transform.User)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return nil, errors.EnsureStack(err)
 		}
@@ -255,32 +252,32 @@ func lookupGroup(group string) (_ *user.Group, retErr error) {
 func (d *driver) WithContext(ctx context.Context) Driver {
 	result := &driver{}
 	*result = *d
-	result.pachClient = result.pachClient.WithCtx(ctx)
+	result.ctx = ctx
 	return result
 }
 
-func (d *driver) Jobs() col.Collection {
+func (d *driver) Jobs() col.PostgresCollection {
 	return d.jobs
 }
 
-func (d *driver) Pipelines() col.Collection {
+func (d *driver) Pipelines() col.PostgresCollection {
 	return d.pipelines
 }
 
 func (d *driver) NewTaskWorker() *work.Worker {
-	return work.NewWorker(d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
+	return work.NewWorker(d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, WorkNamespace(d.pipelineInfo))
 }
 
 func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
-	return work.NewTaskQueue(d.PachClient().Ctx(), d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
+	return work.NewTaskQueue(d.ctx, d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, WorkNamespace(d.pipelineInfo))
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := d.Pipelines().ReadOnly(d.PachClient().Ctx()).Get(d.PipelineInfo().Pipeline.Name, pipelinePtr); err != nil {
+	latestPipelineInfo := &pps.PipelineInfo{}
+	if err := d.Pipelines().ReadOnly(d.ctx).Get(d.PipelineInfo().SpecCommit, latestPipelineInfo); err != nil {
 		return 0, errors.EnsureStack(err)
 	}
-	numWorkers := pipelinePtr.Parallelism
+	numWorkers := latestPipelineInfo.Parallelism
 	if numWorkers == 0 {
 		numWorkers = 1
 	}
@@ -292,7 +289,7 @@ func (d *driver) PipelineInfo() *pps.PipelineInfo {
 }
 
 func (d *driver) Namespace() string {
-	return d.namespace
+	return d.env.Config().Namespace
 }
 
 func (d *driver) InputDir() string {
@@ -300,11 +297,11 @@ func (d *driver) InputDir() string {
 }
 
 func (d *driver) PachClient() *client.APIClient {
-	return d.pachClient
+	return d.pachClient.WithCtx(d.ctx)
 }
 
-func (d *driver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) {
-	return col.NewSTM(d.pachClient.Ctx(), d.etcdClient, cb)
+func (d *driver) NewSQLTx(cb func(*pachsql.Tx) error) error {
+	return dbutil.WithTx(d.ctx, d.env.GetDBClient(), cb)
 }
 
 func (d *driver) RunUserCode(
@@ -320,14 +317,14 @@ func (d *driver) RunUserCode(
 			logger.Logf("finished running user code after %v", time.Since(start))
 		}
 	}(time.Now())
-	if len(d.pipelineInfo.Transform.Cmd) == 0 {
+	if len(d.pipelineInfo.Details.Transform.Cmd) == 0 {
 		return errors.New("invalid pipeline transform, no command specified")
 	}
 
 	// Run user code
-	cmd := exec.CommandContext(ctx, d.pipelineInfo.Transform.Cmd[0], d.pipelineInfo.Transform.Cmd[1:]...)
-	if d.pipelineInfo.Transform.Stdin != nil {
-		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Transform.Stdin, "\n") + "\n")
+	cmd := exec.CommandContext(ctx, d.pipelineInfo.Details.Transform.Cmd[0], d.pipelineInfo.Details.Transform.Cmd[1:]...)
+	if d.pipelineInfo.Details.Transform.Stdin != nil {
+		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Details.Transform.Stdin, "\n") + "\n")
 	}
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
@@ -335,7 +332,12 @@ func (d *driver) RunUserCode(
 	if d.uid != nil && d.gid != nil {
 		cmd.SysProcAttr = makeCmdCredentials(*d.uid, *d.gid)
 	}
-	cmd.Dir = filepath.Join(d.rootDir, d.pipelineInfo.Transform.WorkingDir)
+
+	// By default PWD will be the working dir for the container, so we don't need to set Dir explicitly.
+	// If the pipeline or worker config explicitly sets the value, then override the container working dir.
+	if d.pipelineInfo.Details.Transform.WorkingDir != "" || d.rootDir != "/" {
+		cmd.Dir = filepath.Join(d.rootDir, d.pipelineInfo.Details.Transform.WorkingDir)
+	}
 	err := cmd.Start()
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -367,7 +369,7 @@ func (d *driver) RunUserCode(
 		exiterr := &exec.ExitError{}
 		if errors.As(err, &exiterr) {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				for _, returnCode := range d.pipelineInfo.Transform.AcceptReturnCode {
+				for _, returnCode := range d.pipelineInfo.Details.Transform.AcceptReturnCode {
 					if int(returnCode) == status.ExitStatus() {
 						return nil
 					}
@@ -393,9 +395,9 @@ func (d *driver) RunUserErrorHandlingCode(
 		}
 	}(time.Now())
 
-	cmd := exec.CommandContext(ctx, d.pipelineInfo.Transform.ErrCmd[0], d.pipelineInfo.Transform.ErrCmd[1:]...)
-	if d.pipelineInfo.Transform.ErrStdin != nil {
-		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Transform.ErrStdin, "\n") + "\n")
+	cmd := exec.CommandContext(ctx, d.pipelineInfo.Details.Transform.ErrCmd[0], d.pipelineInfo.Details.Transform.ErrCmd[1:]...)
+	if d.pipelineInfo.Details.Transform.ErrStdin != nil {
+		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Details.Transform.ErrStdin, "\n") + "\n")
 	}
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
@@ -403,7 +405,7 @@ func (d *driver) RunUserErrorHandlingCode(
 	if d.uid != nil && d.gid != nil {
 		cmd.SysProcAttr = makeCmdCredentials(*d.uid, *d.gid)
 	}
-	cmd.Dir = d.pipelineInfo.Transform.WorkingDir
+	cmd.Dir = d.pipelineInfo.Details.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -434,7 +436,7 @@ func (d *driver) RunUserErrorHandlingCode(
 		exiterr := &exec.ExitError{}
 		if errors.As(err, &exiterr) {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				for _, returnCode := range d.pipelineInfo.Transform.AcceptReturnCode {
+				for _, returnCode := range d.pipelineInfo.Details.Transform.AcceptReturnCode {
 					if int(returnCode) == status.ExitStatus() {
 						return nil
 					}
@@ -446,34 +448,21 @@ func (d *driver) RunUserErrorHandlingCode(
 	return nil
 }
 
-func (d *driver) UpdateJobState(jobID string, state pps.JobState, reason string) error {
-	_, err := d.NewSTM(func(stm col.STM) error {
-		jobPtr := &pps.EtcdJobInfo{}
-		if err := d.Jobs().ReadWrite(stm).Get(jobID, jobPtr); err != nil {
-			return errors.EnsureStack(err)
+func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
+	return d.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+		jobInfo := &pps.JobInfo{}
+		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
+			return err
 		}
-		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(stm), d.Jobs().ReadWrite(stm), jobPtr, state, reason))
+		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))
 	})
-	return errors.EnsureStack(err)
 }
 
-// DeleteJob is identical to updateJobState, except that jobPtr points to a job
-// that should be deleted rather than marked failed. Jobs may be deleted if
+// DeleteJob is identical to updateJobState, except that jobInfo points to a job
+// that should be deleted rather than marked failed.  Jobs may be deleted if
 // their output commit is deleted.
-func (d *driver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := d.Pipelines().ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
-		if pipelinePtr.JobCounts == nil {
-			pipelinePtr.JobCounts = make(map[int32]int32)
-		}
-		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-			pipelinePtr.JobCounts[int32(jobPtr.State)]--
-		}
-		return nil
-	}); err != nil {
-		return errors.EnsureStack(err)
-	}
-	return errors.EnsureStack(d.Jobs().ReadWrite(stm).Delete(jobPtr.Job.ID))
+func (d *driver) DeleteJob(sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
+	return d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
@@ -503,10 +492,11 @@ func (d *driver) UserCodeEnv(
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
 		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
 	}
+	result = append(result, fmt.Sprintf("%s=%s", client.DatumIDEnv, common.DatumID(inputs)))
 
 	if jobID != "" {
 		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
-		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Input) || d.PipelineInfo().S3Out {
+		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Details.Input) || d.PipelineInfo().Details.S3Out {
 			// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
 			// should pass its ServiceEnv to worker.NewAPIServer, which should store it
 			// in 'a'. However, requiring worker.APIServer to have a ServiceEnv would
@@ -518,7 +508,7 @@ func (d *driver) UserCodeEnv(
 			result = append(
 				result,
 				fmt.Sprintf("S3_ENDPOINT=http://%s.%s:%s",
-					ppsutil.SidecarS3GatewayService(jobID),
+					ppsutil.SidecarS3GatewayService(outputCommit.Branch.Repo.Name, jobID),
 					d.Namespace(),
 					os.Getenv("S3GATEWAY_PORT"),
 				),

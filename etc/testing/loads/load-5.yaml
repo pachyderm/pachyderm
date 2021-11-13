@@ -1,0 +1,25 @@
+# This workload tests many small files with a small fraction deleted over time.
+count: 5 
+operations:
+  - count: 5
+    operation:
+      - putFile:
+          files:
+            count: 10000
+            file:
+              - source: "random"
+                prob: 100
+        prob: 80 
+      - deleteFile:
+          count: 10000 
+        prob: 20 
+validator:
+  frequency:
+    prob: 0 
+fileSources:
+  - name: "random"
+    random:
+      size:
+        - min: 1000
+          max: 10000
+          prob: 100 

@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
+
+# Uses GP3 Storage
+
+deployTarget: AMAZON
+
+# This uses GP3 which requires the CSI Driver https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
+# And a storageclass configured named gp3
+
+etcd:
+  storageClass: gp3
+
+
+pachd:
+  storage:
+    amazon:
+      bucket: blah
+      region: some-region
+      # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+      id: AKIAIOSFODNN7EXAMPLE
+      # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+      secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+      cloudFrontDistribution: cfd-123
+  serviceAccount:
+    additionalAnnotations:
+      eks.amazonaws.com/role-arn: blah123
+  worker:
+    serviceAccount:
+      additionalAnnotations:
+        eks.amazonaws.com/role-arn: blah123
+
+postgresql:
+  persistence:
+    storageClass: gp3

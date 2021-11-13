@@ -6,6 +6,7 @@ import (
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 )
 
@@ -50,8 +51,9 @@ type chunkSize struct {
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 type Writer struct {
-	client     *Client
+	client     Client
 	memCache   kv.GetPut
+	deduper    *miscutil.WorkDeduper
 	cb         WriterCallback
 	chunkSize  *chunkSize
 	splitMask  uint64
@@ -71,12 +73,13 @@ type Writer struct {
 	first, last             bool
 }
 
-func newWriter(ctx context.Context, client *Client, memCache kv.GetPut, createOpts CreateOptions, cb WriterCallback, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper, createOpts CreateOptions, cb WriterCallback, opts ...WriterOption) *Writer {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	w := &Writer{
 		cb:         cb,
 		client:     client,
 		memCache:   memCache,
+		deduper:    deduper,
 		createOpts: createOpts,
 		ctx:        cancelCtx,
 		cancel:     cancel,
@@ -173,15 +176,16 @@ func (w *Writer) roll(data []byte) error {
 				return err
 			}
 			offset = i + 1
+			continue
 		}
-	}
-	for w.numChunkBytesAnnotation+len(data[offset:]) >= w.chunkSize.max {
-		bytesLeft := w.chunkSize.max - w.numChunkBytesAnnotation
-		w.writeData(data[offset : offset+bytesLeft])
-		if err := w.createChunk(); err != nil {
-			return err
+		// TODO: This can be optimized a bit by accounting for it before rolling the data.
+		if w.numChunkBytesAnnotation+len(data[offset:i+1]) >= w.chunkSize.max {
+			w.writeData(data[offset : i+1])
+			if err := w.createChunk(); err != nil {
+				return err
+			}
+			offset = i + 1
 		}
-		offset += bytesLeft
 	}
 	w.writeData(data[offset:])
 	return nil
@@ -238,7 +242,7 @@ func (w *Writer) processChunk(ctx context.Context, chunkBytes []byte, edge bool,
 	ref.Edge = edge
 	contentHash := Hash(chunkBytes)
 	chunkDataRef := &DataRef{
-		Hash:      contentHash.HexString(),
+		Hash:      contentHash,
 		Ref:       ref,
 		SizeBytes: int64(len(chunkBytes)),
 	}
@@ -303,7 +307,7 @@ func newDataRef(chunkRef *DataRef, chunkBytes []byte, offset, size int64) *DataR
 	if chunkRef.SizeBytes == size {
 		dataRef.Hash = chunkRef.Hash
 	} else {
-		dataRef.Hash = Hash(chunkBytes[offset : offset+size]).HexString()
+		dataRef.Hash = Hash(chunkBytes[offset : offset+size])
 	}
 	dataRef.OffsetBytes = offset
 	dataRef.SizeBytes = size
@@ -356,7 +360,7 @@ func mergeDataRef(dr1, dr2 *DataRef) *DataRef {
 	}
 	dr1.SizeBytes += dr2.SizeBytes
 	if dr1.SizeBytes == dr1.Ref.SizeBytes {
-		dr1.Hash = ID(dr1.Ref.Id).HexString()
+		dr1.Hash = dr1.Ref.Id
 	}
 	return dr1
 }
@@ -392,7 +396,7 @@ func (w *Writer) flushBuffer() error {
 
 func (w *Writer) flushDataRef(dataRef *DataRef) error {
 	buf := &bytes.Buffer{}
-	r := newDataReader(w.ctx, w.client, w.memCache, dataRef, nil)
+	r := newDataReader(w.ctx, w.client, w.memCache, w.deduper, dataRef, 0)
 	if err := r.Get(buf); err != nil {
 		return err
 	}
@@ -427,6 +431,7 @@ func (w *Writer) Close() error {
 			return err
 		}
 		if len(w.annotations) > 0 {
+			w.last = true
 			if err := w.createChunk(); err != nil {
 				return err
 			}

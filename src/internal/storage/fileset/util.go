@@ -4,10 +4,13 @@ import (
 	"archive/tar"
 	"context"
 	"io"
+	"path"
 	"strings"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -15,7 +18,7 @@ import (
 )
 
 // NewTestStorage constructs a local storage instance scoped to the lifetime of the test
-func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker) *Storage {
+func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker) *Storage {
 	_, chunks := chunk.NewTestStorage(t, db, tr)
 	store := NewTestStore(t, db)
 	return NewStorage(store, tr, chunks)
@@ -25,36 +28,25 @@ func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker) *Storage {
 func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) error {
 	if len(deletive) > 0 && deletive[0] {
 		if err := fs.Iterate(ctx, func(f File) error {
-			return deleteIndex(w, f.Index())
+			idx := f.Index()
+			return w.Delete(idx.Path, idx.File.Datum)
 		}, deletive...); err != nil {
 			return err
 		}
 	}
 	return fs.Iterate(ctx, func(f File) error {
-		return w.Copy(f)
+		return w.Copy(f, f.Index().File.Datum)
 	})
 }
 
-func deleteIndex(w *Writer, idx *index.Index) error {
-	p := idx.Path
-	if len(idx.File.Parts) == 0 {
-		return w.Delete(p)
-	}
-	var tags []string
-	for _, part := range idx.File.Parts {
-		tags = append(tags, part.Tag)
-	}
-	return w.Delete(p, tags...)
-}
-
 // WriteTarEntry writes an tar entry for f to w
-func WriteTarEntry(w io.Writer, f File) error {
+func WriteTarEntry(ctx context.Context, w io.Writer, f File) error {
 	idx := f.Index()
 	tw := tar.NewWriter(w)
 	if err := tw.WriteHeader(tarutil.NewHeader(idx.Path, index.SizeBytes(idx))); err != nil {
 		return err
 	}
-	if err := f.Content(tw); err != nil {
+	if err := f.Content(ctx, tw); err != nil {
 		return err
 	}
 	return tw.Flush()
@@ -64,7 +56,7 @@ func WriteTarEntry(w io.Writer, f File) error {
 // It will contain an entry for each File in fs
 func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 	if err := fs.Iterate(ctx, func(f File) error {
-		return WriteTarEntry(w, f)
+		return WriteTarEntry(ctx, w, f)
 	}); err != nil {
 		return err
 	}
@@ -72,8 +64,12 @@ func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 }
 
 // Clean cleans a file path.
-func Clean(x string, isDir bool) string {
-	y := "/" + strings.Trim(x, "/")
+func Clean(p string, isDir bool) string {
+	p = path.Clean(p)
+	if p == "." {
+		return "/"
+	}
+	y := "/" + strings.Trim(p, "/")
 	if isDir && !IsDir(y) {
 		y += "/"
 	}
@@ -104,8 +100,12 @@ func NewIterator(ctx context.Context, fs FileSet, deletive ...bool) *Iterator {
 	errChan := make(chan error, 1)
 	go func() {
 		if err := fs.Iterate(ctx, func(f File) error {
-			fileChan <- f
-			return nil
+			select {
+			case fileChan <- f:
+				return nil
+			case <-ctx.Done():
+				return errutil.ErrBreak
+			}
 		}, deletive...); err != nil {
 			errChan <- err
 			return
@@ -146,10 +146,20 @@ func (i *Iterator) Next() (File, error) {
 	}
 }
 
-func getDataRefs(parts []*index.Part) []*chunk.DataRef {
-	var dataRefs []*chunk.DataRef
-	for _, part := range parts {
-		dataRefs = append(dataRefs, part.DataRefs...)
+func hashDataRefs(dataRefs []*chunk.DataRef) ([]byte, error) {
+	h := pachhash.New()
+	for _, dataRef := range dataRefs {
+		_, err := h.Write(dataRef.Hash)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return dataRefs
+	return h.Sum(nil), nil
+}
+
+func SizeFromIndex(idx *index.Index) (size int64) {
+	for _, dr := range idx.File.DataRefs {
+		size += dr.SizeBytes
+	}
+	return size
 }

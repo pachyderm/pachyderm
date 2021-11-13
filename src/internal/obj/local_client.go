@@ -1,147 +1,181 @@
 package obj
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 // NewLocalClient returns a Client that stores data on the local file system
-func NewLocalClient(root string) (c Client, err error) {
-	defer func() { c = newCheckedClient(c) }()
-
-	if err := os.MkdirAll(root, 0755); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	client := &localClient{filepath.Clean(root)}
-	if monkeyTest {
-		return &monkeyClient{client}, nil
-	}
-	return client, nil
-}
-
-type localClient struct {
-	root string
-}
-
-func (c *localClient) normPath(path string) string {
-	path = filepath.Clean(path)
-	if !filepath.IsAbs(path) {
-		return filepath.Join(c.root, path)
-	}
-	return path
-}
-
-func (c *localClient) Writer(_ context.Context, path string) (io.WriteCloser, error) {
-	fullPath := c.normPath(path)
-
-	// Create the directory since it may not exist
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
-	file, err := os.Create(fullPath)
+func NewLocalClient(rootDir string) (Client, error) {
+	c, err := newFSClient(rootDir)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
-	return file, nil
-}
-
-func (c *localClient) Reader(_ context.Context, path string, offset uint64, size uint64) (io.ReadCloser, error) {
-	file, err := os.Open(c.normPath(path))
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		file.Close()
 		return nil, err
 	}
-
-	if offset > uint64(fileInfo.Size()) {
-		file.Close()
-		return nil, errors.Errorf("cannot read from offset past the end of the object, size: %d, offset: %d", fileInfo.Size(), offset)
+	if monkeyTest {
+		c = &monkeyClient{c}
 	}
+	return newUniformClient(c), nil
+}
 
-	if size == 0 {
-		if _, err := file.Seek(int64(offset), 0); err != nil {
-			file.Close()
-			return nil, errors.EnsureStack(err)
+type fsClient struct {
+	rootDir string
+}
+
+func newFSClient(rootDir string) (Client, error) {
+	c := &fsClient{
+		rootDir: filepath.Clean(rootDir),
+	}
+	if c.rootDir == "" || c.rootDir == "/" || c.rootDir == "." {
+		panic("you probably didn't want to set the local client's root path to " + c.rootDir)
+	}
+	if err := c.init(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (c *fsClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
+	staging := c.stagingPathFor(name)
+	final := c.finalPathFor(name)
+	f, err := os.Create(staging)
+	if err != nil {
+		return err
+	}
+	defer c.closeFile(&retErr, f)
+	defer c.removeFile(&retErr, staging)
+	if _, err := io.Copy(f, r); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(staging, final)
+}
+
+func (c *fsClient) Get(ctx context.Context, name string, w io.Writer) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
+	f, err := os.Open(c.finalPathFor(name))
+	if err != nil {
+		return err
+	}
+	defer c.closeFile(&retErr, f)
+	_, err = io.Copy(w, f)
+	return err
+}
+
+func (c *fsClient) Delete(ctx context.Context, name string) error {
+	err := os.Remove(c.finalPathFor(name))
+	if os.IsNotExist(err) {
+		err = nil
+	}
+	return err
+}
+
+func (c *fsClient) Exists(ctx context.Context, name string) (bool, error) {
+	_, err := os.Stat(c.finalPathFor(name))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
 		}
-		return file, nil
+		return false, err
 	}
-	return newSectionReadCloser(file, offset, size), nil
+	return true, nil
 }
 
-func (c *localClient) Delete(_ context.Context, path string) error {
-	return errors.EnsureStack(os.Remove(c.normPath(path)))
-}
-
-func (c *localClient) Walk(_ context.Context, dir string, walkFn func(name string) error) error {
-	dir = c.normPath(dir)
-	fi, _ := os.Stat(dir)
-	prefix := ""
-	if fi == nil || !fi.IsDir() {
-		dir, prefix = filepath.Split(dir)
+func (c *fsClient) Walk(ctx context.Context, prefix string, cb func(string) error) error {
+	dirEnts, err := os.ReadDir(filepath.Join(c.rootDir, "objects"))
+	if err != nil {
+		return err
 	}
-	err := filepath.Walk(dir, func(path string, fileInfo os.FileInfo, err error) error {
+	enc := base64.URLEncoding
+	for _, dirEnt := range dirEnts {
+		// TODO: There is a better way to do this (encode the prefix rather than decode all and filter)
+		// but I'm not really sure how to do that with the filesystem API.
+		// We would need to seek to a certain dir entry.
+		name, err := enc.DecodeString(dirEnt.Name())
 		if err != nil {
-			if c.IsNotExist(err) {
-				return nil
+			return errors.Wrapf(err, "parsing object name")
+		}
+		if bytes.HasPrefix(name, []byte(prefix)) {
+			if err := cb(string(name)); err != nil {
+				return err
 			}
-			return errors.EnsureStack(err)
 		}
-		if fileInfo.IsDir() {
-			return nil
-		}
-		relPath, _ := filepath.Rel(c.root, path)
-		if !strings.HasPrefix(filepath.Base(relPath), prefix) {
-			return nil
-		}
-		return walkFn(relPath)
-	})
-	return errors.EnsureStack(err)
+	}
+	return nil
 }
 
-func (c *localClient) Exists(ctx context.Context, path string) bool {
-	_, err := os.Stat(c.normPath(path))
-	tracing.TagAnySpan(ctx, "err", err)
-	return err == nil
-}
-
-func (c *localClient) IsRetryable(err error) bool {
-	return false
-}
-
-func (c *localClient) IsNotExist(err error) bool {
-	return strings.Contains(err.Error(), "no such file or directory") ||
-		strings.Contains(err.Error(), "cannot find the file specified") ||
-		strings.Contains(err.Error(), "cannot find the path specified")
-}
-
-func (c *localClient) IsIgnorable(err error) bool {
-	return false
-}
-
-type sectionReadCloser struct {
-	*io.SectionReader
-	f *os.File
-}
-
-func newSectionReadCloser(f *os.File, offset uint64, size uint64) *sectionReadCloser {
-	return &sectionReadCloser{
-		SectionReader: io.NewSectionReader(f, int64(offset), int64(size)),
-		f:             f,
+func (c *fsClient) BucketURL() ObjectStoreURL {
+	return ObjectStoreURL{
+		Scheme: "local",
+		Bucket: strings.ReplaceAll(filepath.ToSlash(c.rootDir), "/", "."),
 	}
 }
 
-func (s *sectionReadCloser) Close() error {
-	return errors.EnsureStack(s.f.Close())
+func (c *fsClient) stagingPathFor(name string) string {
+	return filepath.Join(c.rootDir, "staging", uuid.NewWithoutDashes())
+}
+
+func (c *fsClient) finalPathFor(name string) string {
+	enc := base64.URLEncoding
+	return filepath.Join(c.rootDir, "objects", enc.EncodeToString([]byte(name)))
+}
+
+func (c *fsClient) init() error {
+	if err := os.RemoveAll(filepath.Join(c.rootDir, "staging")); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(c.rootDir, "staging"), 0755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(c.rootDir, "objects"), 0755); err != nil {
+		return err
+	}
+	logrus.Infof("successfully initialized fs-backed object store at %s", c.rootDir)
+	return nil
+}
+
+func (c *fsClient) transformError(err error, name string) error {
+	if err == nil {
+		return nil
+	}
+	if os.IsNotExist(err) || strings.HasSuffix(err.Error(), ": no such file or directory") {
+		return pacherr.NewNotExist(c.rootDir, name)
+	}
+	return err
+}
+
+func (c *fsClient) closeFile(retErr *error, f *os.File) {
+	err := f.Close()
+	if err != nil && !strings.Contains(err.Error(), "file already closed") {
+		if retErr == nil {
+			*retErr = err
+		} else {
+			logrus.Errorf("error closing file: %v", err)
+		}
+	}
+}
+
+func (c *fsClient) removeFile(retErr *error, p string) {
+	err := os.Remove(p)
+	if os.IsNotExist(err) {
+		err = nil
+	}
+	if err != nil {
+		if retErr == nil {
+			*retErr = err
+		} else {
+			logrus.Errorf("error deleting file: %v", err)
+		}
+	}
 }

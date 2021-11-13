@@ -2,14 +2,12 @@ package chunk
 
 import (
 	"context"
-	"database/sql"
 	"encoding/hex"
-	fmt "fmt"
-	"regexp"
+	"strings"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 // ID uniquely identifies a chunk. It is the hash of its content
@@ -21,14 +19,31 @@ func Hash(data []byte) ID {
 	return sum[:]
 }
 
+// ParseTrackerID parses a trackerID into a chunk
+func ParseTrackerID(trackerID string) (ID, error) {
+	if !strings.HasPrefix(trackerID, TrackerPrefix) {
+		return nil, errors.Errorf("tracker ID is not for chunk: %q", trackerID)
+	}
+	return IDFromHex(trackerID[len(TrackerPrefix):])
+}
+
 // IDFromHex parses a hex string into an ID
 func IDFromHex(h string) (ID, error) {
 	return hex.DecodeString(h)
 }
 
+func (id ID) String() string {
+	return id.HexString()
+}
+
 // HexString hex encodes the ID
 func (id ID) HexString() string {
 	return hex.EncodeToString(id)
+}
+
+// TrackerID returns an ID for use with the tracker.
+func (id ID) TrackerID() string {
+	return TrackerPrefix + id.HexString()
 }
 
 // Metadata holds metadata about a chunk
@@ -38,82 +53,71 @@ type Metadata struct {
 }
 
 var (
-	// ErrMetadataExists metadata exists
-	ErrMetadataExists = errors.Errorf("metadata exists")
 	// ErrChunkNotExists chunk does not exist
 	ErrChunkNotExists = errors.Errorf("chunk does not exist")
 )
 
-// MetadataStore stores metadata about chunks
-type MetadataStore interface {
-	DB() *sqlx.DB
-	// Set adds chunk metadata to the tracker
-	SetTx(tx *sqlx.Tx, chunkID ID, md Metadata) error
-	// Get returns info about the chunk if it exists
-	Get(ctx context.Context, chunkID ID) (*Metadata, error)
-	// Delete removes chunk metadata from the tracker
-	DeleteTx(tx *sqlx.Tx, chunkID ID) error
-}
-
-var _ MetadataStore = &postgresStore{}
-
-type postgresStore struct {
-	db *sqlx.DB
-}
-
-// NewPostgresStore returns a Metadata backed by db
-func NewPostgresStore(db *sqlx.DB) MetadataStore {
-	return &postgresStore{db: db}
-}
-
-func (s *postgresStore) DB() *sqlx.DB {
-	return s.db
-}
-
-func (s *postgresStore) SetTx(tx *sqlx.Tx, chunkID ID, md Metadata) error {
-	_, err := tx.Exec(
-		`INSERT INTO storage.chunks (hash_id, size) VALUES ($1, $2)
-		ON CONFLICT (hash_id) DO NOTHING
-		`, chunkID, md.Size)
-	return err
-}
-
-func (s *postgresStore) Get(ctx context.Context, chunkID ID) (*Metadata, error) {
-	type chunkRow struct {
-		size int `db:"size"`
-	}
-	var x chunkRow
-	if err := s.db.GetContext(ctx, &x, `SELECT size FROM storage.chunks WHERE hash_id = $1`, chunkID); err != nil {
-		if err == sql.ErrNoRows {
-			err = ErrChunkNotExists
-		}
-		return nil, err
-	}
-	return &Metadata{
-		Size: x.size,
-	}, nil
-}
-
-func (s *postgresStore) DeleteTx(tx *sqlx.Tx, chunkID ID) error {
-	_, err := tx.Exec(`DELETE FROM storage.chunks WHERE hash_id = $1`, chunkID)
-	return err
+// Entry is an chunk object mapping
+type Entry struct {
+	ChunkID   ID     `db:"chunk_id"`
+	Gen       uint64 `db:"gen"`
+	Uploaded  bool   `db:"uploaded"`
+	Tombstone bool   `db:"tombstone"`
 }
 
 // SetupPostgresStoreV0 sets up tables in db
-func SetupPostgresStoreV0(ctx context.Context, tableName string, tx *sqlx.Tx) error {
-	ok, err := regexp.MatchString("[A-z_]+", tableName)
-	if err != nil {
-		panic(err)
-	}
-	if !ok {
-		panic("invalid table name: " + tableName)
-	}
-	query := fmt.Sprintf(`
-	CREATE TABLE %s (
-		hash_id BYTEA NOT NULL PRIMARY KEY,
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func SetupPostgresStoreV0(tx *pachsql.Tx) error {
+	_, err := tx.Exec(`
+	CREATE TABLE storage.chunk_objects (
+		chunk_id BYTEA NOT NULL,
+		gen BIGSERIAL NOT NULL,
+		uploaded BOOLEAN NOT NULL DEFAULT FALSE,
+		tombstone BOOLEAN NOT NULL DEFAULT FALSE,
 		size INT8 NOT NULL,
-		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);`, tableName)
-	_, err = tx.ExecContext(ctx, query)
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+		PRIMARY KEY(chunk_id, gen)
+	);
+
+	CREATE TABLE storage.keys (
+		name VARCHAR(128) NOT NULL,
+		data BYTEA NOT NULL,
+
+		PRIMARY KEY(name)
+	)
+	`)
+	return errors.EnsureStack(err)
+}
+
+// KeyStore is a store for named secret keys
+type KeyStore interface {
+	Create(ctx context.Context, name string, data []byte) error
+	Get(ctx context.Context, name string) ([]byte, error)
+}
+
+type postgresKeyStore struct {
+	db *pachsql.DB
+}
+
+func NewPostgresKeyStore(db *pachsql.DB) *postgresKeyStore {
+	return &postgresKeyStore{
+		db: db,
+	}
+}
+
+func (s *postgresKeyStore) Create(ctx context.Context, name string, data []byte) error {
+	_, err := s.db.ExecContext(ctx, `
+	INSERT INTO storage.keys (name, data) VALUES ($1, $2)
+	`, name, data)
 	return err
+}
+
+func (s *postgresKeyStore) Get(ctx context.Context, name string) ([]byte, error) {
+	var data []byte
+	if err := s.db.GetContext(ctx, &data, `SELECT data FROM storage.keys WHERE name = $1 LIMIT 1`, name); err != nil {
+		return nil, err
+	}
+	return data, nil
 }

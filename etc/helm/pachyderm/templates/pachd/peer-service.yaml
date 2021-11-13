@@ -1,0 +1,22 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.pachd.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pachd
+    suite: pachyderm
+  name: pachd-peer
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: api-grpc-peer-port
+    port: 30653
+    targetPort: peer-port
+  selector:
+    app: pachd
+  type: ClusterIP
+{{- end }}

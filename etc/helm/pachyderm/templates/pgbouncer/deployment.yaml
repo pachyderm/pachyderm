@@ -1,0 +1,69 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pg-bouncer
+    suite: pachyderm
+  name: pg-bouncer
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pg-bouncer
+      suite: pachyderm
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: pg-bouncer
+        suite: pachyderm
+      name: pg-bouncer
+      namespace: {{ .Release.Namespace }}
+    spec:
+{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
+      containers:
+      - env:
+        - name: POSTGRESQL_USERNAME
+          value: {{ .Values.global.postgresql.postgresqlUsername }}
+        - name: PGBOUNCER_SET_USER
+          value: "True"
+        - name: POSTGRESQL_HOST
+         {{- if .Values.postgresql.enabled }}
+          value: {{ .Values.global.postgresql.postgresqlHost }}.{{ .Release.Namespace }}.svc.cluster.local  
+         {{- else }}
+          value: {{ .Values.global.postgresql.postgresqlHost }}
+         {{- end }}
+        - name: PGBOUNCER_PORT
+          value: "5432"
+        - name: PGBOUNCER_DATABASE
+          value: "*"
+        - name: PGBOUNCER_MAX_CLIENT_CONN
+          value: "{{ .Values.pgbouncer.maxConnections }}"
+        - name: PGBOUNCER_POOL_MODE
+          value: "transaction"
+        - name: PGBOUNCER_IDLE_TRANSACTION_TIMEOUT
+          value: "300"
+        - name: PGBOUNCER_IGNORE_STARTUP_PARAMETERS
+          value: "extra_float_digits"
+        - name: PGBOUNCER_UNIX_SOCKET_DIR
+          value: " "
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres # Must match secret setup by postgres subchart, or postgres-secret.yaml 
+              key: postgresql-password
+        image: bitnami/pgbouncer:1.16.0
+        imagePullPolicy: IfNotPresent
+        name: pg-bouncer
+        ports:
+        - containerPort: 5432
+          name: client-port
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256M

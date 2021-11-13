@@ -39,9 +39,9 @@ func TestCommit(t *testing.T) {
 	).Run())
 }
 
-// TODO: Make work with V2?
 func TestPutFileSplit(t *testing.T) {
-	t.Skip("Split not implemented in V2")
+	// TODO: Need to implement put file split in V2.
+	t.Skip("Put file split not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -103,4 +103,22 @@ func TestMountParsing(t *testing.T) {
 	for repo, ro := range expected {
 		require.Equal(t, ro, opts[repo])
 	}
+}
+
+func TestDiffFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo {{.repo}}
+
+		echo "foo" | pachctl put file {{.repo}}@master:/data
+
+		echo "bar" | pachctl put file {{.repo}}@master:/data
+
+		pachctl diff file {{.repo}}@master:/data {{.repo}}@master^:/data \
+			| match -- '-foo'
+		`,
+		"repo", tu.UniqueString("TestDiffFile-repo"),
+	).Run())
 }

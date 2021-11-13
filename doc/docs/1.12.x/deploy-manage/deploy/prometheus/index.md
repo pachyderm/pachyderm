@@ -35,19 +35,19 @@ Prometheus' **Kubernetes cluster monitoring** using the Prometheus Operator:
         apiVersion: monitoring.coreos.com/v1
         kind: ServiceMonitor
         metadata:
-        name: pachyderm-scraper
-        labels:
+          name: pachyderm-scraper
+          labels:
             release: <a-release-name>
         spec:
             selector:
                 matchLabels:
-                suite: pachyderm
+                  suite: pachyderm
             namespaceSelector:
                 matchNames:
                 - default
             endpoints:
             - port: prometheus-metrics
-                interval: 30s
+              interval: 30s
         ```
     - Create a ServiceMonitor looking to scrape metrics from `suite: pachyderm`:
         ```shell
@@ -92,7 +92,6 @@ Run a pipeline of your choice. The `pachyderm-scraper` should be visible:
 ![pachyderm scraper target](./img/prometheus_target_pachyderm_scaper.png)
 
 In the ClassicUI tab, you should be able to see the new pachyderm metrics.
-
 
 ## References
 * Find the full list of Pachyderm metrics here:

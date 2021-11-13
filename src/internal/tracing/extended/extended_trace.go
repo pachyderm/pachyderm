@@ -24,7 +24,7 @@ const (
 	// https://github.com/grpc/grpc-go/blob/b2c5f4a808fd5de543c4e987cd85d356140ed681/Documentation/grpc-metadata.md)
 	traceMDKey = "pipeline-trace-duration-bin"
 
-	// TracesCollectionPrefix is the prefix associated with the 'traces'
+	// tracesCollectionPrefix is the prefix associated with the 'traces'
 	// collection in etcd (which maps pipelines and commits to extended traces)
 	tracesCollectionPrefix = "commit_traces"
 
@@ -40,8 +40,8 @@ const (
 )
 
 // TracesCol returns the etcd collection of extended traces
-func TracesCol(c *etcd.Client) col.Collection {
-	return col.NewCollection(c,
+func TracesCol(c *etcd.Client) col.EtcdCollection {
+	return col.NewEtcdCollection(c,
 		tracesCollectionPrefix,
 		nil, // no indexes
 		&TraceProto{},
@@ -99,8 +99,8 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 		tracesCol := TracesCol(c).ReadWrite(stm)
 		return tracesCol.PutTTL(pipeline, traceProto, int64(duration.Seconds()))
 	}); err != nil {
-		log.Errorf("could not persist extended trace for pipeline %q to etcd: %v. ",
-			vals[0], pipeline, err, defaultDuration)
+		log.Errorf("could not persist extended trace for pipeline %q to etcd: %v",
+			pipeline, err)
 	}
 }
 

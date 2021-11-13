@@ -1,6 +1,7 @@
 package grpcutil
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"io"
@@ -150,9 +151,17 @@ func (s *streamingBytesReader) Close() error {
 	return nil
 }
 
-// NewStreamingBytesWriter returns an io.Writer for a StreamingBytesServer.
-func NewStreamingBytesWriter(streamingBytesServer StreamingBytesServer) io.Writer {
-	return &streamingBytesWriter{streamingBytesServer}
+// WithStreamingBytesWriter sets up a scoped streaming bytes writer that buffers and chunks writes.
+// TODO: This should probably use a buffer pool eventually.
+func WithStreamingBytesWriter(streamingBytesServer StreamingBytesServer, cb func(io.Writer) error) (retErr error) {
+	w := &streamingBytesWriter{streamingBytesServer: streamingBytesServer}
+	bufW := bufio.NewWriterSize(w, MaxMsgPayloadSize)
+	defer func() {
+		if err := bufW.Flush(); retErr == nil {
+			retErr = err
+		}
+	}()
+	return cb(bufW)
 }
 
 type streamingBytesWriter struct {
@@ -185,11 +194,13 @@ func (r ReaderWrapper) Read(p []byte) (int, error) {
 }
 
 // WriteToStreamingBytesServer writes the data from the io.Reader to the StreamingBytesServer.
-func WriteToStreamingBytesServer(reader io.Reader, streamingBytesServer StreamingBytesServer) error {
-	buf := GetBuffer()
-	defer PutBuffer(buf)
-	_, err := io.CopyBuffer(NewStreamingBytesWriter(streamingBytesServer), ReaderWrapper{reader}, buf)
-	return err
+func WriteToStreamingBytesServer(reader io.Reader, server StreamingBytesServer) error {
+	return WithStreamingBytesWriter(server, func(w io.Writer) error {
+		buf := GetBuffer()
+		defer PutBuffer(buf)
+		_, err := io.CopyBuffer(w, ReaderWrapper{reader}, buf)
+		return err
+	})
 }
 
 // WriteFromStreamingBytesClient writes from the StreamingBytesClient to the io.Writer.

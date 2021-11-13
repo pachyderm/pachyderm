@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 )
 
 type memoryCache struct {
@@ -35,15 +36,16 @@ func (mc *memoryCache) Put(ctx context.Context, key, value []byte) error {
 func (mc *memoryCache) Get(ctx context.Context, key []byte, cb ValueCallback) error {
 	v := mc.get(key)
 	if v == nil {
-		return ErrKeyNotFound
+		return pacherr.NewNotExist("kv.memoryCache", string(key))
 	}
-	return AssertNotModified(v, cb)
+	return cb(v)
 }
 
 func (mc *memoryCache) Delete(ctx context.Context, key []byte) error {
+	k := string(key)
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	mc.cache.Remove(key)
+	mc.cache.Remove(k)
 	return nil
 }
 

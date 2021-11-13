@@ -1,6 +1,7 @@
 package driver
 
-// TODO: Make work with V2?
+// TODO(2.0 optional): Implement the driver tests with the V2 changes. I think there is a good chance
+// that we rewrite the driver a bit, so we should probably hold off on this for now.
 //var inputRepo = "inputRepo"
 //var inputGitRepo = "https://github.com/pachyderm/test-artifacts.git"
 //var inputGitRepoFake = "https://github.com/pachyderm/test-artifacts-fake.git"
@@ -27,30 +28,26 @@ package driver
 //	driver *driver
 //}
 //
-//func withTestEnv(cb func(*testEnv)) error {
-//	return testpachd.WithMockEnv(func(mockEnv *testpachd.MockEnv) (err error) {
-//		env := &testEnv{MockEnv: *mockEnv}
+//func newTestEnv(t *testing.T) *testEnv {
+//  mockEnv := testpachd.NewMockEnv(t)
+//	env := &testEnv{MockEnv: *mockEnv}
 //
-//		var d Driver
-//		d, err = NewDriver(
-//			testPipelineInfo(),
-//			env.PachClient,
-//			env.EtcdClient,
-//			tu.UniqueString("driverTest"),
-//			filepath.Clean(filepath.Join(env.Directory, "pfs")),
-//			"namespace",
-//		)
-//		if err != nil {
-//			return err
-//		}
-//		d = d.WithContext(env.Context)
-//		env.driver = d.(*driver)
-//		env.driver.pipelineInfo.Transform.WorkingDir = env.Directory
+//	var d Driver
+//	d, err = NewDriver(
+//		testPipelineInfo(),
+//		env.PachClient,
+//		env.EtcdClient,
+//		tu.UniqueString("driverTest"),
+//		filepath.Clean(filepath.Join(env.Directory, "pfs")),
+//		"namespace",
+//	)
+//	require.NoError(t, err)
 //
-//		cb(env)
+//	d = d.WithContext(env.Context)
+//	env.driver = d.(*driver)
+//	env.driver.pipelineInfo.Transform.WorkingDir = env.Directory
 //
-//		return nil
-//	})
+//	return env
 //}
 //
 //// collectLogs provides the given callback with a mock TaggedLogger object which
@@ -94,48 +91,40 @@ package driver
 //func TestRunUserCode(t *testing.T) {
 //	t.Parallel()
 //	logMessage := "this is a user code log message"
-//	err := withTestEnv(func(env *testEnv) {
-//		env.driver.pipelineInfo.Transform.Cmd = []string{"echo", logMessage}
-//		requireLogs(t, []string{logMessage}, func(logger logs.TaggedLogger) {
-//			err := env.driver.RunUserCode(context.Background(), logger, []string{})
-//			require.NoError(t, err)
-//		})
+//  env := newTestEnv(t)
+//	env.driver.pipelineInfo.Transform.Cmd = []string{"echo", logMessage}
+//	requireLogs(t, []string{logMessage}, func(logger logs.TaggedLogger) {
+//		err := env.driver.RunUserCode(context.Background(), logger, []string{})
+//		require.NoError(t, err)
 //	})
-//	require.NoError(t, err)
 //}
 //
 //func TestRunUserCodeError(t *testing.T) {
 //	t.Parallel()
-//	err := withTestEnv(func(env *testEnv) {
-//		env.driver.pipelineInfo.Transform.Cmd = []string{"false"}
-//		requireLogs(t, []string{"exit status 1"}, func(logger logs.TaggedLogger) {
-//			err := env.driver.RunUserCode(context.Background(), logger, []string{})
-//			require.YesError(t, err)
-//		})
+//  env := newTestEnv(t)
+//	env.driver.pipelineInfo.Transform.Cmd = []string{"false"}
+//	requireLogs(t, []string{"exit status 1"}, func(logger logs.TaggedLogger) {
+//		err := env.driver.RunUserCode(context.Background(), logger, []string{})
+//		require.YesError(t, err)
 //	})
-//	require.NoError(t, err)
 //}
 //
 //func TestRunUserCodeNoCommand(t *testing.T) {
 //	t.Parallel()
-//	err := withTestEnv(func(env *testEnv) {
-//		env.driver.pipelineInfo.Transform.Cmd = []string{}
-//		requireLogs(t, []string{"no command specified"}, func(logger logs.TaggedLogger) {
-//			err := env.driver.RunUserCode(context.Background(), logger, []string{})
-//			require.YesError(t, err)
-//		})
+//  env := newTestEnv(t)
+//	env.driver.pipelineInfo.Transform.Cmd = []string{}
+//	requireLogs(t, []string{"no command specified"}, func(logger logs.TaggedLogger) {
+//		err := env.driver.RunUserCode(context.Background(), logger, []string{})
+//		require.YesError(t, err)
 //	})
-//	require.NoError(t, err)
 //}
 //
 //func TestRunUserCodeEnv(t *testing.T) {
 //	t.Parallel()
-//	err := withTestEnv(func(env *testEnv) {
-//		env.driver.pipelineInfo.Transform.Cmd = []string{"env"}
-//		requireLogs(t, []string{"FOO=password", "BAR=hunter2"}, func(logger logs.TaggedLogger) {
-//			err := env.driver.RunUserCode(context.Background(), logger, []string{"FOO=password", "BAR=hunter2"})
-//			require.NoError(t, err)
-//		})
+//  env := newTestEnv(t)
+//	env.driver.pipelineInfo.Transform.Cmd = []string{"env"}
+//	requireLogs(t, []string{"FOO=password", "BAR=hunter2"}, func(logger logs.TaggedLogger) {
+//		err := env.driver.RunUserCode(context.Background(), logger, []string{"FOO=password", "BAR=hunter2"})
+//		require.NoError(t, err)
 //	})
-//	require.NoError(t, err)
 //}

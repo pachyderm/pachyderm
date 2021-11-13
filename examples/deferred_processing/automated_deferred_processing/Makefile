@@ -6,9 +6,9 @@
 # to both fetch the version of pachyderm you want to use and execute it.
 # "../etc/fetch_release_pachctl.py 1.10.0 ; env PACHCTL=${GOPATH}/bin/pachctl make -e opencv"
 
+include ../../../etc/govars.mk
+
 SHELL := /bin/bash
-PACHCTL := pachctl
-KUBECTL := kubectl
 DOCKER := docker
 
 DEFERRED_PROCESSING_PIPELINES = ../deferred_processing_plus_transactions/edges_dp.json \

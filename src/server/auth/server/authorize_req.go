@@ -1,12 +1,14 @@
 package server
 
 import (
-	"context"
+	"sort"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 )
 
-type groupLookupFn func(ctx context.Context, subject string) ([]string, error)
+type groupLookupFn func(txnCtx *txncontext.TransactionContext, subject string) ([]string, error)
 
 // authorizeRequest is a helper struct used to evaluate an incoming Authorize request.
 // It's initialized with the subject and set of permissions required for an Operation,
@@ -17,27 +19,39 @@ type groupLookupFn func(ctx context.Context, subject string) ([]string, error)
 type authorizeRequest struct {
 	subject              string
 	permissions          map[auth.Permission]bool
+	roleMap              map[string]*auth.Role
 	satisfiedPermissions []auth.Permission
 	groupsForSubject     groupLookupFn
 	groups               []string
 }
 
-func newAuthorizeRequest(subject string, permissions []auth.Permission, groupsForSubject groupLookupFn) *authorizeRequest {
-	permissionMap := make(map[auth.Permission]bool)
-	for _, p := range permissions {
-		permissionMap[p] = true
-	}
-
+func newAuthorizeRequest(subject string, permissions map[auth.Permission]bool, groupsForSubject groupLookupFn) *authorizeRequest {
 	return &authorizeRequest{
 		subject:              subject,
-		permissions:          permissionMap,
+		roleMap:              make(map[string]*auth.Role),
+		permissions:          permissions,
 		groupsForSubject:     groupsForSubject,
 		satisfiedPermissions: make([]auth.Permission, 0),
 	}
 }
 
-// satisfied returns true if no permissions remain
-func (r *authorizeRequest) satisfied() bool {
+func (r *authorizeRequest) rolesForResourceType(rt auth.ResourceType) []string {
+	roles := make([]string, 0, len(r.roleMap))
+	for r, def := range r.roleMap {
+		if roleAppliesToResource(def, rt) {
+			roles = append(roles, r)
+		}
+	}
+	sort.Strings(roles)
+	return roles
+}
+
+func (r *authorizeRequest) satisfied() []auth.Permission {
+	return r.satisfiedPermissions
+}
+
+// isSatisfied returns true if no permissions remain
+func (r *authorizeRequest) isSatisfied() bool {
 	return len(r.permissions) == 0
 }
 
@@ -54,7 +68,7 @@ func (r *authorizeRequest) missing() []auth.Permission {
 // - role bindings that refer to them by name
 // - role bindings that refer to allClusterUsers
 // - role bindings that refer to any group the subject belongs to
-func (r *authorizeRequest) evaluateRoleBinding(ctx context.Context, binding *auth.RoleBinding) error {
+func (r *authorizeRequest) evaluateRoleBinding(txnCtx *txncontext.TransactionContext, binding *auth.RoleBinding) error {
 	if err := r.evaluateRoleBindingForSubject(r.subject, binding); err != nil {
 		return err
 	}
@@ -76,7 +90,7 @@ func (r *authorizeRequest) evaluateRoleBinding(ctx context.Context, binding *aut
 	// bindings to cover the set of permissions.
 	if r.groups == nil {
 		var err error
-		r.groups, err = r.groupsForSubject(ctx, r.subject)
+		r.groups, err = r.groupsForSubject(txnCtx, r.subject)
 		if err != nil {
 			return err
 		}
@@ -98,12 +112,19 @@ func (r *authorizeRequest) evaluateRoleBindingForSubject(subject string, binding
 
 	if entry, ok := binding.Entries[subject]; ok {
 		for role := range entry.Roles {
-			permissions, err := permissionsForRole(role)
+			// Don't look up permissions for a role we already saw in another binding
+			if _, ok := r.roleMap[role]; ok {
+				continue
+			}
+
+			roleDefinition, err := getRole(role)
 			if err != nil {
 				return err
 			}
 
-			for _, permission := range permissions {
+			r.roleMap[role] = roleDefinition.role
+
+			for _, permission := range roleDefinition.role.Permissions {
 				if _, ok := r.permissions[permission]; ok {
 					r.satisfiedPermissions = append(r.satisfiedPermissions, permission)
 					delete(r.permissions, permission)

@@ -412,7 +412,7 @@ func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 		return fs.ToErrno(err)
 	}
 
-	var err error = nil
+	var err error
 	st := syscall.Stat_t{}
 	err = syscall.Lstat(p, &st)
 	if err != nil {
@@ -568,6 +568,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	if len(parts) < 1 || parts[0] == "" {
 		return nil //already downloaded in downloadRepos
 	}
+	branch := n.root().branch(parts[0])
 	commit, err := n.commit(parts[0])
 	if err != nil {
 		return err
@@ -575,7 +576,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	if commit == "" {
 		return nil
 	}
-	if err := n.c().ListFile(parts[0], commit, pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
+	if err := n.c().ListFile(client.NewCommit(parts[0], branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
 		if fi.FileType == pfs.FileType_DIR {
 			return os.MkdirAll(n.filePath(fi), 0777)
 		}
@@ -599,7 +600,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 		if state < full {
 			return f.Truncate(int64(fi.SizeBytes))
 		}
-		if err := n.c().GetFile(fi.File.Commit.Repo.Name, fi.File.Commit.ID, fi.File.Path, f); err != nil {
+		if err := n.c().GetFile(fi.File.Commit, fi.File.Path, f); err != nil {
 			return err
 		}
 		return nil
@@ -647,7 +648,7 @@ func (n *loopbackNode) commit(repo string) (string, error) {
 	defer n.root().mu.Unlock()
 	// You can access branches that don't exist, which allows you to create
 	// branches through the fuse mount.
-	if errutil.IsNotFoundError(err) || bi.Head == nil {
+	if errutil.IsNotFoundError(err) {
 		n.root().commits[repo] = ""
 		return "", nil
 	}
@@ -660,7 +661,7 @@ func (n *loopbackNode) repoPath(ri *pfs.RepoInfo) string {
 }
 
 func (n *loopbackNode) filePath(fi *pfs.FileInfo) string {
-	return filepath.Join(n.root().rootPath, fi.File.Commit.Repo.Name, fi.File.Path)
+	return filepath.Join(n.root().rootPath, fi.File.Commit.Branch.Repo.Name, fi.File.Path)
 }
 
 func (n *loopbackNode) getFileState(path string) fileState {

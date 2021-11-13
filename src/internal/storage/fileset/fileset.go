@@ -45,12 +45,15 @@ func (id ID) TrackerID() string {
 
 // Scan implements sql.Scanner
 func (id *ID) Scan(src interface{}) error {
-	x, ok := src.([]byte)
-	if !ok {
+	var err error
+	switch x := src.(type) {
+	case []byte:
+		*id, err = parseID(x)
+	case string:
+		*id, err = parseID([]byte(x))
+	default:
 		return errors.Errorf("scanning fileset.ID: can't turn %T into fileset.ID", src)
 	}
-	var err error
-	*id, err = parseID(x)
 	return err
 }
 
@@ -102,7 +105,9 @@ type File interface {
 	// Index returns the index for the file.
 	Index() *index.Index
 	// Content writes the content of the file.
-	Content(w io.Writer) error
+	Content(ctx context.Context, w io.Writer, opts ...chunk.ReaderOption) error
+	// Hash returns the hash of the file.
+	Hash(ctx context.Context) ([]byte, error)
 }
 
 var _ File = &MergeFileReader{}

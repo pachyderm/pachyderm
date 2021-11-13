@@ -4,247 +4,266 @@ This document discusses each of the fields present in a pipeline specification.
 To see how to use a pipeline spec to create a pipeline, refer to the [pachctl
 create pipeline](./pachctl/pachctl_create_pipeline.md) section.
 
-## JSON Manifest Format
+!!! Info
+    - Pachyderm's pipeline specifications can be written in JSON or YAML.
+    - Pachyderm uses its json parser if the first character is `{`.
+## Manifest Format
 
-```json
-{
-  "pipeline": {
-    "name": string
-  },
-  "description": string,
-  "metadata": {
-    "annotations": {
-        "annotation": string
-    },
-    "labels": {
-        "label": string
-    }
-  },
-  "transform": {
-    "image": string,
-    "cmd": [ string ],
-    "stdin": [ string ],
-    "err_cmd": [ string ],
-    "err_stdin": [ string ],
-    "env": {
-        string: string
-    },
-    "secrets": [ {
-        "name": string,
-        "mount_path": string
-    },
+=== "JSON Full Specifications"
+    ```json
     {
-        "name": string,
-        "env_var": string,
-        "key": string
-    } ],
-    "image_pull_secrets": [ string ],
-    "accept_return_code": [ int ],
-    "debug": bool,
-    "user": string,
-    "working_dir": string,
-  },
-  "parallelism_spec": {
-    // Set at most one of the following:
-    "constant": int,
-    "coefficient": number
-  },
-  "hashtree_spec": {
-   "constant": int,
-  },
-  "resource_requests": {
-    "memory": string,
-    "cpu": number,
-    "disk": string,
-  },
-  "resource_limits": {
-    "memory": string,
-    "cpu": number,
-    "gpu": {
-      "type": string,
-      "number": int
-    }
-    "disk": string,
-  },
-  "sidecar_resource_limits": {
-    "memory": string,
-    "cpu": number
-  },
-  "datum_timeout": string,
-  "datum_tries": int,
-  "job_timeout": string,
-  "input": {
-    <"pfs", "cross", "union", "join", "group", "cron", or "git" see below>
-  },
-  "s3_out": bool,
-  "output_branch": string,
-  "egress": {
-    "URL": "s3://bucket/dir"
-  },
-  "standby": bool,
-  "cache_size": string,
-  "enable_stats": bool,
-  "service": {
-    "internal_port": int,
-    "external_port": int
-  },
-  "spout": {
-  \\ Optionally, you can combine a spout with a service:
-  "service": {
+      "pipeline": {
+        "name": string
+      },
+      "description": string,
+      "metadata": {
+        "annotations": {
+            "annotation": string
+        },
+        "labels": {
+            "label": string
+        }
+      },
+      "transform": {
+        "image": string,
+        "cmd": [ string ],
+        "stdin": [ string ],
+        "err_cmd": [ string ],
+        "err_stdin": [ string ],
+        "env": {
+            string: string
+        },
+        "secrets": [ {
+            "name": string,
+            "mount_path": string
+        },
+        {
+            "name": string,
+            "env_var": string,
+            "key": string
+        } ],
+        "image_pull_secrets": [ string ],
+        "accept_return_code": [ int ],
+        "debug": bool,
+        "user": string,
+        "working_dir": string,
+      },
+      "parallelism_spec": {
+        // Set at most one of the following:
+        "constant": int,
+        "coefficient": number
+      },
+      "hashtree_spec": {
+      "constant": int,
+      },
+      "resource_requests": {
+        "memory": string,
+        "cpu": number,
+        "disk": string,
+      },
+      "resource_limits": {
+        "memory": string,
+        "cpu": number,
+        "gpu": {
+          "type": string,
+          "number": int
+        }
+        "disk": string,
+      },
+      "sidecar_resource_limits": {
+        "memory": string,
+        "cpu": number
+      },
+      "datum_timeout": string,
+      "datum_tries": int,
+      "job_timeout": string,
+      "input": {
+        <"pfs", "cross", "union", "join", "group", "cron", or "git" see below>
+      },
+      "s3_out": bool,
+      "output_branch": string,
+      "egress": {
+        "URL": "s3://bucket/dir"
+      },
+      "standby": bool,
+      "cache_size": string,
+      "enable_stats": bool,
+      "service": {
         "internal_port": int,
         "external_port": int
+      },
+      "spout": {
+      \\ Optionally, you can combine a spout with a service:
+      "service": {
+            "internal_port": int,
+            "external_port": int
+        }
+      },
+      "max_queue_size": int,
+      "chunk_spec": {
+        "number": int,
+        "size_bytes": int
+      },
+      "scheduling_spec": {
+        "node_selector": {string: string},
+        "priority_class_name": string
+      },
+      "pod_spec": string,
+      "pod_patch": string,
     }
-  },
-  "max_queue_size": int,
-  "chunk_spec": {
-    "number": int,
-    "size_bytes": int
-  },
-  "scheduling_spec": {
-    "node_selector": {string: string},
-    "priority_class_name": string
-  },
-  "pod_spec": string,
-  "pod_patch": string,
-}
 
-------------------------------------
-"pfs" input
-------------------------------------
+    ------------------------------------
+    "pfs" input
+    ------------------------------------
 
-"pfs": {
-  "name": string,
-  "repo": string,
-  "branch": string,
-  "glob": string,
-  "lazy" bool,
-  "empty_files": bool,
-  "s3": bool
-}
-
-------------------------------------
-"cross" or "union" input
-------------------------------------
-
-"cross" or "union": [
-  {
     "pfs": {
       "name": string,
       "repo": string,
       "branch": string,
       "glob": string,
       "lazy" bool,
-      "empty_files": bool
-      "s3": bool
-    }
-  },
-  {
-    "pfs": {
-      "name": string,
-      "repo": string,
-      "branch": string,
-      "glob": string,
-      "lazy" bool,
-      "empty_files": bool
-      "s3": bool
-    }
-  }
-  ...
-]
-
-
-------------------------------------
-"join" input
-------------------------------------
-
-"join": [
-  {
-    "pfs": {
-      "name": string,
-      "repo": string,
-      "branch": string,
-      "glob": string,
-      "join_on": string,
-      "outer_join": bool,
-      "lazy": bool,
       "empty_files": bool,
       "s3": bool
     }
-  },
-  {
-    "pfs": {
-       "name": string,
-       "repo": string,
-       "branch": string,
-       "glob": string,
-       "join_on": string,
-       "outer_join": bool,
-       "lazy": bool,
-       "empty_files": bool,
-       "s3": bool
+
+    ------------------------------------
+    "cross" or "union" input
+    ------------------------------------
+
+    "cross" or "union": [
+      {
+        "pfs": {
+          "name": string,
+          "repo": string,
+          "branch": string,
+          "glob": string,
+          "lazy" bool,
+          "empty_files": bool
+          "s3": bool
+        }
+      },
+      {
+        "pfs": {
+          "name": string,
+          "repo": string,
+          "branch": string,
+          "glob": string,
+          "lazy" bool,
+          "empty_files": bool
+          "s3": bool
+        }
+      }
+      ...
+    ]
+
+
+    ------------------------------------
+    "join" input
+    ------------------------------------
+
+    "join": [
+      {
+        "pfs": {
+          "name": string,
+          "repo": string,
+          "branch": string,
+          "glob": string,
+          "join_on": string,
+          "outer_join": bool,
+          "lazy": bool,
+          "empty_files": bool,
+          "s3": bool
+        }
+      },
+      {
+        "pfs": {
+          "name": string,
+          "repo": string,
+          "branch": string,
+          "glob": string,
+          "join_on": string,
+          "outer_join": bool,
+          "lazy": bool,
+          "empty_files": bool,
+          "s3": bool
+        }
+      }
+    ]
+
+
+    ------------------------------------
+    "group" input
+    ------------------------------------
+
+    "group": [
+      {
+        "pfs": {
+          "name": string,
+          "repo": string,
+          "branch": string,
+          "glob": string,
+          "group_by": string,
+          "lazy": bool,
+          "empty_files": bool,
+          "s3": bool
+        }
+      },
+      {
+        "pfs": {
+          "name": string,
+          "repo": string,
+          "branch": string,
+          "glob": string,
+          "group_by": string,
+          "lazy": bool,
+          "empty_files": bool,
+          "s3": bool
+        }
+      }
+    ]
+
+
+
+    ------------------------------------
+    "cron" input
+    ------------------------------------
+
+    "cron": {
+        "name": string,
+        "spec": string,
+        "repo": string,
+        "start": time,
+        "overwrite": bool
     }
-  }
-]
 
 
-------------------------------------
-"group" input
-------------------------------------
+    ------------------------------------
+    "git" input
+    ------------------------------------
 
-"group": [
-  {
-    "pfs": {
+    "git": {
+      "URL": string,
       "name": string,
-      "repo": string,
-      "branch": string,
-      "glob": string,
-      "group_by": string,
-      "lazy": bool,
-      "empty_files": bool,
-      "s3": bool
+      "branch": string
     }
-  },
-  {
-    "pfs": {
-       "name": string,
-       "repo": string,
-       "branch": string,
-       "glob": string,
-       "group_by": string,
-       "lazy": bool,
-       "empty_files": bool,
-       "s3": bool
-    }
-  }
-]
 
-
-
-------------------------------------
-"cron" input
-------------------------------------
-
-"cron": {
-    "name": string,
-    "spec": string,
-    "repo": string,
-    "start": time,
-    "overwrite": bool
-}
-
-
-------------------------------------
-"git" input
-------------------------------------
-
-"git": {
-  "URL": string,
-  "name": string,
-  "branch": string
-}
-
-```
-
+    ```
+=== "YAML Sample"
+    ```yaml
+    pipeline:
+      name: edges
+    description: A pipeline that performs image edge detection by using the OpenCV library.
+    input:
+      pfs:
+        glob: /*
+        repo: images
+    transform:
+      cmd:
+        - python3
+        - /edges.py
+      image: pachyderm/opencv
+    ```
+ 
 In practice, you rarely need to specify all the fields.
 Most fields either come with sensible defaults or can be empty.
 The following text is an example of a minimum spec:
@@ -883,7 +902,7 @@ store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
 
-For more information, see [Exporting Data by using egress](../how-tos/export-data-out-pachyderm/export-data-egress.md)
+For more information, see [Exporting Data by using egress](../how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md)
 
 ### Standby (optional)
 
@@ -895,15 +914,20 @@ Standby replaces `scale_down_threshold` from releases prior to 1.7.1.
 
 ### Cache Size (optional)
 
-`cache_size` controls how much cache a pipeline's sidecar containers use. In
+`cache_size` controls how much **in-memory cache** a pipeline's sidecar containers use. In
 general, your pipeline's performance will increase with the cache size, but
 only up to a certain point depending on your workload.
 
 Every worker in every pipeline has a limited-functionality `pachd` server
 running adjacent to it, which proxies PFS reads and writes (this prevents
 thundering herds when jobs start and end, which is when all of a pipeline's
-workers are reading from and writing to PFS simultaneously). Part of what these
-"sidecar" pachd servers do is cache PFS reads. If a pipeline has a cross input,
+workers are reading from and writing to PFS simultaneously). 
+Part of what these "sidecar" pachd servers do is *cache PFS reads:*
+Any time the worker reads files from the input repo or writes files to the output repo,
+the sidecar manages those requests, 
+which will **cache the files in memory for better performance**.
+
+If a pipeline has a cross input,
 and a worker is downloading the same datum from one branch of the input
 repeatedly, then the cache can speed up processing significantly.
 

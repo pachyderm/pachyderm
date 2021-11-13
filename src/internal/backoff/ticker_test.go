@@ -1,9 +1,10 @@
-package backoff
+package backoff_test
 
 import (
 	"log"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
@@ -25,8 +26,8 @@ func TestTicker(t *testing.T) {
 		return errors.New("error")
 	}
 
-	b := NewExponentialBackOff()
-	ticker := NewTicker(b)
+	b := backoff.NewExponentialBackOff()
+	ticker := backoff.NewTicker(b)
 
 	var err error
 	for range ticker.C {

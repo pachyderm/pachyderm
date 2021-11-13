@@ -27,3 +27,10 @@ func WithPrefix(prefix string) Option {
 func WithExact(key string) Option {
 	return WithRange(&PathRange{Upper: key, Lower: key})
 }
+
+// WithDatum adds a datum filter that matches a single datum.
+func WithDatum(datum string) Option {
+	return func(r *Reader) {
+		r.datum = datum
+	}
+}

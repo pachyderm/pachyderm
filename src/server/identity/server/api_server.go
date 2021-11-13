@@ -3,37 +3,26 @@ package server
 import (
 	"context"
 	"net/http"
-	"path"
-	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	logrus "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 )
 
 const (
-	dexHTTPPort = ":658"
+	dexHTTPPort = ":1658"
 
-	configPrefix = "/config"
-	configKey    = "config"
+	configKey = 1
 )
 
 type apiServer struct {
 	pachLogger log.Logger
-	env        *serviceenv.ServiceEnv
-
-	config         col.Collection
-	configCacheMtx sync.RWMutex
-	configCache    identity.IdentityServerConfig
+	env        Env
 
 	api *dexAPI
-	web *dexWeb
 }
 
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
@@ -56,77 +45,33 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 }
 
 // NewIdentityServer returns an implementation of identity.APIServer.
-func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bool, etcdPrefix string) (identity.APIServer, error) {
-	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex")
-
+func NewIdentityServer(env Env, public bool) identity.APIServer {
 	server := &apiServer{
 		env:        env,
-		pachLogger: log.NewLogger("identity.API"),
-		api:        newDexAPI(sp, logger),
-		config: col.NewCollection(
-			env.GetEtcdClient(),
-			path.Join(etcdPrefix, configPrefix),
-			nil,
-			&identity.IdentityServerConfig{},
-			nil,
-			nil,
-		),
+		pachLogger: log.NewLogger("identity.API", env.Logger),
+		api:        newDexAPI(env.DexStorage),
 	}
 
 	if public {
-		server.web = newDexWeb(sp, logger, env.GetDBClient())
+		web := newDexWeb(env, server)
 		go func() {
-			if err := http.ListenAndServe(dexHTTPPort, server.web); err != nil {
-				logger.WithError(err).Error("Dex web server stopped")
+			if err := http.ListenAndServe(dexHTTPPort, web); err != nil {
+				logrus.WithError(err).Fatalf("error setting up and/or running the identity server")
 			}
 		}()
-
-		go server.watchConfig()
 	}
 
-	return server, nil
-}
-
-func (a *apiServer) watchConfig() {
-	b := backoff.NewExponentialBackOff()
-	backoff.RetryNotify(func() error {
-		configWatcher, err := a.config.ReadOnly(context.Background()).Watch()
-		if err != nil {
-			return err
-		}
-		defer configWatcher.Close()
-
-		var key string
-		var config identity.IdentityServerConfig
-		for {
-			ev, ok := <-configWatcher.Watch()
-			if !ok {
-				return errors.New("admin watch closed unexpectedly")
-			}
-			b.Reset()
-
-			ev.Unmarshal(&key, &config)
-
-			a.configCacheMtx.Lock()
-			a.web.updateConfig(config)
-			a.configCache = config
-			a.configCacheMtx.Unlock()
-		}
-	}, b, func(err error, d time.Duration) error {
-		logrus.Errorf("error watching identity config: %v; retrying in %v", err, d)
-		return nil
-	})
+	return server
 }
 
 func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.config.ReadWrite(stm).Put(configKey, req.Config)
-	}); err != nil {
+	if _, err := a.env.DB.ExecContext(ctx, `INSERT INTO identity.config (id, issuer, id_token_expiry, rotation_token_expiry) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET issuer=$2, id_token_expiry=$3, rotation_token_expiry=$4`, configKey, req.Config.Issuer, req.Config.IdTokenExpiry, req.Config.RotationTokenExpiry); err != nil {
 		return nil, err
 	}
+
 	return &identity.SetIdentityServerConfigResponse{}, nil
 }
 
@@ -134,16 +79,27 @@ func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.G
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	// Serve the cached version from the watcher - this ensures the version matches the one being used by the web server
-	a.configCacheMtx.RLock()
-	defer a.configCacheMtx.RUnlock()
+	var config []*identity.IdentityServerConfig
+	err := a.env.DB.SelectContext(ctx, &config, "SELECT issuer, id_token_expiry, rotation_token_expiry FROM identity.config WHERE id=$1;", configKey)
+	if err != nil {
+		return nil, err
+	}
+	if len(config) == 0 {
+		return &identity.GetIdentityServerConfigResponse{Config: &identity.IdentityServerConfig{}}, nil
+	}
 
-	return &identity.GetIdentityServerConfigResponse{Config: &a.configCache}, nil
+	return &identity.GetIdentityServerConfigResponse{Config: config[0]}, nil
 }
 
 func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (resp *identity.CreateIDPConnectorResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	removeJSONConfig := func(r *identity.CreateIDPConnectorRequest) *identity.CreateIDPConnectorRequest {
+		copyReq := proto.Clone(r).(*identity.CreateIDPConnectorRequest)
+		copyReq.Connector.JsonConfig = ""
+		return copyReq
+	}
+
+	a.LogReq(removeJSONConfig(req))
+	defer func(start time.Time) { a.LogResp(removeJSONConfig(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.api.createConnector(req); err != nil {
 		return nil, err
@@ -152,8 +108,14 @@ func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.Create
 }
 
 func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPConnectorRequest) (resp *identity.GetIDPConnectorResponse, retErr error) {
+	removeJSONConfig := func(r *identity.GetIDPConnectorResponse) *identity.GetIDPConnectorResponse {
+		copyResp := proto.Clone(r).(*identity.GetIDPConnectorResponse)
+		copyResp.Connector.JsonConfig = ""
+		return copyResp
+	}
+
 	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(req, removeJSONConfig(resp), retErr, time.Since(start)) }(time.Now())
 
 	c, err := a.api.getConnector(req.Id)
 	if err != nil {
@@ -166,8 +128,14 @@ func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPCon
 }
 
 func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.UpdateIDPConnectorRequest) (resp *identity.UpdateIDPConnectorResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	removeJSONConfig := func(r *identity.UpdateIDPConnectorRequest) *identity.UpdateIDPConnectorRequest {
+		copyReq := proto.Clone(r).(*identity.UpdateIDPConnectorRequest)
+		copyReq.Connector.JsonConfig = ""
+		return copyReq
+	}
+
+	a.LogReq(removeJSONConfig(req))
+	defer func(start time.Time) { a.LogResp(removeJSONConfig(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.api.updateConnector(req); err != nil {
 		return nil, err
@@ -177,8 +145,16 @@ func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.Update
 }
 
 func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDPConnectorsRequest) (resp *identity.ListIDPConnectorsResponse, retErr error) {
+	removeJSONConfig := func(r *identity.ListIDPConnectorsResponse) *identity.ListIDPConnectorsResponse {
+		copyResp := proto.Clone(r).(*identity.ListIDPConnectorsResponse)
+		for _, c := range copyResp.Connectors {
+			c.JsonConfig = ""
+		}
+		return copyResp
+	}
+
 	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(req, removeJSONConfig(resp), retErr, time.Since(start)) }(time.Now())
 
 	connectors, err := a.api.listConnectors()
 	if err != nil {
@@ -200,8 +176,14 @@ func (a *apiServer) DeleteIDPConnector(ctx context.Context, req *identity.Delete
 }
 
 func (a *apiServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOIDCClientRequest) (resp *identity.CreateOIDCClientResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	removeSecret := func(r *identity.CreateOIDCClientRequest) *identity.CreateOIDCClientRequest {
+		copyReq := proto.Clone(r).(*identity.CreateOIDCClientRequest)
+		copyReq.Client.Secret = ""
+		return copyReq
+	}
+
+	a.LogReq(removeSecret(req))
+	defer func(start time.Time) { a.LogResp(removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
 
 	client, err := a.api.createClient(ctx, req)
 	if err != nil {
@@ -214,8 +196,13 @@ func (a *apiServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOI
 }
 
 func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOIDCClientRequest) (resp *identity.UpdateOIDCClientResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	removeSecret := func(r *identity.UpdateOIDCClientRequest) *identity.UpdateOIDCClientRequest {
+		copyReq := proto.Clone(r).(*identity.UpdateOIDCClientRequest)
+		copyReq.Client.Secret = ""
+		return copyReq
+	}
+	a.LogReq(removeSecret(req))
+	defer func(start time.Time) { a.LogResp(removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.api.updateClient(ctx, req); err != nil {
 		return nil, err
@@ -225,8 +212,13 @@ func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOI
 }
 
 func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClientRequest) (resp *identity.GetOIDCClientResponse, retErr error) {
+	removeSecret := func(r *identity.GetOIDCClientResponse) *identity.GetOIDCClientResponse {
+		copyResp := proto.Clone(r).(*identity.GetOIDCClientResponse)
+		copyResp.Client.Secret = ""
+		return copyResp
+	}
 	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
 	client, err := a.api.getClient(req.Id)
 	if err != nil {
@@ -237,8 +229,15 @@ func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClie
 }
 
 func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCClientsRequest) (resp *identity.ListOIDCClientsResponse, retErr error) {
+	removeSecret := func(r *identity.ListOIDCClientsResponse) *identity.ListOIDCClientsResponse {
+		copyResp := proto.Clone(r).(*identity.ListOIDCClientsResponse)
+		for _, c := range copyResp.Clients {
+			c.Secret = ""
+		}
+		return copyResp
+	}
 	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
 	clients, err := a.api.listClients()
 	if err != nil {
@@ -285,12 +284,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllReques
 		}
 	}
 
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		if err := a.config.ReadWrite(stm).Delete(configKey); err != nil && !col.IsErrNotFound(err) {
-			return err
-		}
-		return nil
-	}); err != nil {
+	if _, err := a.env.DB.ExecContext(ctx, `DELETE FROM identity.config`); err != nil {
 		return nil, err
 	}
 

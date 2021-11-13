@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
@@ -64,9 +65,15 @@ type dirFile struct {
 func (d dirFile) Index() *index.Index {
 	return &index.Index{
 		Path: d.path,
+		File: &index.File{},
 	}
 }
 
-func (d dirFile) Content(w io.Writer) error {
+func (d dirFile) Content(_ context.Context, _ io.Writer, _ ...chunk.ReaderOption) error {
 	return nil
+}
+
+func (d dirFile) Hash(_ context.Context) ([]byte, error) {
+	// TODO: It may make sense to move the generation of directory metadata (size / hash) into the directory inserter.
+	panic("we should not be using the Hash function for dirFile, this is a bug")
 }

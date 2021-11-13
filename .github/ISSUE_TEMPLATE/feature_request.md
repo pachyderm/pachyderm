@@ -1,7 +1,12 @@
 ---
 name: Feature request
 about: Suggest an idea for this project
+title: ''
+labels: feature request
+assignees: ''
+
 ---
+
 <!-- This form is for feature requests ONLY! 
 
 If you're looking for help, please check:

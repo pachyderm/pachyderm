@@ -7,7 +7,31 @@ import (
 	"time"
 
 	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
+)
+
+var (
+	cacheHitMetric = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "pfs_object_storage_cache",
+		Name:      "hits_total",
+		Help:      "Number of object storage gets served from cache",
+	})
+	cacheMissMetric = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "pfs_object_storage_cache",
+		Name:      "misses_total",
+		Help:      "Number of object storage gets that were not served from cache",
+	})
+	cacheEvictionMetric = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "pachyderm",
+		Subsystem: "pfs_object_storage_cache",
+		Name:      "evictions_total",
+		Help:      "Number of objects evicted from LRU cache",
+	})
 )
 
 var _ Client = &cacheClient{}
@@ -39,22 +63,24 @@ func NewCacheClient(slow, fast Client, size int) Client {
 	return client
 }
 
-func (c *cacheClient) Reader(ctx context.Context, p string, offset, size uint64) (io.ReadCloser, error) {
+func (c *cacheClient) Get(ctx context.Context, p string, w io.Writer) error {
 	c.doPopulateOnce(ctx)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if _, exists := c.cache.Get(p); exists {
-		return c.fast.Reader(ctx, p, offset, size)
+		cacheHitMetric.Inc()
+		return c.fast.Get(ctx, p, w)
 	}
+	cacheMissMetric.Inc()
 	if err := Copy(ctx, c.slow, c.fast, p, p); err != nil {
-		return nil, err
+		return err
 	}
 	c.cache.Add(p, struct{}{})
-	return c.fast.Reader(ctx, p, offset, size)
+	return c.fast.Get(ctx, p, w)
 }
 
-func (c *cacheClient) Writer(ctx context.Context, p string) (io.WriteCloser, error) {
-	return c.slow.Writer(ctx, p)
+func (c *cacheClient) Put(ctx context.Context, p string, r io.Reader) error {
+	return c.slow.Put(ctx, p, r)
 }
 
 func (c *cacheClient) Delete(ctx context.Context, p string) error {
@@ -64,7 +90,7 @@ func (c *cacheClient) Delete(ctx context.Context, p string) error {
 	return c.deleteFromCache(ctx, p)
 }
 
-func (c *cacheClient) Exists(ctx context.Context, p string) bool {
+func (c *cacheClient) Exists(ctx context.Context, p string) (bool, error) {
 	return c.slow.Exists(ctx, p)
 }
 
@@ -72,16 +98,8 @@ func (c *cacheClient) Walk(ctx context.Context, p string, cb func(p string) erro
 	return c.slow.Walk(ctx, p, cb)
 }
 
-func (c *cacheClient) IsIgnorable(err error) bool {
-	return c.fast.IsIgnorable(err) || c.slow.IsIgnorable(err)
-}
-
-func (c *cacheClient) IsNotExist(err error) bool {
-	return c.fast.IsNotExist(err) || c.slow.IsNotExist(err)
-}
-
-func (c *cacheClient) IsRetryable(err error) bool {
-	return c.fast.IsRetryable(err) || c.slow.IsRetryable(err)
+func (c *cacheClient) BucketURL() ObjectStoreURL {
+	return c.slow.BucketURL()
 }
 
 func (c *cacheClient) deleteFromCache(ctx context.Context, p string) error {
@@ -97,9 +115,10 @@ func (c *cacheClient) onEvicted(key, value interface{}) {
 	p := key.(string)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := c.fast.Delete(ctx, p); err != nil && !c.fast.IsNotExist(err) {
+	if err := c.fast.Delete(ctx, p); err != nil && !pacherr.IsNotExist(err) {
 		log.Errorf("could not delete from cache's fast store: %v", err)
 	}
+	cacheEvictionMetric.Inc()
 }
 
 func (c *cacheClient) populate(ctx context.Context) error {

@@ -30,19 +30,20 @@ func shard(ctx context.Context, fs FileSet, shardThreshold int64, cb ShardCallba
 	if err := fs.Iterate(ctx, func(f File) error {
 		// A shard is created when we have encountered more than shardThreshold content bytes.
 		if size >= shardThreshold {
-			pathRange.Upper = f.Index().Path
 			if err := cb(pathRange); err != nil {
 				return err
 			}
-			size = 0
 			pathRange = &index.PathRange{
 				Lower: f.Index().Path,
 			}
+			size = 0
 		}
+		pathRange.Upper = f.Index().Path
 		size += index.SizeBytes(f.Index())
 		return nil
 	}); err != nil {
 		return err
 	}
+	pathRange.Upper = ""
 	return cb(pathRange)
 }

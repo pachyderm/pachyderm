@@ -2,7 +2,6 @@ package serde
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -19,7 +18,7 @@ func TestJSONBasic(t *testing.T) {
 	encoded := []byte(`{"A":"first","B":"second"}`)
 
 	var f foo
-	require.NoError(t, DecodeYAML(encoded, &f))
+	require.NoError(t, Decode(encoded, &f))
 	require.Equal(t, foo{"first", "second"}, f)
 	out, err := EncodeJSON(f)
 	require.NoError(t, err)
@@ -34,7 +33,7 @@ func TestTags(t *testing.T) {
 	encoded := []byte(`{"alpha":"first","beta":"second"}`)
 
 	var f foo
-	require.NoError(t, DecodeYAML(encoded, &f))
+	require.NoError(t, Decode(encoded, &f))
 	require.Equal(t, foo{"first", "second"}, f)
 	out, err := EncodeJSON(f)
 	require.NoError(t, err)
@@ -48,7 +47,7 @@ func TestYAMLBasic(t *testing.T) {
 	encoded := []byte("A: first\nB: second\n")
 
 	var f foo
-	require.NoError(t, DecodeYAML(encoded, &f))
+	require.NoError(t, Decode(encoded, &f))
 	require.Equal(t, foo{"first", "second"}, f)
 	out, err := EncodeYAML(f)
 	require.NoError(t, err)
@@ -63,37 +62,11 @@ func TestJSONTagsWhenDecodingYAML(t *testing.T) {
 	encoded := []byte("alpha: first\nbeta: second\n")
 
 	var f foo
-	require.NoError(t, DecodeYAML(encoded, &f))
+	require.NoError(t, Decode(encoded, &f))
 	require.Equal(t, foo{"first", "second"}, f)
 	out, err := EncodeYAML(f)
 	require.NoError(t, err)
 	require.Equal(t, s(encoded), s(out))
-}
-
-func TestDecodeYAMLTransform(t *testing.T) {
-	type foo struct {
-		A string
-		B string
-	}
-	encoded := []byte("A: first\nC: third\n")
-
-	var f foo
-	d := NewYAMLDecoder(bytes.NewReader(encoded))
-	require.NoError(t, d.DecodeTransform(&f, func(m map[string]interface{}) error {
-		m["B"] = "second"
-		delete(m, "C")
-		return nil
-	}))
-	require.Equal(t, foo{"first", "second"}, f)
-
-	var buf bytes.Buffer
-	e := NewYAMLEncoder(&buf)
-	require.NoError(t, e.EncodeTransform(f, func(m map[string]interface{}) error {
-		m["C"] = "third"
-		delete(m, "B")
-		return nil
-	}))
-	require.Equal(t, s(encoded), strings.TrimSpace(buf.String()))
 }
 
 func TestEncodeOptions(t *testing.T) {

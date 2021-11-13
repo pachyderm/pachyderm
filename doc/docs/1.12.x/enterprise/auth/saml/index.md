@@ -19,7 +19,7 @@ safer locally.
 Activate Pachyderm enterprise and Pachyderm auth:
 
 ```shell
-  pachctl enterprise activate <enterprise code>
+  echo <your-activation-token> | pachctl enterprise activate
   pachctl auth activate --initial-admin=robot:admin
 ```
 

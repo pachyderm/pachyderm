@@ -11,6 +11,10 @@ func (c APIClient) IsAuthActive() (bool, error) {
 		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 	})
 	switch {
+	case err == nil:
+		return true, nil
+	case auth.IsErrNotAuthorized(err):
+		return true, nil
 	case auth.IsErrNotSignedIn(err):
 		return true, nil
 	case auth.IsErrNotActivated(err):

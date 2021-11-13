@@ -15,90 +15,92 @@ To upload your files to a Pachyderm repository, run the
 `pachctl put file` command. By using the `pachctl put file`
 command, you can put both files and directories into a Pachyderm repository.
 
+!!! Warning
+     It is important to note that directories are not stored and will not exist **unless they contain files**. 
 ## File Processing Strategies
 
 Pachyderm provides the following file processing strategies:
 
-**Appending files**
-:   By default, when you put a file into a Pachyderm repository and a
-    file by the same name already exists in the repo, Pachyderm appends
-    the new data to the existing file.
-    For example, you have an `A.csv` file in a repository. If you upload the
-    same file to that repository, Pachyderm *appends* the data to the existing
-    file, which results in the `A.csv` file having twice the data from its
-    original size.
+### **Overwriting Files**
+By default, when you put a file into a Pachyderm repository and a
+file by the same name already exists in the repo, Pachyderm overwrites
+the existing file with the new data.
+For example, you have an `A.csv` file in a repository. If you upload the
+same file to that repository, Pachyderm *overwrites* the existing
+file with the data, which results in the `A.csv` file having only data
+from the most recent upload.
 
 !!! example
 
     1. View the list of files:
 
-       ```shell
-       pachctl list file images@master
-       ```
+         ```shell
+         pachctl list file images@master
+         ```
 
-       **System Response:**
+         **System Response:**
 
-       ```shell
-       NAME   TYPE SIZE
-       /A.csv file 258B
-       ```
+         ```shell
+         NAME   TYPE SIZE
+         /A.csv file 258B
+         ```
 
     1. Add the `A.csv` file once again:
 
-       ```shell
-       pachctl put file images@master -f A.csv
-       ```
+         ```shell
+         pachctl put file images@master -f A.csv
+         ```
 
-    1. Verify that the file has doubled in size:
+    1. Verify that the file size has not changed:
 
-       ```shell
-       pachctl list file images@master
-       ```
+         ```shell
+         pachctl list file images@master
+         ```
 
-       **System Response:**
+         **System Response:**
 
-       ```shell
-       NAME   TYPE SIZE
-       /A.csv file 516B
-       ```
+         ```shell
+         NAME   TYPE SIZE
+         /A.csv file 258B
+         ```
 
-**Overwriting files**
-:   When you enable the overwrite mode by using the `--overwrite`
-    flag or `-o`, the file replaces the existing file instead of appending to
-    it. For example, you have an `A.csv` file in the `images` repository.
-    If you upload the same file to that repository with the
-    `--overwrite` flag, Pachyderm *overwrites* the whole file.
+### **Appending to files**
+When you enable the append mode by using the `--append`
+flag or `-a`, the new files are appended to existing ones instead of overwriting them.
+For example, you have an `A.csv` file in the `images` repository.
+If you upload the same file to that repository with the
+`--append` flag, Pachyderm *appends* to the file.
 
 !!! example
 
     1. View the list of files:
 
-       ```shell
-       pachctl list file images@master
-       ```
+         ```shell
+         pachctl list file images@master
+         ```
 
-       **System Response:**
+         **System Response:**
 
-       ```shell
-       NAME   TYPE SIZE
-       /A.csv file 258B
-       ```
+         ```shell
+         NAME   TYPE SIZE
+         /A.csv file 258B
+         ```
 
     1. Add the `A.csv` file once again:
 
-       ```shell
-       pachctl put file --overwrite images@master -f A.csv
-       ```
+         ```shell
+         pachctl put file -a images@master -f A.csv
+         ```
 
-    1. Check the file size:
+    1. Verify that the file size has doubled:
 
-       ```shell
-       pachctl list file images@master
-       ```
+         ```shell
+         pachctl list file images@master
+         ```
 
-       **System Response:**
+         **System Response:**
 
-       ```shell
-       NAME   TYPE SIZE
-       /A.csv file 258B
-       ```
+         ```shell
+         NAME   TYPE SIZE
+         /A.csv file 516B
+         ```

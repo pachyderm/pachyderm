@@ -55,7 +55,6 @@ func TestPrometheusStats(t *testing.T) {
 			Input:        client.NewPFSInput(dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
-			EnableStats:  true,
 		},
 	)
 	require.NoError(t, err)
@@ -68,10 +67,10 @@ func TestPrometheusStats(t *testing.T) {
 		// We want several datums per job so that we have multiple data points
 		// per job time series
 		for j := 0; j < numDatums; j++ {
-			require.NoError(t, c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file%v", j), strings.NewReader("bar")))
+			require.NoError(t, c.PutFile(commit, fmt.Sprintf("file%v", j), strings.NewReader("bar")))
 		}
 		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+		require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 		// Prometheus scrapes every 10s
 		// We run a new job outside this window so that we see a more organic
 		// time series
@@ -80,10 +79,10 @@ func TestPrometheusStats(t *testing.T) {
 	// Now write data that'll make the job fail
 	commit, err = c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFile(dataRepo, commit.ID, "test", strings.NewReader("fail")))
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	require.NoError(t, c.PutFile(commit, "test", strings.NewReader("fail")))
+	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
-	_, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
+	_, err = c.WaitCommitSetAll(commit.ID)
 	require.NoError(t, err)
 
 	port := os.Getenv("PROM_PORT")
@@ -240,7 +239,6 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("TestSimplePipeline")
-
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
@@ -252,25 +250,24 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 			Input:        client.NewPFSInput(dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
-			EnableStats:  true,
 		},
 	)
 	require.NoError(t, err)
 
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
 	// If the error exists, the stats commit will never close, and this will
 	// timeout
-	_, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
+	_, err = c.WaitCommitSetAll(commit.ID)
 	require.NoError(t, err)
 
 	// Make sure the job succeeded as well
-	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
+	jobs, err := c.ListJob(pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
+	jobInfo, err := c.WaitJob(pipeline, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }

@@ -1,3 +1,7 @@
+>![pach_logo](../img/pach_logo.svg) INFO Pachyderm 2.0 introduces profound architectual changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
+
 # Creating a shuffle pipeline
 
 This example demonstrates how shuffle pipelines i.e. a pipeline that shuffles, combines files without downloading/uploading can be created.
@@ -48,7 +52,7 @@ Let's take a closer look at that pipeline:
     "name": "lazy_shuffle"
   },
   "transform": {
-    "image": "ubuntu",
+    "image": "ubuntu:20.04",
     "cmd": ["/bin/bash"],
     "stdin": [
       "echo 'process fruits if any'",

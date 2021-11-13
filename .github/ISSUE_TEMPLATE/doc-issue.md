@@ -1,9 +1,12 @@
 ---
 name: Documentation issue
 about: Create a report to help us improve
+title: ''
 labels: docs
-projects: Documentation
+assignees: ''
+
 ---
+
 <!-- This form is for documentation issues! 
 
 If you're looking for help, please check:

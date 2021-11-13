@@ -41,38 +41,42 @@ func (r *Reader) Iterate(ctx context.Context, cb func(File) error, deletive ...b
 	if len(deletive) > 0 && deletive[0] {
 		ir := index.NewReader(r.chunks, prim.Deletive, r.indexOpts...)
 		return ir.Iterate(ctx, func(idx *index.Index) error {
-			return cb(newFileReader(ctx, r.chunks, idx))
+			return cb(newFileReader(r.chunks, idx))
 		})
 	}
 	ir := index.NewReader(r.chunks, prim.Additive, r.indexOpts...)
 	return ir.Iterate(ctx, func(idx *index.Index) error {
-		return cb(newFileReader(ctx, r.chunks, idx))
+		return cb(newFileReader(r.chunks, idx))
 	})
 }
 
 // FileReader is an abstraction for reading a file.
 type FileReader struct {
-	ctx    context.Context
 	chunks *chunk.Storage
 	idx    *index.Index
 }
 
-func newFileReader(ctx context.Context, chunks *chunk.Storage, idx *index.Index) *FileReader {
+func newFileReader(chunks *chunk.Storage, idx *index.Index) *FileReader {
 	return &FileReader{
-		ctx:    ctx,
 		chunks: chunks,
 		idx:    proto.Clone(idx).(*index.Index),
 	}
 }
 
 // Index returns the index for the file.
+// TODO: Removed clone because it had a significant performance impact for small files.
+// May want to revisit.
 func (fr *FileReader) Index() *index.Index {
-	return proto.Clone(fr.idx).(*index.Index)
+	return fr.idx
 }
 
 // Content writes the content of the file.
-func (fr *FileReader) Content(w io.Writer) error {
-	dataRefs := getDataRefs(fr.idx.File.Parts)
-	r := fr.chunks.NewReader(fr.ctx, dataRefs)
+func (fr *FileReader) Content(ctx context.Context, w io.Writer, opts ...chunk.ReaderOption) error {
+	r := fr.chunks.NewReader(ctx, fr.idx.File.DataRefs, opts...)
 	return r.Get(w)
+}
+
+// Hash returns the hash of the file.
+func (fr *FileReader) Hash(_ context.Context) ([]byte, error) {
+	return hashDataRefs(fr.idx.File.DataRefs)
 }

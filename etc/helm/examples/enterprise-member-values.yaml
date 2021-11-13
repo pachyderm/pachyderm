@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
+deployTarget: custom
+
+oidc:
+  issuerURI: "http://pach-enterprise.enterprise.svc.cluster.local:1658"
+  userAccessibleOauthIssuerHost: localhost:31658
+
+pachd:
+  image:
+    tag: local
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512M
+  service:
+    type: NodePort
+  metrics:
+    enabled: false
+  clusterDeploymentID: dev
+
+  activateEnterpriseMember: true
+  enterpriseServerAddress: "grpc://pach-enterprise.enterprise.svc.cluster.local:1650"
+  enterpriseCallbackAddress: "grpc://pachd.default.svc.cluster.local:1650"
+  enterpriseRootToken: "" # the same root token of the enterprise cluster
+  enterpriseSecret: "super-secret"
+  oauthClientSecret: "oauth-secret"
+
+  storage:
+    backend: MINIO
+    minio:
+      bucket: "pachyderm-test"
+      endpoint: "minio.default.svc.cluster.local:9000"
+      id: "minioadmin"
+      secret: "minioadmin"
+      secure: "false"
+      signature: ""
+
+etcd:
+  service:
+    type: NodePort
+
+postgresql:
+  service:
+    type: NodePort
+
+console:
+  enabled: true
+  config:
+    reactAppRuntimeIssuerURI: http://localhost:31658
+    oauthClientSecret: "console-secret"

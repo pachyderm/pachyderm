@@ -33,7 +33,7 @@ type TaskQueue struct {
 
 type taskEtcd struct {
 	etcdClient                    *etcd.Client
-	taskCol, subtaskCol, claimCol col.Collection
+	taskCol, subtaskCol, claimCol col.EtcdCollection
 }
 
 // NewTaskQueue sets up a new task queue.
@@ -43,11 +43,8 @@ func NewTaskQueue(ctx context.Context, etcdClient *etcd.Client, etcdPrefix strin
 		taskQueue: newTaskQueue(ctx),
 	}
 	// Clear etcd key space.
-	// TODO: Multiple storage task queues are setup, so deleting the existing tasks is problematic.
-	if taskNamespace != "storage" {
-		if err := tq.deleteAllTasks(); err != nil {
-			return nil, err
-		}
+	if err := tq.deleteAllTasks(); err != nil {
+		return nil, err
 	}
 	return tq, nil
 }
@@ -61,8 +58,8 @@ func newTaskEtcd(etcdClient *etcd.Client, etcdPrefix string, taskNamespace strin
 	}
 }
 
-func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Message) col.Collection {
-	return col.NewCollection(
+func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Message) col.EtcdCollection {
+	return col.NewEtcdCollection(
 		etcdClient,
 		etcdPrefix,
 		nil,
@@ -164,6 +161,9 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 		return m.subtaskCol.ReadOnly(ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
 			var key string
 			subtaskInfo := &TaskInfo{}
+			if e.Type == watch.EventDelete {
+				return errors.New("task was deleted while waiting for results")
+			}
 			if err := e.Unmarshal(&key, subtaskInfo); err != nil {
 				return err
 			}
@@ -218,7 +218,7 @@ func (m *Master) createSubtask(subtask *Task) error {
 		subtask.ID = uuid.NewWithoutDashes()
 	}
 	subtaskKey := path.Join(m.taskID, subtask.ID)
-	subtaskInfo := &TaskInfo{Task: subtask}
+	subtaskInfo := &TaskInfo{Task: subtask, State: State_RUNNING}
 	if _, err := col.NewSTM(m.taskEntry.ctx, m.etcdClient, func(stm col.STM) error {
 		return m.subtaskCol.ReadWrite(stm).Put(subtaskKey, subtaskInfo)
 	}); err != nil {
@@ -230,6 +230,7 @@ func (m *Master) createSubtask(subtask *Task) error {
 func (m *Master) deleteSubtasks() error {
 	_, err := col.NewSTM(context.Background(), m.etcdClient, func(stm col.STM) error {
 		m.subtaskCol.ReadWrite(stm).DeleteAllPrefix(m.taskID)
+		m.claimCol.ReadWrite(stm).DeleteAllPrefix(m.taskID)
 		return nil
 	})
 	return err
@@ -238,6 +239,7 @@ func (m *Master) deleteSubtasks() error {
 func (tq *TaskQueue) deleteTask(taskID string) error {
 	_, err := col.NewSTM(context.Background(), tq.etcdClient, func(stm col.STM) error {
 		tq.subtaskCol.ReadWrite(stm).DeleteAllPrefix(taskID)
+		tq.claimCol.ReadWrite(stm).DeleteAllPrefix(taskID)
 		return tq.taskCol.ReadWrite(stm).Delete(taskID)
 	})
 	return err
@@ -246,6 +248,7 @@ func (tq *TaskQueue) deleteTask(taskID string) error {
 func (tq *TaskQueue) deleteAllTasks() error {
 	_, err := col.NewSTM(context.Background(), tq.etcdClient, func(stm col.STM) error {
 		tq.subtaskCol.ReadWrite(stm).DeleteAll()
+		tq.claimCol.ReadWrite(stm).DeleteAll()
 		tq.taskCol.ReadWrite(stm).DeleteAll()
 		return nil
 	})
@@ -275,14 +278,14 @@ type ProcessFunc func(context.Context, *Task) (*types.Any, error)
 func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 	taskQueue := newTaskQueue(ctx)
 	return w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
-		var taskID string
+		taskID := string(e.Key)
 		task := &Task{}
-		if err := e.Unmarshal(&taskID, task); err != nil {
-			return err
-		}
 		if e.Type == watch.EventDelete {
 			taskQueue.deleteTask(taskID)
 			return nil
+		}
+		if err := e.Unmarshal(&taskID, task); err != nil {
+			return err
 		}
 		return taskQueue.runTask(ctx, taskID, func(taskEntry *taskEntry) {
 			if err := w.taskFunc(task, taskEntry, processFunc); err != nil && !errors.Is(taskEntry.ctx.Err(), context.Canceled) {
@@ -293,12 +296,12 @@ func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 }
 
 func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessFunc) error {
-	claimWatch, err := w.claimCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.WithFilterPut())
+	claimWatch, err := w.claimCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.IgnorePut)
 	if err != nil {
 		return err
 	}
 	defer claimWatch.Close()
-	subtaskWatch, err := w.subtaskCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.WithFilterDelete())
+	subtaskWatch, err := w.subtaskCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.IgnoreDelete)
 	if err != nil {
 		return err
 	}
@@ -309,13 +312,7 @@ func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessF
 			if e.Type == watch.EventError {
 				return e.Err
 			}
-			if e.Type != watch.EventDelete {
-				continue
-			}
-			var subtaskKey string
-			if err := e.Unmarshal(&subtaskKey, &Claim{}); err != nil {
-				return err
-			}
+			subtaskKey := string(e.Key)
 			taskEntry.runSubtask(w.subtaskFunc(subtaskKey, processFunc))
 		case e := <-subtaskWatch.Watch():
 			if e.Type == watch.EventError {
@@ -390,4 +387,17 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 			fmt.Printf("errored in subtask callback: %v\n", err)
 		}
 	}
+}
+
+// TaskCount returns how many subtasks are in the queue and how many are claimed.
+func (w *Worker) TaskCount(ctx context.Context) (subTasks int64, claims int64, _ error) {
+	nSubTasks, rev, err := w.subtaskCol.ReadOnly(ctx).CountRev(0)
+	if err != nil {
+		return 0, 0, err
+	}
+	nClaims, _, err := w.claimCol.ReadOnly(ctx).CountRev(rev)
+	if err != nil {
+		return 0, 0, err
+	}
+	return nSubTasks, nClaims, nil
 }

@@ -7,25 +7,25 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
-
-	"github.com/spf13/cobra"
 )
 
 // GetConfigCmd returns a cobra command that lets the caller see the configured
 // auth backends in Pachyderm
 func GetConfigCmd() *cobra.Command {
+	var enterprise bool
 	var format string
 	getConfig := &cobra.Command{
 		Short: "Retrieve Pachyderm's current auth configuration",
 		Long:  "Retrieve Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient(enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -62,6 +62,7 @@ func GetConfigCmd() *cobra.Command {
 			return nil
 		}),
 	}
+	getConfig.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Get auth config for the active enterprise context")
 	getConfig.Flags().StringVarP(&format, "output-format", "o", "json", "output "+
 		"format (\"json\" or \"yaml\")")
 	return cmdutil.CreateAlias(getConfig, "auth get-config")
@@ -70,12 +71,13 @@ func GetConfigCmd() *cobra.Command {
 // SetConfigCmd returns a cobra command that lets the caller configure auth
 // backends in Pachyderm
 func SetConfigCmd() *cobra.Command {
+	var enterprise bool
 	var file string
 	setConfig := &cobra.Command{
 		Short: "Set Pachyderm's current auth configuration",
 		Long:  "Set Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient(enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -99,7 +101,7 @@ func SetConfigCmd() *cobra.Command {
 
 			// parse config
 			var config auth.OIDCConfig
-			if err := serde.DecodeYAML(rawConfigBytes, &config); err != nil {
+			if err := serde.Decode(rawConfigBytes, &config); err != nil {
 				return errors.Wrapf(err, "could not parse config")
 			}
 			// TODO(msteffen): try to handle empty config?
@@ -109,6 +111,7 @@ func SetConfigCmd() *cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
+	setConfig.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Set auth config for the active enterprise context")
 	setConfig.Flags().StringVarP(&file, "file", "f", "-", "input file (to use "+
 		"as the new config")
 	return cmdutil.CreateAlias(setConfig, "auth set-config")

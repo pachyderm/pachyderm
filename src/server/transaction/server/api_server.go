@@ -4,38 +4,33 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"golang.org/x/net/context"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
-
-	"golang.org/x/net/context"
 )
 
 type apiServer struct {
 	log.Logger
 	driver *driver
-
-	// env generates clients for pachyderm's downstream services
-	env *serviceenv.ServiceEnv
 }
 
 func newAPIServer(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
-	etcdPrefix string,
 ) (*apiServer, error) {
-	d, err := newDriver(env, txnEnv, etcdPrefix)
+	d, err := newDriver(env, txnEnv)
 	if err != nil {
 		return nil, err
 	}
 	s := &apiServer{
-		Logger: log.NewLogger("transaction.API"),
+		Logger: log.NewLogger("transaction.API", env.Logger()),
 		driver: d,
-		env:    env,
 	}
-	go func() { s.env.GetPachClient(context.Background()) }() // Begin dialing connection on startup
 	return s, nil
 }
 
@@ -94,10 +89,9 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAl
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-		return a.driver.deleteAll(ctx, stm, nil)
-	})
-	if err != nil {
+	if err := dbutil.WithTx(ctx, a.driver.db, func(sqlTx *pachsql.Tx) error {
+		return a.driver.deleteAll(ctx, sqlTx, nil)
+	}); err != nil {
 		return nil, err
 	}
 

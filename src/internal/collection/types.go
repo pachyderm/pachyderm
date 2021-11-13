@@ -3,6 +3,7 @@ package collection
 import (
 	"context"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 
 	"github.com/gogo/protobuf/proto"
@@ -12,21 +13,32 @@ import (
 // on top of etcd more pleasant to work with.  It's called collection
 // because most of our data is modelled as collections, such as repos,
 // commits, branches, etc.
-type Collection interface {
-	// Path returns the full etcd path of the given key in the collection
-	Path(string) string
+
+type PostgresCollection interface {
 	// ReadWrite enables reads and writes on a collection in a
 	// transactional manner.  Specifically, all writes are applied
 	// atomically, and writes are only applied if reads have not been
 	// invalidated at the end of the transaction.  Basically, it's
 	// software transactional memory.  See this blog post for details:
 	// https://coreos.com/blog/transactional-memory-with-etcd3.html
-	ReadWrite(stm STM) ReadWriteCollection
-	// ReadWriteInt is the same as ReadWrite except that it operates on
-	// integral items, as opposed to protobuf items
-	ReadWriteInt(stm STM) ReadWriteIntCollection
-	// For read-only operatons, use the ReadOnly for better performance
-	ReadOnly(ctx context.Context) ReadonlyCollection
+	ReadWrite(tx *pachsql.Tx) PostgresReadWriteCollection
+
+	// For read-only operations, use the ReadOnly for better performance
+	ReadOnly(ctx context.Context) PostgresReadOnlyCollection
+}
+
+type EtcdCollection interface {
+	// ReadWrite enables reads and writes on a collection in a
+	// transactional manner.  Specifically, all writes are applied
+	// atomically, and writes are only applied if reads have not been
+	// invalidated at the end of the transaction.  Basically, it's
+	// software transactional memory.  See this blog post for details:
+	// https://coreos.com/blog/transactional-memory-with-etcd3.html
+	ReadWrite(stm STM) EtcdReadWriteCollection
+
+	// For read-only operations, use the ReadOnly for better performance
+	ReadOnly(ctx context.Context) EtcdReadOnlyCollection
+
 	// Claim attempts to claim a key and run the passed in callback with
 	// the context for the claim.
 	Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error
@@ -49,21 +61,47 @@ type Collection interface {
 // is empty.  Thus, to get all items in collection `foo` whose values of
 // field `bar` is `test`, we issue a query for all items under
 // `foo__index_bar/test`.
-//
-// Multi specifies whether this is a multi-index.  A multi-index is an index
-// on a field that's a slice.  The item is then indexed on each element of
-// the slice.
 type Index struct {
-	Field string
-	Multi bool
+	Name    string
+	Extract func(val proto.Message) string
+
+	// `limit` is an internal implementation detail for etcd collections to avoid list operations overflowing the max message size
 	limit int64
 }
 
 // ReadWriteCollection is a collection interface that supports read,write and delete
 // operations.
 type ReadWriteCollection interface {
-	Get(key string, val proto.Message) error
-	Put(key string, val proto.Message) error
+	Get(key interface{}, val proto.Message) error
+	Put(key interface{}, val proto.Message) error
+	// Update reads the current value associated with 'key', calls 'f' to update
+	// the value, and writes the new value back to the collection. 'key' must be
+	// present in the collection, or a 'Not Found' error is returned
+	Update(key interface{}, val proto.Message, f func() error) error
+	// Upsert is like Update but 'key' is not required to be present
+	Upsert(key interface{}, val proto.Message, f func() error) error
+	Create(key interface{}, val proto.Message) error
+	Delete(key interface{}) error
+	DeleteAll() error
+}
+
+type PostgresReadWriteCollection interface {
+	ReadWriteCollection
+
+	DeleteByIndex(index *Index, indexVal string) error
+	// GetByIndex can have a large impact on database contention if used to retrieve
+	// a large number of rows. Consider using a read-only collection if possible
+	GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
+
+	// GetUniqueByIndex is identical to GetByIndex except it is an error if
+	// exactly one row is not found.
+	// TODO: decide if we should merge this with GetByIndex and use an `Options`.
+	GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error
+}
+
+type EtcdReadWriteCollection interface {
+	ReadWriteCollection
+
 	// TTL returns the amount of time that 'key' will continue to exist in the
 	// collection, or '0' if 'key' will remain in the collection indefinitely
 	TTL(key string) (int64, error)
@@ -73,45 +111,44 @@ type ReadWriteCollection interface {
 	// can result in inconsistency, as the indices are removed at roughly
 	// but not exactly the same time as the documents.
 	PutTTL(key string, val proto.Message, ttl int64) error
-	// Update reads the current value associated with 'key', calls 'f' to update
-	// the value, and writes the new value back to the collection. 'key' must be
-	// present in the collection, or a 'Not Found' error is returned
-	Update(key string, val proto.Message, f func() error) error
-	// Upsert is like Update but 'key' is not required to be present
-	Upsert(key string, val proto.Message, f func() error) error
-	Create(key string, val proto.Message) error
-	Delete(key string) error
-	DeleteAll()
-	DeleteAllPrefix(prefix string)
+
+	DeleteAllPrefix(prefix string) error
 }
 
-// ReadWriteIntCollection is a ReadonlyCollection interface specifically for ints.
-type ReadWriteIntCollection interface {
-	Create(key string, val int) error
-	Get(key string) (int, error)
-	Increment(key string) error
-	IncrementBy(key string, n int) error
-	Decrement(key string) error
-	DecrementBy(key string, n int) error
-	Delete(key string) error
+// ReadOnlyCollection is a collection interface that only supports read ops.
+type ReadOnlyCollection interface {
+	Get(key interface{}, val proto.Message) error
+	GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
+	List(val proto.Message, opts *Options, f func(string) error) error
+	ListRev(val proto.Message, opts *Options, f func(string, int64) error) error
+	Count() (int64, error)
+	Watch(opts ...watch.Option) (watch.Watcher, error)
+	WatchF(f func(*watch.Event) error, opts ...watch.Option) error
+	WatchOne(key interface{}, opts ...watch.Option) (watch.Watcher, error)
+	WatchOneF(key interface{}, f func(*watch.Event) error, opts ...watch.Option) error
+	WatchByIndex(index *Index, val string, opts ...watch.Option) (watch.Watcher, error)
+	WatchByIndexF(index *Index, val string, f func(*watch.Event) error, opts ...watch.Option) error
 }
 
-// ReadonlyCollection is a collection interface that only supports read ops.
-type ReadonlyCollection interface {
-	Get(key string, val proto.Message) error
-	GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error
-	// GetBlock is like Get but waits for the key to exist if it doesn't already.
-	GetBlock(key string, val proto.Message) error
+type PostgresReadOnlyCollection interface {
+	ReadOnlyCollection
+
+	GetRevByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string, int64) error) error
+
+	// GetUniqueByIndex is identical to GetByIndex except it is an error if
+	// exactly one row is not found.
+	// TODO: decide if we should merge this with GetByIndex and use an `Options`.
+	GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error
+}
+
+type EtcdReadOnlyCollection interface {
+	ReadOnlyCollection
+
 	// TTL returns the number of seconds that 'key' will continue to exist in the
 	// collection, or '0' if 'key' will remain in the collection indefinitely
 	TTL(key string) (int64, error)
-	List(val proto.Message, opts *Options, f func(key string) error) error
-	ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error
-	ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error
-	Count() (int64, error)
-	Watch(opts ...watch.OpOption) (watch.Watcher, error)
-	WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error
-	WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error)
-	WatchOneF(key string, f func(*watch.Event) error, opts ...watch.OpOption) error
-	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
+	// CountRev returns the number of items in the collection at a specific
+	// revision, it's only in EtcdReadOnlyCollection because only etcd has
+	// revs.
+	CountRev(int64) (int64, int64, error)
 }

@@ -24,13 +24,8 @@ func (placeholderConfig) Open(id string, logger log.Logger) (connector.Connector
 
 type placeholder struct{}
 
-func (*placeholder) LoginURL(s connector.Scopes, callbackURL, state string) (string, error) {
-	u, err := url.Parse(callbackURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse callbackURL %q: %v", callbackURL, err)
-	}
-	u.Path = "/static/not-configured.html"
-	return u.String(), nil
+func (*placeholder) LoginURL(s connector.Scopes, callbackURL, state string, _ url.Values) (string, error) {
+	return "/static/not-configured.html", nil
 }
 
 // HandleCallback parses the request and returns the user's identity

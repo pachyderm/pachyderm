@@ -79,124 +79,129 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 	msg := seedStr(seed)
-	require.NoError(t, testetcd.WithEnv(func(env *testetcd.Env) error {
-		numTasks := 10
-		numSubtasks := 10
-		numWorkers := 5
-		// Setup workers.
-		workerCtx, workerCancel := context.WithCancel(context.Background())
-		workerEg, errCtx := errgroup.WithContext(workerCtx)
-		for i := 0; i < numWorkers; i++ {
-			workerEg.Go(func() error {
-				w := NewWorker(env.EtcdClient, "", "")
-				for {
-					ctx, cancel := context.WithCancel(errCtx)
-					if err := w.Run(ctx, func(_ context.Context, subtask *Task) (*types.Any, error) {
-						if rand.Float64() < workerFailProb {
-							cancel()
-							return nil, nil
-						}
-						if err := processSubtask(t, subtask); err != nil {
-							return nil, err
-						}
-						if rand.Float64() < subtaskFailProb {
-							return nil, errSubtaskFailure
-						}
-						return nil, nil
-					}); err != nil {
-						if errors.Is(workerCtx.Err(), context.Canceled) {
-							return nil
-						}
-						if errors.Is(ctx.Err(), context.Canceled) {
-							continue
-						}
-						return err
-					}
-				}
-			})
-		}
-		tq, err := NewTaskQueue(errCtx, env.EtcdClient, "", "")
-		require.NoError(t, err)
-		taskMapsFunc := func() []map[string]bool {
-			var taskMaps []map[string]bool
-			for i := 0; i < numTasks; i++ {
-				taskMaps = append(taskMaps, make(map[string]bool))
-			}
-			return taskMaps
-		}
-		created := taskMapsFunc()
-		collected := taskMapsFunc()
-		var taskEg errgroup.Group
-		for i := 0; i < numTasks; i++ {
-			i := i
-			taskEg.Go(func() error {
+	env := testetcd.NewEnv(t)
+
+	numTasks := 10
+	numSubtasks := 10
+	numWorkers := 5
+	// Setup workers.
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	workerEg, errCtx := errgroup.WithContext(workerCtx)
+	for i := 0; i < numWorkers; i++ {
+		workerEg.Go(func() error {
+			w := NewWorker(env.EtcdClient, "", "")
+			for {
 				ctx, cancel := context.WithCancel(errCtx)
-				if err := tq.RunTaskBlock(ctx, func(m *Master) error {
-					if rand.Float64() < taskCancelProb {
+				if err := w.Run(ctx, func(_ context.Context, subtask *Task) (*types.Any, error) {
+					if rand.Float64() < workerFailProb {
 						cancel()
+						return nil, nil
+					}
+					if err := processSubtask(t, subtask); err != nil {
+						return nil, err
+					}
+					if rand.Float64() < subtaskFailProb {
+						return nil, errSubtaskFailure
+					}
+					return nil, nil
+				}); err != nil {
+					if errors.Is(workerCtx.Err(), context.Canceled) {
 						return nil
 					}
-					// Create subtasks.
-					var subtasks []*Task
-					for j := 0; j < numSubtasks; j++ {
-						ID := strconv.Itoa(j)
-						data, err := serializeTestData(&TestData{})
-						if err != nil {
-							return err
-						}
-						subtasks = append(subtasks, &Task{
-							ID:   ID,
-							Data: data,
-						})
-						created[i][ID] = true
+					if errors.Is(ctx.Err(), context.Canceled) {
+						continue
 					}
-					return m.RunSubtasks(subtasks, func(_ context.Context, subtaskInfo *TaskInfo) error {
-						return collectSubtask(subtaskInfo, collected[i])
-					})
-				}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 					return err
 				}
-				return nil
-			})
+			}
+		})
+	}
+	tq, err := NewTaskQueue(errCtx, env.EtcdClient, "", "")
+	require.NoError(t, err)
+	taskMapsFunc := func() []map[string]bool {
+		var taskMaps []map[string]bool
+		for i := 0; i < numTasks; i++ {
+			taskMaps = append(taskMaps, make(map[string]bool))
 		}
-		require.NoError(t, taskEg.Wait(), msg)
-		workerCancel()
-		require.NoError(t, workerEg.Wait(), msg)
-		require.Equal(t, created, collected, msg)
-		return nil
-	}), msg)
+		return taskMaps
+	}
+	created := taskMapsFunc()
+	collected := taskMapsFunc()
+	var taskEg errgroup.Group
+	for i := 0; i < numTasks; i++ {
+		i := i
+		taskEg.Go(func() error {
+			ctx, cancel := context.WithCancel(errCtx)
+			if err := tq.RunTaskBlock(ctx, func(m *Master) error {
+				if rand.Float64() < taskCancelProb {
+					cancel()
+					return nil
+				}
+				// Create subtasks.
+				var subtasks []*Task
+				for j := 0; j < numSubtasks; j++ {
+					ID := strconv.Itoa(j)
+					data, err := serializeTestData(&TestData{})
+					if err != nil {
+						return err
+					}
+					subtasks = append(subtasks, &Task{
+						ID:   ID,
+						Data: data,
+					})
+					created[i][ID] = true
+				}
+				return m.RunSubtasks(subtasks, func(_ context.Context, subtaskInfo *TaskInfo) error {
+					return collectSubtask(subtaskInfo, collected[i])
+				})
+			}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
+				return err
+			}
+			return nil
+		})
+	}
+	require.NoError(t, taskEg.Wait(), msg)
+	workerCancel()
+	require.NoError(t, workerEg.Wait(), msg)
+	require.Equal(t, created, collected, msg)
 }
 
 func TestBasic(t *testing.T) {
+	t.Parallel()
 	test(t, 0, 0, 0)
 }
 
 func TestWorkerCrashes(t *testing.T) {
+	t.Parallel()
 	test(t, 0.1, 0, 0)
 }
 
 func TestCancelTasks(t *testing.T) {
+	t.Parallel()
 	test(t, 0, 0.2, 0)
 }
 
 func TestSubtaskFailures(t *testing.T) {
+	t.Parallel()
 	test(t, 0, 0, 0.1)
 }
 
 func TestEverything(t *testing.T) {
+	t.Parallel()
 	test(t, 0.1, 0.2, 0.1)
 }
 
 func TestRunZeroSubtasks(t *testing.T) {
-	require.NoError(t, testetcd.WithEnv(func(env *testetcd.Env) error {
-		tq, err := NewTaskQueue(context.Background(), env.EtcdClient, "", "")
-		if err != nil {
-			return err
-		}
-		return tq.RunTaskBlock(context.Background(), func(m *Master) error {
-			return m.RunSubtasks(nil, func(_ context.Context, _ *TaskInfo) error {
-				return nil
-			})
+	t.Parallel()
+	env := testetcd.NewEnv(t)
+
+	tq, err := NewTaskQueue(context.Background(), env.EtcdClient, "", "")
+	require.NoError(t, err)
+
+	err = tq.RunTaskBlock(context.Background(), func(m *Master) error {
+		return m.RunSubtasks(nil, func(_ context.Context, _ *TaskInfo) error {
+			return nil
 		})
-	}))
+	})
+	require.NoError(t, err)
 }

@@ -1,3 +1,6 @@
+>![pach_logo](../../img/pach_logo.svg) INFO Pachyderm 2.0 introduces profound architectual changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # pix2pix with TensorFlow
 
 Christopher Hesse’s image-to-image demos use a Tensorflow implementation of the Generative Adversarial Networks (or GANs) model presented in this [article](https://arxiv.org/pdf/1611.07004v1.pdf).  Chris’s full Tensorflow implementation of this model can be found [on Github](https://github.com/affinelayer/pix2pix-tensorflow) and includes documentation about how to perform training, testing, pre-processing of images, exporting of the models for serving, and more.  

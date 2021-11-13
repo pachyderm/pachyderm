@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package common;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/collection";
+
+import "gogoproto/gogo.proto";
+
+message TestItem {
+  string id = 1 [(gogoproto.customname) = "ID"];
+  string value = 2;
+  string data = 3;
+}

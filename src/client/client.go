@@ -15,6 +15,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	// Import registers the grpc GZIP encoder
 	_ "google.golang.org/grpc/encoding/gzip"
@@ -29,7 +30,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/health"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
@@ -46,12 +47,11 @@ import (
 const (
 	// MaxListItemsLog specifies the maximum number of items we log in response to a List* API
 	MaxListItemsLog = 10
-	// StorageSecretName is the name of the Kubernetes secret in which
-	// storage credentials are stored.
-	// TODO: The value "pachyderm-storage-secret" is hardcoded in the obj package to avoid a
-	// obj -> client dependency, so any changes to this variable need to be applied there.
-	// The obj package should eventually get refactored so that it does not have this dependency.
+	// StorageSecretName is the name of the Kubernetes secret in which storage credentials are stored.
 	StorageSecretName = "pachyderm-storage-secret"
+	// PostgresSecretName is the name of the secret containing the postgres password
+	// It must match the secret passed to pachd here: etc/helm/pachyderm/templates/pachd/deployment.yaml
+	PostgresSecretName = "postgres"
 	// PachctlSecretName is the name of the Kubernetes secret in which
 	// pachctl credentials are stored.
 	PachctlSecretName = "pachyderm-pachctl-secret"
@@ -81,6 +81,9 @@ type TransactionAPIClient transaction.APIClient
 // DebugClient is an alias of debug.DebugClient
 type DebugClient debug.DebugClient
 
+// ProxyClient is an alias of proxy.APIClient
+type ProxyClient proxy.APIClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
@@ -91,11 +94,12 @@ type APIClient struct {
 	AdminAPIClient
 	TransactionAPIClient
 	DebugClient
+	ProxyClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 	License    license.APIClient
 
-	// addr is a "host:port" string pointing at a pachd endpoint
-	addr string
+	// addr is the parsed address used to connect to this server
+	addr *grpcutil.PachdAddress
 
 	// The trusted CAs, for authenticating a pachd server over TLS
 	caCerts *x509.CertPool
@@ -107,7 +111,7 @@ type APIClient struct {
 	clientConn *grpc.ClientConn
 
 	// healthClient is a cached healthcheck client connected to 'addr'
-	healthClient health.HealthClient
+	healthClient grpc_health_v1.HealthClient
 
 	// streamSemaphore limits the number of concurrent message streams between
 	// this client and pachd
@@ -130,12 +134,19 @@ type APIClient struct {
 	ctx context.Context
 
 	portForwarder *PortForwarder
+
+	// The client context name this client was created from, if it was created by
+	// NewOnUserMachine
+	clientContextName string
+
+	defaultTransformImage string
+	defaultTransformUser  string
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
 // 'c' was created using NewInCluster or NewOnUserMachine then this is how the
 // address may be retrieved from the environment.
-func (c *APIClient) GetAddress() string {
+func (c *APIClient) GetAddress() *grpcutil.PachdAddress {
 	return c.addr
 }
 
@@ -155,12 +166,24 @@ type clientSettings struct {
 	streamInterceptors   []grpc.StreamClientInterceptor
 }
 
-// NewFromAddress constructs a new APIClient for the server at addr.
-func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
-	// Validate address
-	if strings.Contains(addr, "://") {
-		return nil, errors.Errorf("address shouldn't contain protocol (\"://\"), but is: %q", addr)
+// NewFromURI creates a new client given a GRPC URI ex. grpc://test.example.com.
+// If no scheme is specified `grpc://` is assumed. A scheme of `grpcs://` enables TLS.
+func NewFromURI(uri string, options ...Option) (*APIClient, error) {
+	pachdAddress, err := grpcutil.ParsePachdAddress(uri)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not parse the pachd address")
 	}
+	return NewFromPachdAddress(pachdAddress, options...)
+}
+
+// NewFromPachdAddress creates a new client given a parsed GRPC address
+func NewFromPachdAddress(pachdAddress *grpcutil.PachdAddress, options ...Option) (*APIClient, error) {
+	// By default, use the system CAs for secure connections
+	// if no others are specified.
+	if pachdAddress.Secured {
+		options = append(options, WithSystemCAs)
+	}
+
 	// Apply creation options
 	settings := clientSettings{
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
@@ -176,7 +199,7 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		settings.streamInterceptors = append(settings.streamInterceptors, tracing.StreamClientInterceptor())
 	}
 	c := &APIClient{
-		addr:         addr,
+		addr:         pachdAddress,
 		caCerts:      settings.caCerts,
 		limiter:      limit.New(settings.maxConcurrentStreams),
 		gzipCompress: settings.gzipCompress,
@@ -236,8 +259,13 @@ func WithAdditionalRootCAs(pemBytes []byte) Option {
 	}
 }
 
-// WithSystemCAs uses the system certs for client creatin.
+// WithSystemCAs uses the system certs for client creation, if no others are provided.
+// This is the default behaviour when the scheme is `https` or `grpcs`.
 func WithSystemCAs(settings *clientSettings) error {
+	if settings.caCerts != nil {
+		return nil
+	}
+
 	certs, err := x509.SystemCertPool()
 	if err != nil {
 		return errors.Wrap(err, "could not retrieve system cert pool")
@@ -415,17 +443,23 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 		return nil, 0, errors.Wrap(err, "failed to initialize port forwarder")
 	}
 
-	port, err := fw.RunForDaemon(0, 650)
+	var port uint16
+	if context.EnterpriseServer {
+		port, err = fw.RunForEnterpriseServer(0, 1650)
+	} else {
+		port, err = fw.RunForPachd(0, 1650)
+	}
+
 	if err != nil {
 		return nil, 0, err
 	}
-
 	log.Debugf("Implicit port forwarder listening on port %d", port)
 
 	return fw, port, nil
 }
 
 // NewForTest constructs a new APIClient for tests.
+// TODO(actgardner): this should probably live in testutils and accept a testing.TB
 func NewForTest() (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
@@ -446,7 +480,36 @@ func NewForTest() (*APIClient, error) {
 		pachdAddress = &grpcutil.DefaultPachdAddress
 	}
 
-	client, err := NewFromAddress(pachdAddress.Hostname(), cfgOptions...)
+	client, err := NewFromPachdAddress(pachdAddress, cfgOptions...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
+	}
+	return client, nil
+}
+
+// NewEnterpriseClientForTest constructs a new APIClient for tests.
+// TODO(actgardner): this should probably live in testutils and accept a testing.TB
+func NewEnterpriseClientForTest() (*APIClient, error) {
+	cfg, err := config.Read(false, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read config")
+	}
+	_, context, err := cfg.ActiveEnterpriseContext(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get active context")
+	}
+
+	// create new pachctl client
+	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
+	if err != nil {
+		return nil, err
+	}
+
+	if pachdAddress == nil {
+		return nil, errors.New("no enterprise server configured")
+	}
+
+	client, err := NewFromPachdAddress(pachdAddress, cfgOptions...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
 	}
@@ -460,11 +523,11 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
 	}
-	_, context, err := cfg.ActiveContext(true)
+	name, context, err := cfg.ActiveContext(true)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get active context")
 	}
-	return newOnUserMachine(cfg, context, prefix, options...)
+	return newOnUserMachine(cfg, context, name, prefix, options...)
 }
 
 // NewEnterpriseClientOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
@@ -475,18 +538,18 @@ func NewEnterpriseClientOnUserMachine(prefix string, options ...Option) (*APICli
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
 	}
-	_, context, err := cfg.ActiveEnterpriseContext(true)
+	name, context, err := cfg.ActiveEnterpriseContext(true)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get active context")
 	}
-	return newOnUserMachine(cfg, context, prefix, options...)
+	return newOnUserMachine(cfg, context, name, prefix, options...)
 }
 
 // TODO(msteffen) this logic is fairly linux/unix specific, and makes the
 // pachyderm client library incompatible with Windows. We may want to move this
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
-func newOnUserMachine(cfg *config.Config, context *config.Context, prefix string, options ...Option) (*APIClient, error) {
+func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, prefix string, options ...Option) (*APIClient, error) {
 	// create new pachctl client
 	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
@@ -518,7 +581,7 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, prefix string
 		}
 	}
 
-	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
+	client, err := NewFromPachdAddress(pachdAddress, append(options, cfgOptions...)...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %q", pachdAddress.Qualified())
 	}
@@ -535,6 +598,10 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, prefix string
 	// Verify cluster deployment ID
 	clusterInfo, err := client.InspectCluster()
 	if err != nil {
+		if strings.Contains("unknown service admin_v2.API", err.Error()) {
+			return nil, fmt.Errorf("this client is for pachyderm 2.x, but the server has a different version - please install the correct client for your server")
+
+		}
 		return nil, errors.Wrap(err, "could not get cluster ID")
 	}
 	if context.ClusterDeploymentID != clusterInfo.DeploymentID {
@@ -552,6 +619,8 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, prefix string
 	// disabled, or an address is explicitly set.
 	client.portForwarder = fw
 
+	client.clientContextName = contextName
+
 	return client, nil
 }
 
@@ -564,7 +633,7 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 	internalHost := os.Getenv("PACHD_PEER_SERVICE_HOST")
 	internalPort := os.Getenv("PACHD_PEER_SERVICE_PORT")
 	if internalHost != "" && internalPort != "" {
-		return NewFromAddress(fmt.Sprintf("%s:%s", internalHost, internalPort), options...)
+		return NewFromURI(fmt.Sprintf("%s:%s", internalHost, internalPort), options...)
 	}
 
 	host, ok := os.LookupEnv("PACHD_SERVICE_HOST")
@@ -576,7 +645,7 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 		return nil, errors.Errorf("PACHD_SERVICE_PORT not set")
 	}
 	// create new pachctl client
-	return NewFromAddress(fmt.Sprintf("%s:%s", host, port), options...)
+	return NewFromURI(fmt.Sprintf("%s:%s", host, port), options...)
 }
 
 // NewInWorker constructs a new APIClient intended to be used from a worker
@@ -592,7 +661,7 @@ func NewInWorker(options ...Option) (*APIClient, error) {
 	}
 
 	if localPort, ok := os.LookupEnv("PEER_PORT"); ok {
-		client, err := NewFromAddress(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
+		client, err := NewFromURI(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create client")
 		}
@@ -660,6 +729,31 @@ func (c APIClient) DeleteAll() error {
 	return nil
 }
 
+// DeleteAllEnterprise deletes everything in the enterprise server.
+// Use with caution, there is no undo.
+// TODO: rewrite this to use transactions
+func (c APIClient) DeleteAllEnterprise() error {
+	if _, err := c.IdentityAPIClient.DeleteAll(
+		c.Ctx(),
+		&identity.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.AuthAPIClient.Deactivate(
+		c.Ctx(),
+		&auth.DeactivateRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.License.DeleteAll(
+		c.Ctx(),
+		&license.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	return nil
+}
+
 // SetMaxConcurrentStreams Sets the maximum number of concurrent streams the
 // client can have. It is not safe to call this operations while operations are
 // outstanding.
@@ -705,17 +799,14 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	addr := c.addr
-	if !strings.HasPrefix(addr, "dns:///") {
-		addr = "dns:///" + c.addr
-	}
 
-	// TODO: the 'dns:///' prefix above causes connecting to hang on windows
-	// unless we also prevent the resolver from fetching a service config (which
-	// we don't use anyway).  Don't ask me why.
+	// By default GRPC will attempt to get service config from a TXT record when
+	// the `dns:///` scheme is used. Some DNS servers return the wrong type of error
+	// when the TXT record doesn't exist, and it causes GRPC to back off and retry
+	// service discovery forever.
 	dialOptions = append(dialOptions, grpc.WithDisableServiceConfig())
 
-	clientConn, err := grpc.DialContext(ctx, addr, dialOptions...)
+	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...)
 	if err != nil {
 		return err
 	}
@@ -729,8 +820,9 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
 	c.DebugClient = debug.NewDebugClient(clientConn)
+	c.ProxyClient = proxy.NewAPIClient(clientConn)
 	c.clientConn = clientConn
-	c.healthClient = health.NewHealthClient(clientConn)
+	c.healthClient = grpc_health_v1.NewHealthClient(clientConn)
 	return nil
 }
 
@@ -796,4 +888,11 @@ func (c *APIClient) AuthToken() string {
 // API calls for this client.
 func (c *APIClient) SetAuthToken(token string) {
 	c.authenticationToken = token
+}
+
+// ClientContextName returns the name of the context in the client config
+// that produced this client, or an empty string if the client was not
+// produced from a configured client context.
+func (c *APIClient) ClientContextName() string {
+	return c.clientContextName
 }

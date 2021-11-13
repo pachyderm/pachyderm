@@ -9,9 +9,12 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/spf13/cobra"
 )
@@ -95,32 +98,87 @@ func ErrorAndExit(format string, args ...interface{}) {
 	if errString := strings.TrimSpace(fmt.Sprintf(format, args...)); errString != "" {
 		fmt.Fprintf(os.Stderr, "%s\n", errString)
 	}
-	err, ok := args[0].(error)
-	if PrintErrorStacks && ok {
-		errors.ForEachStackFrame(err, func(frame errors.Frame) {
-			fmt.Fprintf(os.Stderr, "%+v\n", frame)
-		})
+	if len(args) > 0 && PrintErrorStacks {
+		if err, ok := args[0].(error); ok {
+			errors.ForEachStackFrame(err, func(frame errors.Frame) {
+				fmt.Fprintf(os.Stderr, "%+v\n", frame)
+			})
+		}
 	}
 	os.Exit(1)
+}
+
+func isValidBranch(name string) bool {
+	err := ancestry.ValidateName(name)
+	return err == nil
+}
+
+func ParseRepo(name string) *pfs.Repo {
+	var repo pfs.Repo
+	if strings.Contains(name, ".") {
+		repoParts := strings.SplitN(name, ".", 2)
+		repo.Name = repoParts[0]
+		repo.Type = repoParts[1]
+	} else {
+		repo.Name = name
+		repo.Type = pfs.UserRepoType
+	}
+	return &repo
+}
+
+// Parses the following formats, any unspecified fields will be left as empty
+// strings in the pfs.File structure.  The second return value is the number of fields parsed -
+// (1: repo only, 2: repo and branch-or-commit, 3: repo, branch, and file).
+//   repo
+//   repo@branch
+//   repo@branch:path
+//   repo@branch=commit
+//   repo@branch=commit:path
+//   repo@commit
+//   repo@commit:path
+func parseFile(arg string) (*pfs.File, int, error) {
+	var repo, branch, commit, path string
+	parts := strings.SplitN(arg, "@", 2)
+	if parts[0] == "" {
+		return nil, 0, errors.Errorf("invalid format \"%s\": repo cannot be empty", arg)
+	}
+	numFields := 1
+	repo = parts[0]
+
+	if len(parts) == 2 {
+		numFields = 2
+		parts = strings.SplitN(parts[1], ":", 2)
+		if len(parts) == 2 {
+			numFields = 3
+			path = parts[1]
+		}
+
+		parts = strings.SplitN(parts[0], "=", 2)
+		if len(parts) == 1 {
+			if uuid.IsUUIDWithoutDashes(parts[0]) || !isValidBranch(parts[0]) {
+				commit = parts[0]
+			} else {
+				branch = parts[0]
+			}
+		} else if len(parts) == 2 {
+			branch = parts[0]
+			commit = parts[1]
+		}
+	}
+	return ParseRepo(repo).NewCommit(branch, commit).NewFile(path), numFields, nil
 }
 
 // ParseCommit takes an argument of the form "repo[@branch-or-commit]" and
 // returns the corresponding *pfs.Commit.
 func ParseCommit(arg string) (*pfs.Commit, error) {
-	parts := strings.SplitN(arg, "@", 2)
-	if parts[0] == "" {
-		return nil, errors.Errorf("invalid format \"%s\": repo cannot be empty", arg)
+	file, numFields, err := parseFile(arg)
+	if err != nil {
+		return nil, err
 	}
-	commit := &pfs.Commit{
-		Repo: &pfs.Repo{
-			Name: parts[0],
-		},
-		ID: "",
+	if numFields > 2 {
+		return nil, errors.Errorf("invalid format \"%s\": cannot specify a file path")
 	}
-	if len(parts) == 2 {
-		commit.ID = parts[1]
-	}
-	return commit, nil
+	return file.Commit, nil
 }
 
 // ParseCommits converts all arguments to *pfs.Commit structs using the
@@ -137,19 +195,36 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	return results, nil
 }
 
-// ParseBranch takes an argument of the form "repo[@branch]" and
-// returns the corresponding *pfs.Branch.  This uses ParseCommit under the hood
-// because a branch name is usually interchangeable with a commit-id.
+// ParseBranch takes an argument of the form "repo[@branch]" and returns the
+// corresponding *pfs.Branch. This uses ParseCommit under the hood because a
+// branch name is semantically interchangeable with a commit-id on the
+// command-line.
 func ParseBranch(arg string) (*pfs.Branch, error) {
 	commit, err := ParseCommit(arg)
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.Branch{Repo: commit.Repo, Name: commit.ID}, nil
+	if commit.ID != "" {
+		return nil, errors.Errorf("invalid branch \"%s\": cannot specify a commit or ancestry", arg)
+	}
+	return commit.Branch, nil
+}
+
+// ParseJob takes an argument of the form "pipeline@job-id" and returns
+// the corresponding *pps.Job.
+func ParseJob(arg string) (*pps.Job, error) {
+	parts := strings.SplitN(arg, "@", 2)
+	if parts[0] == "" {
+		return nil, errors.Errorf("invalid format \"%s\": pipeline must be specified", arg)
+	}
+	if len(parts) != 2 {
+		return nil, errors.Errorf("invalid format \"%s\": expected pipeline@job-id", arg)
+	}
+	return client.NewJob(parts[0], parts[1]), nil
 }
 
 // ParseBranches converts all arguments to *pfs.Commit structs using the
-// semantics of ParseBranch
+// semantics of ParseBranch.
 func ParseBranches(args []string) ([]*pfs.Branch, error) {
 	var results []*pfs.Branch
 	for _, arg := range args {
@@ -162,87 +237,12 @@ func ParseBranches(args []string) ([]*pfs.Branch, error) {
 	return results, nil
 }
 
-// ParseCommitProvenance takes an argument of the form "repo@branch=commit" and
-// returns the corresponding *pfs.CommitProvenance.
-func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
-	commit, err := ParseCommit(arg)
-	if err != nil {
-		return nil, err
-	}
-
-	branchAndCommit := strings.SplitN(commit.ID, "=", 2)
-	if len(branchAndCommit) < 1 {
-		return nil, errors.Errorf("invalid format \"%s\": a branch name or branch and commit id must be given", arg)
-	}
-	branchOrCommit := branchAndCommit[0]
-	commitID := branchOrCommit // default to using the head commit once this commit is resolved
-	if branchOrCommit == "" {
-		return nil, errors.Errorf("invalid format \"%s\": branch cannot be empty", arg)
-	}
-
-	if len(branchAndCommit) == 2 {
-		commitID = branchAndCommit[1]
-	} else if uuid.IsUUIDWithoutDashes(branchOrCommit) {
-		commitID = branchOrCommit
-		branchOrCommit = ""
-	}
-
-	if commitID == "" {
-		return nil, errors.Errorf("invalid format \"%s\": commit cannot be empty", arg)
-	}
-
-	prov := &pfs.CommitProvenance{
-		Branch: &pfs.Branch{
-			Repo: commit.Repo,
-			Name: branchOrCommit,
-		},
-		Commit: &pfs.Commit{
-			Repo: commit.Repo,
-			ID:   commitID,
-		},
-	}
-	return prov, nil
-}
-
-// ParseCommitProvenances converts all arguments to *pfs.CommitProvenance structs using the
-// semantics of ParseCommitProvenance
-func ParseCommitProvenances(args []string) ([]*pfs.CommitProvenance, error) {
-	var results []*pfs.CommitProvenance
-	for _, arg := range args {
-		prov, err := ParseCommitProvenance(arg)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, prov)
-	}
-	return results, nil
-}
-
 // ParseFile takes an argument of the form "repo[@branch-or-commit[:path]]", and
 // returns the corresponding *pfs.File.
 func ParseFile(arg string) (*pfs.File, error) {
-	repoAndRest := strings.SplitN(arg, "@", 2)
-	if repoAndRest[0] == "" {
-		return nil, errors.Errorf("invalid format \"%s\": repo cannot be empty", arg)
-	}
-	file := &pfs.File{
-		Commit: &pfs.Commit{
-			Repo: &pfs.Repo{
-				Name: repoAndRest[0],
-			},
-			ID: "",
-		},
-		Path: "",
-	}
-	if len(repoAndRest) > 1 {
-		commitAndPath := strings.SplitN(repoAndRest[1], ":", 2)
-		if commitAndPath[0] == "" {
-			return nil, errors.Errorf("invalid format \"%s\": commit cannot be empty", arg)
-		}
-		file.Commit.ID = commitAndPath[0]
-		if len(commitAndPath) > 1 {
-			file.Path = commitAndPath[1]
-		}
+	file, _, err := parseFile(arg)
+	if err != nil {
+		return nil, err
 	}
 	return file, nil
 }
@@ -251,18 +251,13 @@ func ParseFile(arg string) (*pfs.File, error) {
 // error on this input, in which case it returns as much as it was able to
 // parse.
 func ParsePartialFile(arg string) *pfs.File {
+	// ParseFile already returns as much as it can parse since all fields are
+	// optional - the only thing we have to do is discard any errors.
 	file, err := ParseFile(arg)
 	if err == nil {
 		return file
 	}
-	partialFile := &pfs.File{}
-	commit, err := ParseCommit(arg)
-	if err == nil {
-		partialFile.Commit = commit
-		return partialFile
-	}
-	partialFile.Commit = &pfs.Commit{Repo: &pfs.Repo{Name: arg}}
-	return partialFile
+	return client.NewFile(arg, "", "", "")
 }
 
 // ParseFiles converts all arguments to *pfs.Commit structs using the

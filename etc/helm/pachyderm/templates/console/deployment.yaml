@@ -1,0 +1,66 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.console.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: console
+    suite: pachyderm
+  name: console
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: console
+      suite: pachyderm
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: console
+        suite: pachyderm
+        {{- if .Values.console.podLabels }}
+        {{- toYaml .Values.console.podLabels | nindent 8 }}
+        {{- end }}
+      name: console
+      namespace: {{ .Release.Namespace }}
+    spec:
+{{- include "pachyderm.imagePullSecrets" . | indent 6 }}
+      containers:
+      - image: "{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"
+        imagePullPolicy: {{ .Values.console.image.pullPolicy }}
+        name: console
+        ports:
+        - containerPort: {{ .Values.console.config.graphqlPort }}
+          name: console-http
+        env:
+        {{- if eq .Values.deployTarget "LOCAL" }}
+        - name: REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX
+          value: ":{{ .Values.console.config.graphqlPort }}/graphql"
+        {{- end }}
+        - name: ISSUER_URI
+          value: {{ include "pachyderm.issuerURI" . | quote}}
+        - name: REACT_APP_RUNTIME_ISSUER_URI
+          value: {{ include "pachyderm.reactAppRuntimeIssuerURI" . | quote}}
+        - name: OAUTH_REDIRECT_URI
+          value: {{ include "pachyderm.consoleRedirectURI" . | quote }}
+        - name: OAUTH_CLIENT_ID
+          value: {{ .Values.console.config.oauthClientID | quote }}
+        - name: GRAPHQL_PORT
+          value: {{ .Values.console.config.graphqlPort | quote }}
+        - name: OAUTH_PACHD_CLIENT_ID
+          value: {{ .Values.pachd.oauthClientID | quote }}
+        - name: PACHD_ADDRESS
+          value: {{ include "pachyderm.pachdPeerAddress" . | quote }}
+        - name: OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: pachyderm-console-secret
+              key: OAUTH_CLIENT_SECRET
+        {{- if .Values.console.resources }}
+        resources: {{ toYaml .Values.console.resources | nindent 10 }}
+        {{- end }}
+{{ end -}}

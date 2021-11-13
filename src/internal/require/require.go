@@ -1,6 +1,7 @@
 package require
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -8,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
@@ -419,21 +421,10 @@ func NoErrorWithinT(tb testing.TB, t time.Duration, f func() error, msgAndArgs .
 // emit an error. Unlike NoErrorWithinT if f does error, it will retry it.
 func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndArgs ...interface{}) {
 	tb.Helper()
-	doneCh := make(chan struct{})
-	timeout := false
-	var err error
-	go func() {
-		for !timeout {
-			if err = f(); err == nil {
-				close(doneCh)
-				break
-			}
-		}
-	}()
-	select {
-	case <-doneCh:
-	case <-time.After(t):
-		timeout = true
+	ctx, cancel := context.WithTimeout(context.Background(), t)
+	defer cancel()
+	err := backoff.RetryUntilCancel(ctx, f, backoff.NewExponentialBackOff(), nil)
+	if err != nil {
 		fatal(tb, msgAndArgs, "operation did not finish within %s - last error: %v", t.String(), err)
 	}
 }
@@ -443,6 +434,14 @@ func YesError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	tb.Helper()
 	if err == nil {
 		fatal(tb, msgAndArgs, "Error is expected but got %v", err)
+	}
+}
+
+// ErrorIs checks that the errors.Is returns true
+func ErrorIs(tb testing.TB, err, target error, msgAndArgs ...interface{}) {
+	tb.Helper()
+	if !errors.Is(err, target) {
+		fatal(tb, msgAndArgs, "errors.Is(%v, %v) should be true", err, target)
 	}
 }
 

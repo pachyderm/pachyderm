@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,7 +17,7 @@ import (
 type Env struct {
 	// TODO: etcd
 	ObjectClient obj.Client
-	Tx           *sqlx.Tx
+	Tx           *pachsql.Tx
 }
 
 // MakeEnv returns a new Env
@@ -76,14 +76,14 @@ func InitialState() State {
 			);
 			INSERT INTO migrations (id, name, start_time, end_time) VALUES (0, 'init', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;
 			`)
-			return err
+			return errors.EnsureStack(err)
 		},
 	}
 }
 
 // ApplyMigrations does the necessary work to actualize state.
 // It will manipulate the objects available in baseEnv, and use the migrations table in db.
-func ApplyMigrations(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) error {
+func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state State) error {
 	for _, state := range collectStates(make([]State, 0, state.n+1), state) {
 		if err := applyMigration(ctx, db, baseEnv, state); err != nil {
 			return err
@@ -100,10 +100,10 @@ func collectStates(slice []State, s State) []State {
 	return append(slice, s)
 }
 
-func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) error {
+func applyMigration(ctx context.Context, db *pachsql.DB, baseEnv Env, state State) error {
 	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	env := baseEnv
 	env.Tx = tx
@@ -115,7 +115,7 @@ func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) 
 		}
 		_, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if finished, err := isFinished(ctx, tx, state); err != nil {
 			return err
@@ -125,14 +125,14 @@ func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) 
 			return nil
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		logrus.Infof("applying migration %d %s", state.n, state.name)
 		if err := state.change(ctx, env); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		logrus.Infof("successfully applied migration %d", state.n)
 		return nil
@@ -140,16 +140,16 @@ func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) 
 		if err := tx.Rollback(); err != nil {
 			logrus.Error(err)
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
-	return tx.Commit()
+	return errors.EnsureStack(tx.Commit())
 }
 
 // BlockUntil blocks until state is actualized.
 // It makes no attempt to perform migrations, hopefully another process is working on that
 // by calling ApplyMigrations.
 // If the cluster ever enters a state newer than the state passed to BlockUntil, it errors.
-func BlockUntil(ctx context.Context, db *sqlx.DB, state State) error {
+func BlockUntil(ctx context.Context, db *pachsql.DB, state State) error {
 	const (
 		schemaName = "public"
 		tableName  = "migrations"
@@ -164,12 +164,12 @@ func BlockUntil(ctx context.Context, db *sqlx.DB, state State) error {
 			WHERE table_schema = $1
 			AND table_name = $2
 		)`, schemaName, tableName); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if tableExists {
 			var latest int
-			if err := db.GetContext(ctx, &latest, `SELECT COALESCE(MAX(id), 0) FROM migrations`); err != nil && err != sql.ErrNoRows {
-				return err
+			if err := db.GetContext(ctx, &latest, `SELECT COALESCE(MAX(id), 0) FROM migrations`); err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return errors.EnsureStack(err)
 			}
 			if latest == state.n {
 				return nil
@@ -179,23 +179,23 @@ func BlockUntil(ctx context.Context, db *sqlx.DB, state State) error {
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		case <-ticker.C:
 		}
 	}
 }
 
-func isFinished(ctx context.Context, tx *sqlx.Tx, state State) (bool, error) {
+func isFinished(ctx context.Context, tx *pachsql.Tx, state State) (bool, error) {
 	var name string
 	if err := tx.GetContext(ctx, &name, `
 	SELECT name
 	FROM migrations
 	WHERE id = $1
 	`, state.n); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
-		return false, err
+		return false, errors.EnsureStack(err)
 	}
 	if name != state.name {
 		return false, errors.Errorf("migration mismatch %d HAVE: %s WANT: %s", state.n, name, state.name)

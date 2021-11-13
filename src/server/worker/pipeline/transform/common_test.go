@@ -2,14 +2,15 @@ package transform
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"testing"
 
-	etcd "github.com/coreos/etcd/clientv3"
-
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -19,32 +20,36 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
 
+// Set this to true to enable worker log statements to go to stdout
+const debug = false
+
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"
 	return &pps.PipelineInfo{
-		Pipeline:     client.NewPipeline(name),
-		OutputBranch: "master",
-		Transform: &pps.Transform{
-			Cmd:        []string{"bash"},
-			Stdin:      []string{"cp inputRepo/* out"},
-			WorkingDir: client.PPSInputPrefix,
-		},
-		ParallelismSpec: &pps.ParallelismSpec{
-			Constant: 1,
-		},
-		ResourceRequests: &pps.ResourceSpec{
-			Memory: "100M",
-			Cpu:    0.5,
-		},
-		Input: &pps.Input{
-			Pfs: &pps.PFSInput{
-				Name:   "inputRepo",
-				Repo:   "inputRepo",
-				Branch: "master",
-				Glob:   "/*",
+		Pipeline: client.NewPipeline(name),
+		Details: &pps.PipelineInfo_Details{
+			OutputBranch: "master",
+			Transform: &pps.Transform{
+				Cmd:        []string{"bash"},
+				Stdin:      []string{"cp inputRepo/* out"},
+				WorkingDir: client.PPSInputPrefix,
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			ResourceRequests: &pps.ResourceSpec{
+				Memory: "100M",
+				Cpu:    0.5,
+			},
+			Input: &pps.Input{
+				Pfs: &pps.PFSInput{
+					Name:   "inputRepo",
+					Repo:   "inputRepo",
+					Branch: "master",
+					Glob:   "/*",
+				},
 			},
 		},
-		SpecCommit: client.NewCommit(ppsconsts.SpecRepo, name),
 	}
 }
 
@@ -60,11 +65,10 @@ type testDriver struct {
 	inner driver.Driver
 }
 
-// Fuck golang
-func (td *testDriver) Jobs() col.Collection {
+func (td *testDriver) Jobs() col.PostgresCollection {
 	return td.inner.Jobs()
 }
-func (td *testDriver) Pipelines() col.Collection {
+func (td *testDriver) Pipelines() col.PostgresCollection {
 	return td.inner.Pipelines()
 }
 func (td *testDriver) NewTaskWorker() *work.Worker {
@@ -94,8 +98,8 @@ func (td *testDriver) WithContext(ctx context.Context) driver.Driver {
 func (td *testDriver) WithActiveData(inputs []*common.Input, dir string, cb func() error) error {
 	return td.inner.WithActiveData(inputs, dir, cb)
 }
-func (td *testDriver) UserCodeEnv(job string, commit *pfs.Commit, inputs []*common.Input) []string {
-	return td.inner.UserCodeEnv(job, commit, inputs)
+func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input) []string {
+	return td.inner.UserCodeEnv(jobID, commit, inputs)
 }
 func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return td.inner.RunUserCode(ctx, logger, env)
@@ -103,44 +107,40 @@ func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger,
 func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return td.inner.RunUserErrorHandlingCode(ctx, logger, env)
 }
-func (td *testDriver) DeleteJob(stm col.STM, ji *pps.EtcdJobInfo) error {
-	return td.inner.DeleteJob(stm, ji)
+func (td *testDriver) DeleteJob(sqlTx *pachsql.Tx, ji *pps.JobInfo) error {
+	return td.inner.DeleteJob(sqlTx, ji)
 }
-func (td *testDriver) UpdateJobState(job string, state pps.JobState, reason string) error {
+func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return td.inner.UpdateJobState(job, state, reason)
 }
-func (td *testDriver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) {
-	return td.inner.NewSTM(cb)
+func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
+	return td.inner.NewSQLTx(cb)
 }
 
-// withTestEnv provides a test env with etcd and pachd instances and connected
+// newTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
-func withTestEnv(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error {
-	return testpachd.WithRealEnv(db, func(realEnv *testpachd.RealEnv) error {
-		logger := logs.NewMockLogger()
-		workerDir := filepath.Join(realEnv.Directory, "worker")
-		driver, err := driver.NewDriver(
-			pipelineInfo,
-			realEnv.PachClient,
-			realEnv.EtcdClient,
-			"/pachyderm_test",
-			workerDir,
-			"namespace",
-		)
-		if err != nil {
-			return err
-		}
+func newTestEnv(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
+	realEnv := testpachd.NewRealEnv(t, dbConfig)
+	logger := logs.NewMockLogger()
+	if debug {
+		logger.Writer = os.Stdout
+	}
+	workerDir := filepath.Join(realEnv.Directory, "worker")
+	driver, err := driver.NewDriver(
+		realEnv.ServiceEnv,
+		realEnv.PachClient,
+		pipelineInfo,
+		workerDir,
+	)
+	require.NoError(t, err)
 
-		ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
-		defer cancel()
-		driver = driver.WithContext(ctx)
+	ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
+	t.Cleanup(cancel)
+	driver = driver.WithContext(ctx)
 
-		env := &testEnv{
-			RealEnv: realEnv,
-			logger:  logger,
-			driver:  &testDriver{driver},
-		}
-
-		return cb(env)
-	})
+	return &testEnv{
+		RealEnv: realEnv,
+		logger:  logger,
+		driver:  &testDriver{driver},
+	}
 }

@@ -9,25 +9,18 @@
 [![Slack Status](https://badge.slack.pachyderm.io/badge.svg)](https://slack.pachyderm.io)
 [![CLA assistant](https://cla-assistant.io/readme/badge/pachyderm/pachyderm)](https://cla-assistant.io/pachyderm/pachyderm)
 
-# Pachyderm: Data Versioning, Data Pipelines, and Data Lineage
+# Pachyderm: The Data Foundation for Machine Learning
 
-Pachyderm is a tool for version-controlled, automated, end-to-end data pipelines for data science. If you need to chain together data scraping, ingestion, cleaning, munging, wrangling, processing,
-modeling, and analysis in a sane way, while ensuring the traceability and provenance of your data, Pachyderm is for you. If you have an existing set of scripts which do this in an ad-hoc fashion and you're looking
-for a way to "productionize" them, Pachyderm can make this easy for you.
+Pachyderm provides the data layer that allows machine learning teams to productionize and scale their machine learning lifecycle. With Pachyderm’s industry leading data versioning, pipelines and lineage teams gain data driven automation, petabyte scalability and end-to-end reproducibility. Teams using Pachyderm get their ML projects to market faster, lower data processing and storage costs, and can more easily meet regulatory compliance requirements
 
 ## Features
 
-- Containerized: Pachyderm is built on Docker and Kubernetes. Whatever
-  languages or libraries your pipeline needs, they can run on Pachyderm which
-  can easily be deployed on any cloud provider or on prem.
-- Version Control: Pachyderm version controls your data as it's processed. You
-  can always ask the system how data has changed, see a diff, and, if something
-  doesn't look right, revert.
-- Provenance (aka data lineage): Pachyderm tracks where data comes from. Pachyderm keeps track of all the code and  data that created a result.
-- Parallelization: Pachyderm can efficiently schedule massively parallel
-  workloads.
-- Incremental Processing: Pachyderm understands how your data has changed and
-  is smart enough to only process the new data.
+- Automated Data Versioning: Pachyderm’s Data Versioning gives teams an automated and performant way to keep track of all data changes.
+- Data-Driven Pipelines: Pachyderm’s Containerized Pipelines speed data processing while lowering compute costs.
+- Immutable Data Lineage: Pachyderm’s data lineage provides an immutable record for all activities and assets in the ML lifecycle.
+- Console: The Pachyderm Console provides an intuitive visualization of your DAG (directed acyclic graph), and aids in reproducibility.
+- Notebooks: Pachyderm Notebooks provide an easy way to interact with Pachyderm data versioning and pipelines via Jupyter notebooks.
+
 
 ## Getting Started
 To start deploying your end-to-end version-controlled data pipelines, try us for free on [Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) with little to no setup or run Pachyderm [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/). You can also [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/) in about 5 minutes. 

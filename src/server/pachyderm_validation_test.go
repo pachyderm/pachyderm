@@ -119,32 +119,3 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		false,
 	))
 }
-
-func TestPipelineInvalidParallelism(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c := tu.GetPachClient(t)
-
-	// Set up repo
-	dataRepo := tu.UniqueString("TestPipelineInvalidParallelism")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	// Create pipeline named "out"
-	err := c.CreatePipeline(
-		"invalid-parallelism-pipeline",
-		"",
-		[]string{"bash", "-c"},
-		[]string{"echo hello"},
-		&pps.ParallelismSpec{
-			Constant:    1,
-			Coefficient: 1.0,
-		},
-		client.NewPFSInput(dataRepo, "/*"),
-		"master",
-		false,
-	)
-	require.YesError(t, err)
-	require.Matches(t, "parallelism", err.Error())
-}

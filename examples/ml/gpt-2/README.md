@@ -1,3 +1,6 @@
+>![pach_logo](../../img/pach_logo.svg) INFO Pachyderm 2.0 introduces profound architectual changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # ML Pipeline for Tweet Generation
 
 In this example we'll create a machine learning pipeline that generates tweets
@@ -179,7 +182,7 @@ scraping tweets:
         "memory": "10G",
         "cpu": 1
     },
-    "standby": true
+    "autoscaling": true
 }
 ```
 
@@ -188,7 +191,7 @@ A few things have changed from the `tweets` pipeline. First we're taking the
 script in our transform. We've also added a `resource_limits` section, because
 this is a much more computationally intensive task than we did in the tweets
 pipeline, so it makes sense to give it a gpu and a large chunk of memory to
-train on. We also enable `standby`, which prevents the pipeline from holding
+train on. We also enable `autoscaling`, which prevents the pipeline from holding
 onto those resources when it's not processing data. You can create this
 pipeline with:
 
@@ -269,7 +272,7 @@ The pipeline spec to run this on Pachyderm should look familiar by now:
         "memory": "10G",
         "cpu": 1
     },
-    "standby": true
+    "autoscaling": true
 }
 ```
 

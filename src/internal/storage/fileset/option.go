@@ -3,9 +3,10 @@ package fileset
 import (
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"golang.org/x/sync/semaphore"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
 // StorageOption configures a storage.
@@ -30,7 +31,7 @@ func WithShardThreshold(threshold int64) StorageOption {
 // WithLevelFactor sets the factor which the size of levels in inc
 func WithLevelFactor(x int64) StorageOption {
 	return func(s *Storage) {
-		s.levelFactor = x
+		s.compactionConfig.LevelFactor = x
 	}
 }
 
@@ -47,22 +48,31 @@ type UnorderedWriterOption func(*UnorderedWriter)
 
 // WithRenewal configures the UnorderedWriter to renew subfileset paths
 // with the provided renewer.
-func WithRenewal(ttl time.Duration, r *renew.StringSet) UnorderedWriterOption {
+func WithRenewal(ttl time.Duration, r *Renewer) UnorderedWriterOption {
 	return func(uw *UnorderedWriter) {
 		uw.ttl = ttl
 		uw.renewer = r
 	}
 }
 
-// WriterOption configures a file set writer.
-type WriterOption func(w *Writer)
-
-// WithNoUpload sets the writer to no upload (will not upload chunks).
-func WithNoUpload() WriterOption {
-	return func(w *Writer) {
-		w.noUpload = true
+// WithParentID sets a factory for the parent fileset ID for the unordered writer.
+// This is used for converting directory deletions into a set of point
+// deletes for the files contained within the directory.
+func WithParentID(getParentID func() (*ID, error)) UnorderedWriterOption {
+	return func(uw *UnorderedWriter) {
+		uw.getParentID = getParentID
 	}
 }
+
+// WithValidator sets the validator for paths being written to the unordered writer.
+func WithValidator(validator func(string) error) UnorderedWriterOption {
+	return func(uw *UnorderedWriter) {
+		uw.validator = validator
+	}
+}
+
+// WriterOption configures a file set writer.
+type WriterOption func(w *Writer)
 
 // WithIndexCallback sets a function to be called after each index is written.
 // If WithNoUpload is set, the function is called after the index would have been written.
@@ -77,4 +87,19 @@ func WithTTL(ttl time.Duration) WriterOption {
 	return func(w *Writer) {
 		w.ttl = ttl
 	}
+}
+
+// StorageOptions returns the fileset storage options for the config.
+func StorageOptions(conf *serviceenv.StorageConfiguration) []StorageOption {
+	var opts []StorageOption
+	if conf.StorageMemoryThreshold > 0 {
+		opts = append(opts, WithMemoryThreshold(conf.StorageMemoryThreshold))
+	}
+	if conf.StorageShardThreshold > 0 {
+		opts = append(opts, WithShardThreshold(conf.StorageShardThreshold))
+	}
+	if conf.StorageLevelFactor > 0 {
+		opts = append(opts, WithLevelFactor(conf.StorageLevelFactor))
+	}
+	return opts
 }

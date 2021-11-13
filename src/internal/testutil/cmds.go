@@ -3,6 +3,7 @@ package testutil
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -50,6 +51,9 @@ func dedent(cmd string) string {
 			dedentedCmd.WriteString(s.Text()[len(prefix):]) // remove prefix
 			dedentedCmd.WriteRune('\n')
 		} else {
+			fmt.Fprintf(os.Stderr,
+				"\nWARNING: the line\n  %q\ncannot be dedented as missing the prefix %q\n",
+				s.Text(), prefix)
 			return cmd // no common prefix--break early
 		}
 	}
@@ -114,7 +118,7 @@ which match >/dev/null || {
 	template.Must(template.New("").Parse(dedent(cmd))).Execute(buf, subsMap)
 	res := exec.Command("/bin/bash")
 	res.Stderr = os.Stderr
-	// useful for debugging, but makes travis too noisy:
+	// useful for debugging, but makes logs too noisy:
 	// res.Stdout = os.Stdout
 	res.Stdin = buf
 	res.Env = os.Environ()

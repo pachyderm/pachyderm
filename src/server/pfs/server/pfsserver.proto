@@ -4,12 +4,14 @@ package pfsserver;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/server/pfs/server";
 
 message CompactionTask {
-  repeated string inputs = 1;
-  PathRange range = 2;
+  int64 index = 1;
+  repeated string inputs = 2;
+  PathRange range = 3;
 }
 
 message CompactionTaskResult {
-  string id = 1;
+  int64 index = 1;
+  string id = 2;
 }
 
 message PathRange {

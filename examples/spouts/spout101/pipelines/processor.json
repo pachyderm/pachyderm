@@ -2,7 +2,7 @@
     "pipeline": {
       "name": "processor"
     },
-    "description": "A pipeline that sorts 1KB vs 2KB files...",
+    "description": "A pipeline that sorts 1KB vs 2KB files",
     "input": {
         "pfs": {
             "repo": "spout",
@@ -12,6 +12,6 @@
     },
     "transform": {
         "cmd": [ "python", "processor/main.py" ],
-        "image": "pachyderm/pachyderm-spout101:1.12.2"
+        "image": "pachyderm/example-spout101:2.0.0-beta.5"
       }
   }

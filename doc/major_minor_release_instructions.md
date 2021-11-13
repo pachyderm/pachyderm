@@ -34,12 +34,6 @@ git add src/client/version/client.go
 git commit -m"Increment version for $(pachctl version --client-only) release"
 ```
 
-### Regenerate the golden manifests
-
-```shell
-make regenerate-test-deploy-manifests
-```
-
 ### Write up the extract/restore functionality
 
 Every extract/restore is a bit different, so there's no one-size-fits-all

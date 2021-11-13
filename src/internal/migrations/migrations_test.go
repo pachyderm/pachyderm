@@ -5,15 +5,14 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/lib/pq"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 )
 
 func TestMigration(t *testing.T) {
-	db := dbutil.NewTestDB(t)
+	db := dockertestenv.NewTestDB(t)
 	state := InitialState().
 		Apply("test 1", func(ctx context.Context, env Env) error {
 			// NoOp

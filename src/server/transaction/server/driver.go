@@ -2,50 +2,42 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
-
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 )
 
 type driver struct {
 	// txnEnv stores references to other pachyderm APIServer instances so we can
 	// make calls within the same transaction without serializing through RPCs
-	txnEnv *txnenv.TransactionEnv
-
-	// etcdClient and prefix write repo and other metadata to etcd
-	etcdClient *etcd.Client
-	prefix     string
-
-	// collections
-	transactions col.Collection
+	txnEnv       *txnenv.TransactionEnv
+	db           *pachsql.DB
+	transactions col.PostgresCollection
 }
 
 func newDriver(
-	env *serviceenv.ServiceEnv,
+	env serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
-	etcdPrefix string,
 ) (*driver, error) {
-	etcdClient := env.GetEtcdClient()
-	d := &driver{
+
+	return &driver{
 		txnEnv:       txnEnv,
-		etcdClient:   etcdClient,
-		prefix:       etcdPrefix,
-		transactions: transactiondb.Transactions(etcdClient, etcdPrefix),
-	}
-	return d, nil
+		db:           env.GetDBClient(),
+		transactions: transactiondb.Transactions(env.GetDBClient(), env.GetPostgresListener()),
+	}, nil
 }
 
 func now() *types.Timestamp {
@@ -57,46 +49,43 @@ func now() *types.Timestamp {
 }
 
 func (d *driver) batchTransaction(ctx context.Context, req []*transaction.TransactionRequest) (*transaction.TransactionInfo, error) {
-	// Because we're building and running the entire transaction atomically here, there is no need to persist the TransactionInfo to etcd
-	info := &transaction.TransactionInfo{
-		Transaction: &transaction.Transaction{
-			ID: uuid.New(),
-		},
-		Requests: req,
-		Started:  now(),
-	}
-
-	var err error
-	err = d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		info, err = d.runTransaction(txnCtx, info)
-		if err != nil {
-			return err
+	var result *transaction.TransactionInfo
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		// Because we're building and running the entire transaction atomically here,
+		// there is no need to persist the TransactionInfo to the collection
+		info := &transaction.TransactionInfo{
+			Transaction: &transaction.Transaction{
+				ID: uuid.NewWithoutDashes(),
+			},
+			Requests: req,
+			Started:  now(),
 		}
-		return nil
-	})
-	if err != nil {
+
+		var err error
+		result, err = d.runTransaction(txnCtx, info)
+		return err
+	}); err != nil {
 		return nil, err
 	}
 
-	return info, nil
+	return result, nil
 }
 
 func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction, error) {
 	info := &transaction.TransactionInfo{
 		Transaction: &transaction.Transaction{
-			ID: uuid.New(),
+			ID: uuid.NewWithoutDashes(),
 		},
 		Requests: []*transaction.TransactionRequest{},
 		Started:  now(),
 	}
 
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		return d.transactions.ReadWrite(stm).Put(
+	if err := dbutil.WithTx(ctx, d.db, func(sqlTx *pachsql.Tx) error {
+		return d.transactions.ReadWrite(sqlTx).Put(
 			info.Transaction.ID,
 			info,
 		)
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return info.Transaction, nil
@@ -104,35 +93,15 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 
 func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
-	err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
-	if err != nil {
+	if err := d.transactions.ReadOnly(ctx).Get(txn.ID, info); err != nil {
 		return nil, err
 	}
 	return info, nil
 }
 
 func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		// first try to clean up any aspects of the transaction that live outside the STM
-		info := &transaction.TransactionInfo{}
-		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
-		directTxn := txnenv.NewDirectTransaction(txnCtx)
-		if err != nil {
-			return err
-		}
-		for i, req := range info.Requests {
-			if req.CreatePipeline == nil || len(info.Responses) <= i {
-				continue
-			}
-			commit := info.Responses[i].Commit
-			if commit != nil {
-				if err := directTxn.SquashCommit(&pfs.SquashCommitRequest{Commit: commit}); err != nil {
-					return err
-				}
-			}
-		}
-		// now that all side effects are undone, delete the transaction
-		return d.transactions.ReadWrite(txnCtx.Stm).Delete(txn.ID)
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.ID)
 	})
 }
 
@@ -140,7 +109,7 @@ func (d *driver) listTransaction(ctx context.Context) ([]*transaction.Transactio
 	var result []*transaction.TransactionInfo
 	transactionInfo := &transaction.TransactionInfo{}
 	transactions := d.transactions.ReadOnly(ctx)
-	if err := transactions.List(transactionInfo, col.DefaultOptions, func(string) error {
+	if err := transactions.List(transactionInfo, col.DefaultOptions(), func(string) error {
 		result = append(result, proto.Clone(transactionInfo).(*transaction.TransactionInfo))
 		return nil
 	}); err != nil {
@@ -151,13 +120,13 @@ func (d *driver) listTransaction(ctx context.Context) ([]*transaction.Transactio
 
 // deleteAll deletes all transactions from etcd except the currently running
 // transaction (if any).
-func (d *driver) deleteAll(ctx context.Context, stm col.STM, running *transaction.Transaction) error {
+func (d *driver) deleteAll(ctx context.Context, sqlTx *pachsql.Tx, running *transaction.Transaction) error {
 	txns, err := d.listTransaction(ctx)
 	if err != nil {
 		return err
 	}
 
-	transactions := d.transactions.ReadWrite(stm)
+	transactions := d.transactions.ReadWrite(sqlTx)
 	for _, info := range txns {
 		if running == nil || info.Transaction.ID != running.ID {
 			err := transactions.Delete(info.Transaction.ID)
@@ -169,106 +138,72 @@ func (d *driver) deleteAll(ctx context.Context, stm col.STM, running *transactio
 	return nil
 }
 
-func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
-	responses := []*transaction.TransactionResponse{}
-	directTxn := txnenv.NewDirectTransaction(txnCtx)
+func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+	result := proto.Clone(info).(*transaction.TransactionInfo)
+	for len(result.Responses) < len(result.Requests) {
+		result.Responses = append(result.Responses, &transaction.TransactionResponse{})
+	}
+
+	// Set the transaction's CommitSetID to be the same as the transaction ID, which
+	// will be used for any newly made commits.
+	txnCtx.CommitSetID = info.Transaction.ID
+
+	directTxn := txnenv.NewDirectTransaction(d.txnEnv, txnCtx)
 	for i, request := range info.Requests {
 		var err error
-		var response *transaction.TransactionResponse
+		response := result.Responses[i]
 
 		if request.CreateRepo != nil {
 			err = directTxn.CreateRepo(request.CreateRepo)
-			response = &transaction.TransactionResponse{}
 		} else if request.DeleteRepo != nil {
 			err = directTxn.DeleteRepo(request.DeleteRepo)
-			response = &transaction.TransactionResponse{}
 		} else if request.StartCommit != nil {
-			// Do a little extra work here so we can make sure the new commit ID is
-			// the same every time.  We store the response the first time and reuse
-			// the commit ID on subsequent runs.
-			var commit *pfs.Commit
-			if len(info.Responses) > i {
-				commit = info.Responses[i].Commit
-				if commit == nil {
-					err = errors.Errorf("unexpected stored response type for StartCommit")
-				}
-			}
-			if err == nil {
-				commit, err = directTxn.StartCommit(request.StartCommit, commit)
-				response = client.NewCommitResponse(commit)
-			}
+			response.Commit, err = directTxn.StartCommit(request.StartCommit)
 		} else if request.FinishCommit != nil {
 			err = directTxn.FinishCommit(request.FinishCommit)
-			response = &transaction.TransactionResponse{}
-		} else if request.SquashCommit != nil {
-			err = directTxn.SquashCommit(request.SquashCommit)
-			response = &transaction.TransactionResponse{}
+		} else if request.SquashCommitSet != nil {
+			err = directTxn.SquashCommitSet(request.SquashCommitSet)
 		} else if request.CreateBranch != nil {
 			err = directTxn.CreateBranch(request.CreateBranch)
-			response = &transaction.TransactionResponse{}
 		} else if request.DeleteBranch != nil {
 			err = directTxn.DeleteBranch(request.DeleteBranch)
-			response = &transaction.TransactionResponse{}
 		} else if request.UpdateJobState != nil {
 			err = directTxn.UpdateJobState(request.UpdateJobState)
-			response = &transaction.TransactionResponse{}
-		} else if request.DeleteAll != nil {
-			// TODO: extend this to delete everything through PFS, PPS, Auth and
-			// update the client DeleteAll call to use only this, then remove unused
-			// RPCs.
-			err = d.deleteAll(txnCtx.ClientContext, txnCtx.Stm, info.Transaction)
-			response = &transaction.TransactionResponse{}
+		} else if request.StopJob != nil {
+			err = directTxn.StopJob(request.StopJob)
 		} else if request.CreatePipeline != nil {
-			// find the existing spec commit, if it exists
-			var commit *pfs.Commit
-			if len(info.Responses) > i {
-				commit = info.Responses[i].Commit
-				if commit == nil {
-					err = errors.Errorf("unexpected stored response type for CreatePipeline")
-				}
-			}
-			if err == nil {
-				err = directTxn.CreatePipeline(request.CreatePipeline, &commit)
-				response = client.NewCommitResponse(commit)
-			}
+			err = directTxn.CreatePipeline(request.CreatePipeline)
 		} else {
-			err = errors.Errorf("unrecognized transaction request type")
+			err = errors.New("unrecognized transaction request type")
 		}
 
 		if err != nil {
-			return nil, errors.Wrapf(err, "error running request %d of %d", i+1, len(info.Requests))
+			return result, errors.Wrapf(err, "error running request %d of %d", i+1, len(info.Requests))
 		}
-
-		responses = append(responses, response)
 	}
-
-	info.Responses = responses
-	return info, nil
+	return result, nil
 }
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
-	info := &transaction.TransactionInfo{}
-	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
+	return d.updateTransaction(ctx, true, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
+		info, err := d.runTransaction(txnCtx, info)
 		if err != nil {
-			return err
+			return info, err
 		}
-		info, err = d.runTransaction(txnCtx, info)
-		if err != nil {
-			return err
+		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.ID); err != nil {
+			return info, err
 		}
-		return d.transactions.ReadWrite(txnCtx.Stm).Delete(txn.ID)
+		// no need to update the transaction, since it's gone
+		// because the transaction info was read in the same sql transaction as the delete,
+		// we don't have to worry about checking for additional transaction changes
+		return info, errutil.ErrBreak
 	})
-	if err != nil {
-		return nil, err
-	}
-	return info, nil
 }
 
-// Error to be returned when the transaction has been modified between our two STM calls
-type transactionConflictError struct{}
+// Error to be returned when the transaction has been modified between our two sqlTx calls
+type transactionModifiedError struct{}
 
-func (e *transactionConflictError) Error() string {
+func (e *transactionModifiedError) Error() string {
 	return "transaction could not be modified due to concurrent modifications"
 }
 
@@ -277,64 +212,97 @@ func (d *driver) appendTransaction(
 	txn *transaction.Transaction,
 	items []*transaction.TransactionRequest,
 ) (*transaction.TransactionInfo, error) {
+	// We do a dryrun of the transaction to
+	// 1. make sure the appended request is valid
+	// 2. Capture the result of the request to be returned
+
+	return d.updateTransaction(ctx, false, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
+		if restarted {
+			info.Requests = append(info.Requests, items...)
+		}
+		return d.runTransaction(txnCtx, info)
+	})
+}
+
+// updateTransaction accepts a function that uses and (possibly) updates a transaction and runs it
+// in either a Read- or WriteContext, saving an updated version of the transaction on a successful run
+func (d *driver) updateTransaction(
+	ctx context.Context,
+	writeTxn bool,
+	txn *transaction.Transaction,
+	f func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error),
+) (*transaction.TransactionInfo, error) {
+	// we want to respect ErrBreak, so we have to smuggle some information out of the transaction
+	var gotBreak bool
+	// local info will hold a version of the transaction with any modifications needed to get the current version to run
+	// it will only be written to the collection after the update operation is successful
+	var localInfo *transaction.TransactionInfo
+	attempt := func(txnCtx *txncontext.TransactionContext) error {
+		storedInfo := new(transaction.TransactionInfo)
+		var err error
+		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, storedInfo); err != nil {
+			return err
+		}
+		restarted := localInfo == nil || storedInfo.Version != localInfo.Version
+		if restarted {
+			// something has changed, reset our saved info
+			localInfo = storedInfo
+		}
+		// update local info even if there was an error
+		localInfo, err = f(txnCtx, localInfo, restarted)
+		if err != nil && errors.Is(err, errutil.ErrBreak) {
+			gotBreak = true
+			return nil
+		}
+		gotBreak = false
+		return err
+	}
+
+	// prefetch transaction info and add data to refresher ahead of time
+	var prefetch transaction.TransactionInfo
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, &prefetch)
+	}); err != nil {
+		return nil, err
+	}
+
 	// Run this thing in a loop in case we get a conflict, time out after some tries
 	for i := 0; i < 10; i++ {
-		// We first do a dryrun of the transaction to
-		// 1. make sure the appended request is valid
-		// 2. Capture the result of the request to be returned
-		var numRequests, numResponses int
-		var dryrunResponses []*transaction.TransactionResponse
-
-		info := &transaction.TransactionInfo{}
-		err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-			// Get the existing transaction and append the new requests
-			err := d.transactions.ReadWrite(txnCtx.Stm).Get(txn.ID, info)
-			if err != nil {
-				return err
-			}
-
-			// Save the length so that we can check that nothing else modifies the
-			// transaction in the meantime
-			numRequests = len(info.Requests)
-			numResponses = len(info.Responses)
-			info.Requests = append(info.Requests, items...)
-
-			info, err = d.runTransaction(txnCtx, info)
-			if err != nil {
-				return err
-			}
-
-			dryrunResponses = info.Responses[numResponses:]
-			return nil
-		})
-
-		if err != nil {
-			return nil, err
+		var err error
+		if writeTxn {
+			err = d.txnEnv.WithWriteContext(ctx, attempt)
+		} else {
+			err = d.txnEnv.WithReadContext(ctx, attempt)
 		}
-
-		info = &transaction.TransactionInfo{}
-		_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-			// Update the existing transaction with the new requests/responses
-			return d.transactions.ReadWrite(stm).Update(txn.ID, info, func() error {
-				if len(info.Requests) != numRequests || len(info.Responses) != numResponses {
-					// Someone else modified the transaction while we did the dry run
-					return &transactionConflictError{}
-				}
-
-				fmt.Printf("appending requests: %s\n", items)
-				fmt.Printf("appending responses: %s\n", dryrunResponses)
-				info.Requests = append(info.Requests, items...)
-				info.Responses = append(info.Responses, dryrunResponses...)
-				return nil
-			})
-		})
+		if err == nil && gotBreak {
+			return localInfo, nil // no need to update
+		}
 
 		if err == nil {
-			return info, nil
+			// only persist the transaction if we succeeded, otherwise just update localInfo
+			var storedInfo transaction.TransactionInfo
+			if err = dbutil.WithTx(ctx, d.db, func(sqlTx *pachsql.Tx) error {
+				// Update the existing transaction with the new requests/responses
+				return d.transactions.ReadWrite(sqlTx).Update(txn.ID, &storedInfo, func() error {
+					if storedInfo.Version != localInfo.Version {
+						return &transactionModifiedError{}
+					}
+					storedInfo.Requests = localInfo.Requests
+					storedInfo.Responses = localInfo.Responses
+					storedInfo.Version += 1
+					return nil
+				})
+			}); err == nil {
+				// update succeeded, put the incremented version in the returned info
+				localInfo.Version = storedInfo.Version
+			}
 		}
-		if !errors.As(err, &transactionConflictError{}) {
+		// if we got a transactionModifiedError trying to update the stored TransactionInfo, just try again
+		if err == nil {
+			return localInfo, nil
+		} else if !errors.Is(err, &transactionModifiedError{}) {
 			return nil, err
 		}
 	}
-	return nil, &transactionConflictError{}
+	return nil, &transactionModifiedError{}
 }

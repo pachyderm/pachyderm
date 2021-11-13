@@ -2,7 +2,7 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 
-package versionpb;
+package versionpb_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/version/versionpb";
 
 message Version {

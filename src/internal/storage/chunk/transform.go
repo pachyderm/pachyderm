@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/chacha20"
 )
 
@@ -30,7 +29,7 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 		return nil, err
 	}
 	buf = buf[:n]
-	// encrypt in place; compress will always make a copy of the data.
+	// encrypt in place; buf is created above.
 	dek := encrypt(opts.Secret, buf, buf)
 	id, err := createFunc(ctx, buf)
 	if err != nil {
@@ -41,16 +40,17 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 		SizeBytes:       int64(len(buf)),
 		Dek:             dek,
 		CompressionAlgo: compressAlgo,
+		EncryptionAlgo:  EncryptionAlgo_CHACHA20,
 	}, nil
 }
 
-// Get calls getFunc to retrieve a chunk, then verifies, decrypts, and decompresses the data.
-// Uncompressed plaintext is written to w.
-func Get(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer, getFunc func(ctx context.Context, id ID, cb kv.ValueCallback) error) error {
-	if err := getFromCache(ctx, cache, ref, w); err == nil {
-		return nil
+// Get calls client.Get to retrieve a chunk, then verifies, decrypts, and decompresses the data.
+// cb is called with the uncompressed plaintext
+func Get(ctx context.Context, client Client, ref *Ref, cb kv.ValueCallback) error {
+	if ref.EncryptionAlgo != EncryptionAlgo_CHACHA20 {
+		return errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
 	}
-	return getFunc(ctx, ref.Id, func(ctext []byte) error {
+	return client.Get(ctx, ref.Id, func(ctext []byte) error {
 		if err := verifyData(ref.Id, ctext); err != nil {
 			return err
 		}
@@ -66,11 +66,7 @@ func Get(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer, getFunc fu
 		if err != nil {
 			return err
 		}
-		if err := putInCache(ctx, cache, ref, rawData); err != nil {
-			logrus.Error(err)
-		}
-		_, err = w.Write(rawData)
-		return err
+		return cb(rawData)
 	})
 }
 
@@ -187,7 +183,7 @@ func cryptoXOR(key, dst, src []byte) {
 func verifyData(id ID, x []byte) error {
 	actualHash := Hash(x)
 	if !bytes.Equal(actualHash[:], id) {
-		return errors.Errorf("bad chunk. HAVE: %x WANT: %x", actualHash, id)
+		return errors.Errorf("bad chunk. HAVE: %v WANT: %v", actualHash, id)
 	}
 	return nil
 }
@@ -199,17 +195,4 @@ func (r *Ref) Key() pachhash.Output {
 		panic(err)
 	}
 	return pachhash.Sum(data)
-}
-
-func getFromCache(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer) error {
-	key := ref.Key()
-	return cache.Get(ctx, key[:], func(value []byte) error {
-		_, err := w.Write(value)
-		return err
-	})
-}
-
-func putInCache(ctx context.Context, cache kv.GetPut, ref *Ref, data []byte) error {
-	key := ref.Key()
-	return cache.Put(ctx, key[:], data)
 }

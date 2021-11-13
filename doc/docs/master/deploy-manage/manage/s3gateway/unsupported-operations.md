@@ -1,6 +1,6 @@
 ## Unsupported operations
 
-Some of the S3 functionalities are not yet supported by Pachyderm.
+Some of the S3 operations are not yet supported by Pachyderm.
 If you run any of these operations, Pachyderm returns a standard
 S3 `NotImplemented` error.
 

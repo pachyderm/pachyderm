@@ -24,6 +24,10 @@ $ pachctl get file foo@master^:XXX
 # get file "XXX" in the grandparent of the current head of branch "master"
 # in repo "foo"
 $ pachctl get file foo@master^2:XXX
+
+# get file "test[].txt" on branch "master" in repo "foo"
+# the path is interpreted as a glob pattern: quote and protect regex characters
+$ pachctl get file 'foo@master:/test\[\].txt'
 ```
 
 ### Options

@@ -1,13 +1,18 @@
 #!/bin/bash
 # deploy.sh deploys a pachyderm 1.11.9 cluster (the first release with auth extract/restore)
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# shellcheck disable=SC1090
+source "${SCRIPT_DIR}/../../../govars.sh"
+
 set -x
 
+
 # Install old version of pachctl, for migration tests
-if [[ ! -f "${GOPATH}/bin/pachctl_1_11" ]]; then
+if [[ ! -f "${GOBIN}/pachctl_1_11" ]]; then
   curl -Ls https://github.com/pachyderm/pachyderm/releases/download/v1.11.9/pachctl_1.11.9_linux_amd64.tar.gz \
-    | tar -xz pachctl_1.11.9_linux_amd64/pachctl -O >"${GOPATH}/bin/pachctl_1_11"
-  chmod +x "${GOPATH}/bin/pachctl_1_11"
+    | tar -xz pachctl_1.11.9_linux_amd64/pachctl -O >"${GOBIN}/pachctl_1_11"
+  chmod +x "${GOBIN}/pachctl_1_11"
 fi
 
 # (If 1.11 is already deployed, we're done. Otherwise, undeploy + deploy)
@@ -25,6 +30,5 @@ if ! grep . <( kubectl get po -l suite=pachyderm 2>/dev/null ) \
   pachctl_1_11 deploy local
 
   # Wait for pachyderm to come up
-  HERE="$(dirname "${0}")"
-  until timeout 1s "${HERE}/../../../kube/check_ready.sh" app=pachd; do sleep 1; done
+  kubectl wait --for=condition=ready pod -l app=pachd --timeout=1m
 fi

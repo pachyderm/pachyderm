@@ -3,28 +3,106 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // loginAsUser sets the auth token in the pachctl config to a token for `user`
 func loginAsUser(t *testing.T, user string) {
+	if user == auth.RootUser {
+		config.WritePachTokenToConfig(tu.RootToken, false)
+		return
+	}
 	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	robot := strings.TrimPrefix(user, auth.RobotPrefix)
 	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robot})
 	require.NoError(t, err)
-	config.WritePachTokenToConfig(token.Token)
+	config.WritePachTokenToConfig(token.Token, false)
+}
+
+// this function executes the command and returns the last word
+// in the output
+func executeCmdAndGetLastWord(t *testing.T, cmd *exec.Cmd) string {
+	out, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+
+	require.NoError(t, cmd.Start())
+	sc := bufio.NewScanner(out)
+	sc.Split(bufio.ScanWords)
+	var token string
+	for sc.Scan() {
+		tmp := sc.Text()
+		if strings.TrimSpace(tmp) != "" {
+			token = tmp
+		}
+	}
+	cmd.Wait()
+	return token
+}
+
+// TestActivate tests that activating, deactivating and re-activating works.
+// This means all cluster state is being reset correctly.
+func TestActivate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetUnauthenticatedPachClient(t)
+	tu.ActivateEnterprise(t, c)
+	require.NoError(t, tu.BashCmd(`
+		echo '{{.token}}' | pachctl auth activate --supply-root-token
+		pachctl auth whoami | match {{.user}}
+		echo 'y' | pachctl auth deactivate
+		echo '{{.token}}' | pachctl auth activate --supply-root-token
+		pachctl auth whoami | match {{.user}}`,
+		"token", tu.RootToken,
+		"user", auth.RootUser,
+	).Run())
+}
+
+// TestActivateFailureRollback tests that any partial state left
+// from a failed execution is cleaned up
+func TestActivateFailureRollback(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetUnauthenticatedPachClient(t)
+	tu.ActivateEnterprise(t, c)
+	clientId := tu.UniqueString("clientId")
+	// activation fails to activate with bad issuer URL
+	require.YesError(t, tu.BashCmd(`
+		echo '{{.token}}' | pachctl auth activate --issuer 'bad-url.com' --client-id {{.id}} --supply-root-token`,
+		"token", tu.RootToken,
+		"id", clientId,
+	).Run())
+
+	// the OIDC client does not exist in pachd
+	require.YesError(t, tu.BashCmd(`
+		pachctl idp list-client | match '{{.id}}'`,
+		"id", clientId,
+	).Run())
+
+	// activation succeeds when passed happy-path values
+	require.NoError(t, tu.BashCmd(`
+		echo '{{.token}}' | pachctl auth activate --client-id {{.id}} --supply-root-token
+		pachctl auth whoami | match {{.user}}`,
+		"token", tu.RootToken,
+		"user", auth.RootUser,
+		"id", clientId,
+	).Run())
 }
 
 func TestLogin(t *testing.T) {
@@ -41,11 +119,12 @@ func TestLogin(t *testing.T) {
 	out, err := cmd.StdoutPipe()
 	require.NoError(t, err)
 
+	c := tu.GetUnauthenticatedPachClient(t)
 	require.NoError(t, cmd.Start())
 	sc := bufio.NewScanner(out)
 	for sc.Scan() {
 		if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
-			tu.DoOAuthExchange(t, sc.Text())
+			tu.DoOAuthExchange(t, c, c, sc.Text())
 			break
 		}
 	}
@@ -103,7 +182,8 @@ func TestCheckGetSet(t *testing.T) {
 	loginAsUser(t, alice)
 	require.NoError(t, tu.BashCmd(`
 		pachctl create repo {{.repo}}
-		pachctl auth check repo REPO_MODIFY_BINDINGS {{.repo}}
+		pachctl auth check repo {{.repo}} \
+                        | match 'Roles: \[repoOwner\]'
 		pachctl auth get repo {{.repo}} \
 			| match {{.alice}}
 		`,
@@ -112,6 +192,7 @@ func TestCheckGetSet(t *testing.T) {
 		"repo", tu.UniqueString("TestGet-repo"),
 	).Run())
 
+	repo := tu.UniqueString("TestGet-repo")
 	// Test 'pachctl auth set'
 	require.NoError(t, tu.BashCmd(`pachctl create repo {{.repo}}
 		pachctl auth set repo {{.repo}} repoReader {{.bob}}
@@ -121,7 +202,20 @@ func TestCheckGetSet(t *testing.T) {
 		`,
 		"alice", alice,
 		"bob", bob,
-		"repo", tu.UniqueString("TestGet-repo"),
+		"repo", repo,
+	).Run())
+
+	// Test checking another user's permissions
+	loginAsUser(t, auth.RootUser)
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth check repo {{.repo}} {{.alice}} \
+			| match "Roles: \[repoOwner\]" 
+                pachctl auth check repo {{.repo}} {{.bob}} \
+			| match "Roles: \[repoReader\]" 
+		`,
+		"alice", alice,
+		"bob", bob,
+		"repo", repo,
 	).Run())
 }
 
@@ -165,22 +259,6 @@ func TestAdmins(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestGetAndUseAuthToken(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
-
-	// Test both get-auth-token and use-auth-token; make sure that they work
-	// together with -q
-	require.NoError(t, tu.BashCmd(`pachctl auth get-auth-token -q robot:marvin \
-	  | pachctl auth use-auth-token
-	pachctl auth whoami \
-	  | match 'robot:marvin'
-		`).Run())
-}
-
 func TestGetAndUseRobotToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -198,38 +276,36 @@ func TestGetAndUseRobotToken(t *testing.T) {
 }
 
 func TestConfig(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.ActivateAuth(t)
+	tu.ConfigureOIDCProvider(t)
 	defer tu.DeleteAll(t)
 
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth set-config <<EOF
-		{
-		   "issuer": "http://localhost:658",
-                   "localhost_issuer": true,
-                   "client_id": localhost,
-                   "redirect_uri": "http://localhost:650"
-		}
-		EOF
+        pachctl auth set-config <<EOF
+        {
+            "issuer": "http://pachd:1658/",
+            "localhost_issuer": true,
+            "client_id": "localhost",
+            "redirect_uri": "http://localhost:1650"
+        }
+EOF
 		pachctl auth get-config \
-		  | match '"issuer": "localhost:658"' \
-		  | match '"localhost_issuer": true,' \
+		  | match '"issuer": "http://pachd:1658/"' \
+		  | match '"localhost_issuer": true' \
 		  | match '"client_id": "localhost"' \
-		  | match '"redirect_uri": "http://localhost:650"' \
+		  | match '"redirect_uri": "http://localhost:1650"' \
 		  | match '}'
 		`).Run())
 
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth get-config -o yaml \
-                  | match 'issuer: "localhost:658"' \
-		  | match 'localhost_issuer: true,' \
+		  | match 'issuer: http://pachd:1658/' \
+		  | match 'localhost_issuer: true' \
 		  | match 'client_id: localhost' \
-		  | match 'redirect_uri: "http://localhost:650"' \
+		  | match 'redirect_uri: http://localhost:1650' \
 		`).Run())
 }
 
@@ -257,31 +333,94 @@ func TestGetRobotTokenTTL(t *testing.T) {
 	require.NoError(t, login.Run())
 }
 
-// TestGetAuthTokenTTL tests that the --ttl argument to 'pachctl get-auth-token'
-// correctly limits the lifetime of the returned token
-func TestGetAuthTokenTTL(t *testing.T) {
+// TestGetOwnGroups tests that calling `pachctl auth get-groups` with no arguments
+// returns the current user's groups.
+func TestGetOwnGroups(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.ActivateAuth(t)
 	defer tu.DeleteAll(t)
 
-	alice := tu.UniqueString("robot:alice")
+	group := tu.UniqueString("group")
 
-	var tokenBuf bytes.Buffer
-	tokenCmd := tu.BashCmd(`pachctl auth get-auth-token {{.alice}} --ttl=5s -q`, "alice", alice)
-	tokenCmd.Stdout = &tokenBuf
-	require.NoError(t, tokenCmd.Run())
-	token := strings.TrimSpace(tokenBuf.String())
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	_, err := rootClient.ModifyMembers(rootClient.Ctx(), &auth.ModifyMembersRequest{
+		Group: group,
+		Add:   []string{auth.RootUser}},
+	)
+	require.NoError(t, err)
 
-	time.Sleep(6 * time.Second)
-	var errMsg bytes.Buffer
-	login := tu.BashCmd(`echo {{.token}} | pachctl auth use-auth-token
+	require.NoError(t, tu.BashCmd(`pachctl auth get-groups | match '{{ .group }}'`,
+		"group", group).Run())
+}
+
+// TestGetGroupsForUser tests that calling `pachctl auth get-groups` with an argument
+// returns the groups for the specified user.
+func TestGetGroups(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	alice := auth.RobotPrefix + tu.UniqueString("alice")
+	group := tu.UniqueString("group")
+
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	_, err := rootClient.ModifyMembers(rootClient.Ctx(), &auth.ModifyMembersRequest{
+		Group: group,
+		Add:   []string{alice}},
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, tu.BashCmd(`pachctl auth get-groups {{ .alice }} | match '{{ .group }}'`,
+		"group", group, "alice", alice).Run())
+}
+
+// TestRotateRootToken tests that calling 'pachctl auth rotate-root-token' rotates the root user's token
+func TestRotateRootToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	sessionToken := c.AuthToken()
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth whoami | match "pach:root"
+	`).Run())
+
+	// rotate current user's token
+	token := executeCmdAndGetLastWord(t, exec.Command("pachctl", "auth", "rotate-root-token"))
+
+	// current user (root) can't authenticate
+	require.YesError(t, tu.BashCmd(`
 		pachctl auth whoami
-	`, "token", token)
-	login.Stderr = &errMsg
-	require.YesError(t, login.Run())
-	require.Matches(t, "try logging in", errMsg.String())
+	`).Run())
+
+	// root can authenticate once the new token is set
+	require.NoError(t, config.WritePachTokenToConfig(token, false))
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth whoami | match "pach:root"
+	`).Run())
+
+	// rotate to new token and get (the same) output token
+	token = executeCmdAndGetLastWord(t, exec.Command("pachctl", "auth", "rotate-root-token", "--supply-token", sessionToken))
+
+	require.Equal(t, sessionToken, token)
+
+	require.YesError(t, tu.BashCmd(`
+		pachctl auth whoami
+	`).Run())
+
+	// root can authenticate once the new token is set
+	require.NoError(t, config.WritePachTokenToConfig(sessionToken, false))
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth whoami | match "pach:root"
+	`).Run())
 }
 
 func TestMain(m *testing.M) {
@@ -295,15 +434,6 @@ func TestMain(m *testing.M) {
 			panic(err.Error())
 		}
 	}
-	time.Sleep(time.Second)
-	backoff.Retry(func() error {
-		cmd := tu.Cmd("pachctl", "auth", "login")
-		cmd.Stdin = strings.NewReader("admin\n")
-		cmd.Stdout, cmd.Stderr = ioutil.Discard, ioutil.Discard
-		if cmd.Run() != nil {
-			return nil // cmd errored -- auth is deactivated
-		}
-		return errors.New("auth not deactivated yet")
-	}, backoff.RetryEvery(time.Second))
+
 	os.Exit(m.Run())
 }

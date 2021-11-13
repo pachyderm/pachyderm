@@ -3,8 +3,6 @@ package assets
 import (
 	"strconv"
 
-	auth "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -31,31 +29,26 @@ func EnterpriseService(opts *AssetOpts) *v1.Service {
 				// NOTE: do not put any new ports before `api-grpc-port`, as
 				// it'll change k8s SERVICE_PORT env var values
 				{
-					Port:     650, // also set in cmd/pachd/main.go
+					Port:     1650, // also set in cmd/pachd/main.go
 					Name:     "api-grpc-port",
 					NodePort: 31650,
 				},
 				{
-					Port:     651, // also set in cmd/pachd/main.go
-					Name:     "trace-port",
-					NodePort: 31651,
-				},
-				{
-					Port:     auth.OidcPort,
+					Port:     OidcPort,
 					Name:     "oidc-port",
-					NodePort: 31000 + auth.OidcPort,
+					NodePort: 31657,
 				},
 				{
-					Port:     658,
+					Port:     IdentityPort,
 					Name:     "identity-port",
 					NodePort: 31658,
 				},
 				{
-					Port:       656,
-					Name:       "prometheus-metrics",
+					Port:       1656,
+					Name:       "prom-metrics",
 					NodePort:   31656,
 					Protocol:   v1.ProtocolTCP,
-					TargetPort: intstr.FromInt(656),
+					TargetPort: intstr.FromInt(1656),
 				},
 			},
 		},

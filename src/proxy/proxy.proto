@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package proxy;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/proxy";
+
+message ListenRequest {
+  string channel = 1;
+}
+
+message ListenResponse {
+  string extra = 1;
+}
+
+service API {
+  rpc Listen(ListenRequest) returns (stream ListenResponse) {}
+}

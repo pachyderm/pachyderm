@@ -3,6 +3,7 @@ package server
 import (
 	"archive/tar"
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"github.com/wcharczuk/go-chart"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,14 +39,14 @@ const (
 )
 
 type debugServer struct {
-	env           *serviceenv.ServiceEnv
+	env           serviceenv.ServiceEnv
 	name          string
 	sidecarClient *client.APIClient
 	marshaller    *jsonpb.Marshaler
 }
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
-func NewDebugServer(env *serviceenv.ServiceEnv, name string, sidecarClient *client.APIClient) debug.DebugServer {
+func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *client.APIClient) debug.DebugServer {
 	return &debugServer{
 		env:           env,
 		name:          name,
@@ -60,67 +62,101 @@ type collectFunc func(*tar.Writer, ...string) error
 
 func (s *debugServer) handleRedirect(
 	pachClient *client.APIClient,
-	w io.Writer,
+	server grpcutil.StreamingBytesServer,
 	filter *debug.Filter,
 	collectPachd collectFunc,
 	collectPipeline collectPipelineFunc,
 	collectWorker collectWorkerFunc,
 	redirect redirectFunc,
 	collect collectFunc,
+	extraApps ...string,
 ) error {
-	return withDebugWriter(w, func(tw *tar.Writer) error {
-		// Handle filter.
-		pachdContainerPrefix := join(pachdPrefix, s.name, "pachd")
-		if filter != nil {
-			switch f := filter.Filter.(type) {
-			case *debug.Filter_Pachd:
-				return collectPachd(tw, pachdContainerPrefix)
-			case *debug.Filter_Pipeline:
-				pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Name)
-				if err != nil {
-					return err
-				}
-				return s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect)
-			case *debug.Filter_Worker:
-				if f.Worker.Redirected {
-					// Collect the storage container.
-					if s.sidecarClient == nil {
-						return collect(tw, client.PPSWorkerSidecarContainerName)
-					}
-					// Collect the user container.
-					if err := collect(tw, client.PPSWorkerUserContainerName); err != nil {
-						return err
-					}
-					// Redirect to the storage container.
-					r, err := redirect(s.sidecarClient.DebugClient, filter)
+	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
+		return withDebugWriter(w, func(tw *tar.Writer) error {
+			// Handle filter.
+			pachdContainerPrefix := join(pachdPrefix, s.name, "pachd")
+			if filter != nil {
+				switch f := filter.Filter.(type) {
+				case *debug.Filter_Pachd:
+					return collectPachd(tw, pachdContainerPrefix)
+				case *debug.Filter_Pipeline:
+					pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Name, true)
 					if err != nil {
 						return err
 					}
-					return collectDebugStream(tw, r)
+					return s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect)
+				case *debug.Filter_Worker:
+					if f.Worker.Redirected {
+						// Collect the storage container.
+						if s.sidecarClient == nil {
+							return collect(tw, client.PPSWorkerSidecarContainerName)
+						}
+						// Collect the user container.
+						if err := collect(tw, client.PPSWorkerUserContainerName); err != nil {
+							return err
+						}
+						// Redirect to the storage container.
+						r, err := redirect(s.sidecarClient.DebugClient, filter)
+						if err != nil {
+							return err
+						}
+						return collectDebugStream(tw, r)
 
+					}
+					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(f.Worker.Pod, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					return s.handleWorkerRedirect(tw, pod, collectWorker, redirect)
 				}
-				pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).Get(f.Worker.Pod, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				return s.handleWorkerRedirect(tw, pod, collectWorker, redirect)
 			}
-		}
-		// No filter, collect everything.
-		if err := collectPachd(tw, pachdContainerPrefix); err != nil {
-			return err
-		}
-		pipelineInfos, err := pachClient.ListPipeline()
-		if err != nil {
-			return err
-		}
-		for _, pipelineInfo := range pipelineInfos {
-			if err := s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
+			// No filter, collect everything.
+			if err := collectPachd(tw, pachdContainerPrefix); err != nil {
 				return err
 			}
-		}
-		return nil
+			pipelineInfos, err := pachClient.ListPipeline(true)
+			if err != nil {
+				return err
+			}
+			for _, pipelineInfo := range pipelineInfos {
+				if err := s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
+					return err
+				}
+			}
+			if len(extraApps) > 0 {
+				return s.appLogs(tw, extraApps)
+			}
+			return nil
+		})
 	})
+}
+
+func (s *debugServer) appLogs(tw *tar.Writer, apps []string) error {
+	pods, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
+		},
+		LabelSelector: metav1.FormatLabelSelector(&metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"suite": "pachyderm",
+			},
+			MatchExpressions: []metav1.LabelSelectorRequirement{{
+				Key:      "app",
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   apps,
+			}},
+		}),
+	})
+	if err != nil {
+		return err
+	}
+	for _, pod := range pods.Items {
+		if err := s.collectLogs(tw, pod.Name, "", join(pod.Labels["app"], pod.Name)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *debugServer) handlePipelineRedirect(
@@ -163,7 +199,7 @@ func (s *debugServer) forEachWorker(tw *tar.Writer, pipelineInfo *pps.PipelineIn
 }
 
 func (s *debugServer) getWorkerPods(pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
-	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).List(
+	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
 		metav1.ListOptions{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "ListOptions",
@@ -224,7 +260,7 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
-		grpcutil.NewStreamingBytesWriter(server),
+		server,
 		request.Filter,
 		collectProfileFunc(request.Profile),
 		nil,
@@ -241,7 +277,7 @@ func collectProfileFunc(profile *debug.Profile) collectFunc {
 }
 
 func collectProfile(tw *tar.Writer, profile *debug.Profile, prefix ...string) error {
-	return collectDebugFile(tw, profile.Name, func(w io.Writer) error {
+	return collectDebugFile(tw, profile.Name, "", func(w io.Writer) error {
 		return writeProfile(w, profile)
 	}, prefix...)
 }
@@ -267,7 +303,10 @@ func writeProfile(w io.Writer, profile *debug.Profile) error {
 	if p == nil {
 		return errors.Errorf("unable to find profile %q", profile.Name)
 	}
-	return p.WriteTo(w, 2)
+	if profile.Name == "goroutine" {
+		return p.WriteTo(w, 2)
+	}
+	return p.WriteTo(w, 0)
 }
 
 func redirectProfileFunc(ctx context.Context, profile *debug.Profile) redirectFunc {
@@ -287,7 +326,7 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
-		grpcutil.NewStreamingBytesWriter(server),
+		server,
 		request.Filter,
 		collectBinary,
 		nil,
@@ -298,7 +337,7 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 }
 
 func collectBinary(tw *tar.Writer, prefix ...string) error {
-	return collectDebugFile(tw, "binary", func(w io.Writer) (retErr error) {
+	return collectDebugFile(tw, "binary", "", func(w io.Writer) (retErr error) {
 		f, err := os.Open(os.Args[0])
 		if err != nil {
 			return err
@@ -330,13 +369,14 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
-		grpcutil.NewStreamingBytesWriter(server),
+		server,
 		request.Filter,
 		s.collectPachdDumpFunc(pachClient, request.Limit),
 		s.collectPipelineDumpFunc(pachClient, request.Limit),
 		s.collectWorkerDump,
 		redirectDumpFunc(pachClient.Ctx()),
 		collectDump,
+		"pg-bouncer", "etcd",
 	)
 }
 
@@ -365,15 +405,10 @@ func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APICl
 		return err
 	}
 	for _, repoInfo := range repoInfos {
-		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Name); err != nil {
-			// TODO: It would be better for this to be a structured error.
-			if strings.Contains(err.Error(), "not found") {
-				repoPrefix := join("input-repos", repoInfo.Repo.Name)
-				return collectDebugFile(tw, "commits", func(w io.Writer) error {
-					return pachClient.ListCommitF(repoInfo.Repo.Name, "", "", uint64(limit), false, func(ci *pfs.CommitInfo) error {
-						return s.marshaller.Marshal(w, ci)
-					})
-				}, repoPrefix)
+		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Name, true); err != nil {
+			if errutil.IsNotFoundError(err) {
+				repoPrefix := join("source-repos", repoInfo.Repo.Name)
+				return s.collectCommits(tw, pachClient, repoInfo.Repo, limit, repoPrefix)
 			}
 			return err
 		}
@@ -381,8 +416,118 @@ func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APICl
 	return nil
 }
 
+func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClient, repo *pfs.Repo, limit int64, prefix ...string) error {
+	compacting := chart.ContinuousSeries{
+		Name: "compacting",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(0).WithAlpha(255),
+		},
+	}
+	validating := chart.ContinuousSeries{
+		Name: "validating",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(1).WithAlpha(255),
+		},
+	}
+	finishing := chart.ContinuousSeries{
+		Name: "finishing",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
+		},
+	}
+	if err := collectDebugFile(tw, "commits", "json", func(w io.Writer) error {
+		return pachClient.ListCommitF(repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
+			if ci.Finished != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
+				compactingDuration, err := types.DurationFromProto(ci.Details.CompactingTime)
+				if err != nil {
+					return err
+				}
+				compacting.XValues = append(compacting.XValues, float64(len(compacting.XValues)+1))
+				compacting.YValues = append(compacting.YValues, float64(compactingDuration))
+				validatingDuration, err := types.DurationFromProto(ci.Details.ValidatingTime)
+				if err != nil {
+					return err
+				}
+				validating.XValues = append(validating.XValues, float64(len(validating.XValues)+1))
+				validating.YValues = append(validating.YValues, float64(validatingDuration))
+				finishingTime, err := types.TimestampFromProto(ci.Finishing)
+				if err != nil {
+					return err
+				}
+				finishedTime, err := types.TimestampFromProto(ci.Finished)
+				if err != nil {
+					return err
+				}
+				finishingDuration := finishedTime.Sub(finishingTime)
+				finishing.XValues = append(finishing.XValues, float64(len(finishing.XValues)+1))
+				finishing.YValues = append(finishing.YValues, float64(finishingDuration))
+			}
+			return s.marshaller.Marshal(w, ci)
+		})
+	}, prefix...); err != nil {
+		return err
+	}
+	// Reverse the x values since we collect them from newest to oldest.
+	// TODO: It would probably be better to support listing jobs in reverse order.
+	reverseContinuousSeries(compacting, validating, finishing)
+	return collectGraph(tw, "commits-chart", "number of commits", []chart.Series{compacting, validating, finishing}, prefix...)
+}
+
+func reverseContinuousSeries(series ...chart.ContinuousSeries) {
+	for _, s := range series {
+		for i := 0; i < len(s.XValues)/2; i++ {
+			s.XValues[i], s.XValues[len(s.XValues)-1-i] = s.XValues[len(s.XValues)-1-i], s.XValues[i]
+		}
+	}
+}
+
+func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series, prefix ...string) error {
+	return collectDebugFile(tw, name, "", func(w io.Writer) error {
+		graph := chart.Chart{
+			Title: name,
+			TitleStyle: chart.Style{
+				Show: true,
+			},
+			XAxis: chart.XAxis{
+				Name: XAxisName,
+				NameStyle: chart.Style{
+					Show: true,
+				},
+				Style: chart.Style{
+					Show: true,
+				},
+				ValueFormatter: func(v interface{}) string {
+					return fmt.Sprintf("%.0f", v.(float64))
+				},
+			},
+			YAxis: chart.YAxis{
+				Name: "time (seconds)",
+				NameStyle: chart.Style{
+					Show: true,
+				},
+				Style: chart.Style{
+					Show:                true,
+					TextHorizontalAlign: chart.TextHorizontalAlignLeft,
+				},
+				ValueFormatter: func(v interface{}) string {
+					seconds := v.(float64) / float64(time.Second)
+					return fmt.Sprintf("%.3f", seconds)
+				},
+			},
+			Series: series,
+		}
+		graph.Elements = []chart.Renderable{
+			chart.Legend(&graph),
+		}
+		return graph.Render(chart.PNG, w)
+	}, prefix...)
+}
+
 func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
-	return collectDebugFile(tw, "version", func(w io.Writer) error {
+	return collectDebugFile(tw, "version", "", func(w io.Writer) error {
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
@@ -393,8 +538,8 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 }
 
 func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
-	if err := collectDebugFile(tw, "logs", func(w io.Writer) (retErr error) {
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
+	if err := collectDebugFile(tw, "logs", "txt", func(w io.Writer) (retErr error) {
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
 		if err != nil {
 			return err
 		}
@@ -408,8 +553,8 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 	}, prefix...); err != nil {
 		return err
 	}
-	return collectDebugFile(tw, "logs-previous", func(w io.Writer) (retErr error) {
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream()
+	return collectDebugFile(tw, "logs-previous", "txt", func(w io.Writer) (retErr error) {
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream()
 		if err != nil {
 			return err
 		}
@@ -432,8 +577,8 @@ func collectDump(tw *tar.Writer, prefix ...string) error {
 
 func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limit int64) collectPipelineFunc {
 	return func(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
-		if err := collectDebugFile(tw, "spec", func(w io.Writer) error {
-			fullPipelineInfo, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name)
+		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
+			fullPipelineInfo, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name, true)
 			if err != nil {
 				return err
 			}
@@ -441,25 +586,72 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 		}, prefix...); err != nil {
 			return err
 		}
-		if err := collectDebugFile(tw, "commits", func(w io.Writer) error {
-			return pachClient.ListCommitF(pipelineInfo.Pipeline.Name, "", "", uint64(limit), false, func(ci *pfs.CommitInfo) error {
-				return s.marshaller.Marshal(w, ci)
-			})
-		}, prefix...); err != nil {
+		if err := s.collectCommits(tw, pachClient, client.NewRepo(pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			return err
 		}
-		return collectDebugFile(tw, "jobs", func(w io.Writer) error {
-			// TODO: The limiting should eventually be a feature of list job.
-			var count int64
-			return pachClient.ListJobF(pipelineInfo.Pipeline.Name, nil, nil, 0, false, func(ji *pps.JobInfo) error {
-				if count >= limit {
-					return errutil.ErrBreak
-				}
-				count++
-				return s.marshaller.Marshal(w, ji)
-			})
-		}, prefix...)
+		return s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...)
 	}
+}
+
+func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, pipelineName string, limit int64, prefix ...string) error {
+	download := chart.ContinuousSeries{
+		Name: "download",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(0).WithAlpha(255),
+		},
+	}
+	process := chart.ContinuousSeries{
+		Name: "process",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(1).WithAlpha(255),
+		},
+	}
+	upload := chart.ContinuousSeries{
+		Name: "upload",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
+		},
+	}
+	if err := collectDebugFile(tw, "jobs", "json", func(w io.Writer) error {
+		// TODO: The limiting should eventually be a feature of list job.
+		var count int64
+		return pachClient.ListJobF(pipelineName, nil, 0, false, func(ji *pps.JobInfo) error {
+			if count >= limit {
+				return errutil.ErrBreak
+			}
+			count++
+			if ji.Stats.DownloadTime != nil && ji.Stats.ProcessTime != nil && ji.Stats.UploadTime != nil {
+				downloadDuration, err := types.DurationFromProto(ji.Stats.DownloadTime)
+				if err != nil {
+					return err
+				}
+				processDuration, err := types.DurationFromProto(ji.Stats.ProcessTime)
+				if err != nil {
+					return err
+				}
+				uploadDuration, err := types.DurationFromProto(ji.Stats.UploadTime)
+				if err != nil {
+					return err
+				}
+				download.XValues = append(download.XValues, float64(len(download.XValues)+1))
+				download.YValues = append(download.YValues, float64(downloadDuration))
+				process.XValues = append(process.XValues, float64(len(process.XValues)+1))
+				process.YValues = append(process.YValues, float64(processDuration))
+				upload.XValues = append(upload.XValues, float64(len(upload.XValues)+1))
+				upload.YValues = append(upload.YValues, float64(uploadDuration))
+			}
+			return s.marshaller.Marshal(w, ji)
+		})
+	}, prefix...); err != nil {
+		return err
+	}
+	// Reverse the x values since we collect them from newest to oldest.
+	// TODO: It would probably be better to support listing jobs in reverse order.
+	reverseContinuousSeries(download, process, upload)
+	return collectGraph(tw, "jobs-chart", "number of jobs", []chart.Series{download, process, upload}, prefix...)
 }
 
 func (s *debugServer) collectWorkerDump(tw *tar.Writer, pod *v1.Pod, prefix ...string) error {

@@ -1,41 +1,110 @@
 package cmds
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 
 	"github.com/spf13/cobra"
 )
 
+type connectorConfig struct {
+	ID      string
+	Name    string
+	Type    string
+	Version int64
+	Config  interface{}
+}
+
+func newConnectorConfig(conn *identity.IDPConnector) (*connectorConfig, error) {
+	config := connectorConfig{
+		ID:      conn.Id,
+		Name:    conn.Name,
+		Type:    conn.Type,
+		Version: conn.ConfigVersion,
+	}
+
+	if err := json.Unmarshal([]byte(conn.JsonConfig), &config.Config); err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+func (c connectorConfig) toIDPConnector() (*identity.IDPConnector, error) {
+	jsonConfig, err := json.Marshal(c.Config)
+	if err != nil {
+		return nil, err
+	}
+	return &identity.IDPConnector{
+		Id:            c.ID,
+		Name:          c.Name,
+		Type:          c.Type,
+		ConfigVersion: c.Version,
+		JsonConfig:    string(jsonConfig),
+	}, nil
+}
+
+func newClient() (*client.APIClient, error) {
+	c, err := client.NewEnterpriseClientOnUserMachine("user")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
+	return c, nil
+}
+
+func deserializeYAML(file string, target interface{}) error {
+	var rawConfigBytes []byte
+	if file == "-" {
+		var err error
+		rawConfigBytes, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return errors.Wrapf(err, "could not read config from stdin")
+		}
+	} else if file != "" {
+		var err error
+		rawConfigBytes, err = ioutil.ReadFile(file)
+		if err != nil {
+			return errors.Wrapf(err, "could not read config from %q", file)
+		}
+	} else {
+		return errors.New("must set input file (use \"-\" to read from stdin)")
+	}
+
+	return serde.Decode(rawConfigBytes, target)
+}
+
 // SetIdentityServerConfigCmd returns a cobra.Command to configure the identity server
 func SetIdentityServerConfigCmd() *cobra.Command {
-	var issuer string
+	var file string
 	setConfig := &cobra.Command{
 		Short: "Set the identity server config",
 		Long:  `Set the identity server config`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			req := &identity.SetIdentityServerConfigRequest{
-				Config: &identity.IdentityServerConfig{
-					Issuer: issuer,
-				}}
+			defer c.Close()
 
-			_, err = c.SetIdentityServerConfig(c.Ctx(), req)
+			var config identity.IdentityServerConfig
+			if err := deserializeYAML(file, &config); err != nil {
+				return errors.Wrapf(err, "unable to parse config")
+			}
+
+			_, err = c.SetIdentityServerConfig(c.Ctx(), &identity.SetIdentityServerConfigRequest{Config: &config})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	setConfig.PersistentFlags().StringVar(&issuer, "issuer", "", `The issuer for the identity server.`)
+	setConfig.PersistentFlags().StringVar(&file, "config", "-", `The file to read the YAML-encoded configuration from, or '-' for stdin.`)
 	return cmdutil.CreateAlias(setConfig, "idp set-config")
 }
 
@@ -45,15 +114,22 @@ func GetIdentityServerConfigCmd() *cobra.Command {
 		Short: "Get the identity server config",
 		Long:  `Get the identity server config`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
+
 			resp, err := c.GetIdentityServerConfig(c.Ctx(), &identity.GetIdentityServerConfigRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			fmt.Printf("issuer: %q\n", resp.Config.Issuer)
+
+			yamlStr, err := serde.EncodeYAML(resp.Config)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(yamlStr))
 			return nil
 		}),
 	}
@@ -62,99 +138,66 @@ func GetIdentityServerConfigCmd() *cobra.Command {
 
 // CreateIDPConnectorCmd returns a cobra.Command to create a new IDP integration
 func CreateIDPConnectorCmd() *cobra.Command {
-	var id, name, t, file string
+	var file string
 	createConnector := &cobra.Command{
 		Short: "Create a new identity provider connector.",
 		Long:  `Create a new identity provider connector.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			var rawConfigBytes []byte
-			if file == "-" {
-				var err error
-				rawConfigBytes, err = ioutil.ReadAll(os.Stdin)
-				if err != nil {
-					return errors.Wrapf(err, "could not read config from stdin")
-				}
-			} else if file != "" {
-				var err error
-				rawConfigBytes, err = ioutil.ReadFile(file)
-				if err != nil {
-					return errors.Wrapf(err, "could not read config from %q", file)
-				}
-			} else {
-				return errors.New("must set input file (use \"-\" to read from stdin)")
+
+			var connector connectorConfig
+			if err := deserializeYAML(file, &connector); err != nil {
+				return errors.Wrapf(err, "unable to parse config")
 			}
 
-			req := &identity.CreateIDPConnectorRequest{
-				Connector: &identity.IDPConnector{
-					Id:            id,
-					Name:          name,
-					Type:          t,
-					ConfigVersion: 0,
-					JsonConfig:    string(rawConfigBytes),
-				}}
+			config, err := connector.toIDPConnector()
+			if err != nil {
+				return err
+			}
 
-			_, err = c.CreateIDPConnector(c.Ctx(), req)
+			_, err = c.CreateIDPConnector(c.Ctx(), &identity.CreateIDPConnectorRequest{Connector: config})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	createConnector.PersistentFlags().StringVar(&id, "id", "", `The id for the new connector.`)
-	createConnector.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the connector.`)
-	createConnector.PersistentFlags().StringVar(&t, "type", "", `The type of the connector, ex. github, ldap, saml.`)
-	createConnector.PersistentFlags().StringVar(&file, "config", "", `The file to read the JSON-encoded connector configuration from, or '-' for stdin.`)
+	createConnector.PersistentFlags().StringVar(&file, "config", "-", `The file to read the YAML-encoded connector configuration from, or '-' for stdin.`)
 	return cmdutil.CreateAlias(createConnector, "idp create-connector")
 }
 
 // UpdateIDPConnectorCmd returns a cobra.Command to create a new IDP integration
 func UpdateIDPConnectorCmd() *cobra.Command {
-	var name, file string
-	var version int
+	var file string
 	updateConnector := &cobra.Command{
-		Use:   "{{alias}} <connector id>",
+		Use:   "{{alias}}",
 		Short: "Update an existing identity provider connector.",
 		Long:  `Update an existing identity provider connector. Only fields which are specified are updated.`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			var rawConfigBytes []byte
-			if file == "-" {
-				var err error
-				rawConfigBytes, err = ioutil.ReadAll(os.Stdin)
-				if err != nil {
-					return errors.Wrapf(err, "could not read config from stdin")
-				}
-			} else if file != "" {
-				var err error
-				rawConfigBytes, err = ioutil.ReadFile(file)
-				if err != nil {
-					return errors.Wrapf(err, "could not read config from %q", file)
-				}
-			} else {
-				rawConfigBytes = nil
+
+			var connector connectorConfig
+			if err := deserializeYAML(file, &connector); err != nil {
+				return errors.Wrapf(err, "unable to parse config")
 			}
 
-			req := &identity.UpdateIDPConnectorRequest{
-				Connector: &identity.IDPConnector{
-					Id:            args[0],
-					Name:          name,
-					ConfigVersion: int64(version),
-					JsonConfig:    string(rawConfigBytes),
-				}}
+			config, err := connector.toIDPConnector()
+			if err != nil {
+				return err
+			}
+
+			req := &identity.UpdateIDPConnectorRequest{Connector: config}
 
 			_, err = c.UpdateIDPConnector(c.Ctx(), req)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	updateConnector.PersistentFlags().StringVar(&name, "name", "", `The new user-visible name of the connector.`)
-	updateConnector.PersistentFlags().IntVar(&version, "version", 0, `The new configuration version. This must be one greater than the current version.`)
-	updateConnector.PersistentFlags().StringVar(&file, "config", "", `The file to read the JSON-encoded connector configuration from, or '-' for stdin.`)
+	updateConnector.PersistentFlags().StringVar(&file, "config", "-", `The file to read the YAML-encoded connector configuration from, or '-' for stdin.`)
 	return cmdutil.CreateAlias(updateConnector, "idp update-connector")
 }
 
@@ -165,7 +208,7 @@ func GetIDPConnectorCmd() *cobra.Command {
 		Short: "Get the config for an identity provider connector.",
 		Long:  "Get the config for an identity provider connector.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -174,7 +217,15 @@ func GetIDPConnectorCmd() *cobra.Command {
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			fmt.Printf("name: %v\ntype: %v\nversion: %v\nconfig:\n%v\n", resp.Connector.Name, resp.Connector.Type, resp.Connector.ConfigVersion, resp.Connector.JsonConfig)
+			config, err := newConnectorConfig(resp.Connector)
+			if err != nil {
+				return err
+			}
+			yamlStr, err := serde.EncodeYAML(config)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(yamlStr))
 			return nil
 		}),
 	}
@@ -187,10 +238,11 @@ func DeleteIDPConnectorCmd() *cobra.Command {
 		Short: "Delete an identity provider connector",
 		Long:  "Delete an identity provider connector",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
 
 			_, err = c.DeleteIDPConnector(c.Ctx(), &identity.DeleteIDPConnectorRequest{Id: args[0]})
 			return grpcutil.ScrubGRPC(err)
@@ -205,7 +257,7 @@ func ListIDPConnectorsCmd() *cobra.Command {
 		Short: "List identity provider connectors",
 		Long:  `List identity provider connectors`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -217,7 +269,7 @@ func ListIDPConnectorsCmd() *cobra.Command {
 			}
 
 			for _, conn := range resp.Connectors {
-				fmt.Printf("%v - %v (%v)", conn.Id, conn.Name, conn.Type)
+				fmt.Printf("%v - %v (%v)\n", conn.Id, conn.Name, conn.Type)
 			}
 			return nil
 		}),
@@ -227,28 +279,23 @@ func ListIDPConnectorsCmd() *cobra.Command {
 
 // CreateOIDCClientCmd returns a cobra.Command to create a new OIDC client
 func CreateOIDCClientCmd() *cobra.Command {
-	var id, name, secret, redirectURI, trustedPeers string
+	var file string
 	createClient := &cobra.Command{
 		Short: "Create a new OIDC client.",
 		Long:  `Create a new OIDC client.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 
-			req := &identity.CreateOIDCClientRequest{
-				Client: &identity.OIDCClient{
-					Id:           id,
-					Name:         name,
-					Secret:       secret,
-					RedirectUris: strings.Split(redirectURI, ","),
-					TrustedPeers: strings.Split(trustedPeers, ","),
-				},
+			var client identity.OIDCClient
+			if err := deserializeYAML(file, &client); err != nil {
+				return errors.Wrapf(err, "unable to parse config")
 			}
 
-			resp, err := c.CreateOIDCClient(c.Ctx(), req)
+			resp, err := c.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{Client: &client})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -257,11 +304,7 @@ func CreateOIDCClientCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	createClient.PersistentFlags().StringVar(&id, "id", "", `The client_id of the new client.`)
-	createClient.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the new client.`)
-	createClient.PersistentFlags().StringVar(&secret, "secret", "", `The client secret for the new client. A random secret will be generated if not specified.`)
-	createClient.PersistentFlags().StringVar(&redirectURI, "redirectUris", "", `A comma-separated list of authorized redirect URLs for callbacks.`)
-	createClient.PersistentFlags().StringVar(&trustedPeers, "trustedPeers", "", `A comma-separated list of clients who can get tokens for this service.`)
+	createClient.PersistentFlags().StringVar(&file, "config", "-", `The file to read the YAML-encoded client configuration from, or '-' for stdin.`)
 	return cmdutil.CreateAlias(createClient, "idp create-client")
 }
 
@@ -272,7 +315,7 @@ func DeleteOIDCClientCmd() *cobra.Command {
 		Short: "Delete an OIDC client.",
 		Long:  `Delete an OIDC client.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -292,7 +335,7 @@ func GetOIDCClientCmd() *cobra.Command {
 		Short: "Get an OIDC client.",
 		Long:  `Get an OIDC client.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -302,7 +345,12 @@ func GetOIDCClientCmd() *cobra.Command {
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			fmt.Printf("client_id: %v\nsecret: %v\nname: %v\nredirect URIs: %v\ntrusted peers: %v\n", resp.Client.Id, resp.Client.Secret, resp.Client.Name, strings.Join(resp.Client.RedirectUris, ", "), strings.Join(resp.Client.TrustedPeers, ", "))
+
+			yamlStr, err := serde.EncodeYAML(resp.Client)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(yamlStr))
 			return nil
 		}),
 	}
@@ -311,35 +359,29 @@ func GetOIDCClientCmd() *cobra.Command {
 
 // UpdateOIDCClientCmd returns a cobra.Command to update an existing OIDC client
 func UpdateOIDCClientCmd() *cobra.Command {
-	var name string
-	var redirectURIs, trustedPeers []string
+	var file string
 	updateClient := &cobra.Command{
-		Use:   "{{alias}} <client ID>",
+		Use:   "{{alias}}",
 		Short: "Update an OIDC client.",
 		Long:  `Update an OIDC client.`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 
-			req := &identity.UpdateOIDCClientRequest{
-				Client: &identity.OIDCClient{
-					Id:           args[0],
-					Name:         name,
-					RedirectUris: redirectURIs,
-					TrustedPeers: trustedPeers,
-				},
+			var client identity.OIDCClient
+			if err := deserializeYAML(file, &client); err != nil {
+				return errors.Wrapf(err, "unable to parse config")
 			}
 
-			_, err = c.UpdateOIDCClient(c.Ctx(), req)
+			_, err = c.UpdateOIDCClient(c.Ctx(), &identity.UpdateOIDCClientRequest{Client: &client})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	updateClient.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the new client.`)
-	updateClient.PersistentFlags().StringSliceVar(&redirectURIs, "redirectUris", nil, `A comma-separated list of redirect URLs for callbacks.`)
-	updateClient.PersistentFlags().StringSliceVar(&trustedPeers, "trustedPeers", nil, `A comma-separated list of clients that can get tokens for this service`)
+
+	updateClient.PersistentFlags().StringVar(&file, "config", "-", `The file to read the YAML-encoded client configuration from, or '-' for stdin.`)
 	return cmdutil.CreateAlias(updateClient, "idp update-client")
 }
 
@@ -349,7 +391,7 @@ func ListOIDCClientsCmd() *cobra.Command {
 		Short: "List OIDC clients.",
 		Long:  `List OIDC clients.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -361,7 +403,7 @@ func ListOIDCClientsCmd() *cobra.Command {
 			}
 
 			for _, client := range resp.Clients {
-				fmt.Printf("%v", client.Id)
+				fmt.Printf("%v\n", client.Id)
 			}
 			return nil
 		}),

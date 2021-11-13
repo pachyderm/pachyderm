@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"golang.org/x/oauth2"
@@ -24,11 +23,12 @@ const DexMockConnectorEmail = `kilgore@kilgore.trout`
 // OIDCOIDCConfig is an auth config which can be used to connect to the identity service in tests
 func OIDCOIDCConfig() *auth.OIDCConfig {
 	return &auth.OIDCConfig{
-		Issuer:          "http://localhost:30658/",
+		Issuer:          "http://pachd:1658/",
 		ClientID:        "pachyderm",
 		ClientSecret:    "notsecret",
-		RedirectURI:     "http://pachd:657/authorization-code/callback",
+		RedirectURI:     "http://pachd:1657/authorization-code/callback",
 		LocalhostIssuer: true,
+		Scopes:          auth.DefaultOIDCScopes,
 	}
 }
 
@@ -42,7 +42,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 
 	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer: "http://localhost:30658/",
+			Issuer: "http://pachd:1658/",
 		},
 	})
 	require.NoError(t, err)
@@ -52,7 +52,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 		resp, err := adminClient.GetIdentityServerConfig(adminClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			"http://localhost:30658/", resp.Config.Issuer,
+			"http://pachd:1658/", resp.Config.Issuer,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -70,7 +70,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 		Client: &identity.OIDCClient{
 			Id:           "testapp",
 			Name:         "testapp",
-			RedirectUris: []string{"http://test.example.com:657/authorization-code/callback"},
+			RedirectUris: []string{"http://test.example.com:1657/authorization-code/callback"},
 			Secret:       "test",
 		},
 	})
@@ -80,7 +80,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 		Client: &identity.OIDCClient{
 			Id:           "pachyderm",
 			Name:         "pachyderm",
-			RedirectUris: []string{"http://pachd:657/authorization-code/callback"},
+			RedirectUris: []string{"http://pachd:1657/authorization-code/callback"},
 			Secret:       "notsecret",
 			TrustedPeers: []string{"testapp"},
 		},
@@ -95,9 +95,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 }
 
 // DoOAuthExchange does the OAuth dance to log in to the mock provider, given a login URL
-func DoOAuthExchange(t testing.TB, loginURL string) {
-	testClient := GetUnauthenticatedPachClient(t)
-
+func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClient, loginURL string) {
 	// Create an HTTP client that doesn't follow redirects.
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
@@ -108,7 +106,11 @@ func DoOAuthExchange(t testing.TB, loginURL string) {
 	}
 
 	// Get the initial URL from the grpc, which should point to the dex login page
-	resp, err := c.Get(RewriteURL(t, loginURL, DexHost(testClient)))
+	resp, err := c.Get(RewriteURL(t, loginURL, DexHost(enterpriseClient)))
+	require.NoError(t, err)
+
+	// Dex login redirects to the provider page, which will generate it's own state
+	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(enterpriseClient)))
 	require.NoError(t, err)
 
 	// Because we've only configured username/password login, there's a redirect
@@ -118,15 +120,15 @@ func DoOAuthExchange(t testing.TB, loginURL string) {
 	vals.Add("login", "admin")
 	vals.Add("password", "password")
 
-	resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(testClient)), vals)
+	resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(enterpriseClient)), vals)
 	require.NoError(t, err)
 
 	// The username/password flow redirects back to the dex /approval endpoint
-	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
+	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(enterpriseClient)))
 	require.NoError(t, err)
 
 	// Follow the resulting redirect back to pachd to complete the flow
-	_, err = c.Get(RewriteRedirect(t, resp, pachHost(testClient)))
+	_, err = c.Get(RewriteRedirect(t, resp, pachHost(pachClient)))
 	require.NoError(t, err)
 }
 
@@ -144,7 +146,7 @@ func GetOIDCTokenForTrustedApp(t testing.TB) string {
 	oauthConfig := oauth2.Config{
 		ClientID:     "testapp",
 		ClientSecret: "test",
-		RedirectURL:  "http://test.example.com:657/authorization-code/callback",
+		RedirectURL:  "http://test.example.com:1657/authorization-code/callback",
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  RewriteURL(t, "http://pachd:30658/auth", DexHost(testClient)),
 			TokenURL: RewriteURL(t, "http://pachd:30658/token", DexHost(testClient)),
@@ -159,6 +161,10 @@ func GetOIDCTokenForTrustedApp(t testing.TB) string {
 
 	// Hit the dex login page for the test client with a fixed nonce
 	resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
+	require.NoError(t, err)
+
+	// Dex login redirects to the provider page, which will generate it's own state
+	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
 	require.NoError(t, err)
 
 	// Because we've only configured username/password login, there's a redirect
@@ -200,17 +206,21 @@ func RewriteURL(t testing.TB, urlStr, host string) string {
 
 // DexHost returns the address to access the identity server during tests
 func DexHost(c *client.APIClient) string {
-	parts := strings.Split(c.GetAddress(), ":")
-	if parts[1] == "650" {
-		return parts[0] + ":658"
+	if c.GetAddress().Port == 1650 {
+		return c.GetAddress().Host + ":1658"
 	}
-	return parts[0] + ":30658"
+	if c.GetAddress().Port == 31650 {
+		return c.GetAddress().Host + ":31658"
+	}
+	return c.GetAddress().Host + ":30658"
 }
 
 func pachHost(c *client.APIClient) string {
-	parts := strings.Split(c.GetAddress(), ":")
-	if parts[1] == "650" {
-		return parts[0] + ":657"
+	if c.GetAddress().Port == 1650 {
+		return c.GetAddress().Host + ":1657"
 	}
-	return parts[0] + ":30657"
+	if c.GetAddress().Port == 31650 {
+		return c.GetAddress().Host + ":31657"
+	}
+	return c.GetAddress().Host + ":30657"
 }

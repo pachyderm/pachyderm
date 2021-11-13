@@ -8,7 +8,7 @@ import (
 )
 
 func TestErrorMatching(t *testing.T) {
-	c := client.NewCommit("foo", "bar")
+	c := client.NewCommit("foo", "bar", "")
 	require.True(t, IsCommitNotFoundErr(ErrCommitNotFound{c}))
 	require.False(t, IsCommitNotFoundErr(ErrCommitDeleted{c}))
 	require.False(t, IsCommitNotFoundErr(ErrCommitFinished{c}))

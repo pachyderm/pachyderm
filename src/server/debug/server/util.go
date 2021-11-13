@@ -4,10 +4,12 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
 )
 
 func join(names ...string) string {
@@ -30,7 +32,7 @@ func withDebugWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	return cb(tw)
 }
 
-func collectDebugFile(tw *tar.Writer, name string, cb func(io.Writer) error, prefix ...string) (retErr error) {
+func collectDebugFile(tw *tar.Writer, name, ext string, cb func(io.Writer) error, prefix ...string) (retErr error) {
 	if len(prefix) > 0 {
 		name = join(prefix[0], name)
 	}
@@ -39,11 +41,15 @@ func collectDebugFile(tw *tar.Writer, name string, cb func(io.Writer) error, pre
 			retErr = writeErrorFile(tw, retErr, name)
 		}
 	}()
-	return withTmpFile(func(f *os.File) error {
+	return fsutil.WithTmpFile("pachyderm_debug", func(f *os.File) error {
 		if err := cb(f); err != nil {
 			return err
 		}
-		return writeTarFile(tw, name, f)
+		fullName := name
+		if ext != "" {
+			fullName += "." + ext
+		}
+		return writeTarFile(tw, fullName, f)
 	})
 }
 
@@ -52,7 +58,7 @@ func writeErrorFile(tw *tar.Writer, err error, prefix ...string) error {
 	if len(prefix) > 0 {
 		file = join(prefix[0], file)
 	}
-	return withTmpFile(func(f *os.File) error {
+	return fsutil.WithTmpFile("pachyderm_debug", func(f *os.File) error {
 		if _, err := io.Copy(f, strings.NewReader(err.Error()+"\n")); err != nil {
 			return err
 		}
@@ -60,29 +66,10 @@ func writeErrorFile(tw *tar.Writer, err error, prefix ...string) error {
 	})
 }
 
-func withTmpFile(cb func(*os.File) error) (retErr error) {
-	if err := os.MkdirAll(os.TempDir(), 0700); err != nil {
-		return err
-	}
-	f, err := ioutil.TempFile(os.TempDir(), "pachyderm_debug")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := os.Remove(f.Name()); retErr == nil {
-			retErr = err
-		}
-		if err := f.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	return cb(f)
-}
-
 func writeTarFile(tw *tar.Writer, name string, f *os.File) error {
 	fi, err := os.Stat(f.Name())
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	hdr := &tar.Header{
 		Name: join(name),

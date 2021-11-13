@@ -1,0 +1,29 @@
+deployTarget: custom
+
+pachd:
+  service:
+    type: NodePort
+  image:
+    tag: local
+  storage:
+    backend: MINIO
+    minio:
+      bucket: "pachyderm-test"
+      endpoint: "minio.default.svc.cluster.local:9000"
+      id: "minioadmin"
+      secret: "minioadmin"
+      secure: "false"
+      signature: ""
+  metrics:
+    enabled: false
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512M
+
+etcd:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512M
+

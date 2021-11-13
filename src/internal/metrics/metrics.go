@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	auth_client "github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	log "github.com/sirupsen/logrus"
@@ -24,21 +25,23 @@ import (
 type Reporter struct {
 	router    *router
 	clusterID string
-	env       *serviceenv.ServiceEnv
+	env       serviceenv.ServiceEnv
 }
+
+const metricsUsername = "metrics"
 
 // NewReporter creates a new reporter and kicks off the loop to report cluster
 // metrics
-func NewReporter(clusterID string, env *serviceenv.ServiceEnv) *Reporter {
+func NewReporter(env serviceenv.ServiceEnv) *Reporter {
 	var r *router
-	if env.MetricsEndpoint != "" {
-		r = newRouter(env.MetricsEndpoint)
+	if env.Config().MetricsEndpoint != "" {
+		r = newRouter(env.Config().MetricsEndpoint)
 	} else {
 		r = newRouter()
 	}
 	reporter := &Reporter{
 		router:    r,
-		clusterID: clusterID,
+		clusterID: env.ClusterID(),
 		env:       env,
 	}
 	go reporter.reportClusterMetrics()
@@ -144,7 +147,7 @@ func (r *Reporter) reportClusterMetrics() {
 	for {
 		time.Sleep(reportingInterval)
 		metrics := &Metrics{}
-		internalMetrics(r.env.GetPachClient(context.Background()), metrics)
+		r.internalMetrics(metrics)
 		externalMetrics(r.env.GetKubeClient(), metrics)
 		metrics.ClusterID = r.clusterID
 		metrics.PodID = uuid.NewWithoutDashes()
@@ -200,7 +203,6 @@ func inputMetrics(input *pps.Input, metrics *Metrics) {
 	}
 	if input.Group != nil {
 		metrics.InputGroup++
-		inputMetrics(input, metrics)
 		for _, item := range input.Group {
 			if item.Pfs != nil {
 				pfsInputMetrics(item.Pfs, metrics)
@@ -232,145 +234,148 @@ func inputMetrics(input *pps.Input, metrics *Metrics) {
 	if input.Cron != nil {
 		metrics.InputCron++
 	}
-	if input.Git != nil {
-		metrics.InputGit++
-	}
 	if input.Pfs != nil {
 		pfsInputMetrics(input.Pfs, metrics)
 	}
 }
 
-func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
-
+func (r *Reporter) internalMetrics(metrics *Metrics) {
 	// We should not return due to an error
-
 	// Activation code
-	enterpriseState, err := pachClient.Enterprise.GetState(pachClient.Ctx(), &enterprise.GetStateRequest{})
+	ctx, cf := context.WithCancel(context.Background())
+	defer cf()
+
+	enterpriseState, err := r.env.EnterpriseServer().GetState(ctx, &enterprise.GetStateRequest{})
 	if err == nil {
 		metrics.ActivationCode = enterpriseState.ActivationCode
 	}
+	metrics.EnterpriseFailures = enterprisemetrics.GetEnterpriseFailures()
 
-	// Pipeline info
-	resp, err := pachClient.PpsAPIClient.ListPipeline(pachClient.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
-	if err == nil {
-		metrics.Pipelines = int64(len(resp.PipelineInfo)) // Number of pipelines
-		for _, pi := range resp.PipelineInfo {
-			if pi.ParallelismSpec != nil {
-				if metrics.MaxParallelism < pi.ParallelismSpec.Constant {
-					metrics.MaxParallelism = pi.ParallelismSpec.Constant
-				}
-				if metrics.MinParallelism > pi.ParallelismSpec.Constant {
-					metrics.MinParallelism = pi.ParallelismSpec.Constant
-				}
-				metrics.NumParallelism++
-			}
-			if pi.Egress != nil {
-				metrics.CfgEgress++
-			}
-			if pi.JobCounts != nil {
-				var cnt int64 = 0
-				for _, c := range pi.JobCounts {
-					cnt += int64(c)
-				}
-				if metrics.Jobs < cnt {
-					metrics.Jobs = cnt
-				}
-			}
-			if pi.ResourceRequests != nil {
-				if pi.ResourceRequests.Cpu != 0 {
-					metrics.ResourceCpuReq += pi.ResourceRequests.Cpu
-					if metrics.ResourceCpuReqMax < pi.ResourceRequests.Cpu {
-						metrics.ResourceCpuReqMax = pi.ResourceRequests.Cpu
-					}
-				}
-				if pi.ResourceRequests.Memory != "" {
-					metrics.ResourceMemReq += (pi.ResourceRequests.Memory + " ")
-				}
-				if pi.ResourceRequests.Gpu != nil {
-					metrics.ResourceGpuReq += pi.ResourceRequests.Gpu.Number
-					if metrics.ResourceGpuReqMax < pi.ResourceRequests.Gpu.Number {
-						metrics.ResourceGpuReqMax = pi.ResourceRequests.Gpu.Number
-					}
-				}
-				if pi.ResourceRequests.Disk != "" {
-					metrics.ResourceDiskReq += (pi.ResourceRequests.Disk + " ")
-				}
-			}
-			if pi.ResourceLimits != nil {
-				if pi.ResourceLimits.Cpu != 0 {
-					metrics.ResourceCpuLimit += pi.ResourceLimits.Cpu
-					if metrics.ResourceCpuLimitMax < pi.ResourceLimits.Cpu {
-						metrics.ResourceCpuLimitMax = pi.ResourceLimits.Cpu
-					}
-				}
-				if pi.ResourceLimits.Memory != "" {
-					metrics.ResourceMemLimit += (pi.ResourceLimits.Memory + " ")
-				}
-				if pi.ResourceLimits.Gpu != nil {
-					metrics.ResourceGpuLimit += pi.ResourceLimits.Gpu.Number
-					if metrics.ResourceGpuLimitMax < pi.ResourceLimits.Gpu.Number {
-						metrics.ResourceGpuLimitMax = pi.ResourceLimits.Gpu.Number
-					}
-				}
-				if pi.ResourceLimits.Disk != "" {
-					metrics.ResourceDiskLimit += (pi.ResourceLimits.Disk + " ")
-				}
-			}
-			if pi.Input != nil {
-				inputMetrics(pi.Input, metrics)
-			}
-			if pi.EnableStats {
-				metrics.CfgStats++
-			}
-			if pi.Service != nil {
-				metrics.CfgServices++
-			}
-			if pi.Spout != nil {
-				metrics.PpsSpout++
-				if pi.Spout.Service != nil {
-					metrics.PpsSpoutService++
-				}
-			}
-			if pi.Standby {
-				metrics.CfgStandby++
-			}
-			if pi.S3Out {
-				metrics.CfgS3Gateway++
-			}
-			if pi.Transform != nil {
-				if pi.Transform.ErrCmd != nil {
-					metrics.CfgErrcmd++
-				}
-				if pi.Transform.Build != nil {
-					metrics.PpsBuild++
-				}
-			}
-			if pi.TFJob != nil {
-				metrics.CfgTfjob++
-			}
-		}
-	} else {
-		log.Errorf("Error getting pipeline metrics: %v", err)
+	resp, err := r.env.AuthServer().GetRobotToken(ctx, &auth_client.GetRobotTokenRequest{
+		Robot: metricsUsername,
+		TTL:   int64(reportingInterval.Seconds() / 2),
+	})
+	if err != nil && !auth_client.IsErrNotActivated(err) {
+		log.Errorf("Error getting metics auth token: %v", err)
+		return // couldn't authorize, can't continue
 	}
 
-	ris, err := pachClient.ListRepo()
-	if err == nil {
-		var sz, mbranch uint64 = 0, 0
-		for _, ri := range ris {
-			if (sz + ri.SizeBytes) < sz {
-				sz = 0xFFFFFFFFFFFFFFFF
-			} else {
-				sz += ri.SizeBytes
+	pachClient := r.env.GetPachClient(ctx)
+	if resp != nil {
+		pachClient.SetAuthToken(resp.Token)
+	}
+	// Pipeline info
+	infos, err := pachClient.ListPipeline(true)
+	if err != nil {
+		log.Errorf("Error getting pipeline metrics: %v", err)
+	} else {
+		for _, pi := range infos {
+			metrics.Pipelines += 1
+			// count total jobs
+			var cnt int64
+			// just ignore error
+			_ = pachClient.ListJobF(pi.Pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
+				cnt++
+				return nil
+			})
+			if metrics.Jobs < cnt {
+				metrics.Jobs = cnt
 			}
+			if details := pi.Details; details != nil {
+				if details.ParallelismSpec != nil {
+					if metrics.MaxParallelism < details.ParallelismSpec.Constant {
+						metrics.MaxParallelism = details.ParallelismSpec.Constant
+					}
+					if metrics.MinParallelism > details.ParallelismSpec.Constant {
+						metrics.MinParallelism = details.ParallelismSpec.Constant
+					}
+					metrics.NumParallelism++
+				}
+				if details.Egress != nil {
+					metrics.CfgEgress++
+				}
+				if details.ResourceRequests != nil {
+					if details.ResourceRequests.Cpu != 0 {
+						metrics.ResourceCpuReq += details.ResourceRequests.Cpu
+						if metrics.ResourceCpuReqMax < details.ResourceRequests.Cpu {
+							metrics.ResourceCpuReqMax = details.ResourceRequests.Cpu
+						}
+					}
+					if details.ResourceRequests.Memory != "" {
+						metrics.ResourceMemReq += (details.ResourceRequests.Memory + " ")
+					}
+					if details.ResourceRequests.Gpu != nil {
+						metrics.ResourceGpuReq += details.ResourceRequests.Gpu.Number
+						if metrics.ResourceGpuReqMax < details.ResourceRequests.Gpu.Number {
+							metrics.ResourceGpuReqMax = details.ResourceRequests.Gpu.Number
+						}
+					}
+					if details.ResourceRequests.Disk != "" {
+						metrics.ResourceDiskReq += (details.ResourceRequests.Disk + " ")
+					}
+				}
+				if details.ResourceLimits != nil {
+					if details.ResourceLimits.Cpu != 0 {
+						metrics.ResourceCpuLimit += details.ResourceLimits.Cpu
+						if metrics.ResourceCpuLimitMax < details.ResourceLimits.Cpu {
+							metrics.ResourceCpuLimitMax = details.ResourceLimits.Cpu
+						}
+					}
+					if details.ResourceLimits.Memory != "" {
+						metrics.ResourceMemLimit += (details.ResourceLimits.Memory + " ")
+					}
+					if details.ResourceLimits.Gpu != nil {
+						metrics.ResourceGpuLimit += details.ResourceLimits.Gpu.Number
+						if metrics.ResourceGpuLimitMax < details.ResourceLimits.Gpu.Number {
+							metrics.ResourceGpuLimitMax = details.ResourceLimits.Gpu.Number
+						}
+					}
+					if details.ResourceLimits.Disk != "" {
+						metrics.ResourceDiskLimit += (details.ResourceLimits.Disk + " ")
+					}
+				}
+				if details.Input != nil {
+					inputMetrics(details.Input, metrics)
+				}
+				if details.Service != nil {
+					metrics.CfgServices++
+				}
+				if details.Spout != nil {
+					metrics.PpsSpout++
+					if details.Spout.Service != nil {
+						metrics.PpsSpoutService++
+					}
+				}
+				if details.S3Out {
+					metrics.CfgS3Gateway++
+				}
+				if details.Transform != nil {
+					if details.Transform.ErrCmd != nil {
+						metrics.CfgErrcmd++
+					}
+				}
+				if details.TFJob != nil {
+					metrics.CfgTfjob++
+				}
+			}
+		}
+	}
+
+	var count int64
+	var sz, mbranch uint64
+	repos, err := pachClient.ListRepo()
+	if err != nil {
+		log.Errorf("Error getting repos: %v", err)
+	} else {
+		for _, ri := range repos {
+			count += 1
+			sz += uint64(ri.SizeBytesUpperBound)
 			if mbranch < uint64(len(ri.Branches)) {
 				mbranch = uint64(len(ri.Branches))
 			}
 		}
-		metrics.Repos = int64(len(ris))
+		metrics.Repos = int64(len(repos))
 		metrics.Bytes = sz
 		metrics.MaxBranches = mbranch
-	} else {
-		log.Errorf("Error getting repo metrics: %v", err)
 	}
-	//log.Infof("Metrics logged: %v", metrics)
 }

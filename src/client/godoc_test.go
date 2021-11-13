@@ -13,7 +13,7 @@ func ExampleAPIClient_CreateRepo() {
 
 	// Create a repo called "test" and print the list of
 	// repositories.
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +41,7 @@ func ExampleAPIClient_CreateRepo() {
 func ExampleAPIClient_DeleteRepo() {
 
 	// Delete a repository called "test".
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +65,7 @@ func ExampleAPIClient_DeleteRepo() {
 func ExampleAPIClient_ListRepo() {
 
 	// View the list of existing repositories.
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -88,79 +88,42 @@ func ExampleAPIClient_ListRepo() {
 	fmt.Println(repos)
 }
 
-func ExampleAPIClient_PutFileWriter() {
-
-	// This method enables you to put data into a
-	// Pachyderm repo by using an "io.Writer" API.
-
-	c, err := NewFromAddress("127.0.0.1:30650")
-	if err != nil {
-		panic(err)
-	}
-
-	if _, err := c.PfsAPIClient.CreateRepo(
-		c.Ctx(),
-		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
-			Description: "A test repo",
-			Update:      true,
-		},
-	); err != nil {
-		panic(err)
-	}
-	w, err := c.PutFileWriter("test", "master", "file")
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		if err := w.Close(); err != nil {
-			panic(err)
-		}
-	}()
-	if _, err := w.Write([]byte("foo\n")); err != nil {
-		panic(err)
-	}
-
-	files, err := c.ListFileAll("test", "master", "/")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(files)
-}
-
-func ExampleAPIClient_NewPutFileClient() {
+func ExampleAPIClient_NewModifyFileClient() {
 
 	// This method enables you to group multiple "put file" operations into one
 	// request.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
 
+	testRepo := NewRepo("test")
+	testCommit := testRepo.NewCommit("master", "")
+
 	if _, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
+			Repo:        testRepo,
 			Description: "A test repo",
 			Update:      true,
 		},
 	); err != nil {
 		panic(err)
 	}
-	pfc, err := c.NewPutFileClient()
+	mfc, err := c.NewModifyFileClient(testCommit)
 	if err != nil {
 		panic(err)
 	}
 	defer func() {
-		if err := pfc.Close(); err != nil {
+		if err := mfc.Close(); err != nil {
 			panic(err)
 		}
 	}()
-	if err := pfc.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
+	if err := mfc.PutFile("file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFileAll("test", "master", "/")
+	files, err := c.ListFileAll(testCommit, "/")
 	if err != nil {
 		panic(err)
 	}
@@ -174,15 +137,18 @@ func ExampleAPIClient_PutFile_string() {
 	// string in the scripts and adds it to a file named "file" in the "test"
 	// repository.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
 
+	testRepo := NewRepo("test")
+	testCommit := testRepo.NewCommit("master", "")
+
 	if _, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
+			Repo:        testRepo,
 			Description: "A test repo",
 			Update:      true,
 		},
@@ -190,10 +156,10 @@ func ExampleAPIClient_PutFile_string() {
 		panic(err)
 	}
 
-	if err := c.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile(testCommit, "file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFileAll("test", "master", "/")
+	files, err := c.ListFileAll(testCommit, "/")
 	if err != nil {
 		panic(err)
 	}
@@ -210,15 +176,18 @@ func ExampleAPIClient_PutFile_file() {
 	// opens the file named "text.md" and then uses the PutFile method to add it
 	// to the repo "test@master".
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
 
+	testRepo := NewRepo("test")
+	testCommit := testRepo.NewCommit("master", "")
+
 	if _, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
+			Repo:        testRepo,
 			Description: "A test repo",
 			Update:      true,
 		},
@@ -230,10 +199,10 @@ func ExampleAPIClient_PutFile_file() {
 	if err != nil {
 		panic(err)
 	}
-	if err := c.PutFile("test", "master", "text", f); err != nil {
+	if err := c.PutFile(testCommit, "text", f); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFileAll("test", "master", "/")
+	files, err := c.ListFileAll(testCommit, "/")
 	if err != nil {
 		panic(err)
 	}
@@ -247,7 +216,7 @@ func ExampleAPIClient_CreateBranch() {
 	// branch that will be used as head, and provenance. Provenance
 	// is an optional paramater and get be set to "nil" for nothing,
 	// to a commit ID or to a branch name.
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
@@ -263,7 +232,7 @@ func ExampleAPIClient_CreateBranch() {
 		panic(err)
 	}
 
-	if err := c.CreateBranch("test", "newbranch", "master", nil); err != nil {
+	if err := c.CreateBranch("test", "newbranch", "master", "", nil); err != nil {
 		panic(err)
 	}
 
@@ -286,15 +255,18 @@ func ExampleAPIClient_ListCommit() {
 	// In the example below, the "to" parameter is left blank, and the "from"
 	// parameter is set to "0", which means all commits.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
 
+	testRepo := NewRepo("test")
+	testCommit := testRepo.NewCommit("master", "")
+
 	if _, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
+			Repo:        testRepo,
 			Description: "A test repo",
 			Update:      true,
 		},
@@ -302,17 +274,17 @@ func ExampleAPIClient_ListCommit() {
 		panic(err)
 	}
 
-	if err := c.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile(testCommit, "file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	if err := c.PutFile("test", "master", "file", strings.NewReader("bar\n")); err != nil {
+	if err := c.PutFile(testCommit, "file", strings.NewReader("bar\n")); err != nil {
 		panic(err)
 	}
-	if err := c.PutFile("test", "master", "file", strings.NewReader("buzz\n")); err != nil {
+	if err := c.PutFile(testCommit, "file", strings.NewReader("buzz\n")); err != nil {
 		panic(err)
 	}
 
-	cis, err := c.ListCommit("test", "master", "", 0)
+	cis, err := c.ListCommit(testRepo, testCommit, nil, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -337,15 +309,18 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 	// index [1] that adds "file2" in the repository "test" and will create
 	// a branch "new-branch" in which we will add "file4". "newbranch" will
 	// have "file1", "file2", and "file4", but will not have "file3".
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
 
+	testRepo := NewRepo("test")
+	testCommit := testRepo.NewCommit("master", "")
+
 	if _, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
+			Repo:        testRepo,
 			Description: "A test repo",
 			Update:      true,
 		},
@@ -353,28 +328,30 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 		panic(err)
 	}
 
-	if err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile(testCommit, "file1", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	if err := c.PutFile("test", "master", "file2", strings.NewReader("bar\n")); err != nil {
+	if err := c.PutFile(testCommit, "file2", strings.NewReader("bar\n")); err != nil {
 		panic(err)
 	}
-	if err := c.PutFile("test", "master", "file3", strings.NewReader("buzz\n")); err != nil {
+	if err := c.PutFile(testCommit, "file3", strings.NewReader("buzz\n")); err != nil {
 		panic(err)
 	}
 
-	cis, err := c.ListCommit("test", "master", "", 0)
+	cis, err := c.ListCommit(testRepo, testCommit, nil, 0)
 	if err != nil {
 		panic(err)
 	}
 
-	if err := c.CreateBranch("test", "new-branch", cis[1].Commit.ID, nil); err != nil {
+	if err := c.CreateBranch("test", "new-branch", "", cis[1].Commit.ID, nil); err != nil {
 		panic(err)
 	}
-	if err := c.PutFile("test", "new-branch", "file4", strings.NewReader("fizz\n")); err != nil {
+
+	newCommit := testRepo.NewCommit("new-branch", "")
+	if err := c.PutFile(newCommit, "file4", strings.NewReader("fizz\n")); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFileAll("test", "new-branch", "/")
+	files, err := c.ListFileAll(newCommit, "/")
 	if err != nil {
 		panic(err)
 	}
@@ -390,15 +367,18 @@ func ExampleAPIClient_ListCommitF() {
 	// instead of returning all commits at once. Most of Pachyderm's
 	// "List" methods have a similar function.
 
-	c, err := NewFromAddress("127.0.0.1:30650")
+	c, err := NewFromURI("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
 	}
 
+	testRepo := NewRepo("test")
+	testCommit := testRepo.NewCommit("master", "")
+
 	if _, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
+			Repo:        testRepo,
 			Description: "A test repo",
 			Update:      true,
 		},
@@ -406,18 +386,18 @@ func ExampleAPIClient_ListCommitF() {
 		panic(err)
 	}
 
-	if err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile(testCommit, "file1", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	if err := c.PutFile("test", "master", "file2", strings.NewReader("bar\n")); err != nil {
+	if err := c.PutFile(testCommit, "file2", strings.NewReader("bar\n")); err != nil {
 		panic(err)
 	}
-	if err := c.PutFile("test", "master", "file3", strings.NewReader("buzz\n")); err != nil {
+	if err := c.PutFile(testCommit, "file3", strings.NewReader("buzz\n")); err != nil {
 		panic(err)
 	}
 
 	var nCommits int
-	if err := c.ListCommitF("test", "master", "", 0, false, func(ci *pfs.CommitInfo) error {
+	if err := c.ListCommitF(testRepo, testCommit, nil, 0, false, func(ci *pfs.CommitInfo) error {
 		fmt.Println(ci)
 		return nil
 	}); err != nil {
@@ -441,15 +421,18 @@ func ExampleAPIClient_CreatePipeline() {
 	// to "/pfs/out" directory. Because no image is specified,
 	// Pachyderm will use the basic image. The input is defined as
 	// the repo "test" with the "/*" glob pattern.
-	c, err := NewFromAddress("192.168.64.2:30650")
+	c, err := NewFromURI("192.168.64.2:30650")
 	if err != nil {
 		panic(err)
 	}
 
+	testRepo := NewRepo("test")
+	testCommit := testRepo.NewCommit("master", "")
+
 	if _, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
+			Repo:        testRepo,
 			Description: "A test repo",
 			Update:      true,
 		},
@@ -457,7 +440,7 @@ func ExampleAPIClient_CreatePipeline() {
 		panic(err)
 	}
 
-	if err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile(testCommit, "file1", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
 
@@ -478,12 +461,12 @@ func ExampleAPIClient_CreatePipeline() {
 		panic(err)
 	}
 
-	pipelines, err := c.ListPipeline()
+	pipelines, err := c.ListPipeline(true)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(pipelines)
 
 	// Output:
-	// [pipeline:<name:"test-pipeline" > version:1 transform:<image:"ubuntu:16.04" cmd:"bash" stdin:"cp /pfs/test/* /pfs/out/" > parallelism_spec:<constant:1 > created_at:<seconds:1585783817 nanos:990814317 > output_branch:"master" input:<pfs:<name:"test" repo:"test" branch:"master" glob:"/*" > > cache_size:"64M" salt:"95e86369074f472c87d77f1116656813" max_queue_size:1 spec_commit:<repo:<name:"__spec__" > id:"7ddade34799b450db6b10231bbb287b7" > datum_tries:3 ]
+	// [pipeline:<name:"test-pipeline" > version:1 transform:<image:"ubuntu:20.04" cmd:"bash" stdin:"cp /pfs/test/* /pfs/out/" > parallelism_spec:<constant:1 > created_at:<seconds:1585783817 nanos:990814317 > output_branch:"master" input:<pfs:<name:"test" repo:"test" branch:"master" glob:"/*" > > cache_size:"64M" salt:"95e86369074f472c87d77f1116656813" max_queue_size:1 spec_commit:<repo:<name:"__spec__" > id:"7ddade34799b450db6b10231bbb287b7" > datum_tries:3 ]
 }

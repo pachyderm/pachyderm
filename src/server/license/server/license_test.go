@@ -149,6 +149,7 @@ func TestClusterCRUD(t *testing.T) {
 
 	// Activate enterprise, which will register the localhost cluster
 	tu.ActivateEnterprise(t, client)
+	tu.ActivateAuth(t)
 
 	clusters, err := client.License.ListClusters(client.Ctx(), &license.ListClustersRequest{})
 	require.NoError(t, err)
@@ -156,50 +157,85 @@ func TestClusterCRUD(t *testing.T) {
 
 	// Add a new cluster
 	newCluster, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
-		Id:      "new",
-		Address: "localhost:650",
+		Id:                  "new",
+		Address:             "grpc://localhost:1650",
+		UserAddress:         "grpc://localhost:999",
+		ClusterDeploymentId: "some-deployment-id",
+		EnterpriseServer:    false,
 	})
 	require.NoError(t, err)
 	require.True(t, len(newCluster.Secret) >= 30)
 
 	// Confirm there are now two clusters
-	expected := map[string]*license.ClusterStatus{
+	expectedStatuses := map[string]*license.ClusterStatus{
 		"localhost": {
 			Id:      "localhost",
-			Address: "localhost:650",
+			Address: "grpc://localhost:1650",
 		},
 		"new": {
 			Id:      "new",
-			Address: "localhost:650",
+			Address: "grpc://localhost:1650",
 		},
 	}
 
+	expectedUserClusters := map[string]*license.UserClusterInfo{
+		"new": {
+			Id:                  "new",
+			Address:             "grpc://localhost:999",
+			ClusterDeploymentId: "some-deployment-id",
+			EnterpriseServer:    false,
+		},
+	}
+
+	verifyListClustersContents := func(expected map[string]*license.ClusterStatus, actual []*license.ClusterStatus) {
+		for _, v := range actual {
+			require.Equal(t, expected[v.Id].Address, v.Address)
+			require.Equal(t, expected[v.Id].AuthEnabled, v.AuthEnabled)
+		}
+	}
+
+	verifyListUserClustersContents := func(expected map[string]*license.UserClusterInfo, actual []*license.UserClusterInfo) {
+		for _, v := range actual {
+			require.Equal(t, expected[v.Id].Address, v.Address)
+			require.Equal(t, expected[v.Id].ClusterDeploymentId, v.ClusterDeploymentId)
+			require.Equal(t, expected[v.Id].EnterpriseServer, v.EnterpriseServer)
+		}
+	}
+
 	clusters, err = client.License.ListClusters(client.Ctx(), &license.ListClustersRequest{})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(clusters.Clusters))
+	verifyListClustersContents(expectedStatuses, clusters.Clusters)
 
-	for _, v := range clusters.Clusters {
-		require.Equal(t, expected[v.Id].Address, v.Address)
-		require.Equal(t, expected[v.Id].AuthEnabled, v.AuthEnabled)
-	}
+	var userClusters *license.ListUserClustersResponse
+	userClusters, err = client.License.ListUserClusters(client.Ctx(), &license.ListUserClustersRequest{})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(userClusters.Clusters))
+	verifyListUserClustersContents(expectedUserClusters, userClusters.Clusters)
 
 	// Update the cluster
 	_, err = client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
-		Id:      "new",
-		Address: "localhost:653",
+		Id:                  "new",
+		Address:             "localhost:1653",
+		UserAddress:         "localhost:1000",
+		ClusterDeploymentId: "another-deployment-id",
 	})
 	require.NoError(t, err)
 
-	expected["new"].Address = "localhost:653"
+	expectedStatuses["new"].Address = "localhost:1653"
+
+	expectedUserClusters["new"].Address = "localhost:1000"
+	expectedUserClusters["new"].ClusterDeploymentId = "another-deployment-id"
 
 	clusters, err = client.License.ListClusters(client.Ctx(), &license.ListClustersRequest{})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(clusters.Clusters))
+	verifyListClustersContents(expectedStatuses, clusters.Clusters)
 
-	for _, v := range clusters.Clusters {
-		require.Equal(t, expected[v.Id].Address, v.Address)
-		require.Equal(t, expected[v.Id].AuthEnabled, v.AuthEnabled)
-	}
+	userClusters, err = client.License.ListUserClusters(client.Ctx(), &license.ListUserClustersRequest{})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(userClusters.Clusters))
+	verifyListUserClustersContents(expectedUserClusters, userClusters.Clusters)
 
 	// Delete the new cluster
 	_, err = client.License.DeleteCluster(client.Ctx(), &license.DeleteClusterRequest{
@@ -211,12 +247,14 @@ func TestClusterCRUD(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(clusters.Clusters))
 
-	delete(expected, "new")
+	delete(expectedStatuses, "new")
 
-	for _, v := range clusters.Clusters {
-		require.Equal(t, expected[v.Id].Address, v.Address)
-		require.Equal(t, expected[v.Id].AuthEnabled, v.AuthEnabled)
-	}
+	verifyListClustersContents(expectedStatuses, clusters.Clusters)
+
+	userClusters, err = client.License.ListUserClusters(client.Ctx(), &license.ListUserClustersRequest{})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(userClusters.Clusters))
+	verifyListUserClustersContents(expectedUserClusters, userClusters.Clusters)
 }
 
 // TestAddClusterUnreachable tries to add a cluster with a misconfigured address
@@ -234,7 +272,7 @@ func TestAddClusterUnreachable(t *testing.T) {
 
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
-		Address: "invalid://bad.example",
+		Address: "grpc://bad.example",
 	})
 	require.YesError(t, err)
 	require.Matches(t, "unable to create client", err.Error())
@@ -255,7 +293,7 @@ func TestUpdateClusterUnreachable(t *testing.T) {
 
 	_, err := client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
 		Id:      "localhost",
-		Address: "invalid://bad.example",
+		Address: "grpc://bad.example",
 	})
 	require.YesError(t, err)
 	require.Matches(t, "unable to create client", err.Error())
@@ -274,7 +312,7 @@ func TestAddClusterNoLicense(t *testing.T) {
 	client := tu.GetPachClient(t)
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
-		Address: "localhost:650",
+		Address: "grpc://localhost:1650",
 	})
 	require.YesError(t, err)
 	require.Matches(t, "enterprise license is not valid", err.Error())
@@ -369,4 +407,40 @@ func TestHeartbeatWrongSecret(t *testing.T) {
 		AuthEnabled: true,
 	})
 	require.YesError(t, err)
+}
+
+func TestListUserClusters(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	client := tu.GetPachClient(t)
+
+	// Activate enterprise, which will register the localhost cluster
+	tu.ActivateEnterprise(t, client)
+	tu.ActivateAuth(t)
+
+	resp, err := client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
+	require.NoError(t, err)
+	require.Equal(t, enterprise.State_ACTIVE, resp.State)
+
+	_, err = client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
+		Id:                  "new",
+		Address:             "grpc://localhost:1650",
+		UserAddress:         "grpc://localhost:999",
+		ClusterDeploymentId: "some-deployment-id",
+		EnterpriseServer:    false,
+	})
+	require.NoError(t, err)
+
+	// Make sure that an added cluster shows up in ListUserClusters
+	var userClustersResp *license.ListUserClustersResponse
+	userClustersResp, err = client.License.ListUserClusters(client.Ctx(), &license.ListUserClustersRequest{})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(userClustersResp.Clusters))
+	require.Equal(t, "new", userClustersResp.Clusters[0].Id)
+	require.Equal(t, "grpc://localhost:999", userClustersResp.Clusters[0].Address)
+	require.Equal(t, false, userClustersResp.Clusters[0].EnterpriseServer)
 }

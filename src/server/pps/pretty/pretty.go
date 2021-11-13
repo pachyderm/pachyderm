@@ -16,14 +16,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
+	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 )
 
 const (
 	// PipelineHeader is the header for pipelines.
 	PipelineHeader = "NAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\tDESCRIPTION\t\n"
 	// JobHeader is the header for jobs
-	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
+	JobHeader = "PIPELINE\tID\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
+	// JobSetHeader is the header for jobsets
+	JobSetHeader = "ID\tSUBJOBS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// DatumHeader is the header for datums
 	DatumHeader = "ID\tFILES\tSTATUS\tTIME\t\n"
 	// SecretHeader is the header for secrets
@@ -41,12 +45,16 @@ func safeTrim(s string, l int) string {
 
 // PrintJobInfo pretty-prints job info.
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) {
+	fmt.Fprintf(w, "%s\t", jobInfo.Job.Pipeline.Name)
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
-	fmt.Fprintf(w, "%s\t", jobInfo.Pipeline.Name)
-	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
+	if jobInfo.Started != nil {
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
+		}
 	} else {
-		fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
+		fmt.Fprintf(w, "-\t")
 	}
 	if jobInfo.Finished != nil {
 		fmt.Fprintf(w, "%s\t", pretty.TimeDifference(jobInfo.Started, jobInfo.Finished))
@@ -65,49 +73,102 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 	fmt.Fprintln(w)
 }
 
+// PrintJobSetInfo pretty-prints jobset info.
+func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestamps bool) {
+	// Aggregate some data to print from the jobs in the jobset
+	success := 0
+	failure := 0
+	var created *types.Timestamp
+	var modified *types.Timestamp
+	for _, job := range jobSetInfo.Jobs {
+		if job.State == ppsclient.JobState_JOB_SUCCESS {
+			success++
+		} else if pps.IsTerminal(job.State) {
+			failure++
+		}
+
+		if created == nil {
+			created = job.Created
+			modified = job.Created
+		} else {
+			if job.Created.Compare(created) < 0 {
+				created = job.Created
+			}
+			if job.Created.Compare(modified) > 0 {
+				modified = job.Created
+			}
+		}
+	}
+
+	fmt.Fprintf(w, "%s\t", jobSetInfo.JobSet.ID)
+	fmt.Fprintf(w, "%d\t", len(jobSetInfo.Jobs))
+	fmt.Fprintf(w, "%s\t", pretty.ProgressBar(8, success, len(jobSetInfo.Jobs)-success-failure, failure))
+	if created != nil {
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", created.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(created))
+		}
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
+	if modified != nil {
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", modified.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(modified))
+		}
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
+	fmt.Fprintln(w)
+}
+
 // PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTimestamps bool) {
-	if pipelineInfo.Transform == nil {
+	if pipelineInfo.Details == nil {
 		fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
 		fmt.Fprint(w, "-\t")
 		fmt.Fprint(w, "-\t")
 		fmt.Fprint(w, "-\t")
 		fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
-		fmt.Fprint(w, "could not retrieve pipeline spec\t")
+		fmt.Fprint(w, "pipeline details unavailable\t")
 	} else {
 		fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
 		fmt.Fprintf(w, "%d\t", pipelineInfo.Version)
-		fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
+		fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Details.Input))
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", pipelineInfo.CreatedAt.String())
+			fmt.Fprintf(w, "%s\t", pipelineInfo.Details.CreatedAt.String())
 		} else {
-			fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
+			fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.Details.CreatedAt))
 		}
 		fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
-		fmt.Fprintf(w, "%s\t", pipelineInfo.Description)
+		fmt.Fprintf(w, "%s\t", pipelineInfo.Details.Description)
 	}
 	fmt.Fprintln(w)
 }
 
 // PrintWorkerStatusHeader pretty prints a worker status header.
 func PrintWorkerStatusHeader(w io.Writer) {
-	fmt.Fprint(w, "WORKER\tJOB\tDATUM\tSTARTED\tQUEUE\t\n")
+	fmt.Fprint(w, "WORKER\tJOB\tDATUM\tSTARTED\t\n")
 }
 
 // PrintWorkerStatus pretty prints a worker status.
 func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", workerStatus.WorkerID)
 	fmt.Fprintf(w, "%s\t", workerStatus.JobID)
-	for _, datum := range workerStatus.Data {
-		fmt.Fprintf(w, datum.Path)
+	if workerStatus.DatumStatus != nil {
+		datumStatus := workerStatus.DatumStatus
+		for _, datum := range datumStatus.Data {
+			fmt.Fprintf(w, datum.Path)
+		}
+		fmt.Fprintf(w, "\t")
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", datumStatus.Started.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(datumStatus.Started))
+		}
 	}
-	fmt.Fprintf(w, "\t")
-	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", workerStatus.Started.String())
-	} else {
-		fmt.Fprintf(w, "%s\t", pretty.Ago(workerStatus.Started))
-	}
-	fmt.Fprintf(w, "%d\t", workerStatus.QueueSize)
 	fmt.Fprintln(w)
 }
 
@@ -128,9 +189,8 @@ func NewPrintableJobInfo(ji *ppsclient.JobInfo) *PrintableJobInfo {
 // PrintDetailedJobInfo pretty-prints detailed job info.
 func PrintDetailedJobInfo(w io.Writer, jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
-		`ID: {{.Job.ID}} {{if .Pipeline}}
-Pipeline: {{.Pipeline.Name}} {{end}} {{if .ParentJob}}
-Parent: {{.ParentJob.ID}} {{end}}{{if .FullTimestamps}}
+		`ID: {{.Job.ID}}
+Pipeline: {{.Job.Pipeline.Name}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}} {{end}}{{if .Finished}}
 Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
@@ -146,32 +206,31 @@ Data Uploaded: {{prettySize .Stats.UploadBytes}}
 Download Time: {{prettyDuration .Stats.DownloadTime}}
 Process Time: {{prettyDuration .Stats.ProcessTime}}
 Upload Time: {{prettyDuration .Stats.UploadTime}}
-Datum Timeout: {{.DatumTimeout}}
-Job Timeout: {{.JobTimeout}}
+Datum Timeout: {{.Details.DatumTimeout}}
+Job Timeout: {{.Details.JobTimeout}}
 Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
-ParallelismSpec: {{.ParallelismSpec}}
-{{ if .ResourceRequests }}ResourceRequests:
-  CPU: {{ .ResourceRequests.Cpu }}
-  Memory: {{ .ResourceRequests.Memory }} {{end}}
-{{ if .ResourceLimits }}ResourceLimits:
-  CPU: {{ .ResourceLimits.Cpu }}
-  Memory: {{ .ResourceLimits.Memory }}
-  {{ if .ResourceLimits.Gpu }}GPU:
-    Type: {{ .ResourceLimits.Gpu.Type }}
-    Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
-{{ if .SidecarResourceLimits }}SidecarResourceLimits:
-  CPU: {{ .SidecarResourceLimits.Cpu }}
-  Memory: {{ .SidecarResourceLimits.Memory }} {{end}}
-{{ if .Service }}Service:
-	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
-	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}Input:
+ParallelismSpec: {{.Details.ParallelismSpec}}
+{{ if .Details.ResourceRequests }}ResourceRequests:
+  CPU: {{ .Details.ResourceRequests.Cpu }}
+  Memory: {{ .Details.ResourceRequests.Memory }} {{end}}
+{{ if .Details.ResourceLimits }}ResourceLimits:
+  CPU: {{ .Details.ResourceLimits.Cpu }}
+  Memory: {{ .Details.ResourceLimits.Memory }}
+  {{ if .Details.ResourceLimits.Gpu }}GPU:
+    Type: {{ .Details.ResourceLimits.Gpu.Type }}
+    Number: {{ .Details.ResourceLimits.Gpu.Number }} {{end}} {{end}}
+{{ if .Details.SidecarResourceLimits }}SidecarResourceLimits:
+  CPU: {{ .Details.SidecarResourceLimits.Cpu }}
+  Memory: {{ .Details.SidecarResourceLimits.Memory }} {{end}}
+{{ if .Details.Service }}Service:
+	{{ if .Details.Service.InternalPort }}InternalPort: {{ .Details.Service.InternalPort }} {{end}}
+	{{ if .Details.Service.ExternalPort }}ExternalPort: {{ .Details.Service.ExternalPort }} {{end}} {{end}}Input:
 {{jobInput .}}
 Transform:
-{{prettyTransform .Transform}} {{if .OutputCommit}}
-Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .StatsCommit }}
-Stats Commit: {{.StatsCommit.ID}} {{end}} {{ if .Egress }}
-Egress: {{.Egress.URL}} {{end}}
+{{prettyTransform .Details.Transform}} {{if .OutputCommit}}
+Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Details.Egress }}
+Egress: {{.Details.Egress.URL}} {{end}}
 `)
 	if err != nil {
 		return err
@@ -196,36 +255,33 @@ func NewPrintablePipelineInfo(pi *ppsclient.PipelineInfo) *PrintablePipelineInfo
 // PrintDetailedPipelineInfo pretty-prints detailed pipeline info.
 func PrintDetailedPipelineInfo(w io.Writer, pipelineInfo *PrintablePipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
-		`Name: {{.Pipeline.Name}}{{if .Description}}
-Description: {{.Description}}{{end}}{{if .FullTimestamps }}
-Created: {{.CreatedAt}}{{ else }}
-Created: {{prettyAgo .CreatedAt}} {{end}}
+		`Name: {{.Pipeline.Name}}{{if .Details.Description}}
+Description: {{.Details.Description}}{{end}}{{if .FullTimestamps }}
+Created: {{.Details.CreatedAt}}{{ else }}
+Created: {{prettyAgo .Details.CreatedAt}} {{end}}
 State: {{pipelineState .State}}
 Reason: {{.Reason}}
-Workers Available: {{.WorkersAvailable}}/{{.WorkersRequested}}
+Workers Available: {{.Details.WorkersAvailable}}/{{.Details.WorkersRequested}}
 Stopped: {{ .Stopped }}
-Parallelism Spec: {{.ParallelismSpec}}
-{{ if .ResourceRequests }}ResourceRequests:
-  CPU: {{ .ResourceRequests.Cpu }}
-  Memory: {{ .ResourceRequests.Memory }} {{end}}
-{{ if .ResourceLimits }}ResourceLimits:
-  CPU: {{ .ResourceLimits.Cpu }}
-  Memory: {{ .ResourceLimits.Memory }}
-  {{ if .ResourceLimits.Gpu }}GPU:
-    Type: {{ .ResourceLimits.Gpu.Type }} 
-    Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
-Datum Timeout: {{.DatumTimeout}}
-Job Timeout: {{.JobTimeout}}
+Parallelism Spec: {{.Details.ParallelismSpec}}
+{{ if .Details.ResourceRequests }}ResourceRequests:
+  CPU: {{ .Details.ResourceRequests.Cpu }}
+  Memory: {{ .Details.ResourceRequests.Memory }} {{end}}
+{{ if .Details.ResourceLimits }}ResourceLimits:
+  CPU: {{ .Details.ResourceLimits.Cpu }}
+  Memory: {{ .Details.ResourceLimits.Memory }}
+  {{ if .Details.ResourceLimits.Gpu }}GPU:
+    Type: {{ .Details.ResourceLimits.Gpu.Type }} 
+    Number: {{ .Details.ResourceLimits.Gpu.Number }} {{end}} {{end}}
+Datum Timeout: {{.Details.DatumTimeout}}
+Job Timeout: {{.Details.JobTimeout}}
 Input:
 {{pipelineInput .PipelineInfo}}
-{{ if .GithookURL }}Githook URL: {{.GithookURL}} {{end}}
-Output Branch: {{.OutputBranch}}
+Output Branch: {{.Details.OutputBranch}}
 Transform:
-{{prettyTransform .Transform}}
-{{ if .Egress }}Egress: {{.Egress.URL}} {{end}}
-{{if .RecentError}} Recent Error: {{.RecentError}} {{end}}
-Job Counts:
-{{jobCounts .JobCounts}}
+{{prettyTransform .Details.Transform}}
+{{ if .Details.Egress }}Egress: {{.Details.Egress.URL}} {{end}}
+{{if .Details.RecentError}} Recent Error: {{.Details.RecentError}} {{end}}
 `)
 	if err != nil {
 		return err
@@ -258,7 +314,7 @@ func datumFiles(datumInfo *ppsclient.DatumInfo) string {
 		if i != 0 {
 			builder.WriteString(", ")
 		}
-		fmt.Fprintf(builder, "%s@%s:%s", fi.File.Commit.Repo.Name, fi.File.Commit.ID, fi.File.Path)
+		fmt.Fprint(builder, pfspretty.CompactPrintFile(fi.File))
 	}
 	return builder.String()
 }
@@ -327,7 +383,7 @@ func PrintFileHeader(w io.Writer) {
 
 // PrintFile values for a pfs file.
 func PrintFile(w io.Writer, file *pfsclient.File) {
-	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", file.Commit.Repo.Name, file.Commit.ID, file.Path)
+	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", file.Commit.Branch.Repo, file.Commit.ID, file.Path)
 }
 
 func datumState(datumState ppsclient.DatumState) string {
@@ -340,6 +396,8 @@ func datumState(datumState ppsclient.DatumState) string {
 		return color.New(color.FgYellow).SprintFunc()("recovered")
 	case ppsclient.DatumState_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
+	case ppsclient.DatumState_UNKNOWN:
+		return color.New(color.FgGreen).SprintFunc()("-")
 	}
 	return "-"
 }
@@ -359,6 +417,8 @@ func JobState(jobState ppsclient.JobState) string {
 		return color.New(color.FgRed).SprintFunc()("killed")
 	case ppsclient.JobState_JOB_EGRESSING:
 		return color.New(color.FgYellow).SprintFunc()("egressing")
+	case ppsclient.JobState_JOB_FINISHING:
+		return color.New(color.FgYellow).SprintFunc()("finishing")
 
 	}
 	return "-"
@@ -392,23 +452,23 @@ func pipelineState(pipelineState ppsclient.PipelineState) string {
 	return "-"
 }
 
-func jobInput(jobInfo PrintableJobInfo) string {
-	if jobInfo.Input == nil {
+func jobInput(pji PrintableJobInfo) string {
+	if pji.Details.Input == nil {
 		return ""
 	}
-	input, err := json.MarshalIndent(jobInfo.Input, "", "  ")
+	input, err := json.MarshalIndent(pji.Details.Input, "", "  ")
 	if err != nil {
 		panic(errors.Wrapf(err, "error marshalling input"))
 	}
 	return string(input) + "\n"
 }
 
-func workerStatus(jobInfo PrintableJobInfo) string {
+func workerStatus(pji PrintableJobInfo) string {
 	var buffer bytes.Buffer
 	writer := ansiterm.NewTabWriter(&buffer, 20, 1, 3, ' ', 0)
 	PrintWorkerStatusHeader(writer)
-	for _, workerStatus := range jobInfo.WorkerStatus {
-		PrintWorkerStatus(writer, workerStatus, jobInfo.FullTimestamps)
+	for _, workerStatus := range pji.Details.WorkerStatus {
+		PrintWorkerStatus(writer, workerStatus, pji.FullTimestamps)
 	}
 	// can't error because buffer can't error on Write
 	writer.Flush()
@@ -416,22 +476,14 @@ func workerStatus(jobInfo PrintableJobInfo) string {
 }
 
 func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
-	if pipelineInfo.Input == nil {
+	if pipelineInfo.Details.Input == nil {
 		return ""
 	}
-	input, err := json.MarshalIndent(pipelineInfo.Input, "", "  ")
+	input, err := json.MarshalIndent(pipelineInfo.Details.Input, "", "  ")
 	if err != nil {
 		panic(errors.Wrapf(err, "error marshalling input"))
 	}
 	return string(input) + "\n"
-}
-
-func jobCounts(counts map[int32]int32) string {
-	var buffer bytes.Buffer
-	for i := int32(ppsclient.JobState_JOB_STARTING); i <= int32(ppsclient.JobState_JOB_SUCCESS); i++ {
-		fmt.Fprintf(&buffer, "%s: %d\t", JobState(ppsclient.JobState(i)), counts[i])
-	}
-	return buffer.String()
 }
 
 func prettyTransform(transform *ppsclient.Transform) (string, error) {
@@ -490,6 +542,5 @@ var funcMap = template.FuncMap{
 	"prettyTimeDifference": pretty.TimeDifference,
 	"prettyDuration":       pretty.Duration,
 	"prettySize":           pretty.Size,
-	"jobCounts":            jobCounts,
 	"prettyTransform":      prettyTransform,
 }

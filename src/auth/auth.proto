@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package auth;
+package auth_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/auth";
 
 import "gogoproto/gogo.proto";
@@ -31,10 +31,9 @@ import "google/protobuf/timestamp.proto";
 // ActivateRequest enables authentication on the cluster. It issues an auth token
 // with no expiration for the irrevocable admin user `pach:root`.
 message ActivateRequest {
-  reserved 1,2;
   // If set, this token is used as the root user login token. Otherwise the root token
   // is randomly generated and returned in the response.
-  string root_token = 3;
+  string root_token = 1;
 }
 
 message ActivateResponse {
@@ -47,6 +46,14 @@ message ActivateResponse {
 message DeactivateRequest {}
 message DeactivateResponse {}
 
+message RotateRootTokenRequest {
+  // root_token is used as the new root token value. If it's unset, then a token will be auto-generated.
+  string root_token = 1;
+}
+
+message RotateRootTokenResponse {
+  string root_token = 1;
+}
 
 // Configure Pachyderm's auth system with an OIDC provider 
 message OIDCConfig{
@@ -54,13 +61,19 @@ message OIDCConfig{
   string client_id = 2 [(gogoproto.customname) = "ClientID"];
   string client_secret = 3;
   string redirect_uri = 4 [(gogoproto.customname) = "RedirectURI"];
-  repeated string additional_scopes = 5;
-  bool ignore_email_verified = 6;
+  repeated string scopes = 5;
+  bool require_email_verified = 6;
 
  // localhost_issuer ignores the contents of the issuer claim and makes all
  // OIDC requests to the embedded OIDC provider. This is necessary to support
  // some network configurations like Minikube. 
  bool localhost_issuer = 7;
+
+  // user_accessible_issuer_host can be set to override the host used 
+  // in the OAuth2 authorization URL in case the OIDC issuer isn't
+  // accessible outside the cluster. This is necessary to support 
+  // some configurations like Minikube.
+  string user_accessible_issuer_host = 8;
 }
 
 message GetConfigurationRequest {}
@@ -79,27 +92,21 @@ message TokenInfo {
   // Subject (i.e. Pachyderm account) that a given token authorizes.
   // See the note at the top of the doc for an explanation of subject structure.
   string subject = 1;
-
-  enum TokenSource {
-    INVALID = 0;
-    AUTHENTICATE = 1; // returned by Authenticate()--non-revokeable
-    GET_TOKEN = 2;  // returned by GetToken()--revokeable.
-  }
-  TokenSource source = 2;
+  google.protobuf.Timestamp expiration = 2 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true]; ;
+  string hashed_token = 3 [(gogoproto.moretags) = "db:\"token_hash\""];
 }
 
 //// Authentication API
 
 message AuthenticateRequest {
-  reserved 1, 2;
-  // Exactly one of 'id_token', 'oidc_state', or 'one_time_password' must be set:
+  // Exactly one of 'id_token' or 'one_time_password' must be set:
 
   // This is the session state that Pachyderm creates in order to keep track of
   // information related to the current OIDC session.
-  string oidc_state = 3 [(gogoproto.customname) = "OIDCState"];
+  string oidc_state = 1 [(gogoproto.customname) = "OIDCState"];
 
   // This is an ID Token issued by the OIDC provider.
-  string id_token = 4;
+  string id_token = 2;
 }
 
 message AuthenticateResponse {
@@ -112,9 +119,16 @@ message AuthenticateResponse {
 message WhoAmIRequest {}
 
 message WhoAmIResponse {
-  reserved 2,4;
   string username = 1;
-  int64 ttl = 3 [(gogoproto.customname) = "TTL"];
+  google.protobuf.Timestamp expiration = 2 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true];
+}
+
+message GetRolesForPermissionRequest {
+  Permission permission = 1;
+}
+
+message GetRolesForPermissionResponse {
+  repeated Role roles = 1;
 }
 
 //// Authorization data structures
@@ -132,23 +146,26 @@ message RoleBinding {
 
 // Permission represents the ability to perform a given operation on a Resource 
 enum Permission {
-  UNKNOWN = 0;
+  PERMISSION_UNKNOWN = 0;
 
-  CLUSTER_MODIFY_BINDINGS                = 100;
-  CLUSTER_GET_BINDINGS                   = 101;
+  CLUSTER_MODIFY_BINDINGS                          = 100;
+  CLUSTER_GET_BINDINGS                             = 101;
+  CLUSTER_GET_PACHD_LOGS                           = 148;
 
-  CLUSTER_AUTH_ACTIVATE                  = 102;
-  CLUSTER_AUTH_DEACTIVATE                = 103;
-  CLUSTER_AUTH_GET_CONFIG                = 104;
-  CLUSTER_AUTH_SET_CONFIG                = 105;
-  CLUSTER_AUTH_GET_TOKEN                 = 106;
-  CLUSTER_AUTH_GET_ROBOT_TOKEN           = 139;
-  CLUSTER_AUTH_EXTEND_TOKEN              = 107;
-  CLUSTER_AUTH_MODIFY_GROUP_MEMBERS      = 109;
-  CLUSTER_AUTH_GET_GROUPS                = 110;
-  CLUSTER_AUTH_GET_GROUP_USERS           = 111;
-  CLUSTER_AUTH_EXTRACT_TOKENS            = 112;
-  CLUSTER_AUTH_RESTORE_TOKEN             = 113;
+  CLUSTER_AUTH_ACTIVATE                            = 102;
+  CLUSTER_AUTH_DEACTIVATE                          = 103;
+  CLUSTER_AUTH_GET_CONFIG                          = 104;
+  CLUSTER_AUTH_SET_CONFIG                          = 105;
+  CLUSTER_AUTH_GET_ROBOT_TOKEN                     = 139;
+  CLUSTER_AUTH_MODIFY_GROUP_MEMBERS                = 109;
+  CLUSTER_AUTH_GET_GROUPS                          = 110;
+  CLUSTER_AUTH_GET_GROUP_USERS                     = 111;
+  CLUSTER_AUTH_EXTRACT_TOKENS                      = 112;
+  CLUSTER_AUTH_RESTORE_TOKEN                       = 113;
+  CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL       = 141;
+  CLUSTER_AUTH_DELETE_EXPIRED_TOKENS               = 140;
+  CLUSTER_AUTH_REVOKE_USER_TOKENS                  = 142;
+  CLUSTER_AUTH_ROTATE_ROOT_TOKEN                   = 147;
 
   CLUSTER_ENTERPRISE_ACTIVATE            = 114;
   CLUSTER_ENTERPRISE_HEARTBEAT           = 115;
@@ -177,6 +194,12 @@ enum Permission {
   CLUSTER_LICENSE_DELETE_CLUSTER         = 136;
   CLUSTER_LICENSE_LIST_CLUSTERS          = 137;
 
+  // TODO(actgardner): Make k8s secrets into nouns and add an Update RPC
+  CLUSTER_CREATE_SECRET  = 143;
+  CLUSTER_LIST_SECRETS   = 144;
+  SECRET_DELETE          = 145;
+  SECRET_INSPECT         = 146;
+
   CLUSTER_DELETE_ALL             = 138;
 
   REPO_READ                   = 200;
@@ -201,8 +224,9 @@ enum Permission {
 // ResourceType represents the type of a Resource
 enum ResourceType {
   RESOURCE_TYPE_UNKNOWN = 0;
-  CLUSTER = 1;
-  REPO    = 2;
+  CLUSTER   = 1;
+  REPO      = 2;
+  SPEC_REPO = 3;
 }
 
 // Resource represents any resource that has role-bindings in the system
@@ -219,14 +243,19 @@ message Groups {
   map<string, bool> groups = 1;
 }
 
+message Role {
+  string name = 1;
+  repeated Permission permissions = 2;
+  repeated ResourceType resource_types = 3; 
+}
+
 //// Authorization API
 
 message AuthorizeRequest {
-  reserved 2;
   Resource resource = 1;
 
   // permissions are the operations the caller is attempting to perform 
-  repeated Permission permissions = 3;
+  repeated Permission permissions = 2;
 }
 
 message AuthorizeResponse {
@@ -242,6 +271,28 @@ message AuthorizeResponse {
   // principal is the principal the request was evaluated for
   string principal = 4;
 }
+
+// GetPermissions evaluates the current user's permissions on a resource
+message GetPermissionsRequest {
+  Resource resource = 1;
+}
+
+// GetPermissionsForPrincipal evaluates an arbitrary principal's permissions
+// on a resource 
+message GetPermissionsForPrincipalRequest {
+  Resource resource = 1;
+
+  string principal = 2;
+}
+
+message GetPermissionsResponse {
+  // permissions is the set of permissions the principal has
+  repeated Permission permissions = 1;
+
+  // roles is the set of roles the principal has 
+  repeated string roles = 2;
+}
+
 
 message ModifyRoleBindingRequest {
   // resource is the resource to modify the role bindings on 
@@ -312,25 +363,7 @@ message GetOIDCLoginResponse {
   string state = 2;
 }
 
-//// Token API (very limited -- for pipelines)
-
-message GetAuthTokenRequest {
-  // The returned token will allow the caller to access resources as this
-  // subject
-  string subject = 1;
-
-  // ttl indicates the requested (approximate) remaining lifetime of this token,
-  // in seconds
-  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
-}
-
-message GetAuthTokenResponse {
-  // A canonicalized version of the subject in the request
-  string subject = 2;
-
-  // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
-  string token = 1;
-}
+// Robot token API (TODO: add access controls)
 
 message GetRobotTokenRequest {
   // The returned token will allow the caller to access resources as this
@@ -346,16 +379,6 @@ message GetRobotTokenResponse {
   // A new auth token for the requested robot
   string token = 1;
 }
-
-message ExtendAuthTokenRequest {
-  // token indicates the Pachyderm token whose TTL is being extended
-  string token = 1;
-
-  // ttl indicates the new TTL of 'token' (if it's longer than the existing TTL)
-  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
-}
-
-message ExtendAuthTokenResponse {}
 
 message RevokeAuthTokenRequest {
   string token = 1;
@@ -378,8 +401,10 @@ message ModifyMembersRequest {
 
 message ModifyMembersResponse {}
 
-message GetGroupsRequest {
-  string username = 1;
+message GetGroupsRequest {}
+
+message GetGroupsForPrincipalRequest {
+  string principal = 1;
 }
 
 message GetGroupsResponse {
@@ -394,26 +419,30 @@ message GetUsersResponse {
   repeated string usernames = 1;
 }
 
-message HashedAuthToken {
-  string hashed_token = 1;
-  TokenInfo token_info = 2;
-  google.protobuf.Timestamp expiration = 3;
-}
-
 // ExtractAuthTokens returns all the hashed robot tokens that have been issued.
 // User tokens are not extracted as they can be recreated by logging in.
 message ExtractAuthTokensRequest {}
 
 message ExtractAuthTokensResponse {
-  repeated HashedAuthToken tokens = 1; 
+  repeated TokenInfo tokens = 1; 
 }
 
 // RestoreAuthToken inserts a hashed token that has previously been extracted.
 message RestoreAuthTokenRequest {
-  HashedAuthToken token = 1; 
+  TokenInfo token = 1; 
 }
 
 message RestoreAuthTokenResponse {}
+
+message RevokeAuthTokensForUserRequest {
+  string username = 1;
+}
+
+message RevokeAuthTokensForUserResponse {}
+
+message DeleteExpiredAuthTokensRequest {}
+
+message DeleteExpiredAuthTokensResponse {}
 
 service API {
   // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
@@ -427,23 +456,29 @@ service API {
 
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
+  rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse) {}
+  rpc GetPermissionsForPrincipal(GetPermissionsForPrincipalRequest) returns (GetPermissionsResponse) {}
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
+  rpc GetRolesForPermission(GetRolesForPermissionRequest) returns (GetRolesForPermissionResponse) {}
 
   rpc ModifyRoleBinding(ModifyRoleBindingRequest) returns (ModifyRoleBindingResponse) {}
   rpc GetRoleBinding(GetRoleBindingRequest) returns (GetRoleBindingResponse) {}
 
   rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}
 
-  rpc GetAuthToken(GetAuthTokenRequest) returns (GetAuthTokenResponse) {}
   rpc GetRobotToken(GetRobotTokenRequest) returns (GetRobotTokenResponse) {}
-  rpc ExtendAuthToken(ExtendAuthTokenRequest) returns (ExtendAuthTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
+  rpc RevokeAuthTokensForUser(RevokeAuthTokensForUserRequest) returns (RevokeAuthTokensForUserResponse) {}
 
   rpc SetGroupsForUser(SetGroupsForUserRequest) returns (SetGroupsForUserResponse) {}
   rpc ModifyMembers(ModifyMembersRequest) returns (ModifyMembersResponse) {}
   rpc GetGroups(GetGroupsRequest) returns (GetGroupsResponse) {}
+  rpc GetGroupsForPrincipal(GetGroupsForPrincipalRequest) returns (GetGroupsResponse) {}
   rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
 
   rpc ExtractAuthTokens(ExtractAuthTokensRequest) returns (ExtractAuthTokensResponse) {}
   rpc RestoreAuthToken(RestoreAuthTokenRequest) returns (RestoreAuthTokenResponse) {}
+
+  rpc DeleteExpiredAuthTokens(DeleteExpiredAuthTokensRequest) returns (DeleteExpiredAuthTokensResponse) {}
+  rpc RotateRootToken(RotateRootTokenRequest) returns (RotateRootTokenResponse) {}
 }

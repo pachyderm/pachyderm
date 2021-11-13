@@ -14,8 +14,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ActivateCmd returns a cobra.Command to activate the license service
+func newClient() (*client.APIClient, error) {
+	c, err := client.NewEnterpriseClientOnUserMachine("user")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
+	return c, nil
+}
+
+// ActivateCmd returns a cobra.Command to activate the license service,
+// register the current pachd and activate enterprise features.
+// This always runs against the current enterprise context, and can
+// be used to activate a single-node pachd deployment or the enterprise
+// server in a multi-node deployment.
 func ActivateCmd() *cobra.Command {
+	var onlyActivate bool
 	activate := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Activate the license server with an activation code",
@@ -26,7 +40,7 @@ func ActivateCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not read enterprise key")
 			}
 
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -40,10 +54,45 @@ func ActivateCmd() *cobra.Command {
 				return err
 			}
 
+			if onlyActivate {
+				return nil
+			}
+
+			// inspect the activated cluster for its Deployment Id
+			clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
+			if inspectErr != nil {
+				return errors.Wrapf(inspectErr, "could not inspect cluster")
+			}
+
+			// Register the localhost as a cluster
+			resp, err := c.License.AddCluster(c.Ctx(),
+				&license.AddClusterRequest{
+					Id:                  "localhost",
+					Address:             "grpc://localhost:1653",
+					UserAddress:         "grpc://localhost:1653",
+					ClusterDeploymentId: clusterInfo.DeploymentID,
+					EnterpriseServer:    true,
+				})
+			if err != nil {
+				return errors.Wrapf(err, "could not register pachd with the license service")
+			}
+
+			// activate the Enterprise service
+			_, err = c.Enterprise.Activate(c.Ctx(),
+				&enterprise.ActivateRequest{
+					Id:            "localhost",
+					Secret:        resp.Secret,
+					LicenseServer: "grpc://localhost:1653",
+				})
+			if err != nil {
+				return errors.Wrapf(err, "could not activate the enterprise service")
+			}
+
 			return nil
+
 		}),
 	}
-
+	activate.PersistentFlags().BoolVar(&onlyActivate, "no-register", false, "Activate auth on the active enterprise context")
 	return cmdutil.CreateAlias(activate, "license activate")
 }
 
@@ -54,10 +103,11 @@ func AddClusterCmd() *cobra.Command {
 		Short: "Register a new cluster with the license server.",
 		Long:  "Register a new cluster with the license server.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
 
 			resp, err := c.License.AddCluster(c.Ctx(), &license.AddClusterRequest{
 				Id:      id,
@@ -81,25 +131,30 @@ func AddClusterCmd() *cobra.Command {
 
 // UpdateClusterCmd returns a cobra.Command to register a cluster with the license server
 func UpdateClusterCmd() *cobra.Command {
-	var id, address string
+	var id, address, userAddress, clusterDeploymentId string
 	updateCluster := &cobra.Command{
 		Short: "Update an existing cluster registered with the license server.",
 		Long:  "Update an existing cluster registered with the license server.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
 
 			_, err = c.License.UpdateCluster(c.Ctx(), &license.UpdateClusterRequest{
-				Id:      id,
-				Address: address,
+				Id:                  id,
+				Address:             address,
+				UserAddress:         userAddress,
+				ClusterDeploymentId: clusterDeploymentId,
 			})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	updateCluster.PersistentFlags().StringVar(&id, "id", "", `The id for the cluster to update`)
-	updateCluster.PersistentFlags().StringVar(&address, "address", "", `The host and port where the cluster can be reached`)
+	updateCluster.PersistentFlags().StringVar(&address, "address", "", `The host and port where the cluster can be reached by the enterprise server`)
+	updateCluster.PersistentFlags().StringVar(&userAddress, "user-address", "", `The host and port where the cluster can be reached by a user`)
+	updateCluster.PersistentFlags().StringVar(&clusterDeploymentId, "cluster-deployment-id", "", `The deployment id of the updated cluster`)
 	return cmdutil.CreateAlias(updateCluster, "license update-cluster")
 }
 
@@ -110,10 +165,11 @@ func DeleteClusterCmd() *cobra.Command {
 		Short: "Delete a cluster registered with the license server.",
 		Long:  "Delete a cluster registered with the license server.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
 
 			_, err = c.License.DeleteCluster(c.Ctx(), &license.DeleteClusterRequest{
 				Id: id,
@@ -131,10 +187,11 @@ func ListClustersCmd() *cobra.Command {
 		Short: "List clusters registered with the license server.",
 		Long:  "List clusters registered with the license server.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
+			defer c.Close()
 
 			resp, err := c.License.ListClusters(c.Ctx(), &license.ListClustersRequest{})
 			if err != nil {
@@ -159,11 +216,12 @@ func DeleteAllCmd() *cobra.Command {
 		Short: "Delete all data from the license server",
 		Long:  "Delete all data from the license server",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+
 			if _, err := c.License.DeleteAll(c.Ctx(), &license.DeleteAllRequest{}); err != nil {
 				return err
 			}
@@ -181,11 +239,12 @@ func GetStateCmd() *cobra.Command {
 		Short: "Get the configuration of the license service.",
 		Long:  "Get the configuration of the license service.",
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := newClient()
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+
 			resp, err := c.License.GetActivationCode(c.Ctx(), &license.GetActivationCodeRequest{})
 			if err != nil {
 				return err

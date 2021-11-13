@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -13,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/transaction/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Cmds returns the set of commands used for managing transactions with the
@@ -21,15 +19,12 @@ import (
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
-	marshaller := &jsonpb.Marshaler{Indent: "  "}
+	var raw bool
+	var output string
+	outputFlags := cmdutil.OutputFlags(&raw, &output)
 
-	raw := false
-	rawFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	rawFlags.BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
-
-	fullTimestamps := false
-	fullTimestampsFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	fullTimestampsFlags.BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
+	var fullTimestamps bool
+	timestampFlags := cmdutil.TimestampFlags(&fullTimestamps)
 
 	transactionDocs := &cobra.Command{
 		Short: "Docs for transactions.",
@@ -67,12 +62,15 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 			if raw {
+				encoder := cmdutil.Encoder(output, os.Stdout)
 				for _, transaction := range transactions {
-					if err := marshaller.Marshal(os.Stdout, transaction); err != nil {
+					if err := encoder.EncodeProto(transaction); err != nil {
 						return err
 					}
 				}
 				return nil
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.TransactionHeader)
 			for _, transaction := range transactions {
@@ -81,8 +79,8 @@ transaction' or cancelled with 'delete transaction'.`,
 			return writer.Flush()
 		}),
 	}
-	listTransaction.Flags().AddFlagSet(rawFlags)
-	listTransaction.Flags().AddFlagSet(fullTimestampsFlags)
+	listTransaction.Flags().AddFlagSet(outputFlags)
+	listTransaction.Flags().AddFlagSet(timestampFlags)
 	commands = append(commands, cmdutil.CreateAlias(listTransaction, "list transaction"))
 
 	startTransaction := &cobra.Command{
@@ -254,7 +252,9 @@ transaction' or cancelled with 'delete transaction'.`,
 				return errors.Errorf("transaction %s not found", txn.ID)
 			}
 			if raw {
-				return marshaller.Marshal(os.Stdout, info)
+				return cmdutil.Encoder(output, os.Stdout).EncodeProto(info)
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
 			}
 			return pretty.PrintDetailedTransactionInfo(&pretty.PrintableTransactionInfo{
 				TransactionInfo: info,
@@ -262,8 +262,8 @@ transaction' or cancelled with 'delete transaction'.`,
 			})
 		}),
 	}
-	inspectTransaction.Flags().AddFlagSet(rawFlags)
-	inspectTransaction.Flags().AddFlagSet(fullTimestampsFlags)
+	inspectTransaction.Flags().AddFlagSet(outputFlags)
+	inspectTransaction.Flags().AddFlagSet(timestampFlags)
 	commands = append(commands, cmdutil.CreateAlias(inspectTransaction, "inspect transaction"))
 
 	resumeTransaction := &cobra.Command{

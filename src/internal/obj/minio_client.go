@@ -2,9 +2,13 @@ package obj
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 
 	minio "github.com/minio/minio-go/v6"
@@ -22,6 +26,7 @@ func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioCli
 	if err != nil {
 		return nil, err
 	}
+	mclient.SetCustomTransport(promutil.InstrumentRoundTripper("minio", http.DefaultTransport))
 	return &minioClient{
 		bucket: bucket,
 		Client: mclient,
@@ -40,60 +45,19 @@ func newMinioClientV2(endpoint, bucket, id, secret string, secure bool) (*minioC
 	}, nil
 }
 
-// Represents minio writer structure with pipe and the error channel
-type minioWriter struct {
-	ctx     context.Context
-	errChan chan error
-	pipe    *io.PipeWriter
-}
-
-// Creates a new minio writer and a go routine to upload objects to minio server
-func newMinioWriter(ctx context.Context, client *minioClient, name string) *minioWriter {
-	reader, writer := io.Pipe()
-	w := &minioWriter{
-		ctx:     ctx,
-		errChan: make(chan error),
-		pipe:    writer,
+func (c *minioClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
+	opts := minio.PutObjectOptions{
+		ContentType: "application/octet-stream",
+		PartSize:    uint64(8 * 1024 * 1024),
 	}
-	go func() {
-		opts := minio.PutObjectOptions{
-			ContentType: "application/octet-stream",
-			PartSize:    uint64(8 * 1024 * 1024),
-		}
-		_, err := client.PutObject(client.bucket, name, reader, -1, opts)
-		if err != nil {
-			reader.CloseWithError(err)
-		}
-		w.errChan <- err
-	}()
-	return w
+	_, err := c.Client.PutObjectWithContext(ctx, c.bucket, name, r, -1, opts)
+	return err
 }
 
-func (w *minioWriter) Write(p []byte) (retN int, retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Minio.Writer/Write")
-	defer func() {
-		tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
-	}()
-	return w.pipe.Write(p)
-}
-
-// This will block till upload is done
-func (w *minioWriter) Close() (retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Minio.Writer/Close")
-	defer func() {
-		tracing.FinishAnySpan(span, "err", retErr)
-	}()
-	if err := w.pipe.Close(); err != nil {
-		return err
-	}
-	return <-w.errChan
-}
-
-func (c *minioClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
-	return newMinioWriter(ctx, c, name), nil
-}
-
-func (c *minioClient) Walk(_ context.Context, name string, fn func(name string) error) error {
+// TODO: this should respect the context
+func (c *minioClient) Walk(_ context.Context, name string, fn func(name string) error) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	recursive := true // Recursively walk by default.
 
 	doneCh := make(chan struct{})
@@ -109,78 +73,66 @@ func (c *minioClient) Walk(_ context.Context, name string, fn func(name string) 
 	return nil
 }
 
-// limitReadCloser implements a closer compatible wrapper
-// for a size limited reader.
-type limitReadCloser struct {
-	io.Reader
-	ctx  context.Context
-	mObj *minio.Object
-}
-
-func (l *limitReadCloser) Close() (err error) {
-	return l.mObj.Close()
-}
-
-func (l *limitReadCloser) Read(p []byte) (retN int, retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(l.ctx, "/Minio.Reader/Read")
+func (c *minioClient) Get(ctx context.Context, name string, w io.Writer) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
+	rc, err := c.GetObjectWithContext(ctx, c.bucket, name, minio.GetObjectOptions{})
+	if err != nil {
+		return err
+	}
 	defer func() {
-		tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
+		if err := rc.Close(); retErr == nil {
+			retErr = err
+		}
 	}()
-	return l.Reader.Read(p)
+	_, err = io.Copy(w, rc)
+	return err
 }
 
-func (c *minioClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	obj, err := c.GetObject(c.bucket, name, minio.GetObjectOptions{})
-	if err != nil {
-		return nil, err
-	}
-	// Seek to an offset to fetch the new reader.
-	_, err = obj.Seek(int64(offset), 0)
-	if err != nil {
-		return nil, err
-	}
-	if size > 0 {
-		return &limitReadCloser{
-			Reader: io.LimitReader(obj, int64(size)),
-			ctx:    ctx,
-			mObj:   obj,
-		}, nil
-	}
-	return obj, nil
-}
-
-func (c *minioClient) Delete(_ context.Context, name string) error {
+// TODO: should respect context
+func (c *minioClient) Delete(_ context.Context, name string) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	return c.RemoveObject(c.bucket, name)
 }
 
-func (c *minioClient) Exists(ctx context.Context, name string) bool {
-	_, err := c.StatObject(c.bucket, name, minio.StatObjectOptions{})
+func (c *minioClient) Exists(ctx context.Context, name string) (bool, error) {
+	_, err := c.StatObjectWithContext(ctx, c.bucket, name, minio.StatObjectOptions{})
 	tracing.TagAnySpan(ctx, "err", err)
-	return err == nil
+	if err != nil {
+		err = c.transformError(err, name)
+		if pacherr.IsNotExist(err) {
+			err = nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
-func (c *minioClient) IsRetryable(err error) bool {
-	// Minio client already implements retrying, no
-	// need for a caller retry.
-	return false
+func (c *minioClient) BucketURL() ObjectStoreURL {
+	u := c.Client.EndpointURL()
+	return ObjectStoreURL{
+		Scheme: "minio",
+		Bucket: fmt.Sprintf("%s/%s", u.Host, c.bucket),
+	}
 }
 
-func (c *minioClient) IsIgnorable(err error) bool {
-	return false
+func (c *minioClient) transformError(err error, objectPath string) error {
+	if err == nil {
+		return nil
+	}
+	errResp := minio.ErrorResponse{}
+	if !errors.As(err, &errResp) {
+		return err
+	}
+	if errResp.Code == sentinelErrResp.Code {
+		return err
+	}
+	// Treat both object not found and bucket not found as IsNotExist().
+	if errResp.Code == "NoSuchKey" || errResp.Code == "NoSuchBucket" {
+		return pacherr.NewNotExist(c.bucket, objectPath)
+	}
+	return err
 }
 
 // Sentinel error response returned if err is not
 // of type *minio.ErrorResponse.
 var sentinelErrResp = minio.ErrorResponse{}
-
-func (c *minioClient) IsNotExist(err error) bool {
-	errResp := minio.ErrorResponse{}
-	if !errors.As(err, &errResp) {
-		return false
-	}
-	if errResp.Code == sentinelErrResp.Code {
-		return false
-	}
-	// Treat both object not found and bucket not found as IsNotExist().
-	return errResp.Code == "NoSuchKey" || errResp.Code == "NoSuchBucket"
-}

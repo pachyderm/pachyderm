@@ -1,13 +1,12 @@
 package server
 
 import (
-	"path/filepath"
+	"path"
 	"regexp"
 	"strings"
 
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
@@ -20,22 +19,19 @@ func globLiteralPrefix(glob string) string {
 	return glob[:idx[0]]
 }
 
-func parseGlob(glob string) (index.Option, func(string) bool, error) {
-	glob = cleanPath(glob)
-	opt := index.WithPrefix(globLiteralPrefix(glob))
+func globMatchFunction(glob string) (func(string) bool, error) {
 	g, err := globlib.Compile(glob, '/')
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	mf := func(path string) bool {
+	return func(path string) bool {
 		// TODO: This does not seem like a good approach for this edge case.
 		if path == "/" && glob == "/" {
 			return true
 		}
 		path = strings.TrimRight(path, "/")
 		return g.Match(path)
-	}
-	return opt, mf, nil
+	}, nil
 }
 
 // pathIsChild determines if the path child is an immediate child of the path parent
@@ -55,14 +51,28 @@ func pathIsChild(parent, child string) bool {
 // "/abc" -> "/abc"
 // "abc/" -> "/abc"
 // "/" -> "/"
-func cleanPath(x string) string {
-	return "/" + strings.Trim(x, "/")
+func cleanPath(p string) string {
+	p = path.Clean(p)
+	if p == "." {
+		return "/"
+	}
+	return "/" + strings.Trim(p, "/")
 }
 
-func checkFilePath(path string) error {
-	path = filepath.Clean(path)
-	if strings.HasPrefix(path, "../") {
-		return errors.Errorf("path (%s) invalid: traverses above root", path)
+var validRangeRegex = regexp.MustCompile("^[ -~]+$")
+
+func validate(p string) error {
+	pBytes := []byte(p)
+	if !validRangeRegex.Match(pBytes) {
+		return errors.Errorf("path (%v) invalid: only printable ASCII characters allowed", p)
+	}
+	if globRegex.Match(pBytes) {
+		return errors.Errorf("path (%v) invalid: globbing character (%v) not allowed in path", p, globRegex.FindString(p))
+	}
+	for _, elem := range strings.Split(p, "/") {
+		if elem == "." || elem == ".." {
+			return errors.Errorf("path (%v) invalid: relative file paths are not allowed", p)
+		}
 	}
 	return nil
 }

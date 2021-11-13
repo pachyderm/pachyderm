@@ -6,17 +6,15 @@ import (
 	"path"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/cmd/worker/assets"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
@@ -30,47 +28,10 @@ import (
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
 
-	// Copy certs embedded via go-bindata to /etc/ssl/certs. Because the
-	// container running this app is user-specified, we don't otherwise have
-	// control over the certs that are available.
-	//
-	// If an error occurs, don't hard-fail, but do record if any certs are
-	// known to be missing so we can inform the user.
-	if err := assets.RestoreAssets("/", "etc/ssl/certs"); err != nil {
-		log.Warnf("failed to inject TLS certs: %v", err)
-	}
-
 	// append pachyderm bins to path to allow use of pachctl
 	os.Setenv("PATH", os.Getenv("PATH")+":/pach-bin")
 
 	cmdutil.Main(do, &serviceenv.WorkerFullConfiguration{})
-}
-
-// getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
-// worker is part of.
-// getPipelineInfo has the side effect of adding auth to the passed pachClient
-// which is necessary to get the PipelineInfo from pfs.
-func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	resp, err := env.GetEtcdClient().Get(ctx, path.Join(env.PPSEtcdPrefix, "pipelines", env.PPSPipelineName))
-	if err != nil {
-		return nil, err
-	}
-	if len(resp.Kvs) != 1 {
-		return nil, errors.Errorf("expected to find 1 pipeline (%s), got %d: %v", env.PPSPipelineName, len(resp.Kvs), resp)
-	}
-	var pipelinePtr pps.EtcdPipelineInfo
-	if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
-		return nil, err
-	}
-	pachClient.SetAuthToken(pipelinePtr.AuthToken)
-	// Notice we use the SpecCommitID from our env, not from etcd. This is
-	// because the value in etcd might get updated while the worker pod is
-	// being created and we don't want to run the transform of one version of
-	// the pipeline in the image of a different verison.
-	pipelinePtr.SpecCommit.ID = env.PPSSpecCommitID
-	return ppsutil.GetPipelineInfo(pachClient, env.PPSPipelineName, &pipelinePtr)
 }
 
 func do(config interface{}) error {
@@ -78,16 +39,25 @@ func do(config interface{}) error {
 	tracing.InstallJaegerTracerFromEnv()
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
 
+	// Enable cloud profilers if the configuration allows.
+	profileutil.StartCloudProfiler("pachyderm-worker", env.Config())
+
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())
-	pipelineInfo, err := getPipelineInfo(pachClient, env) // get pipeline creds for pachClient
+	pipelineInfo, err := ppsutil.GetWorkerPipelineInfo(
+		pachClient,
+		env.GetDBClient(),
+		env.GetPostgresListener(),
+		env.Config().PPSPipelineName,
+		env.Config().PPSSpecCommitID,
+	) // get pipeline creds for pachClient
 	if err != nil {
 		return errors.Wrapf(err, "error getting pipelineInfo")
 	}
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	workerInstance, err := worker.NewWorker(pachClient, env.GetEtcdClient(), env.PPSEtcdPrefix, pipelineInfo, env.PodName, env.Namespace, "/")
+	workerInstance, err := worker.NewWorker(env, pachClient, pipelineInfo, "/")
 	if err != nil {
 		return err
 	}
@@ -100,10 +70,10 @@ func do(config interface{}) error {
 
 	workerserver.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.PodName, pachClient))
+	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient))
 
 	// Put our IP address into etcd, so pachd can discover us
-	key := path.Join(env.PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.PPSWorkerIP)
+	key := path.Join(env.Config().PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.Config().PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
@@ -128,7 +98,7 @@ func do(config interface{}) error {
 	}
 
 	// If server ever exits, return error
-	if _, err := server.ListenTCP("", env.PPSWorkerPort); err != nil {
+	if _, err := server.ListenTCP("", env.Config().PPSWorkerPort); err != nil {
 		return err
 	}
 	return server.Wait()

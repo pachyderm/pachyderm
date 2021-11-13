@@ -22,13 +22,12 @@ message Metrics {
     uint64 max_branches            = 14; // Max branches in across all the repos
     int64 pps_spout                = 15; // Number of spout pipelines
     int64 pps_spout_service        = 16; // Number of spout services
-    int64 pps_build                = 17; // Number of build pipelines
+    reserved 17; // int64 pps_build
     int64 cfg_egress               = 18; // Number of pipelines with Egress configured
     int64 cfg_standby              = 19; // Number of pipelines with Standby congigured
     int64 cfg_s3gateway            = 20; // Number of pipelines with S3 Gateway configured
     int64 cfg_services             = 21; // Number of pipelines with services configured
     int64 cfg_errcmd               = 22; // Number of pipelines with error cmd set
-    int64 cfg_stats                = 23; // Number of pipelines with stats configured
     int64 cfg_tfjob                = 24; // Number of pipelines with TFJobs configured
     int64 input_group              = 25; // Number of pipelines with group inputs
     int64 input_join               = 26; // Number of pipelines with join inputs
@@ -59,4 +58,5 @@ message Metrics {
     uint64 max_parallelism         = 51; // Max parallelism set
     uint64 min_parallelism         = 52; // Min parallelism set
     uint64 num_parallelism         = 53; // Number of pipelines with parallelism set
+    int64 enterprise_failures      = 54; // Number of times a command has failed due to an enterprise check
 }

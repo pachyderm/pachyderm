@@ -1,5 +1,7 @@
 #!/bin/bash
-set -e
+set -ex
+
+export GOGO_PROTO_VERSION="v1.3.2"
 
 tar -C "${GOPATH}/src/github.com/pachyderm/pachyderm" -xf /dev/stdin
 
@@ -26,7 +28,7 @@ for i in $(find src -name "*.proto"); do \
         echo -e "\e[1;31mError:\e[0m missing \"go_package\" declaration in ${i}" >/dev/stderr
     fi
     protoc \
-        "-I${GOPATH}/src/github.com/gogo/protobuf" \
+        "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
         -Isrc \
         --gogofast_out=plugins=grpc,\
 Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,\

@@ -151,7 +151,7 @@ func (m *Range) GetChunkRef() *chunk.DataRef {
 }
 
 type File struct {
-	Parts                []*Part          `protobuf:"bytes,1,rep,name=parts,proto3" json:"parts,omitempty"`
+	Datum                string           `protobuf:"bytes,1,opt,name=datum,proto3" json:"datum,omitempty"`
 	DataRefs             []*chunk.DataRef `protobuf:"bytes,2,rep,name=data_refs,json=dataRefs,proto3" json:"data_refs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
@@ -191,77 +191,14 @@ func (m *File) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_File proto.InternalMessageInfo
 
-func (m *File) GetParts() []*Part {
+func (m *File) GetDatum() string {
 	if m != nil {
-		return m.Parts
-	}
-	return nil
-}
-
-func (m *File) GetDataRefs() []*chunk.DataRef {
-	if m != nil {
-		return m.DataRefs
-	}
-	return nil
-}
-
-type Part struct {
-	Tag                  string           `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
-	SizeBytes            int64            `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	DataRefs             []*chunk.DataRef `protobuf:"bytes,3,rep,name=data_refs,json=dataRefs,proto3" json:"data_refs,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
-}
-
-func (m *Part) Reset()         { *m = Part{} }
-func (m *Part) String() string { return proto.CompactTextString(m) }
-func (*Part) ProtoMessage()    {}
-func (*Part) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dfa1b84c403551af, []int{3}
-}
-func (m *Part) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *Part) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Part.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *Part) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Part.Merge(m, src)
-}
-func (m *Part) XXX_Size() int {
-	return m.Size()
-}
-func (m *Part) XXX_DiscardUnknown() {
-	xxx_messageInfo_Part.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Part proto.InternalMessageInfo
-
-func (m *Part) GetTag() string {
-	if m != nil {
-		return m.Tag
+		return m.Datum
 	}
 	return ""
 }
 
-func (m *Part) GetSizeBytes() int64 {
-	if m != nil {
-		return m.SizeBytes
-	}
-	return 0
-}
-
-func (m *Part) GetDataRefs() []*chunk.DataRef {
+func (m *File) GetDataRefs() []*chunk.DataRef {
 	if m != nil {
 		return m.DataRefs
 	}
@@ -272,7 +209,6 @@ func init() {
 	proto.RegisterType((*Index)(nil), "index.Index")
 	proto.RegisterType((*Range)(nil), "index.Range")
 	proto.RegisterType((*File)(nil), "index.File")
-	proto.RegisterType((*Part)(nil), "index.Part")
 }
 
 func init() {
@@ -280,29 +216,26 @@ func init() {
 }
 
 var fileDescriptor_dfa1b84c403551af = []byte{
-	// 346 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x92, 0x4d, 0x4b, 0xf3, 0x40,
-	0x10, 0xc7, 0x49, 0x93, 0x94, 0x66, 0xfa, 0xf0, 0x20, 0x7b, 0x90, 0xa0, 0x58, 0x6b, 0x4e, 0x45,
-	0x21, 0x81, 0xfa, 0x0d, 0x4a, 0x11, 0xbc, 0x95, 0x3d, 0x78, 0xf0, 0x52, 0xb7, 0xc9, 0xe4, 0x05,
-	0x63, 0x12, 0x76, 0xa7, 0x62, 0xfd, 0x84, 0x1e, 0xfd, 0x08, 0xd2, 0x4f, 0x22, 0xbb, 0x9b, 0x43,
-	0xa5, 0xd0, 0xcb, 0x30, 0x2f, 0xff, 0x99, 0xdf, 0x3f, 0x2f, 0x70, 0x5b, 0x35, 0x84, 0xb2, 0x11,
-	0x75, 0xa2, 0xa8, 0x95, 0xa2, 0xc0, 0x24, 0xaf, 0x6a, 0x54, 0x48, 0x49, 0xd5, 0x64, 0xf8, 0x61,
-	0x63, 0xdc, 0xc9, 0x96, 0x5a, 0xe6, 0x9b, 0xe2, 0x22, 0x3a, 0x5a, 0x49, 0xcb, 0x6d, 0xf3, 0x6a,
-	0xa3, 0x95, 0x46, 0x2f, 0xe0, 0x3f, 0x6a, 0x31, 0x63, 0xe0, 0x75, 0x82, 0xca, 0xd0, 0x99, 0x3a,
-	0xb3, 0x80, 0x9b, 0x9c, 0x45, 0xe0, 0x4b, 0xd1, 0x14, 0x18, 0x0e, 0xa6, 0xce, 0x6c, 0x3c, 0xff,
-	0x17, 0x5b, 0x08, 0xd7, 0x3d, 0x6e, 0x47, 0xec, 0x1a, 0x3c, 0x6d, 0x24, 0x74, 0x8d, 0x64, 0xdc,
-	0x4b, 0x1e, 0xaa, 0x1a, 0xb9, 0x19, 0x44, 0x15, 0xf8, 0x66, 0x81, 0x9d, 0xc3, 0xb0, 0xcd, 0x73,
-	0x85, 0x64, 0x18, 0x2e, 0xef, 0x2b, 0x76, 0x09, 0x41, 0x2d, 0x14, 0xad, 0x0d, 0x7e, 0x60, 0xf0,
-	0x23, 0xdd, 0x58, 0x69, 0x0b, 0x77, 0x10, 0x18, 0xbb, 0x6b, 0x89, 0x79, 0xcf, 0xf8, 0x1f, 0xdb,
-	0x07, 0x58, 0x0a, 0x12, 0x1c, 0x73, 0x3e, 0x32, 0x25, 0xc7, 0x3c, 0x7a, 0x02, 0x4f, 0x83, 0xd9,
-	0x0d, 0xf8, 0x9d, 0x90, 0xa4, 0x42, 0x67, 0xea, 0x1e, 0x98, 0x5a, 0x09, 0x49, 0xdc, 0x4e, 0xf4,
-	0xdd, 0x4c, 0x90, 0xd0, 0x67, 0x55, 0x38, 0x30, 0xb2, 0xa3, 0xbb, 0x99, 0x4d, 0x54, 0x94, 0x81,
-	0xa7, 0x77, 0xd9, 0x19, 0xb8, 0x24, 0x8a, 0xfe, 0x15, 0xe9, 0x94, 0x5d, 0x01, 0xa8, 0xea, 0x13,
-	0xd7, 0x9b, 0x1d, 0xa1, 0x32, 0xe6, 0x5d, 0x1e, 0xe8, 0xce, 0x42, 0x37, 0xfe, 0x52, 0xdc, 0xd3,
-	0x94, 0x05, 0xff, 0xda, 0x4f, 0x9c, 0xef, 0xfd, 0xc4, 0xf9, 0xd9, 0x4f, 0x9c, 0xe7, 0x65, 0x51,
-	0x51, 0xb9, 0xdd, 0xc4, 0x69, 0xfb, 0x96, 0x74, 0x22, 0x2d, 0x77, 0x19, 0xca, 0xc3, 0xec, 0x7d,
-	0x9e, 0x28, 0x99, 0x26, 0xa7, 0xff, 0x8a, 0xcd, 0xd0, 0x7c, 0xe5, 0xfb, 0xdf, 0x00, 0x00, 0x00,
-	0xff, 0xff, 0xd2, 0x05, 0x62, 0x3d, 0x3e, 0x02, 0x00, 0x00,
+	// 300 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x51, 0xc1, 0x4a, 0xf4, 0x30,
+	0x10, 0x26, 0xdb, 0x76, 0xd9, 0x66, 0x7f, 0xfe, 0x43, 0x10, 0x29, 0x0a, 0xb5, 0xf4, 0xb4, 0x28,
+	0x34, 0xb0, 0xbe, 0x81, 0x2c, 0xc2, 0xde, 0x24, 0x47, 0x2f, 0x6b, 0xb6, 0x9d, 0xb4, 0xc1, 0x6e,
+	0x5b, 0x92, 0x54, 0xf4, 0x0d, 0x3d, 0xfa, 0x08, 0xd2, 0x27, 0x91, 0x24, 0x3d, 0x08, 0x8a, 0x97,
+	0x61, 0xbe, 0x99, 0x6f, 0xe6, 0xfb, 0x26, 0xc1, 0xd7, 0xb2, 0x33, 0xa0, 0x3a, 0xde, 0x52, 0x6d,
+	0x7a, 0xc5, 0x6b, 0xa0, 0x42, 0xb6, 0xa0, 0xc1, 0x50, 0xd9, 0x55, 0xf0, 0xea, 0x63, 0x31, 0xa8,
+	0xde, 0xf4, 0x24, 0x72, 0xe0, 0x22, 0xff, 0x31, 0x52, 0x36, 0x63, 0xf7, 0xec, 0xa3, 0xa7, 0xe6,
+	0x4f, 0x38, 0xda, 0x5b, 0x32, 0x21, 0x38, 0x1c, 0xb8, 0x69, 0x12, 0x94, 0xa1, 0x4d, 0xcc, 0x5c,
+	0x4e, 0x72, 0x1c, 0x29, 0xde, 0xd5, 0x90, 0x2c, 0x32, 0xb4, 0x59, 0x6f, 0xff, 0x15, 0x5e, 0x84,
+	0xd9, 0x1a, 0xf3, 0x2d, 0x72, 0x85, 0x43, 0x6b, 0x24, 0x09, 0x1c, 0x65, 0x3d, 0x53, 0xee, 0x65,
+	0x0b, 0xcc, 0x35, 0x72, 0x89, 0x23, 0x37, 0x40, 0xce, 0xf1, 0xb2, 0x17, 0x42, 0x83, 0x71, 0x1a,
+	0x01, 0x9b, 0x11, 0xb9, 0xc4, 0x71, 0xcb, 0xb5, 0x39, 0x38, 0xf9, 0x85, 0x93, 0x5f, 0xd9, 0xc2,
+	0x83, 0xb5, 0x70, 0x83, 0x63, 0x67, 0xf7, 0xa0, 0x40, 0xcc, 0x1a, 0xff, 0x0b, 0x7f, 0xc0, 0x8e,
+	0x1b, 0xce, 0x40, 0xb0, 0x95, 0x83, 0x0c, 0x44, 0xbe, 0xc7, 0xa1, 0x15, 0x26, 0x67, 0x38, 0xaa,
+	0xb8, 0x19, 0x4f, 0xf3, 0x31, 0x1e, 0xd8, 0x55, 0x15, 0x37, 0xdc, 0x6e, 0xd2, 0xc9, 0x22, 0x0b,
+	0x7e, 0x5b, 0x55, 0xf9, 0x44, 0xdf, 0xb1, 0xf7, 0x29, 0x45, 0x1f, 0x53, 0x8a, 0x3e, 0xa7, 0x14,
+	0x3d, 0xee, 0x6a, 0x69, 0x9a, 0xf1, 0x58, 0x94, 0xfd, 0x89, 0x0e, 0xbc, 0x6c, 0xde, 0x2a, 0x50,
+	0xdf, 0xb3, 0x97, 0x2d, 0xd5, 0xaa, 0xa4, 0x7f, 0x7f, 0xd1, 0x71, 0xe9, 0x9e, 0xfc, 0xf6, 0x2b,
+	0x00, 0x00, 0xff, 0xff, 0x33, 0x84, 0xa8, 0x77, 0xcb, 0x01, 0x00, 0x00,
 }
 
 func (m *Index) Marshal() (dAtA []byte, err error) {
@@ -452,70 +385,10 @@ func (m *File) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			dAtA[i] = 0x12
 		}
 	}
-	if len(m.Parts) > 0 {
-		for iNdEx := len(m.Parts) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Parts[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintIndex(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0xa
-		}
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *Part) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *Part) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *Part) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if len(m.DataRefs) > 0 {
-		for iNdEx := len(m.DataRefs) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.DataRefs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintIndex(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x1a
-		}
-	}
-	if m.SizeBytes != 0 {
-		i = encodeVarintIndex(dAtA, i, uint64(m.SizeBytes))
-		i--
-		dAtA[i] = 0x10
-	}
-	if len(m.Tag) > 0 {
-		i -= len(m.Tag)
-		copy(dAtA[i:], m.Tag)
-		i = encodeVarintIndex(dAtA, i, uint64(len(m.Tag)))
+	if len(m.Datum) > 0 {
+		i -= len(m.Datum)
+		copy(dAtA[i:], m.Datum)
+		i = encodeVarintIndex(dAtA, i, uint64(len(m.Datum)))
 		i--
 		dAtA[i] = 0xa
 	}
@@ -586,36 +459,9 @@ func (m *File) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if len(m.Parts) > 0 {
-		for _, e := range m.Parts {
-			l = e.Size()
-			n += 1 + l + sovIndex(uint64(l))
-		}
-	}
-	if len(m.DataRefs) > 0 {
-		for _, e := range m.DataRefs {
-			l = e.Size()
-			n += 1 + l + sovIndex(uint64(l))
-		}
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *Part) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Tag)
+	l = len(m.Datum)
 	if l > 0 {
 		n += 1 + l + sovIndex(uint64(l))
-	}
-	if m.SizeBytes != 0 {
-		n += 1 + sovIndex(uint64(m.SizeBytes))
 	}
 	if len(m.DataRefs) > 0 {
 		for _, e := range m.DataRefs {
@@ -959,126 +805,7 @@ func (m *File) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Parts", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthIndex
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthIndex
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Parts = append(m.Parts, &Part{})
-			if err := m.Parts[len(m.Parts)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DataRefs", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthIndex
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthIndex
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.DataRefs = append(m.DataRefs, &chunk.DataRef{})
-			if err := m.DataRefs[len(m.DataRefs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipIndex(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthIndex
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *Part) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowIndex
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Part: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Part: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Tag", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Datum", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -1106,28 +833,9 @@ func (m *Part) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Tag = string(dAtA[iNdEx:postIndex])
+			m.Datum = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SizeBytes", wireType)
-			}
-			m.SizeBytes = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.SizeBytes |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field DataRefs", wireType)
 			}

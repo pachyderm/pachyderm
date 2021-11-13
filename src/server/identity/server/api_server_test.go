@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -178,7 +177,7 @@ func TestSetConfiguration(t *testing.T) {
 		)
 	}, backoff.NewTestingBackOff()))
 
-	resp, err := http.Get(fmt.Sprintf("http://%v/.well-known/openid-configuration", dexHost(adminClient)))
+	resp, err := http.Get(fmt.Sprintf("http://%v/.well-known/openid-configuration", tu.DexHost(adminClient)))
 	require.NoError(t, err)
 
 	var oidcConfig map[string]interface{}
@@ -277,10 +276,39 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	require.Equal(t, 0, len(listResp.Connectors))
 }
 
-func dexHost(c *client.APIClient) string {
-	parts := strings.Split(c.GetAddress(), ":")
-	if parts[1] == "650" {
-		return parts[0] + ":658"
+// TestShortenIDTokenExpiry tests that we can configure Dex to issue ID tokens with a
+// expiration shorter than the default of 6 hours
+func TestShortenIDTokenExpiry(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
 	}
-	return parts[0] + ":30658"
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	tu.ConfigureOIDCProvider(t)
+
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
+		Config: &identity.IdentityServerConfig{
+			Issuer:              "http://pachd:1658/",
+			IdTokenExpiry:       "1h",
+			RotationTokenExpiry: "5h",
+		},
+	})
+	require.NoError(t, err)
+
+	token := tu.GetOIDCTokenForTrustedApp(t)
+
+	// Exchange the ID token for a pach token and confirm the expiration is < 1h
+	testClient := tu.GetUnauthenticatedPachClient(t)
+	authResp, err := testClient.Authenticate(testClient.Ctx(),
+		&auth.AuthenticateRequest{IdToken: token})
+	require.NoError(t, err)
+
+	testClient.SetAuthToken(authResp.PachToken)
+
+	// Check that testClient authenticated as the right user
+	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.True(t, time.Until(*whoAmIResp.Expiration) < time.Hour)
 }

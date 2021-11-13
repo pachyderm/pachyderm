@@ -1,3 +1,7 @@
+>![pach_logo](../img/pach_logo.svg) INFO Pachyderm 2.0 introduces profound architectual changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
+
 # Group Pipelines 
 >![pach_logo](./img/pach_logo.svg) The group functionality is available in version **1.12 and higher**.
 
@@ -31,8 +35,8 @@ Run a quick:
 $ pachctl version
 
 COMPONENT           VERSION
-pachctl             1.12.0
-pachd               1.12.0
+pachctl             2.0.0
+pachd               2.0.0
 ```
 Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the same major & minor versions of your pachctl and pachd. 
 

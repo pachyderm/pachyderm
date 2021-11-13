@@ -9,9 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -24,14 +22,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/storagegateway"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	log "github.com/sirupsen/logrus"
-
-	vault "github.com/hashicorp/vault/api"
 )
-
-const oneDayInSeconds = 60 * 60 * 24
-const twoDaysInSeconds = 60 * 60 * 48
 
 type amazonClient struct {
 	bucket                 string
@@ -42,101 +38,6 @@ type amazonClient struct {
 	advancedConfig         *AmazonAdvancedConfiguration
 }
 
-type vaultCredentialsProvider struct {
-	vaultClient *vault.Client // client used to retrieve S3 creds from vault
-	vaultRole   string        // get vault creds from: /aws/creds/<vaultRole>
-
-	// ID, duration, and last renew time of the vault lease that governs the most
-	// recent AWS secret issued to this pachd instance (and a mutex protecting
-	// them)
-	leaseMu        sync.Mutex
-	leaseID        string
-	leaseLastRenew time.Time
-	leaseDuration  time.Duration
-}
-
-// updateLease extracts the duration of the lease governing 'secret' (an AWS
-// secret). IIUC, because the AWS backend issues dynamic secrets, there is no
-// tokens associated with them, and vaultSecret.TokenTTL can be ignored
-func (v *vaultCredentialsProvider) updateLease(secret *vault.Secret) {
-	v.leaseMu.Lock()
-	defer v.leaseMu.Unlock()
-	v.leaseID = secret.LeaseID
-	v.leaseLastRenew = time.Now()
-	v.leaseDuration = time.Duration(secret.LeaseDuration) * time.Second
-}
-
-func (v *vaultCredentialsProvider) getLeaseDuration() time.Duration {
-	v.leaseMu.Lock()
-	defer v.leaseMu.Unlock()
-	return v.leaseDuration
-}
-
-// Retrieve returns nil if it successfully retrieved the value.  Error is
-// returned if the value were not obtainable, or empty.
-func (v *vaultCredentialsProvider) Retrieve() (credentials.Value, error) {
-	var emptyCreds, result credentials.Value // result
-
-	// retrieve AWS creds from vault
-	vaultSecret, err := v.vaultClient.Logical().Read(path.Join("aws", "creds", v.vaultRole))
-	if err != nil {
-		return emptyCreds, errors.Wrapf(err, "could not retrieve creds from vault")
-	}
-	accessKeyIface, accessKeyOk := vaultSecret.Data["access_key"]
-	awsSecretIface, awsSecretOk := vaultSecret.Data["secret_key"]
-	if !accessKeyOk || !awsSecretOk {
-		return emptyCreds, errors.Errorf("aws creds not present in vault response")
-	}
-
-	// Convert access key & secret in response to strings
-	result.AccessKeyID, accessKeyOk = accessKeyIface.(string)
-	result.SecretAccessKey, awsSecretOk = awsSecretIface.(string)
-	if !accessKeyOk || !awsSecretOk {
-		return emptyCreds, errors.Errorf("aws creds in vault response were not both strings (%T and %T)", accessKeyIface, awsSecretIface)
-	}
-
-	// update the lease values in 'v', and spawn a goroutine to renew the lease
-	v.updateLease(vaultSecret)
-	go func() {
-		for {
-			// renew at half the lease duration or one day, whichever is greater
-			// (lease must expire eventually)
-			renewInterval := v.getLeaseDuration()
-			if renewInterval.Seconds() < oneDayInSeconds {
-				renewInterval = oneDayInSeconds * time.Second
-			}
-
-			// Wait until 'renewInterval' has elapsed, then renew the lease
-			time.Sleep(renewInterval)
-			backoff.RetryNotify(func() error {
-				// every two days, renew the lease for this node's AWS credentials
-				vaultSecret, err := v.vaultClient.Sys().Renew(v.leaseID, twoDaysInSeconds)
-				if err != nil {
-					return err
-				}
-				v.updateLease(vaultSecret)
-				return nil
-			}, backoff.NewExponentialBackOff(), func(err error, _ time.Duration) error {
-				log.Errorf("could not renew vault lease: %v", err)
-				return nil
-			})
-		}
-	}()
-
-	// Per https://www.vaultproject.io/docs/secrets/aws/index.html#usage, wait
-	// until token is usable
-	time.Sleep(10 * time.Second)
-	return result, nil
-}
-
-// IsExpired returns if the credentials are no longer valid, and need to be
-// retrieved.
-func (v *vaultCredentialsProvider) IsExpired() bool {
-	v.leaseMu.Lock()
-	defer v.leaseMu.Unlock()
-	return time.Now().After(v.leaseLastRenew.Add(v.leaseDuration))
-}
-
 // AmazonCreds are options that are applicable specifically to Pachd's
 // credentials in an AWS deployment
 type AmazonCreds struct {
@@ -145,11 +46,6 @@ type AmazonCreds struct {
 	ID     string // Access Key ID
 	Secret string // Secret Access Key
 	Token  string // Access token (if using temporary security credentials
-
-	// Vault options (if getting AWS credentials from Vault)
-	VaultAddress string // normally addresses come from env, but don't have vault service name
-	VaultRole    string
-	VaultToken   string
 }
 
 func parseLogOptions(optstring string) *aws.LogLevelType {
@@ -189,8 +85,7 @@ func parseLogOptions(optstring string) *aws.LogLevelType {
 }
 
 func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, advancedConfig *AmazonAdvancedConfiguration) (*amazonClient, error) {
-	// set up aws config, including credentials (if neither creds.ID nor
-	// creds.VaultAddress are set, then this will use the EC2 metadata service
+	// set up aws config, including credentials (If creds.ID not set then this will use the EC2 metadata service)
 	timeout, err := time.ParseDuration(advancedConfig.Timeout)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -202,6 +97,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		httpClient.Transport = transport
 	}
+	httpClient.Transport = promutil.InstrumentRoundTripper("s3", httpClient.Transport)
 	awsConfig := &aws.Config{
 		Region:     aws.String(region),
 		MaxRetries: aws.Int(advancedConfig.Retries),
@@ -212,18 +108,6 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	}
 	if creds.ID != "" {
 		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)
-	} else if creds.VaultAddress != "" {
-		vaultClient, err := vault.NewClient(&vault.Config{
-			Address: creds.VaultAddress,
-		})
-		if err != nil {
-			return nil, errors.Wrapf(err, "error creating vault client")
-		}
-		vaultClient.SetToken(creds.VaultToken)
-		awsConfig.Credentials = credentials.NewCredentials(&vaultCredentialsProvider{
-			vaultClient: vaultClient,
-			vaultRole:   creds.VaultRole,
-		})
 	}
 	// Set custom endpoint for a custom deployment.
 	if endpoint != "" {
@@ -272,24 +156,25 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	return awsClient, nil
 }
 
-func (c *amazonClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
-	if c.advancedConfig.Reverse {
-		name = reverse(name)
-	}
-	return newBackoffWriteCloser(ctx, c, newWriter(ctx, c, name)), nil
+func (c *amazonClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
+	ctx, cf := context.WithCancel(ctx)
+	defer cf()
+	_, err := c.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
+		ACL:             aws.String(c.advancedConfig.UploadACL),
+		Body:            r,
+		Bucket:          aws.String(c.bucket),
+		Key:             aws.String(name),
+		ContentEncoding: aws.String("application/octet-stream"),
+	})
+	return err
 }
 
-func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string) error) error {
+func (c *amazonClient) Walk(ctx context.Context, name string, fn func(name string) error) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	var fnErr error
-	var prefix *string
-
-	if c.advancedConfig.Reverse {
-		prefix = nil
-	} else {
-		prefix = &name
-	}
-
-	if err := c.s3.ListObjectsPages(
+	var prefix = &name
+	if err := c.s3.ListObjectsPagesWithContext(ctx,
 		&s3.ListObjectsInput{
 			Bucket: aws.String(c.bucket),
 			Prefix: prefix,
@@ -297,9 +182,6 @@ func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string)
 		func(listObjectsOutput *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, object := range listObjectsOutput.Contents {
 				key := *object.Key
-				if c.advancedConfig.Reverse {
-					key = reverse(key)
-				}
 				if strings.HasPrefix(key, name) {
 					if err := fn(key); err != nil {
 						fnErr = err
@@ -315,14 +197,8 @@ func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string)
 	return fnErr
 }
 
-func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	if c.advancedConfig.Reverse {
-		name = reverse(name)
-	}
-	byteRange := byteRange(offset, size)
-	if byteRange != "" {
-		byteRange = fmt.Sprintf("bytes=%s", byteRange)
-	}
+func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	var reader io.ReadCloser
 	if c.cloudfrontDistribution != "" {
 		var resp *http.Response
@@ -332,15 +208,14 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 		if c.cloudfrontURLSigner != nil {
 			signedURL, err := c.cloudfrontURLSigner.Sign(url, time.Now().Add(1*time.Hour))
 			if err != nil {
-				return nil, err
+				return err
 			}
 			url = strings.TrimSpace(signedURL)
 		}
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		req.Header.Add("Range", byteRange)
 
 		backoff.RetryNotify(func() (retErr error) {
 			span, _ := tracing.AddSpanToAnyExisting(ctx, "/Amazon.Cloudfront/Get")
@@ -348,7 +223,7 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 				tracing.FinishAnySpan(span, "err", retErr)
 			}()
 			resp, connErr = http.DefaultClient.Do(req)
-			if connErr != nil && isNetRetryable(connErr) {
+			if connErr != nil && errutil.IsNetRetryable(connErr) {
 				return connErr
 			}
 			return nil
@@ -357,11 +232,11 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 			return nil
 		})
 		if connErr != nil {
-			return nil, connErr
+			return connErr
 		}
 		if resp.StatusCode >= 300 {
 			// Cloudfront returns 200s, and 206s as success codes
-			return nil, errors.Errorf("cloudfront returned HTTP error code %v for url %v", resp.Status, url)
+			return errors.Errorf("cloudfront returned HTTP error code %v for url %v", resp.Status, url)
 		}
 		reader = resp.Body
 	} else {
@@ -369,134 +244,88 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 			Bucket: aws.String(c.bucket),
 			Key:    aws.String(name),
 		}
-		if byteRange != "" {
-			objIn.Range = aws.String(byteRange)
-		}
-		getObjectOutput, err := c.s3.GetObject(objIn)
+		getObjectOutput, err := c.s3.GetObjectWithContext(ctx, objIn)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		reader = getObjectOutput.Body
 	}
-	return newBackoffReadCloser(ctx, c, reader), nil
+	defer func() {
+		if err := reader.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err := io.Copy(w, reader)
+	return err
 }
 
-func (c *amazonClient) Delete(_ context.Context, name string) error {
-	if c.advancedConfig.Reverse {
-		name = reverse(name)
-	}
-	_, err := c.s3.DeleteObject(&s3.DeleteObjectInput{
+func (c *amazonClient) Delete(ctx context.Context, name string) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
+	_, err := c.s3.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
 	})
 	return err
 }
 
-func (c *amazonClient) Exists(ctx context.Context, name string) bool {
-	if c.advancedConfig.Reverse {
-		name = reverse(name)
-	}
-	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
+func (c *amazonClient) Exists(ctx context.Context, name string) (bool, error) {
+	_, err := c.s3.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
 	})
 	tracing.TagAnySpan(ctx, "err", err)
-	return err == nil
-}
-
-func (c *amazonClient) IsRetryable(err error) (retVal bool) {
-	if strings.Contains(err.Error(), "unexpected EOF") {
-		return true
-	}
-	if strings.Contains(err.Error(), "SlowDown:") {
-		return true
-	}
-
-	var awsErr awserr.Error
-	if !errors.As(err, &awsErr) {
-		return false
-	}
-	for _, c := range []string{
-		storagegateway.ErrorCodeServiceUnavailable,
-		storagegateway.ErrorCodeInternalError,
-		storagegateway.ErrorCodeGatewayInternalError,
-	} {
-		if c == awsErr.Code() {
-			return true
+	if err != nil {
+		err = c.transformError(err, name)
+		if pacherr.IsNotExist(err) {
+			err = nil
 		}
+		return false, err
 	}
-	return false
+	return true, nil
 }
 
-func (c *amazonClient) IsIgnorable(err error) bool {
-	return false
+func (c *amazonClient) BucketURL() ObjectStoreURL {
+	return ObjectStoreURL{
+		Scheme: "s3",
+		Bucket: c.bucket,
+	}
 }
 
-func (c *amazonClient) IsNotExist(err error) bool {
+func (c *amazonClient) transformError(err error, objectPath string) error {
+	const minWait = 250 * time.Millisecond
+	if err == nil {
+		return nil
+	}
 	if c.cloudfrontDistribution != "" {
 		// cloudfront returns forbidden error for nonexisting data
 		if strings.Contains(err.Error(), "error code 403") {
-			return true
+			return pacherr.NewNotExist(c.bucket, objectPath)
 		}
+	}
+	if strings.Contains(err.Error(), "unexpected EOF") {
+		return pacherr.WrapTransient(err, minWait)
+	}
+	if strings.Contains(err.Error(), "Not Found") {
+		return pacherr.NewNotExist(c.bucket, objectPath)
 	}
 	var awsErr awserr.Error
 	if !errors.As(err, &awsErr) {
-		return false
-	}
-	if awsErr.Code() == "NoSuchKey" {
-		return true
-	}
-	return false
-}
-
-type amazonWriter struct {
-	ctx     context.Context
-	errChan chan error
-	pipe    *io.PipeWriter
-}
-
-func newWriter(ctx context.Context, client *amazonClient, name string) *amazonWriter {
-	reader, writer := io.Pipe()
-	w := &amazonWriter{
-		ctx:     ctx,
-		errChan: make(chan error),
-		pipe:    writer,
-	}
-	go func() {
-		_, err := client.uploader.Upload(&s3manager.UploadInput{
-			ACL:             aws.String(client.advancedConfig.UploadACL),
-			Body:            reader,
-			Bucket:          aws.String(client.bucket),
-			Key:             aws.String(name),
-			ContentEncoding: aws.String("application/octet-stream"),
-		})
-		if err != nil {
-			reader.CloseWithError(err)
-		}
-		w.errChan <- err
-	}()
-	return w
-}
-
-func (w *amazonWriter) Write(p []byte) (retN int, retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Amazon.Writer/Write")
-	defer tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
-	return w.pipe.Write(p)
-}
-
-func (w *amazonWriter) Close() (retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Amazon.Writer/Close")
-	defer tracing.FinishAnySpan(span, "err", retErr)
-	if err := w.pipe.Close(); err != nil {
 		return err
 	}
-	return <-w.errChan
-}
-
-func reverse(s string) string {
-	runes := []rune(s)
-	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-		runes[i], runes[j] = runes[j], runes[i]
+	// errors.Is is unable to correctly identify context.Cancel with the amazon error types
+	if strings.Contains(awsErr.Error(), "RequestCanceled") {
+		return context.Canceled
 	}
-	return string(runes)
+	if strings.Contains(awsErr.Message(), "SlowDown:") {
+		return pacherr.WrapTransient(err, minWait)
+	}
+	switch awsErr.Code() {
+	case s3.ErrCodeNoSuchKey:
+		return pacherr.NewNotExist(c.bucket, objectPath)
+	case storagegateway.ErrorCodeServiceUnavailable,
+		storagegateway.ErrorCodeInternalError,
+		storagegateway.ErrorCodeGatewayInternalError:
+		return pacherr.WrapTransient(err, minWait)
+	}
+	return err
 }

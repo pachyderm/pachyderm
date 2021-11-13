@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+
+	oidc "github.com/coreos/go-oidc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -29,6 +31,10 @@ const (
 	// string (with this prefix) is a logical Pachyderm robot user.
 	RobotPrefix = "robot:"
 
+	// InternalPrefix indicates that this Subject is internal to Pachyderm itself,
+	// created to run a background task
+	InternalPrefix = "internal:"
+
 	// PipelinePrefix indicates that this Subject is a PPS pipeline. Any string
 	// (with this prefix) is a logical PPS pipeline (even though the pipeline may
 	// not exist).
@@ -37,16 +43,13 @@ const (
 	// PachPrefix indicates that this Subject is an internal Pachyderm user.
 	PachPrefix = "pach:"
 
+	// GroupPrefix indicates that this Subject is a group.
+	GroupPrefix = "group:"
+
 	// RootUser is the user created when auth is initialized. Only one token
 	// can be created for this user (during auth activation) and they cannot
 	// be removed from the set of cluster super-admins.
 	RootUser = "pach:root"
-
-	// PpsUser is a special, unrevokable cluster administrator account used by PPS
-	// to create pipeline tokens, close commits, and do other necessary PPS work.
-	// It's not possible to authenticate as ppsUser (pps reads the auth token for
-	// this user directly from etcd).
-	PpsUser = `pach:pps`
 
 	// ClusterAdminRole is the role for cluster admins, who have full access to all APIs
 	ClusterAdminRole = "clusterAdmin"
@@ -60,8 +63,34 @@ const (
 	// RepoReaderRole is a role which grants ability to both read from a repo
 	RepoReaderRole = "repoReader"
 
+	// IDPAdminRole is a role which grants the ability to configure OIDC apps.
+	OIDCAppAdminRole = "oidcAppAdmin"
+
+	// IDPAdminRole is a role which grants the ability to configure identity providers.
+	IDPAdminRole = "idpAdmin"
+
+	// IdentityAdmin is a role which grants the ability to configure the identity service.
+	IdentityAdminRole = "identityAdmin"
+
+	// DebuggerRole is a role which grants the ability to produce debug dumps.
+	DebuggerRole = "debugger"
+
+	// RobotUserRole is a role which grants the ability to generate tokens for robot
+	// users.
+	RobotUserRole = "robotUser"
+
+	// LicenseAdminRole is a role which grants the ability to register new
+	// pachds with the license server, manage pachds and update the enterprise license.
+	LicenseAdminRole = "licenseAdmin"
+
 	// AllClusterUsersSubject is a subject which applies a role binding to all authenticated users
 	AllClusterUsersSubject = "allClusterUsers"
+
+	// SecretAdminRole is a role which grants the ability to manage secrets
+	SecretAdminRole = "secretAdmin"
+
+	// PachdLogReaderRole is a role which grants the ability to pull pachd logs
+	PachdLogReaderRole = "pachdLogReader"
 )
 
 var (
@@ -94,6 +123,8 @@ var (
 	// the past.
 	ErrExpiredToken = status.Error(codes.Internal, "token expiration is in the past")
 )
+
+var DefaultOIDCScopes = []string{"email", "profile", "groups", oidc.ScopeOpenID}
 
 // IsErrAlreadyActivated checks if an error is a ErrAlreadyActivated
 func IsErrAlreadyActivated(err error) bool {
@@ -181,7 +212,7 @@ type ErrNotAuthorized struct {
 const errNotAuthorizedMsg = "not authorized to perform this operation"
 
 func (e *ErrNotAuthorized) Error() string {
-	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
+	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v. Run `pachctl auth roles-for-permission` to find roles that grant a given permission.", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
 }
 
 // IsErrNotAuthorized checks if an error is a ErrNotAuthorized

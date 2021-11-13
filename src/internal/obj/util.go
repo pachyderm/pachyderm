@@ -3,49 +3,31 @@ package obj
 import (
 	"context"
 	"io"
-	"io/ioutil"
-	"os"
-	"path"
-	"strings"
-	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 )
-
-// NewTestClient creates a Client which is cleaned up after the test exists
-func NewTestClient(t testing.TB) (Client, string) {
-	dirBase := path.Join(os.TempDir(), "pachyderm_test")
-	require.NoError(t, os.MkdirAll(dirBase, 0700))
-	dir, err := ioutil.TempDir(dirBase, "")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, os.RemoveAll(dir))
-	})
-	objC, err := NewLocalClient(dir)
-	require.NoError(t, err)
-	return objC, strings.ReplaceAll(strings.Trim(dir, "/"), "/", ".")
-}
 
 // Copy copys an object from src at srcPath to dst at dstPath
 func Copy(ctx context.Context, src, dst Client, srcPath, dstPath string) (retErr error) {
-	rc, err := src.Reader(ctx, srcPath, 0, 0)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := rc.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	wc, err := dst.Writer(ctx, dstPath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := wc.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	_, err = io.Copy(wc, rc)
-	return err
+	return miscutil.WithPipe(func(w io.Writer) error {
+		return src.Get(ctx, srcPath, w)
+	}, func(r io.Reader) error {
+		return dst.Put(ctx, dstPath, r)
+	})
+}
+
+type testURL struct {
+	Client
+}
+
+// WrapWithTestURL marks client as a test client and will prepend test- to the url.
+// the consturctors in this package know how to parse test urls, and assume default credentials.
+func WrapWithTestURL(c Client) Client {
+	return testURL{c}
+}
+
+func (c testURL) BucketURL() ObjectStoreURL {
+	u := c.Client.BucketURL()
+	u.Scheme = "test-" + u.Scheme
+	return u
 }

@@ -1,0 +1,48 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{ if and (or (.Values.pachd.enterpriseLicenseKey) (.Values.pachd.activateEnterpriseMember)) ( or (.Release.IsInstall) (.Values.pachd.activateEnterprise)) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pachyderm-config-{{ date "20060102150405" now }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+    app: pachd
+    suite: pachyderm
+spec:
+  template:
+    spec:
+      containers:
+      - name: config-pod
+        image: pachyderm/config-pod:0.4
+        command: [ "/config-pod" ]
+        volumeMounts:
+        - name: config
+          mountPath: "/pachConfig"
+        env:
+        {{- if .Values.console.enabled }}
+        - name: CONSOLE_OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: pachyderm-console-secret
+              key: OAUTH_CLIENT_SECRET
+        {{- end}}
+        {{- if .Values.enterpriseServer.enabled }}
+        - name: PACH_ADDR
+          value: "grpc://pach-enterprise:1650"
+        {{- end }}
+        envFrom:
+        - secretRef:
+            name: pachyderm-deployment-id-secret
+      restartPolicy: Never
+      volumes:
+      - name: config
+        secret: 
+          secretName: pachyderm-bootstrap-config
+  backoffLimit: 4
+{{- end }}

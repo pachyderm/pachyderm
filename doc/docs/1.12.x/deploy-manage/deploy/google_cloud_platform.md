@@ -50,15 +50,17 @@ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-t
 # needed to create those clusterrolebindings.
 #
 # Note that this command is simple and concise, but gives your user account more privileges than necessary. See
-# https://docs.pachyderm.io/en/latest/deployment/rbac.html for the complete list of privileges that the
+# https://docs.pachyderm.io/en/1.12.x/deploy-manage/deploy/rbac/#rbac for the complete list of privileges that the
 # pachyderm serviceaccount needs.
 kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
 ```
 
 !!! note "Important"
-    You must create the Kubernetes cluster by using the `gcloud` command-line
-    tool rather than the Google Cloud Console, as you can grant the
-    `storage-rw` scope through the command-line tool only.
+        - You must create the Kubernetes cluster by using the `gcloud` command-line
+        tool rather than the Google Cloud Console, as you can grant the
+        `storage-rw` scope through the command-line tool only.
+        
+        - Adding `--scopes storage-rw` to `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` will grant the rw scope to whatever service account is on the cluster, which if you don’t provide it, is the default compute service account for the project which has Editor permissions. While this is **not recommended in any production settings**, this option can be useful for a quick setup in development. In that scenario, you do not need any service account or additional GCP Bucket permission.
 
 This migth take a few minutes to start up. You can check the status on
 the [GCP Console](https://console.cloud.google.com/compute/instances).
@@ -106,17 +108,21 @@ To deploy Pachyderm we will need to:
 1. [Create storage resources](#set-up-the-storage-resources), 
 2. [Install the Pachyderm CLI tool, `pachctl`](#install-pachctl), and
 3. [Deploy Pachyderm on the Kubernetes cluster](#deploy-pachyderm-on-the-kubernetes-cluster)
-
+4. [Point your CLI `pachctl` to your cluster](#have-pachctl-and-your-cluster-communicate)
 ### Set up the Storage Resources
 
-Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/)
-and a [persistent disk](https://cloud.google.com/compute/docs/disks/)
+Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) (Object store)
+and a [persistent disk](https://cloud.google.com/compute/docs/disks/) (Metadata)
 to function correctly. You can specify the size of the persistent
 disk, the bucket name, and create the bucket by running the following
 commands:
 
+!!! Warning
+    The metadata service (Persistent disk) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your disk choice, you may need to oversize the volume significantly to ensure enough IOPS.
+
+
 ```shell
-# For the persistent disk; this stores PFS metadata. For reference, 1GB should
+# For the persistent disk, this stores PFS metadata. For reference, 1GB should
 # work fine for 1000 commits on 1000 files. 10GB is often a sufficient starting
 # size, though we recommend provisioning at least 1500 write IOPS, which
 # requires at least 50GB of space on SSD-based PDs and 1TB of space on Standard PDs.
@@ -211,15 +217,46 @@ If you see a few restarts on the `pachd` pod, you can safely ignore them.
 That simply means that Kubernetes tried to bring up those containers
 before other components were ready, so it restarted them.
 
-Finally, assuming your `pachd` is running as shown above, set up
-forward a port so that `pachctl` can talk to the cluster.
+### Have 'pachctl' and your Cluster Communicate
+
+Finally, assuming your `pachd` is running as shown above, 
+make sure that `pachctl` can talk to the cluster by:
+
+- Running a port-forward:
 
 ```shell
-# Forward the ports. We background this process because it blocks.
-pachctl port-forward
+# Background this process because it blocks.
+pachctl port-forward   
 ```
 
-And you're done! You can test to make sure the cluster is working
+- Exposing your cluster to the internet by setting up a LoadBalancer as follow:
+
+!!! Warning 
+    The following setup of a LoadBalancer only applies to pachd.
+
+1. To get an external IP address for a Cluster, edit its k8s service, 
+```shell
+kubectl edit service pachd
+```
+and change its `spec.type` value from `NodePort` to `LoadBalancer`. 
+
+1. Retrieve the external IP address of the edited service.
+When listing your services again, you should see an external IP address allocated to the service you just edited. 
+```shell
+kubectl get service
+```
+1. Update the context of your cluster with their direct url, using the external IP address above:
+```shell
+echo '{"pachd_address": "grpc://<external-IP-address>:650"}' | pachctl config set context "your-cluster-context-name" --overwrite
+```
+1. Check that your are using the right context: 
+```shell
+pachctl config get active-context`
+```
+Your cluster context name set above should show up. 
+    
+
+You are done! You can test to make sure the cluster is working
 by running `pachctl version` or even creating a new repo.
 
 ```shell
@@ -234,7 +271,8 @@ pachctl             {{ config.pach_latest_version }}
 pachd               {{ config.pach_latest_version }}
 ```
 
-### Increasing Ingress Throughput
+## Advanced Setups
+### Increase Ingress Throughput
 
 One way to improve Ingress performance is to restrict Pachd to
 a specific, more powerful node in the cluster. This is
@@ -254,7 +292,7 @@ tolerations:
   effect: "NoSchedule"
 ```
 
-### Increasing upload performance
+### Increase upload performance
 
 The most straightfoward approach to increasing upload performance is
 to [leverage SSD’s as the boot disk](https://cloud.google.com/kubernetes-engine/docs/how-to/custom-boot-disks) in
@@ -263,7 +301,7 @@ HDD disks. Additionally, you can increase the size of the SSD for
 further performance gains because the number of IOPS increases with
 disk size.
 
-### Increasing merge performance
+### Increase merge performance
 
 Performance tweaks when it comes to merges can be done directly in
 the [Pachyderm pipeline spec](../../../reference/pipeline_spec/).

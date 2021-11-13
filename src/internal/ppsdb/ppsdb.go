@@ -2,51 +2,137 @@
 package ppsdb
 
 import (
-	"path"
+	"fmt"
+	"strings"
 
-	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 const (
-	pipelinesPrefix = "/pipelines"
-	jobsPrefix      = "/jobs"
+	pipelinesCollectionName = "pipelines"
+	jobsCollectionName      = "jobs"
 )
 
-var (
-	// JobsPipelineIndex maps pipeline to jobs started by the pipeline
-	JobsPipelineIndex = &col.Index{Field: "Pipeline", Multi: false}
+// PipelinesVersionIndex records the version numbers of pipelines
+var PipelinesVersionIndex = &col.Index{
+	Name: "version",
+	Extract: func(val proto.Message) string {
+		info := val.(*pps.PipelineInfo)
+		return VersionKey(info.Pipeline.Name, info.Version)
+	},
+}
 
-	// JobsInputIndex maps job inputs (repos + pipeline version) to output
-	// commit. This is how we know if we need to start a job.
-	JobsInputIndex = &col.Index{Field: "Input", Multi: false}
+func VersionKey(pipeline string, version uint64) string {
+	// zero pad in case we want to sort
+	return fmt.Sprintf("%s@%08d", pipeline, version)
+}
 
-	// JobsOutputIndex maps job outputs to the job that create them.
-	JobsOutputIndex = &col.Index{Field: "OutputCommit", Multi: false}
-)
+// PipelinesNameIndex records the name of pipelines
+var PipelinesNameIndex = &col.Index{
+	Name: "name",
+	Extract: func(val proto.Message) string {
+		info := val.(*pps.PipelineInfo)
+		return info.Pipeline.Name
+	},
+}
 
-// Pipelines returns a Collection of pipelines
-func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, pipelinesPrefix),
-		nil,
-		&pps.EtcdPipelineInfo{},
-		nil,
-		nil,
+var pipelinesIndexes = []*col.Index{
+	PipelinesVersionIndex,
+	PipelinesNameIndex,
+}
+
+func ParsePipelineKey(key string) (string, string, error) {
+	parts := strings.Split(key, "@")
+	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
+		return "", "", errors.Errorf("key %s is not of form <pipeline>@<id>")
+	}
+	return parts[0], parts[1], nil
+}
+
+// Pipelines returns a PostgresCollection of pipelines
+func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		pipelinesCollectionName,
+		db,
+		listener,
+		&pps.PipelineInfo{},
+		pipelinesIndexes,
+		col.WithKeyGen(func(key interface{}) (string, error) {
+			if commit, ok := key.(*pfs.Commit); ok {
+				if commit.Branch.Repo.Type != pfs.SpecRepoType {
+					return "", errors.Errorf("commit %s is not from a spec repo", commit)
+				}
+				return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
+			}
+			return "", errors.New("must provide a spec commit")
+		}),
+		col.WithKeyCheck(func(key string) error {
+			_, _, err := ParsePipelineKey(key)
+			return err
+		}),
 	)
 }
 
-// Jobs returns a Collection of jobs
-func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, jobsPrefix),
-		[]*col.Index{JobsPipelineIndex, JobsOutputIndex},
-		&pps.EtcdJobInfo{},
-		nil,
-		nil,
+// JobsPipelineIndex maps pipeline to Jobs started by the pipeline
+var JobsPipelineIndex = &col.Index{
+	Name: "pipeline",
+	Extract: func(val proto.Message) string {
+		return val.(*pps.JobInfo).Job.Pipeline.Name
+	},
+}
+
+func JobTerminalKey(pipeline *pps.Pipeline, isTerminal bool) string {
+	return fmt.Sprintf("%s_%v", pipeline.Name, isTerminal)
+}
+
+var JobsTerminalIndex = &col.Index{
+	Name: "job_state",
+	Extract: func(val proto.Message) string {
+		jobInfo := val.(*pps.JobInfo)
+		return JobTerminalKey(jobInfo.Job.Pipeline, pps.IsTerminal(jobInfo.State))
+	},
+}
+
+var JobsJobSetIndex = &col.Index{
+	Name: "jobset",
+	Extract: func(val proto.Message) string {
+		return val.(*pps.JobInfo).Job.ID
+	},
+}
+
+var jobsIndexes = []*col.Index{JobsPipelineIndex, JobsTerminalIndex, JobsJobSetIndex}
+
+// JobKey is the string representation of a Job suitable for use as an indexing key
+func JobKey(job *pps.Job) string {
+	return job.String()
+}
+
+// Jobs returns a PostgresCollection of Jobs
+func Jobs(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		jobsCollectionName,
+		db,
+		listener,
+		&pps.JobInfo{},
+		jobsIndexes,
 	)
+}
+
+// CollectionsV0 returns a list of all the PPS API collections for
+// postgres-initialization purposes. These collections are not usable for
+// querying.
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func CollectionsV0() []col.PostgresCollection {
+	return []col.PostgresCollection{
+		col.NewPostgresCollection(pipelinesCollectionName, nil, nil, nil, pipelinesIndexes),
+		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, jobsIndexes),
+	}
 }
