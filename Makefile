@@ -86,7 +86,7 @@ release-pachctl:
 
 docker-build:
 	docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
-	docker build -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
+	#docker build -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
 docker-build-proto:
