@@ -33,7 +33,7 @@
    },
    "transform": {
     "cmd": [ "python", "main.py" ],
-    "image": "pachyderm/example-group:1.12.2"
+    "image": "pachyderm/example-group:2.0.1"
   }
 }
  
