@@ -53,31 +53,38 @@ After your workspace creation, open a terminal window and [install 'pachctl'](ht
     on Hub.
 ## 3-4 Configure your Pachyderm context and login to your workspace by using a one-time authentication token
 1. To configure a Pachyderm context and log in to your workspace
-(i.e. have your `pachctl` point to your new workspace), click the **Connect** link on your workspace name in the Hub UI.
+(i.e. have your `pachctl` CLI point to your new workspace), click the **CLI** link on your workspace name in the Hub UI.
+            
+       ![Pachyderm workspace running](../images/hub_cluster_running.png)
 
-      ![Pachyderm workspace running](../images/hub_cluster_running.png)
+       Or,
 
-      In your terminal window, copy, paste, and run the commands 1,2,3 listed in the instructions.
+       ![Pachyderm workspace running details](../images/hub_workspace_details.png)
 
-      ![Pachyderm workspace connect](../images/hub_cluster_connect.png)
+       Then, in your terminal window, copy, paste, and run the commands 1,2,3 listed in the instructions.
+
+       Note that we are assuming that *you have installed Pachyderm's CLI tool `pachctl`*. If not, follow the link on top of your connection window.
+
+       ![Pachyderm workspace connect](../images/hub_cluster_connect.png)
+
 
 1. Verify that you have set the correct context:
 
       ```shell
-      $ pachctl config get active-context
+      pachctl config get active-context
       ```
       The system should return the name of your workspace.
       ```
-      jolly-caribou
+      Witty-warthog
       ```
 
 1. Create a test repo:
 
       ```shell
-      $ pachctl create repo test
+      pachctl create repo test
       ```
       ```shell
-      $ pachctl list repo
+      pachctl list repo
       ```
       **System response**
       ```
