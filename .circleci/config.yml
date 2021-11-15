@@ -62,7 +62,14 @@ jobs:
             python -m jupyterlab.browser_check
 
             check-manifest -v
-
+  frontend-test:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:16.11.0
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npm run test
 workflows:
   build-workflow:
     jobs:
@@ -70,3 +77,4 @@ workflows:
           matrix:
             parameters:
               python-version: ["3.6", "3.7", "3.8", "3.9"]
+      - frontend-test
