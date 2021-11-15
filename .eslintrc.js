@@ -7,7 +7,7 @@ module.exports = {
   ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: 'tsconfig.json',
+    project: ['./tsconfig.json'],
     sourceType: 'module'
   },
   plugins: ['@typescript-eslint'],
@@ -15,11 +15,11 @@ module.exports = {
     '@typescript-eslint/naming-convention': [
       'error',
       {
-        'selector': 'interface',
-        'format': ['PascalCase'],
-        'custom': {
-          'regex': '^I[A-Z]',
-          'match': true
+        selector: 'interface',
+        format: ['PascalCase'],
+        custom: {
+          regex: '^I[A-Z]',
+          match: true
         }
       }
     ],

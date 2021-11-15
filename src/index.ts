@@ -1,9 +1,6 @@
-import {
-  JupyterFrontEnd,
-  JupyterFrontEndPlugin
-} from '@jupyterlab/application';
+import {JupyterFrontEnd, JupyterFrontEndPlugin} from '@jupyterlab/application';
 
-import { requestAPI } from './handler';
+import {requestAPI} from './handler';
 import telemetry from './plugins/telemetry';
 import help from './plugins/help';
 
@@ -19,15 +16,15 @@ const mount: JupyterFrontEndPlugin<void> = {
     console.log('The Mount plugin is active!');
 
     requestAPI<any>('/v1/repos')
-      .then(data => {
+      .then((data) => {
         console.log(data);
       })
-      .catch(reason => {
+      .catch((reason) => {
         console.error(
-          `The jupyterlab_pachyderm server extension appears to be missing.\n${reason}`
+          `The jupyterlab_pachyderm server extension appears to be missing.\n${reason}`,
         );
       });
-  }
+  },
 };
 
 /**

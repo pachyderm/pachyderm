@@ -7,6 +7,7 @@ node_modules/
 jupyterlab_pachyderm/labextension
 .jestcache
 yarn.lock
+coverage/
 
 # Created by https://www.gitignore.io/api/python
 # Edit at https://www.gitignore.io/?templates=python

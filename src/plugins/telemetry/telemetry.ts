@@ -1,6 +1,6 @@
-import { JupyterFrontEnd } from '@jupyterlab/application';
-import { NotebookActions } from '@jupyterlab/notebook';
-import { load, track } from 'rudder-sdk-js';
+import {JupyterFrontEnd} from '@jupyterlab/application';
+import {NotebookActions} from '@jupyterlab/notebook';
+import {load, track} from 'rudder-sdk-js';
 
 /**
  * TODO: This captures a lot of events. Some we might want to filter out.
@@ -13,7 +13,7 @@ const initCommandTracking = (app: JupyterFrontEnd): void => {
     track('command', {
       id: command.id,
       // We have to copy the args to a plain object
-      args: JSON.parse(JSON.stringify(command.args))
+      args: JSON.parse(JSON.stringify(command.args)),
     });
   });
 };
@@ -24,14 +24,14 @@ const initNotebookTracking = () => {
     const promptText = action.cell.promptNode.innerText;
     const actionText = action.cell.inputArea.node.innerText.replace(
       promptText ? promptText + '\n' : '',
-      ''
+      '',
     );
 
     track('command', {
       id: 'notebook:action:executed',
       args: {
-        action: actionText
-      }
+        action: actionText,
+      },
     });
   });
 };
@@ -43,7 +43,7 @@ const initTerminalTracking = () => {
 export const init = (app: JupyterFrontEnd): void => {
   load(
     '20C6D2xFLRmyFTqtvYDEgNfwcRG',
-    'https://pachyderm-dataplane.rudderstack.com'
+    'https://pachyderm-dataplane.rudderstack.com',
   );
   initCommandTracking(app);
   initNotebookTracking();

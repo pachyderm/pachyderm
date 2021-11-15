@@ -1,9 +1,9 @@
-import { JupyterLab } from '@jupyterlab/application';
-import { MainMenu } from '@jupyterlab/mainmenu';
-import { CommandRegistry } from '@lumino/commands';
-import { showDialog } from '@jupyterlab/apputils';
+import {JupyterLab} from '@jupyterlab/application';
+import {MainMenu} from '@jupyterlab/mainmenu';
+import {CommandRegistry} from '@lumino/commands';
+import {showDialog} from '@jupyterlab/apputils';
 
-import help from '../index';
+import help from '../';
 
 jest.mock('@jupyterlab/apputils');
 
@@ -32,7 +32,7 @@ describe('help plugin', () => {
     const helpMenuItems = mainMenu.helpMenu.items;
     expect(helpMenuItems[1].command).toEqual('jupyterlab-pachyderm:open-docs');
     expect(helpMenuItems[2].command).toEqual(
-      'jupyterlab-pachyderm:contact-support'
+      'jupyterlab-pachyderm:contact-support',
     );
   });
 
@@ -42,7 +42,7 @@ describe('help plugin', () => {
 
     app.commands.execute('jupyterlab-pachyderm:open-docs');
     expect(window.open).toHaveBeenCalledWith(
-      'https://docs.pachyderm.com/latest/getting_started/'
+      'https://docs.pachyderm.com/latest/getting_started/',
     );
   });
 
@@ -54,7 +54,7 @@ describe('help plugin', () => {
     app.commands.execute('jupyterlab-pachyderm:contact-support');
     expect(mockDialog).toHaveBeenCalledTimes(1);
 
-    const { body, title } = { ...mockDialog.mock.calls[0][0] };
+    const {body, title} = {...mockDialog.mock.calls[0][0]};
     expect(title).toMatchSnapshot();
     expect(body).toMatchSnapshot();
   });

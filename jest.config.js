@@ -10,5 +10,6 @@ const esModules = [
 
 baseConfig.transformIgnorePatterns = [`/node_modules/(?!${esModules}).+`];
 baseConfig.preset = 'ts-jest/presets/js-with-babel';
+baseConfig.testEnvironment = 'jsdom';
 
 module.exports = baseConfig;
