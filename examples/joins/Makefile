@@ -1,11 +1,11 @@
 # Set as you wish
 DOCKER_ACCOUNT := pachyderm
 CONTAINER_NAME := example-joins-inner-outer
-CONTAINER_VERSION := 2.0.0-beta.5
+CONTAINER_VERSION := 2.0.1
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 
 docker-image:
-	@docker build --platform=linux/amd64  -t $(CONTAINER_TAG) .
+	@docker build -t $(CONTAINER_TAG) . --platform=linux/amd64
 	@docker push $(CONTAINER_TAG)
 
 setup:
