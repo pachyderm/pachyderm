@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+
 import {gql} from '@apollo/client';
 import * as Apollo from '@apollo/client';
 import * as Types from '@graphqlTypes';
@@ -427,6 +428,73 @@ export type AuthConfigLazyQueryHookResult = ReturnType<
 export type AuthConfigQueryResult = Apollo.QueryResult<
   Types.AuthConfigQuery,
   Types.AuthConfigQueryVariables
+>;
+export const GetCommitsDocument = gql`
+  query getCommits($args: CommitsQueryArgs!) {
+    commits(args: $args) {
+      repoName
+      branch {
+        name
+      }
+      description
+      originKind
+      id
+      started
+      finished
+      sizeBytes
+      sizeDisplay
+      hasLinkedJob
+    }
+  }
+`;
+
+/**
+ * __useGetCommitsQuery__
+ *
+ * To run a query within a React component, call `useGetCommitsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetCommitsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetCommitsQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useGetCommitsQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.GetCommitsQuery,
+    Types.GetCommitsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.GetCommitsQuery, Types.GetCommitsQueryVariables>(
+    GetCommitsDocument,
+    options,
+  );
+}
+export function useGetCommitsLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.GetCommitsQuery,
+    Types.GetCommitsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.GetCommitsQuery,
+    Types.GetCommitsQueryVariables
+  >(GetCommitsDocument, options);
+}
+export type GetCommitsQueryHookResult = ReturnType<typeof useGetCommitsQuery>;
+export type GetCommitsLazyQueryHookResult = ReturnType<
+  typeof useGetCommitsLazyQuery
+>;
+export type GetCommitsQueryResult = Apollo.QueryResult<
+  Types.GetCommitsQuery,
+  Types.GetCommitsQueryVariables
 >;
 export const GetDagDocument = gql`
   query getDag($args: DagQueryArgs!) {
@@ -1340,19 +1408,6 @@ export const RepoDocument = gql`
     repo(args: $args) {
       branches {
         name
-      }
-      commits {
-        repoName
-        branch {
-          name
-        }
-        originKind
-        description
-        hasLinkedJob
-        id
-        started
-        finished
-        sizeDisplay
       }
       createdAt
       description

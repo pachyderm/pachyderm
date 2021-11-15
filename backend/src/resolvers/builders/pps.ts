@@ -159,8 +159,6 @@ export const repoInfoToGQLRepo = (repoInfo: RepoInfo.AsObject): Repo => {
     sizeBytes: repoInfo.details?.sizeBytes || 0,
     id: repoInfo?.repo?.name || '',
     branches: repoInfo.branchesList.map(branchInfoToGQLBranch),
-    // derived in field level resolver
-    commits: [],
     sizeDisplay: formatBytes(repoInfo.details?.sizeBytes || 0),
   };
 };

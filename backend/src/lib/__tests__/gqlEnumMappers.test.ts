@@ -6,12 +6,15 @@ import {
   OriginKind,
 } from '@pachyderm/node-pachyderm';
 
+import {OriginKind as GQLOriginKind} from '@graphqlTypes';
+
 import {
   toGQLFileType,
   toGQLJobState,
   toGQLPipelineState,
   toGQLProjectStatus,
   toGQLCommitOrigin,
+  toProtoCommitOrigin,
 } from '../gqlEnumMappers';
 
 describe('gqlEnumMappers', () => {
@@ -56,6 +59,15 @@ describe('gqlEnumMappers', () => {
       Object.values(OriginKind).forEach((val) => {
         if (typeof val === 'string') return;
         expect(() => toGQLCommitOrigin(val)).not.toThrowError();
+      });
+    });
+  });
+
+  describe('toProtoCommitOrigin', () => {
+    it('should not return an error for any GQL origin', () => {
+      Object.values(GQLOriginKind).forEach((val) => {
+        if (typeof val === 'string') return;
+        expect(() => toProtoCommitOrigin(val)).not.toThrowError();
       });
     });
   });

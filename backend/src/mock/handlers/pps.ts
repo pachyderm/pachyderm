@@ -5,6 +5,7 @@ import {
   JobSetInfo,
   Pipeline,
   PipelineInfo,
+  JobSet,
 } from '@pachyderm/node-pachyderm';
 import {pipelineInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pps';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
@@ -143,7 +144,11 @@ const pps = () => {
             state.jobSets[projectId.toString()] || state.jobSets['default'];
 
           Object.keys(projectJobSets).forEach((jobId) =>
-            call.write(new JobSetInfo().setJobsList(projectJobSets[jobId])),
+            call.write(
+              new JobSetInfo()
+                .setJobSet(new JobSet().setId(jobId))
+                .setJobsList(projectJobSets[jobId]),
+            ),
           );
           call.end();
         },

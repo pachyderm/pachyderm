@@ -13,7 +13,7 @@ import React, {useMemo} from 'react';
 
 import CommitPath from '@dash-frontend/components/CommitPath';
 import Header from '@dash-frontend/components/Header';
-import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
+import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 
@@ -29,11 +29,16 @@ type FileHeaderProps = {
 const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
   const {repoId, commitId, branchId, projectId, filePath} = useUrlState();
   const {fileToPreview, loading} = useFileBrowser();
-  const {repo, loading: repoLoading} = useCurrentRepo();
+
+  const {commits, loading: commitsLoading} = useCommits({
+    projectId,
+    repoName: repoId,
+    branchName: branchId,
+    number: COMMIT_LIMIT,
+  });
 
   const {previousCommit, nextCommit} = useMemo(() => {
-    const reposInBranch =
-      repo?.commits.filter((commit) => commit.branch?.name === branchId) || [];
+    const reposInBranch = commits || [];
     const index = findIndex(reposInBranch, (commit) => commit.id === commitId);
 
     const previousCommit =
@@ -41,11 +46,11 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
     const nextCommit = index > 0 ? reposInBranch[index - 1].id : null;
 
     return {previousCommit, nextCommit};
-  }, [branchId, commitId, repo?.commits]);
+  }, [commitId, commits]);
 
   const currentCommit = useMemo(() => {
-    return repo?.commits.find((commit) => commit.id === commitId);
-  }, [commitId, repo?.commits]);
+    return (commits || []).find((commit) => commit.id === commitId);
+  }, [commitId, commits]);
 
   const tooltipInfo = currentCommit ? (
     <>
@@ -127,7 +132,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
       </Group>
       <Group spacing={16} className={styles.subHeader}>
         <span className={styles.dateField}>
-          {repoLoading ? (
+          {commitsLoading ? (
             <SkeletonDisplayText />
           ) : (
             currentCommit?.started && (
@@ -143,7 +148,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
           )}
         </span>
         <span className={styles.dateField}>
-          {repoLoading ? (
+          {commitsLoading ? (
             <SkeletonDisplayText />
           ) : (
             currentCommit?.finished && (

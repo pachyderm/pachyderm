@@ -6,19 +6,6 @@ export const GET_REPO_QUERY = gql`
       branches {
         name
       }
-      commits {
-        repoName
-        branch {
-          name
-        }
-        originKind
-        description
-        hasLinkedJob
-        id
-        started
-        finished
-        sizeDisplay
-      }
       createdAt
       description
       id
