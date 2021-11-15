@@ -1,7 +1,5 @@
 # jupyterlab_pachyderm
 
-[![Github Actions Status](https://github.com/pachyderm/jupyterlab-pachyderm/workflows/Build/badge.svg)](https://github.com/pachyderm/jupyterlab-pachyderm/actions/workflows/build.yml)
-
 A JupyterLab extension.
 
 This extension is composed of a Python package named `jupyterlab_pachyderm`
