@@ -8,7 +8,7 @@ export GOPATH="${HOME}/go"
 
 # Install go.
 sudo rm -rf /usr/local/go
-curl -L https://golang.org/dl/go1.16.6.linux-amd64.tar.gz | sudo tar xzf - -C /usr/local/
+curl -L https://golang.org/dl/go1.17.3.linux-amd64.tar.gz | sudo tar xzf - -C /usr/local/
 go version
 
 # install hubcli

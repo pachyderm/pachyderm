@@ -201,7 +201,7 @@ To access your GCP resources, Pachyderm uses a GCP Project Service Account with 
     gcloud iam service-accounts create ${GSA_NAME}
     ```
     
-More infornation about the creation and management of a Service account on [GCP documentation](https://cloud.google.com/iam/docs/creating-managing-service-accounts).
+More information about the creation and management of a Service account on [GCP documentation](https://cloud.google.com/iam/docs/creating-managing-service-accounts).
 
 ### Configure Your Service Account Permissions
 

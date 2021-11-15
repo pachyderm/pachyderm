@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -53,7 +54,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		}
 		server.Unmount()
 	}()
-	server.Serve()
+	server.Wait()
 	mfcs := make(map[string]*client.ModifyFileClient)
 	mfc := func(repo string) (*client.ModifyFileClient, error) {
 		if mfc, ok := mfcs[repo]; ok {
@@ -73,6 +74,11 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			}
 		}
 	}()
+	fmt.Println("Uploading files to Pachyderm...")
+	// Rendering progress bars for thousands of files significantly slows down
+	// throughput. Disabling progress bars takes throughput from 1MB/sec to
+	// 200MB/sec on my system, when uploading 18K small files.
+	progress.Disable()
 	for path, state := range root.files {
 		if state != dirty {
 			continue
@@ -100,5 +106,6 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			return err
 		}
 	}
+	fmt.Println("Done!")
 	return nil
 }

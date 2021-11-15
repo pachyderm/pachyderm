@@ -152,12 +152,12 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
     pachd:
       storage:
         microsoft:
-        # storage container name
-        container: "blah"
-        # storage account name
-        id: "AKIAIOSFODNN7EXAMPLE"
-        # storage account key
-        secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          # storage container name
+          container: "blah"
+          # storage account name
+          id: "AKIAIOSFODNN7EXAMPLE"
+          # storage account key
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
       externalService:
         enabled: true
     ```
@@ -168,12 +168,12 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
     pachd:
       storage:
         microsoft:
-        # storage container name
-        container: "blah"
-        # storage account name
-        id: "AKIAIOSFODNN7EXAMPLE"
-        # storage account key
-        secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          # storage container name
+          container: "blah"
+          # storage account name
+          id: "AKIAIOSFODNN7EXAMPLE"
+          # storage account key
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
       # pachyderm enterprise key
       enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
     console:

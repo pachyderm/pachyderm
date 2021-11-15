@@ -1,4 +1,4 @@
-FROM golang:1.16.1
+FROM golang:1.17.3
 LABEL maintainer="msteffen@pachyderm.io"
 
 ENV GOPROXY https://proxy.golang.org

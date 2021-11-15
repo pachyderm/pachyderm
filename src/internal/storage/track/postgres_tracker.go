@@ -217,28 +217,23 @@ func (t *postgresTracker) DeleteTx(tx *pachsql.Tx, id string) error {
 }
 
 func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id string) error) (retErr error) {
-	rows, err := t.db.QueryxContext(ctx,
-		`SELECT str_id FROM storage.tracker_objects
-		WHERE int_id NOT IN (SELECT to_id FROM storage.tracker_refs)
-		AND expires_at <= CURRENT_TIMESTAMP`)
+	var toDelete []string
+	// select 1 in inner query as we don't actually care about the results, just existence
+	// set arbitrary limit to guarantee we can iterate, doesn't matter for GC as we run this repeatedly
+	err := t.db.SelectContext(ctx, &toDelete,
+		`SELECT str_id FROM storage.tracker_objects as objs
+		WHERE NOT EXISTS (SELECT 1 FROM storage.tracker_refs as refs where objs.int_id = refs.to_id)
+		AND expires_at <= CURRENT_TIMESTAMP LIMIT 10000`)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := rows.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return err
-		}
+
+	for _, id := range toDelete {
 		if err := cb(id); err != nil {
 			return err
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 func (t *postgresTracker) getDownstream(tx *pachsql.Tx, intID int) ([]string, error) {
