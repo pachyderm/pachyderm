@@ -78,15 +78,13 @@ depending on their size.
 
         Then, following the 2 steps pattern described in our [datum processing documentation](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/), we will need 2 pipelines to:
     - read the files from its spout input repo and sort them into 2 directories, depending on their size: [`processor.json`](./pipelines/processor.json) 
-    - aggregate the content of each directory into one txt file each (1K.txt and 2K.txt): [`reducer.json`](./pipelines/reducer.json) 
 
     >![pach_logo](./img/pach_logo.svg) Have a quick look at the source code of our spout pipeline in [`./src/consumer/main.py`](./src/consumer/main.py) and notice that we used `client = python_pachyderm.Client()` to connect to pachd and `client.put_file_bytes` to write files to the spout output repo. 
 
 
 1. **Pipeline output repository**: 
     - `spout` will contain one commit per set of received messages. Each message has been written to a txt file named after its hash (for uniqueness). 
-    - `processor` will contain two directories `/1K` and `2K` where the recieved files will be sorted by size.
-    - finally, `reducer` will contain two files (`1K.txt` and `2K.txt`) listing the messages received according to their size.
+    - `processor` will contain two directories `/1K.txt` and `2K.txt` where the received files will be sorted by size.
 
 
 ***Example walkthrough***
@@ -111,13 +109,12 @@ depending on their size.
     ```shell
 	pachctl create pipeline -f ./pipelines/spout.json
 	pachctl create pipeline -f ./pipelines/processor.json
-    pachctl create pipeline -f ./pipelines/reducer.json
     ```
     Or, run the following target: 
     ```shell
     make deploy
     ```
-    Your 3 pipelines should be running (`pachctl list pipeline`).
+    Your 2 pipelines should be running (`pachctl list pipeline`).
 
 1. Now that the spout pipeline is up, check its output repo once or twice. 
     You should be able to see that new commits are coming in.
@@ -131,7 +128,7 @@ depending on their size.
 
     ![list_file_spout_master](./img/pachctl_list_file_spout_master_later.png)
     
-    Each of those commits triggers a job in the `processing` and `reducer` pipelines.
+    Each of those commits triggers a job in the `processing` pipeline.
 
 1. Take a look at the output repository of your second pipeline: `processor`:
     ```shell
@@ -139,28 +136,23 @@ depending on their size.
     ```
     ```
     NAME TYPE SIZE
-    /1K/ dir  672B
-    /2K/ dir  672B
+    /1K.txt/ dir  672B
+    /2K.txt/ dir  672B
     ```
     Notice that new entries keep being added to each of the two directories:
-
     ```
     NAME TYPE SIZE
-    /1K.txt file 768B
-    /2K.txt file 768B
+    /1K.txt/ file 768B
+    /2K.txt/ file 768B
     ```
 
-1. Now, look at the last output repo `reducer`:
+1. Now, look at the content of those directories:
 
-    ![list_file_reducer](./img/pachctl_list_file_reducer_master.png)
-
-    The logs keep coming in:
-    
-    ![list_file_reducer_later](./img/pachctl_list_file_reducer_master_later.png)
+    Their size keep changing as the logs are coming in.
 
     Check the content of one of them:
     ```shell
-    pachctl get file reducer@master:/1K.txt
+    pachctl get file processor@master:/1K.txt
     ```
     ![get_file_reducer_master_1K](./img/pachctl_get_file_reducer_master_1K.png)
 
@@ -168,20 +160,19 @@ depending on their size.
 
     ![get_file_reducer_master_1K_later](./img/pachctl_get_file_reducer_master_1K_later.png)   
 
-    That is it. 
+    That is it. You created your first spout pipeline.
 
 1. When you are done, think about deleting your pipelines.
 Remember, a spout pipeline keeps running: 
 
     In the `examples/spouts/spout101` directory, run:.
     ```shell
-    pachctl delete pipeline reducer
     pachctl delete pipeline processor
     pachctl delete pipeline spout
     ```
  
     
-    A final check at your pipelines: your list should be empty of the 3 pipelines above. You are good to go.
+    A final check at your pipelines: your list should be empty of the 2 pipelines above. 
     ```shell
     pachctl list pipeline
     ```
