@@ -11,6 +11,7 @@ include install.json
 include ts*.json
 include schema/*.json
 include webpack.config.js
+include *.config.js
 
 graft jupyterlab_pachyderm/labextension
 
@@ -19,6 +20,7 @@ graft src
 graft style
 prune **/node_modules
 prune lib
+prune .circleci
 
 # Patterns to exclude from any directory
 global-exclude *~

@@ -11,7 +11,7 @@ factory = "jupyter_packaging.npm_builder"
 
 [tool.jupyter-packaging.build-args]
 build_cmd = "build:prod"
-npm = ["jlpm"]
+npm = ["npm"]
 
 [tool.check-manifest]
-ignore = ["jupyterlab_pachyderm/labextension/**", "yarn.lock", ".*", "package-lock.json"]
+ignore = ["jupyterlab_pachyderm/labextension/**", ".*", "package-lock.json"]

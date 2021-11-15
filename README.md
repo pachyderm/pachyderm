@@ -42,10 +42,6 @@ When you are done using the environment you can close your shell or deactivate t
 
 Note: You will need NodeJS to build the extension package.
 
-The `npm` command is JupyterLab's pinned version of
-[yarn](https://yarnpkg.com/) that is installed with JupyterLab. You may use
-`yarn` or `npm` in lieu of `npm` below.
-
 ```bash
 # Clone the repo to your local environment
 # Change directory to the jupyterlab_pachyderm directory
@@ -57,14 +53,14 @@ jupyter labextension develop . --overwrite
 # Server extension must be manually installed in develop mode
 jupyter server extension enable jupyterlab_pachyderm
 # Rebuild extension Typescript source after making changes
-jlpm run build
+npm run build
 ```
 
 You can watch the source directory and run JupyterLab at the same time in different terminals to watch for changes in the extension's source and automatically rebuild the extension.
 
 ```bash
 # Watch the source directory in one terminal, automatically rebuilding when needed
-jlpm run watch
+npm run watch
 # Run JupyterLab in another terminal
 jupyter lab
 ```
