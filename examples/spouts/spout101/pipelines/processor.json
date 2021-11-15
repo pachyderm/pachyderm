@@ -12,6 +12,6 @@
     },
     "transform": {
         "cmd": [ "python", "processor/main.py" ],
-        "image": "pachyderm/example-spout101:2.0.0-beta.5"
+        "image": "pachyderm/example-spout101:2.0.1"
       }
   }
