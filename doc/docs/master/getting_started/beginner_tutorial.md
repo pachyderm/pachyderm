@@ -501,7 +501,7 @@ pachctl get file montage@master:montage.png | display
 Pachyderm Console let's you interactively
 explore your pipelines, your data, debug jobs, read logs etc...
 
-- If you a **running this example on Hub, you have readily access to The Pachyderm Console**.
+- If you a **running this example on Hub, you have readily access to Pachyderm's Console**.
  Click the **Console** link on your workspace name in the Hub UI.
 
 ![Console Access](./images/hub_console_access.png)
