@@ -1,6 +1,6 @@
 # Spout Pipelines - An introductory example
 
->![pach_logo](../img/pach_logo.svg) INFO Pachyderm 2.0 introduces profound architectual changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
+>![pach_logo](./img/pach_logo.svg) INFO Pachyderm 2.0 introduces profound architectual changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
 > - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
 > - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 
@@ -50,8 +50,8 @@ Run a quick:
 $ pachctl version
 
 COMPONENT           VERSION
-pachctl             2.0.0
-pachd               2.0.0
+pachctl             2.0.1
+pachd               2.0.1
 ```
 Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the same major & minor versions of your pachctl and pachd. 
 
@@ -90,7 +90,7 @@ depending on their size.
 ***Example walkthrough***
 
 1.  We have a Docker Hub image of this example ready for you.
-    However, you can choose to build your own and push it to your repository.
+    However, you can choose to build your own and push it to your organization's registry.
     
     In the `examples/spouts/spout101` directory,
     make sure to update the `CONTAINER_TAG` and `DOCKER_ACCOUNT` in the `Makefile` accordingly,
@@ -152,7 +152,7 @@ depending on their size.
 
     Check the content of one of them:
     ```shell
-    pachctl get file processor@master:/1K.txt
+    pachctl list file processor@master:/1K.txt
     ```
     ![get_file_reducer_master_1K](./img/pachctl_get_file_reducer_master_1K.png)
 
