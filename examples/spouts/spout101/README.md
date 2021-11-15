@@ -154,11 +154,21 @@ depending on their size.
     ```shell
     pachctl list file processor@master:/1K.txt
     ```
-    ![get_file_reducer_master_1K](./img/pachctl_get_file_reducer_master_1K.png)
+    
+    ```
+    NAME                                                                         TYPE SIZE
+    /1K.txt/0b71f006577668cca9c44054166d21c2db0a86bcae742e0f18631f03971a12d7.txt file 96B
+    /1K.txt/3f97d1e05c1ce342896a56d44f03d523455bc3df8d8fbbd9cf3c1a71f08df172.txt file 96B
+    /1K.txt/73f8f7d74f84e99fd5727d9199b603217fbe8fafa52b6ebdec658639c636fd6f.txt file 96B
+    /1K.txt/b9bf82b90b9e1b4a3978af2779f72552601bbd4ba7cfec9d2b69d396eee00602.txt file 96B
+    /1K.txt/ba11e93809dca73d23e5c5b6ef158e3336233c85c58857240533a9aa500cb813.txt file 96B
+    /1K.txt/bbbae612df0a7d22661a00adc7506db97c72ebd1caf828059365bc8b357bd864.txt file 96B
+    /1K.txt/d1b22f0e2c0a3304ba4db38497fd94206bfd18b3e673d89ec17c6f5bee4a0dc1.txt file 96B
+    /1K.txt/e46f9f057eb22096dac85f31f11aca86bbe831d7dfa58e5359420598e0d1f905.txt file 96B
+    ```
 
-    ...
 
-    ![get_file_reducer_master_1K_later](./img/pachctl_get_file_reducer_master_1K_later.png)   
+
 
     That is it. You created your first spout pipeline.
 
