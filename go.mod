@@ -39,7 +39,7 @@ require (
 	github.com/golang/protobuf v1.5.2
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20191002090509-6af20e3a5340
-	github.com/hanwen/go-fuse/v2 v2.0.3
+	github.com/hanwen/go-fuse/v2 v2.1.0
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/itchyny/gojq v0.11.2
 	github.com/jackc/pgconn v1.10.0
