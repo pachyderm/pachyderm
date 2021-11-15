@@ -12,10 +12,11 @@ and can get started right away.
 
 
 !!! Note
-    Get a workspace up and running in a few minutes.
-    Take advantage of our **21-day free trial**\* and start experimenting.
+    Get a workspace up and running in a few minutes. 
+    [Contact us](mailto:sales@pachyderm.com) and
+    take advantage of our **21-day free trial**\* to start experimenting.
     
-    Got any questions? [Contact us](mailto:support@pachyderm.io) or ask us on our [Users Slack Channel](http://slack.pachyderm.io/). 
+    Got any questions? [Contact our Support Team](mailto:support@pachyderm.io) or ask us on our [Users Slack Channel](http://slack.pachyderm.io/). 
 
     *\*Offer limited to one single user workspace with 4 vCPUs, 15GB RAM, and unlimited object storage.*
 ## Get started in 4 simple steps
@@ -37,8 +38,8 @@ a limited time for free!
       minutes for it to be ready.
 
 ## 2- Install pachctl
-Hub enables you to access your workspace through Pachyderm 
-CLI `pachctl` and the web interface called the **Console**.
+You can access your workspace through Pachyderm's 
+CLI `pachctl` or our web UI called **Console**.
 Although you can perform most simple actions directly in the Console,
 `pachctl` provides full functionality. Most likely, you will use
 `pachctl` for any operation beyond the most basic workflow.
