@@ -658,7 +658,7 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 		EOF
 		`).Run())
 
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		return tu.BashCmd(`
 		pachctl list pipeline \
 		| match my-pipeline \
@@ -671,7 +671,7 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 		kubectl uncordon minikube
 	`).Run())
 
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		return tu.BashCmd(`
 		pachctl list pipeline \
 		| match my-pipeline \
