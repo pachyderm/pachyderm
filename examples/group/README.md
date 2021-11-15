@@ -38,8 +38,8 @@ Additionally, make sure that you understand the concept of [datum](https://docs.
     $ pachctl version
 
     COMPONENT           VERSION
-    pachctl             2.0.0
-    pachd               2.0.0
+    pachctl             2.0.1
+    pachd               2.0.1
     ```
     Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the identical major & minor versions of your pachctl and pachd. 
 
