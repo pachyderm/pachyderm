@@ -1,6 +1,5 @@
 version: 2.1
-orbs:
-  cypress: cypress-io/cypress@1
+
 jobs:
   build:
     parameters:
@@ -89,6 +88,40 @@ jobs:
             jupyter labextension develop . --overwrite
             jupyter server extension enable jupyterlab_pachyderm
             npm run e2e
+
+  e2e-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202107-02
+    steps:
+      - checkout
+      - browser-tools/install-chrome
+      - browser-tools/install-chromedriver
+      - run: sudo sysctl fs.inotify.max_user_watches=524288
+      - run: sudo sysctl -p
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y libgbm-dev
+      - run: nvm install 16.11.0
+      - run: nvm alias default 16.11.0
+      - run: nvm use 16.11.0 && node -v
+      - run: nvm use 16.11.0 && npm ci
+      - run:
+          name: 'Install Python dependencies'
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install -r ci-requirements.txt
+            pip install -e .
+            jupyter labextension develop . --overwrite
+            jupyter server extension enable jupyterlab_pachyderm
+            npm run e2e
+      - run:
+        name: 'Build extension'
+          command: |
+            jupyter labextension develop . --overwrite
+            jupyter server extension enable jupyterlab_pachyderm
+      - run: nvm use 16.11.0 && npm run e2e
+
 workflows:
   build-workflow:
     jobs:
