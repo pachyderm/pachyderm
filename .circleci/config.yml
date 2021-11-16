@@ -71,6 +71,9 @@ jobs:
       - run: npm ci
       - run: npm run test
   mock-e2e:
+    parameters:
+      python-version:
+        type: string
     docker:
       - image: cimg/python:<< parameters.python-version >>-node
     steps:
