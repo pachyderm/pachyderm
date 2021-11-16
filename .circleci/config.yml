@@ -62,6 +62,9 @@ jobs:
             python -m jupyterlab.browser_check
 
             check-manifest -v
+
+
+
   frontend-test:
     resource_class: xlarge
     docker:
@@ -70,24 +73,28 @@ jobs:
       - checkout
       - run: npm ci
       - run: npm run test
+
+
+
   mock-e2e:
     parameters:
       python-version:
         type: string
     docker:
-      - image: cimg/python:<< parameters.python-version >>-node
+      - image: cimg/python:3.7-node
     steps:
       - checkout
       - run:
           name: "Install Python dependencies"
           command: |
+            npm ci
             python -m venv venv
             . venv/bin/activate
             python -m pip install -r ci-requirements.txt
             pip install -e .
             jupyter labextension develop . --overwrite
             jupyter server extension enable jupyterlab_pachyderm
-      - run: npm run e2e
+            npm run e2e
 workflows:
   build-workflow:
     jobs:
@@ -95,8 +102,5 @@ workflows:
           matrix:
             parameters:
               python-version: ["3.6", "3.7", "3.8", "3.9"]
-      - mock-e2e:
-          matrix:
-            parameters:
-              python-version: ["3.6", "3.7", "3.8", "3.9"]
+      - mock-e2e
       - frontend-test
