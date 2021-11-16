@@ -63,6 +63,7 @@
   --grey-7: #747475;
   --grey-9: #414142;
   --grey-10: #0E0E0F;
+  --grey-20: #DEDEDF;
 
   --plum-1: #F8F3F9;
   --plum-2: #e1cfe5;
@@ -70,6 +71,8 @@
   --plum-7: #582F6B;
 
   --green: #118873;
+
+  --black: #000000;
   
   /* sizes */
   --border-radius-bottom-level: 5px;

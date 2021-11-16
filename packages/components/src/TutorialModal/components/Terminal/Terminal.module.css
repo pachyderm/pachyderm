@@ -1,0 +1,29 @@
+.terminal {
+  background-color: var(--black);
+  color: var(--white);
+  padding: 2rem;
+  box-sizing: border-box;
+  border: 1px solid var(--grey-20);
+}
+
+.terminal pre {
+  font-size: 0.875rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  padding: 0.5rem 0 0 2.25rem;
+  display: flex;
+  flex-direction: column;
+  color: var(--white);
+}
+
+.terminalCommand {
+  display: flex;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.terminalCommand > .terminalSVG {
+  margin-right: 1rem;
+}

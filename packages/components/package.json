@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/components",
-  "version": "1.15.1",
+  "version": "1.15.2",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -9,7 +9,7 @@
   "scripts": {
     "build": "npm run clean && npm run build:src && npm run build:types",
     "build:src": "NODE_ENV=production webpack",
-    "build:storybook": "build-storybook",
+    "build:storybook": "build-storybook -s public",
     "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
     "clean": "rm -rf dist",
     "lint": "npm run lint:js && npm run lint:css",
@@ -17,7 +17,7 @@
     "lint:css": "stylelint 'src/**/*.module.css'",
     "prepublishOnly": "npm run lint && npm run test && npm run build",
     "publish:storybook": "npm run build:storybook && netlify deploy --dir=storybook-static --prod",
-    "storybook": "start-storybook -p 6006",
+    "storybook": "start-storybook -s ./public -p 6006",
     "test": "jest"
   },
   "devDependencies": {

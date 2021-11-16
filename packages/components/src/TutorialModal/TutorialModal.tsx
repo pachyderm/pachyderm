@@ -120,10 +120,7 @@ const TutorialModal: React.FC<TutorialModalProps> = ({
           <div className={styles.content}>
             {steps[currentStep].sections.map((section, i) => {
               return (
-                <div
-                  className={styles.section}
-                  key={section.taskName?.toString()}
-                >
+                <div className={styles.section} key={i}>
                   <div className={styles.headerInfo}>
                     <div
                       className={
