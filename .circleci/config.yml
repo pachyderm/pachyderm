@@ -77,9 +77,6 @@ jobs:
 
 
   mock-e2e:
-    parameters:
-      python-version:
-        type: string
     docker:
       - image: cimg/python:3.7-node
     steps:
