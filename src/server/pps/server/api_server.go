@@ -15,13 +15,13 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -2831,10 +2831,7 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get secret")
 	}
-	creationTimestamp, err := ptypes.TimestampProto(secret.GetCreationTimestamp().Time)
-	if err != nil {
-		return nil, errors.Errorf("failed to parse creation timestamp")
-	}
+	creationTimestamp := timestamppb.New(secret.GetCreationTimestamp().Time)
 	return &pps.SecretInfo{
 		Secret: &pps.Secret{
 			Name: secret.Name,
@@ -2862,10 +2859,8 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 	}
 	secretInfos := []*pps.SecretInfo{}
 	for _, s := range secrets.Items {
-		creationTimestamp, err := ptypes.TimestampProto(s.GetCreationTimestamp().Time)
-		if err != nil {
-			return nil, errors.Errorf("failed to parse creation timestamp")
-		}
+		creationTimestamp := timestamppb.New(s.GetCreationTimestamp().Time)
+
 		secretInfos = append(secretInfos, &pps.SecretInfo{
 			Secret: &pps.Secret{
 				Name: s.Name,
