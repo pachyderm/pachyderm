@@ -108,20 +108,20 @@ jobs:
       - run: nvm alias default 16.11.0
       - run: nvm use 16.11.0 && node -v
       - run: nvm use 16.11.0 && npm ci
-      - run:
-        command: |
-          python -m venv venv
-          . venv/bin/activate
-          python -m pip install -r ci-requirements.txt
-          pip install -e .
-          jupyter labextension develop . --overwrite
-          jupyter server extension enable jupyterlab_pachyderm
-          npm run e2e
-      - run:
-        command: |
-          jupyter labextension develop . --overwrite
-          jupyter server extension enable jupyterlab_pachyderm
-      - run: nvm use 16.11.0 && npm run e2e
+      # - run:
+      #   command: |
+      #     python -m venv venv
+      #     . venv/bin/activate
+      #     python -m pip install -r ci-requirements.txt
+      #     pip install -e .
+      #     jupyter labextension develop . --overwrite
+      #     jupyter server extension enable jupyterlab_pachyderm
+      #     npm run e2e
+      # - run:
+      #   command: |
+      #     jupyter labextension develop . --overwrite
+      #     jupyter server extension enable jupyterlab_pachyderm
+      # - run: nvm use 16.11.0 && npm run e2e
 
 workflows:
   build-workflow:
