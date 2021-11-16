@@ -33,7 +33,6 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/protobuf v1.5.2
 	github.com/google/gofuzz v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20191002090509-6af20e3a5340
@@ -98,7 +97,7 @@ require (
 	gotest.tools/v3 v3.0.3 // indirect
 	k8s.io/api v0.22.3
 	k8s.io/apimachinery v0.22.3
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/client-go v0.22.3
 )
 
 require (
@@ -144,6 +143,7 @@ require (
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/pprof v0.0.0-20210601050228-01bbb1931b22 // indirect
@@ -231,7 +231,6 @@ require (
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20210617175327-b9e0b3197ced // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.57.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
@@ -245,16 +244,3 @@ require (
 
 // until the changes in github.com/pachyderm/dex are upstreamed to github.com/dexidp/dex, we swap in our repo
 replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20211020185745-ebfeda600c26
-
-// loki requires k8s.io/client-go@v12.0.0+incompatible via dependency chain ending in:
-// ... -> github.com/prometheus/alertmanager@v0.19.0
-// -> github.com/prometheus/prometheus@v0.0.0-20190818123050-43acd0e2e93f
-replace k8s.io/client-go => k8s.io/client-go v0.22.3
-
-// Depending on both etcd v3.5.1 and loki v1.6.0 causes a conflict
-// since etcd requires more up to date dependencies on prometheus. Specifically:
-// 1.) etcd version v3.5.1 requires client_golang@v1.11.0 which requires github.com/prometheus/common@v0.26.0
-// 2.) loki v1.6.0 requires github.com/prometheus/common@v0.10.0
-// the two cannot live in harmony because the config.NewClientFromConfig functions signature changed several times,
-// and was updated to the signature present in v0.26.0 during the v0.21.0 release
-replace github.com/prometheus/common => github.com/prometheus/common v0.9.1
