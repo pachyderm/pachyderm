@@ -30,7 +30,7 @@ type Env struct {
 	EtcdClient *etcd.Client
 	// TODO: make this just a loki.Client
 	// This is not a circular dependency
-	GetLokiClient func() (loki.Client, error)
+	GetLokiClient func() (*loki.Client, error)
 
 	PFSServer  pfsserver.APIServer
 	AuthServer authserver.APIServer
