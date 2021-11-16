@@ -75,7 +75,7 @@ etcd:
   dynamicNodes: 1
   image:
     repository: "pachyderm/etcd"
-    tag: "v3.3.5"
+    tag: "v3.5.1"
     pullPolicy: "IfNotPresent"
   # podLabels specifies labels to add to the etcd pod.
   podLabels: {}
