@@ -46,7 +46,10 @@ type CSVWriter struct {
 // NewCSVWriter returns a CSVWriter writing to w.
 // If len(headers) == 0, then no headers will be written
 func NewCSVWriter(w io.Writer, headers []string) *CSVWriter {
-	return &CSVWriter{cw: csv.NewWriter(w)}
+	return &CSVWriter{
+		cw:      csv.NewWriter(w),
+		headers: headers,
+	}
 }
 
 func (m *CSVWriter) WriteTuple(row Tuple) error {
