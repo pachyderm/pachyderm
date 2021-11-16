@@ -16,7 +16,7 @@ describe('resolvers/Commits', () => {
       );
 
       expect(errors.length).toBe(0);
-      expect(data?.commits.length).toBe(3);
+      expect(data?.commits.length).toBe(4);
       expect(data?.commits[0].hasLinkedJob).toBeFalsy();
     });
 

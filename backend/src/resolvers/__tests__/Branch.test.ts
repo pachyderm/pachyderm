@@ -38,7 +38,7 @@ describe('createBranch', () => {
         args: {repoName: 'cron', projectId},
       },
     );
-    expect(response?.commits.length).toBe(3);
+    expect(response?.commits.length).toBe(4);
 
     const {data, errors = []} = await executeMutation<CreateBranchMutation>(
       CREATE_BRANCH_MUTATION,
@@ -58,6 +58,6 @@ describe('createBranch', () => {
         args: {repoName: 'cron', projectId},
       },
     );
-    expect(response2?.commits.length).toBe(2);
+    expect(response2?.commits.length).toBe(3);
   });
 });

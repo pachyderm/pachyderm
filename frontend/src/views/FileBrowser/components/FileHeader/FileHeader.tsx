@@ -56,11 +56,15 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
     <>
       Size: {currentCommit.sizeDisplay}
       <br />
-      Duration:{' '}
-      {formatDistanceStrict(
-        fromUnixTime(currentCommit.started),
-        fromUnixTime(currentCommit.finished),
-      )}
+      {currentCommit.started && currentCommit.finished ? (
+        <>
+          Duration:{' '}
+          {formatDistanceStrict(
+            fromUnixTime(currentCommit.started),
+            fromUnixTime(currentCommit.finished),
+          )}
+        </>
+      ) : null}
       <br />
       Origin: {currentCommit.originKind}
       {currentCommit.description && <br />}

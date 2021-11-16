@@ -63,6 +63,21 @@ const tutorial = [
       nanos: 0,
     },
   }),
+  commitInfoFromObject({
+    commit: {
+      id: '0918ac9d5daa76b86e3bb5e88e4c43a5',
+      branch: {
+        name: 'master',
+        repo: {name: repos['3'][0].getRepo()?.getName() || ''},
+      },
+    },
+    description: 'in progress',
+    sizeBytes: 100,
+    started: {
+      seconds: 1614133389,
+      nanos: 0,
+    },
+  }),
 ];
 
 const customerTeam = [

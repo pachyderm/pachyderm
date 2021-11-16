@@ -1,6 +1,5 @@
 import {OriginKind, RepoQuery} from '@graphqlTypes';
 import {Link, LoadingDots, Tooltip, PureCheckbox} from '@pachyderm/components';
-import formatDistanceToNow from 'date-fns/formatDistanceToNow';
 import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
@@ -15,6 +14,7 @@ import {
 
 import styles from './CommitBrowser.module.css';
 import BranchBrowser from './components/BranchBrowser';
+import CommitTime from './components/CommitTime';
 
 const emptyRepoMessage = 'Commit your first file on this repo!';
 
@@ -72,17 +72,7 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
             return (
               <div className={styles.commit} key={commit.id}>
                 <div className={styles.commitTime}>
-                  {commit.finished
-                    ? `Committed
-                  ${formatDistanceToNow(commit.finished * 1000, {
-                    addSuffix: true,
-                  })}`
-                    : `Commit started ${formatDistanceToNow(
-                        commit.started * 1000,
-                        {
-                          addSuffix: true,
-                        },
-                      )}`}
+                  <CommitTime commit={commit} />
                   {` (${commit.sizeDisplay})`}
                 </div>
                 <dl className={styles.commitInfo}>

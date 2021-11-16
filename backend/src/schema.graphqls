@@ -154,8 +154,8 @@ type Commit {
   originKind: OriginKind
   hasLinkedJob: Boolean!
   id: ID!
-  started: Int!
-  finished: Int!
+  started: Int
+  finished: Int
   sizeBytes: Int!
   sizeDisplay: String!
 }
