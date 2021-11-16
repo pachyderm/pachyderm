@@ -72,7 +72,7 @@ jobs:
       - run: npm run test
   mock-e2e:
     docker:
-      - image: cimg/python
+      - image: cimg/python:<< parameters.python-version >>-node
     steps:
       - checkout
       - run:
@@ -92,5 +92,8 @@ workflows:
           matrix:
             parameters:
               python-version: ["3.6", "3.7", "3.8", "3.9"]
+      - mock-e2e:
+          matrix:
+            parameters:
+              python-version: ["3.6", "3.7", "3.8", "3.9"]
       - frontend-test
-      - mock-e2e
