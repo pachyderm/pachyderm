@@ -70,6 +70,21 @@ jobs:
       - checkout
       - run: npm ci
       - run: npm run test
+  mock-e2e:
+    docker:
+      - image: cimg/python
+    steps:
+      - checkout
+      - run:
+          name: "Install Python dependencies"
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install -r ci-requirements.txt
+            pip install -e .
+            jupyter labextension develop . --overwrite
+            jupyter server extension enable jupyterlab_pachyderm
+      - run: npm run e2e
 workflows:
   build-workflow:
     jobs:
@@ -78,3 +93,4 @@ workflows:
             parameters:
               python-version: ["3.6", "3.7", "3.8", "3.9"]
       - frontend-test
+      - mock-e2e
