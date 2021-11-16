@@ -106,7 +106,6 @@ jobs:
       - run: nvm use 16.11.0 && node -v
       - run: nvm use 16.11.0 && npm ci
       - run:
-        name: 'Install Python dependencies'
         command: |
           python -m venv venv
           . venv/bin/activate
@@ -116,7 +115,6 @@ jobs:
           jupyter server extension enable jupyterlab_pachyderm
           npm run e2e
       - run:
-        name: 'Build extension'
         command: |
           jupyter labextension develop . --overwrite
           jupyter server extension enable jupyterlab_pachyderm
