@@ -562,7 +562,7 @@ func (step *pcStep) scaleUpPipeline() (retErr error) {
 // scaleDownPipeline edits the RC associated with pc's pipeline & spins down the
 // configured number of workers.
 func (step *pcStep) scaleDownPipeline() (retErr error) {
-	log.Infof("PPS master: scaling down workers for %q", step.pipelineInfo.Pipeline.Name)
+	log.Debugf("PPS master: scaling down workers for %q", step.pipelineInfo.Pipeline.Name)
 	span, _ := tracing.AddSpanToAnyExisting(step.ctx,
 		"/pps.Master/ScaleDownPipeline", "pipeline", step.pipelineInfo.Pipeline.Name)
 	defer func() {

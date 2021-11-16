@@ -387,7 +387,7 @@ $ {{alias}} test@fork -p XXX`,
 				return grpcutil.ScrubGRPC(err)
 			}
 			if commitInfo == nil {
-				return errors.Errorf("commit %s not found", commit.ID)
+				return errors.Errorf("commit %s not found", commit)
 			}
 			if raw {
 				return cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo)
