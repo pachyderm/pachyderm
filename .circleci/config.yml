@@ -92,6 +92,9 @@ jobs:
             jupyter labextension develop . --overwrite
             jupyter server extension enable jupyterlab_pachyderm
             npm run e2e
+version: 2.1
+orbs:
+  cypress: cypress-io/cypress@1            
 workflows:
   build-workflow:
     jobs:
