@@ -1,8 +1,8 @@
 import React from 'react';
-import { JupyterFrontEnd } from '@jupyterlab/application';
-import { IMainMenu } from '@jupyterlab/mainmenu';
-import { Dialog, showDialog } from '@jupyterlab/apputils';
-import { PachydermLogoFooterSVG } from '@pachyderm/components';
+import {JupyterFrontEnd} from '@jupyterlab/application';
+import {IMainMenu} from '@jupyterlab/mainmenu';
+import {Dialog, showDialog} from '@jupyterlab/apputils';
+import {PachydermLogoFooterSVG} from '@pachyderm/components';
 
 namespace CommandIDs {
   export const openDocs = 'jupyterlab-pachyderm:open-docs';
@@ -15,7 +15,7 @@ export const init = (app: JupyterFrontEnd, mainMenu?: IMainMenu): void => {
       label: 'Pachyderm Docs',
       execute: () => {
         window.open('https://docs.pachyderm.com/latest/getting_started/');
-      }
+      },
     });
 
     app.commands.addCommand(CommandIDs.contactSupport, {
@@ -56,24 +56,24 @@ export const init = (app: JupyterFrontEnd, mainMenu?: IMainMenu): void => {
           buttons: [
             Dialog.createButton({
               label: 'Dismiss',
-              className: 'jp-About-button jp-mod-reject jp-mod-styled'
-            })
-          ]
+              className: 'jp-About-button jp-mod-reject jp-mod-styled',
+            }),
+          ],
         });
-      }
+      },
     });
 
     const helpMenu = mainMenu.helpMenu;
     helpMenu.addGroup(
       [
         {
-          command: CommandIDs.openDocs
+          command: CommandIDs.openDocs,
         },
         {
-          command: CommandIDs.contactSupport
-        }
+          command: CommandIDs.contactSupport,
+        },
       ],
-      20
+      20,
     );
   }
 };

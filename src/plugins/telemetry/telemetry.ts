@@ -1,7 +1,6 @@
-import { JupyterFrontEnd } from '@jupyterlab/application';
-import { INotebookTracker } from '@jupyterlab/notebook';
-import { ITerminalTracker } from '@jupyterlab/terminal';
-import { load, track } from 'rudder-sdk-js';
+import {JupyterFrontEnd} from '@jupyterlab/application';
+import {NotebookActions} from '@jupyterlab/notebook';
+import {load, track} from 'rudder-sdk-js';
 
 /**
  * TODO: This captures a lot of events. Some we might want to filter out.
@@ -14,29 +13,39 @@ const initCommandTracking = (app: JupyterFrontEnd): void => {
     track('command', {
       id: command.id,
       // We have to copy the args to a plain object
-      args: JSON.parse(JSON.stringify(command.args))
+      args: JSON.parse(JSON.stringify(command.args)),
     });
   });
 };
 
-const initNotebookTracking = (notebook: INotebookTracker) => {
-  // TODO: what info do we want to track from a notebook?
+const initNotebookTracking = () => {
+  NotebookActions.executed.connect((_, action) => {
+    // This transforms '[1]: pachctl version' to 'pachctl version'
+    const promptText = action.cell.promptNode.innerText;
+    const actionText = action.cell.inputArea.node.innerText.replace(
+      promptText ? promptText + '\n' : '',
+      '',
+    );
+
+    track('command', {
+      id: 'notebook:action:executed',
+      args: {
+        action: actionText,
+      },
+    });
+  });
 };
 
-const initTerminalTracking = (terminal: ITerminalTracker) => {
+const initTerminalTracking = () => {
   // TODO: what info do we want to track from a terminal?
 };
 
-export const init = (
-  app: JupyterFrontEnd,
-  notebook: INotebookTracker,
-  terminal: ITerminalTracker
-): void => {
+export const init = (app: JupyterFrontEnd): void => {
   load(
     '20C6D2xFLRmyFTqtvYDEgNfwcRG',
-    'https://pachyderm-dataplane.rudderstack.com'
+    'https://pachyderm-dataplane.rudderstack.com',
   );
   initCommandTracking(app);
-  initNotebookTracking(notebook);
-  initTerminalTracking(terminal);
+  initNotebookTracking();
+  initTerminalTracking();
 };
