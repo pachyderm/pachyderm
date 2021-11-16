@@ -8,11 +8,10 @@ to complete and introduce you to Pachyderm's original concepts.
 
 This guide assumes that you already have Pachyderm running.
 
-- For an easy and quick start, 
-[**we recommend creating a free workspace on Hub**](../../hub/hub_getting_started/), our **SaaS platform**.
+- Install Pachyderm on your local machine as described in our [Local Installation](../local_installation/) page or check out our [Quick Install](../../deploy-manage/deploy/quickstart/) page to deploy on your favorite cloud.
 
-- You can also install Pachyderm on your local
-machine as described in [Local Installation](local_installation.md).
+- For an easy and quick start, you can also
+[**create a free workspace on Hub**](../../hub/hub_getting_started/), our **SaaS platform**. [Contact us](mailto:sales@pachyderm.com) and start experimenting.
 
 !!! tip
     If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl_shell/).
