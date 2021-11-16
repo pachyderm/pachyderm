@@ -90,7 +90,7 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		peerPort:              config.PeerPort,
 		gcPercent:             config.GCPercent,
 	}
-	apiServer.validateKube()
+	apiServer.validateKube(apiServer.env.BackgroundContext)
 	go apiServer.master()
 	return apiServer, nil
 }

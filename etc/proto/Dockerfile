@@ -12,8 +12,6 @@ RUN \
 RUN unzip protoc.zip -d /
 RUN cp -r /include /bin
 
-RUN go get -u -v github.com/golang/protobuf/proto
-
 # if you modify the version of gogo/protobuf. you also need to update the path in run.sh
 RUN go get -u -v github.com/gogo/protobuf/protoc-gen-gofast@v1.3.2
 RUN mkdir -p ${GOPATH}/src/github.com/pachyderm/pachyderm

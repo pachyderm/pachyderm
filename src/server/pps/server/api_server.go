@@ -266,15 +266,15 @@ func validateTransform(transform *pps.Transform) error {
 	return nil
 }
 
-func (a *apiServer) validateKube() {
+func (a *apiServer) validateKube(ctx context.Context) {
 	errors := false
 	kubeClient := a.env.KubeClient
-	_, err := kubeClient.CoreV1().Pods(a.namespace).Watch(a.env.BackgroundContext, metav1.ListOptions{Watch: true})
+	_, err := kubeClient.CoreV1().Pods(a.namespace).Watch(ctx, metav1.ListOptions{Watch: true})
 	if err != nil {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
 	}
-	pods, err := a.rcPods("pachd")
+	pods, err := a.rcPods(ctx, "pachd")
 	if err != nil || len(pods) == 0 {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
@@ -284,7 +284,7 @@ func (a *apiServer) validateKube() {
 		_, err = kubeClient.CoreV1().Pods(a.namespace).GetLogs(
 			pod.ObjectMeta.Name, &v1.PodLogOptions{
 				Container: "pachd",
-			}).Timeout(10 * time.Second).Do(a.env.BackgroundContext).Raw()
+			}).Timeout(10 * time.Second).Do(ctx).Raw()
 		if err != nil {
 			errors = true
 			logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
@@ -321,13 +321,13 @@ func (a *apiServer) validateKube() {
 			},
 		},
 	}
-	if _, err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Create(a.env.BackgroundContext, rc, metav1.CreateOptions{}); err != nil {
+	if _, err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
 		if err != nil {
 			errors = true
 			logrus.Errorf("unable to create kubernetes replication controllers, Pachyderm will not function properly until this is fixed. error: %v", err)
 		}
 	}
-	if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(a.env.BackgroundContext, name, metav1.DeleteOptions{}); err != nil {
+	if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
 		if err != nil {
 			errors = true
 			logrus.Errorf("unable to delete kubernetes replication controllers, Pachyderm function properly but pipeline cleanup will not work. error: %v", err)
@@ -1205,7 +1205,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	}
 
 	// Get pods managed by the RC we're scraping (either pipeline or pachd)
-	pods, err := a.rcPods(rcName)
+	pods, err := a.rcPods(apiGetLogsServer.Context(), rcName)
 	if err != nil {
 		return errors.Wrapf(err, "could not get pods in rc \"%s\" containing logs", rcName)
 	}
@@ -3069,8 +3069,8 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
-	podList, err := a.env.KubeClient.CoreV1().Pods(a.namespace).List(a.env.BackgroundContext, metav1.ListOptions{
+func (a *apiServer) rcPods(ctx context.Context, rcName string) ([]v1.Pod, error) {
+	podList, err := a.env.KubeClient.CoreV1().Pods(a.namespace).List(ctx, metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",

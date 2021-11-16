@@ -138,9 +138,6 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 				if err := internalWatcher.Close(); err != nil {
 					return err
 				}
-				// use new "nextRevision"
-				internalWatcher = etcd.NewWatcher(client)
-				rch = internalWatcher.Watch(ctx, prefix, watchOptions(nextRevision)...)
 				// We interpret a response with nil Error and 0 events as a server side cancellation
 				// as described in https://github.com/etcd-io/etcd/blob/client/v3.5.1/client/v3/watch.go#L53
 				//
@@ -149,6 +146,9 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 				if resp.Err() == nil && len(resp.Events) == 0 {
 					return context.Canceled
 				}
+				// use new "nextRevision"
+				internalWatcher = etcd.NewWatcher(client)
+				rch = internalWatcher.Watch(ctx, prefix, watchOptions(nextRevision)...)
 				continue
 			}
 			if err := resp.Err(); err != nil {

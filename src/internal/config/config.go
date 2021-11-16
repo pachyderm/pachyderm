@@ -10,7 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
-	uuid "github.com/satori/go.uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -126,11 +126,7 @@ func validateCachedConfig() (bool, error) {
 	if cachedConfig.UserID == "" {
 		updated = true
 		log.Debugln("No UserID present in config - generating new one.")
-		uuid, err := uuid.NewV4()
-		if err != nil {
-			return false, err
-		}
-		cachedConfig.UserID = uuid.String()
+		cachedConfig.UserID = uuid.NewWithoutDashes()
 	}
 
 	if cachedConfig.V2 == nil {
