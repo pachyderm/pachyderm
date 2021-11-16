@@ -72,24 +72,24 @@ jobs:
       - run: npm ci
       - run: npm run test
 
-  mock-e2e:
-    docker:
-      - image: cimg/python:3.7-node
-    steps:
-      - checkout
-      - run:
-          name: 'Install Python dependencies'
-          command: |
-            npm ci
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install -r ci-requirements.txt
-            pip install -e .
-            jupyter labextension develop . --overwrite
-            jupyter server extension enable jupyterlab_pachyderm
-            npm run e2e
+  # mock-e2e:
+  #   docker:
+  #     - image: cimg/python:3.7-node
+  #   steps:
+  #     - checkout
+  #     - run:
+  #         name: 'Install Python dependencies'
+  #         command: |
+  #           npm ci
+  #           python -m venv venv
+  #           . venv/bin/activate
+  #           python -m pip install -r ci-requirements.txt
+  #           pip install -e .
+  #           jupyter labextension develop . --overwrite
+  #           jupyter server extension enable jupyterlab_pachyderm
+  #           npm run e2e
 
-  e2e-test:
+  mock-e2e:
     resource_class: xlarge
     machine:
       image: ubuntu-2004:202107-02
