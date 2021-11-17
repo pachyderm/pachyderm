@@ -80,14 +80,11 @@ jobs:
     steps: 
       - browser-tools/install-browser-tools
       - checkout
-      - run:
-          name: 'Build and test extension'
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install -r ci-requirements.txt
-            python -m pip install .
-            npm run e2e
+      - run: python -m venv venv
+      - run: . venv/bin/activate
+      - run: python -m pip install -r ci-requirements.txt
+      - run: python -m pip install .
+      - run: npm run e2e
      
 workflows:
   build-workflow:
