@@ -8,7 +8,7 @@ describe('help', () => {
     cy.findByText('Pachyderm Docs');
   });
 
-  it.only('Should open contact support modal from the help menu.', () => {
+  it('Should open contact support modal from the help menu.', () => {
     cy.findAllByText('Help').first().click();
     cy.findAllByText('Contact Pachyderm Support').click();
     cy.findByText('Chat with us on');
