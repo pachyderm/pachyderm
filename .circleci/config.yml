@@ -80,6 +80,7 @@ jobs:
     steps: 
       - browser-tools/install-browser-tools
       - checkout
+      - run: npm run ci
       - run: python -m venv venv
       - run: . venv/bin/activate
       - run: python -m pip install -r ci-requirements.txt
