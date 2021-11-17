@@ -81,12 +81,28 @@ jobs:
       - browser-tools/install-chrome
       - browser-tools/install-chromedriver
       - checkout
-      - run: npm ci
-      - run: python -m venv venv
-      - run: . venv/bin/activate
-      - run: python -m pip install -r ci-requirements.txt
-      - run: python -m pip install .
-      - run: npm run e2e
+      - run:
+          name: 'Build and test the extension'
+          command: |
+            set -eux
+            
+            npm ci
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install -r ci-requirements.txt
+            python -m pip install .
+            npm run e2e
+
+    # steps: 
+    #   - browser-tools/install-chrome
+    #   - browser-tools/install-chromedriver
+    #   - checkout
+    #   - run: npm ci
+    #   - run: python -m venv venv
+    #   - run: . venv/bin/activate
+    #   - run: python -m pip install -r ci-requirements.txt
+    #   - run: python -m pip install .
+    #   - run: npm run e2e
      
 workflows:
   build-workflow:
