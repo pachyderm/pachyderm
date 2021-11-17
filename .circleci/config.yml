@@ -81,13 +81,13 @@ jobs:
       - browser-tools/install-browser-tools
       - checkout
       - run:
-          name: 'Build the extension'
+          name: 'Build and test extension'
           command: |
             python -m venv venv
             . venv/bin/activate
             python -m pip install -r ci-requirements.txt
             python -m pip install .
-      - run: npm run e2e
+            npm run e2e
      
 workflows:
   build-workflow:
