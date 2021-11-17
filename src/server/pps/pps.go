@@ -14,7 +14,7 @@ type ErrJobFinished struct {
 }
 
 func (e ErrJobFinished) Error() string {
-	return fmt.Sprintf("job %v has already finished", e.Job.ID)
+	return fmt.Sprintf("job %v has already finished", e.Job)
 }
 
 type ErrPipelineNotFound struct {
