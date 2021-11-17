@@ -152,7 +152,7 @@ func formatValues(x interface{}, db *pachsql.DB) string {
 		panic(db.DriverName())
 	}
 	var ret string
-	for i := 0; i < reflect.TypeOf(x).NumField()-1; i++ {
+	for i := 0; i < reflect.TypeOf(x).NumField(); i++ {
 		if i > 0 {
 			ret += ", "
 		}
