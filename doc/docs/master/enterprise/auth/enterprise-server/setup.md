@@ -135,8 +135,10 @@ This results in a single pachd pod, with authentication enabled. Proceed to [con
 Once the enterprise server is deployed, 
 deploy your cluster(s) (`helm install...`) and register it/them with the enterprise server.
 You migh want to [expose your cluster(s) to the internet](#3-register-your-clusters).
+
 #  Register Your Cluster with the Enterprise Server
 Similarly to the enterprise server, we can configure our pachyderm clusters to leverage it for licensing and authentication in one of two flavors:
+
 1. Provide enterprise registration information as a part of the Helm deployment.
 1. Register with the Enterprise Server using pachctl commands
 
