@@ -368,7 +368,7 @@ $ {{alias}} test@fork -p XXX`,
 			commit, err := cmdutil.ParseCommit(args[0])
 			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
 				return errors.New(`Use "list commit <id>" to see commits with a given ID across different repos`)
-			} else {
+			} else if err != nil {
 				return err
 			}
 			c, err := client.NewOnUserMachine("user")

@@ -560,7 +560,12 @@ This resets the cluster to its initial state.`,
 				return err
 			}
 			if context.PortForwarders != nil && len(context.PortForwarders) > 0 {
-				return errors.New("port forwarding appears to already be running for this context")
+				fmt.Println("Port forwarding appears to already be running for this context. Running multiple forwarders may not work correctly.")
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return nil
+				}
 			}
 
 			fw, err := client.NewPortForwarder(context, namespace)
