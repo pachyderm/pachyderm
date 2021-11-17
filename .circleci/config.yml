@@ -118,7 +118,8 @@ jobs:
   mock-e2e:
     docker:
       - image: cimg/python:3.7-browsers
-    steps:
+    steps: 
+      - browser-tools/install-browser-tools
       - checkout
       - run: python -m venv venv
       - run: . venv/bin/activate
