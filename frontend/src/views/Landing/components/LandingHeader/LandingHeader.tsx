@@ -25,22 +25,24 @@ const LandingHeader = () => {
           {workspaceName && (
             <>
               <div className={styles.divider} />
-              <span className={styles.workspaceName}>
-                Workspace {workspaceName}
-              </span>
+
+              {hasConnectInfo ? (
+                <ButtonLink
+                  className={styles.support}
+                  onClick={() => showConnectModal(true)}
+                >
+                  Connect to Workspace {workspaceName}
+                </ButtonLink>
+              ) : (
+                <span className={styles.workspaceName}>
+                  Workspace {workspaceName}
+                </span>
+              )}
             </>
           )}
         </Group>
 
         <Group spacing={24} align="center">
-          {hasConnectInfo && (
-            <ButtonLink
-              className={styles.support}
-              onClick={() => showConnectModal(true)}
-            >
-              Connect to Workspace
-            </ButtonLink>
-          )}
           <Link
             className={styles.support}
             small

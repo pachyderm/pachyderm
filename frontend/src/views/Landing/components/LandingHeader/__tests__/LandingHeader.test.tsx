@@ -70,7 +70,9 @@ describe('LandingHeader', () => {
 
     const {findByText, findByTestId} = render(<Header />);
 
-    const connectToWorkspaceButton = await findByText('Connect to Workspace');
+    const connectToWorkspaceButton = await findByText(
+      'Connect to Workspace test',
+    );
 
     click(connectToWorkspaceButton);
 

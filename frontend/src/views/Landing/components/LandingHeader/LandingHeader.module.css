@@ -4,7 +4,7 @@
   width: 5.875rem;
   color: var(--white);
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
@@ -23,7 +23,11 @@ a.logo {
   font-size: var(--font-size-body-small);
   text-decoration: underline;
   color: var(--white);
-  font-weight: bold;
+  font-weight: 600;
+  max-width: 11.5rem;
+  text-overflow: ellipsis;
+  overflow-x: hidden;
+  white-space: nowrap;
 }
 
 .support:not(:disabled):hover,
@@ -35,5 +39,5 @@ a.logo {
 .workspaceName {
   color: var(--white);
   font-size: 0.75rem;
-  font-weight: bold;
+  font-weight: 600;
 }
