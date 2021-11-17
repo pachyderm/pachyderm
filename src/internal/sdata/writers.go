@@ -53,8 +53,14 @@ func NewCSVWriter(w io.Writer, headers []string) *CSVWriter {
 }
 
 func (m *CSVWriter) WriteTuple(row Tuple) error {
-	if len(m.record) != len(row) {
+	if m.record == nil {
 		m.record = make([]string, len(row))
+	}
+	if len(m.record) != len(row) {
+		return ErrTupleFields{
+			Writer: m,
+			Tuple:  row,
+		}
 	}
 	record := m.record
 	if len(m.headers) > 0 && !m.headersWritten {
