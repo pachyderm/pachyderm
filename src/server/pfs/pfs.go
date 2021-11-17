@@ -150,7 +150,7 @@ func (e ErrBranchExists) Error() string {
 }
 
 func (e ErrCommitNotFound) Error() string {
-	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo)
+	return fmt.Sprintf("commit %v not found", e.Commit)
 }
 
 func (e ErrCommitSetNotFound) Error() string {
@@ -158,35 +158,35 @@ func (e ErrCommitSetNotFound) Error() string {
 }
 
 func (e ErrCommitExists) Error() string {
-	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, e.Commit.Branch.Repo)
+	return fmt.Sprintf("commit %v already exists", e.Commit)
 }
 
 func (e ErrCommitFinished) Error() string {
-	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, e.Commit.Branch.Repo)
+	return fmt.Sprintf("commit %v has already finished", e.Commit)
 }
 
 func (e ErrCommitError) Error() string {
-	return fmt.Sprintf("commit %v in repo %v finished with an error", e.Commit.ID, e.Commit.Branch.Repo)
+	return fmt.Sprintf("commit %v finished with an error", e.Commit)
 }
 
 func (e ErrCommitDeleted) Error() string {
-	return fmt.Sprintf("commit %v@%v was deleted", e.Commit.Branch.Repo, e.Commit.ID)
+	return fmt.Sprintf("commit %v was deleted", e.Commit)
 }
 
 func (e ErrParentCommitNotFound) Error() string {
-	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, e.Commit.Branch.Repo)
+	return fmt.Sprintf("parent commit %v not found", e.Commit)
 }
 
 func (e ErrOutputCommitNotFinished) Error() string {
-	return fmt.Sprintf("output commit %v not finished", e.Commit.ID)
+	return fmt.Sprintf("output commit %v not finished", e.Commit)
 }
 
 func (e ErrCommitNotFinished) Error() string {
-	return fmt.Sprintf("commit %v not finished", e.Commit.ID)
+	return fmt.Sprintf("commit %v not finished", e.Commit)
 }
 
 func (e ErrAmbiguousCommit) Error() string {
-	return fmt.Sprintf("commit %v is ambiguous (specify the branch to resolve)", e.Commit.ID)
+	return fmt.Sprintf("commit %v is ambiguous (specify the branch to resolve)", e.Commit)
 }
 
 func (e ErrInconsistentCommit) Error() string {
@@ -206,11 +206,11 @@ func (e ErrDropWithChildren) Error() string {
 }
 
 var (
-	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
+	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found")
 	commitsetNotFoundRe       = regexp.MustCompile("no commits found for commitset")
 	commitDeletedRe           = regexp.MustCompile("commit [^ ]+ was deleted")
-	commitFinishedRe          = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
-	commitErrorRe             = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ finished with an error")
+	commitFinishedRe          = regexp.MustCompile("commit [^ ]+ has already finished")
+	commitErrorRe             = regexp.MustCompile("commit [^ ]+ finished with an error")
 	repoNotFoundRe            = regexp.MustCompile(`repos [a-zA-Z0-9.\-_]{1,255} not found`)
 	repoExistsRe              = regexp.MustCompile(`repo ?[a-zA-Z0-9.\-_]{1,255} already exists`)
 	branchNotFoundRe          = regexp.MustCompile(`branch [^ ]+ not found in repo [^ ]+`)
