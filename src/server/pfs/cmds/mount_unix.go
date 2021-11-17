@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package cmds
@@ -146,7 +147,7 @@ func mountCmds() []*cobra.Command {
 				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 					return err
 				} else if !ok {
-					return errors.New("deploy aborted")
+					return errors.New("unmount aborted")
 				}
 
 				for _, mount := range mounts {
