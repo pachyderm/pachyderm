@@ -5,8 +5,6 @@ recursive-include jupyter-config *.json
 
 exclude ci-requirements.txt
 exclude .circleci/*
-exclude cypress/*
-exclude cypress.json
 
 include package.json
 include install.json
@@ -23,6 +21,8 @@ graft style
 prune **/node_modules
 prune lib
 prune .circleci
+prune cypress
+prune cypress.json
 
 # Patterns to exclude from any directory
 global-exclude *~

@@ -117,7 +117,7 @@ jobs:
     #   - run: nvm use 16.11.0 && npm run e2e
   mock-e2e:
     docker:
-      - image: cimg/python:3.7-browsers
+      - image: cimg/python:3.7-node
     steps: 
       - browser-tools/install-browser-tools
       - checkout
