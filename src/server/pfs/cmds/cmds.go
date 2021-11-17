@@ -775,7 +775,7 @@ The squash will fail if it includes a commit with no children`,
 		Use:   "{{alias}} <commit-id>",
 		Short: "Delete the sub-commits of a commit.",
 		Long: `Delete the sub-commits of a commit.  The data in the sub-commits will be lost.
-This operation is only supported if the commit has no children.`,
+This operation is only supported if none of the sub-commits have children.`,
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
