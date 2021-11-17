@@ -769,6 +769,27 @@ The squash will fail if it includes a commit with no children`,
 	shell.RegisterCompletionFunc(squashCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(squashCommit, "squash commit"))
 
+	deleteCommit := &cobra.Command{
+		Use:   "{{alias}} <commit-id>",
+		Short: "Delete the sub-commits of a commit.",
+		Long: `Delete the sub-commits of a commit.  The data in the sub-commits will be lost.
+This operation is only supported if none of the sub-commits have children.`,
+
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				return c.DropCommitSet(args[0])
+			})
+		}),
+	}
+	shell.RegisterCompletionFunc(deleteCommit, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
+
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
 		Long: `A branch in Pachyderm records provenance relationships between data in different repos,
