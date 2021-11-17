@@ -92,30 +92,74 @@ jobs:
   #           jupyter server extension enable jupyterlab_pachyderm
   #           npm run e2e
 
+  # mock-e2e:
+    # resource_class: xlarge
+    # machine:
+    #   image: ubuntu-2004:202107-02
+    # steps:
+    #   - checkout
+    #   - browser-tools/install-chrome
+    #   - browser-tools/install-chromedriver
+    #   - run: sudo sysctl fs.inotify.max_user_watches=524288
+    #   - run: sudo sysctl -p
+    #   - run: sudo apt-get update
+    #   - run: sudo apt-get install -y libgbm-dev
+    #   - run: nvm install 16.11.0
+    #   - run: nvm alias default 16.11.0
+    #   - run: nvm use 16.11.0 && node -v
+    #   - run: nvm use 16.11.0 && npm ci
+    #   - run: python3 -m venv venv
+    #   - run: . venv/bin/activate
+    #   - run: python -m pip install -r ci-requirements.txt
+    #   - run: pip install -e .
+    #   - run: jupyter labextension develop . --overwrite
+    #   - run: jupyter server extension enable jupyterlab_pachyderm
+    #   - run: nvm use 16.11.0 && npm run e2e
   mock-e2e:
-    resource_class: xlarge
-    machine:
-      image: ubuntu-2004:202107-02
+    docker:
+      - image: cimg/python:3.7-browsers
     steps:
       - checkout
-      - browser-tools/install-chrome
-      - browser-tools/install-chromedriver
-      - run: sudo sysctl fs.inotify.max_user_watches=524288
-      - run: sudo sysctl -p
-      - run: sudo apt-get update
-      - run: sudo apt-get install -y libgbm-dev
-      - run: nvm install 16.11.0
-      - run: nvm alias default 16.11.0
-      - run: nvm use 16.11.0 && node -v
-      - run: nvm use 16.11.0 && npm ci
-      - run: python3 -m venv venv
+      - run: python -m venv venv
       - run: . venv/bin/activate
       - run: python -m pip install -r ci-requirements.txt
       - run: pip install -e .
       - run: jupyter labextension develop . --overwrite
       - run: jupyter server extension enable jupyterlab_pachyderm
-      - run: nvm use 16.11.0 && npm run e2e
+      - run: npm run e2e
+      # - run:
+      #     name: 'Install Python dependencies'
+      #     command: |
+      #       python -m venv venv
+      #       . venv/bin/activate
+      #       python -m pip install -r ci-requirements.txt
+      # - run:
+      #     name: 'Install npm packages'
+      #     command: |
+      #       npm ci
+      # - run:
+      #     name: 'Build and test the extension'
+      #     command: |
+      #       set -eux
 
+      #       . venv/bin/activate
+      #       npm run eslint:check
+      #       python -m pip install -e '.[dev]'
+
+      #       # Run Python unit tests
+      #       pytest jupyterlab_pachyderm
+
+      #       # Uninstall local package for fresh install
+      #       python -m pip uninstall -y jupyterlab-pachyderm
+
+      #       # Run integration test
+      #       python -m pip install .
+
+      #       jupyter server extension list 2>&1 | grep -ie "jupyterlab_pachyderm.*OK"
+      #       jupyter labextension list 2>&1 | grep -ie "jupyterlab-pachyderm.*OK"
+      #       python -m jupyterlab.browser_check
+
+      #       check-manifest -v
 workflows:
   build-workflow:
     jobs:
