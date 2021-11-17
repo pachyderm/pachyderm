@@ -78,7 +78,8 @@ jobs:
     docker:
       - image: cimg/python:3.7-browsers
     steps: 
-      - browser-tools/install-browser-tools
+      - browser-tools/install-chrome
+      - browser-tools/install-chromedriver
       - checkout
       - run: npm ci
       - run: python -m venv venv
