@@ -19,7 +19,7 @@ describe('help', () => {
     cy.findByText('support@pachyderm.com').should(
       'have.prop',
       'href',
-      'mailto:support@pachyderm.com',
+      'mailto:support@pachyderm.com'
     );
   });
 });

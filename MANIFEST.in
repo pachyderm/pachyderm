@@ -5,6 +5,8 @@ recursive-include jupyter-config *.json
 
 exclude ci-requirements.txt
 exclude .circleci/*
+exclude cypress/*
+exclude cypress.json
 
 include package.json
 include install.json
