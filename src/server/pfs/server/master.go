@@ -87,7 +87,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 				// Compact the commit.
 				var totalId *fileset.ID
 				start := time.Now()
-				if err := miscutil.LogStep(fmt.Sprintf("compacting commit %v", commit.ID), func() error {
+				if err := miscutil.LogStep(fmt.Sprintf("compacting commit %v", commit), func() error {
 					var err error
 					totalId, err = compactor.Compact(ctx, []fileset.ID{*id}, defaultTTL)
 					if err != nil {
@@ -102,7 +102,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 				start = time.Now()
 				var size int64
 				var validationError string
-				if err := miscutil.LogStep(fmt.Sprintf("validating commit %v", commit.ID), func() error {
+				if err := miscutil.LogStep(fmt.Sprintf("validating commit %v", commit), func() error {
 					var err error
 					size, validationError, err = d.validate(ctx, totalId)
 					return err
@@ -111,7 +111,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 				}
 				validatingDuration := time.Since(start)
 				// Finish the commit.
-				return miscutil.LogStep(fmt.Sprintf("finish commit %v", commit.ID), func() error {
+				return miscutil.LogStep(fmt.Sprintf("finish commit %v", commit), func() error {
 					return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 						commitInfo := &pfs.CommitInfo{}
 						if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(commit), commitInfo, func() error {
