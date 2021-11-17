@@ -80,12 +80,13 @@ jobs:
     steps: 
       - browser-tools/install-browser-tools
       - checkout
-      - run: python -m venv venv
-      - run: . venv/bin/activate
-      - run: python -m pip install -r ci-requirements.txt
-      - run: pip install -e .
-      - run: jupyter labextension develop . --overwrite
-      - run: jupyter server extension enable jupyterlab_pachyderm
+      - run:
+          name: 'Build the extension'
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install -r ci-requirements.txt
+            python -m pip install .
       - run: npm run e2e
      
 workflows:
