@@ -17,15 +17,14 @@ The setup of an Enterprise Server requires to:
 1. Register your newly created or existing Pachyderm clusters with your enterprise server.
 1. Optional: Enable Auth on each cluster.
 
-## 1 - Deploy An Enterprise Server
-
-### Single-cluster deployment
+# Enterprise Server Setup
 Deploying and configuring a Pachyderm cluster with the embedded enterprise server can be done in one of two flavors:
 
 1. Provide all licensing and authentication configuration as a part of the Helm deployment.
 1. [Install Pachyderm as usual with Helm](../../../../deploy-manage/deploy/helm_install/), and use `pachctl` commands to set up licensing and authentication.
 
-#### To setup enterprise features as a part of the helm deployment
+## With Helm
+### To setup enterprise features as a part of a regular pachyderm helm deployment
 Update your values.yaml with your enterprise license key, and auth configurations ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-dev-values.yaml)) or insert our minimal example below to your values.yaml.
 
 === "values.yaml with activation of an enterprise license and authentication"
@@ -79,17 +78,7 @@ This results in a single pachd pod, with authentication enabled, and an IDP inte
 
 Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
 
-
-#### To proceed with the usual helm install:
-1. [Install your favorite version of `pachctl`](../../../../getting_started/local_installation/#install-pachctl).
-1. [Deploy Pachyderm](../../../../deploy-manage/deploy/helm_install/): `helm install ...`.
-1. [Activate your enterprise Key](../../../deployment/#activate-pachyderm-enterprise-edition): `pachctl license activate`
-1. [Enable authentication](../../#activate-user-access-management): `pachctl auth activate` 
-
-
-This results in a single pachd pod, with authentication enabled. Proceed to [configuring IDP integrations](../../authentication/idp-dex).
-
-### Multi-cluster deployment
+### Setting up a stand-alone Enterprise Server as part of a Multi-cluster deployment
 
 Deploying a stand-alone enterprise server requires setting the helm parameter `enterpriseServer.enabled` to `true` and the `pachd.enabled` to `false`. 
 
@@ -116,7 +105,18 @@ Deploying a stand-alone enterprise server requires setting the helm parameter `e
 
 	```
 
-## 2- Activate Enterprise Licensing And Enable Authentication
+## With pachctl
+### 1 - Deploy An Enterprise Server
+#### To proceed with the usual helm install:
+1. [Install your favorite version of `pachctl`](../../../../getting_started/local_installation/#install-pachctl).
+1. [Deploy Pachyderm](../../../../deploy-manage/deploy/helm_install/): `helm install ...`.
+1. [Activate your enterprise Key](../../../deployment/#activate-pachyderm-enterprise-edition): `pachctl license activate`
+1. [Enable authentication](../../#activate-user-access-management): `pachctl auth activate` 
+
+
+This results in a single pachd pod, with authentication enabled. Proceed to [configuring IDP integrations](../../authentication/idp-dex).
+
+### 2- Activate Enterprise Licensing And Enable Authentication
 
 - Use your enterprise key to activate your enterprise server: 
 	```shell
@@ -135,7 +135,27 @@ Deploying a stand-alone enterprise server requires setting the helm parameter `e
 Once the enterprise server is deployed, 
 deploy your cluster(s) (`helm install...`) and register it/them with the enterprise server.
 You migh want to [expose your cluster(s) to the internet](#3-register-your-clusters).
-## 3-  Register Your Clusters
+#  Register Your Cluster with the Enterprise Server
+Similarly to the enterprise server, we can configure our pachyderm clusters to leverage it for licensing and authentication in one of two flavors:
+1. Provide enterprise registration information as a part of the Helm deployment.
+1. Register with the Enterprise Server using pachctl commands
+
+## With Helm
+#### To configure enterprise registration with helm
+Update your values.yaml with the enterprise server's root token, and network addresses for the pachyderm cluster and enterprise server to communicate ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/enterprise-member-values.yaml)) or insert our minimal example below to your values.yaml.
+
+=== "values.yaml with activation of an enterprise license and authentication"
+
+	```yaml
+	pachd:
+	    activateEnterpriseMember: true
+  		enterpriseServerAddress: "grpc://<ENTERPRISE_SERVER_ADDRESS>"
+  		enterpriseCallbackAddress: "grpc://<PACHD_ADDRESS>"
+  		enterpriseRootToken: "<ENTERPRISE-ROOT-TOKEN>" # the same root token of the enterprise cluster
+	```
+
+## With pachctl
+### 1- Register Clusters
 - Run this command for each of the clusters you wish to register:
 
 	```shell
@@ -173,7 +193,7 @@ You migh want to [expose your cluster(s) to the internet](#3-register-your-clust
 	```
 
 
-## 4- Enable Auth on each cluster
+### 2- Enable Auth on each cluster
 Finally, activate auth on  each cluster. 
 This is an optional step as clusters can be registered with the enterprise server without authentication being enabled.
 
