@@ -242,6 +242,11 @@ func (s *debugServer) handleWorkerRedirect(tw *tar.Writer, pod *v1.Pod, collectW
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := c.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
 	r, err := cb(c.DebugClient, &debug.Filter{
 		Filter: &debug.Filter_Worker{
 			Worker: &debug.Worker{
