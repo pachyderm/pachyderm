@@ -76,7 +76,7 @@ func TestMaterializeSQL(t *testing.T) {
 
 func setupTable(t testing.TB, db *pachsql.DB) {
 	type rowType struct {
-		id int
+		// id int
 
 		Smallint int16
 		Int      int32
