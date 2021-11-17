@@ -3,7 +3,11 @@ import React, {useCallback, useEffect} from 'react';
 import {Link} from '../Link';
 
 import Mark from './components/Mark';
-import {MultiSelectModule, useMultiSelectModule} from './components/Modules/';
+import {
+  MultiSelectModule,
+  useMultiSelectModule,
+  ConfigurationUploadModule,
+} from './components/Modules/';
 import TaskCard from './components/TaskCard';
 import {Step, TaskComponentProps} from './lib/types';
 import TutorialModal from './TutorialModal';
@@ -249,4 +253,107 @@ const steps: Step[] = [
 
 export const Default = () => {
   return <TutorialModal steps={steps} />;
+};
+
+const ConfigurationTaskComponent: React.FC<TaskComponentProps> = ({
+  onCompleted,
+  currentTask,
+  index,
+  name,
+}) => {
+  const action = useCallback(() => {
+    onCompleted();
+  }, [onCompleted]);
+
+  const file = {
+    name: 'edges.json',
+    path:
+      'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json',
+    contents: `{
+  "pipeline": {
+    "name": "edges"
+  },
+  "description": "A pipeline that performs image edge detection by using the OpenCV library.",
+  "transform": {
+    "cmd": [ "python3", "/edges.py" ],
+    "image": "pachyderm/opencv"
+  },
+  "input": {
+    "pfs": {
+      "repo": "images",
+      "glob": "/*"
+    }
+  }
+}`,
+  };
+
+  return (
+    <TaskCard
+      index={index}
+      task={name}
+      action={action}
+      currentTask={currentTask}
+      actionText="Create pipeline spec"
+      taskInfoTitle="Quickly define pipelines"
+      taskInfo="Pachyderm pipelines can be defined in just a few lines of JSON or YAML specification. Pachyderm defines pipelines using docker containers tags, a command to be executed, and an input repo."
+    >
+      <ConfigurationUploadModule file={file} />
+    </TaskCard>
+  );
+};
+
+const configurationSteps: Step[] = [
+  {
+    label: 'Introduction',
+    name: 'Creating Pipelines',
+    sections: [
+      {
+        header: 'Creating pipelines with just a few lines of code',
+        info: (
+          <>
+            <p>
+              Pipelines are the core processing primitive in Pachyderm.
+              Pipelines are defined with a simple JSON file called a pipeline
+              specification or pipeline spec for short. For this example, we
+              already created the pipeline spec for you. When you want to create
+              your own pipeline specs later, you can refer to the full{' '}
+              <Link externalLink inline to="foo">
+                Pipeline Specification
+              </Link>{' '}
+              to use more advanced options. Options include building your own
+              code into a container. In this tutorial, we are using a pre-built
+              Docker image.
+            </p>
+            <span>
+              For now, we are going to create a single pipeline spec that takes
+              in images and does some simple edge detection.
+            </span>
+          </>
+        ),
+        taskName: (
+          <span>
+            Create a pipeline using the provided <Mark>edges.json</Mark>{' '}
+            specification.
+          </span>
+        ),
+        Task: ConfigurationTaskComponent,
+        followUp: (
+          <p>
+            The pipeline spec contains a few simple sections. The pipeline
+            section contains a name, which is how you will identify your
+            pipeline. Your pipeline will also automatically create an output
+            repo with the same name. The transform section allows you to specify
+            the docker image you want to use. In this case, pachyderm/opencv is
+            the docker image (defaults to DockerHub as the registry), and the
+            entry point is <Mark>edges.py</Mark> The input section specifies
+            repos visible to the running pipeline.
+          </p>
+        ),
+      },
+    ],
+  },
+];
+
+export const ConfigurationUpload = () => {
+  return <TutorialModal steps={configurationSteps} />;
 };

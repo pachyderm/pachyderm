@@ -31,7 +31,7 @@
 }
 
 .taskHeaderWrapper {
-  padding: 1rem 4rem 2rem 2rem;
+  padding: 2rem 4rem 2rem 2rem;
 }
 
 .taskHeaderWrapperChild {
@@ -48,7 +48,7 @@
 }
 
 .taskInfo {
-  padding: 0 2.25rem 2rem 2rem;
+  padding: 0 2.25rem 0rem 2rem;
   margin-top: 0.5rem;
 }
 
