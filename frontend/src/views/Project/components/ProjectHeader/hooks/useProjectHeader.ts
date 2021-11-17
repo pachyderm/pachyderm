@@ -18,10 +18,12 @@ const useProjectHeader = () => {
     exact: true,
   });
 
-  const numOfFailedJobs = useMemo(
-    () => jobSets.filter((job) => job.state === JobState.JOB_FAILURE).length,
-    [jobSets],
-  );
+  const numOfFailedJobs = useMemo(() => {
+    return jobSets.length > 0
+      ? jobSets[0].jobs.filter((job) => job.state === JobState.JOB_FAILURE)
+          .length
+      : 0;
+  }, [jobSets]);
 
   const seeJobsUrl = currentProject?.id
     ? jobsRoute({projectId: currentProject?.id})
