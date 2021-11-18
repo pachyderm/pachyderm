@@ -30,7 +30,7 @@ func main() {
 			log.Fatal(err)
 		}
 	default:
-		log.Fatal("unrecognized transform name %q", transformName)
+		log.Fatalf("unrecognized transform name %q", transformName)
 	}
 }
 
