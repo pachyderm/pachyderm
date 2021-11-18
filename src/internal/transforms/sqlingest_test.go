@@ -22,6 +22,7 @@ func TestSQLIngest(t *testing.T) {
 	inputDir, outputDir := t.TempDir(), t.TempDir()
 	u := dockertestenv.NewMySQLURL(t)
 
+	// load  DB
 	db := testutil.OpenDBURL(t, u, dockertestenv.MySQLPassword)
 	_, err := db.Exec(`CREATE TABLE test_data (
 			id SERIAL PRIMARY KEY,
