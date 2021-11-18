@@ -20,11 +20,12 @@ const (
 func main() {
 	ctx := context.Background()
 	log := logrus.StandardLogger()
-	if len(os.Args) < 1 {
+	args := os.Args[1:]
+	if len(args) < 1 {
 		log.Fatal("at least 1 argument required")
 	}
-	transformName := os.Args[0]
-	transformArgs := os.Args[1:]
+	transformName := args[0]
+	transformArgs := args[1:]
 	switch transformName {
 	case "sql-ingest":
 		if err := sqlIngest(ctx, log, transformArgs); err != nil {
@@ -38,7 +39,7 @@ func main() {
 func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 	const passwordEnvar = "PACHYDERM_SQL_PASSWORD"
 	if len(args) < 3 {
-		return errors.Errorf("must provide db url, format, and query")
+		return errors.Errorf("must provide db url, format, and query repo name")
 	}
 	urlStr, formatName, repoName := args[0], args[1], args[2]
 	password, ok := os.LookupEnv(passwordEnvar)

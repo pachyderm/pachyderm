@@ -10,4 +10,3 @@ WORKDIR /app
 COPY pachtf .
 
 USER 1000
-
