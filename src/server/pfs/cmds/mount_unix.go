@@ -110,8 +110,7 @@ func mountCmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
 	var daemonize bool
-	var versionedMountsDir string
-	var unversionedMountsDir string
+	var mountDir string
 	var socket string
 	var logFile string
 	mountServer := &cobra.Command{
@@ -125,11 +124,10 @@ func mountCmds() []*cobra.Command {
 				return err
 			}
 			serverOpts := &fuse.ServerOptions{
-				Daemonize:            daemonize,
-				UnversionedMountsDir: unversionedMountsDir,
-				VersionedMountsDir:   versionedMountsDir,
-				Socket:               socket,
-				LogFile:              logFile,
+				Daemonize: daemonize,
+				MountDir:  mountDir,
+				Socket:    socket,
+				LogFile:   logFile,
 			}
 			defer c.Close()
 			printWarning()
@@ -137,8 +135,7 @@ func mountCmds() []*cobra.Command {
 		}),
 	}
 	mountServer.Flags().BoolVar(&daemonize, "daemonize", true, "Daemonize? Set to false for easier debugging (if false, logging will be to stdout)")
-	mountServer.Flags().StringVar(&versionedMountsDir, "versioned-mounts-dir", "/_pfs", "Target mountpoint for versioned mounts e.g /_pfs/foo@master")
-	mountServer.Flags().StringVar(&unversionedMountsDir, "unversioned-mounts-dir", "/pfs", "Target mountpoint for unversioned mount pointers e.g /pfs/foo")
+	mountServer.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")
 	mountServer.Flags().StringVar(&socket, "socket", "/tmp/pachyderm-mount-server.sock", "Target UNIX socket for gRPC server")
 	mountServer.Flags().StringVar(&logFile, "log-file", "/tmp/pachyderm-mount-server.log", "Target log file for gRPC server")
 	commands = append(commands, cmdutil.CreateAlias(mountServer, "mount-server"))

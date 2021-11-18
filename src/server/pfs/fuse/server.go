@@ -32,24 +32,21 @@ Get(repo)
 Return the subset of the output of List that is specific to the given repo.
 
 
-MountBranch(repo, branch, mode)
--------------------------------
-Mount the given branch of the repo into the configured versioned and unversioned
-mount directories.
+MountBranch(repo, branch, name, mode)
+-------------------------------------
+Mount the given branch of the repo into the configured mount directory.
 
-Will result in `/_pfs/{repo}@{branch}` being mounted, and `/pfs/{repo}` being
-configured as a bind-mount to point to the same location.
+E.g. will result in `/pfs/{name}` being mounted.
 
 
-MountCommit(repo, branch, commit)
----------------------------------
+MountCommit(repo, branch, commit, name)
+---------------------------------------
 TODO: implement this.
 
 Mount the specified commit or global commit of the given branch of the given
 repo into the configured directories.
 
-Will result in `/_pfs/{repo}@{branch}:{commit}` being mounted, and `/pfs/{repo}`
-being configured as a bind-mount to point to the same location.
+Will result in `/pfs/{name}` being mounted.
 
 If the commit is open, the mount may be writeable until it's closed.
 (TODO: Maybe commits should only be mounted read-only to simplify?)
@@ -73,6 +70,11 @@ currently mounted, returns an error.
 Note that repo-branch-commit mounts are disjoint from repo-branch mounts.
 
 
+UnmountByName(name)
+-------------------
+Unmount whatever is mounted at e.g. `/pfs/{name}`
+
+
 CommitBranch(repo, branch, message)
 -----------------------------------
 TODO: implement this
@@ -86,7 +88,7 @@ writeable?)
 Plan
 ====
 
-1. Implement List(), Get(), MountBranch(), UnmountBranch()
+1. Implement List(), Get(), MountBranch(), UnmountBranch(), UnmountByName()
    Commits are implicit when filesystems are unmounted (matches current fuse mount behavior)
 
 2. Implement CommitBranch() and stop implicitly committing data on unmounts
@@ -96,22 +98,23 @@ Plan
 */
 
 type ServerOptions struct {
-	Daemonize            bool
-	VersionedMountsDir   string
-	UnversionedMountsDir string
-	Socket               string
-	LogFile              string
+	Daemonize bool
+	MountDir  string
+	Socket    string
+	LogFile   string
 }
 
 type MountBranchRequest struct {
 	Repo   string
 	Branch string
+	Name   string
 	Mode   string // "ro", "rw"
 }
 
 type MountBranchResponse struct {
 	Repo       string
 	Branch     string
+	Name       string
 	MountState MountState
 }
 
@@ -127,7 +130,7 @@ func (mm *MountManager) Run() error {
 }
 
 func (mm *MountManager) MountBranch() error {
-
+	return nil
 }
 
 func Server(c *client.APIClient, opts *ServerOptions) error {
@@ -166,9 +169,10 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 }
 
 type MountState struct {
-	State  string // "unmounted", "mounting", "mounted", "pushing", "unmounted", "error"
-	Status string // human readable string with additional info wrt State, e.g. an error message for the error state
-	Mode   string // "ro", "rw", or "" if unknown/unspecified
+	State      string // "unmounted", "mounting", "mounted", "pushing", "unmounted", "error"
+	Status     string // human readable string with additional info wrt State, e.g. an error message for the error state
+	Mode       string // "ro", "rw", or "" if unknown/unspecified
+	Mountpoint string // where on the filesystem it's mounted
 }
 
 type BranchResponse struct {
