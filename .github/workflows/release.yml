@@ -1,6 +1,7 @@
 name: Release to Docker Hub
 on:
   release:
+    types: [published]
     branches:
       - master
 jobs:
