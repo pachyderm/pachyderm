@@ -3,7 +3,9 @@ package transforms
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,6 +22,7 @@ func TestSQLIngest(t *testing.T) {
 	inputDir, outputDir := t.TempDir(), t.TempDir()
 	u := dockertestenv.NewMySQLURL(t)
 
+	// load  DB
 	db := testutil.OpenDBURL(t, u, dockertestenv.MySQLPassword)
 	_, err := db.Exec(`CREATE TABLE test_data (
 			id SERIAL PRIMARY KEY,
@@ -32,6 +35,16 @@ func TestSQLIngest(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	// write queries
+	const Shards = 2
+	for i := 0; i < Shards; i++ {
+		name := fmt.Sprintf("%04d", i)
+		// query would normally be different per shard
+		query := "select * from test_data"
+		err := ioutil.WriteFile(filepath.Join(inputDir, name), []byte(query), 0755)
+		require.NoError(t, err)
+	}
+
 	err = SQLIngest(ctx, SQLIngestParams{
 		Logger: logrus.StandardLogger(),
 
@@ -40,7 +53,6 @@ func TestSQLIngest(t *testing.T) {
 
 		URL:      u,
 		Password: dockertestenv.MySQLPassword,
-		Query:    "select * from test_data",
 		Format:   "json",
 	})
 	require.NoError(t, err)
@@ -48,7 +60,7 @@ func TestSQLIngest(t *testing.T) {
 	// check the file exists
 	dirEnts, err := os.ReadDir(outputDir)
 	require.NoError(t, err)
-	require.Len(t, dirEnts, 1)
+	require.Len(t, dirEnts, Shards)
 	const outputName = "0000"
 	require.Equal(t, outputName, dirEnts[0].Name())
 	lineCount := countLinesInFile(t, filepath.Join(outputDir, outputName))

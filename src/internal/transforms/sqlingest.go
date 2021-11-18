@@ -2,10 +2,7 @@ package transforms
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -15,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// SQLIngestParams are the parameters passed to SQLIngest
 type SQLIngestParams struct {
 	// Instrumentation
 	Logger *logrus.Logger
@@ -24,10 +22,7 @@ type SQLIngestParams struct {
 
 	URL      pachsql.URL
 	Password secrets.Secret
-	Query    string
 	Format   string
-	// Shard affects the number appended to the file path.
-	Shard int
 }
 
 // SQLIngest connects to a SQL database at params.URL and runs params.Query.
@@ -57,31 +52,32 @@ func SQLIngest(ctx context.Context, params SQLIngestParams) error {
 	if err != nil {
 		return err
 	}
-	outputPath := filepath.Join(params.OutputDir, fmt.Sprintf("%04d", params.Shard))
-	outputFile, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE, 0755)
-	if err != nil {
-		return err
-	}
-	defer outputFile.Close()
-	log.Infof("Writing output to %q", outputPath)
-	log.Infof("Begin query %q", params.Query)
-	rows, err := db.QueryContext(ctx, params.Query)
-	if err != nil {
-		return err
-	}
-	log.Infof("Query complete, begin reading rows...")
-	colNames, err := rows.Columns()
-	if err != nil {
-		return err
-	}
-	log.Infof("Column names: %v", colNames)
-	tw := writerFactory(outputFile, colNames)
-	res, err := sdata.MaterializeSQL(tw, rows)
-	if err != nil {
-		return err
-	}
-	log.Infof("Successfully materialized %d rows", res.RowCount)
-	if err := outputFile.Close(); err != nil {
+	if err := bijectiveMap(params.InputDir, params.OutputDir, IdentityPM, func(r io.Reader, w io.Writer) error {
+		queryBytes, err := io.ReadAll(r)
+		if err != nil {
+			return err
+		}
+		query := string(queryBytes)
+		log.Infof("Query: %q", query)
+		log.Info("Running query...")
+		rows, err := db.QueryContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		log.Infof("Query complete, begin reading rows...")
+		colNames, err := rows.Columns()
+		if err != nil {
+			return err
+		}
+		log.Infof("Column names: %v", colNames)
+		tw := writerFactory(w, colNames)
+		res, err := sdata.MaterializeSQL(tw, rows)
+		if err != nil {
+			return err
+		}
+		log.Infof("Successfully materialized %d rows", res.RowCount)
+		return nil
+	}); err != nil {
 		return err
 	}
 	log.Infof("DONE")

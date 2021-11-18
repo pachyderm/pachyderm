@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -20,7 +21,7 @@ func main() {
 	ctx := context.Background()
 	log := logrus.StandardLogger()
 	if len(os.Args) < 1 {
-		log.Fatal("1 argument required")
+		log.Fatal("at least 1 argument required")
 	}
 	transformName := os.Args[0]
 	transformArgs := os.Args[1:]
@@ -35,11 +36,11 @@ func main() {
 }
 
 func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
+	const passwordEnvar = "PACHYDERM_SQL_PASSWORD"
 	if len(args) < 3 {
 		return errors.Errorf("must provide db url, format, and query")
 	}
-	urlStr, formatName, query := args[0], args[1], args[2]
-	const passwordEnvar = "PACHYDERM_SQL_PASSWORD"
+	urlStr, formatName, repoName := args[0], args[1], args[2]
 	password, ok := os.LookupEnv(passwordEnvar)
 	if !ok {
 		return errors.Errorf("must set %v", passwordEnvar)
@@ -48,15 +49,16 @@ func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 	if err != nil {
 		return err
 	}
+	inputDir := filepath.Join(filepath.FromSlash(pfsIn), repoName)
+	outputDir := filepath.FromSlash(pfsOut)
 	return transforms.SQLIngest(ctx, transforms.SQLIngestParams{
 		Logger: log,
 
-		InputDir:  pfsIn,
-		OutputDir: pfsOut,
+		InputDir:  inputDir,
+		OutputDir: outputDir,
 
 		URL:      *u,
 		Password: secrets.Secret(password),
-		Query:    query,
 		Format:   formatName,
 	})
 }
