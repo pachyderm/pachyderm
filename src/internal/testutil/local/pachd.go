@@ -129,7 +129,7 @@ func RunLocal() (retErr error) {
 	}
 
 	if err := logGRPCServerSetup("External Pachd", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err := pfs_server.NewAPIServer(pfs_server.Env{})
 			if err != nil {
@@ -263,7 +263,7 @@ func RunLocal() (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err := pfs_server.NewAPIServer(
 				pfs_server.Env{},
@@ -368,7 +368,6 @@ func RunLocal() (retErr error) {
 	}); err != nil {
 		return err
 	}
-	env.FinishServerInit()
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.

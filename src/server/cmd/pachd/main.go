@@ -167,7 +167,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}
 
 	if err := logGRPCServerSetup("External Enterprise Server", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
@@ -261,7 +261,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}
 
 	if err := logGRPCServerSetup("Internal Enterprise Server", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
@@ -347,7 +347,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}); err != nil {
 		return err
 	}
-	env.FinishServerInit()
+
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
@@ -408,7 +408,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	txnEnv := &txnenv.TransactionEnv{}
+	txnEnv := txnenv.New()
 	if err := logGRPCServerSetup("Auth API", func() error {
 		authAPIServer, err := authserver.NewAuthServer(
 			authserver.EnvFromServiceEnv(env, txnEnv),
@@ -503,7 +503,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 		return err
 	}
 	txnEnv.Initialize(env, transactionAPIServer)
-	env.FinishServerInit()
 	// The sidecar only needs to serve traffic on the peer port, as it only serves
 	// traffic from the user container (the worker binary and occasionally user
 	// pipelines)
@@ -590,7 +589,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("External Pachd", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
@@ -735,7 +734,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsEnv, err := pfs_server.EnvFromServiceEnv(env, txnEnv)
 			if err != nil {
@@ -869,7 +868,6 @@ func doFullMode(config interface{}) (retErr error) {
 	}); err != nil {
 		return err
 	}
-	env.FinishServerInit()
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.

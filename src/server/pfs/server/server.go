@@ -10,10 +10,7 @@ func NewAPIServer(env Env) (pfsserver.APIServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	go func() {
-		<-env.initDone
-		a.driver.master(env.BackgroundContext)
-	}()
+	go a.driver.master(env.BackgroundContext)
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }
 

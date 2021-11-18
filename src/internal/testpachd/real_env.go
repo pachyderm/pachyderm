@@ -64,9 +64,7 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 		serviceenv.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
 	}
 	opts = append(opts, customOpts...) // Overwrite with any custom options
-	serviceEnv := serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))
-	realEnv.ServiceEnv = serviceEnv
-	defer serviceEnv.FinishServerInit()
+	realEnv.ServiceEnv = serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))
 
 	// Overwrite the mock pach client with the ServiceEnv's client so it gets closed earlier
 	realEnv.PachClient = realEnv.ServiceEnv.GetPachClient(realEnv.ServiceEnv.Context())
@@ -90,7 +88,7 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	err = migrations.BlockUntil(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), clusterstate.DesiredClusterState)
 	require.NoError(t, err)
 
-	txnEnv := &txnenv.TransactionEnv{}
+	txnEnv := txnenv.New()
 	// AUTH
 	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
 	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetAuthServer(realEnv.AuthServer)
