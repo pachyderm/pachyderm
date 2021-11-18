@@ -13,8 +13,8 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '2.0.1'
-pach_latest_version: '2.0.1'
+pach_featured_version: '2.0.2'
+pach_latest_version: '2.0.2'
 pach_major_minor_version: '2.0'
 search_index_version: 'latest'
 
@@ -290,6 +290,7 @@ nav:
             - reference/pachctl/pachctl_delete.md
             - reference/pachctl/pachctl_delete_all.md
             - reference/pachctl/pachctl_delete_branch.md
+            - reference/pachctl/pachctl_delete_commit.md
             - reference/pachctl/pachctl_delete_file.md
             - reference/pachctl/pachctl_delete_job.md
             - reference/pachctl/pachctl_delete_pipeline.md
@@ -369,6 +370,7 @@ nav:
             - reference/pachctl/pachctl_run.md
             - reference/pachctl/pachctl_run_cron.md
             - reference/pachctl/pachctl_run_pfs-load-test.md
+            - reference/pachctl/pachctl_run_pps-load-test.md
             - reference/pachctl/pachctl_shell.md
             - reference/pachctl/pachctl_squash.md
             - reference/pachctl/pachctl_squash_commit.md
