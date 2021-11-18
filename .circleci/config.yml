@@ -15,7 +15,7 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip<< parameters.python-version >>-cache-v1-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v2-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -23,7 +23,7 @@ jobs:
             . venv/bin/activate
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip<< parameters.python-version >>-cache-v1-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v2-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
 
