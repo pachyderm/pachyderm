@@ -35,6 +35,7 @@ type Env struct {
 	BackgroundContext context.Context
 	Logger            *logrus.Logger
 	StorageConfig     serviceenv.StorageConfiguration
+	initDone          <-chan struct{}
 }
 
 func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*Env, error) {
@@ -63,5 +64,6 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		BackgroundContext: ctx,
 		StorageConfig:     env.Config().StorageConfiguration,
 		Logger:            env.Logger(),
+		initDone:          env.ServerInitDone(),
 	}, nil
 }

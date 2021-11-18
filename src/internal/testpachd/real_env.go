@@ -64,7 +64,9 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 		serviceenv.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
 	}
 	opts = append(opts, customOpts...) // Overwrite with any custom options
-	realEnv.ServiceEnv = serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))
+	serviceEnv := serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))
+	realEnv.ServiceEnv = serviceEnv
+	defer serviceEnv.FinishServerInit()
 
 	// Overwrite the mock pach client with the ServiceEnv's client so it gets closed earlier
 	realEnv.PachClient = realEnv.ServiceEnv.GetPachClient(realEnv.ServiceEnv.Context())

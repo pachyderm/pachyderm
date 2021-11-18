@@ -42,6 +42,7 @@ type Env struct {
 	BackgroundContext context.Context
 	Logger            *logrus.Logger
 	Config            serviceenv.Configuration
+	initDone          <-chan struct{}
 }
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) Env {
@@ -61,6 +62,7 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 		BackgroundContext: context.Background(),
 		Logger:            senv.Logger(),
 		Config:            *senv.Config(),
+		initDone:          senv.ServerInitDone(),
 	}
 }
 
@@ -91,7 +93,10 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		gcPercent:             config.GCPercent,
 	}
 	apiServer.validateKube()
-	go apiServer.master()
+	go func() {
+		<-env.initDone
+		apiServer.master()
+	}()
 	return apiServer, nil
 }
 
@@ -118,6 +123,9 @@ func NewSidecarAPIServer(
 		workerGrpcPort: workerGrpcPort,
 		peerPort:       peerPort,
 	}
-	go apiServer.ServeSidecarS3G()
+	go func() {
+		<-env.initDone
+		apiServer.ServeSidecarS3G()
+	}()
 	return apiServer, nil
 }

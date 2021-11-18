@@ -347,7 +347,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}); err != nil {
 		return err
 	}
-
+	env.FinishServerInit()
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
@@ -503,6 +503,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		return err
 	}
 	txnEnv.Initialize(env, transactionAPIServer)
+	env.FinishServerInit()
 	// The sidecar only needs to serve traffic on the peer port, as it only serves
 	// traffic from the user container (the worker binary and occasionally user
 	// pipelines)
@@ -868,6 +869,7 @@ func doFullMode(config interface{}) (retErr error) {
 	}); err != nil {
 		return err
 	}
+	env.FinishServerInit()
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.

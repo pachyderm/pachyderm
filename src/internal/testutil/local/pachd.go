@@ -368,6 +368,7 @@ func RunLocal() (retErr error) {
 	}); err != nil {
 		return err
 	}
+	env.FinishServerInit()
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.

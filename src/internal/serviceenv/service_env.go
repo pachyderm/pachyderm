@@ -63,6 +63,7 @@ type ServiceEnv interface {
 	ClusterID() string
 	Context() context.Context
 	Logger() *log.Logger
+	ServerInitDone() <-chan struct{}
 	Close() error
 }
 
@@ -129,6 +130,8 @@ type NonblockingServiceEnv struct {
 	// shutdown in tests
 	ctx    context.Context
 	cancel func()
+
+	serverInitDone chan struct{}
 }
 
 // InitPachOnlyEnv initializes this service environment. This dials a GRPC
@@ -166,6 +169,7 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.config.LokiHost, env.config.LokiPort)),
 		}
 	}
+	env.serverInitDone = make(chan struct{})
 	return env // env is not ready yet
 }
 
@@ -536,4 +540,14 @@ func (env *NonblockingServiceEnv) EnterpriseServer() enterprise_server.APIServer
 // SetEnterpriseServer registers a Enterprise APIServer with this service env
 func (env *NonblockingServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
 	env.enterpriseServer = s
+}
+
+func (env *NonblockingServiceEnv) ServerInitDone() <-chan struct{} {
+	return env.serverInitDone
+}
+
+// FinishServerInit should be called to indicate api-server-relevant initialization has finished
+// it is not part of the interface as a crude way of controlling access
+func (env *NonblockingServiceEnv) FinishServerInit() {
+	close(env.serverInitDone)
 }

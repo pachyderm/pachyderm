@@ -153,3 +153,7 @@ func (env *TestServiceEnv) EnterpriseServer() enterprise_server.APIServer {
 func (env *TestServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
 	env.Enterprise = s
 }
+
+func (env *TestServiceEnv) ServerInitDone() <-chan struct{} {
+	return nil
+}
