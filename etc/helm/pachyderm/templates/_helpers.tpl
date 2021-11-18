@@ -112,6 +112,8 @@ pachd-peer.{{ .Release.Namespace }}.svc.cluster.local:30653
   {{- else -}}
     {{- fail "pachd.localhostIssuer must either be set to the string value of \"true\" or \"false\"" }}
   {{- end -}}
+{{- else if .Values.pachd.activateEnterpriseMember -}}
+false
 {{- else if not .Values.ingress.enabled -}}
 true
 {{- else if .Values.ingress.host -}}

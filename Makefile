@@ -194,6 +194,13 @@ launch-enterprise: check-kubectl check-kubectl-connection
 	kubectl wait --for=condition=ready pod -l app=pach-enterprise --namespace enterprise --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
+launch-enterprise-member: check-kubectl check-kubectl-connection
+	$(eval STARTTIME := $(shell date +%s))
+	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/enterprise-member-dev.yaml
+	# wait for the pachyderm to come up
+	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+
 clean-launch: check-kubectl
 	helm delete pachyderm || true
 	helm delete enterprise || true
