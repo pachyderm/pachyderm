@@ -129,7 +129,8 @@ func (mm *MountManager) Run() error {
 	return nil
 }
 
-func (mm *MountManager) MountBranch() error {
+func (mm *MountManager) MountBranch(repo, branch, name, mode string) error {
+	// TODO: implement this
 	return nil
 }
 
@@ -151,11 +152,28 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 		}
 		w.Write(marshalled)
 	})
-	router.Methods("PUT").Path("/repos/{key:.+}/_mount/?{mode}").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	router.Methods("PUT").Path("/repos/{key:.+}/_mount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		vs := mux.Vars(req)
-		key := mountKeyFromString(vs["key"])
-		mm.MountBranch(key, key.Repo, key.Branch)
-
+		mode, ok := vs["mode"]
+		if !ok {
+			http.Error(w, "no mode", http.StatusBadRequest)
+		}
+		name, ok := vs["name"]
+		if !ok {
+			http.Error(w, "no name", http.StatusBadRequest)
+		}
+		k, ok := vs["key"]
+		if !ok {
+			http.Error(w, "no key", http.StatusBadRequest)
+		}
+		key, err := mountKeyFromString(k)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		err = mm.MountBranch(key.Repo, key.Branch, name, mode)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 	})
 	router.Methods("PUT").Path("/repos/{key:.+}/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 	})
