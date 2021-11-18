@@ -1,5 +1,4 @@
 import {JupyterLab} from '@jupyterlab/application';
-import {NotebookActions} from '@jupyterlab/notebook';
 import {load, track} from 'rudder-sdk-js';
 
 import telemetry from '../';

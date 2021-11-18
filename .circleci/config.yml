@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  browser-tools: circleci/browser-tools@1.2.3
+
 jobs:
   build:
     parameters:
@@ -14,7 +17,7 @@ jobs:
       - restore_cache:
           key: pip<< parameters.python-version >>-cache-v1-{{ checksum "ci-requirements.txt" }}
       - run:
-          name: "Install Python dependencies"
+          name: 'Install Python dependencies'
           command: |
             python -m venv venv
             . venv/bin/activate
@@ -22,7 +25,7 @@ jobs:
       - save_cache:
           key: pip<< parameters.python-version >>-cache-v1-{{ checksum "ci-requirements.txt" }}
           paths:
-            - "venv"
+            - 'venv'
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -30,17 +33,16 @@ jobs:
             - node-cache-v2-{{ checksum "package-lock.json" }}
             - node-cache-v2
       - run:
-          name: "Install npm packages"
+          name: 'Install npm packages'
           command: |
             npm ci
-            npx playwright install-deps  # required for browser_check 
+            npx playwright install-deps  # required for browser_check
       - save_cache:
           key: node-cache-v2-{{ checksum "package-lock.json" }}
           paths:
-            - "node_modules"
-
+            - 'node_modules'
       - run:
-          name: "Build and test the extension"
+          name: 'Build and test the extension'
           command: |
             set -eux
 
@@ -56,12 +58,13 @@ jobs:
 
             # Run integration test
             python -m pip install .
-            
+
             jupyter server extension list 2>&1 | grep -ie "jupyterlab_pachyderm.*OK"
             jupyter labextension list 2>&1 | grep -ie "jupyterlab-pachyderm.*OK"
             python -m jupyterlab.browser_check
 
             check-manifest -v
+
   frontend-test:
     resource_class: xlarge
     docker:
@@ -70,11 +73,32 @@ jobs:
       - checkout
       - run: npm ci
       - run: npm run test
+
+  mock-e2e:
+    docker:
+      - image: cimg/python:3.7-browsers
+    steps: 
+      - browser-tools/install-chrome
+      - browser-tools/install-chromedriver
+      - checkout
+      - run:
+          name: 'Build and test the extension'
+          command: |
+            set -eux
+
+            npm ci
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install -r ci-requirements.txt
+            python -m pip install .
+            npm run e2e
+
 workflows:
   build-workflow:
     jobs:
       - build:
           matrix:
             parameters:
-              python-version: ["3.6", "3.7", "3.8", "3.9"]
+              python-version: ['3.6', '3.7', '3.8', '3.9']
+      - mock-e2e
       - frontend-test
