@@ -52,6 +52,7 @@ jobs:
 
             # Run Python unit tests
             pytest jupyterlab_pachyderm
+            MOCK_PACHYDERM_SERVICE=1 pytest jupyterlab_pachyderm
 
             # Uninstall local package for fresh install
             python -m pip uninstall -y jupyterlab-pachyderm
