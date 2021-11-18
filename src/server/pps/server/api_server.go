@@ -2647,12 +2647,13 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			}); err != nil {
 				return err
 			}
-			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
-				Provenance: nil,
-			}); err != nil && !errutil.IsNotFoundError(err) {
-				// don't error if we're stopping a spout or service pipeline
-				return err
+			if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
+				if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+					Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+					Provenance: nil,
+				}); err != nil {
+					return err
+				}
 			}
 
 			newPipelineInfo := &pps.PipelineInfo{}
