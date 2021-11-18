@@ -18,10 +18,49 @@ for the frontend extension.
 
 
 # Development Environment
+
 There are two ways you can work on this project. One is setting up a local python virtual environment and the other is using a docker image developing on a virtual machine.
 
 ## Dev Container Workflow
-You can also set up your local dev environment using a docker image ([Guide here](https://github.com/pachyderm/pachyderm-notebooks/blob/ide/doc/extensions_dev_container_workflow.md)). This way you do not need to worry about setting up the python virtual environment. Using this virtual development environment also allows you to use the pachyderm mount feature if you are developing on a mac.
+
+Building and running the extension in a Docker container allows us to run mount, which is not possible in recent versions of macOS.
+
+Assuming that you are running a Pachyderm instance somewhere, and that you can port-forward `pachd`
+
+```
+kubectl port-forward service/pachd 30650:30650
+```
+
+Build the extension inside the Docker image, and run it locally 
+
+```
+docker build -t jupyterlab-pachyderm-dev .
+
+docker run --rm -p 8888:8888 -e JUPYTER_ENABLE_LAB=yes -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged jupyterlab-pachyderm-dev
+```
+
+Now you are ready to mount inside the container!
+Open a new shell inside the container:
+
+  - Option 1
+
+    ```
+    # get the container-id via docker ps
+    docker exec -it <container-id> bash
+    ```
+
+  - Option 2: use the terminal feature in the JupyterLab web application
+
+
+```
+pachctl mount -r images@master+w -r edges@master ...repos pfs
+```
+
+If you are having issues with unmounting, you can try to force unmount
+
+```
+fusermount -uz <mounted-dir>
+```
 
 ## Local Virtual Environment Setup 
 When developing in python, it is good practice to set up a virtual environment. A simple guid to set up a virtual environment is as follows:
