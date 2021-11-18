@@ -1,6 +1,12 @@
 
 # Changelog
 
+## 2.0.2
+- Improve tracker GC query performance - #7093
+- Add pachctl delete commit command - #7094
+- Add the “activateEnterprise” helm value that can be set to bootstrap a cluster’s enterprise/auth features during upgrade releases. During installs, providing the enterpriseLicenseKey will trigger the bootstrap process. - #7104
+- Improve logging by disambiguating some commit and job logs - #7111
+- Add helm configuration to register a pachyderm cluster with an external enterprise server. #7109
 ## 2.0.1
 - Fixes a goroutine leak that can occur when a modify file operation is canceled - #7055
 - Improves performance by reducing the number of postgres requests needed when renewing chunks being uploaded - #7052
