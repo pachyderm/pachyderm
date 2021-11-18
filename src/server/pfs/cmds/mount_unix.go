@@ -109,24 +109,38 @@ func mountCmds() []*cobra.Command {
 	mount.MarkFlagCustom("repos", "__pachctl_get_repo_branch")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
+	var daemonize bool
+	var versionedMountsDir string
+	var unversionedMountsDir string
+	var socket string
+	var logFile string
 	mountServer := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Start a mount server for controlling FUSE mounts via a local gRPC API.",
 		Long:  "Starts a gRPC mount server on the given socket, logging to the given log-file, daemonizing and exiting once it is active if requested, otherwise running in the foreground and logging to stdout.\n\nSee TODO:<link to docs> for documentation on available methods on the API.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			// TODO: call into pfs/fuse/server.go
+			c, err := client.NewOnUserMachine("fuse")
+			if err != nil {
+				return err
+			}
+			serverOpts := &fuse.ServerOptions{
+				Daemonize:            daemonize,
+				UnversionedMountsDir: unversionedMountsDir,
+				VersionedMountsDir:   versionedMountsDir,
+				Socket:               socket,
+				LogFile:              logFile,
+			}
+			defer c.Close()
 			printWarning()
-			return nil
+			return fuse.Server(c, serverOpts)
 		}),
 	}
-	var daemonize bool
-	var targetMount string
-	var socket string
-	var logFile string
-	mountServer.Flags().BoolVarP(&daemonize, "daemonize", "d", true, "Daemonize? Set to false for easier debugging (if false, logging will be to stdout)")
-	mountServer.Flags().StringVarP(&targetMount, "target-mount", "t", "/pfs", "Target mountpoint for all mounts managed")
-	mountServer.Flags().StringVarP(&socket, "socket", "s", "/tmp/pachyderm-mount-server.sock", "Target UNIX socket for gRPC server")
-	mountServer.Flags().StringVarP(&logFile, "log-file", "l", "/tmp/pachyderm-mount-server.log", "Target log file for gRPC server")
+	mountServer.Flags().BoolVar(&daemonize, "daemonize", true, "Daemonize? Set to false for easier debugging (if false, logging will be to stdout)")
+	mountServer.Flags().StringVar(&versionedMountsDir, "versioned-mounts-dir", "/_pfs", "Target mountpoint for versioned mounts e.g /_pfs/foo@master")
+	mountServer.Flags().StringVar(&unversionedMountsDir, "unversioned-mounts-dir", "/pfs", "Target mountpoint for unversioned mount pointers e.g /pfs/foo")
+	mountServer.Flags().StringVar(&socket, "socket", "/tmp/pachyderm-mount-server.sock", "Target UNIX socket for gRPC server")
+	mountServer.Flags().StringVar(&logFile, "log-file", "/tmp/pachyderm-mount-server.log", "Target log file for gRPC server")
 	commands = append(commands, cmdutil.CreateAlias(mountServer, "mount-server"))
 
 	var all bool
