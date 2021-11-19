@@ -1625,7 +1625,7 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 	if err != nil {
 		return err
 	}
-	if commitInfo.Finished != nil {
+	if commitInfo.Finishing != nil {
 		return errors.Errorf("cannot clear finished commit")
 	}
 	return d.commitStore.DropFileSets(ctx, commit)
