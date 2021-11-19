@@ -22,6 +22,9 @@ Enabling Pachyderm's Enterprise Edition can be done in one of two flavors:
 
 - Or, [activate the Enterprise Edition](#activate-pachyderm-enterprise-edition-on-an-existing-cluster) on an existing cluster as described below.
 
+!!! Attention 
+      When enterprise is enabled [through Helm, auth is automatically activated](../auth/).
+
 ### Activate Pachyderm Enterprise Edition On An Existing Cluster
 
 To unlock Pachyderm Enterprise Features, complete the following steps:

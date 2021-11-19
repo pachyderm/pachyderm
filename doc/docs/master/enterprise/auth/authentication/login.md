@@ -11,7 +11,7 @@ by login in as the [user created in Auth0](../idp-dex/#1-register-a-pachyderm-ap
       To start a login flow, run the following command in your terminal:
 
       ```shell
-      $ pachctl auth login
+      pachctl auth login
       ```
 
       You will be prompted to a web-browser. 
@@ -27,7 +27,7 @@ by login in as the [user created in Auth0](../idp-dex/#1-register-a-pachyderm-ap
 1. Check whose User you are logged in:
 
       ```shell
-      $ pachctl auth whoami
+      pachctl auth whoami
       ```
 
       **Example of System Response:**

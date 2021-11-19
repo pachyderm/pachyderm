@@ -23,7 +23,7 @@ Deploying and configuring an enterprise server can be done in one of two flavors
 1. Provide all licensing and authentication configurations as a part of the Helm deployment.
 1. Or, [install a bare-bones version of Pachyderm with Helm](../../../../deploy-manage/deploy/helm_install/), then use `pachctl` commands to set up licensing and authentication.
 
-### Setup an Enterprise Server As Part Of A Regular Pachyderm Helm Deployment
+### As Part Of A Regular Pachyderm Helm Deployment
 Update your values.yaml with your enterprise license key and auth configurations ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-dev-values.yaml)) or insert our minimal example below to your values.yaml.
 
 
@@ -157,7 +157,7 @@ Check the [list of all available helm values](../../../../reference/helm_values/
 		- If you run `pachctl auth activate`, the secret is not updated. Instead, the rootToken is printed in your STDOUT for you to save.
 		- Same behavior if you [activate enterprise manually](../../../deployment/) (`pachctl license activate`) then [activate authentication](../../) (`pachctl auth activate`).
 
-### Enable An Enterprise Server On An Existing Pachyderm Cluster
+### On An Existing Pachyderm Cluster
 
 To enable the Enterprise Server on an existing cluster:
 
