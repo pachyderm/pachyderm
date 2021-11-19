@@ -273,7 +273,7 @@ type BranchResponse struct {
 type RepoResponse struct {
 	Name     string
 	Branches map[string]BranchResponse
-	// TODO: Commits []CommitResponse
+	// TODO: Commits map[string]CommitResponse
 }
 
 type GetResponse RepoResponse
