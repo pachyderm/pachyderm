@@ -153,18 +153,16 @@ jupyter server extension list 2>&1 | grep -ie "jupyterlab_pachyderm.*OK"
 Single
 
 ```
-GET /repos/:repo_id # returns the state of a single repo
-PUT /repos/:repo_id/_mount # mounts a single repo
-PUT /repos/:repo_id/_unmount # unmounts a single repo
-PUT /repos/:repo_id/_commit # commits any changes to the repo
+GET /repos/:repo # returns the state of a single repo
+PUT /repos/:repo/_mount?name=foo&mode=w # mounts a single repo
+PUT /repos/:repo/_unmount?name=foo # unmounts a single repo
+PUT /repos/:repo/_commit # commits any changes to the repo
 ```
 
 Batch
 
 ```
 GET /repos # returns a list of all repos and their mount_state
-PUT /repos/_mount # mounts all repos by default unless request body contains a list of specific repos
-PUT /repos/_unmount # unmounts all repos
 ```
 
 The servers-side extension extends jupyter server, so it automatically starts as part of `jupyter lab`.

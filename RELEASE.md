@@ -8,10 +8,11 @@ Assuming we want to release a new version `v1.2.3`:
 
 - From `main` branch, run `git checkout -b v1.2.3-release`
 - Bump up `"version"` in `package.json`
+  - run `npm install` to update `package-lock.json`
 - Update `CHANGELOG.md`
   - What to include? You can try to summarize the changes by comparing the previous release to the latest main, something like `https://github.com/pachyderm/jupyterlab-pachyderm/compare/v1.2.2...main`
   - You can also add `[Changes](https://github.com/pachyderm/jupyterlab-pachyderm/compare/v1.2.2...v1.2.3)` to the changelog
-- `git commit -m "v1.2.3 Release"`, make PR and merge back into `main`
+- `git commit -m "v1.2.3 Release"`, make PR, then **Squash and Merge** into `main`
 - back in `main`, run `git tag -a v1.2.3 -m "Release version 1.2.3" && git push origin v1.2.3`
 
 ### Python package
