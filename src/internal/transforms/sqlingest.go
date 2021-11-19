@@ -25,7 +25,8 @@ type SQLIngestParams struct {
 	Format   string
 }
 
-// SQLIngest connects to a SQL database at params.URL and runs params.Query.
+// SQLIngest connects to a SQL database at params.URL and runs queries
+// read from files in the input.
 // The resulting rows are written to files in params.OutputDir.
 // The format of the output file is controlled by params.Format.
 // Valid options are "json" and "csv"

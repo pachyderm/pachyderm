@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	pfsIn  = "/pfs/in"
+	pfs    = "/pfs"
 	pfsOut = "/pfs/out"
 )
 
@@ -38,10 +38,10 @@ func main() {
 
 func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 	const passwordEnvar = "PACHYDERM_SQL_PASSWORD"
-	if len(args) < 3 {
-		return errors.Errorf("must provide db url, format, and query repo name")
+	if len(args) < 2 {
+		return errors.Errorf("must provide db url and format")
 	}
-	urlStr, formatName, repoName := args[0], args[1], args[2]
+	urlStr, formatName := args[0], args[1]
 	password, ok := os.LookupEnv(passwordEnvar)
 	if !ok {
 		return errors.Errorf("must set %v", passwordEnvar)
@@ -50,7 +50,7 @@ func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 	if err != nil {
 		return err
 	}
-	inputDir := filepath.Join(filepath.FromSlash(pfsIn), repoName)
+	inputDir := filepath.FromSlash(pfs + "/in")
 	outputDir := filepath.FromSlash(pfsOut)
 	return transforms.SQLIngest(ctx, transforms.SQLIngestParams{
 		Logger: log,
