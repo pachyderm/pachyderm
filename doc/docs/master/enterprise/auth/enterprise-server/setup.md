@@ -2,7 +2,7 @@
 The **Enterprise Server** is a component in Pachyderm which manages Enterprise Licensing
 and the integration with a company's Identity Providers (IDPs).
 
-At a high level, an organization can have **many Pachyderm clusters registered with one single Enterprise Server**. Administrators activate the Enterprise Server with an **Enterprise License Key** from Pachyderm sales, and optionally configure authentication with their IDP via SAML, OIDC, LDAP, etc...
+An organization can have **many Pachyderm clusters registered with one single Enterprise Server**. Administrators activate the Enterprise Server with an **Enterprise License Key** from Pachyderm sales, and optionally configure authentication with their IDP via SAML, OIDC, LDAP, etc...
 
 The following diagram gives you a quick overview of an organization with multiple Pachyderm clusters behind a single Enterprise Server.
 ![Enterprise Server General Deployment](../images/enterprise-server.png)
@@ -20,11 +20,11 @@ The setup of an Enterprise Server requires to:
 ## 1 - Deploy An Enterprise Server
 Deploying and configuring an enterprise server can be done in one of two flavors:
 
-1. Provide all licensing and authentication configuration as a part of the Helm deployment.
-1. Or, [install a barebone version of Pachyderm with Helm](../../../../deploy-manage/deploy/helm_install/), then use `pachctl` commands to set up licensing and authentication.
+1. Provide all licensing and authentication configurations as a part of the Helm deployment.
+1. Or, [install a bare-bones version of Pachyderm with Helm](../../../../deploy-manage/deploy/helm_install/), then use `pachctl` commands to set up licensing and authentication.
 
-### Setup Enterprise Features As A Part Of A Regular Pachyderm Helm Deployment
-Update your values.yaml with your enterprise license key, and auth configurations ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-dev-values.yaml)) or insert our minimal example below to your values.yaml.
+### Setup an Enterprise Server As Part Of A Regular Pachyderm Helm Deployment
+Update your values.yaml with your enterprise license key and auth configurations ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-dev-values.yaml)) or insert our minimal example below to your values.yaml.
 
 
 
@@ -69,7 +69,7 @@ Update your values.yaml with your enterprise license key, and auth configuration
 		    type: oidc
 	```
 	 This results in a single pachd pod, with authentication enabled, and an IDP integration configured.
-=== "values.yaml for a **stand-alone Enterprise Server as part of a Multi-cluster deployment**"
+=== "values.yaml for a **stand-alone Enterprise Server as part of a multi-cluster deployment**"
 		
 	Deploying a stand-alone enterprise server requires setting the helm parameter `enterpriseServer.enabled` to `true` and the `pachd.enabled` to `false`. 
 
@@ -129,8 +129,8 @@ Check the [list of all available helm values](../../../../reference/helm_values/
 - If a pachyderm cluster will also be installed in the same kubernetes cluster, they should be installed in **different namespaces**:
 
 	```shell
-	$ kubectl create namespace enterprise
-	$ helm install ... --set enterpriseServer.enabled=true  --namespace enterprise
+	kubectl create namespace enterprise
+	helm install ... --set enterpriseServer.enabled=true  --namespace enterprise
 	```
 
 	This command deploys postgres, etcd and a deployment and service called `pach-enterprise`. 
@@ -138,7 +138,7 @@ Check the [list of all available helm values](../../../../reference/helm_values/
 
 - Check the state of your deployment by running:
 	```shell
-	$ kubectl get all --namespace enterprise
+	kubectl get all --namespace enterprise
 	```
 	**System Response**
 	```
@@ -157,26 +157,22 @@ Check the [list of all available helm values](../../../../reference/helm_values/
 		- If you run `pachctl auth activate`, the secret is not updated. Instead, the rootToken is printed in your STDOUT for you to save.
 		- Same behavior if you [activate enterprise manually](../../../enterprise/deployment/) (`pachctl license activate`) then [activate authentication](../../../enterprise/auth/) (`pachctl auth activate`).
 
+### Enable An Enterprise Server On An Existing Pachyderm Cluster
 
+To enable the Enterprise Server on an existing cluster:
 
-### Setup Enterprise Features On A Barebone Pachyderm cluster
-1. [Install your favorite version of `pachctl`](../../../../getting_started/local_installation/#install-pachctl).
-1. [Deploy Pachyderm](../../../../deploy-manage/deploy/helm_install/): `helm install ...`.
-1. [Activate your enterprise Key](../../../deployment/#activate-pachyderm-enterprise-edition): `pachctl license activate`
-1. [Enable authentication](../../#activate-user-access-management): `pachctl auth activate` 
-
-
-Then proceed to [configuring IDP integrations](../../authentication/idp-dex).
+- [activate your enterprise key and authentication](#2-activate-enterprise-licensing-and-enable-authenticationn) as described in the following chapter.
+- then proceed to [configuring IDP integrations](../../authentication/idp-dex).
 
 ## 2- Activate Enterprise Licensing And Enable Authentication
 
 - Use your enterprise key to activate your enterprise server: 
 	```shell
-	$ echo <your-activation-token> | pachctl license activate
+	echo <your-activation-token> | pachctl license activate
 	```
 - Then enable Authentication at the Enterprise Server level:
 	```shell
-	$ pachctl auth activate --enterprise
+	pachctl auth activate --enterprise
 	```
 
 	!!! Warning
@@ -185,17 +181,18 @@ Then proceed to [configuring IDP integrations](../../authentication/idp-dex).
 		They should all be stored securely.
 
 Once the enterprise server is deployed, 
-deploy your cluster(s) (`helm install...`) and register it/them with the enterprise server.
-You migh want to [expose your cluster(s) to the internet](#3-register-your-clusters).
+deploy your cluster(s) (`helm install...`) and [register it(them) with the enterprise server](#3-register-your-cluster-with-the-enterprise-server).
 
-## 3- Register Your Cluster with the Enterprise Server
-Similarly to the enterprise server, we can configure our pachyderm clusters to leverage it for licensing and authentication in one of two flavors:
+You migh want to expose your cluster(s) to the internet. Check the setup of a Load Balancer in our [deployment section](../../../../deploy-manage/deploy/ingress/#loadbalancer).
+
+## 3- Register Your Cluster With The Enterprise Server
+Similarly to the enterprise server, we can configure our pachyderm clusters to leverage Helm for licensing and authentication in one of two flavors:
 
 1. Provide enterprise registration information as a part of the Helm deployment.
-1. Register with the Enterprise Server using pachctl commands
+1. Register with the Enterprise Server using pachctl commands.
 
-### To configure enterprise registration with helm
-Update your values.yaml with the enterprise server's root token, and network addresses for the pachyderm cluster and enterprise server to communicate ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/enterprise-member-values.yaml)) or insert our minimal example below to your values.yaml.
+### Register Clusters With Helm
+Update your values.yaml with the enterprise server's root token, and network addresses for the pachyderm cluster and enterprise server to communicate ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/enterprise-member-values.yaml)), or insert our minimal example below to your values.yaml.
 
 === "values.yaml with activation of an enterprise license and authentication"
 
@@ -212,7 +209,7 @@ Update your values.yaml with the enterprise server's root token, and network add
 - Run this command for each of the clusters you wish to register:
 
 	```shell
-	$ pachctl enterprise register --id <my-pachd-config-name> --enterprise-server-address <pach-enterprise-IP>:650 --pachd-address <pachd-IP>:650
+	pachctl enterprise register --id <my-pachd-config-name> --enterprise-server-address <pach-enterprise-IP>:650 --pachd-address <pachd-IP>:650
 	```
 
 	* `--id` is the name of the context pointing to your cluster in `~/.pachyderm/config.json`.
@@ -225,7 +222,7 @@ Update your values.yaml with the enterprise server's root token, and network add
 
 - Display the list of all registered clusters with your enterprise server: 
 	```shell
-	$ pachctl license list-clusters
+	pachctl license list-clusters
 	```
 
 	```shell
@@ -245,20 +242,19 @@ Update your values.yaml with the enterprise server's root token, and network add
 	---
 	```
 
-
-## 4- Enable Auth on each cluster
-Finally, activate auth on  each cluster. 
-This is an optional step as clusters can be registered with the enterprise server without authentication being enabled.
+## 4- Enable Auth On Each Cluster
+Finally, activate auth on each cluster. 
+This is an **optional step** as clusters can be registered with the enterprise server without authentication being enabled.
 
 - Before enabling authentication, set up the issuer in the idp config between the enterprise server and your cluster:
 	```shell
-	$ echo "issuer: http://<enterprise-server-IP>:658" | pachctl idp set-config --config -
+	echo "issuer: http://<enterprise-server-IP>:658" | pachctl idp set-config --config -
 	```
 	Check that your config has been updated properly: `pachctl idp get-config`
 
 - For each registered cluster you want to enable auth on:
 	```shell
-	$ pachctl auth activate --client-id <my-pachd-config-name> --redirect http://<pachd-IP>:657/authorization-code/callback 
+	pachctl auth activate --client-id <my-pachd-config-name> --redirect http://<pachd-IP>:657/authorization-code/callback 
 	```
 !!! Note
 	- Note the **`/authorization-code/callback`** appended after `<pachd-IP>:657` in `--redirect`.
@@ -266,13 +262,12 @@ This is an optional step as clusters can be registered with the enterprise serve
 
 -	Make sure than your enterprise context is set up properly: 
 	```shell
-	$ pachctl config get active-enterprise-context
+	pachctl config get active-enterprise-context
 	```
 	If not: 
 	```shell
-	$ pachctl config set active-enterprise-context <my-enterprise-context-name>
+	pachctl config set active-enterprise-context <my-enterprise-context-name>
 	```
-
 
  
 To manage you server, its context, or connect your IdP, visit the [**Manage your Enterprise Server**](../manage/) page.
