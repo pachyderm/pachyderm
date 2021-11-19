@@ -20,7 +20,7 @@ Enabling Pachyderm's Enterprise Edition can be done in one of two flavors:
 
     Follow [the deployment instructions](../../deploy-manage/deploy/helm_install/) for your platform, and provide your enterprise key in the `pachd.enterpriseLicenseKey: "<ENTERPRISE-LICENSE-KEY>"` field.
 
-- Or, [activate the Enterprise Edition](#activate-pachyderm-enterprise-edition) on an existing cluster as described below.
+- Or, [activate the Enterprise Edition](#activate-pachyderm-enterprise-edition-on-an-existing-cluster) on an existing cluster as described below.
 
 ### Activate Pachyderm Enterprise Edition On An Existing Cluster
 
@@ -42,4 +42,5 @@ To unlock Pachyderm Enterprise Features, complete the following steps:
       ```
       ACTIVE
       ```
+
 You unlocked Pachyderm's enterprise features.
