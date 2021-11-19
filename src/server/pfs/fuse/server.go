@@ -135,7 +135,7 @@ func (mm *MountManager) List() (ListResponse, error) {
 	// fetch list of available repos & branches from pachyderm, and overlay that
 	// with their mount states
 
-	lr := ListResponse{}
+	lr := ListResponse{Repos: map[string]RepoResponse{}}
 	repos, err := mm.Client.ListRepo()
 	if err != nil {
 		return lr, err
