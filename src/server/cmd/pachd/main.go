@@ -167,7 +167,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}
 
 	if err := logGRPCServerSetup("External Enterprise Server", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				env,
@@ -260,7 +260,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}
 
 	if err := logGRPCServerSetup("Internal Enterprise Server", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				env,
@@ -406,7 +406,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	txnEnv := &txnenv.TransactionEnv{}
+	txnEnv := txnenv.New()
 	if err := logGRPCServerSetup("PFS API", func() error {
 		pfsAPIServer, err := pfs_server.NewAPIServer(
 			env,
@@ -589,7 +589,7 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 
 	if err := logGRPCServerSetup("External Pachd", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err := pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
 			if err != nil {
@@ -727,7 +727,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err := pfs_server.NewAPIServer(
 				env,
