@@ -26,14 +26,20 @@ func main() {
 	}
 	transformName := args[0]
 	transformArgs := args[1:]
-	switch transformName {
-	case "sql-ingest":
-		if err := sqlIngest(ctx, log, transformArgs); err != nil {
-			log.Fatal(err)
-		}
-	default:
+	entrypoint, ok := entrypoints[transformName]
+	if !ok {
 		log.Fatalf("unrecognized transform name %q", transformName)
 	}
+	if err := entrypoint(ctx, log, transformArgs); err != nil {
+		log.Fatal(err)
+	}
+}
+
+type Entrypoint = func(ctx context.Context, log *logrus.Logger, args []string) error
+
+var entrypoints = map[string]Entrypoint{
+	"sql-ingest":      sqlIngest,
+	"sql-gen-queries": sqlGenQueries,
 }
 
 func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
@@ -61,5 +67,20 @@ func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 		URL:      *u,
 		Password: secrets.Secret(password),
 		Format:   formatName,
+	})
+}
+
+func sqlGenQueries(ctx context.Context, log *logrus.Logger, args []string) error {
+	if len(args) < 1 {
+		return errors.Errorf("must provide query")
+	}
+	query := args[0]
+	inputDir := filepath.FromSlash(pfs + "/in")
+	outputDir := filepath.FromSlash(pfsOut)
+	return transforms.SQLQueryGeneration(ctx, transforms.SQLQueryGenerationParams{
+		Logger:    log,
+		InputDir:  inputDir,
+		OutputDir: outputDir,
+		Query:     query,
 	})
 }
