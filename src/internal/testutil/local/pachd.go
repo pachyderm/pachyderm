@@ -129,7 +129,7 @@ func RunLocal() (retErr error) {
 	}
 
 	if err := logGRPCServerSetup("External Pachd", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err := pfs_server.NewAPIServer(env, txnEnv, path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix))
 			if err != nil {
@@ -264,7 +264,7 @@ func RunLocal() (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err := pfs_server.NewAPIServer(
 				env,

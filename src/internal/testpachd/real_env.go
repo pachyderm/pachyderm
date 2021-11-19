@@ -87,7 +87,7 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	err = migrations.BlockUntil(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), clusterstate.DesiredClusterState)
 	require.NoError(t, err)
 
-	txnEnv := &txnenv.TransactionEnv{}
+	txnEnv := txnenv.New()
 
 	etcdPrefix := ""
 	realEnv.PFSServer, err = pfsserver.NewAPIServer(
