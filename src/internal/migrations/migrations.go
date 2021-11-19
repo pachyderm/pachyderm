@@ -6,9 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/sirupsen/logrus"
 )
 
@@ -18,14 +20,18 @@ type Env struct {
 	// TODO: etcd
 	ObjectClient obj.Client
 	Tx           *pachsql.Tx
+	EtcdClient   *clientv3.Client
+	EtcdPrefix   string
 }
 
 // MakeEnv returns a new Env
 // The only advantage to this contructor is you can be sure all the fields are set.
 // You can also create an Env using a struct literal.
-func MakeEnv(objC obj.Client) Env {
+func MakeEnv(objC obj.Client, senv serviceenv.ServiceEnv) Env {
 	return Env{
 		ObjectClient: objC,
+		EtcdPrefix:   senv.Config().EtcdPrefix,
+		EtcdClient:   senv.GetEtcdClient(),
 	}
 }
 

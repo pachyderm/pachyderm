@@ -96,7 +96,7 @@ func RunLocal() (retErr error) {
 	}
 
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
-	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
+	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {

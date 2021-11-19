@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
 	"github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/identity"
 	"github.com/pachyderm/pachyderm/v2/src/server/license"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
@@ -97,6 +98,13 @@ var state_2_0_0 migrations.State = migrations.InitialState().
 	}).
 	Apply("add rotation_token_expiry to identity.config table", func(ctx context.Context, env migrations.Env) error {
 		return identity.AddRotationTokenExpiryConfig(ctx, env.Tx)
-	})
+	}).
 	// DO NOT MODIFY THIS STATE
 	// IT HAS ALREADY SHIPPED IN A RELEASE
+
+	Apply("Move EnterpriseConfig from etcd -> postgres", func(ctx context.Context, env migrations.Env) error {
+		if err := col.SetupPostgresCollections(ctx, env.Tx, enterpriseserver.EnterpriseConfigCollection(nil, nil)); err != nil {
+			return err
+		}
+		return enterpriseserver.TryEnterpriseConfigPostgresMigration(ctx, env)
+	})
