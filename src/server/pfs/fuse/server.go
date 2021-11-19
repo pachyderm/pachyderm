@@ -142,7 +142,7 @@ func (mm *MountManager) List() (ListResponse, error) {
 	}
 	fmt.Printf("repos: %+v", repos)
 	for _, repo := range repos {
-		rr := RepoResponse{Name: repo.Repo.Name, Branches: []BranchResponse{}}
+		rr := RepoResponse{Name: repo.Repo.Name, Branches: map[string]BranchResponse{}}
 		bs, err := mm.Client.ListBranch(repo.Repo.Name)
 		if err != nil {
 			return lr, err
@@ -160,9 +160,9 @@ func (mm *MountManager) List() (ListResponse, error) {
 			} else {
 				br.State = MountState{State: "unmounted"}
 			}
-			rr.Branches = append(rr.Branches, br)
+			rr.Branches[branch.Branch.Name] = br
 		}
-		lr.Repos = append(lr.Repos, rr)
+		lr.Repos[repo.Repo.Name] = rr
 
 	}
 
@@ -262,7 +262,7 @@ type MountState struct {
 
 // TODO: switch to pach internal types if appropriate?
 type ListResponse struct {
-	Repos []RepoResponse
+	Repos map[string]RepoResponse
 }
 
 type BranchResponse struct {
@@ -272,7 +272,7 @@ type BranchResponse struct {
 
 type RepoResponse struct {
 	Name     string
-	Branches []BranchResponse
+	Branches map[string]BranchResponse
 	// TODO: Commits []CommitResponse
 }
 
