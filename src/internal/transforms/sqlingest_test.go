@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
@@ -84,4 +85,26 @@ func countLinesInFile(t testing.TB, p string) int {
 		}
 	}
 	return count
+}
+
+func TestSQLQueryGeneration(t *testing.T) {
+	ctx := context.Background()
+	inputDir, outputDir := t.TempDir(), t.TempDir()
+	// write timestamp file
+	now := time.Now().UTC()
+	timestampStr := now.Format(time.RFC3339)
+	err := ioutil.WriteFile(filepath.Join(inputDir, timestampStr), nil, 0755)
+	require.NoError(t, err)
+
+	err = SQLQueryGeneration(ctx, SQLQueryGenerationParams{
+		InputDir:  inputDir,
+		OutputDir: outputDir,
+		Query:     "select * from test_data",
+	})
+	require.NoError(t, err)
+
+	dirEnts, err := os.ReadDir(outputDir)
+	require.NoError(t, err)
+	require.Len(t, dirEnts, 1)
+	require.Equal(t, "0000", dirEnts[0].Name())
 }

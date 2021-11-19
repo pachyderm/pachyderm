@@ -2,7 +2,11 @@ package transforms
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -102,4 +106,34 @@ func makeWriterFactory(formatName string) (writerFactory, error) {
 		return nil, errors.Errorf("unrecognized format %v", formatName)
 	}
 	return factory, nil
+}
+
+type SQLQueryGenerationParams struct {
+	Logger              *logrus.Logger
+	InputDir, OutputDir string
+
+	Query string
+}
+
+// SQLQueryGeneration generates queries with a timestamp in the comments
+func SQLQueryGeneration(ctx context.Context, params SQLQueryGenerationParams) error {
+	timestamp, err := readCronTimestamp(params.InputDir)
+	if err != nil {
+		return err
+	}
+	timestampComment := fmt.Sprintf("--%d\n", timestamp)
+	contents := timestampComment + params.Query
+	outputPath := filepath.Join(params.OutputDir, "0000")
+	return ioutil.WriteFile(outputPath, []byte(contents), 0755)
+}
+
+func readCronTimestamp(inputDir string) (uint64, error) {
+	dirEnts, err := os.ReadDir(inputDir)
+	if err != nil {
+		return 0, err
+	}
+	for _, dirEnt := range dirEnts {
+		dirEnt.Name()
+	}
+	return 0, errors.Errorf("missing timestamp file")
 }
