@@ -119,13 +119,62 @@ type MountBranchResponse struct {
 }
 
 type MountManager struct {
+	Client *client.APIClient
+	// only put a value into the States map when we have a goroutine running for
+	// it. i.e. when we try to mount it for the first time.
 	States        map[MountKey]MountState
 	RequestChans  map[MountKey]chan MountBranchRequest
 	ResponseChans map[MountKey]chan MountBranchResponse
 	mu            sync.Mutex
 }
 
+func (mm *MountManager) List() (ListResponse, error) {
+
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	// fetch list of available repos & branches from pachyderm, and overlay that
+	// with their mount states
+
+	lr := ListResponse{}
+	repos, err := mm.Client.ListRepo()
+	if err != nil {
+		return lr, err
+	}
+	fmt.Printf("repos: %+v", repos)
+	for _, repo := range repos {
+		rr := RepoResponse{Name: repo.Repo.Name, Branches: []BranchResponse{}}
+		bs, err := mm.Client.ListBranch(repo.Repo.Name)
+		if err != nil {
+			return lr, err
+		}
+		for _, branch := range bs {
+			br := BranchResponse{Name: branch.Branch.Name}
+			k := MountKey{
+				Repo:   repo.Repo.Name,
+				Branch: branch.Branch.Name,
+				Commit: "",
+			}
+			s, ok := mm.States[k]
+			if ok {
+				br.State = s
+			} else {
+				br.State = MountState{State: "unmounted"}
+			}
+			rr.Branches = append(rr.Branches, br)
+		}
+		lr.Repos = append(lr.Repos, rr)
+
+	}
+
+	// TODO: also add any repos/branches that have been deleted from pachyderm
+	// but are still mounted here :-O we should send them a special signal to
+	// tell them they're "stranded" or "missing" probably?
+
+	return lr, nil
+}
+
 func (mm *MountManager) Run() error {
+	// TODO: select on request chan
 	return nil
 }
 
@@ -136,19 +185,32 @@ func (mm *MountManager) MountBranch(repo, branch, name, mode string) error {
 
 func Server(c *client.APIClient, opts *ServerOptions) error {
 	// TODO: respect opts.Daemonize
-	mm := MountManager{}
+	mm := MountManager{Client: c}
 	mm.Run()
 
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		mm.mu.Lock()
-		defer mm.mu.Unlock()
-		// XXX how will json.Marshal deal with our map keys being structs? We
-		// might need to flatten this into a map[string]MountStates here using
-		// key.String()
-		marshalled, err := json.Marshal(mm.States)
+		/*
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+			marshallable := map[string]MountState{}
+			for key, value := range mm.States {
+				marshallable[key.String()] = value
+			}
+
+			// XXX how will json.Marshal deal with our map keys being structs? We
+			// might need to flatten this into a map[string]MountStates here using
+			// key.String()
+		*/
+		l, err := mm.List()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		marshalled, err := json.Marshal(l)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 		w.Write(marshalled)
 	})
@@ -157,22 +219,27 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 		mode, ok := vs["mode"]
 		if !ok {
 			http.Error(w, "no mode", http.StatusBadRequest)
+			return
 		}
 		name, ok := vs["name"]
 		if !ok {
 			http.Error(w, "no name", http.StatusBadRequest)
+			return
 		}
 		k, ok := vs["key"]
 		if !ok {
 			http.Error(w, "no key", http.StatusBadRequest)
+			return
 		}
 		key, err := mountKeyFromString(k)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 		err = mm.MountBranch(key.Repo, key.Branch, name, mode)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 	})
 	router.Methods("PUT").Path("/repos/{key:.+}/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -183,7 +250,7 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 	// TCP port (just for convenient manual testing with curl for now...)
 	http.Handle("/", router)
 	// TODO: make port and bind ip parameterizable
-	return http.ListenAndServe(":9001", nil)
+	return http.ListenAndServe(":9002", nil)
 }
 
 type MountState struct {
@@ -193,12 +260,16 @@ type MountState struct {
 	Mountpoint string // where on the filesystem it's mounted
 }
 
-type BranchResponse struct {
-	Name  string
-	Mount MountState // will be MountResponse{State: "unmounted"} if not mounted
+// TODO: switch to pach internal types if appropriate?
+type ListResponse struct {
+	Repos []RepoResponse
 }
 
-// TODO: switch to pach internal types if appropriate?
+type BranchResponse struct {
+	Name  string
+	State MountState
+}
+
 type RepoResponse struct {
 	Name     string
 	Branches []BranchResponse
@@ -207,17 +278,13 @@ type RepoResponse struct {
 
 type GetResponse RepoResponse
 
-type ListResponse struct {
-	Repos []RepoResponse
-}
-
 type MountKey struct {
 	Repo   string
 	Branch string
 	Commit string
 }
 
-func String(m *MountKey) string {
+func (m *MountKey) String() string {
 	// m.Commit is optional
 	if m.Commit == "" {
 		return fmt.Sprintf("%s/%s", m.Repo, m.Branch)

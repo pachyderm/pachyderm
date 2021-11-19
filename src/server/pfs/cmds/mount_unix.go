@@ -134,7 +134,7 @@ func mountCmds() []*cobra.Command {
 			return fuse.Server(c, serverOpts)
 		}),
 	}
-	mountServer.Flags().BoolVar(&daemonize, "daemonize", true, "Daemonize? Set to false for easier debugging (if false, logging will be to stdout)")
+	mountServer.Flags().BoolVar(&daemonize, "daemonize", true, "Daemonize? Set to false for easier debugging; if false, logging will be to stdout")
 	mountServer.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")
 	mountServer.Flags().StringVar(&socket, "socket", "/tmp/pachyderm-mount-server.sock", "Target UNIX socket for gRPC server")
 	mountServer.Flags().StringVar(&logFile, "log-file", "/tmp/pachyderm-mount-server.log", "Target log file for gRPC server")
