@@ -12,12 +12,12 @@ import (
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"modernc.org/mathutil"
 )
 
 type test struct {
@@ -146,7 +146,7 @@ func generateAnnotations(random *rand.Rand, t test) []*testAnnotation {
 	var as []*testAnnotation
 	for t.n > 0 {
 		a := &testAnnotation{}
-		a.data = randutil.Bytes(random, mathutil.Min(rand.Intn(t.maxAnnotationSize)+1, t.n))
+		a.data = randutil.Bytes(random, miscutil.Min(rand.Intn(t.maxAnnotationSize)+1, t.n))
 		t.n -= len(a.data)
 		as = append(as, a)
 	}

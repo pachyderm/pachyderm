@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"modernc.org/mathutil"
 )
 
 // Client is the standard interface for a load testing client.
@@ -102,7 +102,7 @@ type throughputLimitReader struct {
 func (tlr *throughputLimitReader) Read(data []byte) (int, error) {
 	var bytesRead int
 	for len(data) > 0 {
-		size := mathutil.Min(len(data), tlr.bytesPerSecond-tlr.bytesSinceSleep)
+		size := miscutil.Min(len(data), tlr.bytesPerSecond-tlr.bytesSinceSleep)
 		n, err := tlr.r.Read(data[:size])
 		data = data[n:]
 		bytesRead += n

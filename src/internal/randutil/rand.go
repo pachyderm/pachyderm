@@ -4,7 +4,7 @@ import (
 	"io"
 	"math/rand"
 
-	"modernc.org/mathutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 )
 
 var letters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -32,7 +32,7 @@ func NewBytesReader(random *rand.Rand, n int64) *bytesReader {
 }
 
 func (br *bytesReader) Read(data []byte) (int, error) {
-	size := int(mathutil.MinInt64(br.n, int64(len(data))))
+	size := int(miscutil.MinInt64(br.n, int64(len(data))))
 	for i := 0; i < size; i++ {
 		data[i] = letters[br.random.Intn(len(letters))]
 	}
