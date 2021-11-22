@@ -1,6 +1,5 @@
-import {CommitState, FileType} from '@pachyderm/proto/pb/pfs/pfs_pb';
-
 import client from '../../client';
+import {CommitState, FileType} from '../../proto/pfs/pfs_pb';
 
 describe('services/pfs', () => {
   afterAll(async () => {

@@ -1,13 +1,12 @@
 import crypto from 'crypto';
 
+import client from '../../client';
 import {
   Input,
   PFSInput,
   PipelineState,
   Transform,
-} from '@pachyderm/proto/pb/pps/pps_pb';
-
-import client from '../../client';
+} from '../../proto/pps/pps_pb';
 
 describe('services/pps', () => {
   afterAll(async () => {

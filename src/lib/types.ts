@@ -1,4 +1,12 @@
 import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
+
+import {
+  BranchObject,
+  CommitObject,
+  CommitSetObject,
+  RepoObject,
+  TriggerObject,
+} from '../builders/pfs';
 import {
   CommitState,
   CreateBranchRequest,
@@ -12,15 +20,7 @@ import {
   OriginKind,
   StartCommitRequest,
   SubscribeCommitRequest,
-} from '@pachyderm/proto/pb/pfs/pfs_pb';
-
-import {
-  BranchObject,
-  CommitObject,
-  CommitSetObject,
-  RepoObject,
-  TriggerObject,
-} from '../builders/pfs';
+} from '../proto/pfs/pfs_pb';
 
 export interface GRPCPlugin {
   onCall?: (args: {requestName: string}) => void;

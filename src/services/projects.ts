@@ -1,13 +1,9 @@
 import {Metadata} from '@grpc/grpc-js';
-import {APIClient} from '@pachyderm/proto/pb/projects/projects_grpc_pb';
-import {
-  Project,
-  ProjectRequest,
-  Projects,
-} from '@pachyderm/proto/pb/projects/projects_pb';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 
 import {ServiceArgs} from '../lib/types';
+import {APIClient} from '../proto/projects/projects_grpc_pb';
+import {Project, ProjectRequest, Projects} from '../proto/projects/projects_pb';
 
 const projects = ({pachdAddress, channelCredentials}: ServiceArgs) => {
   const client = new APIClient(pachdAddress, channelCredentials);

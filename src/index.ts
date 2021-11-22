@@ -30,9 +30,9 @@ export {
   IAPIService_IRotateRootToken,
   IAPIService_ISetConfiguration,
   IAPIService_IWhoAmI,
-} from '@pachyderm/proto/pb/auth/auth_grpc_pb';
-export * from '@pachyderm/proto/pb/auth/auth_pb';
-export * from '@pachyderm/proto/pb/gogoproto/gogo_pb';
+} from './proto/auth/auth_grpc_pb';
+export * from './proto/auth/auth_pb';
+export * from './proto/gogoproto/gogo_pb';
 export {
   APIClient as PfsAPIClient,
   APIService as PfsAPIService,
@@ -74,7 +74,7 @@ export {
   IAPIService_IWalkFile,
   IAPIService_IDropCommitSet,
   IAPIService_IRunLoadTestDefault as PfsIAPIService_IRunLoadTestDefault,
-} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
+} from './proto/pfs/pfs_grpc_pb';
 export {
   ActivateAuthRequest as PfsActivateAuthRequest,
   ActivateAuthResponse as PfsActivateAuthResponse,
@@ -132,7 +132,7 @@ export {
   BranchInfo,
   ModifyFileRequest,
   DropCommitSetRequest,
-} from '@pachyderm/proto/pb/pfs/pfs_pb';
+} from './proto/pfs/pfs_pb';
 export {
   APIClient as PpsAPIClient,
   APIService as PpsAPIService,
@@ -166,7 +166,7 @@ export {
   IAPIService_ISubscribeJob,
   IAPIService_IUpdateJobState,
   IAPIService_IRunLoadTestDefault as PpsIAPIService_IRunLoadTestDefault,
-} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
+} from './proto/pps/pps_grpc_pb';
 export {
   ActivateAuthRequest as PpsActivateAuthRequest,
   ActivateAuthResponse as PpsActivateAuthResponse,
@@ -233,7 +233,7 @@ export {
   JobSet,
   JobSetInfo,
   JobState,
-} from '@pachyderm/proto/pb/pps/pps_pb';
+} from './proto/pps/pps_pb';
 export {
   APIClient as ProjectsAPIClient,
   APIService as ProjectsAPIService,
@@ -242,5 +242,5 @@ export {
   IAPIClient as ProjectsIAPIClient,
   IAPIService_IInspectProject,
   IAPIService_IListProject,
-} from '@pachyderm/proto/pb/projects/projects_grpc_pb';
-export * from '@pachyderm/proto/pb/projects/projects_pb';
+} from './proto/projects/projects_grpc_pb';
+export * from './proto/projects/projects_pb';

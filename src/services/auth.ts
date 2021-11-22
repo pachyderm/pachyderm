@@ -1,7 +1,6 @@
-import {APIClient} from '@pachyderm/proto/pb/auth/auth_grpc_pb';
-import {AuthenticateRequest} from '@pachyderm/proto/pb/auth/auth_pb';
-
 import {ServiceArgs} from '../lib/types';
+import {APIClient} from '../proto/auth/auth_grpc_pb';
+import {AuthenticateRequest} from '../proto/auth/auth_pb';
 
 const auth = ({pachdAddress, channelCredentials}: ServiceArgs) => {
   const client = new APIClient(pachdAddress, channelCredentials);

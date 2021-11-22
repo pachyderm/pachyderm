@@ -1,0 +1,514 @@
+syntax = "proto3";
+
+package pfs_v2;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/pfs";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/duration.proto";
+
+import "gogoproto/gogo.proto";
+
+import "auth/auth.proto";
+
+////  PFS Data structures (stored in etcd)
+
+message Repo {
+  option (gogoproto.goproto_stringer) = false;
+  string name = 1;
+  string type = 2;
+}
+
+message Branch {
+  option (gogoproto.goproto_stringer) = false;
+  Repo repo = 1;
+  string name = 2;
+}
+
+message File {
+  Commit commit = 1;
+  string path = 2;
+  string datum = 3;
+}
+
+// RepoInfo is the main data structure representing a Repo in etcd
+message RepoInfo {
+  Repo repo = 1;
+  google.protobuf.Timestamp created = 2;
+  int64 size_bytes_upper_bound = 3;
+  string description = 4;
+  repeated Branch branches = 5;
+
+  // Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
+  // not stored in etcd. To set a user's auth scope for a repo, use the
+  // Pachyderm Auth API (in src/client/auth/auth.proto)
+  RepoAuthInfo auth_info = 6;
+
+  // Details are only provided when explicitly requested
+  message Details {
+    int64 size_bytes = 1;
+  }
+  Details details = 7;
+}
+
+// RepoAuthInfo includes the caller's access scope for a repo, and is returned
+// by ListRepo and InspectRepo but not persisted in etcd. It's used by the
+// Pachyderm dashboard to render repo access appropriately. To set a user's auth
+// scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto)
+message RepoAuthInfo {
+  // The callers access level to the relevant repo. These are very granular
+  // permissions - for the end user it makes sense to show them the roles
+  // they have instead.
+  repeated auth_v2.Permission permissions = 1;
+
+  // The caller's roles on the relevant repo. This includes inherited
+  // roles from the cluster, group membership, etc.
+  repeated string roles = 2;
+}
+
+message BranchInfo {
+  Branch branch = 1;
+  Commit head = 2;
+  repeated Branch provenance = 3;
+  repeated Branch subvenance = 4;
+  repeated Branch direct_provenance = 5;
+  Trigger trigger = 6;
+}
+
+// Trigger defines the conditions under which a head is moved, and to which
+// branch it is moved.
+message Trigger {
+  // Which branch this trigger refers to
+  string branch = 1;
+  // All indicates that all conditions must be satisfied before the trigger
+  // happens, otherwise any conditions being satisfied will trigger it.
+  bool all = 2;
+  // Triggers if the cron spec has been satisfied since the last trigger and
+  // there's been a new commit.
+  string cron_spec = 3;
+  // Triggers if there's been `size` new data added since the last trigger.
+  string size = 4;
+  // Triggers if there's been `commits` new commits added since the last trigger.
+  int64 commits = 5;
+}
+
+// These are the different places where a commit may be originated from
+enum OriginKind {
+  ORIGIN_KIND_UNKNOWN = 0;
+  USER = 1;
+  AUTO = 2;
+  FSCK = 3;
+  ALIAS = 4;
+}
+
+message CommitOrigin {
+  OriginKind kind = 1;
+}
+// Commit is a reference to a commit (e.g. the collection of branches and the
+// collection of currently-open commits in etcd are collections of Commit
+// protos)
+message Commit {
+  option (gogoproto.goproto_stringer) = false;
+  Branch branch = 1;
+  string id = 2 [(gogoproto.customname) = "ID"];
+}
+
+// CommitInfo is the main data structure representing a commit in etcd
+message CommitInfo {
+  Commit commit = 1;
+  CommitOrigin origin = 2;
+  // description is a user-provided script describing this commit
+  string description = 3;
+  Commit parent_commit = 4;
+  repeated Commit child_commits = 5;
+  google.protobuf.Timestamp started = 6;
+  google.protobuf.Timestamp finishing = 7;
+  google.protobuf.Timestamp finished = 8;
+  repeated Branch direct_provenance = 9;
+  string error = 10; 
+  int64 size_bytes_upper_bound = 11;
+
+  // Details are only provided when explicitly requested
+  message Details {
+    int64 size_bytes = 1;
+    google.protobuf.Duration compacting_time = 2;
+    google.protobuf.Duration validating_time = 3;
+  }
+  Details details = 12;
+}
+
+message CommitSet {
+  string id = 1 [(gogoproto.customname) = "ID"];
+}
+
+message CommitSetInfo {
+  CommitSet commit_set = 1;
+  repeated CommitInfo commits = 2;
+}
+
+enum FileType {
+  RESERVED = 0;
+  FILE = 1;
+  DIR = 2;
+}
+
+message FileInfo {
+  File file = 1;
+  FileType file_type = 2;
+  google.protobuf.Timestamp committed = 3;
+  int64 size_bytes = 4;
+  bytes hash = 5;
+}
+
+// PFS API
+
+message CreateRepoRequest {
+  Repo repo = 1;
+  string description = 2;
+  bool update = 3;
+}
+
+message InspectRepoRequest {
+  Repo repo = 1;
+}
+
+message ListRepoRequest {
+  // type is the type of (system) repos that should be returned
+  // an empty string requests all repos
+  string type = 1;
+}
+
+message DeleteRepoRequest {
+  Repo repo = 1;
+  bool force = 2;
+}
+
+// CommitState describes the states a commit can be in.
+// The states are increasingly specific, i.e. a commit that is FINISHED also counts as STARTED.
+enum CommitState {
+  COMMIT_STATE_UNKNOWN = 0;
+  STARTED = 1; // The commit has been started, all commits satisfy this state.
+  READY = 2; // The commit has been started, and all of its provenant commits have been finished.
+  FINISHING = 3; // The commit is in the process of being finished.
+  FINISHED = 4; // The commit has been finished.
+}
+
+message StartCommitRequest {
+  // parent may be empty in which case the commit that Branch points to will be used as the parent.
+  // If the branch does not exist, the commit will have no parent.
+  Commit parent = 1;
+  // description is a user-provided string describing this commit
+  string description = 2;
+  Branch branch = 3;
+}
+
+message FinishCommitRequest {
+  Commit commit = 1;
+  // description is a user-provided string describing this commit. Setting this
+  // will overwrite the description set in StartCommit
+  string description = 2;
+  string error = 3;
+  bool force = 4;
+}
+
+message InspectCommitRequest {
+  Commit commit = 1;
+  // Wait causes inspect commit to wait until the commit is in the desired state.
+  CommitState wait = 2;
+}
+
+message ListCommitRequest {
+  Repo repo = 1;
+  Commit from = 2;
+  Commit to = 3;
+  int64 number = 4;
+  bool reverse = 5;  // Return commits oldest to newest
+  bool all = 6; // Return commits of all kinds (without this, aliases are excluded)
+  OriginKind origin_kind = 7; // Return only commits of this kind (mutually exclusive with all)
+}
+
+message InspectCommitSetRequest {
+  CommitSet commit_set = 1;
+  bool wait = 2; // When true, wait until all commits in the set are finished
+}
+
+message ListCommitSetRequest {
+}
+
+message SquashCommitSetRequest {
+  CommitSet commit_set = 1;
+}
+
+message DropCommitSetRequest {
+  CommitSet commit_set = 1;
+}
+
+message SubscribeCommitRequest {
+  Repo repo = 1;
+  string branch = 2;
+  // only commits created since this commit are returned
+  Commit from = 3;
+  // Don't return commits until they're in (at least) the desired state.
+  CommitState state = 4;
+  bool all = 5; // Return commits of all kinds (without this, aliases are excluded)
+  OriginKind origin_kind = 6; // Return only commits of this kind (mutually exclusive with all)
+}
+
+message ClearCommitRequest {
+  Commit commit = 1;
+}
+
+message CreateBranchRequest {
+  Commit head = 1;
+  Branch branch = 2;
+  repeated Branch provenance = 3;
+  Trigger trigger = 4;
+  bool new_commit_set = 5; // overrides the default behavior of using the same CommitSet as 'head'
+}
+
+message InspectBranchRequest {
+  Branch branch = 1;
+}
+
+message ListBranchRequest {
+  Repo repo = 1;
+  bool reverse = 2; // Returns branches oldest to newest
+}
+
+message DeleteBranchRequest {
+  Branch branch = 1;
+  bool force = 2;
+}
+
+enum Delimiter {
+  NONE = 0;
+  JSON = 1;
+  LINE = 2;
+  SQL = 3;
+  CSV = 4;
+}
+
+message AddFile {
+  string path = 1;
+  string datum = 2;
+
+  message URLSource {
+    string URL = 1;
+    bool recursive = 2;
+  }
+  oneof source {
+    google.protobuf.BytesValue raw = 3;
+    URLSource url = 4;
+  }
+}
+
+message DeleteFile {
+  string path = 1; 
+  string datum = 2;
+}
+
+message CopyFile {
+  string dst = 1;
+  string datum = 2;
+  File src = 3;
+  bool append = 4;
+}
+
+message ModifyFileRequest {
+  oneof body {
+    Commit set_commit = 1;
+    AddFile add_file = 2;
+    DeleteFile delete_file = 3;
+    CopyFile copy_file = 4;
+  }
+}
+
+message GetFileRequest {
+  File file = 1;
+  string URL = 2;
+  int64 offset = 3;
+// TODO:
+//  int64 size_bytes = 3;
+}
+
+message InspectFileRequest {
+  File file = 1;
+}
+
+message ListFileRequest {
+  // File is the parent directory of the files we want to list. This sets the
+  // repo, the commit/branch, and path prefix of files we're interested in
+  // If the "path" field is omitted, a list of files at the top level of the repo
+  // is returned
+  File file = 1;
+  bool details = 2;
+// TODO:
+//  // History indicates how many historical versions you want returned. Its
+//  // semantics are:
+//  // 0: Return the files as they are at the commit in `file`. FileInfo.File
+//  //    will equal File in this request.
+//  // 1: Return the files as they are in the last commit they were modified in.
+//  //    (This will have the same hash as if you'd passed 0, but
+//  //    FileInfo.File.Commit will be different.
+//  // 2: Return the above and the files as they are in the next-last commit they
+//  //    were modified in.
+//  // 3: etc.
+//  //-1: Return all historical versions.
+//  int64 history = 3;
+}
+
+message WalkFileRequest {
+    File file = 1;
+}
+
+message GlobFileRequest {
+  Commit commit = 1;
+  string pattern = 2;
+}
+
+message DiffFileRequest {
+  File new_file = 1;
+  // OldFile may be left nil in which case the same path in the parent of
+  // NewFile's commit will be used.
+  File old_file = 2;
+  bool shallow = 3;
+}
+
+message DiffFileResponse {
+  FileInfo new_file = 1;
+  FileInfo old_file = 2;
+}
+
+message FsckRequest {
+  bool fix = 1;
+}
+
+message FsckResponse {
+  string fix = 1;
+  string error = 2;
+}
+
+message CreateFileSetResponse {
+  string file_set_id = 1;
+}
+
+message GetFileSetRequest {
+  Commit commit = 1;
+}
+
+message AddFileSetRequest {
+  Commit commit = 1;
+  string file_set_id = 2;
+}
+
+message RenewFileSetRequest {
+  string file_set_id = 1;
+  int64 ttl_seconds = 2;
+}
+
+message ComposeFileSetRequest {
+  repeated string file_set_ids = 1;
+  int64 ttl_seconds = 2;
+}
+
+message ActivateAuthRequest {}
+message ActivateAuthResponse {}
+
+message RunLoadTestRequest {
+  string spec = 1;
+  Branch branch = 2;
+  int64 seed = 3; 
+}
+
+message RunLoadTestResponse {
+  string spec = 1;
+  Branch branch = 2;
+  int64 seed = 3;
+  string error = 4;
+  google.protobuf.Duration duration = 5;
+}
+
+service API {
+  // CreateRepo creates a new repo.
+  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
+  // InspectRepo returns info about a repo.
+  rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
+  // ListRepo returns info about all repos.
+  rpc ListRepo(ListRepoRequest) returns (stream RepoInfo) {}
+  // DeleteRepo deletes a repo.
+  rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
+
+  // StartCommit creates a new write commit from a parent commit.
+  rpc StartCommit(StartCommitRequest) returns (Commit) {}
+  // FinishCommit turns a write commit into a read commit.
+  rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // ClearCommit removes all data from the commit.
+  rpc ClearCommit(ClearCommitRequest) returns (google.protobuf.Empty) {}
+  // InspectCommit returns the info about a commit.
+  rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
+  // ListCommit returns info about all commits.
+  rpc ListCommit(ListCommitRequest) returns (stream CommitInfo) {}
+  // SubscribeCommit subscribes for new commits on a given branch.
+  rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
+
+  // InspectCommitSet returns the info about a CommitSet.
+  rpc InspectCommitSet(InspectCommitSetRequest) returns (stream CommitInfo) {}
+  // ListCommitSet returns info about all CommitSets.
+  rpc ListCommitSet(ListCommitSetRequest) returns (stream CommitSetInfo) {}
+  // SquashCommitSet squashes the commits of a CommitSet into their children.
+  rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
+  // DropCommitSet drops the commits of a CommitSet and all data included in the commits.
+  rpc DropCommitSet(DropCommitSetRequest) returns (google.protobuf.Empty) {}
+
+  // CreateBranch creates a new branch.
+  rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
+  // InspectBranch returns info about a branch.
+  rpc InspectBranch(InspectBranchRequest) returns (BranchInfo) {}
+  // ListBranch returns info about the heads of branches.
+  rpc ListBranch(ListBranchRequest) returns (stream BranchInfo) {}
+  // DeleteBranch deletes a branch; note that the commits still exist.
+  rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
+
+  // ModifyFile performs modifications on a set of files.
+  rpc ModifyFile(stream ModifyFileRequest) returns (google.protobuf.Empty) {}
+  // GetFile returns the contents of a single file
+  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  // GetFileTAR returns a TAR stream of the contents matched by the request
+  rpc GetFileTAR(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  // InspectFile returns info about a file.
+  rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
+  // ListFile returns info about all files.
+  rpc ListFile(ListFileRequest) returns (stream FileInfo) {}
+  // WalkFile walks over all the files under a directory, including children of children.
+  rpc WalkFile(WalkFileRequest) returns (stream FileInfo) {}
+  // GlobFile returns info about all files.
+  rpc GlobFile(GlobFileRequest) returns (stream FileInfo) {}
+  // DiffFile returns the differences between 2 paths at 2 commits.
+  rpc DiffFile(DiffFileRequest) returns (stream DiffFileResponse) {}
+
+  // ActivateAuth creates a role binding for all existing repos
+  rpc ActivateAuth(ActivateAuthRequest) returns (ActivateAuthResponse) {}
+
+  // DeleteAll deletes everything.
+  rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // Fsck does a file system consistency check for pfs.
+  rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
+
+  // FileSet API
+  // CreateFileSet creates a new file set.
+  rpc CreateFileSet(stream ModifyFileRequest) returns (CreateFileSetResponse) {}
+  // GetFileSet returns a file set with the data from a commit
+  rpc GetFileSet(GetFileSetRequest) returns (CreateFileSetResponse) {}
+  // AddFileSet associates a file set with a commit
+  rpc AddFileSet(AddFileSetRequest) returns (google.protobuf.Empty) {}
+  // RenewFileSet prevents a file set from being deleted for a set amount of time.
+  rpc RenewFileSet(RenewFileSetRequest) returns (google.protobuf.Empty) {}
+  // ComposeFileSet composes a file set from a list of file sets.
+  rpc ComposeFileSet(ComposeFileSetRequest) returns (CreateFileSetResponse) {}
+
+  // RunLoadTest runs a load test.
+  rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
+  // RunLoadTestDefault runs the default load tests.
+  rpc RunLoadTestDefault(google.protobuf.Empty) returns (RunLoadTestResponse) {}
+}

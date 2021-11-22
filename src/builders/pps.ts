@@ -1,4 +1,17 @@
 import {
+  commitFromObject,
+  CommitObject,
+  triggerFromObject,
+  TriggerObject,
+} from '../builders/pfs';
+import {
+  durationFromObject,
+  DurationObject,
+  timestampFromObject,
+  TimestampObject,
+} from '../builders/protobuf';
+import {GetLogsRequestArgs} from '../lib/types';
+import {
   CronInput,
   DatumSetSpec,
   Egress,
@@ -22,21 +35,7 @@ import {
   JobInfo,
   GetLogsRequest,
   ProcessStats,
-} from '@pachyderm/proto/pb/pps/pps_pb';
-
-import {
-  commitFromObject,
-  CommitObject,
-  triggerFromObject,
-  TriggerObject,
-} from '../builders/pfs';
-import {
-  durationFromObject,
-  DurationObject,
-  timestampFromObject,
-  TimestampObject,
-} from '../builders/protobuf';
-import {GetLogsRequestArgs} from '../lib/types';
+} from '../proto/pps/pps_pb';
 
 export type PipelineObject = {
   name: Pipeline.AsObject['name'];

@@ -1,16 +1,12 @@
 import fs from 'fs';
 
-import {APIClient} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
-import {
-  AddFile,
-  Commit,
-  ModifyFileRequest,
-} from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 
 import {commitFromObject} from '../builders/pfs';
 import {GRPCPlugin, ServiceArgs} from '../lib/types';
+import {APIClient} from '../proto/pfs/pfs_grpc_pb';
+import {AddFile, Commit, ModifyFileRequest} from '../proto/pfs/pfs_pb';
 
 import {GRPC_MAX_MESSAGE_LENGTH} from './constants/pfs';
 

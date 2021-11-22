@@ -1,20 +1,4 @@
 import {ClientReadableStream} from '@grpc/grpc-js';
-import {APIClient} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
-import {
-  ListJobRequest,
-  ListPipelineRequest,
-  PipelineInfo,
-  JobInfo,
-  InspectJobRequest,
-  InspectPipelineRequest,
-  JobSet,
-  InspectJobSetRequest,
-  LogMessage,
-  Pipeline,
-  ListJobSetRequest,
-  JobSetInfo,
-  CreatePipelineRequest,
-} from '@pachyderm/proto/pb/pps/pps_pb';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 
 import {commitFromObject, CommitObject} from '../builders/pfs';
@@ -50,6 +34,22 @@ import {
   ServiceArgs,
   GetLogsRequestArgs,
 } from '../lib/types';
+import {APIClient} from '../proto/pps/pps_grpc_pb';
+import {
+  ListJobRequest,
+  ListPipelineRequest,
+  PipelineInfo,
+  JobInfo,
+  InspectJobRequest,
+  InspectPipelineRequest,
+  JobSet,
+  InspectJobSetRequest,
+  LogMessage,
+  Pipeline,
+  ListJobSetRequest,
+  JobSetInfo,
+  CreatePipelineRequest,
+} from '../proto/pps/pps_pb';
 import {DEFAULT_JOBS_LIMIT} from '../services/constants/pps';
 import streamToObjectArray from '../utils/streamToObjectArray';
 

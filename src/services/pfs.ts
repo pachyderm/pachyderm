@@ -1,34 +1,3 @@
-import {APIClient} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
-import {
-  BranchInfo,
-  CommitInfo,
-  CommitSetInfo,
-  FileInfo,
-  GetFileRequest,
-  InspectFileRequest,
-  InspectRepoRequest,
-  InspectBranchRequest,
-  ListCommitSetRequest,
-  ListFileRequest,
-  ListRepoRequest,
-  RepoInfo,
-  SquashCommitSetRequest,
-  Commit,
-  ClearCommitRequest,
-  ListCommitRequest,
-  Branch,
-  CreateBranchRequest,
-  InspectCommitSetRequest,
-  StartCommitRequest,
-  FinishCommitRequest,
-  CreateRepoRequest,
-  InspectCommitRequest,
-  SubscribeCommitRequest,
-  Repo,
-  ListBranchRequest,
-  DeleteBranchRequest,
-  DeleteRepoRequest,
-} from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 
@@ -59,6 +28,37 @@ import {
   StartCommitRequestArgs,
   SubscribeCommitRequestArgs,
 } from '../lib/types';
+import {APIClient} from '../proto/pfs/pfs_grpc_pb';
+import {
+  BranchInfo,
+  CommitInfo,
+  CommitSetInfo,
+  FileInfo,
+  GetFileRequest,
+  InspectFileRequest,
+  InspectRepoRequest,
+  InspectBranchRequest,
+  ListCommitSetRequest,
+  ListFileRequest,
+  ListRepoRequest,
+  RepoInfo,
+  SquashCommitSetRequest,
+  Commit,
+  ClearCommitRequest,
+  ListCommitRequest,
+  Branch,
+  CreateBranchRequest,
+  InspectCommitSetRequest,
+  StartCommitRequest,
+  FinishCommitRequest,
+  CreateRepoRequest,
+  InspectCommitRequest,
+  SubscribeCommitRequest,
+  Repo,
+  ListBranchRequest,
+  DeleteBranchRequest,
+  DeleteRepoRequest,
+} from '../proto/pfs/pfs_pb';
 import streamToObjectArray from '../utils/streamToObjectArray';
 
 import {GRPC_MAX_MESSAGE_LENGTH} from './constants/pfs';

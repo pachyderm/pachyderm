@@ -1,3 +1,4 @@
+import {timestampFromObject, TimestampObject} from '../builders/protobuf';
 import {
   Branch,
   Commit,
@@ -10,9 +11,7 @@ import {
   Trigger,
   OriginKind,
   CommitOrigin,
-} from '@pachyderm/proto/pb/pfs/pfs_pb';
-
-import {timestampFromObject, TimestampObject} from '../builders/protobuf';
+} from '../proto/pfs/pfs_pb';
 
 export type FileObject = {
   commitId?: Commit.AsObject['id'];
