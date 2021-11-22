@@ -67,28 +67,24 @@ func (d *driver) finishCommits(ctx context.Context) error {
 		if ev.Type == watch.EventError {
 			return ev.Err
 		}
-		var key string
-		repoInfo := &pfs.RepoInfo{}
-		if err := ev.Unmarshal(&key, repoInfo); err != nil {
-			return err
-		}
+		key := string(ev.Key)
 		if ev.Type == watch.EventDelete {
-			if cancel, ok := repos[pfsdb.RepoKey(repoInfo.Repo)]; ok {
+			if cancel, ok := repos[key]; ok {
 				cancel()
 			}
-			delete(repos, pfsdb.RepoKey(repoInfo.Repo))
+			delete(repos, key)
 			return nil
 		}
-		if _, ok := repos[pfsdb.RepoKey(repoInfo.Repo)]; ok {
+		if _, ok := repos[key]; ok {
 			return nil
 		}
 		ctx, cancel := context.WithCancel(ctx)
-		repos[pfsdb.RepoKey(repoInfo.Repo)] = cancel
+		repos[key] = cancel
 		go func() {
 			backoff.RetryUntilCancel(ctx, func() error {
-				return d.finishRepoCommits(ctx, compactor, repoInfo.Repo)
+				return d.finishRepoCommits(ctx, compactor, key)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				log.Errorf("error finishing commits for repo %v: %v, retrying in %v", pfsdb.RepoKey(repoInfo.Repo), err, d)
+				log.Errorf("error finishing commits for repo %v: %v, retrying in %v", key, err, d)
 				return nil
 			})
 		}()
@@ -96,13 +92,10 @@ func (d *driver) finishCommits(ctx context.Context) error {
 	})
 }
 
-func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, repo *pfs.Repo) error {
-	return d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), func(ev *watch.Event) error {
+func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, repoKey string) error {
+	return d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, repoKey, func(ev *watch.Event) error {
 		if ev.Type == watch.EventError {
 			return ev.Err
-		}
-		if ev.Type == watch.EventDelete {
-			return nil
 		}
 		var key string
 		commitInfo := &pfs.CommitInfo{}

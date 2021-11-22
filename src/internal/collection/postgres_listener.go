@@ -387,6 +387,8 @@ func (l *postgresListener) reset(err error) {
 	l.channels = make(map[string]notifierSet)
 	if !l.closed {
 		// `reset` is only ever called in the case of an error, so it should be fine to discard this error
+		// TODO: This can deadlock because the postgres listener lock is acquired at this point.
+		// Calls on the lib pq listener shouldn't have the postgres listener lock.
 		l.getPQL().UnlistenAll()
 	}
 }
@@ -406,13 +408,17 @@ func (l *postgresListener) Register(notifier Notifier) error {
 	if !ok {
 		notifiers = make(notifierSet)
 		l.channels[channel] = notifiers
-		if err := l.getPQL().Listen(channel); err != nil {
+		pql := l.getPQL()
+		l.mu.Unlock()
+		if err := pql.Listen(channel); err != nil {
+			l.mu.Lock()
 			// If an error occurs, error out all notifiers and reset the state of the
 			// listener to prevent desyncs.
 			err = errors.EnsureStack(err)
 			l.reset(err)
 			return err
 		}
+		l.mu.Lock()
 	}
 	notifiers[id] = notifier
 
@@ -431,13 +437,17 @@ func (l *postgresListener) Unregister(notifier Notifier) error {
 		delete(notifiers, id)
 		if len(notifiers) == 0 {
 			delete(l.channels, channel)
-			if err := l.getPQL().Unlisten(channel); err != nil {
+			pql := l.getPQL()
+			l.mu.Unlock()
+			if err := pql.Unlisten(channel); err != nil {
+				l.mu.Lock()
 				// If an error occurs, error out all watches and reset the state of the
 				// listener to prevent desyncs.
 				err = errors.EnsureStack(err)
 				l.reset(err)
 				return err
 			}
+			l.mu.Lock()
 		}
 	}
 	return nil
