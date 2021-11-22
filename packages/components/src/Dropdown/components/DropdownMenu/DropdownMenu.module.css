@@ -37,7 +37,7 @@
   100% {
     opacity: 0;
     visibility: hidden;
-    transform: translate3d(0, 0rem, 0) scaleY(0);
+    transform: translate3d(4rem, 0rem, 0) scaleY(0);
   }
 }
 
@@ -45,7 +45,7 @@
   0% {
     opacity: 0;
     visibility: hidden;
-    transform: translate3d(0, 0rem, 0) scaleY(0);
+    transform: translate3d(4rem, 0rem, 0) scaleY(0);
   }
   100% {
     visibility: visible;
@@ -62,8 +62,7 @@
   visibility: hidden;
   transform: translate3d(0, 0, 0) scaleY(0);
   transform-origin: top;
-  /* Needs to be set to 1, to be above other elements in the stacking context */
-  z-index: 1;
+  z-index: var(--z-index-dropdown-menu);
   overflow: hidden;
   box-shadow: 1px 1px 3px var(--dropshadow-grey);
   max-height: 33rem;
