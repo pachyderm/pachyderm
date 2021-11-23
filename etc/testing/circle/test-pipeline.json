@@ -1,0 +1,21 @@
+{
+  "pipeline": {
+    "name": "output"
+  },
+  "description": "",
+  "input": {
+    "pfs": {
+      "glob": "/",
+      "repo": "input"
+    }
+  },
+  "transform": {
+    "image": "busybox",
+    "cmd": [
+      "sh"
+    ],
+    "stdin": [
+      "cp /pfs/input/* /pfs/out/;"
+    ]
+  }
+}

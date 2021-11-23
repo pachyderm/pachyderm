@@ -159,6 +159,39 @@ jobs:
       - checkout
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/rootless_test.sh
+  upgrade:
+    resource_class: large
+    machine:
+      image: ubuntu-2004:202101-01
+    # how do we know that the upgrade artifacts
+    # are different than the base artifacts?
+    steps:
+      - checkout
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-minikube.sh
+      - run: etc/testing/circle/launch-loki.sh
+
+      # checkout base branch
+      - run: |
+          curl -L "https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64" -o jq
+          chmod +x jq
+          url=https://api.github.com/repos/pachyderm/pachyderm/pulls/${CIRCLE_PULL_REQUEST##*/}
+          echo "URL:  $url"
+          dest=$(curl $url | ./jq '.base.ref' | tr -d '"')
+          echo "Dest: $dest"
+          git checkout "$dest"
+      - run: etc/testing/circle/build.sh
+      - run: etc/testing/circle/launch.sh
+      # checkout head
+      - checkout
+      # run some stuff
+      - run: etc/testing/circle/pre_upgrade_test.sh
+      # build head
+      - run: etc/testing/circle/build.sh
+      # helm upgrade
+      - run: etc/testing/circle/helm-upgrade.sh
+      # run some more stuff
+      - run: etc/testing/circle/post_upgrade_test.sh
 
 workflows:
   circleci:
@@ -221,4 +254,9 @@ workflows:
                 - LOAD8
                 - LOAD9
                 - LOAD10
-
+  rootless:
+    jobs:
+    - rootless
+  upgrade:
+    jobs:
+    - upgrade
