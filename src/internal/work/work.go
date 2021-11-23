@@ -97,6 +97,7 @@ func (tq *TaskQueue) RunTask(ctx context.Context, f func(*Master)) (retErr error
 			taskEtcd:  tq.taskEtcd,
 			taskID:    task.ID,
 			taskEntry: te,
+			ctx:       te.ctx,
 		})
 	})
 }
@@ -117,11 +118,20 @@ type Master struct {
 	*taskEtcd
 	taskID    string
 	taskEntry *taskEntry
+	ctx       context.Context
 }
 
 // Ctx returns the context for the master.
 func (m *Master) Ctx() context.Context {
-	return m.taskEntry.ctx
+	return m.ctx
+}
+
+// WithCtx returns a clone of the master with the context set to the passed in context.
+// TODO: This should not exist after the work package redesign.
+func (m *Master) WithCtx(ctx context.Context) *Master {
+	result := *m
+	result.ctx = ctx
+	return &result
 }
 
 // CollectFunc is a callback that is used for collecting the results

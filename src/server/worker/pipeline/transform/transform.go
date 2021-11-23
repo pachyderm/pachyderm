@@ -24,6 +24,9 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 				// Skip this job - we should be shut down soon, but don't error out in the meantime
 				return nil
 			}
+			if jobInfo.State == pps.JobState_JOB_FINISHING {
+				return nil
+			}
 			return reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
 		},
 	)

@@ -89,7 +89,8 @@ func newWriter(ctx context.Context, client Client, memCache kv.GetPut, deduper *
 		},
 		buf:   &bytes.Buffer{},
 		stats: &stats{},
-		chain: NewTaskChain(cancelCtx),
+		// TODO: Make task chain parallelism configurable?
+		chain: NewTaskChain(cancelCtx, 100),
 		first: true,
 	}
 	WithRollingHashConfig(defaultAverageBits, defaultSeed)(w)

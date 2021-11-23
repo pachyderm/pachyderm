@@ -44,7 +44,6 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		return nil, err
 	}
 	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix)
-	ctx := context.Background()
 	if env.AuthServer() == nil {
 		panic("auth server cannot be nil")
 	}
@@ -60,7 +59,7 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		GetPPSServer:  env.PpsServer,
 		GetPachClient: env.GetPachClient,
 
-		BackgroundContext: ctx,
+		BackgroundContext: env.Context(),
 		StorageConfig:     env.Config().StorageConfiguration,
 		Logger:            env.Logger(),
 	}, nil

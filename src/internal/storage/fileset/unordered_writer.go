@@ -3,6 +3,7 @@ package fileset
 import (
 	"context"
 	"io"
+	"math"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -22,6 +23,7 @@ type UnorderedWriter struct {
 	ids                        []ID
 	getParentID                func() (*ID, error)
 	validator                  func(string) error
+	maxFanIn                   int
 }
 
 func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int64, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
@@ -37,6 +39,7 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 		memAvailable: memThreshold,
 		memThreshold: memThreshold,
 		buffer:       NewBuffer(),
+		maxFanIn:     math.MaxInt32,
 	}
 	for _, opt := range opts {
 		opt(uw)
@@ -181,7 +184,34 @@ func (uw *UnorderedWriter) Close() (*ID, error) {
 	if err := uw.serialize(); err != nil {
 		return nil, err
 	}
+	if err := uw.compact(); err != nil {
+		return nil, err
+	}
 	return uw.storage.newComposite(uw.ctx, &Composite{
 		Layers: idsToHex(uw.ids),
 	}, uw.ttl)
+}
+
+func (uw *UnorderedWriter) compact() error {
+	for len(uw.ids) > uw.maxFanIn {
+		var ids []ID
+		for start := 0; start < len(uw.ids); start += int(uw.maxFanIn) {
+			end := start + int(uw.maxFanIn)
+			if end > len(uw.ids) {
+				end = len(uw.ids)
+			}
+			id, err := uw.storage.Compact(uw.ctx, uw.ids[start:end], uw.ttl)
+			if err != nil {
+				return err
+			}
+			if uw.renewer != nil {
+				if err := uw.renewer.Add(uw.ctx, *id); err != nil {
+					return err
+				}
+			}
+			ids = append(ids, *id)
+		}
+		uw.ids = ids
+	}
+	return nil
 }
