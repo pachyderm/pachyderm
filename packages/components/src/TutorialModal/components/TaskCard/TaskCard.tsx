@@ -36,7 +36,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
           <h6 className={styles.task}>{`Task ${index + 1}`}</h6>
           {currentTask > index && (
             <div className={styles.headerComplete}>
-              <CheckmarkSVG />
+              <CheckmarkSVG aria-label={`Task ${index + 1} complete`} />
             </div>
           )}
         </div>

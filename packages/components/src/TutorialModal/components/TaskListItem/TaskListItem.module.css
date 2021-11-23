@@ -4,19 +4,15 @@
 
 .taskItem {
   position: relative;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
-.taskItem::after {
-  content: '';
-  left: 5px;
-  top: 20px;
-  width: 1px;
-  height: calc(100% + 18px);
-  border: 2px dashed #DDDEE0; /* This is listed as grey-2 but there is already a grey-2*/
-  position: absolute;
+.checkbox {
+  color: var(--plum-7)
 }
 
-.taskItem:last-child::after {
-  display: none;
+.label {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--grey-10);
 }

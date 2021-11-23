@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import React, {useEffect} from 'react';
 
 import {click} from 'testHelpers';
-import {Step, TaskComponentProps} from 'TutorialModal/lib/types';
+import {Story, TaskComponentProps} from 'TutorialModal/lib/types';
 
 import {Link} from '../../Link';
 import Mark from '../components/Mark';
@@ -54,9 +54,8 @@ const Task2Component: React.FC<TaskComponentProps> = ({
   );
 };
 
-const steps: Step[] = [
+const stories: Story[] = [
   {
-    label: 'Introduction',
     name: 'Creating Pipelines',
     sections: [
       {
@@ -130,8 +129,8 @@ const steps: Step[] = [
 ];
 
 describe('TutorialModal', () => {
-  it('should disable moving to the next step if all tasks are not complete', async () => {
-    const {findAllByRole} = render(<TutorialModal steps={steps} />);
+  it('should disable moving to the next story if all tasks are not complete', async () => {
+    const {findAllByRole} = render(<TutorialModal stories={stories} />);
 
     const nextButtons = await findAllByRole('button', {
       name: 'Next Story',
@@ -139,9 +138,9 @@ describe('TutorialModal', () => {
     nextButtons.map((button) => expect(button).toBeDisabled());
   });
 
-  it('should allow moving to the next step', async () => {
-    const nextStep: Step = {
-      name: 'The next step',
+  it('should allow moving to the next story', async () => {
+    const nextStory: Story = {
+      name: 'The next story',
       sections: [
         {
           taskName: 'The next task',
@@ -151,10 +150,10 @@ describe('TutorialModal', () => {
     };
 
     const {findByRole, findByText, findAllByRole} = render(
-      <TutorialModal steps={steps.concat([nextStep])} />,
+      <TutorialModal stories={stories.concat([nextStory])} />,
     );
 
-    expect(await findByText('Introduction')).toBeInTheDocument();
+    expect(await findByText('Story 1 of 2')).toBeInTheDocument();
 
     const pipelineButton = await findByRole('button', {
       name: 'Create pipeline spec',
@@ -170,11 +169,11 @@ describe('TutorialModal', () => {
 
     userEvent.click(nextButtons[0]);
 
-    expect(await findByText('Step 1')).toBeInTheDocument();
+    expect(await findByText('Story 2 of 2')).toBeInTheDocument();
   });
 
   it('should update the maximize/minimize button text', async () => {
-    const {findByRole} = render(<TutorialModal steps={steps} />);
+    const {findByRole} = render(<TutorialModal stories={stories} />);
 
     const minimizeButton = await findByRole('button', {name: 'Minimize'});
 
@@ -184,14 +183,14 @@ describe('TutorialModal', () => {
   });
 
   it('should display info for the current task in the side bar', async () => {
-    const {findByText} = render(<TutorialModal steps={steps} />);
+    const {findByText} = render(<TutorialModal stories={stories} />);
 
     expect(await findByText('Quickly define pipelines')).toBeInTheDocument();
   });
 
   it('should not mark a task completed unless the previous tasks are completed', async () => {
-    const {findByRole, findAllByLabelText} = render(
-      <TutorialModal steps={steps} />,
+    const {findByRole, queryByLabelText} = render(
+      <TutorialModal stories={stories} />,
     );
 
     const sizeButton = await findByRole('button', {name: 'Minimize'});
@@ -199,36 +198,27 @@ describe('TutorialModal', () => {
     click(sizeButton);
     click(sizeButton);
 
-    const task2Checkboxes = await findAllByLabelText(
-      'Minimize the overlay and inspect the pipeline and resulting output repo in the DAG',
-    );
-    task2Checkboxes.forEach((checkbox) => expect(checkbox).not.toBeChecked());
+    const task2Checkmark = queryByLabelText('Task 2 complete');
+    expect(task2Checkmark).not.toBeInTheDocument();
 
     const pipelineButton = await findByRole('button', {
       name: 'Create pipeline spec',
     });
     click(pipelineButton);
 
-    const task1Checkboxes = await findAllByLabelText(
-      'Create a pipeline using the provided edges.json specification.',
-    );
-    task1Checkboxes.forEach((checkbox) => expect(checkbox).toBeChecked());
+    const task1Checkmark = queryByLabelText('Task 1 complete');
+    expect(task1Checkmark).toBeInTheDocument();
 
     click(sizeButton);
     click(sizeButton);
 
-    const updatedTask2Checkboxes = await findAllByLabelText(
-      'Minimize the overlay and inspect the pipeline and resulting output repo in the DAG',
-    );
-
-    updatedTask2Checkboxes.forEach((checkbox) =>
-      expect(checkbox).toBeChecked(),
-    );
+    const updatedTask2Checkmark = queryByLabelText('Task 2 complete');
+    expect(updatedTask2Checkmark).toBeInTheDocument();
   });
 
   it('should display the current task when minimized', async () => {
     const {findByRole, findAllByLabelText} = render(
-      <TutorialModal steps={steps} />,
+      <TutorialModal stories={stories} />,
     );
 
     const minimizeButton = await findByRole('button', {name: 'Minimize'});
@@ -237,12 +227,12 @@ describe('TutorialModal', () => {
     const tasks = await findAllByLabelText(
       'Create a pipeline using the provided edges.json specification.',
     );
-    expect(tasks.length).toBe(2);
+    expect(tasks.length).toBe(1);
   });
 
-  it('should include the continue step when displaying the final task while minimized', async () => {
-    const {findByRole, findAllByLabelText} = render(
-      <TutorialModal steps={steps} />,
+  it('should include the continue task when displaying the final task while minimized', async () => {
+    const {findByRole, queryByLabelText} = render(
+      <TutorialModal stories={stories} />,
     );
 
     const pipelineButton = await findByRole('button', {
@@ -253,17 +243,37 @@ describe('TutorialModal', () => {
     const minimizeButton = await findByRole('button', {name: 'Minimize'});
     click(minimizeButton);
 
-    const initialTasks = await findAllByLabelText(
-      'Create a pipeline using the provided edges.json specification.',
+    expect(
+      queryByLabelText(
+        'Minimize the overlay and inspect the pipeline and resulting output repo in the DAG',
+      ),
+    ).toBeInTheDocument();
+
+    expect(queryByLabelText('Continue to the next story')).toBeInTheDocument();
+  });
+
+  it('should be able to switch between stories using the dropdown', () => {
+    const nextStory: Story = {
+      name: 'The next story',
+      sections: [
+        {
+          taskName: 'The next task',
+          Task: Task1Component,
+        },
+      ],
+    };
+
+    const {queryByText, getByText, getByRole} = render(
+      <TutorialModal stories={stories.concat([nextStory])} />,
     );
-    expect(initialTasks.length).toBe(1);
-    const finalTasks = await findAllByLabelText(
-      'Minimize the overlay and inspect the pipeline and resulting output repo in the DAG',
-    );
-    expect(finalTasks.length).toBe(2);
-    const completeSteps = await findAllByLabelText(
-      'Continue to the next story',
-    );
-    expect(completeSteps.length).toBe(2);
+
+    expect(queryByText('Story 1 of 2')).toBeInTheDocument();
+
+    const dropdownButton = getByRole('button', {name: 'Creating Pipelines'});
+
+    click(dropdownButton);
+
+    click(getByText('The next story'));
+    expect(queryByText('Story 2 of 2')).toBeInTheDocument();
   });
 });

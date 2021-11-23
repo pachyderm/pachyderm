@@ -22,7 +22,16 @@ module.exports = {
     fileLoaderRule.exclude = /\.svg$/;
     config.module.rules.push({
       test: /\.svg$/,
-      use: ["@svgr/webpack", "url-loader"],
+      use: [{
+        loader: '@svgr/webpack',
+        options: {
+          svgoConfig: {
+            plugins: {
+              removeViewBox: false
+            }
+          }
+        }
+      }, "url-loader"],
     });
 
     config.resolve.plugins.push(new TsconfigPathsPlugin());

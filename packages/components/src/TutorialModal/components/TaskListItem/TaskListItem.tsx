@@ -22,8 +22,9 @@ const TaskListItem: React.FC<TaskListItemProps> = ({
       <PureCheckbox
         selected={currentTask > index}
         readOnly
-        label={task}
+        label={<div className={styles.label}>{task}</div>}
         checked={currentTask > index}
+        className={styles.checkbox}
       />
       {children}
     </div>

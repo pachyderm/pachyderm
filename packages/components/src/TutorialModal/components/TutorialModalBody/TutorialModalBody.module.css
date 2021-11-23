@@ -142,8 +142,8 @@
   background-color: var(--grey-1);
   border: 1px solid var(--grey-4);
   border-radius: 3px;
-  padding: 1rem 2rem 0 1rem;
-  width: 20rem;
+  padding: 1.5rem 4rem 1.5rem 1rem;
+  width: 21.5rem;
   position: absolute;
   bottom: 4rem;
 }

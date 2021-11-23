@@ -1,13 +1,13 @@
 .base {
   border-right: 1px solid var(--grey-4);
   background-color: var(--grey-1);
-  width: 20rem;
+  width: 21.5rem;
 }
 
 .wrapper {
   position: fixed;
   padding: 4rem 2rem 0 2rem;
-  width: 20rem;
+  width: 21.5rem;
   height: 100%;
 }
 
@@ -24,22 +24,21 @@
 }
 
 .taskInfo {
-  margin-left: 1.291rem;
-  padding: 1rem;
-  background-color: var(--cyan-2);
-  border: 1px solid var(--cyan-7);
-  border-radius: 3px;
-}
-
-.taskInfo span{
-  font-size: 0.75rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-}
-
-.taskInfo p {
-  font-size: 0.75rem;
-  font-weight: 400;
-  margin-top: 1rem;
+  font-size: 0.875rem;
   color: var(--grey-10);
+  font-weight: 400;
+}
+
+.dropdown {
+  margin-bottom: 1.5rem;
+}
+
+.dropdownButton {
+  color: var(--grey-10);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.dropdownMenu {
+  z-index: 3;
 }

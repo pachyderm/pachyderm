@@ -17,8 +17,7 @@ export type Section = {
   isSubHeader?: boolean;
 };
 
-export type Step = {
-  label?: string;
+export type Story = {
   name: string;
   sections: Section[];
 };
