@@ -13,6 +13,7 @@ interface SelectContext {
   options: OptionRef[];
   isOpen: boolean;
   ignoreBlur: boolean;
+  placeholder?: React.ReactNode;
   selectOptionAtIndex: (index: number) => void;
   setActiveValue: React.Dispatch<React.SetStateAction<string>>;
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -30,6 +31,7 @@ export default createContext<SelectContext>({
   options: [],
   isOpen: false,
   ignoreBlur: false,
+  placeholder: '',
   selectOptionAtIndex: noop,
   setActiveValue: noop,
   setIsOpen: noop,

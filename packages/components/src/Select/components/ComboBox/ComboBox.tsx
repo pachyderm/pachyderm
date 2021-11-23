@@ -16,6 +16,7 @@ const ComboBox: React.ForwardRefRenderFunction<
     activeValue,
     id,
     isOpen,
+    placeholder,
     onBlur,
     onClick,
     onKeyDown,
@@ -33,7 +34,10 @@ const ComboBox: React.ForwardRefRenderFunction<
       id={`${id}-value`}
       tabIndex={0}
       ref={ref}
-      className={classnames(styles.base, {[styles.open]: isOpen})}
+      className={classnames(styles.base, {
+        [styles.open]: isOpen,
+        [styles.placeholder]: displayValue === placeholder,
+      })}
       onClick={onClick}
       onKeyDown={onKeyDown}
       onBlur={onBlur}

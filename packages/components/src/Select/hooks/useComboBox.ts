@@ -21,6 +21,7 @@ const useComboBox = () => {
     setIsOpen,
     activeValue,
     value,
+    placeholder,
   } = useContext(SelectContext);
 
   const onClick = useCallback(() => setIsOpen((prevState) => !prevState), [
@@ -113,6 +114,7 @@ const useComboBox = () => {
     onClick,
     onKeyDown,
     value,
+    placeholder,
   };
 };
 

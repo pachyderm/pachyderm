@@ -4,6 +4,14 @@
   align-items: center;
 }
 
+.base:read-only {
+  color: var(--pachyderm-black);
+}
+
+.base.placeholder {
+  color: var(--placeholder-grey);
+}
+
 .base:hover {
   cursor: pointer;
 }
