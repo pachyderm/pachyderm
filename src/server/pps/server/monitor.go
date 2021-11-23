@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -191,17 +192,22 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							return err
 						}
 
-						// Stay running while commits are available
+						// Stay running while commits are available and there's still job-related compaction to do
 					running:
 						for {
-							// Wait for the commit to be finished before blocking on the
-							// job because the job may not exist yet.
 							pachClient := pc.env.GetPachClient(ctx)
-							if _, err := pachClient.WaitCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID); err != nil {
-								return err
+							// wait for both meta and output commits
+							if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+								Commit: ci.Commit,
+								Wait:   pfs.CommitState_FINISHED,
+							}); err != nil {
+								return grpcutil.ScrubGRPC(err)
 							}
-							if _, err := pachClient.InspectJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID, true); err != nil {
-								return err
+							if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+								Commit: ppsutil.MetaCommit(ci.Commit),
+								Wait:   pfs.CommitState_FINISHED,
+							}); err != nil {
+								return grpcutil.ScrubGRPC(err)
 							}
 
 							tracing.FinishAnySpan(childSpan)
