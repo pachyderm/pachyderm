@@ -216,19 +216,28 @@ func compactionWorker(ctx context.Context, storage *fileset.Storage, etcdClient 
 	worker := work.NewWorker(etcdClient, etcdPrefix, storageTaskNamespace)
 	return backoff.RetryUntilCancel(ctx, func() error {
 		return worker.Run(ctx, func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
-			shardTask, err := deserializeShardTask(subtask.Data)
-			if err == nil {
+			switch {
+			case types.Is(subtask.Data, &ShardTask{}):
+				shardTask, err := deserializeShardTask(subtask.Data)
+				if err != nil {
+					return nil, err
+				}
 				return processShardTask(ctx, storage, shardTask)
-			}
-			compactTask, err := deserializeCompactTask(subtask.Data)
-			if err == nil {
+			case types.Is(subtask.Data, &CompactTask{}):
+				compactTask, err := deserializeCompactTask(subtask.Data)
+				if err != nil {
+					return nil, err
+				}
 				return processCompactTask(ctx, storage, compactTask)
-			}
-			concatTask, err := deserializeConcatTask(subtask.Data)
-			if err == nil {
+			case types.Is(subtask.Data, &ConcatTask{}):
+				concatTask, err := deserializeConcatTask(subtask.Data)
+				if err != nil {
+					return nil, err
+				}
 				return processConcatTask(ctx, storage, concatTask)
+			default:
+				return nil, errors.Errorf("unrecognized any type (%v) in compaction worker", subtask.Data.TypeUrl)
 			}
-			return nil, err
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Printf("error in compaction worker: %v", err)

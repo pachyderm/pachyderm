@@ -59,6 +59,11 @@ func (d *driver) master(ctx context.Context) {
 
 func (d *driver) finishCommits(ctx context.Context) error {
 	repos := make(map[string]context.CancelFunc)
+	defer func() {
+		for _, cancel := range repos {
+			cancel()
+		}
+	}()
 	compactor, err := newCompactor(ctx, d.storage, d.etcdClient, d.prefix, d.env.StorageConfig.StorageCompactionMaxFanIn)
 	if err != nil {
 		return err
