@@ -672,6 +672,10 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 	`).Run())
 
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		tu.BashCmd("kubectl describe pod -l=pipelineName=my-pipeline | match qqqq").Run()
+		tu.BashCmd("kubectl logs -l=pipelineName=my-pipeline -c user --tail 30 | match qqqq").Run()
+		tu.BashCmd("kubectl logs -l=pipelineName=my-pipeline -p -c user --tail 30 | match qqqq").Run()
+
 		return tu.BashCmd(`
 		pachctl list pipeline \
 		| match my-pipeline \
