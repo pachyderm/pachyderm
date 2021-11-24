@@ -58,11 +58,47 @@ func (d *driver) master(ctx context.Context) {
 }
 
 func (d *driver) finishCommits(ctx context.Context) error {
-	compactor, err := newCompactor(d.env.Context(), d.storage, d.etcdClient, d.prefix, d.env.Config().StorageCompactionMaxFanIn)
+	repos := make(map[string]context.CancelFunc)
+	defer func() {
+		for _, cancel := range repos {
+			cancel()
+		}
+	}()
+	compactor, err := newCompactor(ctx, d.storage, d.etcdClient, d.prefix, d.env.Config().StorageCompactionMaxFanIn)
 	if err != nil {
 		return err
 	}
-	return d.commits.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
+	return d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
+		if ev.Type == watch.EventError {
+			return ev.Err
+		}
+		key := string(ev.Key)
+		if ev.Type == watch.EventDelete {
+			if cancel, ok := repos[key]; ok {
+				cancel()
+			}
+			delete(repos, key)
+			return nil
+		}
+		if _, ok := repos[key]; ok {
+			return nil
+		}
+		ctx, cancel := context.WithCancel(ctx)
+		repos[key] = cancel
+		go func() {
+			backoff.RetryUntilCancel(ctx, func() error {
+				return d.finishRepoCommits(ctx, compactor, key)
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				log.Errorf("error finishing commits for repo %v: %v, retrying in %v", key, err, d)
+				return nil
+			})
+		}()
+		return nil
+	})
+}
+
+func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, repoKey string) error {
+	return d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, repoKey, func(ev *watch.Event) error {
 		if ev.Type == watch.EventError {
 			return ev.Err
 		}
@@ -75,7 +111,8 @@ func (d *driver) finishCommits(ctx context.Context) error {
 			return nil
 		}
 		commit := commitInfo.Commit
-		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit), func() error {
+		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit.ID), func() error {
+			// TODO: This retry might not be getting us much if the outer watch still errors due to a transient error.
 			return backoff.RetryUntilCancel(ctx, func() error {
 				id, err := d.getFileSet(ctx, commit)
 				if err != nil {

@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	log "github.com/sirupsen/logrus"
 	"github.com/wcharczuk/go-chart"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -242,6 +243,11 @@ func (s *debugServer) handleWorkerRedirect(tw *tar.Writer, pod *v1.Pod, collectW
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := c.Close(); err != nil {
+			log.Errorf("errored closing worker client: %v", err)
+		}
+	}()
 	r, err := cb(c.DebugClient, &debug.Filter{
 		Filter: &debug.Filter_Worker{
 			Worker: &debug.Worker{

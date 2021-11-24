@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -16,27 +17,21 @@ import (
 	"golang.org/x/net/context"
 )
 
-var _ fileset.Compactor = &compactor{}
-
 type compactor struct {
-	storage  *fileset.Storage
-	maxFanIn int
-
+	storage         *fileset.Storage
 	compactionQueue *work.TaskQueue
+	maxFanIn        int
 }
 
 func newCompactor(ctx context.Context, storage *fileset.Storage, etcdClient *etcd.Client, etcdPrefix string, maxFanIn int) (*compactor, error) {
-	if maxFanIn < 2 {
-		panic(maxFanIn)
-	}
 	compactionQueue, err := work.NewTaskQueue(ctx, etcdClient, etcdPrefix, storageTaskNamespace)
 	if err != nil {
 		return nil, err
 	}
 	c := &compactor{
 		storage:         storage,
-		maxFanIn:        maxFanIn,
 		compactionQueue: compactionQueue,
+		maxFanIn:        maxFanIn,
 	}
 	return c, nil
 }
@@ -45,52 +40,8 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 	return c.storage.CompactLevelBased(ctx, ids, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 		var id *fileset.ID
 		if err := c.compactionQueue.RunTaskBlock(ctx, func(master *work.Master) error {
-			workerFunc := func(ctx context.Context, renewer *fileset.Renewer, tasks []fileset.CompactionTask) ([]fileset.ID, error) {
-				workTasks := make([]*work.Task, len(tasks))
-				for i, task := range tasks {
-					serInputs := make([]string, len(task.Inputs))
-					for i := range task.Inputs {
-						serInputs[i] = task.Inputs[i].HexString()
-					}
-					any, err := serializeCompactionTask(&CompactionTask{
-						Index:  int64(i),
-						Inputs: serInputs,
-						Range: &PathRange{
-							Lower: task.PathRange.Lower,
-							Upper: task.PathRange.Upper,
-						},
-					})
-					if err != nil {
-						return nil, err
-					}
-					workTasks[i] = &work.Task{Data: any}
-				}
-				results := make([]fileset.ID, len(tasks))
-				if err := master.RunSubtasks(workTasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
-					if taskInfo.State == work.State_FAILURE {
-						return errors.New(taskInfo.Reason)
-					}
-					res, err := deserializeCompactionResult(taskInfo.Result)
-					if err != nil {
-						return err
-					}
-					id, err := fileset.ParseID(res.Id)
-					if err != nil {
-						return err
-					}
-					if err := renewer.Add(ctx, *id); err != nil {
-						return err
-					}
-					results[int(res.Index)] = *id
-					return nil
-				}); err != nil {
-					return nil, err
-				}
-				return results, nil
-			}
-			dc := fileset.NewDistributedCompactor(c.storage, c.maxFanIn, workerFunc)
 			var err error
-			id, err = dc.Compact(master.Ctx(), ids, ttl)
+			id, err = c.compact(master, ids, ttl)
 			return err
 		}); err != nil {
 			return nil, err
@@ -99,41 +50,194 @@ func (c *compactor) Compact(ctx context.Context, ids []fileset.ID, ttl time.Dura
 	})
 }
 
+func (c *compactor) compact(master *work.Master, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+	ids, err := c.storage.Flatten(master.Ctx(), ids)
+	if err != nil {
+		return nil, err
+	}
+	var tasks []*CompactTask
+	var taskLens []int
+	if err := miscutil.LogStep(fmt.Sprintf("sharding %v file sets", len(ids)), func() error {
+		var err error
+		tasks, taskLens, err = c.createCompactTasks(master, ids)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	var id *fileset.ID
+	if err := c.storage.WithRenewer(master.Ctx(), ttl, func(ctx context.Context, renewer *fileset.Renewer) error {
+		master := master.WithCtx(ctx)
+		var compactResults []fileset.ID
+		if err := miscutil.LogStep(fmt.Sprintf("compacting %v tasks", len(tasks)), func() error {
+			var err error
+			compactResults, err = c.processCompactTasks(master, renewer, tasks)
+			return err
+		}); err != nil {
+			return err
+		}
+		var concatResults []fileset.ID
+		if err := miscutil.LogStep(fmt.Sprintf("concatenating %v file sets", len(compactResults)), func() error {
+			var err error
+			concatResults, err = c.concat(master, renewer, compactResults, taskLens)
+			return err
+		}); err != nil {
+			return err
+		}
+		if len(concatResults) == 1 {
+			id = &concatResults[0]
+			return nil
+		}
+		id, err = c.compact(master, concatResults, ttl)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return id, nil
+}
+
+func (c *compactor) createCompactTasks(master *work.Master, ids []fileset.ID) ([]*CompactTask, []int, error) {
+	var workTasks []*work.Task
+	for start := 0; start < len(ids); start += int(c.maxFanIn) {
+		end := start + int(c.maxFanIn)
+		if end > len(ids) {
+			end = len(ids)
+		}
+		ids := ids[start:end]
+		any, err := serializeShardTask(&ShardTask{
+			Index:  int64(len(workTasks)),
+			Inputs: fileset.IDsToHexStrings(ids),
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		workTasks = append(workTasks, &work.Task{Data: any})
+	}
+	results := make([][]*CompactTask, len(workTasks))
+	if err := master.RunSubtasks(workTasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
+		if taskInfo.State == work.State_FAILURE {
+			return errors.New(taskInfo.Reason)
+		}
+		res, err := deserializeShardTaskResult(taskInfo.Result)
+		if err != nil {
+			return err
+		}
+		results[int(res.Index)] = res.CompactTasks
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
+	var tasks []*CompactTask
+	var taskLens []int
+	for _, res := range results {
+		taskLen := len(tasks)
+		tasks = append(tasks, res...)
+		taskLens = append(taskLens, len(tasks)-taskLen)
+	}
+	return tasks, taskLens, nil
+}
+
+func (c *compactor) processCompactTasks(master *work.Master, renewer *fileset.Renewer, tasks []*CompactTask) ([]fileset.ID, error) {
+	workTasks := make([]*work.Task, len(tasks))
+	for i, task := range tasks {
+		task := proto.Clone(task).(*CompactTask)
+		task.Index = int64(i)
+		any, err := serializeCompactTask(task)
+		if err != nil {
+			return nil, err
+		}
+		workTasks[i] = &work.Task{Data: any}
+	}
+	results := make([]fileset.ID, len(tasks))
+	if err := master.RunSubtasks(workTasks, func(ctx context.Context, taskInfo *work.TaskInfo) error {
+		if taskInfo.State == work.State_FAILURE {
+			return errors.New(taskInfo.Reason)
+		}
+		res, err := deserializeCompactTaskResult(taskInfo.Result)
+		if err != nil {
+			return err
+		}
+		id, err := fileset.ParseID(res.Id)
+		if err != nil {
+			return err
+		}
+		if err := renewer.Add(ctx, *id); err != nil {
+			return err
+		}
+		results[int(res.Index)] = *id
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func (c *compactor) concat(master *work.Master, renewer *fileset.Renewer, ids []fileset.ID, taskLens []int) ([]fileset.ID, error) {
+	var workTasks []*work.Task
+	for i, taskLen := range taskLens {
+		var serInputs []string
+		for _, id := range ids[:taskLen] {
+			serInputs = append(serInputs, id.HexString())
+		}
+		ids = ids[taskLen:]
+		any, err := serializeConcatTask(&ConcatTask{
+			Index:  int64(i),
+			Inputs: serInputs,
+		})
+		if err != nil {
+			return nil, err
+		}
+		workTasks = append(workTasks, &work.Task{Data: any})
+	}
+	results := make([]fileset.ID, len(workTasks))
+	if err := master.RunSubtasks(workTasks, func(ctx context.Context, taskInfo *work.TaskInfo) error {
+		if taskInfo.State == work.State_FAILURE {
+			return errors.New(taskInfo.Reason)
+		}
+		res, err := deserializeConcatTaskResult(taskInfo.Result)
+		if err != nil {
+			return err
+		}
+		id, err := fileset.ParseID(res.Id)
+		if err != nil {
+			return err
+		}
+		if err := renewer.Add(ctx, *id); err != nil {
+			return err
+		}
+		results[int(res.Index)] = *id
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 func compactionWorker(ctx context.Context, storage *fileset.Storage, etcdClient *etcd.Client, etcdPrefix string) error {
 	worker := work.NewWorker(etcdClient, etcdPrefix, storageTaskNamespace)
 	return backoff.RetryUntilCancel(ctx, func() error {
 		return worker.Run(ctx, func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
-			var result *types.Any
-			if err := miscutil.LogStep("processing compaction task", func() error {
-				task, err := deserializeCompactionTask(subtask.Data)
+			switch {
+			case types.Is(subtask.Data, &ShardTask{}):
+				shardTask, err := deserializeShardTask(subtask.Data)
 				if err != nil {
-					return err
+					return nil, err
 				}
-				ids := []fileset.ID{}
-				for _, input := range task.Inputs {
-					id, err := fileset.ParseID(input)
-					if err != nil {
-						return err
-					}
-					ids = append(ids, *id)
-				}
-				pathRange := &index.PathRange{
-					Lower: task.Range.Lower,
-					Upper: task.Range.Upper,
-				}
-				id, err := storage.Compact(ctx, ids, defaultTTL, index.WithRange(pathRange))
+				return processShardTask(ctx, storage, shardTask)
+			case types.Is(subtask.Data, &CompactTask{}):
+				compactTask, err := deserializeCompactTask(subtask.Data)
 				if err != nil {
-					return err
+					return nil, err
 				}
-				result, err = serializeCompactionResult(&CompactionTaskResult{
-					Index: task.Index,
-					Id:    id.HexString(),
-				})
-				return err
-			}); err != nil {
-				return nil, err
+				return processCompactTask(ctx, storage, compactTask)
+			case types.Is(subtask.Data, &ConcatTask{}):
+				concatTask, err := deserializeConcatTask(subtask.Data)
+				if err != nil {
+					return nil, err
+				}
+				return processConcatTask(ctx, storage, concatTask)
+			default:
+				return nil, errors.Errorf("unrecognized any type (%v) in compaction worker", subtask.Data.TypeUrl)
 			}
-			return result, nil
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Printf("error in compaction worker: %v", err)
@@ -141,7 +245,78 @@ func compactionWorker(ctx context.Context, storage *fileset.Storage, etcdClient 
 	})
 }
 
-func serializeCompactionTask(task *CompactionTask) (*types.Any, error) {
+func processShardTask(ctx context.Context, storage *fileset.Storage, task *ShardTask) (*types.Any, error) {
+	result := &ShardTaskResult{
+		Index: task.Index,
+	}
+	if err := miscutil.LogStep("processing shard task", func() error {
+		ids, err := fileset.HexStringsToIDs(task.Inputs)
+		if err != nil {
+			return err
+		}
+		return storage.Shard(ctx, ids, func(pathRange *index.PathRange) error {
+			result.CompactTasks = append(result.CompactTasks, &CompactTask{
+				Inputs: task.Inputs,
+				PathRange: &PathRange{
+					Lower: pathRange.Lower,
+					Upper: pathRange.Upper,
+				},
+			})
+			return nil
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return serializeShardTaskResult(result)
+}
+
+func processCompactTask(ctx context.Context, storage *fileset.Storage, task *CompactTask) (*types.Any, error) {
+	result := &CompactTaskResult{
+		Index: task.Index,
+	}
+	if err := miscutil.LogStep("processing compact task", func() error {
+		ids, err := fileset.HexStringsToIDs(task.Inputs)
+		if err != nil {
+			return err
+		}
+		pathRange := &index.PathRange{
+			Lower: task.PathRange.Lower,
+			Upper: task.PathRange.Upper,
+		}
+		id, err := storage.Compact(ctx, ids, defaultTTL, index.WithRange(pathRange))
+		if err != nil {
+			return err
+		}
+		result.Id = id.HexString()
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return serializeCompactTaskResult(result)
+}
+
+func processConcatTask(ctx context.Context, storage *fileset.Storage, task *ConcatTask) (*types.Any, error) {
+	result := &ConcatTaskResult{
+		Index: task.Index,
+	}
+	if err := miscutil.LogStep("processing concat task", func() error {
+		ids, err := fileset.HexStringsToIDs(task.Inputs)
+		if err != nil {
+			return err
+		}
+		id, err := storage.Concat(ctx, ids, defaultTTL)
+		if err != nil {
+			return err
+		}
+		result.Id = id.HexString()
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return serializeConcatTaskResult(result)
+}
+
+func serializeShardTask(task *ShardTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, err
@@ -152,15 +327,53 @@ func serializeCompactionTask(task *CompactionTask) (*types.Any, error) {
 	}, nil
 }
 
-func deserializeCompactionTask(taskAny *types.Any) (*CompactionTask, error) {
-	task := &CompactionTask{}
+func deserializeShardTask(taskAny *types.Any) (*ShardTask, error) {
+	task := &ShardTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, err
 	}
 	return task, nil
 }
 
-func serializeCompactionResult(res *CompactionTaskResult) (*types.Any, error) {
+func serializeShardTaskResult(task *ShardTaskResult) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, err
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeShardTaskResult(taskAny *types.Any) (*ShardTaskResult, error) {
+	task := &ShardTaskResult{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, err
+	}
+	return task, nil
+}
+
+func serializeCompactTask(task *CompactTask) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, err
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeCompactTask(taskAny *types.Any) (*CompactTask, error) {
+	task := &CompactTask{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, err
+	}
+	return task, nil
+}
+
+func serializeCompactTaskResult(res *CompactTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(res)
 	if err != nil {
 		return nil, err
@@ -171,10 +384,48 @@ func serializeCompactionResult(res *CompactionTaskResult) (*types.Any, error) {
 	}, nil
 }
 
-func deserializeCompactionResult(any *types.Any) (*CompactionTaskResult, error) {
-	res := &CompactionTaskResult{}
+func deserializeCompactTaskResult(any *types.Any) (*CompactTaskResult, error) {
+	res := &CompactTaskResult{}
 	if err := types.UnmarshalAny(any, res); err != nil {
 		return nil, err
 	}
 	return res, nil
+}
+
+func serializeConcatTask(task *ConcatTask) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, err
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeConcatTask(taskAny *types.Any) (*ConcatTask, error) {
+	task := &ConcatTask{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, err
+	}
+	return task, nil
+}
+
+func serializeConcatTaskResult(task *ConcatTaskResult) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, err
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeConcatTaskResult(taskAny *types.Any) (*ConcatTaskResult, error) {
+	task := &ConcatTaskResult{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, err
+	}
+	return task, nil
 }
