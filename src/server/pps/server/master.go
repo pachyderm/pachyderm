@@ -159,7 +159,7 @@ eventLoop:
 				m.pcMgr.Lock()
 				defer m.pcMgr.Unlock()
 				if pc, ok := m.pcMgr.pcs[e.pipeline]; ok {
-					pc.Bump() // raises flag in pipelineController to run again whenever it finishes
+					pc.Bump(e.timestamp) // raises flag in pipelineController to run again whenever it finishes
 				} else {
 					// pc's ctx is cancelled in pipelineController.tryFinish(), to avoid leaking resources
 					pcCtx, pcCancel := context.WithCancel(m.masterCtx)

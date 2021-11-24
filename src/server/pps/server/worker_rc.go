@@ -29,10 +29,11 @@ import (
 )
 
 const (
-	pipelineNameLabel         = "pipelineName"
-	pachVersionAnnotation     = "pachVersion"
-	pipelineVersionAnnotation = "pipelineVersion"
-	hashedAuthTokenAnnotation = "authTokenHash"
+	pipelineNameLabel            = "pipelineName"
+	pachVersionAnnotation        = "pachVersion"
+	pipelineVersionAnnotation    = "pipelineVersion"
+	pipelineSpecCommitAnnotation = "specCommit"
+	hashedAuthTokenAnnotation    = "authTokenHash"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -591,10 +592,11 @@ func (pc *pipelineController) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (
 	}
 
 	annotations := map[string]string{
-		pipelineNameLabel:         pipelineName,
-		pachVersionAnnotation:     version.PrettyVersion(),
-		pipelineVersionAnnotation: strconv.FormatUint(pipelineInfo.Version, 10),
-		hashedAuthTokenAnnotation: hashAuthToken(pipelineInfo.AuthToken),
+		pipelineNameLabel:            pipelineName,
+		pachVersionAnnotation:        version.PrettyVersion(),
+		pipelineVersionAnnotation:    strconv.FormatUint(pipelineInfo.Version, 10),
+		pipelineSpecCommitAnnotation: pipelineInfo.SpecCommit.ID,
+		hashedAuthTokenAnnotation:    hashAuthToken(pipelineInfo.AuthToken),
 	}
 
 	// add the user's custom metadata (annotations and labels).
