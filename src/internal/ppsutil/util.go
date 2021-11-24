@@ -339,14 +339,14 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 	// store commit states.
 	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: jobInfo.OutputCommit,
+			Commit: MetaCommit(jobInfo.OutputCommit),
 			Error:  reason,
 			Force:  true,
 		}); err != nil {
 			return err
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: MetaCommit(jobInfo.OutputCommit),
+			Commit: jobInfo.OutputCommit,
 			Error:  reason,
 			Force:  true,
 		}); err != nil {
