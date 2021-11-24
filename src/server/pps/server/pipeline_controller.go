@@ -90,7 +90,7 @@ type pipelineController struct {
 	monitorCancel         func()
 	crashingMonitorCancel func()
 
-	bumpChan chan struct{}
+	bumpChan chan time.Time
 	pcMgr    *pcManager
 }
 
@@ -113,7 +113,7 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		pipelines:  m.a.pipelines,
 		etcdPrefix: m.a.etcdPrefix,
 
-		bumpChan: make(chan struct{}, 1),
+		bumpChan: make(chan time.Time, 1),
 		pcMgr:    m.pcMgr,
 	}
 	return pc
@@ -128,9 +128,9 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 //
 // Note: since pc.bumpChan is a buffered channel of length 1, Bump() will
 // add to the channel if it's empty, and do nothing otherwise.
-func (pc *pipelineController) Bump() {
+func (pc *pipelineController) Bump(ts time.Time) {
 	select {
-	case pc.bumpChan <- struct{}{}:
+	case pc.bumpChan <- ts:
 	default:
 	}
 }
@@ -143,13 +143,13 @@ func (pc *pipelineController) Bump() {
 // Other errors are simply logged and ignored, assuming that some future polling
 // of the pipeline will succeed.
 func (pc *pipelineController) Start(timestamp time.Time) {
-	pc.Bump()
+	pc.Bump(timestamp)
 	for {
 		select {
 		case <-pc.ctx.Done():
 			return
-		case <-pc.bumpChan:
-			err := pc.step(timestamp)
+		case ts := <-pc.bumpChan:
+			err := pc.step(ts)
 			// we've given up on the step, check if the error indicated that the pipeline should fail
 			if err != nil {
 				log.Errorf("PPS master: error starting a pipelineController for pipeline '%s': %v", pc.pipeline,
@@ -164,8 +164,8 @@ func (pc *pipelineController) tryFinish() {
 	pc.pcMgr.Lock()
 	defer pc.pcMgr.Unlock()
 	select {
-	case <-pc.bumpChan:
-		pc.Bump()
+	case ts := <-pc.bumpChan:
+		pc.Bump(ts)
 	default:
 		pc.cancel()
 		delete(pc.pcMgr.pcs, pc.pipeline)
@@ -415,6 +415,7 @@ func (step *pcStep) rcIsFresh() bool {
 	rcPachVersion := step.rc.ObjectMeta.Annotations[pachVersionAnnotation]
 	rcAuthTokenHash := step.rc.ObjectMeta.Annotations[hashedAuthTokenAnnotation]
 	rcPipelineVersion := step.rc.ObjectMeta.Annotations[pipelineVersionAnnotation]
+	rcSpecCommit := step.rc.ObjectMeta.Annotations[pipelineSpecCommitAnnotation]
 	switch {
 	case rcAuthTokenHash != hashAuthToken(step.pipelineInfo.AuthToken):
 		log.Errorf("PPS master: auth token in %q is stale %s != %s",
@@ -423,6 +424,10 @@ func (step *pcStep) rcIsFresh() bool {
 	case rcPipelineVersion != strconv.FormatUint(step.pipelineInfo.Version, 10):
 		log.Errorf("PPS master: pipeline version in %q looks stale %s != %d",
 			step.pipelineInfo.Pipeline.Name, rcPipelineVersion, step.pipelineInfo.Version)
+		return false
+	case rcSpecCommit != step.pipelineInfo.SpecCommit.ID:
+		log.Errorf("PPS master: pipeline spec commit in %q looks stale %s != %s",
+			step.pipelineInfo.Pipeline.Name, rcSpecCommit, step.pipelineInfo.SpecCommit.ID)
 		return false
 	case rcPachVersion != version.PrettyVersion():
 		log.Errorf("PPS master: %q is using stale pachd v%s != current v%s",
