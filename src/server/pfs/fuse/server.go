@@ -116,16 +116,15 @@ type MountBranchResponse struct {
 	Branch     string
 	Name       string
 	MountState MountState
+	Error      error
 }
 
 type MountManager struct {
 	Client *client.APIClient
 	// only put a value into the States map when we have a goroutine running for
 	// it. i.e. when we try to mount it for the first time.
-	States        map[MountKey]MountState
-	RequestChans  map[MountKey]chan MountBranchRequest
-	ResponseChans map[MountKey]chan MountBranchResponse
-	mu            sync.Mutex
+	States map[MountKey]*MountStateMachine
+	mu     sync.Mutex
 }
 
 func (mm *MountManager) List() (ListResponse, error) {
@@ -156,14 +155,13 @@ func (mm *MountManager) List() (ListResponse, error) {
 			}
 			s, ok := mm.States[k]
 			if ok {
-				br.State = s
+				br.State = s.MountState
 			} else {
 				br.State = MountState{State: "unmounted"}
 			}
 			rr.Branches[branch.Branch.Name] = br
 		}
 		lr.Repos[repo.Repo.Name] = rr
-
 	}
 
 	// TODO: also add any repos/branches that have been deleted from pachyderm
@@ -173,35 +171,47 @@ func (mm *MountManager) List() (ListResponse, error) {
 	return lr, nil
 }
 
-func (mm *MountManager) Run() error {
-	// TODO: select on request chan
-	return nil
+func (mm *MountManager) MaybeStartFsm(key MountKey) {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	_, ok := mm.States[key]
+	if !ok {
+		// set minimal state and kick it off!
+		m := &MountStateMachine{MountState: MountState{MountKey: key}}
+		mm.States[key] = m
+		go func() {
+			m.Run()
+			// when execution completes, remove ourselves from the map so that
+			// we can infer from the key in the map that the state machine is
+			// running
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+			delete(mm.States, key)
+		}()
+	} // else: fsm was already running
 }
 
-func (mm *MountManager) MountBranch(repo, branch, name, mode string) error {
-	// TODO: implement this
-	return nil
+func (mm *MountManager) MountBranch(repo, branch, name, mode string) (MountBranchResponse, error) {
+	// name: an optional name for the mount, corresponds to where on the
+	// filesystem the repo actually gets mounted. e.g. /pfs/{name}
+	k := MountKey{repo, branch, ""}
+	mm.MaybeStartFsm(k)
+	mm.States[k].requests <- MountBranchRequest{
+		Repo:   repo,
+		Branch: branch,
+		Name:   name,
+		Mode:   mode,
+	}
+	response := <-mm.States[k].responses
+	return response, response.Error
 }
 
 func Server(c *client.APIClient, opts *ServerOptions) error {
 	// TODO: respect opts.Daemonize
 	mm := MountManager{Client: c}
-	mm.Run()
 
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		/*
-			mm.mu.Lock()
-			defer mm.mu.Unlock()
-			marshallable := map[string]MountState{}
-			for key, value := range mm.States {
-				marshallable[key.String()] = value
-			}
-
-			// XXX how will json.Marshal deal with our map keys being structs? We
-			// might need to flatten this into a map[string]MountStates here using
-			// key.String()
-		*/
 		l, err := mm.List()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -236,7 +246,9 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		err = mm.MountBranch(key.Repo, key.Branch, name, mode)
+		// TODO: use response (serialize it to the client, it's polite to hand
+		// back the object you just modified in the API response)
+		_, err = mm.MountBranch(key.Repo, key.Branch, name, mode)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -254,10 +266,19 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 }
 
 type MountState struct {
+	Name       string
+	MountKey   MountKey
 	State      string // "unmounted", "mounting", "mounted", "pushing", "unmounted", "error"
 	Status     string // human readable string with additional info wrt State, e.g. an error message for the error state
 	Mode       string // "ro", "rw", or "" if unknown/unspecified
 	Mountpoint string // where on the filesystem it's mounted
+}
+
+type MountStateMachine struct {
+	MountState
+	mu        sync.Mutex
+	requests  chan MountBranchRequest
+	responses chan MountBranchResponse
 }
 
 // TODO: switch to pach internal types if appropriate?
@@ -308,7 +329,44 @@ func mountKeyFromString(key string) (MountKey, error) {
 		}, nil
 	} else {
 		return MountKey{}, fmt.Errorf(
-			"Wrong number of '/'s in key %+v, got %d expected 2 or 3", key, len(shrapnel),
+			"wrong number of '/'s in key %+v, got %d expected 2 or 3", key, len(shrapnel),
 		)
 	}
+}
+
+// state machines in the style of Rob Pike's Lexical Scanning
+// http://www.timschmelmer.com/2013/08/state-machines-with-state-functions-in.html
+
+// setup
+
+type StateFn func(*MountStateMachine) StateFn
+
+func (m *MountStateMachine) transitionedTo(state, status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	fmt.Printf("[%s] %s -> %s", m.MountKey, m.State, m.State)
+	m.State = state
+	m.Status = status
+}
+
+func (m *MountStateMachine) Run() {
+	for state := discoveringState; state != nil; {
+		state = state(m)
+	}
+	m.transitionedTo("gone", "")
+}
+
+// state functions
+
+func discoveringState(m *MountStateMachine) StateFn {
+	m.transitionedTo("discovering", "")
+	// TODO: inspect the state of the system, and if we're half-unmounted, maybe
+	// do cleanup before declaring us _truly_ unmounted
+	return unmountedState
+}
+
+func unmountedState(m *MountStateMachine) StateFn {
+	m.transitionedTo("unmounted", "")
+	// TODO: listen on our request chan, mount filesystems, and respond
+	return nil
 }
