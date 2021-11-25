@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hanwen/go-fuse/v2/fs"
+	gofuse "github.com/hanwen/go-fuse/v2/fuse"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -304,10 +305,72 @@ func (mm *MountManager) FinishAll() (retErr error) {
 	return retErr
 }
 
+// XXX rip me out
+func parseRepoOpts(args []string) (map[string]*RepoOptions, error) {
+	result := make(map[string]*RepoOptions)
+	for _, arg := range args {
+		var repo string
+		var flag string
+		opts := &RepoOptions{}
+		repoAndRest := strings.Split(arg, "@")
+		if len(repoAndRest) == 1 {
+			// No branch specified
+			opts.Branch = "master"
+			repoAndFlag := strings.Split(repoAndRest[0], "+")
+			repo = repoAndFlag[0]
+			if len(repoAndFlag) > 1 {
+				flag = repoAndFlag[1]
+			}
+		} else {
+			repo = repoAndRest[0]
+			branchAndFlag := strings.Split(repoAndRest[1], "+")
+			opts.Branch = branchAndFlag[0]
+			if len(branchAndFlag) > 1 {
+				flag = branchAndFlag[1]
+			}
+		}
+		if flag != "" {
+			for _, c := range flag {
+				if c != 'w' && c != 'r' {
+					return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, c)
+				}
+			}
+			if strings.Contains("w", flag) {
+				opts.Write = true
+			}
+		}
+		if repo == "" {
+			return nil, errors.Errorf("invalid format %q: repo cannot be empty", arg)
+		}
+		result[repo] = opts
+	}
+	return result, nil
+}
+
 func Server(c *client.APIClient, opts *ServerOptions) error {
 	// TODO: respect opts.Daemonize
 	fmt.Printf("Dynamically mounting pfs to %s\n", opts.MountDir)
-	mm, err := NewMountManager(c, opts.MountDir, &Options{})
+
+	///////////////
+	repoOpts, err := parseRepoOpts([]string{})
+	if err != nil {
+		return err
+	}
+	nopts := &Options{
+		Write: true,
+		Fuse: &fs.Options{
+			MountOptions: gofuse.MountOptions{
+				Debug:  true,
+				FsName: "pfs",
+				Name:   "pfs",
+			},
+		},
+		RepoOptions: repoOpts,
+	}
+
+	///////////////
+
+	mm, err := NewMountManager(c, opts.MountDir, nopts)
 	if err != nil {
 		return err
 	}
