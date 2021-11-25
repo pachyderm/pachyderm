@@ -21,6 +21,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
+// TODO: split out into multiple files
+
 /*
 
 A long-running server which dynamically manages FUSE mounts in the given
@@ -134,22 +136,25 @@ type MountManager struct {
 	// only put a value into the States map when we have a goroutine running for
 	// it. i.e. when we try to mount it for the first time.
 	States map[MountKey]*MountStateMachine
+	mfcs   map[string]*client.ModifyFileClient
+	root   *loopbackRoot
+	opts   *Options
+	target string
 	mu     sync.Mutex
 }
 
 func (mm *MountManager) List() (ListResponse, error) {
-
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
+
 	// fetch list of available repos & branches from pachyderm, and overlay that
 	// with their mount states
-
 	lr := ListResponse{Repos: map[string]RepoResponse{}}
 	repos, err := mm.Client.ListRepo()
 	if err != nil {
 		return lr, err
 	}
-	fmt.Printf("repos: %+v", repos)
+	fmt.Printf("repos: %+v\n", repos)
 	for _, repo := range repos {
 		rr := RepoResponse{Name: repo.Repo.Name, Branches: map[string]BranchResponse{}}
 		bs, err := mm.Client.ListBranch(repo.Repo.Name)
@@ -181,11 +186,12 @@ func (mm *MountManager) List() (ListResponse, error) {
 	return lr, nil
 }
 
-func NewMountStateMachine(key MountKey) *MountStateMachine {
+func NewMountStateMachine(key MountKey, mm *MountManager) *MountStateMachine {
 	return &MountStateMachine{
 		MountState: MountState{
 			MountKey: key,
 		},
+		manager:   mm,
 		mu:        sync.Mutex{},
 		requests:  make(chan MountBranchRequest),
 		responses: make(chan MountBranchResponse),
@@ -198,7 +204,7 @@ func (mm *MountManager) MaybeStartFsm(key MountKey) {
 	_, ok := mm.States[key]
 	if !ok {
 		// set minimal state and kick it off!
-		m := NewMountStateMachine(key)
+		m := NewMountStateMachine(key, mm)
 		mm.States[key] = m
 		go func() {
 			m.Run()
@@ -230,17 +236,86 @@ func (mm *MountManager) MountBranch(key MountKey, name, mode string) (MountBranc
 	return response, response.Error
 }
 
-func NewMountManager(c *client.APIClient) *MountManager {
+func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *MountManager, retErr error) {
+	if err := opts.validate(c); err != nil {
+		return nil, err
+	}
+	commits := make(map[string]string)
+	for repo, branch := range opts.getBranches() {
+		if uuid.IsUUIDWithoutDashes(branch) {
+			commits[repo] = branch
+		}
+	}
+	rootDir, err := ioutil.TempDir("", "pfs")
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	defer func() {
+		if err := os.RemoveAll(rootDir); err != nil && retErr == nil {
+			retErr = errors.WithStack(err)
+		}
+	}()
+	root, err := newLoopbackRoot(rootDir, target, c, opts)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("Loopback root at %s\n", rootDir)
 	return &MountManager{
 		Client: c,
 		States: map[MountKey]*MountStateMachine{},
+		mfcs:   map[string]*client.ModifyFileClient{},
+		root:   root,
+		opts:   opts,
+		target: target,
 		mu:     sync.Mutex{},
+	}, nil
+}
+
+func (mm *MountManager) Start() (retErr error) {
+	fmt.Printf("Starting mount to %s\n", mm.target)
+	server, err := fs.Mount(mm.target, mm.root, mm.opts.getFuse())
+	if err != nil {
+		return errors.WithStack(err)
 	}
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	go func() {
+		select {
+		case <-sigChan:
+		case <-mm.opts.getUnmount():
+		}
+		server.Unmount()
+	}()
+	server.Wait()
+	defer mm.FinishAll()
+	err = mm.uploadFiles("")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (mm *MountManager) FinishAll() (retErr error) {
+	for _, mfc := range mm.mfcs {
+		if err := mfc.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}
+	return retErr
 }
 
 func Server(c *client.APIClient, opts *ServerOptions) error {
 	// TODO: respect opts.Daemonize
-	mm := NewMountManager(c)
+	fmt.Printf("Dynamically mounting pfs to %s\n", opts.MountDir)
+	mm, err := NewMountManager(c, opts.MountDir, &Options{})
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		mm.Start()
+		os.Exit(0)
+	}()
 
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -320,6 +395,7 @@ type MountState struct {
 
 type MountStateMachine struct {
 	MountState
+	manager   *MountManager
 	mu        sync.Mutex
 	requests  chan MountBranchRequest
 	responses chan MountBranchResponse
@@ -428,82 +504,42 @@ func unmountedState(m *MountStateMachine) StateFn {
 }
 
 func mountingState(m *MountStateMachine) StateFn {
+	m.transitionedTo("mounting", "")
 	return nil
 }
 
-// Mount pfs to target, opts may be left nil.
-func MountX(c *client.APIClient, target string, opts *Options) (retErr error) {
-	if err := opts.validate(c); err != nil {
-		return err
-	}
-	commits := make(map[string]string)
-	for repo, branch := range opts.getBranches() {
-		if uuid.IsUUIDWithoutDashes(branch) {
-			commits[repo] = branch
-		}
-	}
-	rootDir, err := ioutil.TempDir("", "pfs")
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer func() {
-		if err := os.RemoveAll(rootDir); err != nil && retErr == nil {
-			retErr = errors.WithStack(err)
-		}
-	}()
-	root, err := newLoopbackRoot(rootDir, target, c, opts)
-	if err != nil {
-		return err
-	}
-	server, err := fs.Mount(target, root, opts.getFuse())
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-	go func() {
-		select {
-		case <-sigChan:
-		case <-opts.getUnmount():
-		}
-		server.Unmount()
-	}()
-	server.Wait()
-	mfcs := make(map[string]*client.ModifyFileClient)
-	mfc := func(repo string) (*client.ModifyFileClient, error) {
-		if mfc, ok := mfcs[repo]; ok {
-			return mfc, nil
-		}
-		mfc, err := c.NewModifyFileClient(client.NewCommit(repo, root.branch(repo), ""))
-		if err != nil {
-			return nil, err
-		}
-		mfcs[repo] = mfc
+func (mm *MountManager) mfc(repo string) (*client.ModifyFileClient, error) {
+	if mfc, ok := mm.mfcs[repo]; ok {
 		return mfc, nil
 	}
-	defer func() {
-		for _, mfc := range mfcs {
-			if err := mfc.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}
-	}()
+	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(repo, mm.root.branch(repo), ""))
+	if err != nil {
+		return nil, err
+	}
+	mm.mfcs[repo] = mfc
+	return mfc, nil
+}
+
+func (mm *MountManager) uploadFiles(prefixFilter string) error {
 	fmt.Println("Uploading files to Pachyderm...")
 	// Rendering progress bars for thousands of files significantly slows down
 	// throughput. Disabling progress bars takes throughput from 1MB/sec to
 	// 200MB/sec on my system, when uploading 18K small files.
 	progress.Disable()
-	for path, state := range root.files {
+	for path, state := range mm.root.files {
+		if !strings.HasPrefix(path, prefixFilter) {
+			continue
+		}
 		if state != dirty {
 			continue
 		}
 		parts := strings.Split(path, "/")
-		mfc, err := mfc(parts[0])
+		mfc, err := mm.mfc(parts[0])
 		if err != nil {
 			return err
 		}
 		if err := func() (retErr error) {
-			f, err := progress.Open(filepath.Join(root.rootPath, path))
+			f, err := progress.Open(filepath.Join(mm.root.rootPath, path))
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					return mfc.DeleteFile(pathpkg.Join(parts[1:]...))
