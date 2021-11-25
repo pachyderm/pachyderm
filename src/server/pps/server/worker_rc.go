@@ -12,7 +12,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
-	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -268,7 +267,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
 		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount)
 	}
-	secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(pc.env.Config.StorageBackend)
+	secretVolume, secretMount := GetBackendSecretVolumeAndMount(pc.env.Config.StorageBackend)
 	options.volumes = append(options.volumes, secretVolume)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
@@ -829,6 +828,23 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 	}
 
 	return nil
+}
+
+// GetBackendSecretVolumeAndMount returns a properly configured Volume and
+// VolumeMount object given a backend.  The backend needs to be one of the
+// constants defined in pfs/server.
+func GetBackendSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) {
+	return v1.Volume{
+			Name: client.StorageSecretName,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: client.StorageSecretName,
+				},
+			},
+		}, v1.VolumeMount{
+			Name:      client.StorageSecretName,
+			MountPath: "/" + client.StorageSecretName,
+		}
 }
 
 func int64Ptr(x int64) *int64 {
