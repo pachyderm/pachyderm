@@ -3,12 +3,22 @@ package fuse
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os"
+	"os/signal"
+	pathpkg "path"
+	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/gorilla/mux"
+	"github.com/hanwen/go-fuse/v2/fs"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 /*
@@ -171,13 +181,24 @@ func (mm *MountManager) List() (ListResponse, error) {
 	return lr, nil
 }
 
+func NewMountStateMachine(key MountKey) *MountStateMachine {
+	return &MountStateMachine{
+		MountState: MountState{
+			MountKey: key,
+		},
+		mu:        sync.Mutex{},
+		requests:  make(chan MountBranchRequest),
+		responses: make(chan MountBranchResponse),
+	}
+}
+
 func (mm *MountManager) MaybeStartFsm(key MountKey) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 	_, ok := mm.States[key]
 	if !ok {
 		// set minimal state and kick it off!
-		m := &MountStateMachine{MountState: MountState{MountKey: key}}
+		m := NewMountStateMachine(key)
 		mm.States[key] = m
 		go func() {
 			m.Run()
@@ -191,24 +212,35 @@ func (mm *MountManager) MaybeStartFsm(key MountKey) {
 	} // else: fsm was already running
 }
 
-func (mm *MountManager) MountBranch(repo, branch, name, mode string) (MountBranchResponse, error) {
+func (mm *MountManager) MountBranch(key MountKey, name, mode string) (MountBranchResponse, error) {
 	// name: an optional name for the mount, corresponds to where on the
 	// filesystem the repo actually gets mounted. e.g. /pfs/{name}
-	k := MountKey{repo, branch, ""}
-	mm.MaybeStartFsm(k)
-	mm.States[k].requests <- MountBranchRequest{
-		Repo:   repo,
-		Branch: branch,
+	mm.MaybeStartFsm(key)
+	fmt.Println("Sending request...")
+	mm.States[key].requests <- MountBranchRequest{
+		Repo:   key.Repo,
+		Branch: key.Branch,
 		Name:   name,
 		Mode:   mode,
 	}
-	response := <-mm.States[k].responses
+	fmt.Println("sent!")
+	fmt.Println("reading response...")
+	response := <-mm.States[key].responses
+	fmt.Println("read!")
 	return response, response.Error
+}
+
+func NewMountManager(c *client.APIClient) *MountManager {
+	return &MountManager{
+		Client: c,
+		States: map[MountKey]*MountStateMachine{},
+		mu:     sync.Mutex{},
+	}
 }
 
 func Server(c *client.APIClient, opts *ServerOptions) error {
 	// TODO: respect opts.Daemonize
-	mm := MountManager{Client: c}
+	mm := NewMountManager(c)
 
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -224,36 +256,48 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 		}
 		w.Write(marshalled)
 	})
-	router.Methods("PUT").Path("/repos/{key:.+}/_mount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		vs := mux.Vars(req)
-		mode, ok := vs["mode"]
-		if !ok {
-			http.Error(w, "no mode", http.StatusBadRequest)
-			return
-		}
-		name, ok := vs["name"]
-		if !ok {
-			http.Error(w, "no name", http.StatusBadRequest)
-			return
-		}
-		k, ok := vs["key"]
-		if !ok {
-			http.Error(w, "no key", http.StatusBadRequest)
-			return
-		}
-		key, err := mountKeyFromString(k)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		// TODO: use response (serialize it to the client, it's polite to hand
-		// back the object you just modified in the API response)
-		_, err = mm.MountBranch(key.Repo, key.Branch, name, mode)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	})
+	router.Methods("PUT").
+		Path("/repos/{key:.+}/_mount").
+		Queries("mode", "{mode}").
+		Queries("name", "{name}").
+		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			vs := mux.Vars(req)
+			mode, ok := vs["mode"]
+			if !ok {
+				http.Error(w, "no mode", http.StatusBadRequest)
+				return
+			}
+			name, ok := vs["name"]
+			if !ok {
+				http.Error(w, "no name", http.StatusBadRequest)
+				return
+			}
+			k, ok := vs["key"]
+			if !ok {
+				http.Error(w, "no key", http.StatusBadRequest)
+				return
+			}
+			key, err := mountKeyFromString(k)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			if key.Commit != "" {
+				http.Error(
+					w,
+					"don't support mounting commits yet",
+					http.StatusBadRequest,
+				)
+				return
+			}
+			// TODO: use response (serialize it to the client, it's polite to hand
+			// back the object you just modified in the API response)
+			_, err = mm.MountBranch(key, name, mode)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		})
 	router.Methods("PUT").Path("/repos/{key:.+}/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 	})
 	// TODO: implement _commit
@@ -344,7 +388,7 @@ type StateFn func(*MountStateMachine) StateFn
 func (m *MountStateMachine) transitionedTo(state, status string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	fmt.Printf("[%s] %s -> %s", m.MountKey, m.State, m.State)
+	fmt.Printf("[%s] %s -> %s\n", m.MountKey, m.State, state)
 	m.State = state
 	m.Status = status
 }
@@ -368,5 +412,114 @@ func discoveringState(m *MountStateMachine) StateFn {
 func unmountedState(m *MountStateMachine) StateFn {
 	m.transitionedTo("unmounted", "")
 	// TODO: listen on our request chan, mount filesystems, and respond
+	for {
+		req := <-m.requests
+		fmt.Printf("Read req: %+v\n", req)
+		m.responses <- MountBranchResponse{
+			Repo:       m.MountKey.Repo,
+			Branch:     m.MountKey.Branch,
+			Name:       m.Name,
+			MountState: m.MountState,
+			Error:      nil,
+		}
+		return mountingState
+		// TODO: actually mount that shit!
+	}
+}
+
+func mountingState(m *MountStateMachine) StateFn {
+	return nil
+}
+
+// Mount pfs to target, opts may be left nil.
+func MountX(c *client.APIClient, target string, opts *Options) (retErr error) {
+	if err := opts.validate(c); err != nil {
+		return err
+	}
+	commits := make(map[string]string)
+	for repo, branch := range opts.getBranches() {
+		if uuid.IsUUIDWithoutDashes(branch) {
+			commits[repo] = branch
+		}
+	}
+	rootDir, err := ioutil.TempDir("", "pfs")
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer func() {
+		if err := os.RemoveAll(rootDir); err != nil && retErr == nil {
+			retErr = errors.WithStack(err)
+		}
+	}()
+	root, err := newLoopbackRoot(rootDir, target, c, opts)
+	if err != nil {
+		return err
+	}
+	server, err := fs.Mount(target, root, opts.getFuse())
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	go func() {
+		select {
+		case <-sigChan:
+		case <-opts.getUnmount():
+		}
+		server.Unmount()
+	}()
+	server.Wait()
+	mfcs := make(map[string]*client.ModifyFileClient)
+	mfc := func(repo string) (*client.ModifyFileClient, error) {
+		if mfc, ok := mfcs[repo]; ok {
+			return mfc, nil
+		}
+		mfc, err := c.NewModifyFileClient(client.NewCommit(repo, root.branch(repo), ""))
+		if err != nil {
+			return nil, err
+		}
+		mfcs[repo] = mfc
+		return mfc, nil
+	}
+	defer func() {
+		for _, mfc := range mfcs {
+			if err := mfc.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}
+	}()
+	fmt.Println("Uploading files to Pachyderm...")
+	// Rendering progress bars for thousands of files significantly slows down
+	// throughput. Disabling progress bars takes throughput from 1MB/sec to
+	// 200MB/sec on my system, when uploading 18K small files.
+	progress.Disable()
+	for path, state := range root.files {
+		if state != dirty {
+			continue
+		}
+		parts := strings.Split(path, "/")
+		mfc, err := mfc(parts[0])
+		if err != nil {
+			return err
+		}
+		if err := func() (retErr error) {
+			f, err := progress.Open(filepath.Join(root.rootPath, path))
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return mfc.DeleteFile(pathpkg.Join(parts[1:]...))
+				}
+				return errors.WithStack(err)
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = errors.WithStack(err)
+				}
+			}()
+			return mfc.PutFile(pathpkg.Join(parts[1:]...), f)
+		}(); err != nil {
+			return err
+		}
+	}
+	fmt.Println("Done!")
 	return nil
 }
