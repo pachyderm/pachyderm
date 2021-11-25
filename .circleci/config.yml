@@ -15,15 +15,16 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip<< parameters.python-version >>-cache-v2-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v3-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
             python -m venv venv
             . venv/bin/activate
+            python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip<< parameters.python-version >>-cache-v2-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v3-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
 
@@ -51,18 +52,7 @@ jobs:
             python -m pip install -e '.[dev]'
 
             # Run Python unit tests
-            pytest jupyterlab_pachyderm
-            MOCK_PACHYDERM_SERVICE=1 pytest jupyterlab_pachyderm
-
-            # Uninstall local package for fresh install
-            python -m pip uninstall -y jupyterlab-pachyderm
-
-            # Run integration test
-            python -m pip install .
-
-            jupyter server extension list 2>&1 | grep -ie "jupyterlab_pachyderm.*OK"
-            jupyter labextension list 2>&1 | grep -ie "jupyterlab-pachyderm.*OK"
-            python -m jupyterlab.browser_check
+            pytest -v jupyterlab_pachyderm
 
             check-manifest -v
 

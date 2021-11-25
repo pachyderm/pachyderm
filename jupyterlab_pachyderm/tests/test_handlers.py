@@ -1,5 +1,13 @@
+import json
+import sys
+from unittest.mock import patch
+
 import pytest
 import tornado
+
+from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
+from jupyterlab_pachyderm.pachyderm import PachydermMountClient
+
 
 pytest_plugins = ["jupyter_server.pytest_plugin"]
 
@@ -9,76 +17,264 @@ def jp_server_config():
     return {"ServerApp": {"jpserver_extensions": {"jupyterlab_pachyderm": True}}}
 
 
-async def test_handler_repos(jp_fetch):
-    r = await jp_fetch("/pachyderm/v1/repos")
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.ReposHandler.mount_client", spec=PachydermMountClient
+)
+async def test_list_repos(mock_client, jp_fetch):
+    mock_client.list.return_value = {
+        "images": {
+            "branches": {
+                "master": {
+                    "mount": {
+                        "name": None,
+                        "state": "unmounted",
+                        "status": None,
+                        "mode": None,
+                        "mountpoint": None,
+                    }
+                }
+            }
+        },
+        "edges": {
+            "branches": {
+                "master": {
+                    "mount": {
+                        "name": None,
+                        "state": "unmounted",
+                        "status": None,
+                        "mode": None,
+                        "mountpoint": None,
+                    }
+                }
+            }
+        },
+    }
+    r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/repos")
     assert r.code == 200
+    assert json.loads(r.body) == [
+        {
+            "repo": "images",
+            "branches": [
+                {
+                    "branch": "master",
+                    "mount": {
+                        "name": None,
+                        "state": "unmounted",
+                        "mode": None,
+                        "status": None,
+                        "mountpoint": None,
+                    },
+                },
+            ],
+        },
+        {
+            "repo": "edges",
+            "branches": [
+                {
+                    "branch": "master",
+                    "mount": {
+                        "name": None,
+                        "state": "unmounted",
+                        "mode": None,
+                        "status": None,
+                        "mountpoint": None,
+                    },
+                },
+            ],
+        },
+    ]
 
 
-async def test_handler_repo(jp_fetch):
-    r = await jp_fetch("/pachyderm/v1/repos/images")
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.RepoHandler.mount_client", spec=PachydermMountClient
+)
+async def test_get_repo(mock_client, jp_fetch):
+    repo = "myrepo"
+    mock_client.get.return_value = {
+        "branches": {
+            "master": {
+                "mount": {
+                    "name": None,
+                    "state": "unmounted",
+                    "mode": None,
+                    "status": None,
+                    "mountpoint": None,
+                },
+            }
+        }
+    }
+
+    r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/repos/{repo}")
+
+    mock_client.get.assert_called_with(repo)
+
     assert r.code == 200
+    assert json.loads(r.body) == {
+        "repo": repo,
+        "branches": [
+            {
+                "branch": "master",
+                "mount": {
+                    "name": None,
+                    "state": "unmounted",
+                    "mode": None,
+                    "status": None,
+                    "mountpoint": None,
+                },
+            }
+        ],
+    }
 
 
-async def test_handler_repo_mount_without_name(jp_fetch):
-    with pytest.raises(tornado.httpclient.HTTPClientError):
-        await jp_fetch("/pachyderm/v1/repos/images/_mount", method="PUT", body="{}")
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+async def test_mount_without_name(jp_fetch):
+    # checked by client side path parser, so no mock is needed
+    with pytest.raises(tornado.httpclient.HTTPClientError) as e:
+        await jp_fetch(
+            f"/{NAMESPACE}/{VERSION}/repos/images/_mount", method="PUT", body="{}"
+        )
+        # note must exit context to capture response
+    assert e.value.code == 400
+    assert e.value.response.reason == "Missing `name` query parameter"
 
 
-async def test_handler_repo_mount(jp_fetch):
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.RepoMountHandler.mount_client",
+    spec=PachydermMountClient,
+)
+async def test_mount(mock_client, jp_fetch):
+    repo, name, mode = "myrepo", "myrepo_mount_name", "ro"
+    mock_client.mount.return_value = {
+        "mount": {
+            "name": name,
+            "mode": mode,
+            "state": "mounted",
+            "status": None,
+            "mountpoint": f"/pfs/{name}",
+        }
+    }
+
     r = await jp_fetch(
-        "/pachyderm/v1/repos/images/_mount",
+        f"/pachyderm/v1/repos/{repo}/_mount",
         method="PUT",
-        params={"name": "images"},
+        params={"name": name, "mode": mode},
         body="{}",
     )
+
+    mock_client.mount.assert_called_with(repo, "master", mode, name)
+
     assert r.code == 200
+    assert json.loads(r.body) == {
+        "repo": repo,
+        "branch": "master",
+        "mount": {
+            "name": name,
+            "mode": "ro",
+            "state": "mounted",
+            "status": None,
+            "mountpoint": f"/pfs/{name}",
+        },
+    }
 
 
-async def test_handler_repo_mount_with_mode(jp_fetch):
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.RepoMountHandler.mount_client",
+    spec=PachydermMountClient,
+)
+async def test_mount_with_branch_and_mode(mock_client, jp_fetch):
+    repo, branch, mode, name = "myrepo", "mybranch", "rw", "myrepo_mount_name"
+    mock_client.mount.return_value = {
+        "mount": {
+            "name": name,
+            "mode": mode,
+            "state": "mounted",
+            "status": None,
+            "mountpoint": f"/pfs/{name}",
+        }
+    }
+
     r = await jp_fetch(
-        "/pachyderm/v1/repos/images/_mount",
+        f"/{NAMESPACE}/{VERSION}/repos/{repo}/{branch}/_mount",
         method="PUT",
-        params={"name": "images", "mode": "w"},
+        params={"name": name, "mode": mode},
         body="{}",
     )
+
+    mock_client.mount.assert_called_with(repo, branch, mode, name)
+
     assert r.code == 200
+    assert json.loads(r.body) == {
+        "repo": repo,
+        "branch": branch,
+        "mount": {
+            "name": name,
+            "mode": mode,
+            "state": "mounted",
+            "status": None,
+            "mountpoint": f"/pfs/{name}",
+        },
+    }
 
 
-async def test_handler_repo_unmount(jp_fetch):
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.RepoUnmountHandler.mount_client",
+    spec=PachydermMountClient,
+)
+async def test_unmount_with_branch(mock_client, jp_fetch):
+    repo, branch, name = "myrepo", "mybranch", "mount_name"
+    mock_client.unmount.return_value = {
+        "mount": {
+            "name": None,
+            "mode": None,
+            "state": "unmounted",
+            "status": None,
+            "mountpoint": None,
+        },
+    }
+
     r = await jp_fetch(
-        "/pachyderm/v1/repos/images/_unmount",
+        f"/{NAMESPACE}/{VERSION}/repos/{repo}/{branch}/_unmount",
         method="PUT",
-        params={"name": "images"},
+        params={"name": name},
         body="{}",
     )
+
+    mock_client.unmount.assert_called_with(repo, branch, name)
+
     assert r.code == 200
+    assert json.loads(r.body) == {
+        "repo": repo,
+        "branch": branch,
+        "mount": {
+            "name": None,
+            "mode": None,
+            "state": "unmounted",
+            "status": None,
+            "mountpoint": None,
+        },
+    }
 
 
-async def test_handler_repo_branch_mount(jp_fetch):
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.RepoCommitHandler.mount_client",
+    spec=PachydermMountClient,
+)
+async def test_commit(mock_client, jp_fetch):
+    repo, branch, name, message = "myrepo", "mybranch", "mount_name", "First commit"
+    mock_client.commit.return_value = True
+
     r = await jp_fetch(
-        "/pachyderm/v1/repos/images/master/_mount",
-        method="PUT",
-        params={"name": "images"},
-        body="{}",
-    )
-    assert r.code == 200
-
-
-async def test_handler_repo_branch_unmount(jp_fetch):
-    r = await jp_fetch(
-        "/pachyderm/v1/repos/images/master/_unmount",
-        method="PUT",
-        params={"name": "images"},
-        body="{}",
-    )
-    assert r.code == 200
-
-
-async def test_handler_repo_commit(jp_fetch):
-    r = await jp_fetch(
-        "/pachyderm/v1/repos/images/master/_commit",
+        f"/{NAMESPACE}/{VERSION}/repos/{repo}/{branch}/_commit",
         method="POST",
-        params={"name": "images"},
-        body='{"message": "First commit"}',
+        params={"name": name},
+        body=json.dumps({"message": message}),
     )
+
+    mock_client.commit.assert_called_with(repo, branch, name, message)
     assert r.code == 200

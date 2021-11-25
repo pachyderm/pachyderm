@@ -1,47 +1,55 @@
-from .pachyderm import PachydermMountClient
+from collections import namedtuple
 
 
-class MockPachydermMountClient(PachydermMountClient):
+# Need to conform to Repo object in the RPC response
+Repo = namedtuple("Repo", ["repo", "branches"])
+RepoName = namedtuple("RepoName", ["name"])
+BranchName = namedtuple("BranchName", ["name"])
+
+
+class MockPachydermClient:
+    """Mocks python_pachyderm.Client"""
+
     def __init__(self, data=None):
         self.repos = (
             data
             if data
-            else {
-                "images": {
-                    "master": {"state": "unmounted", "name": None, "mode": None},
-                    "dev": {"state": "unmounted", "name": None, "mode": None},
-                },
-                "edges": {
-                    "master": {"state": "unmounted", "name": None, "mode": None},
-                },
-            }
+            else [
+                Repo(
+                    repo=RepoName("images"),
+                    branches=[
+                        BranchName("master"),
+                    ],
+                ),
+                Repo(
+                    repo=RepoName("edges"),
+                    branches=[
+                        BranchName("master"),
+                    ],
+                ),
+                Repo(
+                    repo=RepoName("montage"),
+                    branches=[
+                        BranchName("master"),
+                    ],
+                ),
+            ]
         )
 
-    def _find_repo(self, repo, branch):
-        return self.repos.get(repo, {}).get(branch, None)
+    def _create_repos(self, repos):
+        for repo in repos:
+            self.repos.append(
+                Repo(
+                    repo=RepoName(repo["repo"]),
+                    branches=[BranchName(branch) for branch in repo["branches"]],
+                )
+            )
 
-    def list(self):
+    def list_repo(self):
         return self.repos
 
-    def get(self, repo):
-        return self.repos.get(repo, {})
+    def mount(self, mount_dir, repos):
+        pass
 
-    def mount(self, repo, branch, mode, name):
-        mount_info = self._find_repo(repo, branch)
-        if mount_info and mount_info["state"] == "unmounted":
-            mount_info["state"] = "mounted"
-            mount_info["name"] = name
-            mount_info["mode"] = mode
-            return {repo: {branch: mount_info}}
-
-    def unmount(self, repo, branch, name):
-        mount_info = self._find_repo(repo, branch)
-        if (
-            mount_info
-            and mount_info["state"] == "mounted"
-            and mount_info["name"] == name
-        ):
-            mount_info["state"] = "unmounted"
-            mount_info["mode"] = None
-            mount_info["name"] = None
-            return {repo: {branch: mount_info}}
+    def unmount(self, mount_dir):
+        pass
