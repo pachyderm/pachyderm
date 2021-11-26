@@ -100,6 +100,7 @@ func mountCmds() []*cobra.Command {
 			}
 			// Prints a warning if we're on macOS
 			printWarning()
+			fmt.Printf("opts = %+v\n", opts)
 			return fuse.Mount(c, mountPoint, opts)
 		}),
 	}

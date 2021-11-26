@@ -260,6 +260,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	if err != nil {
 		return nil, err
 	}
+	// XXX rootDir doesn't get made!
 	fmt.Printf("Loopback root at %s\n", rootDir)
 	return &MountManager{
 		Client: c,
@@ -273,8 +274,9 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 }
 
 func (mm *MountManager) Start() (retErr error) {
-	fmt.Printf("Starting mount to %s\n", mm.target)
-	server, err := fs.Mount(mm.target, mm.root, mm.opts.getFuse())
+	fuse := mm.opts.getFuse()
+	fmt.Printf("Starting mount to %s, fuse=%+v\n", mm.target, fuse)
+	server, err := fs.Mount(mm.target, mm.root, fuse)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -367,6 +369,7 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 		},
 		RepoOptions: repoOpts,
 	}
+	fmt.Printf("nopts: %+v", nopts)
 
 	///////////////
 
@@ -568,7 +571,37 @@ func unmountedState(m *MountStateMachine) StateFn {
 
 func mountingState(m *MountStateMachine) StateFn {
 	m.transitionedTo("mounting", "")
+	// TODO: refactor this so we're not reaching into another struct's lock
+	m.manager.mu.Lock()
+	defer m.manager.mu.Unlock()
+	m.manager.root.repoOpts[m.MountKey.Repo] = &RepoOptions{
+		Branch: m.MountKey.Repo,
+		Write:  m.Mode == "rw",
+	}
+	// re-downloading the repos with an updated RepoOptions set will have the
+	// effect of causing it to pop into existence, in theory
+
+	// TODO: Test this!
+	err := m.manager.root.downloadRepos()
+	if err != nil {
+		m.transitionedTo("error", err.Error())
+		return errorState
+	}
 	return nil
+}
+
+func errorState(m *MountStateMachine) StateFn {
+	for {
+		// eternally error on responses
+		<-m.requests
+		m.responses <- MountBranchResponse{
+			Repo:       m.MountKey.Repo,
+			Branch:     m.MountKey.Branch,
+			Name:       m.Name,
+			MountState: m.MountState,
+			Error:      fmt.Errorf("in error state, last error message was: %s", m.Status),
+		}
+	}
 }
 
 func (mm *MountManager) mfc(repo string) (*client.ModifyFileClient, error) {
