@@ -519,10 +519,12 @@ func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*
 	return n, nil
 }
 
+var ALLOW_EMPTY bool
+
 func (n *loopbackNode) downloadRepos() (retErr error) {
-	if n.getFileState("") != none {
+	/*if n.getFileState("") != none {
 		return nil
-	}
+	}*/
 	defer func() {
 		if retErr == nil {
 			n.setFileState("", meta)
@@ -536,8 +538,8 @@ func (n *loopbackNode) downloadRepos() (retErr error) {
 	for _, ri := range ris {
 		// If we've specified any repos at all in the opts, and the repo wasn't
 		// specified, skip it. So, if user specifies no repos, all repos are
-		// made visible.
-		if len(ro) > 0 && ro[ri.Repo.Name] == nil {
+		// made visible. _Unless_, noneIsEverything is true.
+		if (len(ro) > 0 || ALLOW_EMPTY) && ro[ri.Repo.Name] == nil {
 			continue
 		}
 		p := n.repoPath(ri)

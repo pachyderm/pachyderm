@@ -140,6 +140,7 @@ type MountManager struct {
 	mfcs   map[string]*client.ModifyFileClient
 	root   *loopbackRoot
 	opts   *Options
+	tmpDir string
 	target string
 	mu     sync.Mutex
 }
@@ -251,16 +252,14 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	defer func() {
-		if err := os.RemoveAll(rootDir); err != nil && retErr == nil {
-			retErr = errors.WithStack(err)
-		}
-	}()
+	fmt.Printf("Creating %s\n", rootDir)
+	if err := os.MkdirAll(rootDir, 0777); err != nil {
+		return nil, err
+	}
 	root, err := newLoopbackRoot(rootDir, target, c, opts)
 	if err != nil {
 		return nil, err
 	}
-	// XXX rootDir doesn't get made!
 	fmt.Printf("Loopback root at %s\n", rootDir)
 	return &MountManager{
 		Client: c,
@@ -269,11 +268,16 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 		root:   root,
 		opts:   opts,
 		target: target,
+		tmpDir: rootDir,
 		mu:     sync.Mutex{},
 	}, nil
 }
 
-func (mm *MountManager) Start() (retErr error) {
+func (mm *MountManager) Cleanup() error {
+	return os.RemoveAll(mm.tmpDir)
+}
+
+func (mm *MountManager) Start() error {
 	fuse := mm.opts.getFuse()
 	fmt.Printf("Starting mount to %s, fuse=%+v\n", mm.target, fuse)
 	server, err := fs.Mount(mm.target, mm.root, fuse)
@@ -307,58 +311,11 @@ func (mm *MountManager) FinishAll() (retErr error) {
 	return retErr
 }
 
-// XXX rip me out
-func parseRepoOpts(args []string) (map[string]*RepoOptions, error) {
-	result := make(map[string]*RepoOptions)
-	for _, arg := range args {
-		var repo string
-		var flag string
-		opts := &RepoOptions{}
-		repoAndRest := strings.Split(arg, "@")
-		if len(repoAndRest) == 1 {
-			// No branch specified
-			opts.Branch = "master"
-			repoAndFlag := strings.Split(repoAndRest[0], "+")
-			repo = repoAndFlag[0]
-			if len(repoAndFlag) > 1 {
-				flag = repoAndFlag[1]
-			}
-		} else {
-			repo = repoAndRest[0]
-			branchAndFlag := strings.Split(repoAndRest[1], "+")
-			opts.Branch = branchAndFlag[0]
-			if len(branchAndFlag) > 1 {
-				flag = branchAndFlag[1]
-			}
-		}
-		if flag != "" {
-			for _, c := range flag {
-				if c != 'w' && c != 'r' {
-					return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, c)
-				}
-			}
-			if strings.Contains("w", flag) {
-				opts.Write = true
-			}
-		}
-		if repo == "" {
-			return nil, errors.Errorf("invalid format %q: repo cannot be empty", arg)
-		}
-		result[repo] = opts
-	}
-	return result, nil
-}
-
 func Server(c *client.APIClient, opts *ServerOptions) error {
 	// TODO: respect opts.Daemonize
 	fmt.Printf("Dynamically mounting pfs to %s\n", opts.MountDir)
 
-	///////////////
-	repoOpts, err := parseRepoOpts([]string{})
-	if err != nil {
-		return err
-	}
-	nopts := &Options{
+	mountOpts := &Options{
 		Write: true,
 		Fuse: &fs.Options{
 			MountOptions: gofuse.MountOptions{
@@ -367,19 +324,33 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 				Name:   "pfs",
 			},
 		},
-		RepoOptions: repoOpts,
+		RepoOptions: make(map[string]*RepoOptions),
 	}
-	fmt.Printf("nopts: %+v", nopts)
+	fmt.Printf("mountOpts: %+v\n", mountOpts)
 
-	///////////////
+	// in server mode, we allow empty mounts. normally, passing no repoOptions
+	// makes fuse mount everything, but we actually want to start out with an
+	// empty mount in the server case.
+	//
+	// TODO: make this not be a global!
+	ALLOW_EMPTY = true
 
-	mm, err := NewMountManager(c, opts.MountDir, nopts)
+	mm, err := NewMountManager(c, opts.MountDir, mountOpts)
 	if err != nil {
 		return err
 	}
 
 	go func() {
-		mm.Start()
+		err := mm.Start()
+		if err != nil {
+			fmt.Printf("Error running mount manager: %s\n", err)
+			os.Exit(1)
+		}
+		err = mm.Cleanup()
+		if err != nil {
+			fmt.Printf("Error cleaning up mount manager: %s\n", err)
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}()
 
@@ -556,6 +527,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 	// TODO: listen on our request chan, mount filesystems, and respond
 	for {
 		req := <-m.requests
+
 		fmt.Printf("Read req: %+v\n", req)
 		m.responses <- MountBranchResponse{
 			Repo:       m.MountKey.Repo,
@@ -572,12 +544,14 @@ func unmountedState(m *MountStateMachine) StateFn {
 func mountingState(m *MountStateMachine) StateFn {
 	m.transitionedTo("mounting", "")
 	// TODO: refactor this so we're not reaching into another struct's lock
-	m.manager.mu.Lock()
-	defer m.manager.mu.Unlock()
-	m.manager.root.repoOpts[m.MountKey.Repo] = &RepoOptions{
-		Branch: m.MountKey.Repo,
-		Write:  m.Mode == "rw",
-	}
+	func() {
+		m.manager.mu.Lock()
+		defer m.manager.mu.Unlock()
+		m.manager.root.repoOpts[m.MountKey.Repo] = &RepoOptions{
+			Branch: m.MountKey.Repo,
+			Write:  m.Mode == "rw",
+		}
+	}()
 	// re-downloading the repos with an updated RepoOptions set will have the
 	// effect of causing it to pop into existence, in theory
 
@@ -595,7 +569,8 @@ func mountedState(m *MountStateMachine) StateFn {
 	for {
 		// TODO: check request type. unmount requests can be satisfied by going
 		// into unmounting. mount requests for already mounted repos should
-		// error.
+		// go back into mounting, as they can remount a fs as ro/rw.
+		//
 		// XXX TODO: need to start respecting name rather than always mounting
 		// repos at their own name in /pfs
 		<-m.requests
