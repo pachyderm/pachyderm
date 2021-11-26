@@ -587,7 +587,20 @@ func mountingState(m *MountStateMachine) StateFn {
 		m.transitionedTo("error", err.Error())
 		return errorState
 	}
-	return nil
+	return mountedState
+}
+
+func mountedState(m *MountStateMachine) StateFn {
+	m.transitionedTo("mounted", "")
+	for {
+		// TODO: check request type. unmount requests can be satisfied by going
+		// into unmounting. mount requests for already mounted repos should
+		// error.
+		// XXX TODO: need to start respecting name rather than always mounting
+		// repos at their own name in /pfs
+		<-m.requests
+		m.responses <- MountBranchResponse{}
+	}
 }
 
 func errorState(m *MountStateMachine) StateFn {
