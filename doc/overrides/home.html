@@ -8,7 +8,7 @@
 solid;font-size:.685rem;font-weight:700;font-family:'Montserrat', sans-serif;cursor:pointer;}.tx-hero
 .md-button--primary{background-color:var(--md-primary-fg-color);color:white;border-color:var(--md-primary-fg-color); padding:5px 20px}.tx-hero .md-button:focus,.tx-hero .md-button:hover{background-color:white;color:hsla(291,53%,29%,1.0);border-color:hsla(291,53%,29%,1.0)}.tx-hero .md-button--primary:hover{background-color:hsla(291,53%,29%,1.0);color:white;border-color:hsla(291,53%,29%,1.0)}.tx-hero .md-link {color:var(--md-primary-fg-color);font-family: 'Montserrat', sans-serif;font-weight:
     700;text-decoration:none;font-size: .685rem;line-height: 24px}.tx-hero .md-link-none{color:white;font-family:'Montserrat', sans-serif;font-weight: 700;text-decoration:none;font-size: .685rem;line-height: 24px}.tx-hero .svg{width: 1.5em;vertical-align: middle;}@media screen and (max-width:30em){.tx-hero h1{font-size:1.4rem}}@media screen and
-  (min-width:60em){.md-sidebar--secondary{display:none}.tx-hero{display:flex;align-items:stretch}.tx-hero__content{max-width:45rem;margin-top:3.5rem;padding-bottom:14vw;padding-right:0;margin-right:0}.tx-hero__image{width:90rem;order:1;transform:translateX(4rem);padding-right:5rem}}@media screen and (min-width:76.25em){.md-sidebar--primary{display:none}.tx-hero__image{transform:translateX(8rem)}}</style>
+  (min-width:60em){.md-sidebar--secondary{display:none}.tx-hero{display:flex;align-items:stretch}.tx-hero__content{max-width:60rem;margin-top:3.5rem;padding-bottom:14vw;padding-right:0;margin-right:0}.tx-hero__image{order:1}}@media screen and (min-width:76.25em){.md-sidebar--primary{display:none}}</style>
   <section class="tx-container">
     <div class="md-grid md-typeset">
       <div class="tx-hero">
@@ -17,16 +17,21 @@ solid;font-size:.685rem;font-weight:700;font-family:'Montserrat', sans-serif;cur
           </div>
           <div class="tx-hero__content">
           <h1>Get Started with Pachyderm</h1>
-          <p style=color:#020408;font-family:'Montserrat',sans-serif;font-weight:400;font-size:14px;line-height:24px;max-width:40rem;>Pachyderm is a platform that enables you to run your data science experiments in a reliable and reproducible way. Deploy locally, in the cloud, or in Pachyderm Hub in minutes.</p>
-          <a href="https://hub.pachyderm.com" title="{{ lang.t('source.link.title') }}" class="md-button md-button--primary md-link-none">
-            Try Pachyderm for Free!
+          <p style=color:#020408;font-family:'Montserrat',sans-serif;font-weight:400;font-size:14px;line-height:24px;max-width:80rem;>
+            Pachyderm is the foundational data layer for scalable AI/ML production systems.
+            <br> We run on Kubernetes and provide data-driven containerized pipelines, data versioning, and lineage for end-to-end reproducibility.
+  
+            Deploy locally, on the cloud, or Pachyderm Hub in minutes.
+          </p>
+          <a href="https://hub.pachyderm.com" title="{{ lang.t('source.link.title') }}" class="md-link">
+              Try Pachyderm on Hub
           </a>
-          <h2>Already a User?</h2>
           <p style=line-height:24px;>
-          <a href="getting_started/" title="{{ lang.t('source.link.title') }}" class="md-link">
-             Get Started
+          <a href="getting_started/local_installation/" title="{{ lang.t('source.link.title') }}" class="md-button md-button--primary md-link-none">
+            Get Started 
           </a>
           </p>
+          <h2>Already a user?</h2>
           <p style=line-height:24px;>
           <a href="deploy-manage/" title="{{ lang.t('source.link.title') }}" class="md-link">
             Deploy in the Cloud
@@ -34,7 +39,7 @@ solid;font-size:.685rem;font-weight:700;font-family:'Montserrat', sans-serif;cur
           </p>
           <p style=line-height:24px;>
           <a href="reference/pipeline_spec/" title="{{ lang.t('source.link.title') }}" class="md-link">
-            Pipeline Spec
+            Pipeline Specifications
           </a>
           </p>
           <p style=line-height:24px;>
