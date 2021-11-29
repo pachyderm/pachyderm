@@ -2,8 +2,9 @@ import classNames from 'classnames';
 import noop from 'lodash/noop';
 import React, {useMemo} from 'react';
 
+import {StatusCheckmarkSVG} from 'Svg';
+
 import {Circle} from '../../../Circle';
-import {SuccessCheckmark} from '../../../SuccessCheckmark';
 import useProgressBar from '../../hooks/useProgressBar';
 
 import styles from './ProgressBarStep.module.css';
@@ -40,8 +41,7 @@ const ProgressBarStep: React.FC<Props> = ({
       >
         <div className={styles.iconWrapper}>
           {isCompleted(id) ? (
-            <SuccessCheckmark
-              show={isCompleted(id)}
+            <StatusCheckmarkSVG
               className={styles.checkmark}
               aria-label="check mark"
               data-testid="ProgressBarStep__successCheckmark"

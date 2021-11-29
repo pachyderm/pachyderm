@@ -66,8 +66,8 @@
   content: "";
   position: absolute;
   top: 10px;
-  width: calc(100% - 24px);
-  left: calc(50% + 12px);
+  width: calc(100% - 6px);
+  left: calc(50% + 6px);
   height: 2px;
   transition: all 1s linear;
   background: linear-gradient(to right, var(--success-green) 50%, var(--dropshadow-grey) 50%);
@@ -94,11 +94,6 @@
   z-index: 2;
 }
 
-.checkmark path+path {
-  fill: var(--success-green)
-
-}
-
 .base.vertical.visited.nextStepVisited::after {
   pointer-events: none;
   background-position:left top;
@@ -115,10 +110,10 @@
 }
 
 .base.vertical::after {
-  top: 22px;
+  top: 14px;
   left: 11.25px;
   width: 2px;
-  height: calc(100% - 24px);
+  height: calc(100% - 8px);
   background: linear-gradient(0deg, var(--dropshadow-grey) 50%, var(--success-green) 50%);
   background-size: 100% 200%;
   background-position:right bottom;
