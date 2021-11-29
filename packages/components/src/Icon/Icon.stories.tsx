@@ -15,10 +15,31 @@ export const Default = () => {
       <Icon color="white">
         <InfoSVG />
       </Icon>
-      <Icon color="purple">
+      <Icon color="plum">
         <InfoSVG />
       </Icon>
-      <Icon color="silver">
+      <Icon color="grey">
+        <InfoSVG />
+      </Icon>
+      <Icon color="green">
+        <InfoSVG />
+      </Icon>
+      <Icon color="red">
+        <InfoSVG />
+      </Icon>
+      <Icon color="yellow">
+        <InfoSVG />
+      </Icon>
+      <Icon color="highlightGreen">
+        <InfoSVG />
+      </Icon>
+      <Icon color="highlightOrange">
+        <InfoSVG />
+      </Icon>
+      <Icon disabled>
+        <InfoSVG />
+      </Icon>
+      <Icon color="plum" disabled>
         <InfoSVG />
       </Icon>
       <Icon small>

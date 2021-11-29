@@ -6,8 +6,13 @@ import styles from './Icon.module.css';
 const Colors = {
   black: 'black',
   white: 'white',
-  purple: 'purple',
-  silver: 'silver',
+  plum: 'plum',
+  grey: 'grey',
+  green: 'green',
+  red: 'red',
+  yellow: 'yellow',
+  highlightGreen: 'highlightGreen',
+  highlightOrange: 'highlightOrange',
 };
 
 type IconColor = keyof typeof Colors;
@@ -15,9 +20,10 @@ type IconColor = keyof typeof Colors;
 export type Props = React.HTMLAttributes<HTMLDivElement> & {
   color?: IconColor;
   small?: boolean;
+  disabled?: boolean;
 };
 
-const defaultColor = Colors.purple;
+const defaultColor = Colors.black;
 
 export const Icon: FunctionComponent<Props> = ({
   children,
@@ -25,15 +31,14 @@ export const Icon: FunctionComponent<Props> = ({
   small,
   style,
   className,
+  disabled,
   ...rest
 }) => {
   const actualColor = (color && Colors[color]) || defaultColor;
   const classes = classNames(styles.base, className, {
-    [styles.black]: actualColor === Colors.black,
-    [styles.white]: actualColor === Colors.white,
-    [styles.purple]: actualColor === Colors.purple,
-    [styles.silver]: actualColor === Colors.silver,
+    [styles[actualColor]]: true,
     [styles.small]: small,
+    [styles.disabled]: disabled,
   });
   return (
     <div className={classes} style={style} {...rest}>

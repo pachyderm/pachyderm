@@ -4,6 +4,10 @@
   }
 }
 
+.base {
+  color: var(--success-green);
+}
+
 .base > path {
   fill: none;
   stroke: var(--success-green);

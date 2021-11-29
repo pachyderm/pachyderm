@@ -9,6 +9,7 @@ import {
 
 import useRHFInputProps from 'hooks/useRHFInputProps';
 
+import {Icon} from '../Icon';
 import {CheckboxCheckedSVG, CheckboxSVG} from '../Svg';
 
 import styles from './Checkbox.module.css';
@@ -68,19 +69,15 @@ export const Checkbox: React.FC<CheckboxProps> = ({
         />
 
         {!value && (
-          <CheckboxSVG
-            className={styles.checkbox}
-            aria-hidden
-            focusable={false}
-          />
+          <Icon small={small} color="plum">
+            <CheckboxSVG aria-hidden focusable={false} />
+          </Icon>
         )}
 
         {value && (
-          <CheckboxCheckedSVG
-            className={styles.checked}
-            aria-hidden
-            focusable={false}
-          />
+          <Icon small={small} color="plum">
+            <CheckboxCheckedSVG aria-hidden focusable={false} />
+          </Icon>
         )}
       </div>
 
@@ -113,19 +110,15 @@ export const PureCheckbox: React.FC<PureCheckboxProps> = ({
         />
 
         {!selected && (
-          <CheckboxSVG
-            className={styles.checkbox}
-            aria-hidden
-            focusable={false}
-          />
+          <Icon small={small} color="plum">
+            <CheckboxSVG aria-hidden focusable={false} />
+          </Icon>
         )}
 
         {selected && (
-          <CheckboxCheckedSVG
-            className={styles.checked}
-            aria-hidden
-            focusable={false}
-          />
+          <Icon small={small} color="plum">
+            <CheckboxCheckedSVG aria-hidden focusable={false} />
+          </Icon>
         )}
       </div>
 

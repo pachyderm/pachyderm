@@ -27,12 +27,12 @@
   transition: fill 0.2s;
 }
 
-.input:not(:disabled):hover + .checkbox > path {
-  fill: var(--hover-plum);
+.input:not(:disabled):hover + .checkbox {
+  color: var(--hover-plum);
 }
 
-.input:not(:disabled):focus + .checkbox > path {
-  fill: var(--pachyderm-plum);
+.input:not(:disabled):focus + .checkbox {
+  color: var(--pachyderm-plum);
 }
 
 .label {

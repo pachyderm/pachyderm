@@ -33,3 +33,10 @@ MAKE SURE YOU HAVE BUMPED VERSION NUMBER
 
 Any time you merge something to master and it contains an update to the component library, the docs will be automatically built and publish to netlify.
 
+### Adding Icons
+1. We typically export our own icons created in-house. Most commonly, we have access to a raw SVG created from Sketch.
+2. Pass the SVG through [SVGO](https://jakearchibald.github.io/svgomg/) with default settings.
+3. Add the Icon under the `SVG` component and update `index.ts` and `Svg.stories.tsx` as appropriate.
+4. Make sure the icon inherits colors from its parents using the `fill="currentcolor"` property.
+5. Make sure there are no potential conflicting SVG ids such as `id="a"` or `id="#b"`. In that case, rename them to something unique to the new SVG.
+

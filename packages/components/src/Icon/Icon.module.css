@@ -4,28 +4,49 @@
   height: 20px;
   line-height: 0.5;
   --icon-shadow: #000000;
+  color: var(--pachyderm-black);
 }
 
-.white path:last-of-type {
-  --icon-color: var(--background-grey);
-  fill: var(--background-grey);
+.disabled  {
+  color: var(--grey-7);
 }
 
-.black path:last-of-type {
-  --icon-color: var(--pachyderm-black);
-  fill: var(--pachyderm-black);
+.white  {
+  color: var(--white);
 }
 
-.purple path:last-of-type {
-  --icon-color: var(--pachyderm-plum);
-  fill: var(--pachyderm-plum);
+.grey  {
+  color: var(--grey-7);
 }
 
-.silver path:last-of-type {
-  --icon-color: var(--placeholder-grey);
-  fill: var(--placeholder-grey);
+.plum  {
+  color: var(--pachyderm-plum);
+}
+
+.plum.disabled  {
+  color: var(--disabled-plum);
+}
+
+.green  {
+  color: var(--icon-green);
+}
+
+.highlightGreen  {
+  color: var(--banner-green);
+}
+
+.red  {
+  color: var(--pachyderm-red);
+}
+
+.yellow  {
+  color: var(--pachyderm-yellow);
+}
+
+.highlightOrange  {
+  color: var(--highlight-orange);
 }
 
 .small {
-  transform: scale(calc(2/3));
+  transform: scale(0.75);
 }

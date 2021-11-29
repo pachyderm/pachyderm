@@ -21,18 +21,23 @@
   --pachyderm-green: #5BA3B1;
   --banner-green: #19CAAA;
   --success-green: #00DBB4;
+  --icon-green: #118873;
   --background-green-light: #ECFBF7;
   --background-blue: #ECF5F7;
   --background-blue-light: #F7FBFB;
 
+  --pachyderm-red: #BF444F;
   --error-red: #E02020;
   --highlight-orange: #FA6400;
   --highlight-yellow: #FFD256;
+  --pachyderm-yellow: #FF9600;
   --pachyderm-coral: #DF686C;
   --pachyderm-orange: #FF9674;
+  --highlight-orange: #FFB474;
   --background-pink: #F2E9E9;
 
   --pachyderm-plum: #582F6B;
+  --disabled-plum: #6D5577;
   --hover-plum: #672373;
   --highlight-plum: #B620E0;
 

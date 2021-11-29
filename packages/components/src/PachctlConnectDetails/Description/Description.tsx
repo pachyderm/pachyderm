@@ -72,7 +72,7 @@ const Description: React.FC<DescriptionProps> = ({
               onClick={handleClick}
               aria-label="Copy"
             >
-              <Icon>
+              <Icon color="plum" small>
                 <CopySVG />
               </Icon>
             </ButtonLink>

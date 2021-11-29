@@ -232,8 +232,14 @@ export const UIIcons = () => {
         <SVGWrapper title="ExternalLinkSVG">
           <IconsSVG.ExternalLinkSVG />
         </SVGWrapper>
+        <SVGWrapper title="FlipSVG">
+          <IconsSVG.FlipSVG />
+        </SVGWrapper>
         <SVGWrapper title="FullscreenSVG">
           <IconsSVG.FullscreenSVG />
+        </SVGWrapper>
+        <SVGWrapper title="HomeSVG">
+          <IconsSVG.HomeSVG />
         </SVGWrapper>
         <SVGWrapper title="InfoSVG">
           <IconsSVG.InfoSVG />
