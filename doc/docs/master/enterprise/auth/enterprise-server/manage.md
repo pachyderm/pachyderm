@@ -8,7 +8,7 @@ and separately an **active enterprise context**.
 
 To check the active enterprise context, run:
 ```shell
-$ pachctl config get active-enterprise-context
+pachctl config get active-enterprise-context
 ```
 
 !!! Warning "Important Notes"
@@ -26,12 +26,12 @@ the [**Pachyderm Integration with Identity Providers**](../../authentication/idp
 By default, only the `root token` (Root User) can administer the Enterprise Server. 
 Run the following command to add more ClusterAdmin to your Enterprise Server:
 ```shell
-$ pachctl auth set enterprise clusterAdmin user:<email>
+pachctl auth set enterprise clusterAdmin user:<email>
 ```
 
 ### List All Registered Clusters
 ```shell
-$ pachctl license list-clusters
+pachctl license list-clusters
 ```	
 The output includes the pachd version, whether auth is enabled, and the last heartbeat:
 ```
@@ -47,19 +47,19 @@ In the case where the enterprise server of your organization has multiple pachd 
 you can use the following command to “discover” other pachd instances. It will automatically update your `~/.pachyderm/config.json` file with all the contexts you can connect to.
 
 ```shell
-$ pachctl enterprise sync-contexts
+pachctl enterprise sync-contexts
 ```	
 
 ### Update The Enterprise License
 To apply a new license and have it picked up by all clusters, run:
 ```shell
-$ pachctl license activate --no-register
+pachctl license activate --no-register
 ```
 
 ### Unregister A Cluster
 To unregister a given cluster from your Enterprise Server, run:
 ```shell
-$ pachctl license delete-cluster --id <cluster id>
+pachctl license delete-cluster --id <cluster id>
 ```
 
 ### Undeploy
