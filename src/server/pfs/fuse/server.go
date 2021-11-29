@@ -151,7 +151,7 @@ func (mm *MountManager) List() (ListResponse, error) {
 
 	// fetch list of available repos & branches from pachyderm, and overlay that
 	// with their mount states
-	lr := ListResponse{Repos: map[string]RepoResponse{}}
+	lr := map[string]RepoResponse{}
 	repos, err := mm.Client.ListRepo()
 	if err != nil {
 		return lr, err
@@ -172,13 +172,13 @@ func (mm *MountManager) List() (ListResponse, error) {
 			}
 			s, ok := mm.States[k]
 			if ok {
-				br.State = s.MountState
+				br.Mount = s.MountState
 			} else {
-				br.State = MountState{State: "unmounted"}
+				br.Mount = MountState{State: "unmounted"}
 			}
 			rr.Branches[branch.Branch.Name] = br
 		}
-		lr.Repos[repo.Repo.Name] = rr
+		lr[repo.Repo.Name] = rr
 	}
 
 	// TODO: also add any repos/branches that have been deleted from pachyderm
@@ -319,7 +319,7 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 		Write: true,
 		Fuse: &fs.Options{
 			MountOptions: gofuse.MountOptions{
-				Debug:  true,
+				Debug:  false,
 				FsName: "pfs",
 				Name:   "pfs",
 			},
@@ -422,12 +422,12 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 }
 
 type MountState struct {
-	Name       string
-	MountKey   MountKey
-	State      string // "unmounted", "mounting", "mounted", "pushing", "unmounted", "error"
-	Status     string // human readable string with additional info wrt State, e.g. an error message for the error state
-	Mode       string // "ro", "rw", or "" if unknown/unspecified
-	Mountpoint string // where on the filesystem it's mounted
+	Name       string   `json:"name"`
+	MountKey   MountKey `json:"mount_key"`
+	State      string   `json:"state"`      // "unmounted", "mounting", "mounted", "pushing", "unmounted", "error"
+	Status     string   `json:"status"`     // human readable string with additional info wrt State, e.g. an error message for the error state
+	Mode       string   `json:"mode"`       // "ro", "rw", or "" if unknown/unspecified
+	Mountpoint string   `json:"mountpoint"` // where on the filesystem it's mounted
 }
 
 type MountStateMachine struct {
@@ -439,18 +439,16 @@ type MountStateMachine struct {
 }
 
 // TODO: switch to pach internal types if appropriate?
-type ListResponse struct {
-	Repos map[string]RepoResponse
-}
+type ListResponse map[string]RepoResponse
 
 type BranchResponse struct {
-	Name  string
-	State MountState
+	Name  string     `json:"name"`
+	Mount MountState `json:"mount"`
 }
 
 type RepoResponse struct {
-	Name     string
-	Branches map[string]BranchResponse
+	Name     string                    `json:"name"`
+	Branches map[string]BranchResponse `json:"branches"`
 	// TODO: Commits map[string]CommitResponse
 }
 
