@@ -262,6 +262,22 @@ async def test_unmount_with_branch(mock_client, jp_fetch):
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch(
+    "jupyterlab_pachyderm.handlers.ReposUnmountHandler.mount_client",
+    spec=PachydermMountClient,
+)
+async def test_unmount_all(mock_client, jp_fetch):
+    mock_client.unmount_all.return_value = [("images", "master")]
+
+    r = await jp_fetch(
+        f"/{NAMESPACE}/{VERSION}/repos/_unmount", method="PUT", body="{}"
+    )
+
+    assert r.code == 200
+    assert json.loads(r.body) == {"unmounted": [["images", "master"]]}
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
     "jupyterlab_pachyderm.handlers.RepoCommitHandler.mount_client",
     spec=PachydermMountClient,
 )

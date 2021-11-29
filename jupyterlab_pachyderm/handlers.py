@@ -1,10 +1,19 @@
+import os
 import json
 
 from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.utils import url_path_join
+import python_pachyderm
 import tornado
 
-from .pachyderm import READ_ONLY, PachydermMountClient, _parse_pfs_path, _normalize_mode
+from .pachyderm import (
+    READ_ONLY,
+    PachydermClient,
+    PachydermMountClient,
+    _parse_pfs_path,
+    _normalize_mode,
+)
+from .mock_pachyderm import MockPachydermClient
 
 # Frontend hard codes this in src/handler.ts
 NAMESPACE = "pachyderm"
@@ -46,6 +55,14 @@ class ReposHandler(BaseHandler):
         self.finish(json.dumps(resp))
 
 
+class ReposUnmountHandler(BaseHandler):
+    """Unmounts all repos"""
+
+    @tornado.web.authenticated
+    def put(self):
+        self.finish(json.dumps({"unmounted": self.mount_client.unmount_all()}))
+
+
 class RepoHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self, path):
@@ -82,9 +99,12 @@ class RepoMountHandler(BaseHandler):
             )
         repo, branch, _ = _parse_pfs_path(path)
         result = self.mount_client.mount(repo, branch, mode, name)
-        self.finish(
-            json.dumps({"repo": repo, "branch": branch, "mount": result["mount"]})
-        )
+        if result:
+            self.finish(
+                json.dumps(
+                    {"repo": repo, "branch": branch, "mount": result.get("mount")}
+                )
+            )
 
 
 class RepoUnmountHandler(BaseHandler):
@@ -110,9 +130,24 @@ class RepoCommitHandler(BaseHandler):
 
 
 def setup_handlers(web_app):
+    pfs_mount_dir = os.environ.get("PFS_MOUNT_DIR", "/pfs")
+
+    if "MOCK_PACHYDERM_SERVICE" in os.environ:
+        web_app.settings["PachydermMountClient"] = PachydermMountClient(
+            MockPachydermClient(), pfs_mount_dir
+        )
+    else:
+        print("PFS_MOUNT_DIR=", pfs_mount_dir)
+        web_app.settings["PachydermMountClient"] = PachydermMountClient(
+            PachydermClient(
+                python_pachyderm.Client(), python_pachyderm.ExperimentalClient()
+            ),
+            pfs_mount_dir,
+        )
 
     _handlers = [
         ("/repos", ReposHandler),
+        ("/repos/_unmount", ReposUnmountHandler),
         (r"/repos/([^/]+)", RepoHandler),
         (r"/repos/(.+)/_mount", RepoMountHandler),
         (r"/repos/(.+)/_unmount", RepoUnmountHandler),

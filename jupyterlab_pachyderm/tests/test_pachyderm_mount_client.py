@@ -3,6 +3,8 @@ import pytest
 from jupyterlab_pachyderm.pachyderm import PachydermMountClient, _parse_pfs_path
 from jupyterlab_pachyderm.mock_pachyderm import MockPachydermClient
 
+MOUNT_DIR = "/pfs"
+
 
 def test_parse_pfs_path():
     assert _parse_pfs_path("repo") == ("repo", "master", None)
@@ -13,7 +15,7 @@ def test_parse_pfs_path():
 class TestPachydermMountClient:
     @pytest.fixture()
     def client(self) -> PachydermMountClient:
-        c = PachydermMountClient(MockPachydermClient(), "/pfs")
+        c = PachydermMountClient(MockPachydermClient(), MOUNT_DIR)
         c.list()  # need this to get the repo data
         return c
 
@@ -143,7 +145,7 @@ class TestPachydermMountClient:
         }
 
     def test_mount_repo_noexist(self, client: PachydermMountClient):
-        assert client.mount("noe_repo", "master", "r") == None
+        assert client.mount("noe_repo", "master", "r") == {}
 
     def test_unmount(self, client: PachydermMountClient):
         client.mount("images", "master", "r")
@@ -156,3 +158,8 @@ class TestPachydermMountClient:
                 "mountpoint": None,
             },
         }
+
+    def test_unmount_all(self, client: PachydermMountClient):
+        client.mount("images", "master", "rw")
+        client.mount("edges", "master", "ro")
+        assert client.unmount_all() == [("images", "master"), ("edges", "master")]

@@ -49,10 +49,11 @@ class PachydermClient:
 
     def mount(self, mount_dir, repos):
         if repos:
+            print("calling pachctl mount on", mount_dir, repos)
             return self.exp_client.mount(mount_dir, repos)
 
-    def unmount(self, mount_dir):
-        return self.exp_client.unmount(mount_dir=mount_dir)
+    def unmount(self, mount_dir=None, all_mounts=None):
+        return self.exp_client.unmount(mount_dir=mount_dir, all_mounts=all_mounts)
 
 
 class PachydermMountClient:
@@ -105,6 +106,13 @@ class PachydermMountClient:
                     result.append(f"{repo_name}@{branch_name}+{mode}")
         return result
 
+    def _unmount_branch(self, repo, branch):
+        branch_info = self.repos.get(repo).get("branches").get(branch)
+        branch_info["mount"]["name"] = None
+        branch_info["mount"]["state"] = "unmounted"
+        branch_info["mount"]["mode"] = None
+        branch_info["mount"]["mountpoint"] = None
+
     def list(self):
         """Gets a list of repos and the branches per repo from Pachyderm.
         Update in memory db to reflect the most recent info.
@@ -147,22 +155,33 @@ class PachydermMountClient:
                     self.mount_dir, self._prepare_repos_for_pachctl_mount()
                 )
             return repo_branch
+        return {}
 
     def unmount(self, repo, branch, name=None):
         """Unmounts all, updates metadata, and remounts what's left"""
         repo_branch = self.repos.get(repo, {}).get("branches", {}).get(branch)
         if repo_branch:
             if repo_branch["mount"]["state"] == "mounted":
-                repo_branch["mount"]["name"] = None
-                repo_branch["mount"]["state"] = "unmounted"
-                repo_branch["mount"]["mode"] = None
-                repo_branch["mount"]["mountpoint"] = None
+                self._unmount_branch(repo, branch)
 
+                # need to explicitly unmount for the case when there is only one repo left to unmount
+                # _prepare_repos_for_pachctl_mount would return empty, and no mount call would be made
                 self.client.unmount(self.mount_dir)
                 self.client.mount(
                     self.mount_dir, self._prepare_repos_for_pachctl_mount()
                 )
             return repo_branch
+
+    def unmount_all(self):
+        result = []
+        for repo, repo_info in self.repos.items():
+            for branch, branch_info in repo_info["branches"].items():
+                if branch_info["mount"]["state"] == "mounted":
+                    self._unmount_branch(repo, branch)
+                    result.append((repo, branch))
+
+        self.client.unmount(all_mounts=True)
+        return result
 
     def commit(self, repo, branch, name, message):
         # TODO

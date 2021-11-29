@@ -51,5 +51,5 @@ class MockPachydermClient:
     def mount(self, mount_dir, repos):
         pass
 
-    def unmount(self, mount_dir):
+    def unmount(self, mount_dir=None, all_mounts=None):
         pass

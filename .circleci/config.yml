@@ -52,9 +52,76 @@ jobs:
             python -m pip install -e '.[dev]'
 
             # Run Python unit tests
-            pytest -v jupyterlab_pachyderm
+            pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
 
             check-manifest -v
+
+  integration-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202107-02
+    steps:
+      - checkout
+
+      - run: sudo apt-get update && sudo apt-get install fuse
+      - run:
+          name: "Install kind"
+          command: |
+            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
+            && chmod +x ./kind-linux-amd64 \
+            && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
+      - run: 
+          name: Install helm
+          command: |
+            wget https://get.helm.sh/helm-v3.7.1-linux-amd64.tar.gz && \
+            tar -zxvf helm-v3.7.1-linux-amd64.tar.gz && \
+            chmod +x linux-amd64/helm && \
+            sudo mv linux-amd64/helm /usr/local/bin/helm
+      - run:
+          name: install kubectl
+          command: |
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+            chmod +x kubectl && \
+            sudo mv kubectl /usr/local/bin/kubectl
+      - run:
+          name: install pachctl
+          command: curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v2.0.2/pachctl_2.0.2_amd64.deb && sudo dpkg -i /tmp/pachctl.deb  
+      - run:
+          name: Setup helm
+          command: helm repo add pach https://helm.pachyderm.com && helm repo update
+      - run:
+          name: Start kind
+          command: kind create cluster && kubectl config set current-context kind-kind
+      - run:
+          name: Install pach
+          command: helm install pachd pach/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort
+      - run:
+          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          command: |
+            sleep 20
+            kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+            pachctl version
+      - run: 
+          name: Login to pach # Get Kind node IP and pass that to pachctl
+          command: |-
+            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
+            pachctl config set active-context local
+      - run:
+          name: 'Integration tests'
+          command: |
+            set -eux
+
+            python3 -m venv venv
+            . venv/bin/activate
+            python3 -m pip install -e '.[dev]'
+
+            # Start dev server in the background
+            mkdir pfs
+            PFS_MOUNT_DIR=$(pwd)/pfs python3 -m jupyterlab_pachyderm.dev_server &
+            sleep 1
+
+            # Run integration tests
+            PFS_MOUNT_DIR=$(pwd)/pfs pytest -v jupyterlab_pachyderm/tests/test_integrations.py
 
   frontend-test:
     resource_class: xlarge
@@ -93,3 +160,4 @@ workflows:
               python-version: ['3.6', '3.7', '3.8', '3.9']
       - mock-e2e
       - frontend-test
+      - integration-test
