@@ -7,6 +7,7 @@ import {
   IconViewSVG,
   LoadingDots,
 } from '@pachyderm/components';
+import classnames from 'classnames';
 import React from 'react';
 import {Helmet} from 'react-helmet';
 import {Route, Switch, useHistory} from 'react-router';
@@ -74,7 +75,9 @@ const FileBrowser: React.FC = () => {
                 >
                   <ButtonLink
                     onClick={() => setFileView('list')}
-                    disabled={fileView === 'list'}
+                    className={classnames({
+                      [styles.inactiveIcon]: fileView === 'list',
+                    })}
                     aria-label="switch to list view"
                   >
                     <ListViewSVG />
@@ -87,7 +90,9 @@ const FileBrowser: React.FC = () => {
                 >
                   <ButtonLink
                     onClick={() => setFileView('icon')}
-                    disabled={fileView === 'icon'}
+                    className={classnames({
+                      [styles.inactiveIcon]: fileView === 'icon',
+                    })}
                     aria-label="switch to icon view"
                   >
                     <IconViewSVG />
