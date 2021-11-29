@@ -206,7 +206,7 @@ Add the enterprise server's root token, and network addresses to the values.yaml
 !!! Warning
 		**When setting your enterprise server info as part of the Helm deployment of a cluster, auth is automatically activated** (i.e., you can skip step 4).
 
-		In this case, a `pachyderm-bootstrap-config` k8s secret is automatically created on the cluster. It contains an entry for your clusters' [rootToken](#activate-user-access-management). This is separate from the enterprise server root token. Use `{{"kubectl get secret pachyderm-bootstrap-config -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
+		In this case, a `pachyderm-bootstrap-config` k8s secret is automatically created on the cluster. It contains an entry for your clusters' [rootToken](../../#activate-user-access-management). This is separate from the enterprise server root token. Use `{{"kubectl get secret pachyderm-bootstrap-config -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
 
 	  **This secret is only used when configuring through helm**
 
