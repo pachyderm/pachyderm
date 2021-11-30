@@ -30,10 +30,11 @@ type Env struct {
 	BackgroundContext context.Context
 }
 
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string) Env {
+func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv) Env {
 	return Env{
 		DB:       senv.GetDBClient(),
 		Listener: senv.GetPostgresListener(),
+		TxnEnv:   txEnv,
 
 		EtcdClient: senv.GetEtcdClient(),
 		EtcdPrefix: etcdPrefix,
