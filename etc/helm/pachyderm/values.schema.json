@@ -492,6 +492,9 @@
                         }
                     }
                 },
+                "setupEnterpriseOnly": {
+                    "type": "boolean"
+                },
                 "storage": {
                     "type": "object",
                     "properties": {
