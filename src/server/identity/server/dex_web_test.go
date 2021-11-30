@@ -23,9 +23,10 @@ import (
 
 func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
 	env := &serviceenv.TestServiceEnv{
-		DBClient: dockertestenv.NewTestDB(t),
-		DexDB:    dex_memory.New(logrus.New()),
-		Log:      logrus.New(),
+		DBClient:      dockertestenv.NewTestDB(t),
+		DexDB:         dex_memory.New(logrus.New()),
+		Log:           logrus.New(),
+		Configuration: serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{}),
 	}
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env), clusterstate.DesiredClusterState))
 	require.NoError(t, migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState))
