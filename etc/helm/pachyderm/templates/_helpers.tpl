@@ -89,7 +89,7 @@ http://localhost:4000/oauth/callback/?inline=true
 
 {{- define "pachyderm.pachdRedirectURI" -}}
 {{- if .Values.pachd.oauthRedirectURI -}}
-{{ .Values.console.config.oauthRedirectURI -}}
+{{ .Values.pachd.oauthRedirectURI -}}
 {{- else if .Values.ingress.host -}}
 {{- printf "%s://%s/authorization-code/callback" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
 {{- else if not .Values.ingress.enabled -}}
