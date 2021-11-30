@@ -29,6 +29,8 @@
 .children {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
 }
 
 .hideChevron .children {
@@ -37,6 +39,7 @@
 
 .icon {
   margin-left: 0.25rem;
+  margin-right: 0.25rem;
 }
 
 .purple {
