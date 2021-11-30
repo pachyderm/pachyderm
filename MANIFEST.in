@@ -8,6 +8,7 @@ exclude .circleci/*
 exclude cypress/*
 exclude cypress.json
 exclude Dockerfile
+exclude scripts/*
 
 include package.json
 include install.json

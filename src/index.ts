@@ -3,6 +3,7 @@ import {JupyterFrontEnd, JupyterFrontEndPlugin} from '@jupyterlab/application';
 import {requestAPI} from './handler';
 import telemetry from './plugins/telemetry';
 import help from './plugins/help';
+import examples from './plugins/examples';
 
 import '@pachyderm/components/dist/style.css';
 
@@ -30,6 +31,11 @@ const mount: JupyterFrontEndPlugin<void> = {
 /**
  * Export the plugins as default.
  */
-const plugins: JupyterFrontEndPlugin<any>[] = [mount, telemetry, help];
+const plugins: JupyterFrontEndPlugin<any>[] = [
+  mount,
+  telemetry,
+  help,
+  examples,
+];
 
 export default plugins;

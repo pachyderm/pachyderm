@@ -149,7 +149,7 @@ jobs:
             . venv/bin/activate
             python -m pip install -r ci-requirements.txt
             python -m pip install .
-            npm run e2e
+            CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
 
 workflows:
   build-workflow:

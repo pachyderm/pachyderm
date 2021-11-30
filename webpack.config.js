@@ -3,7 +3,7 @@ module.exports = {
     rules: [
       {
         loader: require.resolve('file-loader'),
-        include: [/\.(svg|webp)$/],
+        include: [/\.(webp)$/],
         options: {
           outputPath(url, resourcePath) {
             const temp = resourcePath.split('/');

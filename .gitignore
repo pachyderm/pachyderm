@@ -8,6 +8,7 @@ jupyterlab_pachyderm/labextension
 .jestcache
 yarn.lock
 coverage/
+cypress/screenshots
 
 # Created by https://www.gitignore.io/api/python
 # Edit at https://www.gitignore.io/?templates=python
@@ -66,7 +67,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
-
+testWorkspace/
 # Translations
 *.mo
 *.pot

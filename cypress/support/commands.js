@@ -1,4 +1,5 @@
 import '@testing-library/cypress/add-commands';
+import {wait} from '@testing-library/dom';
 
 // ***********************************************
 // This example commands.js shows you how to
@@ -25,4 +26,14 @@ import '@testing-library/cypress/add-commands';
 //
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
+Cypress.Commands.add('isAppReady', () => {
+  cy.get('[id="main"]').should('exist');
+  cy.get('[id="jupyterlab-splash"]').should('not.exist');
+});
 
+Cypress.Commands.add('jupyterlabCommand', (command) => {
+  cy.window().then((window) => {
+    const app = window.jupyterlab ?? window.jupyterapp;
+    app.commands.execute(command);
+  });
+});
