@@ -545,6 +545,7 @@ func mountingState(m *MountStateMachine) StateFn {
 	func() {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
+		// TODO: shouldn't be repo, should be name
 		m.manager.root.repoOpts[m.MountKey.Repo] = &RepoOptions{
 			Branch: m.MountKey.Repo,
 			Write:  m.Mode == "rw",
