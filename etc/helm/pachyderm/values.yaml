@@ -146,6 +146,8 @@ ingress:
   enabled: false
   annotations: {}
   host: ""
+  # when set to true, uriHttpsProtoOverride will add the https protocol to the ingress URI routes without configuring certs
+  uriHttpsProtoOverride: false
   # There are three options for TLS:
   # 1. Disabled
   # 2. Enabled, existingSecret, specify secret name
