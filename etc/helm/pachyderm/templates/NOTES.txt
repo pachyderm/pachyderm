@@ -10,7 +10,7 @@ pachctl config set active-context local
 pachctl port-forward
 {{- end -}}
 
-{{ if and (.Values.oidc.mockIDP) (.Values.pachd.enterpriseLicenseKey) }}
+{{ if and (.Values.oidc.mockIDP) (.Values.pachd.enterpriseLicenseKey) (.Values.pachd.activateAuth) }}
 WARNING: Your cluster is configured with a default login of admin:password
 {{- end -}}
 

@@ -82,6 +82,7 @@ ingress:
   enabled: false
   annotations: {}
   host: ""
+  uriHttpsProtoOverride: false
   tls:
     enabled: false
     secretName: ""
@@ -370,6 +371,8 @@ There are three options for configuring TLS on the ingress under `ingress.tls`.
 1. `disabled`. TLS is not used.
 1. `enabled`, using an existing secret. You must set enabled to true and provide a secret name where the exiting cert and key are stored.
 1. `enabled`, using a new secret. You must set enabled to true and `newSecret.create` to true and specify a secret name, and a cert and key in string format
+
+To have the ingress routes use the https protocol without enabling the cert secret configuration, `ingress.uriHttpsProtoOverride` can be set to true.
 
 ## oidc
 

@@ -308,6 +308,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "uriHttpsProtoOverride": {
+                    "type": "boolean"
                 }
             }
         },
@@ -340,6 +343,9 @@
         "pachd": {
             "type": "object",
             "properties": {
+                "activateAuth": {
+                    "type": "boolean"
+                },
                 "activateEnterprise": {
                     "type": "boolean"
                 },
