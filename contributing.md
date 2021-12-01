@@ -1,7 +1,7 @@
 # Contributor guide
 
 ## Getting started
-Install all dependencies by running 
+Install all dependencies by running
 ```bash
 npm install
 ```
@@ -18,11 +18,11 @@ npm install
 │   ├── builders/ - Functions for translating json objects to protobuf types
 │   ├── lib/ - Contains types defined by developers
 │   ├── services/ - Service calls organized by each proto type
-│   └── utils/ - Utility functions 
+│   └── utils/ - Utility functions
 └── version.json - Spec for the version of this library, as well as its pachyderm dependency
 ```
 
-### Style and Linting 
+### Style and Linting
 
 This project uses prettier and eslint to ensure coding consistency. To run the linter locally run
 ```bash
@@ -41,21 +41,27 @@ Update `version.json` to reference the version of Pachyderm you want to pull. Th
 
 ## Testing
 
-#### Deploy pachyderm locally
-1. [Install helm](https://helm.sh/docs/intro/install/).
-2. Grab the latest pachyderm helm chart: `helm repo add pachyderm https://pachyderm.github.io/helmchart`
-3. If you haven't already, start up minikube
-4. Install pachyderm locally: `helm install pachyderm --set deployTarget=LOCAL --version {DESIRED_VERSION} pachyderm/pachyderm`
-5. Delete your existing pre-2.0 pachctl config file: `rm ~/.pachyderm/config.json`
-6. Run `pachctl port-forward`
+#### Deploy Pachyderm locally
+1. [Install helm](https://helm.sh/docs/intro/install/)
+1. [Install minikube](https://minikube.sigs.k8s.io/docs/start/)
+1. Grab the latest pachyderm helm chart: `helm repo add pachyderm https://pachyderm.github.io/helmchart`
+1. If you haven't already, start up minikube
+1. Install pachyderm locally: `helm install pachyderm --set deployTarget=LOCAL --version {DESIRED_VERSION} pachyderm/pachyderm`
+1. Delete any existing pachctl config file: `rm ~/.pachyderm/config.json`
+1. Run `pachctl port-forward`
+
+#### Existing Pachyderm deployment
+1. WARNING: Keep in mind that the tests will delete any existing repos and pipelines in the activate context.
+1. Disable auth for the active context: `pachctl auth deactivate`
+1. Run `pachctl port-forward`
 
 After deploying pachyderm locally you can run all tests with the following command
 ```bash
 npm run test
 ```
 
-As of now we are testing the builders and service functions. 
-### Builder 
+As of now we are testing the builders and service functions.
+### Builder
 These tests do not require you to deploy pachyderm locally to run against. Tests should be in the `__tests__` directory inside the `builders` folder. For each builder function, the default parameters along with parameters that override the default values should be tested.
 ### Service
 Tests should be in the `__tests__` directory inside the `services` folder. These tests should use the `pachClient` to hit pachyderm and test that the expected behavior of each service call is satisfied.

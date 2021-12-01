@@ -3,7 +3,7 @@
 [![Slack Status](https://badge.slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
 
 Official Node Pachyderm client maintained by Pachyderm Inc.
-## Installation 
+## Installation
 
 ```bash
 npm i @pachyderm/node-pachyderm
@@ -29,4 +29,4 @@ const demo = async () => {
 demo();
 ```
 ## Contributing
-This driver is co-maintained by Pachyderm and the community. If you're looking to contribute to the project, this is a fantastic place to get involved. Take a look at [the contributing guide](./contributing.md) for more info (including testing instructions).
+This package is co-maintained by Pachyderm and the community. If you're looking to contribute to the project, this is a fantastic place to get involved. Take a look at [the contributing guide](./contributing.md) for more info (including testing instructions).
