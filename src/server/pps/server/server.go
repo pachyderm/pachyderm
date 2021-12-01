@@ -18,15 +18,14 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	logrus "github.com/sirupsen/logrus"
-	"k8s.io/client-go/kubernetes"
 )
 
 // Env contains the dependencies needed to create an API Server
 type Env struct {
-	DB         *pachsql.DB
-	TxnEnv     *txnenv.TransactionEnv
-	Listener   collection.PostgresListener
-	KubeClient *kubernetes.Clientset
+	DB       *pachsql.DB
+	TxnEnv   *txnenv.TransactionEnv
+	Listener collection.PostgresListener
+	//KubeClient *kubernetes.Clientset
 	EtcdClient *etcd.Client
 	// TODO: make this just a *loki.Client
 	// This is not a circular dependency
@@ -46,10 +45,10 @@ type Env struct {
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) Env {
 	return Env{
-		DB:            senv.GetDBClient(),
-		TxnEnv:        txnEnv,
-		Listener:      senv.GetPostgresListener(),
-		KubeClient:    senv.GetKubeClient(),
+		DB:       senv.GetDBClient(),
+		TxnEnv:   txnEnv,
+		Listener: senv.GetPostgresListener(),
+		//KubeClient:    senv.GetKubeClient(),
 		EtcdClient:    senv.GetEtcdClient(),
 		GetLokiClient: senv.GetLokiClient,
 
@@ -90,8 +89,8 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		peerPort:              config.PeerPort,
 		gcPercent:             config.GCPercent,
 	}
-	apiServer.validateKube()
-	go apiServer.master()
+	// apiServer.validateKube()
+	//go apiServer.master()
 	return apiServer, nil
 }
 
@@ -118,6 +117,6 @@ func NewSidecarAPIServer(
 		workerGrpcPort: workerGrpcPort,
 		peerPort:       peerPort,
 	}
-	go apiServer.ServeSidecarS3G()
+	//go apiServer.ServeSidecarS3G()
 	return apiServer, nil
 }

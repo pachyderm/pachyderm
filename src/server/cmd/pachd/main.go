@@ -53,6 +53,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"go.uber.org/automaxprocs/maxprocs"
 
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -133,7 +134,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
-	env.InitDexDB()
+	//env.InitDexDB()
 
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
@@ -234,7 +235,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			return err
 		}
 
-		if err := logGRPCServerSetup("Identity API", func() error {
+		/*if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				true,
@@ -243,7 +244,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			return nil
 		}); err != nil {
 			return err
-		}
+		}*/
 		txnEnv.Initialize(env, nil)
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
@@ -495,7 +496,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err := logGRPCServerSetup("Debug", func() error {
 		debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(
 			env,
-			env.Config().PachdPodName,
+			"balh",
 			nil,
 		))
 		return nil
@@ -536,7 +537,7 @@ func doFullMode(config interface{}) (retErr error) {
 	} else {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
+	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-full", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
 	if env.Config().EtcdPrefix == "" {
@@ -553,7 +554,7 @@ func doFullMode(config interface{}) (retErr error) {
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
-	env.InitDexDB()
+	//env.InitDexDB()
 
 	var reporter *metrics.Reporter
 	if env.Config().Metrics {
@@ -581,7 +582,7 @@ func doFullMode(config interface{}) (retErr error) {
 		grpc.ChainStreamInterceptor(
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
-			authInterceptor.InterceptStream,
+			//authInterceptor.InterceptStream,
 		),
 	)
 
@@ -591,7 +592,7 @@ func doFullMode(config interface{}) (retErr error) {
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := txnenv.New()
 
-		if err := logGRPCServerSetup("Identity API", func() error {
+		/*if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				true,
@@ -600,7 +601,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return nil
 		}); err != nil {
 			return err
-		}
+		}*/
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
@@ -657,7 +658,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Enterprise API", func() error {
+		/*if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
 				true,
@@ -680,7 +681,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return nil
 		}); err != nil {
 			return err
-		}
+		}*/
 		if err := logGRPCServerSetup("Admin API", func() error {
 			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(env)))
 			return nil
@@ -704,7 +705,7 @@ func doFullMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Debug", func() error {
 			debugclient.RegisterDebugServer(externalServer.Server, debugserver.NewDebugServer(
 				env,
-				env.Config().PachdPodName,
+				"blah",
 				nil,
 			))
 			return nil
@@ -729,7 +730,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
+	internalServer, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor()))
 	if err != nil {
 		return err
 	}
@@ -765,7 +766,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Identity API", func() error {
+		/*if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				false,
@@ -790,7 +791,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return nil
 		}); err != nil {
 			return err
-		}
+		}*/
 		var transactionAPIServer txnserver.APIServer
 		if err := logGRPCServerSetup("Transaction API", func() error {
 			transactionAPIServer, err = txnserver.NewAPIServer(
@@ -805,7 +806,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("License API", func() error {
+		/*if err := logGRPCServerSetup("License API", func() error {
 			licenseAPIServer, err := licenseserver.New(
 				licenseserver.EnvFromServiceEnv(env),
 			)
@@ -830,7 +831,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return nil
 		}); err != nil {
 			return err
-		}
+		}*/
 		healthServer := health.NewServer()
 		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		if err := logGRPCServerSetup("Health", func() error {

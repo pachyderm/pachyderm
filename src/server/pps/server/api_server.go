@@ -1,21 +1,17 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"path"
-	"sort"
 	"strings"
-	"sync"
 	"time"
 	"unicode"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
@@ -23,7 +19,6 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -46,7 +41,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
@@ -56,7 +50,6 @@ import (
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
@@ -266,7 +259,7 @@ func validateTransform(transform *pps.Transform) error {
 	return nil
 }
 
-func (a *apiServer) validateKube() {
+/*func (a *apiServer) validateKube() {
 	errors := false
 	kubeClient := a.env.KubeClient
 	_, err := kubeClient.CoreV1().Pods(a.namespace).Watch(metav1.ListOptions{Watch: true})
@@ -336,7 +329,7 @@ func (a *apiServer) validateKube() {
 	if !errors {
 		logrus.Infof("validating kubernetes access returned no errors")
 	}
-}
+}*/
 
 // authorizing a pipeline operation varies slightly depending on whether the
 // pipeline is being created, updated, or deleted
@@ -1130,188 +1123,191 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
-	// Set the default for the `Since` field.
-	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
-		request.Since = types.DurationProto(DefaultLogsFrom)
-	}
-	if a.env.Config.LokiLogging || request.UseLokiBackend {
-		pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
-		resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
-			&enterpriseclient.GetStateRequest{})
-		if err != nil {
-			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
+	return errors.New("Not implemented")
+	/*
+		// Set the default for the `Since` field.
+		if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
+			request.Since = types.DurationProto(DefaultLogsFrom)
 		}
-		if resp.State == enterpriseclient.State_ACTIVE {
-			return a.getLogsLoki(request, apiGetLogsServer)
-		}
-		enterprisemetrics.IncEnterpriseFailures()
-		return errors.Errorf("%s requires an activation key to use Loki for logs. %s\n\n%s",
-			enterprisetext.OpenSourceProduct, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
-	}
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-
-	// Authorize request and get list of pods containing logs we're interested in
-	// (based on pipeline and job filters)
-	var rcName, containerName string
-	if request.Pipeline == nil && request.Job == nil {
-		if len(request.DataFilters) > 0 || request.Datum != nil {
-			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
-		}
-		if err := a.env.AuthServer.CheckClusterIsAuthorized(apiGetLogsServer.Context(), auth.Permission_CLUSTER_GET_PACHD_LOGS); err != nil {
-			return err
-		}
-		containerName, rcName = "pachd", "pachd"
-	} else if request.Job != nil && request.Job.GetPipeline().GetName() == "" {
-		return errors.Errorf("pipeline must be specified for the given job")
-	} else if request.Job != nil && request.Pipeline != nil && !proto.Equal(request.Job.Pipeline, request.Pipeline) {
-		return errors.Errorf("job is from the wrong pipeline")
-	} else {
-		containerName = client.PPSWorkerUserContainerName
-
-		// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
-		// RC name
-		var pipelineInfo *pps.PipelineInfo
-		var err error
-		if request.Pipeline != nil && request.Job == nil {
-			pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), request.Pipeline.Name, true)
+		if a.env.Config.LokiLogging || request.UseLokiBackend {
+			pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
+			resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
+				&enterpriseclient.GetStateRequest{})
 			if err != nil {
-				return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
 			}
-		} else if request.Job != nil {
-			// If user provides a job, lookup the pipeline from the JobInfo, and then
-			// get the pipeline RC
-			jobInfo := &pps.JobInfo{}
-			err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(ppsdb.JobKey(request.Job), jobInfo)
-			if err != nil {
-				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
+			if resp.State == enterpriseclient.State_ACTIVE {
+				return a.getLogsLoki(request, apiGetLogsServer)
 			}
-			pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobInfo.Job.Pipeline.Name, true)
-			if err != nil {
-				return errors.Wrapf(err, "could not get pipeline information for %s", jobInfo.Job.Pipeline.Name)
-			}
+			enterprisemetrics.IncEnterpriseFailures()
+			return errors.Errorf("%s requires an activation key to use Loki for logs. %s\n\n%s",
+				enterprisetext.OpenSourceProduct, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
 		}
+		func() { a.Log(request, nil, nil, 0) }()
+		defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
-		// 2) Check whether the caller is authorized to get logs from this pipeline/job
-		if err := a.authorizePipelineOp(apiGetLogsServer.Context(), pipelineOpGetLogs, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
-			return err
-		}
-
-		// 3) Get rcName for this pipeline
-		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Get pods managed by the RC we're scraping (either pipeline or pachd)
-	pods, err := a.rcPods(rcName)
-	if err != nil {
-		return errors.Wrapf(err, "could not get pods in rc \"%s\" containing logs", rcName)
-	}
-	if len(pods) == 0 {
-		return errors.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
-	}
-	// Convert request.From to a usable timestamp.
-	since, err := types.DurationFromProto(request.Since)
-	if err != nil {
-		return errors.Wrapf(err, "invalid from time")
-	}
-	sinceSeconds := int64(since.Seconds())
-
-	// Spawn one goroutine per pod. Each goro writes its pod's logs to a channel
-	// and channels are read into the output server in a stable order.
-	// (sort the pods to make sure that the order of log lines is stable)
-	sort.Sort(podSlice(pods))
-	logCh := make(chan *pps.LogMessage)
-	var eg errgroup.Group
-	var mu sync.Mutex
-	eg.Go(func() error {
-		for _, pod := range pods {
-			pod := pod
-			if !request.Follow {
-				mu.Lock()
+		// Authorize request and get list of pods containing logs we're interested in
+		// (based on pipeline and job filters)
+		var rcName, containerName string
+		if request.Pipeline == nil && request.Job == nil {
+			if len(request.DataFilters) > 0 || request.Datum != nil {
+				return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 			}
-			eg.Go(func() (retErr error) {
-				if !request.Follow {
-					defer mu.Unlock()
-				}
-				tailLines := &request.Tail
-				if *tailLines <= 0 {
-					tailLines = nil
-				}
-				// Get full set of logs from pod i
-				stream, err := a.env.KubeClient.CoreV1().Pods(a.namespace).GetLogs(
-					pod.ObjectMeta.Name, &v1.PodLogOptions{
-						Container:    containerName,
-						Follow:       request.Follow,
-						TailLines:    tailLines,
-						SinceSeconds: &sinceSeconds,
-					}).Timeout(10 * time.Second).Stream()
+			if err := a.env.AuthServer.CheckClusterIsAuthorized(apiGetLogsServer.Context(), auth.Permission_CLUSTER_GET_PACHD_LOGS); err != nil {
+				return err
+			}
+			containerName, rcName = "pachd", "pachd"
+		} else if request.Job != nil && request.Job.GetPipeline().GetName() == "" {
+			return errors.Errorf("pipeline must be specified for the given job")
+		} else if request.Job != nil && request.Pipeline != nil && !proto.Equal(request.Job.Pipeline, request.Pipeline) {
+			return errors.Errorf("job is from the wrong pipeline")
+		} else {
+			containerName = client.PPSWorkerUserContainerName
+
+			// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
+			// RC name
+			var pipelineInfo *pps.PipelineInfo
+			var err error
+			if request.Pipeline != nil && request.Job == nil {
+				pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), request.Pipeline.Name, true)
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
 				}
-				defer func() {
-					if err := stream.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-
-				// Parse pods' log lines, and filter out irrelevant ones
-				scanner := bufio.NewScanner(stream)
-				for scanner.Scan() {
-					msg := new(pps.LogMessage)
-					if containerName == "pachd" {
-						msg.Message = scanner.Text()
-					} else {
-						logBytes := scanner.Bytes()
-						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-							continue
-						}
-
-						// Filter out log lines that don't match on pipeline or job
-						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-							continue
-						}
-						if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
-							continue
-						}
-						if request.Datum != nil && request.Datum.ID != msg.DatumID {
-							continue
-						}
-						if request.Master != msg.Master {
-							continue
-						}
-						if !common.MatchDatum(request.DataFilters, msg.Data) {
-							continue
-						}
-					}
-					msg.Message = strings.TrimSuffix(msg.Message, "\n")
-
-					// Log message passes all filters -- return it
-					select {
-					case logCh <- msg:
-					case <-apiGetLogsServer.Context().Done():
-						return nil
-					}
+			} else if request.Job != nil {
+				// If user provides a job, lookup the pipeline from the JobInfo, and then
+				// get the pipeline RC
+				jobInfo := &pps.JobInfo{}
+				err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(ppsdb.JobKey(request.Job), jobInfo)
+				if err != nil {
+					return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 				}
-				return nil
-			})
-		}
-		return nil
-	})
-	var egErr error
-	go func() {
-		egErr = eg.Wait()
-		close(logCh)
-	}()
+				pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobInfo.Job.Pipeline.Name, true)
+				if err != nil {
+					return errors.Wrapf(err, "could not get pipeline information for %s", jobInfo.Job.Pipeline.Name)
+				}
+			}
 
-	for msg := range logCh {
-		if err := apiGetLogsServer.Send(msg); err != nil {
-			return err
+			// 2) Check whether the caller is authorized to get logs from this pipeline/job
+			if err := a.authorizePipelineOp(apiGetLogsServer.Context(), pipelineOpGetLogs, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
+				return err
+			}
+
+			// 3) Get rcName for this pipeline
+			rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+			if err != nil {
+				return err
+			}
 		}
-	}
-	return egErr
+
+		// Get pods managed by the RC we're scraping (either pipeline or pachd)
+		pods, err := a.rcPods(rcName)
+		if err != nil {
+			return errors.Wrapf(err, "could not get pods in rc \"%s\" containing logs", rcName)
+		}
+		if len(pods) == 0 {
+			return errors.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
+		}
+		// Convert request.From to a usable timestamp.
+		since, err := types.DurationFromProto(request.Since)
+		if err != nil {
+			return errors.Wrapf(err, "invalid from time")
+		}
+		sinceSeconds := int64(since.Seconds())
+
+		// Spawn one goroutine per pod. Each goro writes its pod's logs to a channel
+		// and channels are read into the output server in a stable order.
+		// (sort the pods to make sure that the order of log lines is stable)
+		sort.Sort(podSlice(pods))
+		logCh := make(chan *pps.LogMessage)
+		var eg errgroup.Group
+		var mu sync.Mutex
+		eg.Go(func() error {
+			for _, pod := range pods {
+				pod := pod
+				if !request.Follow {
+					mu.Lock()
+				}
+				eg.Go(func() (retErr error) {
+					if !request.Follow {
+						defer mu.Unlock()
+					}
+					tailLines := &request.Tail
+					if *tailLines <= 0 {
+						tailLines = nil
+					}
+					// Get full set of logs from pod i
+					stream, err := a.env.KubeClient.CoreV1().Pods(a.namespace).GetLogs(
+						pod.ObjectMeta.Name, &v1.PodLogOptions{
+							Container:    containerName,
+							Follow:       request.Follow,
+							TailLines:    tailLines,
+							SinceSeconds: &sinceSeconds,
+						}).Timeout(10 * time.Second).Stream()
+					if err != nil {
+						return err
+					}
+					defer func() {
+						if err := stream.Close(); err != nil && retErr == nil {
+							retErr = err
+						}
+					}()
+
+					// Parse pods' log lines, and filter out irrelevant ones
+					scanner := bufio.NewScanner(stream)
+					for scanner.Scan() {
+						msg := new(pps.LogMessage)
+						if containerName == "pachd" {
+							msg.Message = scanner.Text()
+						} else {
+							logBytes := scanner.Bytes()
+							if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+								continue
+							}
+
+							// Filter out log lines that don't match on pipeline or job
+							if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+								continue
+							}
+							if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
+								continue
+							}
+							if request.Datum != nil && request.Datum.ID != msg.DatumID {
+								continue
+							}
+							if request.Master != msg.Master {
+								continue
+							}
+							if !common.MatchDatum(request.DataFilters, msg.Data) {
+								continue
+							}
+						}
+						msg.Message = strings.TrimSuffix(msg.Message, "\n")
+
+						// Log message passes all filters -- return it
+						select {
+						case logCh <- msg:
+						case <-apiGetLogsServer.Context().Done():
+							return nil
+						}
+					}
+					return nil
+				})
+			}
+			return nil
+		})
+		var egErr error
+		go func() {
+			egErr = eg.Wait()
+			close(logCh)
+		}()
+
+		for msg := range logCh {
+			if err := apiGetLogsServer.Send(msg); err != nil {
+				return err
+			}
+		}
+		return egErr
+	*/
 }
 
 func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
@@ -2164,54 +2160,56 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 // Many functions (GetLogs, ListPipeline) need to inspect a pipeline, so they
 // call this instead of making an RPC
 func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bool) (*pps.PipelineInfo, error) {
-	var info *pps.PipelineInfo
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		var err error
-		info, err = a.InspectPipelineInTransaction(txnCtx, name)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := a.getLatestJobState(ctx, info); err != nil {
-		return nil, err
-	}
-	if !details {
-		info.Details = nil // preserve old behavior
-	} else {
-		kubeClient := a.env.KubeClient
-		if info.Details.Service != nil {
-			rcName := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
-			service, err := kubeClient.CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
-			if err != nil {
-				if !errutil.IsNotFoundError(err) {
-					return nil, err
-				}
-			} else {
-				info.Details.Service.IP = service.Spec.ClusterIP
-			}
-		}
-
-		workerPoolID := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
-		workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
-		if err != nil {
-			logrus.Errorf("failed to get worker status with err: %s", err.Error())
-		} else {
-			info.Details.WorkersAvailable = int64(len(workerStatus))
-			info.Details.WorkersRequested = int64(info.Parallelism)
-		}
-		tasks, claims, err := work.NewWorker(
-			a.env.EtcdClient,
-			a.etcdPrefix,
-			driver.WorkNamespace(info),
-		).TaskCount(ctx)
-		if err != nil {
+	return nil, errors.New("Not implemented")
+	/*
+		var info *pps.PipelineInfo
+		if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			var err error
+			info, err = a.InspectPipelineInTransaction(txnCtx, name)
+			return err
+		}); err != nil {
 			return nil, err
 		}
-		info.Details.UnclaimedTasks = tasks - claims
-	}
 
-	return info, nil
+		if err := a.getLatestJobState(ctx, info); err != nil {
+			return nil, err
+		}
+		if !details {
+			info.Details = nil // preserve old behavior
+		} else {
+			kubeClient := a.env.KubeClient
+			if info.Details.Service != nil {
+				rcName := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
+				service, err := kubeClient.CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
+				if err != nil {
+					if !errutil.IsNotFoundError(err) {
+						return nil, err
+					}
+				} else {
+					info.Details.Service.IP = service.Spec.ClusterIP
+				}
+			}
+
+			workerPoolID := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
+			workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+			if err != nil {
+				logrus.Errorf("failed to get worker status with err: %s", err.Error())
+			} else {
+				info.Details.WorkersAvailable = int64(len(workerStatus))
+				info.Details.WorkersRequested = int64(info.Parallelism)
+			}
+			tasks, claims, err := work.NewWorker(
+				a.env.EtcdClient,
+				a.etcdPrefix,
+				driver.WorkNamespace(info),
+			).TaskCount(ctx)
+			if err != nil {
+				return nil, err
+			}
+			info.Details.UnclaimedTasks = tasks - claims
+		}
+
+		return info, nil*/
 }
 
 func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, name string) (*pps.PipelineInfo, error) {
@@ -2709,15 +2707,19 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 		return nil, errors.Errorf("pipeline doesn't have a cron input")
 	}
 
-	// put the same time for all ticks
-	now := time.Now()
+	/*
 
-	// add all the ticks. These will be in separate transactions if there are more than one
-	for _, c := range crons {
-		if err := cronTick(a.env.GetPachClient(ctx), now, c); err != nil {
-			return nil, err
-		}
-	}
+		// put the same time for all ticks
+		now := time.Now()
+
+		// add all the ticks. These will be in separate transactions if there are more than one
+
+			for _, c := range crons {
+				if err := cronTick(a.env.GetPachClient(ctx), now, c); err != nil {
+					return nil, err
+				}
+			}
+	*/
 
 	return &types.Empty{}, nil
 }
@@ -2780,107 +2782,119 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 
 // CreateSecret implements the protobuf pps.CreateSecret RPC
 func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateSecret")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+	return nil, errors.New("Not Implemented")
+	/*
+		func() { a.Log(request, nil, nil, 0) }()
+		defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+		metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateSecret")
+		defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	var s v1.Secret
-	if err := json.Unmarshal(request.GetFile(), &s); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal secret")
-	}
+		var s v1.Secret
+		if err := json.Unmarshal(request.GetFile(), &s); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal secret")
+		}
 
-	labels := s.GetLabels()
-	if labels["suite"] != "" && labels["suite"] != "pachyderm" {
-		return nil, errors.Errorf("invalid suite label set on secret: suite=%s", labels["suite"])
-	}
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	labels["suite"] = "pachyderm"
-	labels["secret-source"] = "pachyderm-user"
-	s.SetLabels(labels)
+		labels := s.GetLabels()
+		if labels["suite"] != "" && labels["suite"] != "pachyderm" {
+			return nil, errors.Errorf("invalid suite label set on secret: suite=%s", labels["suite"])
+		}
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		labels["suite"] = "pachyderm"
+		labels["secret-source"] = "pachyderm-user"
+		s.SetLabels(labels)
 
-	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(&s); err != nil {
-		return nil, errors.Wrapf(err, "failed to create secret")
-	}
-	return &types.Empty{}, nil
+		if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(&s); err != nil {
+			return nil, errors.Wrapf(err, "failed to create secret")
+		}
+		return &types.Empty{}, nil
+	*/
 }
 
 // DeleteSecret implements the protobuf pps.DeleteSecret RPC
 func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+	return nil, errors.New("Not Implemented")
+	/*
+		func() { a.Log(request, nil, nil, 0) }()
+		defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+		metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
+		defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Delete(request.Secret.Name, &metav1.DeleteOptions{}); err != nil {
-		return nil, errors.Wrapf(err, "failed to delete secret")
-	}
-	return &types.Empty{}, nil
+		if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Delete(request.Secret.Name, &metav1.DeleteOptions{}); err != nil {
+			return nil, errors.Wrapf(err, "failed to delete secret")
+		}
+		return &types.Empty{}, nil
+	*/
 }
 
 // InspectSecret implements the protobuf pps.InspectSecret RPC
 func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecretRequest) (response *pps.SecretInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectSecret")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+	return nil, errors.New("Not Implemented")
+	/*
+		func() { a.Log(request, nil, nil, 0) }()
+		defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+		metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectSecret")
+		defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	secret, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(request.Secret.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get secret")
-	}
-	creationTimestamp, err := ptypes.TimestampProto(secret.GetCreationTimestamp().Time)
-	if err != nil {
-		return nil, errors.Errorf("failed to parse creation timestamp")
-	}
-	return &pps.SecretInfo{
-		Secret: &pps.Secret{
-			Name: secret.Name,
-		},
-		Type: string(secret.Type),
-		CreationTimestamp: &types.Timestamp{
-			Seconds: creationTimestamp.GetSeconds(),
-			Nanos:   creationTimestamp.GetNanos(),
-		},
-	}, nil
-}
-
-// ListSecret implements the protobuf pps.ListSecret RPC
-func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *pps.SecretInfos, retErr error) {
-	func() { a.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(nil, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-	secrets, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).List(metav1.ListOptions{
-		LabelSelector: "secret-source=pachyderm-user",
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to list secrets")
-	}
-	secretInfos := []*pps.SecretInfo{}
-	for _, s := range secrets.Items {
-		creationTimestamp, err := ptypes.TimestampProto(s.GetCreationTimestamp().Time)
+		secret, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(request.Secret.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get secret")
+		}
+		creationTimestamp, err := ptypes.TimestampProto(secret.GetCreationTimestamp().Time)
 		if err != nil {
 			return nil, errors.Errorf("failed to parse creation timestamp")
 		}
-		secretInfos = append(secretInfos, &pps.SecretInfo{
+		return &pps.SecretInfo{
 			Secret: &pps.Secret{
-				Name: s.Name,
+				Name: secret.Name,
 			},
-			Type: string(s.Type),
+			Type: string(secret.Type),
 			CreationTimestamp: &types.Timestamp{
 				Seconds: creationTimestamp.GetSeconds(),
 				Nanos:   creationTimestamp.GetNanos(),
 			},
-		})
-	}
+		}, nil
+	*/
+}
 
-	return &pps.SecretInfos{
-		SecretInfo: secretInfos,
-	}, nil
+// ListSecret implements the protobuf pps.ListSecret RPC
+func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *pps.SecretInfos, retErr error) {
+	return nil, errors.New("Not Implemented")
+	/*
+		func() { a.Log(nil, nil, nil, 0) }()
+		defer func(start time.Time) { a.Log(nil, response, retErr, time.Since(start)) }(time.Now())
+		metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
+		defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+		secrets, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).List(metav1.ListOptions{
+			LabelSelector: "secret-source=pachyderm-user",
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to list secrets")
+		}
+		secretInfos := []*pps.SecretInfo{}
+		for _, s := range secrets.Items {
+			creationTimestamp, err := ptypes.TimestampProto(s.GetCreationTimestamp().Time)
+			if err != nil {
+				return nil, errors.Errorf("failed to parse creation timestamp")
+			}
+			secretInfos = append(secretInfos, &pps.SecretInfo{
+				Secret: &pps.Secret{
+					Name: s.Name,
+				},
+				Type: string(s.Type),
+				CreationTimestamp: &types.Timestamp{
+					Seconds: creationTimestamp.GetSeconds(),
+					Nanos:   creationTimestamp.GetNanos(),
+				},
+			})
+		}
+
+		return &pps.SecretInfos{
+			SecretInfo: secretInfos,
+		}, nil
+	*/
 }
 
 // DeleteAll implements the protobuf pps.DeleteAll RPC
@@ -2891,12 +2905,13 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
 		return nil, err
 	}
-
-	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
-		LabelSelector: "secret-source=pachyderm-user",
-	}); err != nil {
-		return nil, err
-	}
+	/*
+		if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
+			LabelSelector: "secret-source=pachyderm-user",
+		}); err != nil {
+			return nil, err
+		}
+	*/
 	return &types.Empty{}, nil
 }
 
@@ -3074,7 +3089,7 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
+/*func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 	podList, err := a.env.KubeClient.CoreV1().Pods(a.namespace).List(metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
@@ -3086,7 +3101,7 @@ func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 		return nil, err
 	}
 	return podList.Items, nil
-}
+}*/
 
 func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	pachClient := a.env.GetPachClient(ctx)

@@ -27,7 +27,7 @@ type GlobalConfiguration struct {
 	PGBouncerHost                  string `env:"PG_BOUNCER_HOST,required"`
 	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT,required"`
 	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
-	PostgresHost                   string `env:"POSTGRES_HOST"`
+	PostgresHost                   string `env:"POSTGRES_HOST,required"`
 	PostgresPort                   int    `env:"POSTGRES_PORT"`
 	PostgresDBName                 string `env:"POSTGRES_DATABASE,required"`
 	PostgresUser                   string `env:"POSTGRES_USER,required"`
@@ -83,10 +83,10 @@ type PachdFullConfiguration struct {
 // PachdSpecificConfiguration contains the pachd specific configuration.
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
-	StorageBackend             string `env:"STORAGE_BACKEND,required"`
-	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
-	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
-	KubeAddress                string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
+	StorageBackend  string `env:"STORAGE_BACKEND,required"`
+	StorageHostPath string `env:"STORAGE_HOST_PATH,default="`
+	PFSEtcdPrefix   string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
+	//KubeAddress                string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	Init                       bool   `env:"INIT,default=false"`
 	WorkerImage                string `env:"WORKER_IMAGE,default="`
 	WorkerSidecarImage         string `env:"WORKER_SIDECAR_IMAGE,default="`
@@ -96,7 +96,7 @@ type PachdSpecificConfiguration struct {
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=false"`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
-	PachdPodName string `env:"PACHD_POD_NAME,required"`
+	//PachdPodName string `env:"PACHD_POD_NAME,required"`
 }
 
 // StorageConfiguration contains the storage configuration.

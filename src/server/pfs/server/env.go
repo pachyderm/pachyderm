@@ -53,7 +53,7 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		TxnEnv:       txnEnv,
 		Listener:     env.GetPostgresListener(),
 		EtcdPrefix:   etcdPrefix,
-		EtcdClient:   env.GetEtcdClient(),
+		EtcdClient:   env.GetEtcdClient(), //TODO: This just hangs forever if etcd not found
 
 		AuthServer:    env.AuthServer(),
 		GetPPSServer:  env.PpsServer,
