@@ -36,7 +36,7 @@ When you delete a HEAD commit, Pachyderm performs the following actions:
 !!! Note "Are you wondering how a HEAD commit can have children?"
      A commit can be the head of a branch and still have children. For instance, if you run `pachctl create branch repo@master --head repo@staging`, the `staging`'s HEAD will have an alias child on `master`. 
 
-## Squash non-HEAD Commit
+## Squash non-HEAD Commits
 
 If you have committed more data to the branch after the bad data
 was added, use the following command:
