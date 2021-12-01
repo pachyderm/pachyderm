@@ -163,15 +163,12 @@ jobs:
     resource_class: large
     machine:
       image: ubuntu-2004:202101-01
-    # how do we know that the upgrade artifacts
-    # are different than the base artifacts?
     steps:
       - checkout
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/start-minikube.sh
       - run: etc/testing/circle/launch-loki.sh
 
-      # checkout base branch
       - run: |
           url=https://api.github.com/repos/pachyderm/pachyderm/pulls/${CIRCLE_PULL_REQUEST##*/}
           base=$(curl $url | jq '.base.ref' | tr -d '"')
