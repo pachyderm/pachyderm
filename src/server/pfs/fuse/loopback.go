@@ -538,7 +538,7 @@ func (n *loopbackNode) downloadRepos() (retErr error) {
 	for _, ri := range ris {
 		// If we've specified any repos at all in the opts, and the repo wasn't
 		// specified, skip it. So, if user specifies no repos, all repos are
-		// made visible. _Unless_, noneIsEverything is true.
+		// made visible. _Unless_, ALLOW_EMPTY is true.
 		if (len(ro) > 0 || ALLOW_EMPTY) && ro[ri.Repo.Name] == nil {
 			continue
 		}

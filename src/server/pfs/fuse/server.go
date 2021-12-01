@@ -117,16 +117,19 @@ type ServerOptions struct {
 	LogFile   string
 }
 
-type MountBranchRequest struct {
+type Request struct {
+	Mount  bool // true for desired state == mounted, false for desired state == unmounted
 	Repo   string
 	Branch string
+	Commit string // "" for no commit
 	Name   string
 	Mode   string // "ro", "rw"
 }
 
-type MountBranchResponse struct {
+type Response struct {
 	Repo       string
 	Branch     string
+	Commit     string // "" for no commit
 	Name       string
 	MountState MountState
 	Error      error
@@ -195,8 +198,8 @@ func NewMountStateMachine(key MountKey, mm *MountManager) *MountStateMachine {
 		},
 		manager:   mm,
 		mu:        sync.Mutex{},
-		requests:  make(chan MountBranchRequest),
-		responses: make(chan MountBranchResponse),
+		requests:  make(chan Request),
+		responses: make(chan Response),
 	}
 }
 
@@ -220,21 +223,41 @@ func (mm *MountManager) MaybeStartFsm(key MountKey) {
 	} // else: fsm was already running
 }
 
-func (mm *MountManager) MountBranch(key MountKey, name, mode string) (MountBranchResponse, error) {
+func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, error) {
 	// name: an optional name for the mount, corresponds to where on the
 	// filesystem the repo actually gets mounted. e.g. /pfs/{name}
 	mm.MaybeStartFsm(key)
-	fmt.Println("Sending request...")
-	mm.States[key].requests <- MountBranchRequest{
+	fmt.Println("Sending mount request...")
+	mm.States[key].requests <- Request{
+		Mount:  true,
 		Repo:   key.Repo,
 		Branch: key.Branch,
+		Commit: key.Commit,
 		Name:   name,
 		Mode:   mode,
 	}
-	fmt.Println("sent!")
-	fmt.Println("reading response...")
+	fmt.Println("sent mount request!")
+	fmt.Println("reading mount response...")
 	response := <-mm.States[key].responses
-	fmt.Println("read!")
+	fmt.Println("read mount response!")
+	return response, response.Error
+}
+
+func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, error) {
+	mm.MaybeStartFsm(key)
+	fmt.Println("Sending unmount request...")
+	mm.States[key].requests <- Request{
+		Mount:  false,
+		Repo:   key.Repo,
+		Branch: key.Branch,
+		Commit: key.Commit,
+		Name:   name,
+		Mode:   "",
+	}
+	fmt.Println("sent unmount request!")
+	fmt.Println("reading unmount response...")
+	response := <-mm.States[key].responses
+	fmt.Println("read unmount response!")
 	return response, response.Error
 }
 
@@ -410,7 +433,30 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 				return
 			}
 		})
-	router.Methods("PUT").Path("/repos/{key:.+}/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	router.Methods("PUT").
+		Queries("name", "{name}").
+		Path("/repos/{key:.+}/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		vs := mux.Vars(req)
+		k, ok := vs["key"]
+		if !ok {
+			http.Error(w, "no key", http.StatusBadRequest)
+			return
+		}
+		name, ok := vs["name"]
+		if !ok {
+			http.Error(w, "no name", http.StatusBadRequest)
+			return
+		}
+		key, err := mountKeyFromString(k)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_, err = mm.UnmountBranch(key, name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	// TODO: implement _commit
 
@@ -422,20 +468,20 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 }
 
 type MountState struct {
-	Name       string   `json:"name"`
-	MountKey   MountKey `json:"mount_key"`
-	State      string   `json:"state"`      // "unmounted", "mounting", "mounted", "pushing", "unmounted", "error"
-	Status     string   `json:"status"`     // human readable string with additional info wrt State, e.g. an error message for the error state
-	Mode       string   `json:"mode"`       // "ro", "rw", or "" if unknown/unspecified
-	Mountpoint string   `json:"mountpoint"` // where on the filesystem it's mounted
+	Name       string   `json:"name"`       // where to mount it. written by client
+	MountKey   MountKey `json:"mount_key"`  // what to mount. written by client
+	Mode       string   `json:"mode"`       // "ro", "rw", or "" if unknown/unspecified. written by client
+	State      string   `json:"state"`      // "unmounted", "mounting", "mounted", "pushing", "unmounted", "error". written by fsm
+	Status     string   `json:"status"`     // human readable string with additional info wrt State, e.g. an error message for the error state. written by fsm
+	Mountpoint string   `json:"mountpoint"` // where on the filesystem it's mounted. written by fsm. can also be derived from {MountDir}/{Name}
 }
 
 type MountStateMachine struct {
 	MountState
 	manager   *MountManager
 	mu        sync.Mutex
-	requests  chan MountBranchRequest
-	responses chan MountBranchResponse
+	requests  chan Request
+	responses chan Response
 }
 
 // TODO: switch to pach internal types if appropriate?
@@ -525,17 +571,41 @@ func unmountedState(m *MountStateMachine) StateFn {
 	// TODO: listen on our request chan, mount filesystems, and respond
 	for {
 		req := <-m.requests
-
 		fmt.Printf("Read req: %+v\n", req)
-		m.responses <- MountBranchResponse{
-			Repo:       m.MountKey.Repo,
-			Branch:     m.MountKey.Branch,
-			Name:       m.Name,
-			MountState: m.MountState,
-			Error:      nil,
+
+		if req.Mount {
+			// copy data from request into fields that are documented as being
+			// written by the client (see MountState struct)
+			m.MountState.Name = req.Name
+			m.MountState.MountKey = MountKey{
+				Repo:   req.Repo,
+				Branch: req.Branch,
+				Commit: req.Commit,
+			}
+			m.MountState.Mode = req.Mode
+			// TODO: could push responsibility to writing to the responses
+			// channel to the end of mountingState, that way we'd catch more
+			// errors and be able to return them to the http client
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      nil,
+			}
+			return mountingState
+		} else {
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      fmt.Errorf("can't unmount when we're already unmounted"),
+			}
+			// stay unmounted
 		}
-		return mountingState
-		// TODO: actually mount that shit!
 	}
 }
 
@@ -552,9 +622,7 @@ func mountingState(m *MountStateMachine) StateFn {
 		}
 	}()
 	// re-downloading the repos with an updated RepoOptions set will have the
-	// effect of causing it to pop into existence, in theory
-
-	// TODO: Test this!
+	// effect of causing it to pop into existence
 	err := m.manager.root.downloadRepos()
 	if err != nil {
 		m.transitionedTo("error", err.Error())
@@ -572,18 +640,67 @@ func mountedState(m *MountStateMachine) StateFn {
 		//
 		// XXX TODO: need to start respecting name rather than always mounting
 		// repos at their own name in /pfs
-		<-m.requests
-		m.responses <- MountBranchResponse{}
+		req := <-m.requests
+		if req.Mount {
+			// TODO: handle remount case (switching mode):
+			// if mounted ro and switching to rw, just upgrade
+			// if mounted rw and switching to ro, upload changes, then switch the mount type
+		} else {
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      nil,
+			}
+			return unmountingState
+		}
+		m.responses <- Response{}
 	}
+}
+
+func unmountingState(m *MountStateMachine) StateFn {
+	m.transitionedTo("unmounting", "")
+	// For now unmountingState is the only place where actual uploads to
+	// Pachyderm happen. In the future, we want to split this out to a separate
+	// committingState so that users can commit a repo while it's still mounted.
+
+	// TODO: pause/block filesystem operations during the upload, otherwise we
+	// could get filesystem inconsistency!
+
+	// upload any files whose paths start with where we're mounted
+	// XXX if user sets Name != Repo then this will break right now until we
+	// support Name properly
+	err := m.manager.uploadFiles(m.Name)
+	if err != nil {
+		fmt.Printf("Error while uploading! %s", err)
+		m.transitionedTo("error", err.Error())
+		return errorState
+	}
+
+	// remove from map
+	func() {
+		m.manager.mu.Lock()
+		defer m.manager.mu.Unlock()
+		// TODO: shouldn't be repo, should be name
+		delete(m.manager.root.repoOpts, m.MountKey.Repo)
+	}()
+
+	// remove from loopback filesystem so that it actually disappears for the user
+	// TODO: rm -rf
+
+	return unmountedState
 }
 
 func errorState(m *MountStateMachine) StateFn {
 	for {
 		// eternally error on responses
 		<-m.requests
-		m.responses <- MountBranchResponse{
+		m.responses <- Response{
 			Repo:       m.MountKey.Repo,
 			Branch:     m.MountKey.Branch,
+			Commit:     m.MountKey.Commit,
 			Name:       m.Name,
 			MountState: m.MountState,
 			Error:      fmt.Errorf("in error state, last error message was: %s", m.Status),
