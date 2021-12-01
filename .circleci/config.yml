@@ -174,20 +174,9 @@ jobs:
       # checkout base branch
       - run: |
           url=https://api.github.com/repos/pachyderm/pachyderm/pulls/${CIRCLE_PULL_REQUEST##*/}
-          dest=$(curl $url | ./jq '.base.ref' | tr -d '"')
-          git checkout "$dest"
-      - run: etc/testing/circle/build.sh
-      - run: etc/testing/circle/launch.sh
-      # checkout head
-      - checkout
-      # run some stuff
-      - run: etc/testing/circle/pre_upgrade_test.sh
-      # build head
-      - run: etc/testing/circle/build.sh
-      # helm upgrade
-      - run: etc/testing/circle/helm-upgrade.sh
-      # run some more stuff
-      - run: etc/testing/circle/post_upgrade_test.sh
+          base=$(curl $url | ./jq '.base.ref' | tr -d '"')
+          head=$(git rev-parse --abbrev-ref HEAD)
+          ./etc/testing/circle/upgrade_test.sh $base $head
 
 workflows:
   circleci:
