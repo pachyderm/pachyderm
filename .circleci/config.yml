@@ -159,6 +159,21 @@ jobs:
       - checkout
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/rootless_test.sh
+  upgrade:
+    resource_class: large
+    machine:
+      image: ubuntu-2004:202101-01
+    steps:
+      - checkout
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-minikube.sh
+      - run: etc/testing/circle/launch-loki.sh
+
+      - run: |
+          url=https://api.github.com/repos/pachyderm/pachyderm/pulls/${CIRCLE_PULL_REQUEST##*/}
+          base=$(curl $url | jq '.base.ref' | tr -d '"')
+          head=$(git rev-parse --abbrev-ref HEAD)
+          ./etc/testing/circle/upgrade_test.sh $base $head
 
 workflows:
   circleci:
@@ -221,4 +236,6 @@ workflows:
                 - LOAD8
                 - LOAD9
                 - LOAD10
-
+  upgrade:
+    jobs:
+    - upgrade
