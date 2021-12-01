@@ -267,7 +267,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
 		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount)
 	}
-	secretVolume, secretMount := GetBackendSecretVolumeAndMount(pc.env.Config.StorageBackend)
+	secretVolume, secretMount := GetBackendSecretVolumeAndMount()
 	options.volumes = append(options.volumes, secretVolume)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
@@ -831,9 +831,8 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 }
 
 // GetBackendSecretVolumeAndMount returns a properly configured Volume and
-// VolumeMount object given a backend.  The backend needs to be one of the
-// constants defined in pfs/server.
-func GetBackendSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) {
+// VolumeMount object
+func GetBackendSecretVolumeAndMount() (v1.Volume, v1.VolumeMount) {
 	return v1.Volume{
 			Name: client.StorageSecretName,
 			VolumeSource: v1.VolumeSource{
