@@ -1,4 +1,4 @@
-import {ExitSVG, SearchSVG} from '@pachyderm/components';
+import {CloseSVG, SearchSVG, Icon} from '@pachyderm/components';
 import classNames from 'classnames';
 import React, {useMemo} from 'react';
 import {useFormContext} from 'react-hook-form';
@@ -21,9 +21,9 @@ const SearchInput: React.FC = () => {
 
   return (
     <>
-      <span className={styles.searchIcon}>
-        <SearchSVG aria-hidden width={22} height={22} />
-      </span>
+      <Icon className={styles.searchIcon}>
+        <SearchSVG aria-hidden />
+      </Icon>
       <input
         role="searchbox"
         placeholder={placeholderText}
@@ -38,7 +38,7 @@ const SearchInput: React.FC = () => {
           type="button"
           onClick={clearSearch}
         >
-          <ExitSVG aria-hidden width={13} height={13} />
+          <CloseSVG aria-hidden />
         </button>
       )}
     </>

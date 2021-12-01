@@ -1,8 +1,9 @@
 import {
-  FileDocSVG,
+  DocumentSVG,
   Link,
   SkeletonDisplayText,
   Tabs,
+  Icon,
 } from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
@@ -44,11 +45,9 @@ const PipelineDetails = () => {
             <Link small to={pipelineLogsRoute}>
               <span className={styles.readLogsText}>
                 Read Logs{' '}
-                <FileDocSVG
-                  className={styles.readLogsSvg}
-                  width={13}
-                  height={24}
-                />
+                <Icon small color="plum">
+                  <DocumentSVG />
+                </Icon>
               </span>
             </Link>
           </li>

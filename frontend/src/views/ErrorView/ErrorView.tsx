@@ -1,6 +1,6 @@
 import {
   Button,
-  ExclamationErrorSVG,
+  StatusWarningSVG,
   GenericError,
   Group,
 } from '@pachyderm/components';
@@ -26,7 +26,7 @@ const ErrorView = () => {
             <>Elephants never forget, so this page must not exist.</>
           ) : (
             <Group spacing={8} align="center">
-              <ExclamationErrorSVG className={styles.error} />{' '}
+              <StatusWarningSVG className={styles.error} />{' '}
               <span>
                 {errorType === ErrorViewType.UNAUTHENTICATED
                   ? 'Unable to authenticate. Try again later.'

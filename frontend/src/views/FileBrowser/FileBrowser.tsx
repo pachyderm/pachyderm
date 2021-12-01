@@ -3,8 +3,8 @@ import {
   GenericErrorSVG,
   ButtonLink,
   FullPageModal,
-  ListViewSVG,
-  IconViewSVG,
+  ViewIconSVG,
+  ViewListSVG,
   LoadingDots,
 } from '@pachyderm/components';
 import classnames from 'classnames';
@@ -80,7 +80,7 @@ const FileBrowser: React.FC = () => {
                     })}
                     aria-label="switch to list view"
                   >
-                    <ListViewSVG />
+                    <ViewListSVG />
                   </ButtonLink>
                 </Tooltip>
                 <Tooltip
@@ -95,7 +95,7 @@ const FileBrowser: React.FC = () => {
                     })}
                     aria-label="switch to icon view"
                   >
-                    <IconViewSVG />
+                    <ViewIconSVG />
                   </ButtonLink>
                 </Tooltip>
               </Route>

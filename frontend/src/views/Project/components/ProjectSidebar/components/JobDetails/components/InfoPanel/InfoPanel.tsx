@@ -1,5 +1,5 @@
 import {NOT_FOUND_ERROR_CODE} from '@dash-backend/lib/types';
-import {ButtonLink, FileDocSVG, Link} from '@pachyderm/components';
+import {ButtonLink, DocumentSVG, Link, Icon} from '@pachyderm/components';
 import {
   fromUnixTime,
   formatDistanceToNow,
@@ -120,8 +120,12 @@ const InfoPanel = () => {
             pipelineId: pipelineId,
           })}
         >
-          Read Logs{' '}
-          <FileDocSVG className={styles.readLogsSvg} width={20} height={24} />
+          <span className={styles.readLogsText}>
+            Read Logs{' '}
+            <Icon small color="plum">
+              <DocumentSVG />
+            </Icon>
+          </span>
         </Link>
       </div>
 

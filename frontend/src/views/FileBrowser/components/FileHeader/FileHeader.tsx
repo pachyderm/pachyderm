@@ -1,11 +1,13 @@
 import {
   Group,
-  ArrowSVG,
+  ArrowRightSVG,
+  ArrowLeftSVG,
   Link,
   Search,
   Tooltip,
   InfoSVG,
   SkeletonDisplayText,
+  Icon,
 } from '@pachyderm/components';
 import {format, fromUnixTime, formatDistanceStrict} from 'date-fns';
 import findIndex from 'lodash/findIndex';
@@ -106,7 +108,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
                   filePath: filePath || undefined,
                 })}
               >
-                <ArrowSVG className={styles.directionLeft} />
+                <ArrowLeftSVG className={styles.directionLeft} />
                 Older
               </Link>
             </Tooltip>
@@ -128,7 +130,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
                 })}
               >
                 Newer
-                <ArrowSVG className={styles.directionRight} />
+                <ArrowRightSVG className={styles.directionRight} />
               </Link>
             </Tooltip>
           )}
@@ -175,9 +177,9 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
         >
           <span className={styles.datelabel}>
             More Info
-            <span className={styles.infoIcon}>
+            <Icon small className={styles.infoIcon}>
               <InfoSVG />
-            </span>
+            </Icon>
           </span>
         </Tooltip>
       </Group>

@@ -1,10 +1,20 @@
+.base {
+  display: flex;
+  align-items: center;
+}
+
 .info {
   margin-left: 0.5rem;
-  margin-right: 1.625rem;
+  margin-right: 1.5rem;
 }
 
 .info.copied {
   margin-right: 0rem;
+}
+
+.copy {
+  display: flex;
+  color: var(--pachyderm-plum);
 }
 
 .copyCheckmark {

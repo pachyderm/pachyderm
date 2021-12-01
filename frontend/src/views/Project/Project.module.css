@@ -57,22 +57,13 @@
   color: var(--placeholder-grey);
 }
 
-.controlButton:disabled .svgControl {
-  cursor: not-allowed;
-  fill: var(--placeholder-grey);
-}
-
-.svgControl {
-  fill: var(--pachyderm-black);
-}
-
 .rotateSvg {
   display: inline-block;
   vertical-align: baseline;
 }
 
-.controlButton:hover:active:not(:disabled) .svgControl {
-  fill: var(--pachyderm-plum);
+.rotateSvg.flipped {
+  transform: scaleX(-1) rotate(90deg);
 }
 
 .tooltip {

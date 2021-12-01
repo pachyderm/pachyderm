@@ -3,11 +3,11 @@
   margin-right: 0.25rem;
 }
 
+.copy {
+  display: inline-flex;
+  align-items: center;
+}
+
 .icon.hide {
   display: none;
-}
-  
-.icon {
-  transform: scale(0.75);
-  vertical-align: text-bottom;
 }

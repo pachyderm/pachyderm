@@ -1,4 +1,12 @@
-import {LoadingDots, Tooltip} from '@pachyderm/components';
+import {
+  LoadingDots,
+  Tooltip,
+  CheckboxCheckedSVG,
+  CheckboxSVG,
+  FullscreenSVG,
+  FlipSVG,
+  Icon,
+} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import {Helmet} from 'react-helmet';
@@ -18,15 +26,10 @@ import FileBrowser from '../FileBrowser';
 import JobLogsViewer from '../LogsViewers/JobLogsViewer/JobLogsViewer';
 import PipelineLogsViewer from '../LogsViewers/PipelineLogsViewer';
 
-import {ReactComponent as CheckboxChecked} from './components/Checkbox_Checked.svg';
-import {ReactComponent as CheckboxUnchecked} from './components/Checkbox_Unchecked.svg';
 import DAG from './components/DAG';
 import ProjectHeader from './components/ProjectHeader';
 import ProjectSidebar from './components/ProjectSidebar';
 import RangeSlider from './components/RangeSlider';
-import {ReactComponent as RotateSvg} from './components/Rotate.svg';
-import {ReactComponent as RotateFlippedSvg} from './components/Rotate_Flipped.svg';
-import {ReactComponent as ZoomOutSvg} from './components/ZoomOut.svg';
 import {NODE_HEIGHT, NODE_WIDTH} from './constants/nodeSizes';
 import {
   FILE_BROWSER_PATH,
@@ -95,17 +98,15 @@ const Project: React.FC = () => {
                 onClick={rotateDag}
                 disabled={noDags}
               >
-                {dagDirection === DagDirection.RIGHT ? (
-                  <RotateSvg
+                <Icon>
+                  <FlipSVG
                     aria-label={'Rotate Canvas'}
-                    className={classnames(styles.svgControl, styles.rotateSvg)}
+                    className={classnames(styles.rotateSvg, {
+                      [styles.flipped]: dagDirection === DagDirection.RIGHT,
+                    })}
                   />
-                ) : (
-                  <RotateFlippedSvg
-                    aria-label={'Rotate Canvas'}
-                    className={classnames(styles.svgControl, styles.rotateSvg)}
-                  />
-                )}
+                </Icon>
+                <label className={styles.controlLabel}>Flip Canvas</label>
               </button>
               <Tooltip
                 className={styles.tooltip}
@@ -119,10 +120,9 @@ const Project: React.FC = () => {
                   onClick={zoomOut}
                   disabled={noDags}
                 >
-                  <ZoomOutSvg
-                    aria-label="Reset Canvas"
-                    className={styles.svgControl}
-                  />
+                  <Icon>
+                    <FullscreenSVG aria-label="Reset Canvas" />
+                  </Icon>
                   <label className={styles.controlLabel}>Reset Canvas</label>
                 </button>
               </Tooltip>
@@ -142,17 +142,19 @@ const Project: React.FC = () => {
                   }}
                   disabled={noDags}
                 >
-                  {!skipCenterOnSelect ? (
-                    <CheckboxChecked
-                      aria-label="Uncheck Skip Center"
-                      className={styles.svgControl}
-                    />
-                  ) : (
-                    <CheckboxUnchecked
-                      aria-label="Check Skip Center"
-                      className={styles.svgControl}
-                    />
-                  )}
+                  <Icon>
+                    {!skipCenterOnSelect ? (
+                      <CheckboxCheckedSVG
+                        aria-label="Uncheck Skip Center"
+                        className={styles.svgControl}
+                      />
+                    ) : (
+                      <CheckboxSVG
+                        aria-label="Check Skip Center"
+                        className={styles.svgControl}
+                      />
+                    )}
+                  </Icon>
                   <label className={styles.controlLabel}>
                     Center Selections
                   </label>

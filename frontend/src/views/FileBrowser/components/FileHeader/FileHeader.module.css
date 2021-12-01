@@ -52,11 +52,9 @@
 }
 
 .directionRight {
-    transform: rotate(90deg);
     margin-left: 1rem;
 }
 
 .directionLeft {
     margin-right: 1rem;
-    transform: rotate(-90deg);
 }

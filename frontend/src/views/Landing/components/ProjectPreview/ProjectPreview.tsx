@@ -1,5 +1,5 @@
 import {Project} from '@graphqlTypes';
-import {Group, InfoSVG} from '@pachyderm/components';
+import {Group, InfoSVG, Icon} from '@pachyderm/components';
 import classNames from 'classnames';
 import React, {useRef} from 'react';
 import {Link} from 'react-router-dom';
@@ -62,7 +62,9 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
                   {project.status.toString() === 'UNHEALTHY' && (
                     <span className={styles.extras}>
                       {/* TODO: add tooltip for unhealthy project details */}
-                      <InfoSVG />
+                      <Icon small>
+                        <InfoSVG />
+                      </Icon>
                       <Link
                         to={jobsRoute({projectId: project.id})}
                         className={styles.link}

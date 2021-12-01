@@ -1,5 +1,5 @@
 import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
-import {ArrowSVG, ButtonLink, Tooltip} from '@pachyderm/components';
+import {ArrowRightSVG, ButtonLink, Tooltip} from '@pachyderm/components';
 import classNames from 'classnames';
 import {formatDistanceToNowStrict, fromUnixTime, format} from 'date-fns';
 import React from 'react';
@@ -76,7 +76,7 @@ const JobListItem: React.FC<JobListItemProps> = ({
                 </ButtonLink>
               </>
             ) : (
-              <ArrowSVG
+              <ArrowRightSVG
                 aria-hidden
                 className={classNames(styles.icon, styles.innerContentItem)}
               />

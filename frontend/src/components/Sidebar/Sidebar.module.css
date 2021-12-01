@@ -65,8 +65,8 @@
   margin-left: auto;
 }
 
-.closeSvg path {
-  fill: var(--placeholder-grey);
+.closeSvg {
+  color: var(--placeholder-grey);
 }
 
 .dragBar {

@@ -38,11 +38,7 @@
 .copy {
   white-space: nowrap;
   margin-right: 2rem;
-  color: var(--pachyderm-black);
-}
-
-.copy path {
-  fill: var(--pachyderm-black);
+  color: var(--pachyderm-plum);
 }
 
 .copy:not(:disabled):hover,

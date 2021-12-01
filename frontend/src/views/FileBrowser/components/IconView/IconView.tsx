@@ -37,11 +37,11 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
           <p className={styles.fileText}>Size: {file.sizeDisplay} </p>
         </div>
       </div>
-      <Group spacing={16} className={styles.actions}>
+      <Group spacing={16} className={styles.actions} align="center">
         {copySupported && (
           <Tooltip tooltipKey={filePath} tooltipText="Copy Path">
             <ButtonLink onClick={copy} aria-label="Copy">
-              <CopySVG />
+              <CopySVG className={styles.actionIcon} />
             </ButtonLink>
           </Tooltip>
         )}
@@ -49,7 +49,7 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
           !file.downloadDisabled && file.download ? (
             <>
               <Link to={file.download} download>
-                <DownloadSVG />
+                <DownloadSVG className={styles.actionIcon} />
               </Link>
               {previewSupported && <Link to={filePath}>Preview</Link>}
             </>
@@ -60,7 +60,7 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
                 tooltipText="This file is too large to download"
               >
                 <Link>
-                  <DownloadSVG />
+                  <DownloadSVG className={styles.actionIcon} />
                 </Link>
               </Tooltip>
               <Tooltip

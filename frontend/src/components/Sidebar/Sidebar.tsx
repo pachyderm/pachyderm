@@ -1,4 +1,4 @@
-import {ButtonLink, ExitSVG} from '@pachyderm/components';
+import {ButtonLink, CloseSVG} from '@pachyderm/components';
 import classnames from 'classnames';
 import React, {HTMLAttributes} from 'react';
 
@@ -74,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {onClose && (
           <div className={styles.closeContainer}>
             <ButtonLink className={styles.closeButton} onClick={onClose}>
-              <ExitSVG aria-label="Close" className={styles.closeSvg} />
+              <CloseSVG aria-label="Close" className={styles.closeSvg} />
             </ButtonLink>
           </div>
         )}

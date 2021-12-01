@@ -32,8 +32,8 @@
 
 .searchIcon {
   position: absolute;
-  left: 1.313rem;
-  top: 0.563rem;
+  left: 0.75rem;
+  top: 0.5rem;
   z-index: 2;
 }
 
@@ -44,6 +44,7 @@
   position: absolute;
   height: var(--button-size);
   right: 0.5rem;
+  transform: scale(0.75);
   top: calc((2.438rem - var(--button-size)) / 2);
 }
 

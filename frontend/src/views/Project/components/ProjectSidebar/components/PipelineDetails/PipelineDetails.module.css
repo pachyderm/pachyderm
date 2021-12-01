@@ -19,13 +19,7 @@
   margin-left: auto;
 }
 
-.readLogsSvg path {
-  transform: scale(0.6);
-  fill: var(--pachyderm-plum);
-}
-
-.readLogsText:active path,
-.readLogsText:hover path,
-.readLogsText:focus path {
-  fill: var(--hover-plum);
+.readLogsText {
+  display: inline-flex;
+  align-items: center;
 }

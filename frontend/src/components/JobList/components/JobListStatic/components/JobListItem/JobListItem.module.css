@@ -4,6 +4,7 @@
   font-size: 0.75rem;
   color: var(--pachyderm-black);
   padding: 0.75rem;
+  padding-right: 1rem;
 }
 
 .base.expandActions {
@@ -15,10 +16,6 @@
   width: 100%;
   display: inline-flex;
   align-items: center;
-}
-
-.innerContentItem + .innerContentItem {
-  margin-left: 0.75rem;
 }
 
 .expandActions .innerContentItem + .innerContentItem {
@@ -34,10 +31,6 @@
 .timestamp {
   flex: 1;
   text-align: center;
-}
-
-.icon {
-  transform: rotate(90deg);
 }
 
 .jobStatus {

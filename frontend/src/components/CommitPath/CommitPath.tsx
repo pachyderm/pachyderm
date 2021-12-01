@@ -27,7 +27,11 @@ const CommitPath: React.FC<CommitPathProps> = ({repo, branch, commit}) => {
   return (
     <span className={styles.base}>
       {repo}@{branch}={shortCommit}
-      <ButtonLink onClick={handleCopy} data-testid={`CommitPath_copy`}>
+      <ButtonLink
+        className={styles.copy}
+        onClick={handleCopy}
+        data-testid={`CommitPath_copy`}
+      >
         <CopySVG
           className={classnames(styles.info, {[styles.copied]: copied})}
         />

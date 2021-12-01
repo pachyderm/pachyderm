@@ -4,6 +4,7 @@ import {
   useClipboardCopy,
   SuccessCheckmark,
   Tooltip,
+  Icon,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React, {useCallback} from 'react';
@@ -31,11 +32,17 @@ const ShortId: React.FC<ShortIdProps> = ({inputString}) => {
       tooltipKey={inputString}
     >
       <span className={styles.base}>
-        <ButtonLink onClick={handleCopy} data-testid={`CommitPath_copy`}>
+        <ButtonLink
+          className={styles.copy}
+          onClick={handleCopy}
+          data-testid={`CommitPath_copy`}
+        >
           {`${shortId} `}
-          <CopySVG
-            className={classnames(styles.icon, {[styles.hide]: copied})}
-          />
+          <Icon small>
+            <CopySVG
+              className={classnames(styles.icon, {[styles.hide]: copied})}
+            />
+          </Icon>
           <SuccessCheckmark
             show={copied}
             className={styles.icon}

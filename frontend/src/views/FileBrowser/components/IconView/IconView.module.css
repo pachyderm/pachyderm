@@ -38,3 +38,7 @@
   justify-content: flex-end;
   font-size: var(--font-size-body-medium);;
 }
+
+.actionIcon {
+  color: var(--pachyderm-plum);
+}
