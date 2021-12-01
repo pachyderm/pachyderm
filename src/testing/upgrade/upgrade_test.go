@@ -33,8 +33,7 @@ func TestPreUpgrade(t *testing.T) {
 			false,
 		))
 	require.NoError(t, c.WithModifyFileClient(client.NewCommit(inputRepo, "master", ""), func(mf client.ModifyFile) error {
-		mf.PutFile("foo", strings.NewReader("foo"))
-		return nil
+		return mf.PutFile("foo", strings.NewReader("foo"))
 	}))
 
 	commitInfo, err := c.InspectCommit(outputRepo, "master", "")
@@ -59,8 +58,7 @@ func TestPostUpgrade(t *testing.T) {
 	require.Equal(t, enterprise.State_ACTIVE, state.State)
 
 	require.NoError(t, c.WithModifyFileClient(client.NewCommit(inputRepo, "master", ""), func(mf client.ModifyFile) error {
-		mf.PutFile("bar", strings.NewReader("bar"))
-		return nil
+		return mf.PutFile("bar", strings.NewReader("bar"))
 	}))
 
 	commitInfo, err := c.InspectCommit(outputRepo, "master", "")
