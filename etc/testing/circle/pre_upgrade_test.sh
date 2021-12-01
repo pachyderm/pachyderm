@@ -2,6 +2,8 @@
 
 pachctl create repo input && 
 pachctl create pipeline -f etc/testing/circle/test-pipeline.json &&
+
+go test -v -count-1 ../../helm/test --run TestPreUpgrade -timeout 3600s
 echo "foo" | pachctl put file input@master:/foo &&
 
 # timeout for pipeline to process
