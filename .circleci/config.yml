@@ -174,7 +174,7 @@ jobs:
       # checkout base branch
       - run: |
           url=https://api.github.com/repos/pachyderm/pachyderm/pulls/${CIRCLE_PULL_REQUEST##*/}
-          base=$(curl $url | ./jq '.base.ref' | tr -d '"')
+          base=$(curl $url | jq '.base.ref' | tr -d '"')
           head=$(git rev-parse --abbrev-ref HEAD)
           ./etc/testing/circle/upgrade_test.sh $base $head
 
