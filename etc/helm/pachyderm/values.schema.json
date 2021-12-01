@@ -343,6 +343,9 @@
         "pachd": {
             "type": "object",
             "properties": {
+                "activateAuth": {
+                    "type": "boolean"
+                },
                 "activateEnterprise": {
                     "type": "boolean"
                 },
