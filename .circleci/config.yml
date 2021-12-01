@@ -173,12 +173,8 @@ jobs:
 
       # checkout base branch
       - run: |
-          curl -L "https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64" -o jq
-          chmod +x jq
           url=https://api.github.com/repos/pachyderm/pachyderm/pulls/${CIRCLE_PULL_REQUEST##*/}
-          echo "URL:  $url"
           dest=$(curl $url | ./jq '.base.ref' | tr -d '"')
-          echo "Dest: $dest"
           git checkout "$dest"
       - run: etc/testing/circle/build.sh
       - run: etc/testing/circle/launch.sh
