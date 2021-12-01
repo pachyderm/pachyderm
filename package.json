@@ -1,6 +1,6 @@
 {
   "name": "jupyterlab-pachyderm",
-  "version": "0.1.0-alpha",
+  "version": "0.1.0-alpha2",
   "description": "A JupyterLab extension.",
   "keywords": [
     "jupyter",
