@@ -64,7 +64,7 @@ pachctl squash commit <commit-ID>
       In the simple example below:
 
       ![Squash example](../images/squash-delete.png)
-      * Note that A’ and C' are altered versions of the files A and C.
+      * A’ and C' are altered versions of files A and C.
 
       Look at what happens to the squashed commits and their data when we run `pachctl squash commit ID1`, then `pachctl squash commit ID2`.
 
@@ -112,7 +112,7 @@ In such case, you will need to:
       For now, `pachctl list file repo@master` returns the files A’, B, C’, E, F.
 
       ![Delete data example](../images/delete-data.png)
-      * A’ and C' are altered versions of the files A and C.
+      * A’ and C' are altered versions of files A and C.
 
       - We are going to create a new commit in which we will surgically remove file C:
 
