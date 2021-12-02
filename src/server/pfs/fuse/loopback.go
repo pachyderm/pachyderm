@@ -44,10 +44,10 @@ type loopbackRoot struct {
 
 	c *client.APIClient
 
-	repoOpts map[string]*RepoOptions
-	branches map[string]string
-	commits  map[string]string
-	files    map[string]fileState
+	repoOpts map[string]*RepoOptions // key is repo name
+	branches map[string]string       // key is path
+	commits  map[string]string       // key is path
+	files    map[string]fileState    // key is path
 	mu       sync.Mutex
 }
 

@@ -660,6 +660,29 @@ func mountedState(m *MountStateMachine) StateFn {
 	}
 }
 
+func cleanByPrefixStrings(theMap map[string]string, prefix string) {
+	for k, _ := range theMap {
+		// match exact directory or file within directory but not directory
+		// which is a substring prefix
+		// e.g., for prefix abc
+		// delete abc
+		// delete abc/foo
+		// but do NOT delete abcde
+		if k == prefix || strings.HasPrefix(k, prefix+"/") {
+			delete(theMap, k)
+		}
+	}
+}
+
+// same as above for fileState type maps. _sigh_ .oO { generics! }
+func cleanByPrefixFileStates(theMap map[string]fileState, prefix string) {
+	for k, _ := range theMap {
+		if k == prefix || strings.HasPrefix(k, prefix+"/") {
+			delete(theMap, k)
+		}
+	}
+}
+
 func unmountingState(m *MountStateMachine) StateFn {
 	m.transitionedTo("unmounting", "")
 	// For now unmountingState is the only place where actual uploads to
@@ -679,16 +702,42 @@ func unmountingState(m *MountStateMachine) StateFn {
 		return errorState
 	}
 
-	// remove from map
-	func() {
+	// close the mfc, uploading files, then delete it
+	nextState := func() StateFn {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
+
+		mfc, err := m.manager.mfc(m.Name)
+		if err != nil {
+			fmt.Printf("Error while getting mfc! %s", err)
+			m.transitionedTo("error", err.Error())
+			return errorState
+		}
+		mfc.Close()
+		delete(m.manager.mfcs, m.Name)
+
+		// forget what we knew about the mount
 		// TODO: shouldn't be repo, should be name
 		delete(m.manager.root.repoOpts, m.MountKey.Repo)
+		cleanByPrefixStrings(m.manager.root.branches, m.MountKey.Repo)
+		cleanByPrefixStrings(m.manager.root.commits, m.MountKey.Repo)
+		cleanByPrefixFileStates(m.manager.root.files, m.MountKey.Repo)
+		return nil
 	}()
+	if nextState != nil {
+		return nextState
+	}
 
 	// remove from loopback filesystem so that it actually disappears for the user
 	// TODO: rm -rf
+	cleanPath := m.manager.root.rootPath + "/" + m.Name
+	fmt.Printf("Path is %s\n", cleanPath)
+	err = os.RemoveAll(cleanPath)
+	if err != nil {
+		fmt.Printf("Error while cleaning! %s", err)
+		m.transitionedTo("error", err.Error())
+		return errorState
+	}
 
 	return unmountedState
 }
@@ -727,10 +776,13 @@ func (mm *MountManager) uploadFiles(prefixFilter string) error {
 	// 200MB/sec on my system, when uploading 18K small files.
 	progress.Disable()
 	for path, state := range mm.root.files {
+		fmt.Printf("Considering file %s\n", path)
 		if !strings.HasPrefix(path, prefixFilter) {
+			fmt.Printf("skip hasprefix\n")
 			continue
 		}
 		if state != dirty {
+			fmt.Printf("skip not dirty\n")
 			continue
 		}
 		parts := strings.Split(path, "/")
