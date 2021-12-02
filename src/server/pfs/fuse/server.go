@@ -703,30 +703,35 @@ func unmountingState(m *MountStateMachine) StateFn {
 	}
 
 	// close the mfc, uploading files, then delete it
-	nextState := func() StateFn {
+	mfc, err := m.manager.mfc(m.Name)
+	if err != nil {
+		fmt.Printf("Error while getting mfc! %s", err)
+		m.transitionedTo("error", err.Error())
+		return errorState
+	}
+	err = mfc.Close()
+	if err != nil {
+		fmt.Printf("Error while closing mfc! %s", err)
+		m.transitionedTo("error", err.Error())
+		return errorState
+	}
+
+	// cleanup
+	func() {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
-
-		mfc, err := m.manager.mfc(m.Name)
-		if err != nil {
-			fmt.Printf("Error while getting mfc! %s", err)
-			m.transitionedTo("error", err.Error())
-			return errorState
-		}
-		mfc.Close()
 		delete(m.manager.mfcs, m.Name)
-
+	}()
+	func() {
+		m.manager.root.mu.Lock()
+		defer m.manager.root.mu.Unlock()
 		// forget what we knew about the mount
 		// TODO: shouldn't be repo, should be name
 		delete(m.manager.root.repoOpts, m.MountKey.Repo)
 		cleanByPrefixStrings(m.manager.root.branches, m.MountKey.Repo)
 		cleanByPrefixStrings(m.manager.root.commits, m.MountKey.Repo)
 		cleanByPrefixFileStates(m.manager.root.files, m.MountKey.Repo)
-		return nil
 	}()
-	if nextState != nil {
-		return nextState
-	}
 
 	// remove from loopback filesystem so that it actually disappears for the user
 	// TODO: rm -rf
@@ -758,6 +763,8 @@ func errorState(m *MountStateMachine) StateFn {
 }
 
 func (mm *MountManager) mfc(repo string) (*client.ModifyFileClient, error) {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
 	if mfc, ok := mm.mfcs[repo]; ok {
 		return mfc, nil
 	}
