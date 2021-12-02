@@ -1,6 +1,23 @@
 
 # Changelog
 
+2.0.3
+- Add helm value `ingress.uriHttpsProtoOverride` to set ingress endpoints with “https” protocol backed by TLS upstream, as opposed to the default TLS configuration using `ingress.tls` helm values - #7134
+- Fix use of passed in helm value: “pachd.oauthRedirectURI“ - #7133
+- Require populated PG Passwords on Helm Upgrades - #7131
+- Improve large commit finishing performance with autoscaling - #7121
+- Add helm value `pachd.activateAuth`, to control whether the config-job bootstraps auth on the cluster. Defaults to true - #7136
+- Fixes a potential pachd crash during initialization - #7114
+- Improved the performance of commit finishing and fixed related issues - #7123
+- The sharding and concatenating tasks during compaction are now distributed.
+- The finishing of commits in different repos is now parallelized.
+- Duplicate work that can occur when determining which levels to compact has been removed.
+- File sets created through the file set API are now compacted to improve file set read performance.
+- Fixes a gRPC leak that can occur when collecting info from workers in pachd.
+- Fixes an issue where the job registry would process jobs in the finishing state.
+- Fixes a set of deadlocks that can occur in the postgres listener.
+
+
 2.0.2
 - Improve tracker GC query performance - #7093
 - Add pachctl delete commit command - #7094
