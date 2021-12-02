@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/node-pachyderm",
-  "version": "0.19.5",
+  "version": "0.19.6",
   "description": "node client for pachyderm",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,7 +10,7 @@
     "build": "npm run clean && npm run build:src && npm run build:types",
     "build:src": "tsc -p tsconfig.json",
     "build:proto": "./etc/build/proto.sh",
-    "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
+    "build:types": "tsc -p tsconfig.json --emitDeclarationOnly && cp -r ./src/proto ./dist/proto",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run lint && npm run test && npm run build",
     "opencv": "npm run build && tsc examples/opencv/index.ts && node examples/opencv/index.js"
@@ -26,11 +26,11 @@
   "homepage": "https://github.com/pachyderm/node-pachyderm#readme",
   "dependencies": {
     "@grpc/grpc-js": "^1.2.2",
-    "google-protobuf": "^3.14.0"
+    "google-protobuf": "^3.14.0",
+    "@types/google-protobuf": "^3.7.4"
   },
   "devDependencies": {
     "@pachyderm/config": "^0.7.0",
-    "@types/google-protobuf": "^3.7.4",
     "@types/jest": "^26.0.15",
     "eslint": "^7.0.0",
     "grpc-tools": "^1.10.0",
