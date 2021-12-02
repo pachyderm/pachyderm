@@ -161,6 +161,23 @@ on the application settings page.
 - `redirect_uri` - This parameter should match what you have added
 to **Allowed Callback URLs** when registering Pachyderm on your IdP website.
 
+!!! Warning
+    **When using an [ingress](../../../../deploy-manage/deploy/ingress/#ingress)**:
+
+    - `redirect_uri` must be changed to point to `https://domain-name/dex/callback`. (Note the additional **/dex/**) 
+    - TLS requires all non-localhost redirectURIs to be **HTTPS**.
+    - AZURE USERS: 
+        - You must use TLS when deploying on Azure.
+        - When using Azure Active Directory, add the following to the oidc config:
+        ``` yaml
+        "config":{
+            "claimMapping": {
+                "email": "preferred_username"
+            } 
+        }      
+        ```
+
+
 !!! Note
 
     Note that Pachyderm's YAML format is **a simplified version** of Dex's [sample config](https://dexidp.io/docs/connectors/oidc/).
