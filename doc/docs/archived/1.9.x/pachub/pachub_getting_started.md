@@ -40,7 +40,7 @@ in [Join GitHub](https://github.com/join).
 
 To log in to Pachyderm Hub, complete the following steps:
 
-1. Go to [hub.pachyderm.com](https://hub.pachyderm.com).
+1. Go to [Pachyderm Hub](https://www.pachyderm.com/try-pachyderm-hub/).
 1. Click **Try for free**.
 1. Authorize Pachyderm Hub with your GitHub account by typing your
    GitHub user name and password.

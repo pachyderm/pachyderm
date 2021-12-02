@@ -1,7 +1,7 @@
 # Notebooks (beta)
 
 !!! Warning 
-     - Notebooks [**beta**](../../contributing/supported-releases/#beta) is available on our Saas solution [Hub](https://hub.pachyderm.com). 
+     - Notebooks [**beta**](../../contributing/supported-releases/#beta) is available on our Saas solution [Hub](https://www.pachyderm.com/try-pachyderm-hub/). 
      - [Contact us](mailto:sales@pachyderm.com) to create a workspace and start experimenting with Notebooks right away with our **21-day free trial**\*.
 
      *\*Offer limited to one single user workspace with 4 vCPUs, 15GB RAM, and unlimited object storage.*
@@ -27,7 +27,7 @@ Run `pip install` from a cell to install any additional library.
 ## Getting Started
 
 !!! Note 
-     On [Hub](https://hub.pachyderm.com), click the `Notebooks` button on your workspace.
+     On [Hub](https://www.pachyderm.com/try-pachyderm-hub/), click the `Notebooks` button on your workspace.
 
 
 From the landing page of Notebooks, in the `/examples` directory, click on the **Intro to Pachyderm Tutorial**. 

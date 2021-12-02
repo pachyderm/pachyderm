@@ -33,7 +33,7 @@ Pachyderm Enterprise also comes with two complementary tools that will quickly b
 - [**Notebooks(beta)**](#notebooks-beta) - Run experiments and explore your data from your favorite Jupyter notebooks using `pachctl` or our Python client [`python-pachyderm`](../../reference/clients). 
 
 !!! Note
-    Both are readily accessible on [Hub](https://hub.pachyderm.com/). The coming GA release of Notebooks will be an Enterprise Feature.
+    Both are readily accessible on [Hub](https://www.pachyderm.com/try-pachyderm-hub/). The coming GA release of Notebooks will be an Enterprise Feature.
 
 ## Console
 Pachyderm Enterprise Edition includes a full UI for visualizing pipelines and exploring data.  It automatically infers the structure of data scientists' DAGs and displays them visually. Data scientists and cluster admins can click on individual segments of pipelines and repos to see how many jobs have run, explore commits and data, or access Pachyderm logs. Console is an indispensable tool when designing and troubleshooting your data workflow.
