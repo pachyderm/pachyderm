@@ -139,8 +139,11 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
         annotations:
             kubernetes.io/ingress.class: "nginx"
         host: "your_domain_name" 
-  
+        tls:
+            enabled: true
+            secretName: "pach-tls" 
     ```
+    **ATTENTION: You must use TLS when deploying on Azure.**
 
 
 As of today, few Ingress Controller offer full support of the gRPC protocol. To access `pachd` over gRPC (for example, when using `pachctl` or the s3Gateway, we recommend using a Load Balancer instead.
