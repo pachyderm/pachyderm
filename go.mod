@@ -61,7 +61,6 @@ require (
 	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
-	go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
 	go.etcd.io/etcd/api/v3 v3.5.1
 	go.etcd.io/etcd/client/v3 v3.5.1
 	go.etcd.io/etcd/server/v3 v3.5.1

@@ -5,7 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	etcd "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/pkg/mock/mockserver"
+	"go.etcd.io/etcd/client/v3/mock/mockserver"
 )
 
 func NewTestEtcd(t *testing.T) *etcd.Client {
