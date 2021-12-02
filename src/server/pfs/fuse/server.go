@@ -689,8 +689,9 @@ func unmountingState(m *MountStateMachine) StateFn {
 	// Pachyderm happen. In the future, we want to split this out to a separate
 	// committingState so that users can commit a repo while it's still mounted.
 
-	// TODO: pause/block filesystem operations during the upload, otherwise we
-	// could get filesystem inconsistency!
+	// TODO XXX VERY IMPORTANT: pause/block filesystem operations during the
+	// upload, otherwise we could get filesystem inconsistency! Need a sort of
+	// lock which multiple fs operations can hold but only one "pauser" can.
 
 	// upload any files whose paths start with where we're mounted
 	// XXX if user sets Name != Repo then this will break right now until we
