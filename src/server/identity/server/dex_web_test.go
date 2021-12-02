@@ -26,6 +26,7 @@ func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
 		DBClient:      dockertestenv.NewTestDB(t),
 		DexDB:         dex_memory.New(logrus.New()),
 		Log:           logrus.New(),
+		EtcdClient:    dockertestenv.NewTestEtcd(t),
 		Configuration: serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{}),
 	}
 	require.NoError(t, migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env), clusterstate.DesiredClusterState))
