@@ -7,7 +7,7 @@ the branch, you can perform one of the following actions:
 
 - [Delete the HEAD of a Branch](#delete-the-head-of-a-branch).
 If the incorrect data was added in the latest commit and provided that the commit does not have children: Follow the steps in this section to fix the HEAD of the corrupted branch.
-- [Squash non-HEAD commits](#squash-non-head-commits). If you dealing with a non-HEAD commit, use the `squash` command.
+- [Squash non-HEAD commits](#squash-non-head-commits). If you are dealing with a non-HEAD commit, use the `squash` command.
 - Or [delete a particular file](#delete-files-from-history), then erase it from your history.
 ## Delete the HEAD of a Branch
 
@@ -38,8 +38,7 @@ When you delete a HEAD commit, Pachyderm performs the following actions:
 
 ## Squash non-HEAD Commits
 
-If you have committed more data to the branch after the bad data
-was added, use the following command:
+If your commit is not a HEAD commit or has children, use the following command:
 
 ```shell
 pachctl squash commit <commit-ID>
@@ -57,16 +56,20 @@ pachctl squash commit <commit-ID>
 !!! Warning "Important"
     - Squashing a global commit on the head of a branch (no children) will fail. Use `pachctl delete commit` instead.
     - Squash commit only applies to [user repositories](../../../concepts/data-concepts/repo/). For example, you cannot squash a commit that updated a pipeline (Commit that lives in a spec repository).
-    - Unlike in `pachctl delete commit`, `pachctl squash commit` does not interrupt or delete any job.
+    - Unlike in `pachctl delete commit`, `pachctl squash commit` does not interrupt or delete any job. 
 
 !!! Example
 
-      In the simple example below:
+      In the simple example below, we create three successive commits on the master branch of a repo `repo`:
+      
+      - In commit ID1, we added files A and B.
+      - In commit ID2, we added file C.
+      - In commit ID3, the latest commit, we altered the content of files A and C.
+
+      We then run `pachctl squash commit ID1`, then `pachctl squash commit ID2`, and look at our branch and remaining commit(s).
 
       ![Squash example](../images/squash-delete.png)
       * A’ and C' are altered versions of files A and C.
-
-      Look at what happens to the squashed commits and their data when we run `pachctl squash commit ID1`, then `pachctl squash commit ID2`.
 
       At any moment, `pachctl list file repo@master` invariably returns the same files A’, B, C’. `pachctl list commit` however, differs in each case, since, by squashing commits, we have deleted them from the branch. Note that no data was deleted.
 
@@ -114,16 +117,16 @@ In such case, you will need to:
       ![Delete data example](../images/delete-data.png)
       * A’ and C' are altered versions of files A and C.
 
-      - We are going to create a new commit in which we will surgically remove file C:
+      - We create a new commit in which we surgically remove file C:
 
         ``` shell
           pachctl start commit repo@master
           pachctl delete file repo@master:path/to/C
           pachctl finish commit repo@master   
         ```
-        At this point, `pachctl list file repo@master` returns the files A’, B, E, F. You have removed file C. However, it still exists in your commit history.
+        At this point, `pachctl list file repo@master` returns the files A’, B, E, F. We removed file C. However, it still exists in the commit history.
 
-      - To remove C from your commit history, we will squash the commits in which C appears, all the way down to our last commit.  
+      - To remove C from the commit history, we squash the commits in which C appears, all the way down to the last commit.  
         ```
           pachctl squash commitID2
           pachctl squash commitID3
