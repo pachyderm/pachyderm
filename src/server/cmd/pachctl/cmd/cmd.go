@@ -35,7 +35,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
@@ -350,7 +349,7 @@ Environment variables:
 				// redundantly sent to the info logger. See:
 				// https://godoc.org/google.golang.org/grpc/grpclog#NewLoggerV2
 				logger := log.StandardLogger()
-				etcd.SetLogger(grpclog.NewLoggerV2(
+				grpclog.SetLoggerV2(grpclog.NewLoggerV2(
 					logutil.NewGRPCLogWriter(logger, "etcd/grpc"),
 					ioutil.Discard,
 					ioutil.Discard,

@@ -125,7 +125,7 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
 
 docker-push-release: docker-push
-	$(SKIP) docker push pachyderm/etcd:v3.3.5
+	$(SKIP) docker push pachyderm/etcd:v3.5.1
 
 check-kubectl:
 	@# check that kubectl is installed

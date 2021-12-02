@@ -10,6 +10,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -209,7 +210,7 @@ func TestS3Input(t *testing.T) {
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
 	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
+		svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
@@ -409,7 +410,7 @@ func TestS3Output(t *testing.T) {
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
 	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
+		svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
@@ -496,7 +497,7 @@ func TestFullS3(t *testing.T) {
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
 	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
+		svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
@@ -647,7 +648,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			// Check that no service is left over
 			k := tu.GetKubeClient(t)
 			require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-				svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
+				svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
 					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.Pipeline.Name, jis[j].Job.ID) {
