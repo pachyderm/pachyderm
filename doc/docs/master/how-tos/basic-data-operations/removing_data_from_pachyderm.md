@@ -6,9 +6,9 @@ Depending on whether or not the bad data is in the HEAD commit of
 the branch, you can perform one of the following actions:
 
 - [Delete the HEAD of a Branch](#delete-the-head-of-a-branch).
-If the incorrect data was added in the latest commit and provided it does not have children: Follow the steps in this section to fix the HEAD of the corrupted branch.
-- [Squash non-HEAD commits](#squash-non-head-commits). If, you have added more data to the same branch after committing the incorrect data, you have added more data to the same branch, use the `squash` command instead.
-- Or [delete a particular file within a given commit](#delete-files-from-history), then erase it from your history.
+If the incorrect data was added in the latest commit and provided that the commit does not have children: Follow the steps in this section to fix the HEAD of the corrupted branch.
+- [Squash non-HEAD commits](#squash-non-head-commits). If you dealing with a non-HEAD commit, use the `squash` command.
+- Or [delete a particular file](#delete-files-from-history), then erase it from your history.
 ## Delete the HEAD of a Branch
 
 To fix a broken HEAD, run the following command:
