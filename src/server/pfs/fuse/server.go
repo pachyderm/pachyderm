@@ -660,14 +660,14 @@ func mountedState(m *MountStateMachine) StateFn {
 	}
 }
 
+// match exact directory or file within directory but not directory
+// which is a substring prefix
+// e.g., for prefix abc
+// delete abc
+// delete abc/foo
+// but do NOT delete abcde
 func cleanByPrefixStrings(theMap map[string]string, prefix string) {
 	for k, _ := range theMap {
-		// match exact directory or file within directory but not directory
-		// which is a substring prefix
-		// e.g., for prefix abc
-		// delete abc
-		// delete abc/foo
-		// but do NOT delete abcde
 		if k == prefix || strings.HasPrefix(k, prefix+"/") {
 			delete(theMap, k)
 		}
