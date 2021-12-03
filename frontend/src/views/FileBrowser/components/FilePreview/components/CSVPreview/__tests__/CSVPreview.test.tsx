@@ -13,7 +13,7 @@ describe('CSV Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repo/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/commas.csv',
+      '/project/3/repo/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/csv_commas.csv',
     );
     const {findByText} = render(<FileBrowser />);
     expect(await findByText('Separator: comma')).toBeInTheDocument();
@@ -23,7 +23,7 @@ describe('CSV Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repo/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/tabs.csv',
+      '/project/3/repo/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/csv_tabs.csv',
     );
     const {findByText} = render(<FileBrowser />);
     expect(await findByText('Separator: tab')).toBeInTheDocument();
@@ -33,7 +33,7 @@ describe('CSV Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repo/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/tabs.tsv',
+      '/project/3/repo/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/tsv_tabs.tsv',
     );
     const {findByText} = render(<FileBrowser />);
     expect(await findByText('Separator: tab')).toBeInTheDocument();

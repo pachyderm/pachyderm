@@ -16,6 +16,7 @@ const IFramePreview: React.FC<FilePreviewProps> = ({
   return (
     <ContentWrapper>
       <iframe
+        data-testid="IFramePreview__iframe"
         className={styles.base}
         src={downloadLink}
         title={fileName}

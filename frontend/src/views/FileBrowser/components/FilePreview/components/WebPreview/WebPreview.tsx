@@ -27,6 +27,7 @@ const WebPreview: React.FC<FilePreviewProps> = ({downloadLink, fileName}) => {
   return (
     <ContentWrapper>
       <iframe
+        data-testid="WebPreview__iframe"
         className={styles.base}
         srcDoc={JSON.stringify(data)}
         title={fileName}
