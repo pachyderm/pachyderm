@@ -1,7 +1,11 @@
 import {JupyterLab} from '@jupyterlab/application';
+import {render} from '@testing-library/react';
+import React from 'react';
+import userEvent from '@testing-library/user-event';
 import {load, track} from 'rudder-sdk-js';
 
 import telemetry from '../';
+import {CLICK_TIMEOUT} from '../telemetry';
 
 const getNotebookAction = jest.fn(() => ({
   cell: {
@@ -96,5 +100,28 @@ describe('telemetry plugin', () => {
         action: 'Hello Telemetry',
       },
     });
+  });
+
+  it('should track clicks', () => {
+    const {getByTestId, getByText} = render(
+      <>
+        <button data-testid="Custom__contactUs">Contact Us</button>
+        <button>Random</button>
+      </>,
+    );
+    const contactButton = getByTestId('Custom__contactUs');
+    const randomButton = getByText('Random');
+
+    userEvent.click(randomButton);
+    jest.advanceTimersByTime(CLICK_TIMEOUT);
+    expect(track).toHaveBeenCalledTimes(0);
+
+    userEvent.click(contactButton);
+    jest.advanceTimersByTime(CLICK_TIMEOUT);
+    expect(track).toHaveBeenCalledTimes(1);
+
+    userEvent.click(contactButton);
+    jest.advanceTimersByTime(CLICK_TIMEOUT);
+    expect(track).toHaveBeenCalledTimes(2);
   });
 });
