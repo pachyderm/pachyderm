@@ -763,17 +763,29 @@ func errorState(m *MountStateMachine) StateFn {
 	}
 }
 
-func (mm *MountManager) mfc(repo string) (*client.ModifyFileClient, error) {
+// given the name of a _mount_, hand back a ModifyFileClient that's configured
+// to upload to that repo.
+func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
-	if mfc, ok := mm.mfcs[repo]; ok {
+	if mfc, ok := mm.mfcs[name]; ok {
 		return mfc, nil
 	}
-	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(repo, mm.root.branch(repo), ""))
+	var repoName string
+	opts, ok := mm.root.repoOpts[name]
+	if !ok {
+		// assume the repo name is the same as the mount name, e.g in the
+		// pachctl mount (with no -r args) case where they all get mounted based
+		// on their name
+		repoName = name
+	}
+	repoName = opts.Repo
+	// TODO: look up repo name based on name
+	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(repoName, mm.root.branch(name), ""))
 	if err != nil {
 		return nil, err
 	}
-	mm.mfcs[repo] = mfc
+	mm.mfcs[name] = mfc
 	return mfc, nil
 }
 

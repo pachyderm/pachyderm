@@ -44,10 +44,10 @@ type loopbackRoot struct {
 
 	c *client.APIClient
 
-	repoOpts map[string]*RepoOptions // key is repo name
-	branches map[string]string       // key is path
-	commits  map[string]string       // key is path
-	files    map[string]fileState    // key is path
+	repoOpts map[string]*RepoOptions // key is mount name
+	branches map[string]string       // key is mount name
+	commits  map[string]string       // key is mount name
+	files    map[string]fileState    // key is {mount_name}/{path}
 	mu       sync.Mutex
 }
 
@@ -626,9 +626,9 @@ func (n *loopbackNode) trimTargetPath(path string) string {
 	return strings.TrimPrefix(path, "/")
 }
 
-func (n *loopbackNode) branch(repo string) string {
+func (n *loopbackNode) branch(name string) string {
 	// no need to lock mu for branches since we only ever read from it.
-	if branch, ok := n.root().branches[repo]; ok {
+	if branch, ok := n.root().branches[name]; ok {
 		return branch
 	}
 	return "master"
