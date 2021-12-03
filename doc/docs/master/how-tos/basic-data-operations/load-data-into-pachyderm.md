@@ -38,6 +38,9 @@
 
 ## Filepath Formats
 
+!!! Important
+    Pachyderm uses `*?[]{}!()@+^` as reserved characters for [glob patterns](../../../concepts/pipeline-concepts/datum/glob-pattern/#glob-pattern). Because of this, you cannot use these characters in your filepath.
+
 In Pachyderm, you specify the path to file by using the `-f` option. A path
 to file can be a **local path or a URL to an external resource**. You can add
 multiple files or directories by using the `-i` option. To add contents
