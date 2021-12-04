@@ -50,15 +50,15 @@ The following table provides examples of `pachctl put file` commands with
 various filepaths and data sources:
 
 * Put data from a URL:
-  ```
+  ```shell
   pachctl put file <repo>@<branch>:</path/to/file> -f http://url_path
   ```
 
 * Put data from an object store. You can use `s3://`, `gcs://`, or `as://`
 in your filepath:
 
-  ```
-  pachctl put file <repo>@<branch>:</path/to/file> -f s3://object_store_url
+  ```shell
+      pachctl put file <repo>@<branch>:</path/to/file> -f s3://object_store_url
   ```
 
 !!! note
@@ -70,7 +70,7 @@ In the case of `-i`, the target file must be a list of files, paths, or URLs
 that you want to input all at once:
 
   ```shell
-  pachctl put file <repo>@<branch> -i <file containing list of files, paths, or URLs>
+      pachctl put file <repo>@<branch> -i <file containing list of files, paths, or URLs>
   ```
 
 * Add an entire directory or all of the contents at a particular URL, either
@@ -78,7 +78,7 @@ HTTP(S) or object store URL, `s3://`, `gcs://`, and `as://`, by using the
 recursive flag, `-r`:
 
   ```shell
-  pachctl put file <repo>@<branch> -r -f <dir>
+      pachctl put file <repo>@<branch> -r -f <dir>
   ```
 
 ## Loading Your Data Partially
