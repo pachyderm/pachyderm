@@ -779,8 +779,9 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 		// pachctl mount (with no -r args) case where they all get mounted based
 		// on their name
 		repoName = name
+	} else {
+		repoName = opts.Repo
 	}
-	repoName = opts.Repo
 	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(repoName, mm.root.branch(name), ""))
 	if err != nil {
 		return nil, err
