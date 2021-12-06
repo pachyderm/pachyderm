@@ -244,6 +244,9 @@
         "global": {
             "type": "object",
             "properties": {
+                "disableSecurityContexts": {
+                    "type": "boolean"
+                },
                 "imagePullSecrets": {
                     "type": "array"
                 },
