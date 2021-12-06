@@ -7,10 +7,10 @@ import pytest
 import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
+from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
 
 
 ADDRESS = "http://localhost:8888"
-MOUNT_DIR = os.environ.get("PFS_MOUNT_DIR", "/pfs")
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
 
 
@@ -40,7 +40,7 @@ def dev_server():
     print("starting development server")
     p = subprocess.Popen(
         [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
-        env={"PFS_MOUNT_DIR": MOUNT_DIR},
+        env={"PFS_MOUNT_DIR": PFS_MOUNT_DIR},
         stdout=subprocess.PIPE,
     )
 
@@ -84,7 +84,7 @@ def test_mount(pachyderm_resources):
             params={"name": repo},
         )
         assert r.status_code == 200
-        assert sorted(list(os.walk(os.path.join(MOUNT_DIR, repo)))[0][2]) == sorted(
+        assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, repo)))[0][2]) == sorted(
             files
         )
 
@@ -93,4 +93,4 @@ def test_mount(pachyderm_resources):
         f"{BASE_URL}/repos/_unmount",
     )
     assert r.status_code == 200
-    assert list(os.walk(MOUNT_DIR)) == [(MOUNT_DIR, [], [])]
+    assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
