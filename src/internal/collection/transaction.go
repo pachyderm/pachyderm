@@ -37,6 +37,7 @@ type STM interface {
 	Get(key string) (string, error)
 	// Put adds a value for a key to the write set.
 	Put(key, val string, ttl int64, ptr uintptr) error
+	PutLease(key, val string, lease v3.LeaseID, ptr uintptr) error
 	// Del deletes a key.
 	Del(key string)
 	// TTL returns the remaining time to live for 'key', or 0 if 'key' has no TTL
@@ -217,6 +218,13 @@ func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 		options = append(options, v3.WithLease(lease))
 	}
 	s.wset[key] = stmPut{val, ttl, v3.OpPut(key, val, options...), ptr}
+	return nil
+}
+
+func (s *stm) PutLease(key, val string, lease v3.LeaseID, ptr uintptr) error {
+	s.Lock()
+	defer s.Unlock()
+	s.wset[key] = stmPut{val, ttl, v3.OpPut(key, val, v3.WithLease(lease)), ptr}
 	return nil
 }
 

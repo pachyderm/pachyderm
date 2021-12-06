@@ -135,6 +135,60 @@ func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Messag
 	return f(claimCtx)
 }
 
+type Renewer struct {
+	client     *etcd.Client
+	collection *etcdCollection
+	lease      etcd.LeaseID
+}
+
+func newRenewer(client *etcd.Client, collection *etcdCollection, lease etcd.LeaseID) *Renewer {
+	return &Renewer{
+		client:     client,
+		collection: collection,
+		lease:      lease,
+	}
+}
+
+func (r *Renewer) Put(ctx context.Context, key string, val proto.Message) error {
+	_, err := NewSTM(ctx, r.client, func(stm STM) error {
+		// TODO: This is a bit messy, but I don't want put lease to be a part of the exported interface.
+		col := &etcdReadWriteCollection{
+			etcdCollection: r.collection,
+			stm:            stm.(STM),
+		}
+		return col.putLease(key, val, r.lease)
+	})
+	return err
+}
+
+func (c *etcdCollection) WithRenewer(ctx context.Context, cb func(context.Context, *Renewer) error) error {
+	resp, err := c.etcdClient.Grant(ctx, ttl)
+	if err != nil {
+		return err
+	}
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(ctx)
+	defer cancel()
+	keepAliveChan, err := c.etcdClient.KeepAlive(ctx, resp.ID)
+	if err != nil {
+		return err
+	}
+	go func() {
+		for {
+			_, more := <-keepAliveChan
+			if !more {
+				if ctx.Err() == nil {
+					fmt.Errorf("failed to renew etcd lease")
+					cancel()
+				}
+				return
+			}
+		}
+	}()
+	renewer := newRenewer(c.etcdClient, c, resp.ID)
+	return cb(ctx, renewer)
+}
+
 // path returns the full path of a key in the etcd namespace
 func (c *etcdCollection) path(key string) string {
 	return path.Join(c.prefix, key)
@@ -217,6 +271,12 @@ func (c *etcdReadWriteCollection) TTL(key string) (int64, error) {
 }
 
 func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
+	return c.put(key, val, func(key string, val string, ptr uintptr) error {
+		return c.stm.Put(key, val, ttl, ptr)
+	})
+}
+
+func (c *etcdReadWriteCollection) put(key string, val proto.Message, putFunc func(string, string, uintptr) error) error {
 	if strings.Contains(key, indexIdentifier) {
 		return errors.Errorf("cannot put key %q which contains reserved string %q", key, indexIdentifier)
 	}
@@ -256,7 +316,7 @@ func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int6
 			}
 			// Put the index even if it already exists, so that watchers may be
 			// notified that the value has been updated.
-			if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
+			if err := putFunc(indexPath, key, 0); err != nil {
 				return err
 			}
 		}
@@ -265,7 +325,13 @@ func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int6
 	if err != nil {
 		return err
 	}
-	return c.stm.Put(c.path(key), string(bytes), ttl, ptr)
+	return putFunc(c.path(key), string(bytes), ptr)
+}
+
+func (c *etcdReadWriteCollection) putLease(key string, val proto.Message, lease etcd.LeaseID) error {
+	return c.put(key, val, func(key string, val string, ptr uintptr) error {
+		return c.stm.PutLease(key, val, lease, ptr)
+	})
 }
 
 // Update reads the current value associated with 'key', calls 'f' to update

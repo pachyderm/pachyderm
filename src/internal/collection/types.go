@@ -42,6 +42,8 @@ type EtcdCollection interface {
 	// Claim attempts to claim a key and run the passed in callback with
 	// the context for the claim.
 	Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error
+
+	WithRenewer(ctx context.Context, cb func(context.Context, *Renewer) error) error
 }
 
 // Index specifies a secondary index on a collection.
