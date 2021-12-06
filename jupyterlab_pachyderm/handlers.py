@@ -134,6 +134,10 @@ class RepoCommitHandler(BaseHandler):
 
 
 class PFSHandler(ContentsHandler):
+    @property
+    def pfs_contents_manager(self) -> PFSContentsManager:
+        return self.settings["pfs_contents_manager"]
+
     @tornado.web.authenticated
     def get(self, path):
         """Copied from https://github.com/jupyter-server/jupyter_server/blob/29be9c6658d7ef04f9b124c54102f7334b610253/jupyter_server/services/contents/handlers.py#L86
@@ -153,23 +157,14 @@ class PFSHandler(ContentsHandler):
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = int(content)
 
-        try:
-            original_root_dir = self.contents_manager.root_dir
-            # Note self.contents_manager.root_dir is a class variable
-            self.contents_manager.root_dir = PFS_MOUNT_DIR
-            model = self.contents_manager.get(
-                path=path,
-                type=type,
-                format=format,
-                content=content,
-            )
-            validate_model(model, expect_content=content)
-            self._finish_model(model, location=False)
-        except Exception as e:
-            raise e
-        finally:
-            # reset to original so that the dfeualt content manager is still relative to the original root_dir
-            self.contents_manager.root_dir = original_root_dir
+        model = self.pfs_contents_manager.get(
+            path=path,
+            type=type,
+            format=format,
+            content=content,
+        )
+        validate_model(model, expect_content=content)
+        self._finish_model(model, location=False)
 
 
 def setup_handlers(web_app):
@@ -178,7 +173,7 @@ def setup_handlers(web_app):
             MockPachydermClient(), PFS_MOUNT_DIR
         )
     else:
-        web_app.settings["contents_manager"] = PFSContentsManager()
+        web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
         web_app.settings["PachydermMountClient"] = PachydermMountClient(
             PachydermClient(
                 python_pachyderm.Client(), python_pachyderm.ExperimentalClient()

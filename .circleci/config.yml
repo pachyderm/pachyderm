@@ -15,7 +15,7 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip<< parameters.python-version >>-cache-v3-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v4-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -24,22 +24,21 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip<< parameters.python-version >>-cache-v3-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v4-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
 
       # Install and cache Node dependencies
       - restore_cache:
           keys:
-            - node-cache-v2-{{ checksum "package-lock.json" }}
-            - node-cache-v2
+            - node-cache-v3-{{ checksum "package-lock.json" }}
+            - node-cache-v3
       - run:
           name: 'Install npm packages'
           command: |
             npm ci
-            npx playwright install-deps  # required for browser_check
       - save_cache:
-          key: node-cache-v2-{{ checksum "package-lock.json" }}
+          key: node-cache-v3-{{ checksum "package-lock.json" }}
           paths:
             - 'node_modules'
       - run:
@@ -52,7 +51,8 @@ jobs:
             python -m pip install -e '.[dev]'
 
             # Run Python unit tests
-            pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
+            mkdir -p pfs
+            PFS_MOUNT_DIR=pfs pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
 
             check-manifest -v
 
