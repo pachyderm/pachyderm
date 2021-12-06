@@ -2,7 +2,11 @@ package transforms
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -96,10 +100,48 @@ func makeWriterFactory(formatName string) (writerFactory, error) {
 		}
 	case "csv":
 		factory = func(w io.Writer, fieldNames []string) sdata.TupleWriter {
-			return sdata.NewCSVWriter(w, fieldNames)
+			return sdata.NewCSVWriter(w, nil)
 		}
 	default:
 		return nil, errors.Errorf("unrecognized format %v", formatName)
 	}
 	return factory, nil
+}
+
+type SQLQueryGenerationParams struct {
+	Logger              *logrus.Logger
+	InputDir, OutputDir string
+
+	Query string
+}
+
+// SQLQueryGeneration generates queries with a timestamp in the comments
+func SQLQueryGeneration(ctx context.Context, params SQLQueryGenerationParams) error {
+	timestamp, err := readCronTimestamp(params.Logger, params.InputDir)
+	if err != nil {
+		return err
+	}
+	timestampComment := fmt.Sprintf("-- %d\n", timestamp)
+	contents := timestampComment + params.Query
+	outputPath := filepath.Join(params.OutputDir, "0000")
+	return ioutil.WriteFile(outputPath, []byte(contents), 0755)
+}
+
+func readCronTimestamp(log *logrus.Logger, inputDir string) (uint64, error) {
+	dirEnts, err := os.ReadDir(inputDir)
+	if err != nil {
+		return 0, err
+	}
+	for _, dirEnt := range dirEnts {
+		name := dirEnt.Name()
+		timestamp, err := time.Parse(time.RFC3339, name)
+		if err != nil {
+			log.Errorf("could not parse %q into timestamp", name)
+			continue
+		}
+		log.Infof("found cron timestamp %q", name)
+		timestamp = timestamp.UTC()
+		return uint64(timestamp.Unix()), nil
+	}
+	return 0, errors.Errorf("missing timestamp file")
 }

@@ -1,4 +1,4 @@
-FROM scratch
+FROM alpine:3.15
 
 LABEL name="Pachyderm" \
       vendor="Pachyderm"
