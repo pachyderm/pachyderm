@@ -279,7 +279,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {},
+			"repo1": {Repo: "repo1"},
 		},
 	}, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -297,7 +297,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {Write: true},
+			"repo1": {Repo: "repo1", Write: true},
 		},
 	}, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -318,7 +318,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {Branch: "staging", Write: true},
+			"repo1": {Repo: "repo1", Branch: "staging", Write: true},
 		},
 	}, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)

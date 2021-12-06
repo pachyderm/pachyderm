@@ -40,6 +40,7 @@ func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 			if len(repoAndFlag) > 1 {
 				flag = repoAndFlag[1]
 			}
+			opts.Repo = repo
 		} else {
 			repo = repoAndRest[0]
 			branchAndFlag := strings.Split(repoAndRest[1], "+")
@@ -47,6 +48,7 @@ func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 			if len(branchAndFlag) > 1 {
 				flag = branchAndFlag[1]
 			}
+			opts.Repo = repo
 		}
 		if flag != "" {
 			for _, c := range flag {

@@ -85,14 +85,17 @@ func TestMountParsing(t *testing.T) {
 	}
 	expected := map[string]*fuse.RepoOptions{
 		"repo1": {
+			Repo:   "repo1",
 			Branch: "branch",
 			Write:  true,
 		},
 		"repo2": {
+			Repo:   "repo2",
 			Branch: "master",
 			Write:  true,
 		},
 		"repo3": {
+			Repo:   "repo3",
 			Branch: "master",
 		},
 	}
