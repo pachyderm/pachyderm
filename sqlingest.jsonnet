@@ -40,7 +40,7 @@ local pachyderm = {
 				"PACHYDERM_SQL_PASSWORD": "root",
 		  	}),
 		)
-	],
+		],
 	sqlIngestCron :: sqlIngestCron,
 };
 
