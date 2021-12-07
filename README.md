@@ -119,3 +119,88 @@ Whenever you create or update a PR, a GitHub Action runs that generates a docker
 
 
 We have plans to add a console docker tag to the workspace create modal in the near future as a way to make this process easier.
+
+## Working with GraphQL
+
+`graphql-codegen` is leveraged in this project to generate both type definitions and client-side code for Console's GraphQL resources based on this codebase's graphql documents.
+
+This repo defines a command `make graphql`, which will generate the Typescript code with `graphql-codegen`, and place that code in the `/generated` directory in both `/frontend` and `/backend`. **Note**: This command is also checked in CI to ensure that types that have been checked in match all of the graphql documents.
+
+### Steps for defining new Types.
+1. Update `/backend/src/schema.graphqls`.
+    ```graphqls
+    // ...
+    type World {
+      msg: String!
+    }
+
+    Query {
+      // ...
+      hello: World!
+    }
+    ```
+1. Run `make graphql`
+1. Implement the resolver. **Note**: You don't need to create a new resolver file per query/mutation. These files are created on a per-resource basis.
+    ```ts
+    // src/resolvers/World.ts
+
+    import {QueryResolvers} from '@graphqlTypes';
+
+    interface WorldResolver {
+      Query: {
+        hello: QueryResolvers['hello'];
+      };
+    }
+
+    const worldResolver: WorldResolver = {
+      Query: {
+        hello: () => {
+          // new code...
+        }
+      }
+    }
+
+    export default worldResolver;
+    ```
+1. If you've created a new resolver in the previous step, add that to the index resolver. Additionally, if the new resolver does not require authentication, add it to the `unauthenticated` array. This should be _very_ rare, and it should be clear if and when you need to use this escape hatch.
+    ```ts
+    // ...
+    import worldResolver from './World';
+
+    const resolvers: Resolvers = merge(
+      // ...
+      worldResolver,
+      {},
+    );
+    ```
+### Steps for defining new Queries and Mutations.
+1. Add a new file for the query or mutation under `/frontend/src/<queries|mutations>`. This will be a Typescript file that uses `gql` to generate a parseable GraphQL document from a template string.
+
+    ```ts
+    // frontend/src/queries/hello.ts
+    import {gql} from '@apollo/client';
+
+    export const HELLO_QUERY = gql`
+      query helloWorld {
+        hello {
+          msg
+        }
+      }
+    `;
+    ```
+1. Run `make graphql`.
+1. Create a wrapper React hook to abstract any `@apollo/client` specific logic.
+    ```ts
+    // frontend/src/hooks/useHello.ts
+    import {useHelloQuery} from '@dash-frontend/generated/hooks';
+
+    export const useHello = () => {
+      const {data, error, loading} = useHelloQuery();
+
+      return {
+        error,
+        msg: data?.msg || '',
+        loading,
+      };
+    };
+    ```

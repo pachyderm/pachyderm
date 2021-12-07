@@ -12,8 +12,7 @@ jobs:
             - image: cimg/node:16.11.0
         steps:
             - checkout
-            - run: cd frontend && npm ci
-            - run: cd backend && npm ci
+            - run: make ci
             - run: cd backend && npm run lint
             - run: cd backend && npm run test -- --collect-coverage
             - codecov/upload:
@@ -24,8 +23,7 @@ jobs:
             - image: cimg/node:16.11.0
         steps:
             - checkout
-            - run: cd backend && npm ci
-            - run: cd frontend && npm ci
+            - run: make ci
             - run: cd frontend && npm run lint
             - run: cd frontend && npm run test -- --collect-coverage
             - codecov/upload:
@@ -62,6 +60,15 @@ jobs:
             - checkout
             - run: make ci
             - run: make build
+    check-types:
+        resource_class: xlarge
+        docker:
+            - image: cimg/node:16.11.0
+        steps:
+            - checkout
+            - run: make ci
+            - run: make graphql
+            - run: sh ./scripts/checkTypeChanges.sh
     # live-automation:
     #     resource_class: xlarge
     #     docker:
@@ -93,6 +100,7 @@ workflows:
             - backend-test
             - frontend-test
             - e2e-test
+            - check-types
             - build
     # live-automation:
     #     triggers:
