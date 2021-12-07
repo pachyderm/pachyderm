@@ -32,12 +32,10 @@ The linter will also run in CI and fail if there are any stylistic discrepancies
 
 ### Updating protobuf code
 
-Currently, protobuf code is generated in a separate node package [@pachyderm/proto](https://www.npmjs.com/package/@pachyderm/proto?activeTab=dependencies). To update the version of the protos update the dependency in `package.json`.
-```bash
-npm install @pachyderm/proto@{DESIRED_VERSION} --save-exact
-```
-
-Update `version.json` to reference the version of Pachyderm you want to pull. This should match the version of the protos being used in the `package.json`.
+1. Install [jq](https://stedolan.github.io/jq/download/)
+1. Update the pachyderm version in `version.json`
+1. Generate new protos with `npm run build:proto`
+1. Commit the proto updates and merge into main via pull request
 
 ## Testing
 
@@ -80,3 +78,11 @@ npm run opencv
 3. Create a PR
 
 Once your PR is approved, it will be merged into the library.
+
+## Releases and publishing
+
+1. Update the `version` in `package.json`
+1. Update the `version` in `package-lock.json`
+1. Commit the version update and merge into main via pull request
+
+A Pachyderm team member will draft a new release on Github and create a tag, for example v0.19.7. CircleCI will automatically publish the updates to npm once a release is created.
