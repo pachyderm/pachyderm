@@ -169,18 +169,8 @@ func (ed *etcdDoer) DoBatch(ctx context.Context, anys []*types.Any, cb CollectFu
 }
 
 func (ed *etcdDoer) DoChan(ctx context.Context, anyChan chan *types.Any, cb CollectFunc) error {
-	prefix := path.Join(ed.groupID, uuid.NewWithoutDashes())
-	defer func() {
-		if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
-			if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
-				return err
-			}
-			return ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix)
-		}); err != nil {
-			fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
-		}
-	}()
 	var eg errgroup.Group
+	prefix := path.Join(ed.groupID, uuid.NewWithoutDashes())
 	done := make(chan struct{})
 	var count int64
 	ctx, cancel := context.WithCancel(ctx)
@@ -216,6 +206,16 @@ func (ed *etcdDoer) DoChan(ctx context.Context, anyChan chan *types.Any, cb Coll
 			return nil
 		})
 	})
+	defer func() {
+		if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
+			if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
+				return err
+			}
+			return ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix)
+		}); err != nil {
+			fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
+		}
+	}()
 	var index int64
 	for {
 		select {
