@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -24,7 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -37,9 +38,9 @@ import (
 // In general, need to spend some time walking through the old driver
 // tests to see what can be reused.
 
-// WorkNamespace returns the namespace used by the work package for this
+// TaskNamespace returns the namespace used by the task package for this
 // pipeline.
-func WorkNamespace(pipelineInfo *pps.PipelineInfo) string {
+func TaskNamespace(pipelineInfo *pps.PipelineInfo) string {
 	return fmt.Sprintf("/pipeline-%s/v%d", pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 }
 
@@ -52,8 +53,8 @@ type Driver interface {
 	Jobs() col.PostgresCollection
 	Pipelines() col.PostgresCollection
 
-	NewTaskWorker() *work.Worker
-	NewTaskQueue() (*work.TaskQueue, error)
+	NewTaskMaker() task.Maker
+	WithTaskDoer(context.Context, string, func(context.Context, task.Doer) error) error
 
 	// Returns the PipelineInfo for the pipeline that this worker belongs to
 	PipelineInfo() *pps.PipelineInfo
@@ -264,12 +265,16 @@ func (d *driver) Pipelines() col.PostgresCollection {
 	return d.pipelines
 }
 
-func (d *driver) NewTaskWorker() *work.Worker {
-	return work.NewWorker(d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, WorkNamespace(d.pipelineInfo))
+func (d *driver) NewTaskMaker() task.Maker {
+	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
+	taskService := d.env.GetTaskService(etcdPrefix)
+	return taskService.Maker(TaskNamespace(d.pipelineInfo))
 }
 
-func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
-	return work.NewTaskQueue(d.ctx, d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, WorkNamespace(d.pipelineInfo))
+func (d *driver) WithTaskDoer(ctx context.Context, groupID string, cb func(context.Context, task.Doer) error) error {
+	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
+	taskService := d.env.GetTaskService(etcdPrefix)
+	return taskService.Doer(ctx, TaskNamespace(d.pipelineInfo), groupID, cb)
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {

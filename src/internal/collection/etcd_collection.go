@@ -17,6 +17,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/sirupsen/logrus"
 )
 
 // defaultLimit was experimentally determined to be the highest value that could work
@@ -178,7 +179,7 @@ func (c *etcdCollection) WithRenewer(ctx context.Context, cb func(context.Contex
 			_, more := <-keepAliveChan
 			if !more {
 				if ctx.Err() == nil {
-					fmt.Errorf("failed to renew etcd lease")
+					logrus.Errorf("failed to renew etcd lease")
 					cancel()
 				}
 				return

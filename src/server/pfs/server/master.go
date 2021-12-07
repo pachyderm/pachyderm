@@ -64,10 +64,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 			cancel()
 		}
 	}()
-	compactor, err := newCompactor(ctx, d.storage, d.etcdClient, d.prefix, d.env.StorageConfig.StorageCompactionMaxFanIn)
-	if err != nil {
-		return err
-	}
+	compactor := newCompactor(d.env.TaskService, d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
 	return d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
 		if ev.Type == watch.EventError {
 			return ev.Err
@@ -126,7 +123,8 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				start := time.Now()
 				if err := miscutil.LogStep(fmt.Sprintf("compacting commit %v", commit), func() error {
 					var err error
-					totalId, err = compactor.Compact(ctx, []fileset.ID{*id}, defaultTTL)
+					// TODO: Commit ID as group ID?
+					totalId, err = compactor.Compact(ctx, commit.ID, []fileset.ID{*id}, defaultTTL)
 					if err != nil {
 						return err
 					}

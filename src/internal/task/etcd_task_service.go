@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"sync/atomic"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -14,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -26,6 +28,7 @@ type Service interface {
 	// TODO: Should group ID parameter?
 	Doer(ctx context.Context, namespace, groupID string, cb func(context.Context, Doer) error) error
 	Maker(namespace string) Maker
+	TaskCount(ctx context.Context, namespace string) (tasks int64, claims int64, err error)
 }
 
 type etcdService struct {
@@ -81,6 +84,7 @@ func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Me
 type Doer interface {
 	Do(ctx context.Context, any *types.Any) (*types.Any, error)
 	DoBatch(ctx context.Context, anys []*types.Any, cb CollectFunc) error
+	DoChan(ctx context.Context, anyChan chan *types.Any, cb CollectFunc) error
 }
 
 type etcdDoer struct {
@@ -103,7 +107,11 @@ func (ed *etcdDoer) Do(ctx context.Context, any *types.Any) (*types.Any, error) 
 	taskID := pachhash.EncodeHash(sum[:])
 	prefix := uuid.NewWithoutDashes()
 	taskKey := path.Join(ed.groupID, prefix, taskID)
-	task := &Task{ID: taskID, Input: any, State: State_RUNNING}
+	task := &Task{
+		ID:    taskID,
+		Input: any,
+		State: State_RUNNING,
+	}
 	if err := ed.renewer.Put(ctx, taskKey, task); err != nil {
 		return nil, err
 	}
@@ -141,60 +149,104 @@ func (ed *etcdDoer) Do(ctx context.Context, any *types.Any) (*types.Any, error) 
 	return result, nil
 }
 
-type CollectFunc func(int, *types.Any, error) error
+type CollectFunc func(int64, *types.Any, error) error
 
 func (ed *etcdDoer) DoBatch(ctx context.Context, anys []*types.Any, cb CollectFunc) error {
-	if len(anys) == 0 {
-		return nil
-	}
-	batchPrefix := path.Join(ed.groupID, uuid.NewWithoutDashes())
-	idxMap := make(map[string]int)
-	for i, any := range anys {
-		// TODO: include any type in hash?
-		sum := pachhash.Sum(any.Value)
-		taskID := pachhash.EncodeHash(sum[:])
-		taskKey := path.Join(batchPrefix, taskID)
-		task := &Task{ID: taskID, Input: any, State: State_RUNNING}
-		if err := ed.renewer.Put(ctx, taskKey, task); err != nil {
-			return err
+	var eg errgroup.Group
+	anyChan := make(chan *types.Any)
+	eg.Go(func() error {
+		return ed.DoChan(ctx, anyChan, cb)
+	})
+	for _, any := range anys {
+		select {
+		case anyChan <- any:
+		case <-ctx.Done():
+			return ctx.Err()
 		}
-		idxMap[taskKey] = i
 	}
+	close(anyChan)
+	return eg.Wait()
+}
+
+func (ed *etcdDoer) DoChan(ctx context.Context, anyChan chan *types.Any, cb CollectFunc) error {
+	prefix := path.Join(ed.groupID, uuid.NewWithoutDashes())
 	defer func() {
 		if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
-			if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(batchPrefix); err != nil {
+			if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
 				return err
 			}
-			return ed.claimCol.ReadWrite(stm).DeleteAllPrefix(batchPrefix)
+			return ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix)
 		}); err != nil {
-			fmt.Printf("errored deleting all tasks in a batch: %v\n", err)
+			fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
 		}
 	}()
-	return ed.taskCol.ReadOnly(ctx).WatchOneF(batchPrefix, func(e *watch.Event) error {
-		if e.Type == watch.EventDelete {
-			return errors.New("task was deleted while waiting for results")
-		}
-		var key string
-		task := &Task{}
-		if err := e.Unmarshal(&key, task); err != nil {
-			return err
-		}
-		if task.State == State_RUNNING {
+	var eg errgroup.Group
+	done := make(chan struct{})
+	var count int64
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	eg.Go(func() error {
+		return ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
+			if e.Type == watch.EventDelete {
+				return errors.New("task was deleted while waiting for results")
+			}
+			var key string
+			task := &Task{}
+			if err := e.Unmarshal(&key, task); err != nil {
+				return err
+			}
+			if task.State == State_RUNNING {
+				return nil
+			}
+			var err error
+			if task.State == State_FAILURE {
+				err = errors.New(task.Reason)
+			}
+			if err := cb(task.Index, task.Output, err); err != nil {
+				return err
+			}
+			atomic.AddInt64(&count, -1)
+			select {
+			case <-done:
+				if count == 0 {
+					return errutil.ErrBreak
+				}
+			default:
+			}
 			return nil
-		}
-		var err error
-		if task.State == State_FAILURE {
-			err = errors.New(task.Reason)
-		}
-		if err := cb(idxMap[key], task.Output, err); err != nil {
-			return err
-		}
-		delete(idxMap, key)
-		if len(idxMap) == 0 {
-			return errutil.ErrBreak
-		}
-		return nil
+		})
 	})
+	var index int64
+	for {
+		select {
+		case any, more := <-anyChan:
+			if !more {
+				close(done)
+				// If the tasks have already been collected (or there were none), then just return.
+				if atomic.LoadInt64(&count) == 0 {
+					return nil
+				}
+				return eg.Wait()
+			}
+			// TODO: include any type in hash?
+			sum := pachhash.Sum(any.Value)
+			taskID := pachhash.EncodeHash(sum[:])
+			taskKey := path.Join(prefix, taskID)
+			task := &Task{
+				ID:    taskID,
+				Input: any,
+				State: State_RUNNING,
+				Index: index,
+			}
+			index++
+			if err := ed.renewer.Put(ctx, taskKey, task); err != nil {
+				return err
+			}
+			atomic.AddInt64(&count, 1)
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (es *etcdService) Maker(namespace string) Maker {
@@ -326,13 +378,14 @@ func (em *etcdMaker) createTaskFunc(ctx context.Context, taskKey string, cb Proc
 	}
 }
 
-// TaskCount returns how many tasks are in the queue and how many are claimed.
-func (em *etcdMaker) TaskCount(ctx context.Context) (tasks int64, claims int64, _ error) {
-	nTasks, rev, err := em.taskCol.ReadOnly(ctx).CountRev(0)
+// TaskCount returns how many tasks are in a namespace and how many are claimed.
+func (es *etcdService) TaskCount(ctx context.Context, namespace string) (tasks int64, claims int64, _ error) {
+	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
+	nTasks, rev, err := namespaceEtcd.taskCol.ReadOnly(ctx).CountRev(0)
 	if err != nil {
 		return 0, 0, err
 	}
-	nClaims, _, err := em.claimCol.ReadOnly(ctx).CountRev(rev)
+	nClaims, _, err := namespaceEtcd.claimCol.ReadOnly(ctx).CountRev(rev)
 	if err != nil {
 		return 0, 0, err
 	}

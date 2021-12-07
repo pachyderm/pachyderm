@@ -108,7 +108,7 @@ func test(t *testing.T, workerFailProb, groupCancelProb, taskFailProb float64) {
 			}
 			ctx, cancel := context.WithCancel(errCtx)
 			return s.Doer(ctx, "", strconv.Itoa(i), func(ctx context.Context, d Doer) error {
-				if err := d.DoBatch(ctx, inputs, func(j int, output *types.Any, err error) error {
+				if err := d.DoBatch(ctx, inputs, func(j int64, output *types.Any, err error) error {
 					if rand.Float64() < groupCancelProb {
 						created[i] = nil
 						collected[i] = nil
@@ -170,6 +170,6 @@ func TestRunZeroTasks(t *testing.T) {
 	env := testetcd.NewEnv(t)
 	s := NewEtcdService(env.EtcdClient, "")
 	require.NoError(t, s.Doer(context.Background(), "", "", func(ctx context.Context, d Doer) error {
-		return d.DoBatch(ctx, nil, func(_ int, _ *types.Any, _ error) error { return errors.New("no tasks should exist") })
+		return d.DoBatch(ctx, nil, func(_ int64, _ *types.Any, _ error) error { return errors.New("no tasks should exist") })
 	}))
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -61,6 +62,9 @@ func (s *TestServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
 }
 func (s *TestServiceEnv) GetEtcdClient() *etcd.Client {
 	return s.EtcdClient
+}
+func (s *TestServiceEnv) GetTaskService(prefix string) task.Service {
+	return task.NewEtcdService(s.EtcdClient, prefix)
 }
 func (s *TestServiceEnv) GetKubeClient() *kube.Clientset {
 	return s.KubeClient

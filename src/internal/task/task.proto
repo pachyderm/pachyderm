@@ -21,6 +21,7 @@ message Task {
   google.protobuf.Any input = 3;
   google.protobuf.Any output = 4;
   string reason = 5;
+  int64 index = 6;
 }
 
 message Claim {}

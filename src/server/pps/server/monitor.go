@@ -20,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -253,14 +252,10 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 		if pipelineInfo.Details.ParallelismSpec != nil && pipelineInfo.Details.ParallelismSpec.Constant > 1 && pipelineInfo.Details.Autoscaling {
 			eg.Go(func() error {
 				pachClient := pc.env.GetPachClient(ctx)
+				taskService := pc.env.TaskService
 				return backoff.RetryUntilCancel(ctx, func() error {
-					worker := work.NewWorker(
-						pc.env.EtcdClient,
-						pc.etcdPrefix,
-						driver.WorkNamespace(pipelineInfo),
-					)
 					for {
-						nTasks, nClaims, err := worker.TaskCount(pachClient.Ctx())
+						nTasks, nClaims, err := taskService.TaskCount(pachClient.Ctx(), driver.TaskNamespace(pipelineInfo))
 						if err != nil {
 							return err
 						}
