@@ -242,6 +242,8 @@ pachd:
     create: true
     additionalAnnotations: {}
     name: "pachyderm" #TODO Set default in helpers / Wire up in templates
+  # Sets the OPENSSL_DIR environment variable in the config-pod to bootstrap the cluster using custom certs
+  customRootCertsDir: ""
   storage:
     # backend configures the storage backend to use.  It must be one
     # of GOOGLE, AMAZON, MINIO, MICROSOFT or LOCAL. This is set automatically

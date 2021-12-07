@@ -358,6 +358,9 @@
                 "clusterDeploymentID": {
                     "type": "string"
                 },
+                "customRootCertsDir": {
+                    "type": "string"
+                },
                 "enabled": {
                     "type": "boolean"
                 },

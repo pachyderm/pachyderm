@@ -36,6 +36,10 @@ spec:
         - name: PACH_ADDR
           value: "grpc://pach-enterprise:1650"
         {{- end }}
+        {{- if .Values.pachd.customRootCertsDir }}
+        - name: OPENSSL_DIR
+          value: {{ .Values.pachd.customRootCertsDir }}
+        {{- end }}
         envFrom:
         - secretRef:
             name: pachyderm-deployment-id-secret
