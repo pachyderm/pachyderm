@@ -7,8 +7,9 @@ the branch, you can perform one of the following actions:
 
 - [Delete the HEAD of a Branch](#delete-the-head-of-a-branch).
 If the incorrect data was added in the latest commit and provided that the commit does not have children: Follow the steps in this section to fix the HEAD of the corrupted branch.
-- [Squash non-HEAD commits](#squash-non-head-commits). If you are dealing with a non-HEAD commit, use the `squash` command.
-- Or [delete a particular file](#delete-files-from-history), then erase it from your history.
+- If your changes are relatively recent (see conditions below), you can [delete a particular file](#delete-files-from-history), then erase it from your history.
+
+Additionally, although this is a separate use-case, you have the option to [squash non-HEAD commits](#squash-non-head-commits) to rewrite your commit history.
 ## Delete the HEAD of a Branch
 
 To fix a broken HEAD, run the following command:
@@ -23,29 +24,24 @@ When you delete a HEAD commit, Pachyderm performs the following actions:
   HEAD to their bad commit's parent and deletes the commit. 
   **The data in the deleted commit is lost**.
   If the bad commit does not have
-  a parent, Pachyderm sets the branch's HEAD to `nil`.
-- Deletes all the jobs that were triggered by the bad commit. Also,
-  Pachyderm interrupts all running jobs, including not only the
+  a parent, Pachyderm sets the branch's HEAD to a new empty commit. 
+- Interrupts all running jobs, including not only the
   jobs that use the bad commit as a direct input but also the ones farther
   downstream in your DAG.
 - Deletes the output commits from the deleted jobs. All the actions listed above are applied to those commits as well.
 
 !!! Warning
-     This command will **only succeed if the HEAD commit has no children on any branch**. `pachctl delete commit` will error when attempting to delete a HEAD commit with children. In such a case, use the `pachctl squash commit` command. 
+     This command will **only succeed if the HEAD commit has no children on any branch**. `pachctl delete commit` will error when attempting to delete a HEAD commit with children. 
 
 !!! Note "Are you wondering how a HEAD commit can have children?"
      A commit can be the head of a branch and still have children. For instance, if you run `pachctl create branch repo@master --head repo@staging`, the `staging`'s HEAD will have an alias child on `master`. 
 
 ## Squash non-HEAD Commits
 
-If your commit is not a HEAD commit or has children, use the following command:
-
-```shell
-pachctl squash commit <commit-ID>
-```
-
-`squash commit` **combines all the file changes in the commits of a global commit
-into their children** and then removes the global commit.
+If your commit has children, you have the option to use the `squash commit` command.
+Squashing is a way to rewrite your commit history; this helps clean up and simplify your commit history before sharing your work with team members.
+Squashing a commit in Pachyderm means that you are **combining all the file changes in the commits of a global commit
+into their children** and then removing the global commit.
 This behavior is inspired by the squash option in git rebase.
 **No data stored in PFS is removed** since they remain in the child commits.
 
@@ -56,7 +52,7 @@ pachctl squash commit <commit-ID>
 !!! Warning "Important"
     - Squashing a global commit on the head of a branch (no children) will fail. Use `pachctl delete commit` instead.
     - Squash commit only applies to [user repositories](../../../concepts/data-concepts/repo/). For example, you cannot squash a commit that updated a pipeline (Commit that lives in a spec repository).
-    - Unlike in `pachctl delete commit`, `pachctl squash commit` does not interrupt or delete any job. 
+    - Similarly to `pachctl delete commit`, `pachctl squash commit` stops (but does not delete) associated jobs.
 
 !!! Example
 
@@ -71,12 +67,15 @@ pachctl squash commit <commit-ID>
       ![Squash example](../images/squash-delete.png)
       * A’ and C' are altered versions of files A and C.
 
-      At any moment, `pachctl list file repo@master` invariably returns the same files A’, B, C’. `pachctl list commit` however, differs in each case, since, by squashing commits, we have deleted them from the branch. Note that no data was deleted.
+      At any moment, `pachctl list file repo@master` invariably returns the same files A’, B, C’. `pachctl list commit` however, differs in each case, since, by squashing commits, we have deleted them from the branch. 
 
 ## Delete Files from History
 
-On rare occasions, you might need to delete a particular file from a given commit along with its complete history. 
-In such case, you will need to:
+!!! Important
+    It is important to note that this use case is limited to simple cases where the "bad" changes were made relatively recently, as any pipeline update since then will make it impossible.
+
+I rare cases, you might need to delete a particular file from a given commit and further choose to delete its complete history. 
+In such a case, you will need to:
 
 - Create a new commit in which you surgically remove the problematic file.
     1. Start a new commit:
@@ -101,7 +100,7 @@ In such case, you will need to:
    the newly finished commit.
 
       Unless the subsequent commits overwrote or deleted the
-      bad data, the bad data might still be present in the
+      bad data, the data might still be present in the
       children commits. Squashing those commits cleans up your
       commit history and ensures that the errant data is not
       available when non-HEAD versions of the data are read.
