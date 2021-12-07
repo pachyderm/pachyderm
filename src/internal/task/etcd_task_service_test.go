@@ -20,10 +20,6 @@ var (
 	errTaskFailure = errors.Errorf("task failure")
 )
 
-func seedStr(seed int64) string {
-	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
-}
-
 func serializeTestTask(testTask *TestTask) (*types.Any, error) {
 	serializedTestTask, err := proto.Marshal(testTask)
 	if err != nil {
@@ -43,45 +39,55 @@ func deserializeTestTask(any *types.Any) (*TestTask, error) {
 	return testTask, nil
 }
 
-func test(t *testing.T, workerFailProb, groupCancelProb, taskFailProb float64) {
+func newTestEtcdService(t *testing.T) Service {
+	env := testetcd.NewEnv(t)
+	return NewEtcdService(env.EtcdClient, "")
+}
+
+func seedRand() string {
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
-	msg := seedStr(seed)
-	env := testetcd.NewEnv(t)
+	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
+}
+
+func test(t *testing.T, s Service, workerFailProb, groupCancelProb, taskFailProb float64, msg ...string) {
 	numGroups := 10
 	numTasks := 10
 	numWorkers := 5
-	// Set up task service.
-	s := NewEtcdService(env.EtcdClient, "")
 	// Set up workers.
 	workerCtx, workerCancel := context.WithCancel(context.Background())
+	defer workerCancel()
 	workerEg, errCtx := errgroup.WithContext(workerCtx)
 	for i := 0; i < numWorkers; i++ {
 		workerEg.Go(func() error {
 			maker := s.Maker("")
 			for {
-				ctx, cancel := context.WithCancel(errCtx)
-				if err := maker.Make(ctx, func(_ context.Context, input *types.Any) (*types.Any, error) {
-					if rand.Float64() < workerFailProb {
-						cancel()
-						return nil, nil
-					}
-					if rand.Float64() < taskFailProb {
-						return nil, errTaskFailure
-					}
-					testTask, err := deserializeTestTask(input)
-					if err != nil {
-						return nil, err
-					}
-					return serializeTestTask(testTask)
-				}); err != nil {
-					if errors.Is(workerCtx.Err(), context.Canceled) {
+				if err := func() error {
+					ctx, cancel := context.WithCancel(errCtx)
+					defer cancel()
+					err := maker.Make(ctx, func(_ context.Context, input *types.Any) (*types.Any, error) {
+						if rand.Float64() < workerFailProb {
+							cancel()
+							return nil, nil
+						}
+						if rand.Float64() < taskFailProb {
+							return nil, errTaskFailure
+						}
+						testTask, err := deserializeTestTask(input)
+						if err != nil {
+							return nil, err
+						}
+						return serializeTestTask(testTask)
+					})
+					if errors.Is(ctx.Err(), context.Canceled) {
 						return nil
 					}
-					if errors.Is(ctx.Err(), context.Canceled) {
-						continue
-					}
 					return err
+				}(); err != nil {
+					return err
+				}
+				if errors.Is(workerCtx.Err(), context.Canceled) {
+					return nil
 				}
 			}
 		})
@@ -107,6 +113,7 @@ func test(t *testing.T, workerFailProb, groupCancelProb, taskFailProb float64) {
 				created[i][j] = true
 			}
 			ctx, cancel := context.WithCancel(errCtx)
+			defer cancel()
 			return s.Doer(ctx, "", strconv.Itoa(i), func(ctx context.Context, d Doer) error {
 				if err := d.DoBatch(ctx, inputs, func(j int64, output *types.Any, err error) error {
 					if rand.Float64() < groupCancelProb {
@@ -142,27 +149,27 @@ func test(t *testing.T, workerFailProb, groupCancelProb, taskFailProb float64) {
 
 func TestBasic(t *testing.T) {
 	t.Parallel()
-	test(t, 0, 0, 0)
+	test(t, newTestEtcdService(t), 0, 0, 0, seedRand())
 }
 
 func TestWorkerCrashes(t *testing.T) {
 	t.Parallel()
-	test(t, 0.1, 0, 0)
+	test(t, newTestEtcdService(t), 0.1, 0, 0, seedRand())
 }
 
 func TestCancelGroups(t *testing.T) {
 	t.Parallel()
-	test(t, 0, 0.05, 0)
+	test(t, newTestEtcdService(t), 0, 0.05, 0, seedRand())
 }
 
 func TestTaskFailures(t *testing.T) {
 	t.Parallel()
-	test(t, 0, 0, 0.1)
+	test(t, newTestEtcdService(t), 0, 0, 0.1, seedRand())
 }
 
 func TestEverything(t *testing.T) {
 	t.Parallel()
-	test(t, 0.1, 0.2, 0.1)
+	test(t, newTestEtcdService(t), 0.1, 0.2, 0.1, seedRand())
 }
 
 func TestRunZeroTasks(t *testing.T) {

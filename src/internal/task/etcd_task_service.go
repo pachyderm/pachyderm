@@ -24,13 +24,6 @@ const (
 	claimPrefix = "/claim"
 )
 
-type Service interface {
-	// TODO: Should group ID parameter?
-	Doer(ctx context.Context, namespace, groupID string, cb func(context.Context, Doer) error) error
-	Maker(namespace string) Maker
-	TaskCount(ctx context.Context, namespace string) (tasks int64, claims int64, err error)
-}
-
 type etcdService struct {
 	etcdClient *etcd.Client
 	etcdPrefix string
@@ -54,6 +47,24 @@ func (es *etcdService) Doer(ctx context.Context, namespace, groupID string, cb f
 			return cb(ctx, ed)
 		})
 	})
+}
+
+func (es *etcdService) Maker(namespace string) Maker {
+	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
+	return newEtcdMaker(namespaceEtcd)
+}
+
+func (es *etcdService) TaskCount(ctx context.Context, namespace string) (tasks int64, claims int64, _ error) {
+	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
+	nTasks, rev, err := namespaceEtcd.taskCol.ReadOnly(ctx).CountRev(0)
+	if err != nil {
+		return 0, 0, err
+	}
+	nClaims, _, err := namespaceEtcd.claimCol.ReadOnly(ctx).CountRev(rev)
+	if err != nil {
+		return 0, 0, err
+	}
+	return nTasks, nClaims, nil
 }
 
 type namespaceEtcd struct {
@@ -81,12 +92,6 @@ func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Me
 	)
 }
 
-type Doer interface {
-	Do(ctx context.Context, any *types.Any) (*types.Any, error)
-	DoBatch(ctx context.Context, anys []*types.Any, cb CollectFunc) error
-	DoChan(ctx context.Context, anyChan chan *types.Any, cb CollectFunc) error
-}
-
 type etcdDoer struct {
 	*namespaceEtcd
 	groupID string
@@ -102,9 +107,10 @@ func newEtcdDoer(namespaceEtcd *namespaceEtcd, groupID string, renewer *col.Rene
 }
 
 func (ed *etcdDoer) Do(ctx context.Context, any *types.Any) (*types.Any, error) {
-	// TODO: include any type in hash?
-	sum := pachhash.Sum(any.Value)
-	taskID := pachhash.EncodeHash(sum[:])
+	taskID, err := computeTaskID(any)
+	if err != nil {
+		return nil, err
+	}
 	prefix := uuid.NewWithoutDashes()
 	taskKey := path.Join(ed.groupID, prefix, taskID)
 	task := &Task{
@@ -149,7 +155,14 @@ func (ed *etcdDoer) Do(ctx context.Context, any *types.Any) (*types.Any, error) 
 	return result, nil
 }
 
-type CollectFunc func(int64, *types.Any, error) error
+func computeTaskID(any *types.Any) (string, error) {
+	val, err := proto.Marshal(any)
+	if err != nil {
+		return "", err
+	}
+	sum := pachhash.Sum(val)
+	return pachhash.EncodeHash(sum[:]), nil
+}
 
 func (ed *etcdDoer) DoBatch(ctx context.Context, anys []*types.Any, cb CollectFunc) error {
 	var eg errgroup.Group
@@ -228,9 +241,10 @@ func (ed *etcdDoer) DoChan(ctx context.Context, anyChan chan *types.Any, cb Coll
 				}
 				return eg.Wait()
 			}
-			// TODO: include any type in hash?
-			sum := pachhash.Sum(any.Value)
-			taskID := pachhash.EncodeHash(sum[:])
+			taskID, err := computeTaskID(any)
+			if err != nil {
+				return err
+			}
 			taskKey := path.Join(prefix, taskID)
 			task := &Task{
 				ID:    taskID,
@@ -249,15 +263,6 @@ func (ed *etcdDoer) DoChan(ctx context.Context, anyChan chan *types.Any, cb Coll
 	}
 }
 
-func (es *etcdService) Maker(namespace string) Maker {
-	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	return newEtcdMaker(namespaceEtcd)
-}
-
-type Maker interface {
-	Make(ctx context.Context, cb ProcessFunc) error
-}
-
 type etcdMaker struct {
 	*namespaceEtcd
 }
@@ -267,8 +272,6 @@ func newEtcdMaker(namespaceEtcd *namespaceEtcd) Maker {
 		namespaceEtcd: namespaceEtcd,
 	}
 }
-
-type ProcessFunc func(context.Context, *types.Any) (*types.Any, error)
 
 func (em *etcdMaker) Make(ctx context.Context, cb ProcessFunc) error {
 	tq := newTaskQueue(ctx)
@@ -376,18 +379,4 @@ func (em *etcdMaker) createTaskFunc(ctx context.Context, taskKey string, cb Proc
 			fmt.Printf("errored in task callback: %v\n", err)
 		}
 	}
-}
-
-// TaskCount returns how many tasks are in a namespace and how many are claimed.
-func (es *etcdService) TaskCount(ctx context.Context, namespace string) (tasks int64, claims int64, _ error) {
-	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	nTasks, rev, err := namespaceEtcd.taskCol.ReadOnly(ctx).CountRev(0)
-	if err != nil {
-		return 0, 0, err
-	}
-	nClaims, _, err := namespaceEtcd.claimCol.ReadOnly(ctx).CountRev(rev)
-	if err != nil {
-		return 0, 0, err
-	}
-	return nTasks, nClaims, nil
 }
