@@ -19,7 +19,7 @@ To see how to use a helm values files to customize your deployment, refer to our
 
 ## Values.yaml
 The following section displays the complete list of fields available in the [values.yaml](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/pachyderm/values.yaml). 
-Each section is detailed further in its own sub-chapter. 
+Each section is further detailed in its own sub-chapter. 
 
 
 ```yaml
