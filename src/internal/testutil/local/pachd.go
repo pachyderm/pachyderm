@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	contextInterceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/context"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
@@ -117,10 +118,12 @@ func RunLocal() (retErr error) {
 		grpc.ChainUnaryInterceptor(
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
+			contextInterceptor.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
+			contextInterceptor.StreamServerInterceptor,
 		),
 	)
 
