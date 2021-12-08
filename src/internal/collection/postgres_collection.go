@@ -22,6 +22,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
+const (
+	listBufferCapacity = 1000
+)
+
 type postgresCollection struct {
 	table    string
 	db       *pachsql.DB
@@ -279,14 +283,7 @@ func targetToSQL(target etcd.SortTarget) (string, error) {
 	return "", errors.Errorf("unsupported sort target for postgres collections: %d", target)
 }
 
-func (c *postgresCollection) list(
-	ctx context.Context,
-	withFields map[string]string,
-	opts *Options,
-	greedy bool,
-	q sqlx.ExtContext,
-	f func(*model) error,
-) error {
+func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[string]string, opts *Options, afterKey string) (string, []interface{}, error) {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
 	var args []interface{}
@@ -301,11 +298,18 @@ func (c *postgresCollection) list(
 		query += " where " + strings.Join(fields, " and ")
 	}
 
+	if afterKey != "" {
+		if len(withFields) > 0 {
+			query += fmt.Sprintf(" key = %s", afterKey)
+		}
+		query += fmt.Sprintf(" where key = %s", afterKey)
+	}
+
 	if opts.Order != SortNone {
 		if order, err := orderToSQL(opts.Order); err != nil {
-			return err
+			return "", nil, err
 		} else if target, err := targetToSQL(opts.Target); err != nil {
-			return err
+			return "", nil, err
 		} else {
 			query += fmt.Sprintf(" order by %s %s", target, order)
 		}
@@ -314,7 +318,21 @@ func (c *postgresCollection) list(
 	if opts.Limit > 0 {
 		query += fmt.Sprintf(" limit %d", opts.Limit)
 	}
+	return query, args, nil
+}
 
+func (c *postgresCollection) list(
+	ctx context.Context,
+	withFields map[string]string,
+	opts *Options,
+	greedy bool,
+	q sqlx.ExtContext,
+	f func(*model) error,
+) error {
+	query, args, err := c.listQueryStr(ctx, withFields, opts, "")
+	if err != nil {
+		return err
+	}
 	rows, err := q.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return c.mapSQLError(err, "")
@@ -351,24 +369,64 @@ func (c *postgresCollection) list(
 		return nil
 	}
 
-	result := &model{}
-	for rows.Next() {
-		if err := rows.StructScan(result); err != nil {
-			return c.mapSQLError(err, "")
-		}
+	// To avoid holding the DB connection open for an unknown duration
+	// dictated by the client's callback, we:
+	// (1) buffer the SQL rows
+	// (2) close the connection
+	// (3) apply f(), the client's callback, to results in the buffer
+	// (4) if the buffer was full, re-execute the query, offset by key, and repeat (1)
 
-		if err := f(result); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
+	bufferResults := func(rs *sqlx.Rows) ([]*model, int, error) {
+		defer rs.Close()
+		var rowsBuffer []*model = make([]*model, 0, listBufferCapacity)
+		var rowCnt int
+		rowsBuffer = make([]*model, 0, listBufferCapacity)
+		result := &model{}
+		for rs.Next() && rowCnt < listBufferCapacity {
+			if err := rs.StructScan(result); err != nil {
+				return nil, 0, c.mapSQLError(err, "")
 			}
+			rowsBuffer = append(rowsBuffer, result)
+			result = &model{}
+			rowCnt++
+		}
+		if err := rows.Err(); err != nil {
+			return nil, 0, errors.EnsureStack(err)
+		}
+		if err := rows.Close(); err != nil {
+			return nil, 0, c.mapSQLError(rows.Close(), "")
+		}
+		return rowsBuffer, rowCnt, nil
+	}
+
+	var lastRowID string
+	for {
+		if lastRowID != "" {
+			// re-query
+			query, args, err = c.listQueryStr(ctx, withFields, opts, lastRowID)
+			if err != nil {
+				return err
+			}
+			rows, err = q.QueryxContext(ctx, query, args...)
+		}
+		rowsBuffer, rowCnt, err := bufferResults(rows)
+		if err != nil {
 			return err
 		}
+		for _, v := range rowsBuffer {
+			if err := f(v); err != nil {
+				if errors.Is(err, errutil.ErrBreak) {
+					return nil
+				}
+				return err
+			}
+			lastRowID = v.Key
+		}
+		if rowCnt < listBufferCapacity {
+			break
+		}
 	}
-	if err := rows.Err(); err != nil {
-		return errors.EnsureStack(err)
-	}
-
-	return c.mapSQLError(rows.Close(), "")
+	return nil
 }
 
 func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Options, f func(*model) error) error {
