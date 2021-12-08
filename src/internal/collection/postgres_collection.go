@@ -283,7 +283,27 @@ func targetToSQL(target etcd.SortTarget) (string, error) {
 	return "", errors.Errorf("unsupported sort target for postgres collections: %d", target)
 }
 
-func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[string]string, opts *Options, afterKey string) (string, []interface{}, error) {
+func sortTargetValue(m *model, target SortTarget) (interface{}, error) {
+	switch target {
+	case SortByCreateRevision:
+		return m.CreatedAt, nil
+	case SortByModRevision:
+		return m.UpdatedAt, nil
+	case SortByKey:
+		return m.Key, nil
+	}
+	return "", errors.Errorf("unsupported sort target for postgres collections: %d", target)
+}
+
+func sortOrderOperator(order SortOrder) string {
+	if order == SortDescend {
+		return "<"
+	}
+	// SortAcend + SortNone
+	return ">"
+}
+
+func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[string]string, opts *Options, afterRow interface{}) (string, []interface{}, error) {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
 	var args []interface{}
@@ -298,11 +318,17 @@ func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[st
 		query += " where " + strings.Join(fields, " and ")
 	}
 
-	if afterKey != "" {
-		if len(withFields) > 0 {
-			query += fmt.Sprintf(" key = %s", afterKey)
+	afterCondition := func(t SortTarget, ord SortOrder) (string, error) {
+		ts, err := targetToSQL(t)
+		if err != nil {
+			return "", err
 		}
-		query += fmt.Sprintf(" where key = %s", afterKey)
+		args = append(args, afterRow)
+		if len(withFields) > 0 {
+			return fmt.Sprintf(" %s %s $%d", ts, sortOrderOperator(ord), len(args)+1), nil
+		} else {
+			return fmt.Sprintf(" where key %s %s $%d", ts, sortOrderOperator(ord), len(args)+1), nil
+		}
 	}
 
 	if opts.Order != SortNone {
@@ -311,7 +337,23 @@ func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[st
 		} else if target, err := targetToSQL(opts.Target); err != nil {
 			return "", nil, err
 		} else {
+			if afterRow != nil {
+				ac, err := afterCondition(opts.Target, opts.Order)
+				if err != nil {
+					return "", nil, err
+				}
+				query += ac
+			}
 			query += fmt.Sprintf(" order by %s %s", target, order)
+
+		}
+	} else {
+		if afterRow != nil {
+			ac, err := afterCondition(SortByKey, SortAscend)
+			if err != nil {
+				return "", nil, err
+			}
+			query += ac
 		}
 	}
 
@@ -329,7 +371,7 @@ func (c *postgresCollection) list(
 	q sqlx.ExtContext,
 	f func(*model) error,
 ) error {
-	query, args, err := c.listQueryStr(ctx, withFields, opts, "")
+	query, args, err := c.listQueryStr(ctx, withFields, opts, nil)
 	if err != nil {
 		return err
 	}
@@ -375,12 +417,10 @@ func (c *postgresCollection) list(
 	// (2) close the connection
 	// (3) apply f(), the client's callback, to results in the buffer
 	// (4) if the buffer was full, re-execute the query, offset by key, and repeat (1)
-
 	bufferResults := func(rs *sqlx.Rows) ([]*model, int, error) {
 		defer rs.Close()
-		var rowsBuffer []*model = make([]*model, 0, listBufferCapacity)
 		var rowCnt int
-		rowsBuffer = make([]*model, 0, listBufferCapacity)
+		rowsBuffer := make([]*model, 0, listBufferCapacity)
 		result := &model{}
 		for rs.Next() && rowCnt < listBufferCapacity {
 			if err := rs.StructScan(result); err != nil {
@@ -399,15 +439,25 @@ func (c *postgresCollection) list(
 		return rowsBuffer, rowCnt, nil
 	}
 
-	var lastRowID string
+	// the sort target instructs which field to use as an offset in
+	// the query to the next iteration of filling the buffer
+	st := opts.Target
+	if opts.Order == SortNone {
+		st = SortByKey
+	}
+
+	var lastRowSortVal interface{}
 	for {
-		if lastRowID != "" {
+		if lastRowSortVal != "" {
 			// re-query
-			query, args, err = c.listQueryStr(ctx, withFields, opts, lastRowID)
+			query, args, err = c.listQueryStr(ctx, withFields, opts, lastRowSortVal)
 			if err != nil {
 				return err
 			}
 			rows, err = q.QueryxContext(ctx, query, args...)
+			if err != nil {
+				return err
+			}
 		}
 		rowsBuffer, rowCnt, err := bufferResults(rows)
 		if err != nil {
@@ -420,7 +470,10 @@ func (c *postgresCollection) list(
 				}
 				return err
 			}
-			lastRowID = v.Key
+			lastRowSortVal, err = sortTargetValue(v, st)
+			if err != nil {
+				return err
+			}
 		}
 		if rowCnt < listBufferCapacity {
 			break
