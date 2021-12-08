@@ -51,8 +51,7 @@ jobs:
             python -m pip install -e '.[dev]'
 
             # Run Python unit tests
-            mkdir -p pfs
-            PFS_MOUNT_DIR=pfs pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
+            pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
 
             check-manifest -v
 

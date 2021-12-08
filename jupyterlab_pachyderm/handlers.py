@@ -1,4 +1,3 @@
-import os
 import json
 
 from jupyter_server.base.handlers import APIHandler, path_regex
@@ -142,8 +141,8 @@ class PFSHandler(ContentsHandler):
     def get(self, path):
         """Copied from https://github.com/jupyter-server/jupyter_server/blob/29be9c6658d7ef04f9b124c54102f7334b610253/jupyter_server/services/contents/handlers.py#L86
 
-        The main purpose for this method is to override contents_manager.root_dir at request time,
-        then reset root_dir to its original value so that our implementation does not conflict with the default content manager.
+        Serves files rooted at PFS_MOUNT_DIR instead of the default content manager's root_dir
+        The reason for this is that we want the ability to serve the browser files rooted outside of the default root_dir without overriding it.
         """
         path = path or ""
         type = self.get_query_argument("type", default=None)
