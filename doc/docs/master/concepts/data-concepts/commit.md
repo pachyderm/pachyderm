@@ -129,9 +129,11 @@ Pachyderm displays the information about the HEAD of the branch.
     }
     ```
 
-## Squash Commit
+## Squash And Delete Commit
 
-See [`squash commit`](../../advanced-concepts/globalID/#squash-a-global-commit) in our in Global ID page.
+See [`squash commit`](../../../how-tos/basic-data-operations/removing_data_from_pachyderm/#squash-non-head-commits) and  [`delete commit`](../../../how-tos/basic-data-operations/removing_data_from_pachyderm/#delete-the-head-of-a-branch) in the `Delete a Commit / Delete Data` page of the How-Tos section of this Documentation.
+
+
 
 
 
