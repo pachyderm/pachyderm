@@ -23,10 +23,6 @@ spec:
     - host: {{ required "ingress.host is required when ingress.enabled" .Values.ingress.host | quote }}
       http:
         paths:
-          - path: "/"
-            backend:
-              serviceName: "console"
-              servicePort: "console-http"
           - path: "/dex"
             backend:
               serviceName: "pachd"
@@ -35,4 +31,8 @@ spec:
             backend:
               serviceName: "pachd"
               servicePort: "oidc-port"
+          - path: "/*"
+            backend:
+              serviceName: "console"
+              servicePort: "console-http"
 {{ end -}}
