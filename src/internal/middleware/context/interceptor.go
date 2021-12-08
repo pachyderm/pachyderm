@@ -8,13 +8,80 @@ import (
 	"google.golang.org/grpc"
 )
 
-const defaultMethodTimeout time.Duration = 300 * time.Second
+const (
+	defaultMethodTimeout time.Duration = 5 * time.Second
+	unlimited            time.Duration = 0
+)
 
-var customTimeoutMethods = map[string]time.Duration{}
+var customTimeoutMethods = map[string]time.Duration{
+	//
+	// Debug API
+	//
+	"/debug_v2.Debug/Profile": 10 * time.Second,
+	"/debug_v2.Debug/Binary":  10 * time.Second,
+	"/debug_v2.Debug/Dump":    10 * time.Second,
+
+	//
+	// PFS API
+	//
+
+	// TODO: Add methods to handle repo permissions
+	"/pfs_v2.API/ActivateAuth":    unlimited,
+	"/pfs_v2.API/ListRepo":        10 * time.Second,
+	"/pfs_v2.API/DeleteRepo":      10 * time.Second,
+	"/pfs_v2.API/FinishCommit":    20 * time.Second,
+	"/pfs_v2.API/ListCommit":      20 * time.Second,
+	"/pfs_v2.API/SubscribeCommit": unlimited,
+	"/pfs_v2.API/ListCommitSet":   20 * time.Second,
+	"/pfs_v2.API/SquashCommitSet": unlimited,
+	"/pfs_v2.API/DropCommitSet":   unlimited,
+	"/pfs_v2.API/ListBranch":      20 * time.Second,
+	"/pfs_v2.API/ModifyFile":      20 * time.Second,
+	"/pfs_v2.API/GetFile":         20 * time.Second,
+	// TODO: GetFileTAR is unauthenticated for performance reasons. Normal authentication
+	// will be applied internally when a commit is used. When a file set id is used, we lean
+	// on the capability based authentication of file sets.
+	"/pfs_v2.API/GetFileTAR":         unlimited,
+	"/pfs_v2.API/ListFile":           20 * time.Second,
+	"/pfs_v2.API/WalkFile":           20 * time.Second,
+	"/pfs_v2.API/GlobFile":           20 * time.Second,
+	"/pfs_v2.API/DiffFile":           20 * time.Second,
+	"/pfs_v2.API/DeleteAll":          unlimited,
+	"/pfs_v2.API/Fsck":               unlimited,
+	"/pfs_v2.API/RenewFileSet":       unlimited,
+	"/pfs_v2.API/RunLoadTest":        unlimited,
+	"/pfs_v2.API/RunLoadTestDefault": unlimited,
+
+	//
+	// PPS API
+	//
+
+	// TODO: Add per-repo permissions checks for these
+	// TODO: split GetLogs into master and not-master and add check for pipeline permissions
+	"/pps_v2.API/ListJob":         20 * time.Second,
+	"/pps_v2.API/ListJobStream":   20 * time.Second,
+	"/pps_v2.API/SubscribeJob":    unlimited,
+	"/pps_v2.API/StopJob":         unlimited,
+	"/pps_v2.API/ListJobSet":      20 * time.Second,
+	"/pps_v2.API/ListDatum":       unlimited,
+	"/pps_v2.API/ListDatumStream": 20 * time.Second,
+	"/pps_v2.API/RestartDatum":    unlimited,
+	"/pps_v2.API/StopPipeline":    unlimited,
+	"/pps_v2.API/GetLogs":         unlimited,
+	"/pps_v2.API/GarbageCollect":  unlimited,
+	"/pps_v2.API/UpdateJobState":  unlimited,
+	"/pps_v2.API/ListPipeline":    20 * time.Second,
+	"/pps_v2.API/ActivateAuth":    unlimited,
+	"/pps_v2.API/DeleteAll":       unlimited,
+
+	"/pps_v2.API/ListSecret":         10 * time.Second,
+	"/pps_v2.API/RunLoadTest":        unlimited,
+	"/pps_v2.API/RunLoadTestDefault": unlimited,
+}
 
 func setTimeout(fullMethod string, ctx context.Context) context.Context {
 	if timeout, ok := customTimeoutMethods[fullMethod]; ok {
-		if timeout == 0 {
+		if timeout == unlimited {
 			return ctx
 		}
 		newCtx, _ := context.WithTimeout(ctx, timeout)
