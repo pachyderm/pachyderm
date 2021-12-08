@@ -156,6 +156,8 @@ Check the [list of all available helm values](../../../../reference/helm_values/
 		- If you run `pachctl auth activate`, the secret is not updated. Instead, the rootToken is printed in your STDOUT for you to save.
 		- Same behavior if you [activate enterprise manually](../../../deployment/) (`pachctl license activate`) then [activate authentication](../../) (`pachctl auth activate`).
 
+		- **Set the helm value `pachd.activateAuth` to false to prevent the automatic  bootstrap of auth on the cluster**.
+
 ### On An Existing Pachyderm Cluster
 
 To enable the Enterprise Server on an existing cluster:
@@ -204,7 +206,7 @@ Add the enterprise server's root token, and network addresses to the values.yaml
 	```
 
 !!! Warning
-		**When setting your enterprise server info as part of the Helm deployment of a cluster, auth is automatically activated** (i.e., you can skip step 4).
+		**When setting your enterprise server info as part of the Helm deployment of a cluster, unless 		the helm value `pachd.activateAuth` was intentionally set to false, auth is automatically activated** (i.e., you can skip step 4).
 
 		In this case, a `pachyderm-bootstrap-config` k8s secret is automatically created on the cluster. It contains an entry for your clusters' [rootToken](../../#activate-user-access-management). This is separate from the enterprise server root token. Use `{{"kubectl get secret pachyderm-bootstrap-config -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
 
