@@ -21,7 +21,7 @@ const SearchInput: React.FC = () => {
 
   return (
     <>
-      <Icon className={styles.searchIcon}>
+      <Icon className={styles.searchIcon} small>
         <SearchSVG aria-hidden />
       </Icon>
       <input
@@ -29,7 +29,7 @@ const SearchInput: React.FC = () => {
         placeholder={placeholderText}
         className={classNames(styles.input, {[styles.open]: isOpen})}
         onFocus={openDropdown}
-        {...register('search')}
+        {...register('project_search')}
       />
       {showButton && (
         <button
@@ -38,7 +38,9 @@ const SearchInput: React.FC = () => {
           type="button"
           onClick={clearSearch}
         >
-          <CloseSVG aria-hidden />
+          <Icon color="white" small>
+            <CloseSVG aria-hidden />
+          </Icon>
         </button>
       )}
     </>

@@ -2,7 +2,6 @@
   padding: 0.5rem 1.25rem;
   border: solid 2px var(--selected-grey);
   border-radius: 0.25rem;
-  margin-left: auto;
   font-weight: 600;
   font-size: 0.75rem;
   color: var(--white);
@@ -46,8 +45,8 @@
 }
 
 .projectNameWrapper {
-  border-left: 1px solid var(--placeholder-grey);
-  padding-left: 1.5625rem;
+  border-right: 1px solid var(--placeholder-grey);
+  padding-right: 1.5rem;
 }
 
 .projectName {
@@ -58,7 +57,7 @@
   padding-bottom: 0.875rem;
   font-weight: 600;
   user-select: none;
-  width: 13.125rem;
+  max-width: 13.125rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

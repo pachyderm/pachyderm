@@ -17,12 +17,12 @@ const Search: React.FC = () => {
 
   const formCtx = useForm();
   const {watch, setValue, reset} = formCtx;
-  const searchValue = watch('search');
+  const searchValue = watch('project_search');
   const debouncedValue = useDebounce(searchValue, 200);
 
   const setSearchValue = useCallback(
     (value) => {
-      setValue('search', value);
+      setValue('project_search', value);
     },
     [setValue],
   );

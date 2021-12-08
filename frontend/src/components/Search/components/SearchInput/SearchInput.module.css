@@ -1,40 +1,40 @@
 .input {
   border-radius: 3px;
-  border: 1px solid var(--border-grey);
   padding-left: 2.65rem;
   padding-right: 2rem;
   height: 2.438rem;
   width: 31.25rem;
-  background-color: var(--white);
   font-size: 0.75rem;
-  color: var(--pachyderm-black);
   font-weight: 600;
   letter-spacing: 0;
+  border: none;
+  color: var(--white);
+  background-color: transparent;
 }
 
 .input::placeholder {
-  opacity: 0.8;
-  color: var(--pachyderm-black);
+  color: var(--white);
   font-weight: 400;
 }
 
 .input:focus,
-.input:active,
-.input {
+.input:active {
   outline: none;
   border-color: var(--border-grey);
+  background-color: var(--grey-9);
 }
 
 .open {
   border-radius: 3px 3px 0px 0px;
-  border-bottom: var(--white);
+  border-bottom: var(--placeholder-grey);
 }
 
 .searchIcon {
   position: absolute;
   left: 0.75rem;
-  top: 0.5rem;
+  top: 0.63rem;
   z-index: 2;
+  color: var(--white);
 }
 
 .button {
@@ -44,20 +44,7 @@
   position: absolute;
   height: var(--button-size);
   right: 0.5rem;
-  transform: scale(0.75);
   top: calc((2.438rem - var(--button-size)) / 2);
-}
-
-.button > svg {
-  vertical-align: middle;
-}
-
-.button > svg > path {
-  transform: scale(0.8);
-}
-
-.button:hover > svg > path {
-  fill: var(--pachyderm-black);
 }
 
 .button:focus:not([class$='focus-visible']) {

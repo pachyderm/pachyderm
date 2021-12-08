@@ -1,6 +1,7 @@
 .base {
   position: relative;
-  margin-left: 1.875rem;
+  margin-left: 1rem;
+  margin-right: auto;
 }
 
 .dropdown {
