@@ -18,7 +18,9 @@ jobs:
     machine:
       image: ubuntu-2004:202111-01
     steps:
+      - checkout
       - run: echo "//registry.npmjs.org/:_authToken=$npm_TOKEN" > .npmrc
+      - run: npm ci
       - run: npm publish
 workflows:
   version: 2
@@ -31,6 +33,8 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+            branches:
+              ignore: /.*/
       - publish:
           requires:
             - test
