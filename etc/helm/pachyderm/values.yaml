@@ -33,6 +33,7 @@ global:
 console:
   # enabled controls whether the console manifests are created or not.
   enabled: false
+  annotations: {}
   image:
     # repository is the image repo to pull from; together with tag it
     # replicates the --console-image & --registry arguments to pachctl
@@ -69,6 +70,7 @@ console:
 
 etcd:
   affinity: {}
+  annotations: {}
   # dynamicNodes sets the number of nodes in the etcd StatefulSet.  It
   # is analogous to the --dynamic-etcd-nodes argument to pachctl
   # deploy.
@@ -113,6 +115,7 @@ etcd:
 enterpriseServer:
   enabled: false
   affinity: {}
+  annotations: {}
   service:
     type: ClusterIP
   # There are three options for TLS:
@@ -163,8 +166,11 @@ ingress:
 pachd:
   enabled: true
   affinity: {}
+  annotations: {}
   # clusterDeploymentID sets the Pachyderm cluster ID.
   clusterDeploymentID: ""
+  configJob:
+    annotations: {}
   # goMaxProcs is passed as GOMAXPROCS to the pachd container.
   goMaxProcs: 0
   image:
@@ -385,6 +391,7 @@ pachd:
 pgbouncer:
   service:
     type: ClusterIP
+  annotations: {}
   resources: {}
     #limits:
     #  cpu: "1"

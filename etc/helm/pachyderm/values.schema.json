@@ -53,6 +53,9 @@
         "console": {
             "type": "object",
             "properties": {
+                "annotations": {
+                    "type": "object"
+                },
                 "config": {
                     "type": "object",
                     "properties": {
@@ -121,6 +124,9 @@
                 "affinity": {
                     "type": "object"
                 },
+                "annotations": {
+                    "type": "object"
+                },
                 "clusterDeploymentID": {
                     "type": "string"
                 },
@@ -186,6 +192,9 @@
             "type": "object",
             "properties": {
                 "affinity": {
+                    "type": "object"
+                },
+                "annotations": {
                     "type": "object"
                 },
                 "dynamicNodes": {
@@ -355,8 +364,19 @@
                 "affinity": {
                     "type": "object"
                 },
+                "annotations": {
+                    "type": "object"
+                },
                 "clusterDeploymentID": {
                     "type": "string"
+                },
+                "configJob": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object"
+                        }
+                    }
                 },
                 "enabled": {
                     "type": "boolean"
@@ -684,6 +704,9 @@
         "pgbouncer": {
             "type": "object",
             "properties": {
+                "annotations": {
+                    "type": "object"
+                },
                 "maxConnections": {
                     "type": "integer"
                 },
