@@ -49,6 +49,8 @@ The deployment of Console in your favorite Cloud usually requires, at a minimum,
      - If you run `pachctl auth activate`, the secret is not updated. Instead, the rootToken is printed in your STDOUT for you to save.
      - Same behavior if you [activate enterprise manually](../../../enterprise/deployment/) (`pachctl license activate`) then [activate authentication](../../../enterprise/auth/) (`pachctl auth activate`).
 
+    - **Set the helm value `pachd.activateAuth` to false to prevent the automatic bootstrap of auth on the cluster**.
+
 ## Connect to Console
 
 === "No Ingress set up (Local or Quick Install)"
