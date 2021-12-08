@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const defaultMethodTimeout time.Duration = time.Second
+const defaultMethodTimeout time.Duration = 300 * time.Second
 
 var customTimeoutMethods = map[string]time.Duration{}
 
