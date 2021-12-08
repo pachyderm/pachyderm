@@ -116,16 +116,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        {{- if hasKey .Values.pachd.resources "requests" }}
-        {{- if hasKey .Values.pachd.resources.requests "memory" }}
-        - name: PACHD_MEMORY_REQUEST
-          valueFrom:
-            resourceFieldRef:
-              containerName: pachd
-              divisor: "1"
-              resource: requests.memory
-        {{- end }}
-        {{- end }}
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
         - name: PACHD_POD_NAME
