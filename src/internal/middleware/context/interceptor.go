@@ -28,6 +28,8 @@ var customTimeoutMethods = map[string]time.Duration{
 	"/pfs_v2.API/ListRepo":           10 * time.Second,
 	"/pfs_v2.API/DeleteRepo":         10 * time.Second,
 	"/pfs_v2.API/FinishCommit":       20 * time.Second,
+	"/pfs_v2.API/InspectCommit":      unlimited,
+	"/pfs_v2.API/InspectCommitSet":   unlimited,
 	"/pfs_v2.API/ListCommit":         20 * time.Second,
 	"/pfs_v2.API/SubscribeCommit":    unlimited,
 	"/pfs_v2.API/ListCommitSet":      20 * time.Second,
@@ -50,6 +52,8 @@ var customTimeoutMethods = map[string]time.Duration{
 	//
 	// PPS API
 	//
+	"/pps_v2.API/InspectJob":      unlimited,
+	"/pps_v2.API/InspectJobSet":   unlimited,
 	"/pps_v2.API/ListJob":         20 * time.Second,
 	"/pps_v2.API/ListJobStream":   20 * time.Second,
 	"/pps_v2.API/SubscribeJob":    unlimited,
