@@ -34,7 +34,7 @@ When you delete a HEAD commit, Pachyderm performs the following actions:
      This command will **only succeed if the HEAD commit has no children on any branch**. `pachctl delete commit` will error when attempting to delete a HEAD commit with children. 
 
 !!! Note "Are you wondering how a HEAD commit can have children?"
-     A commit can be the head of a branch and still have children. For instance, if you run `pachctl create branch repo@master --head repo@staging`, the `staging`'s HEAD will have an alias child on `master`. 
+     A commit can be the head of a branch and still have children. For instance, if you branch master by running `pachctl create branch repo@staging --head repo@master`, the `master`'s HEAD will have an alias child on `staging`. 
 
 ## Squash non-HEAD Commits
 
