@@ -430,11 +430,11 @@ func (c *postgresCollection) list(
 			result = &model{}
 			rowCnt++
 		}
-		if err := rows.Err(); err != nil {
+		if err := rs.Err(); err != nil {
 			return nil, 0, errors.EnsureStack(err)
 		}
-		if err := rows.Close(); err != nil {
-			return nil, 0, c.mapSQLError(rows.Close(), "")
+		if err := rs.Close(); err != nil {
+			return nil, 0, c.mapSQLError(rs.Close(), "")
 		}
 		return rowsBuffer, rowCnt, nil
 	}
@@ -448,8 +448,7 @@ func (c *postgresCollection) list(
 
 	var lastRowSortVal interface{}
 	for {
-		if lastRowSortVal != "" {
-			// re-query
+		if lastRowSortVal != nil {
 			query, args, err = c.listQueryStr(ctx, withFields, opts, lastRowSortVal)
 			if err != nil {
 				return err
@@ -459,7 +458,7 @@ func (c *postgresCollection) list(
 				return err
 			}
 		}
-		rowsBuffer, rowCnt, err := bufferResults(rows)
+		rowsBuffer, rowCnt, err := bufferResults(rows) // closes rows
 		if err != nil {
 			return err
 		}
