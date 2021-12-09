@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"sync/atomic"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -18,6 +19,7 @@ func main() {
 	doneCh := make(chan int)
 	ppsC := pps.NewAPIClient(cc)
 	nstreams := 10
+	var open, gotMsg int64
 	for i := 0; i < nstreams; i++ {
 		go func(i int) {
 			defer func() {
@@ -27,20 +29,30 @@ func main() {
 			stream, err := ppsC.ListJobSet(ctx, &pps.ListJobSetRequest{
 				Details: true,
 			})
-			log.Printf("%d: stream open", i)
 			if err != nil {
 				log.Printf("%d: start stream: %v", i, err)
 				return
 			}
-			msg, err := stream.Recv()
-			if err != nil {
+
+			defer stream.CloseSend()
+			atomic.AddInt64(&open, 1)
+			log.Printf("%d: stream open", i)
+
+			if _, err := stream.Recv(); err != nil {
 				log.Printf("%d: recv: %v", i, err)
 				return
 			}
-			log.Printf("%d: got msg: %v", i, msg.String())
+			log.Printf("%d: got msg", i)
+			atomic.AddInt64(&gotMsg, 1)
 			time.Sleep(time.Hour)
 		}(i)
 	}
+	go func() {
+		for {
+			time.Sleep(time.Second)
+			log.Printf("%v open, %v got message", atomic.LoadInt64(&open), atomic.LoadInt64(&gotMsg))
+		}
+	}()
 	for i := 1; i < nstreams; i++ {
 		streamID := <-doneCh
 		log.Printf("stream %d done", streamID)
