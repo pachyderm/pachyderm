@@ -38,6 +38,7 @@ import {
 } from './constants/projectPaths';
 import {MAX_SCALE_VALUE, useProjectView} from './hooks/useProjectView';
 import styles from './Project.module.css';
+import ProjectTutorial from './tutorials/ProjectTutorial';
 
 const MARKERS = [
   {id: 'end-arrow', color: '#747475'},
@@ -242,6 +243,7 @@ const Project: React.FC = () => {
         <Route path={LOGS_VIEWER_JOB_PATH}>
           <JobLogsViewer />
         </Route>
+        <ProjectTutorial />
       </View>
     </>
   );

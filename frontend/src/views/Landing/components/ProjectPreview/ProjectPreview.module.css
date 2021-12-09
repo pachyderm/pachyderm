@@ -57,6 +57,10 @@
   text-align: right;
 }
 
+.icon {
+  transform: scale(0.75);
+}
+
 .link {
   color: var(--pachyderm-plum);
 }
