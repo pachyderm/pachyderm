@@ -27,15 +27,16 @@ const (
 )
 
 type postgresCollection struct {
-	table    string
-	db       *pachsql.DB
-	listener PostgresListener
-	template proto.Message
-	indexes  []*Index
-	keyGen   func(interface{}) (string, error)
-	keyCheck func(string) error
-	notFound func(interface{}) string
-	exists   func(interface{}) string
+	table              string
+	db                 *pachsql.DB
+	listener           PostgresListener
+	template           proto.Message
+	indexes            []*Index
+	keyGen             func(interface{}) (string, error)
+	keyCheck           func(string) error
+	notFound           func(interface{}) string
+	exists             func(interface{}) string
+	listBufferCapacity int
 }
 
 func indexFieldName(idx *Index) string {
@@ -76,14 +77,21 @@ func WithNotFoundMessage(format func(interface{}) string) Option {
 	}
 }
 
+func WithListBufferCapOverride(cap int) Option {
+	return func(c *postgresCollection) {
+		c.listBufferCapacity = cap
+	}
+}
+
 // NewPostgresCollection creates a new collection backed by postgres.
 func NewPostgresCollection(name string, db *pachsql.DB, listener PostgresListener, template proto.Message, indexes []*Index, opts ...Option) PostgresCollection {
 	col := &postgresCollection{
-		table:    name,
-		db:       db,
-		listener: listener,
-		template: template,
-		indexes:  indexes,
+		table:              name,
+		db:                 db,
+		listener:           listener,
+		template:           template,
+		indexes:            indexes,
+		listBufferCapacity: listBufferCapacity,
 	}
 	for _, opt := range opts {
 		opt(col)

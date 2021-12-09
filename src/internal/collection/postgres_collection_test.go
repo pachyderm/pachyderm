@@ -64,7 +64,7 @@ func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col
 	return func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
 		db, listener := setup(ctx, t)
 
-		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex})
+		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, col.WithListBufferCapOverride(3))
 		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *pachsql.Tx) error {
 			return col.SetupPostgresCollections(ctx, sqlTx, testCol)
 		}))
