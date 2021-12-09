@@ -55,6 +55,10 @@ spec:
             secretKeyRef:
               name: postgres # Must match secret setup by postgres subchart or postgres-secret.yaml if using external postgres
               key: postgresql-password
+        {{- if and .Values.enterpriseServer.tls.enabled .Values.global.customCaCerts }}
+        - name: SSL_CERT_DIR
+          value:  /pachd-tls-cert
+        {{- end }}
         envFrom:
           - secretRef:
               name: pachyderm-deployment-id-secret
