@@ -19,6 +19,7 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"k8s.io/client-go/kubernetes"
+	crdClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Env contains the dependencies needed to create an API Server
@@ -27,6 +28,7 @@ type Env struct {
 	TxnEnv     *txnenv.TransactionEnv
 	Listener   collection.PostgresListener
 	KubeClient *kubernetes.Clientset
+	CRDClient  *crdClient.Client
 	EtcdClient *etcd.Client
 	// TODO: make this just a *loki.Client
 	// This is not a circular dependency
@@ -52,6 +54,7 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 		KubeClient:    senv.GetKubeClient(),
 		EtcdClient:    senv.GetEtcdClient(),
 		GetLokiClient: senv.GetLokiClient,
+		CRDClient:     senv.GetCRDClient(),
 
 		PFSServer:     senv.PfsServer(),
 		AuthServer:    senv.AuthServer(),

@@ -2053,7 +2053,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 
 	// Create Pipeline CRD object
-	kubeClient := a.env.GetCRDClient()
+	kubeClient := a.env.CRDClient
 
 	crdPipeline := ppsv1.Pipeline{
 		ObjectMeta: metav1.ObjectMeta{
