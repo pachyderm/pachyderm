@@ -146,6 +146,7 @@ export type FileFromUrl = {
 };
 
 export type FileQueryArgs = {
+  projectId: Scalars['String'];
   commitId?: Maybe<Scalars['String']>;
   path?: Maybe<Scalars['String']>;
   repoName: Scalars['String'];

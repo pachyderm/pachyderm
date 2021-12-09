@@ -249,9 +249,9 @@ describe('File Browser', () => {
     });
 
     it('should go to path based on breadcrumb', async () => {
-      const {queryByLabelText, findByText} = render(<FileBrowser />);
+      const {queryByLabelText, findByTestId} = render(<FileBrowser />);
 
-      const topButton = await findByText('top');
+      const topButton = await findByTestId('Breadcrumb__home');
       click(topButton);
 
       await waitFor(() =>

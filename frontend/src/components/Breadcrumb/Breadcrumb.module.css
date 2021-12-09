@@ -1,15 +1,25 @@
 .base {
     width: 100%;
-    font-size: var(--font-size-body-large);
+    font-size: var(--font-size-body-medium);
     background-color: var(--background-grey);
     flex: 1;
+    padding-right: 5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .link {
-    margin-right: 0.2rem;
+    margin-right: 0.25rem;
+    display: flex;
+    align-items: center;
 }
 
 .link:last-child {
     pointer-events: none;
     color: var(--pachyderm-black);
+}
+
+.linkSeparator {
+    margin-right: 0.25rem;
 }

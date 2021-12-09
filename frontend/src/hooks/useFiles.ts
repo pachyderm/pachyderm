@@ -3,6 +3,7 @@ import {FileQueryArgs} from '@graphqlTypes';
 import {useGetFilesQuery} from '@dash-frontend/generated/hooks';
 
 export const useFiles = ({
+  projectId,
   commitId = 'master',
   path = '/',
   repoName,
@@ -10,7 +11,7 @@ export const useFiles = ({
 }: FileQueryArgs) => {
   // TODO: This might be better as a lazy query with options
   const {data, error, loading} = useGetFilesQuery({
-    variables: {args: {commitId, path, repoName, branchName}},
+    variables: {args: {projectId, commitId, path, repoName, branchName}},
   });
 
   return {

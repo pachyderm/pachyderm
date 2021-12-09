@@ -266,6 +266,7 @@ type File {
 }
 
 input FileQueryArgs {
+  projectId: String!
   commitId: String
   path: String
   repoName: String!

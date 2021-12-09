@@ -19,6 +19,7 @@ const useFileBrowser = () => {
   const path = `/${filePath}`;
 
   const {files, loading} = useFiles({
+    projectId,
     commitId,
     path: path || '/',
     branchName: branchId,

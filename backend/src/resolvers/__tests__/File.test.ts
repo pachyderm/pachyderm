@@ -5,6 +5,8 @@ import {GET_FILES_QUERY} from '@dash-frontend/queries/GetFilesQuery';
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
 import {File, FileType, PutFilesFromUrLsMutation} from '@graphqlTypes';
 
+const projectId = '1';
+
 describe('File Resolver', () => {
   describe('files', () => {
     it('should return files for a given commit', async () => {
@@ -12,6 +14,7 @@ describe('File Resolver', () => {
         GET_FILES_QUERY,
         {
           args: {
+            projectId,
             commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
             path: '/',
             branchName: 'master',
@@ -51,6 +54,7 @@ describe('File Resolver', () => {
         GET_FILES_QUERY,
         {
           args: {
+            projectId,
             commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
             path: '/cats/',
             branchName: 'master',
@@ -71,6 +75,7 @@ describe('File Resolver', () => {
         GET_FILES_QUERY,
         {
           args: {
+            projectId,
             commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
             path: '/',
             branchName: 'master',
@@ -95,7 +100,7 @@ describe('File Resolver', () => {
                   path: '/puppy.png',
                 },
               ],
-              projectId: '1',
+              projectId,
             },
           },
         );
@@ -106,6 +111,7 @@ describe('File Resolver', () => {
           files: File[];
         }>(GET_FILES_QUERY, {
           args: {
+            projectId,
             commitId: '1',
             path: '/',
             branchName: 'master',

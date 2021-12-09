@@ -202,6 +202,33 @@ const allFiles = {
   ],
 };
 
+const nestedFolders = (() => {
+  const sampleWords =
+    `Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum`.split(
+      ' ',
+    );
+  let path = '/';
+  return sampleWords.reduce((memo: {[key: string]: FileInfo[]}, word, i) => {
+    const nextPath = path + word + '/';
+    memo[path] = [
+      fileInfoFromObject({
+        committed: {seconds: 1616126189, nanos: 0},
+        file: {
+          commitId: 'd350c8d08a644ed5b2ee98c035ab6b34',
+          path: nextPath,
+          branch: {name: 'master', repo: {name: 'images'}},
+        },
+        fileType: FileType.DIR,
+        hash: 'sMAJnz5xBEFfYUVUo5PZrOpaoPZ902b+7N6+Fg5ACkQ=',
+        sizeBytes: 98747,
+      }),
+    ];
+
+    path = nextPath;
+    return memo;
+  }, {});
+})();
+
 type Files = {
   [projectId: string]: {
     [path: string]: FileInfo[];
@@ -211,9 +238,9 @@ type Files = {
 const files: Files = {
   '1': allFiles,
   '2': tutorial,
-  '3': tutorial,
+  '3': allFiles,
   '4': tutorial,
-  '5': tutorial,
+  '5': nestedFolders,
   default: tutorial,
 };
 

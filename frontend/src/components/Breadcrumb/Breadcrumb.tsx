@@ -1,4 +1,4 @@
-import {Link} from '@pachyderm/components';
+import {Link, HomeSVG, Icon, ChevronRightSVG} from '@pachyderm/components';
 import React, {useMemo} from 'react';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -17,7 +17,9 @@ const BreadCrumb: React.FC = () => {
   return (
     <div className={styles.base}>
       <Link
+        aria-label="root directory"
         className={styles.link}
+        data-testid="Breadcrumb__home"
         to={fileBrowserRoute({
           repoId,
           branchId,
@@ -25,7 +27,9 @@ const BreadCrumb: React.FC = () => {
           commitId,
         })}
       >
-        top
+        <Icon small color="plum">
+          <HomeSVG />
+        </Icon>
       </Link>
       {directories.map((dir, index) => (
         <Link
@@ -40,7 +44,10 @@ const BreadCrumb: React.FC = () => {
             filePath: directories.slice(0, index + 1).join('/') + '/',
           })}
         >
-          / {dir}
+          <Icon aria-hidden className={styles.linkSeparator} small>
+            <ChevronRightSVG />
+          </Icon>
+          {dir}
         </Link>
       ))}
     </div>

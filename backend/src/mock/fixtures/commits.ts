@@ -220,10 +220,27 @@ const customerTeam = [
   }),
 ];
 
+const nestedFolderCommits = [
+  commitInfoFromObject({
+    commit: {
+      id: 'd350c8d08a644ed5b2ee98c035ab6b34',
+      branch: {
+        name: 'master',
+        repo: {name: 'images'},
+      },
+    },
+    started: {
+      seconds: 1614136389,
+      nanos: 0,
+    },
+  }),
+];
+
 const commits: {[projectId: string]: CommitInfo[]} = {
   '1': tutorial,
   '2': customerTeam,
   '3': tutorial,
+  '5': nestedFolderCommits,
   default: [...tutorial],
   '7': [],
 };

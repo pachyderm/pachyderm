@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-
 import {gql} from '@apollo/client';
 import * as Apollo from '@apollo/client';
 import * as Types from '@graphqlTypes';
