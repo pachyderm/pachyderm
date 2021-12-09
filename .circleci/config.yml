@@ -177,7 +177,7 @@ jobs:
     
   helm-gcp:
     docker:
-      - image: cimg/base:2021.04
+      - image: cimg/go:1.17.5
     steps:
       - checkout
       - run:
@@ -194,7 +194,7 @@ jobs:
           name: Preview Stack
           command: |
             cd etc/pulumi
-            pulumi stack init $CIRCLE_BRANCH-$CIRCLE_SHA --non-interactive
+            pulumi stack init $CIRCLE_BRANCH-$CIRCLE_SHA1 --non-interactive
             pulumi preview
 
 workflows:
