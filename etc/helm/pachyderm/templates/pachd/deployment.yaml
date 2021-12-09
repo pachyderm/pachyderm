@@ -65,8 +65,8 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres # Must match secret setup by postgres subchart or postgres-secret.yaml
-              key: postgresql-password
+              name: {{ .Values.global.postgresqlExistingSecretName | default "postgres" }} 
+               key: {{ .Values.global.postgresqlExistingSecretKey | default "postgres-password" }}
         - name: PG_BOUNCER_HOST
           value: pg-bouncer # Must match pgbouncer service name
         - name: PG_BOUNCER_PORT
