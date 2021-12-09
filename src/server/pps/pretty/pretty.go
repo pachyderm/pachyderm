@@ -65,7 +65,7 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 	fmt.Fprintf(w, "%s\t", Progress(jobInfo))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.UploadBytes))
-	if jobInfo.State == ppsclient.JobState_JOB_FAILURE {
+	if jobInfo.State == ppsclient.JobState_JOB_FAILURE || jobInfo.State == ppsclient.JobState_JOB_KILLED {
 		fmt.Fprintf(w, "%s: %s\t", JobState(jobInfo.State), safeTrim(jobInfo.Reason, jobReasonLen))
 	} else {
 		fmt.Fprintf(w, "%s\t", JobState(jobInfo.State))
