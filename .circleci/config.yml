@@ -174,68 +174,78 @@ jobs:
           base=$(curl $url | jq '.base.ref' | tr -d '"')
           head=$(git rev-parse --abbrev-ref HEAD)
           ./etc/testing/circle/upgrade_test.sh $base $head
+    
+  helm-gcp:
+    docker:
+      - image: cimg/base:2021.04
+    steps:
+      - run: |
+          wget https://get.pulumi.com/releases/sdk/pulumi-v3.19.0-linux-x64.tar.gz
+          tar xvf pulumi-v3.19.0-linux-x64.tar.gz
 
 workflows:
   circleci:
     jobs:
-      - circleci:
-          matrix:
-            parameters:
-              bucket:
-              - MISC
-              # If you want to update the number of PPS buckets, you'll neet to
-              # update the value of PPS_BUCKETS above
-              - AUTH
-              - ENTERPRISE
-              - PFS
-              - PPS1
-              - PPS2
-              - PPS3
-              - PPS4
-              - PPS5
-              - PPS6
-              - EXAMPLES
-              - INTERNAL
-  helm:
-    jobs:
-      - helm-build:
-          filters:
-            # Note: Not ignoring branches, so will be run on branches as well as tags
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-      - helm-publish:
-          requires:
-            - helm-build
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-  hub_live_tests:
-    jobs:
-      - hub
-  hub_load_tests:
-    triggers:
-      - schedule:
-          cron: "0 6 * * *"
-          filters:
-            branches:
-              only: master
-    jobs:
-      - load:
-          matrix:
-            parameters:
-              bucket:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-                - LOAD5
-                - LOAD6
-                - LOAD7
-                - LOAD8
-                - LOAD9
-                - LOAD10
-  upgrade:
-    jobs:
-    - upgrade
+      - helm-gcp
+      #- circleci:
+      #    matrix:
+      #      parameters:
+      #        bucket:
+      #        - MISC
+      #        # If you want to update the number of PPS buckets, you'll neet to
+      #        # update the value of PPS_BUCKETS above
+      #        - AUTH
+      #        - ENTERPRISE
+      #        - PFS
+      #        - PPS1
+      #        - PPS2
+      #        - PPS3
+      #        - PPS4
+      #        - PPS5
+      #        - PPS6
+      #        - EXAMPLES
+      #        - INTERNAL
+  #helm:
+  #  jobs:
+  #    - helm-build:
+  #        filters:
+  #          # Note: Not ignoring branches, so will be run on branches as well as tags
+  #          tags:
+  #            only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  #    - helm-publish:
+  #        requires:
+  #          - helm-build
+  #        filters:
+  #          branches:
+  #            ignore: /.*/
+  #          tags:
+  #            only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  #hub_live_tests:
+  #  jobs:
+  #    - hub
+  #hub_load_tests:
+  #  triggers:
+  #    - schedule:
+  #        cron: "0 6 * * *"
+  #        filters:
+  #          branches:
+  #            only: master
+  #  jobs:
+  #    - load:
+  #        matrix:
+  #          parameters:
+  #            bucket:
+  #              - LOAD1
+  #              - LOAD2
+  #              - LOAD3
+  #              - LOAD4
+  #              - LOAD5
+  #              - LOAD6
+  #              - LOAD7
+  #              - LOAD8
+  #              - LOAD9
+  #              - LOAD10
+  #upgrade:
+  #  jobs:
+  #  - upgrade
+#
