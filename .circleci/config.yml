@@ -269,6 +269,9 @@ workflows:
           matrix:
             parameters:
               python-version: ['3.6', '3.7', '3.8', '3.9']
+          filters:
+            tags:
+              only: /.*/
       - mock-e2e:
           filters:
             tags:
