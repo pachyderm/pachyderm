@@ -180,14 +180,15 @@ jobs:
       - image: cimg/base:2021.04
     steps:
       - checkout
-      - name: Set up pulumi
-        run: |
-          wget https://get.pulumi.com/releases/sdk/pulumi-v3.19.0-linux-x64.tar.gz
-          tar xvf pulumi-v3.19.0-linux-x64.tar.gz
-          # Add to PATH
-          echo 'export PATH=${HOME}/project/pulumi:$PATH' >> $BASH_ENV
-          source $BASH_ENV
-          pulumi login --non-interactive
+      - run:
+          name: Set up pulumi
+          command: |
+            wget https://get.pulumi.com/releases/sdk/pulumi-v3.19.0-linux-x64.tar.gz
+            tar xvf pulumi-v3.19.0-linux-x64.tar.gz
+            # Add to PATH
+            echo 'export PATH=${HOME}/project/pulumi:$PATH' >> $BASH_ENV
+            source $BASH_ENV
+            pulumi login --non-interactive
 
 workflows:
   circleci:
