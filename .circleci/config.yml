@@ -194,6 +194,7 @@ jobs:
           name: Preview Stack
           command: |
             cd etc/pulumi
+            pulumi stack init $CIRCLE_BRANCH-$CIRCLE_SHA --non-interactive
             pulumi preview
 
 workflows:
