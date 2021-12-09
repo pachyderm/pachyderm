@@ -60,7 +60,25 @@ spec:
             secretKeyRef:
               name: pachyderm-console-secret
               key: OAUTH_CLIENT_SECRET
+        {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
+        - name: SSL_CERT_DIR
+          value:  /pach-tls/certs
+        {{- end }}
         {{- if .Values.console.resources }}
         resources: {{ toYaml .Values.console.resources | nindent 10 }}
         {{- end }}
+        volumeMounts:
+        {{- if .Values.pachd.tls.enabled .Values.global.customCaCerts }}
+        - mountPath: /pach-tls/certs
+          name: pachd-tls-cert
+        {{- end }}
+      volumes:
+      {{- if .Values.pachd.tls.enabled .Values.global.customCaCerts }}
+      - name: pachd-tls-cert
+        secret:
+          secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
+          items:
+          - key: tls.crt
+            path: root-cert
+      {{- end }}
 {{ end -}}
