@@ -29,6 +29,8 @@ global:
   # imagePullSecrets:
   #   - regcred
   imagePullSecrets: []
+  # when set, the certificate file in pachd-tls-cert will be loaded as the root certificate for pachd, console, and enterprise-server pods
+  customCaCerts: false
 
 console:
   # enabled controls whether the console manifests are created or not.
