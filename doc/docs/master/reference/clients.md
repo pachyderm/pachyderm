@@ -44,11 +44,11 @@ It implements most of the functionalities provided with the `pachctl` CLI tool a
 !!! Note
      Use **python-pachyderm v7.0** with Pachyderm 2.0 and higher. 
 
-You will find all you need to get you started or dive into the details of the available modules and functions in the [API documentation](https://python-pachyderm.readthedocs.io/en/v7.x/), namely:
+You will find all you need to get you started or dive into the details of the available modules and functions in the [API documentation](https://python-pachyderm.readthedocs.io/en/v7.1.x/), namely:
 
-- The [installation instructions](https://python-pachyderm.readthedocs.io/en/v7.x/getting_started.html#installation) and links to PyPI.
-- A quick ["Hello World" example](https://python-pachyderm.readthedocs.io/en/v7.x/getting_started.html#installation) to jumpstart your understanding of the API.
-- Links to python-pachyderm main Github repository with a [list of useful examples](https://github.com/pachyderm/python-pachyderm/tree/v7.x/examples). 
+- The [installation instructions](https://python-pachyderm.readthedocs.io/en/v7.1.x/getting_started.html#installation) and links to PyPI.
+- A quick ["Hello World" example](https://python-pachyderm.readthedocs.io/en/v7.1.x/getting_started.html#installation) to jumpstart your understanding of the API.
+- Links to python-pachyderm main Github repository with a [list of useful examples](https://github.com/pachyderm/python-pachyderm/tree/v7.1.x/examples). 
 - As well as the entire **reference API**.
 
 ## Node Client
