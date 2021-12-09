@@ -244,6 +244,9 @@
         "global": {
             "type": "object",
             "properties": {
+                "customCaCerts": {
+                    "type": "boolean"
+                },
                 "imagePullSecrets": {
                     "type": "array"
                 },
