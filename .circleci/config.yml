@@ -198,6 +198,8 @@ jobs:
             pulumi config set gcp:zone us-east1-b
             pulumi config set gcp:project pulumi-ci-334619
             pulumi preview
+            pulumi up --yes
+            pulumi destroy --yes
 
 workflows:
   circleci:
