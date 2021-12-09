@@ -1,0 +1,2 @@
+config:
+  gcp:project: pulumi-ci-334619

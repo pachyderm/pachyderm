@@ -187,8 +187,14 @@ jobs:
             tar xvf pulumi-v3.19.0-linux-x64.tar.gz
             # Add to PATH
             echo 'export PATH=${HOME}/project/pulumi:$PATH' >> $BASH_ENV
+            echo 'export GOOGLE_CREDENTIAL=${HELM_GOOGLE_CREDENTIAL}' >> $BASH_ENV
             source $BASH_ENV
             pulumi login --non-interactive
+      - run:
+          name: Preview Stack
+          command: |
+            cd etc/pulumi
+            pulumi preview
 
 workflows:
   circleci:
