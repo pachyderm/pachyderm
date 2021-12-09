@@ -75,7 +75,18 @@ var customTimeoutMethods = map[string]time.Duration{
 	"/pps_v2.API/RunLoadTestDefault": unlimited,
 }
 
-func setTimeout(fullMethod string, ctx context.Context) context.Context {
+type ContextInterceptor struct {
+	enabled bool
+}
+
+func NewContextInterceptor(enabled bool) *ContextInterceptor {
+	return &ContextInterceptor{enabled: enabled}
+}
+
+func (ci *ContextInterceptor) setTimeout(fullMethod string, ctx context.Context) context.Context {
+	if !ci.enabled {
+		return ctx
+	}
 	if timeout, ok := customTimeoutMethods[fullMethod]; ok {
 		if timeout == unlimited {
 			return ctx
@@ -87,13 +98,13 @@ func setTimeout(fullMethod string, ctx context.Context) context.Context {
 	return newCtx
 }
 
-func UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	ctx = setTimeout(info.FullMethod, ctx)
+func (ci *ContextInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	ctx = ci.setTimeout(info.FullMethod, ctx)
 	return handler(ctx, req)
 }
 
-func StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	ctx := setTimeout(info.FullMethod, stream.Context())
+func (ci *ContextInterceptor) StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	ctx := ci.setTimeout(info.FullMethod, stream.Context())
 	streamProxy := util.ServerStreamWrapper{Stream: stream, Ctx: ctx}
 	return handler(srv, streamProxy)
 }

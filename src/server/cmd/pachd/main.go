@@ -142,6 +142,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
+	contextInterceptor := context_mw.NewContextInterceptor(env.Config().ContextInterceptorEnabled)
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
@@ -156,13 +157,13 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
-			context_mw.UnaryServerInterceptor,
+			contextInterceptor.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
-			context_mw.StreamServerInterceptor,
+			contextInterceptor.StreamServerInterceptor,
 		),
 	)
 	if err != nil {
@@ -396,18 +397,19 @@ func doSidecarMode(config interface{}) (retErr error) {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
+	contextInterceptor := context_mw.NewContextInterceptor(env.Config().ContextInterceptorEnabled)
 	server, err := grpcutil.NewServer(
 		context.Background(),
 		false,
 		grpc.ChainUnaryInterceptor(
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
-			context_mw.UnaryServerInterceptor,
+			contextInterceptor.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
-			context_mw.StreamServerInterceptor,
+			contextInterceptor.StreamServerInterceptor,
 		),
 	)
 	if err != nil {
@@ -568,6 +570,7 @@ func doFullMode(config interface{}) (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
+	contextInterceptor := context_mw.NewContextInterceptor(env.Config().ContextInterceptorEnabled)
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
@@ -582,13 +585,13 @@ func doFullMode(config interface{}) (retErr error) {
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
-			context_mw.UnaryServerInterceptor,
+			contextInterceptor.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
-			context_mw.StreamServerInterceptor,
+			contextInterceptor.StreamServerInterceptor,
 		),
 	)
 
