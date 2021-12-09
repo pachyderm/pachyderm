@@ -11,8 +11,8 @@ export type TaskComponentProps = {
 export type Section = {
   header?: React.ReactNode;
   info?: React.ReactNode;
-  taskName: React.ReactNode;
-  Task: React.FC<TaskComponentProps>;
+  taskName?: React.ReactNode;
+  Task?: React.FC<TaskComponentProps>;
   followUp?: React.ReactNode;
   isSubHeader?: boolean;
 };

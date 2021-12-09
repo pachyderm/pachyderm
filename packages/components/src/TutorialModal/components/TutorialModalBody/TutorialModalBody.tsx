@@ -147,13 +147,15 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
                     </div>
                     {section.info}
                   </div>
-                  <section.Task
-                    currentTask={currentTask}
-                    onCompleted={() => handleTaskCompletion(i)}
-                    minimized={minimized}
-                    index={i}
-                    name={section.taskName}
-                  />
+                  {section.Task && (
+                    <section.Task
+                      currentTask={currentTask}
+                      onCompleted={() => handleTaskCompletion(i)}
+                      minimized={minimized}
+                      index={i}
+                      name={section.taskName}
+                    />
+                  )}
                   <div className={styles.followUp}>{section.followUp}</div>
                 </div>
               );
