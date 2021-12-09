@@ -1,5 +1,7 @@
 import {JupyterFrontEnd} from '@jupyterlab/application';
+import {URLExt} from '@jupyterlab/coreutils';
 import {ILauncher} from '@jupyterlab/launcher';
+import {ServerConnection} from '@jupyterlab/services';
 
 import {fileIcon} from '../../utils/icons';
 const EXAMPLES_CATAGORY = 'Pachyderm Examples';
@@ -28,7 +30,10 @@ const examples: ExampleItem[] = [
 
 const doesPathExist = async (path: string) => {
   try {
-    const response = await fetch(`/api/contents/${path}`);
+    const settings = ServerConnection.makeSettings();
+    const response = await fetch(
+      URLExt.join(settings.baseUrl, 'api/contents', path),
+    );
     return response.status === 200;
   } catch {
     return false;

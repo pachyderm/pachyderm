@@ -1,0 +1,127 @@
+.pachyderm-mount-react-wrapper {
+  border-bottom: 1px solid var(--jp-border-color2);
+  font-size: var(--jp-ui-font-size1);
+  min-width: 300px;
+  min-height: 50px;
+}
+
+.pachyderm-mount-base {
+  height: 100%;
+}
+
+.pachyderm-mount-base-title {
+  padding: 4px 12px;
+  font-weight: 500;
+  height: 25px;
+}
+
+/* === ListItem === */
+.pachyderm-mount-list-item-base {
+  display: flex;
+  align-items: baseline;
+  margin-top: 5px;
+}
+
+.pachyderm-mount-list-item-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  width: 50%;
+}
+
+.pachyderm-mount-list-item-branch {
+  width: 25%;
+}
+
+.pachyderm-mount-list-item-branch-select {
+  border: none;
+  width: 100%;
+  justify-content: left;
+}
+
+.pachyderm-mount-list-item-action {
+  width: 25%;
+  text-align: right;
+}
+
+/* === DirListing === */
+
+.pachyderm-mount-sortableList {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  outline: 0;
+  height: calc(100% - 25px);
+}
+
+.pachyderm-mount-sortableList:focus-visible {
+  border: 1px solid var(--jp-brand-color1);
+}
+
+.pachyderm-mount-sortableList-header {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  border-top: var(--jp-border-width) solid var(--jp-border-color2);
+  border-bottom: var(--jp-border-width) solid var(--jp-border-color1);
+  z-index: 2;
+}
+
+.pachyderm-mount-sortableList-headerItem {
+  padding: 4px 12px 2px 12px;
+  font-weight: 500;
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.pachyderm-mount-sortableList-headerItem-branch {
+  padding: 4px 12px 2px 12px;
+  font-weight: 500;
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+  justify-content: right;
+  border-left: var(--jp-border-width) solid var(--jp-border-color1);
+}
+
+.pachyderm-mount-sortableList-headerItem:hover,
+.pachyderm-mount-sortableList-headerItem-branch:hover {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  background: var(--jp-layout-color2);
+}
+
+.pachyderm-mount-sortableList-content {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  background-color: var(--jp-layout-color1);
+}
+
+.pachyderm-mount-sortableList-item {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 4px 12px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.pachyderm-mount-sortableList-item:hover {
+  background: var(--jp-layout-color2);
+}
+
+.pachyderm-mount-sortableList-item:hover
+  .pachyderm-mount-list-item-branch-select {
+  background: var(--jp-layout-color2);
+}

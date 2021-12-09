@@ -10,7 +10,7 @@ describe('help', () => {
 
   it('Should open contact support modal from the help menu.', () => {
     cy.findAllByText('Help').first().click();
-    cy.findAllByText('Contact Pachyderm Support').click();
+    cy.findByText('Contact Pachyderm Support').click();
     cy.findByText('Chat with us on');
     cy.findByText('Slack')
       .should('have.prop', 'href')
