@@ -295,7 +295,7 @@ workflows:
             - build
           filters:
             tags:
-              only: /^\d+\.\d+\.\d.*/
+              only: /^v\d+\.\d+\.\d.*/
             branches:
               ignore: /.*/
       - approve-release:
@@ -304,7 +304,7 @@ workflows:
             - test-publish
           filters:
             tags:
-              only: /^\d+\.\d+\.\d.*/
+              only: /^v\d+\.\d+\.\d.*/
             branches:
               ignore: /.*/
       - publish:
@@ -312,7 +312,7 @@ workflows:
             - approve-release
           filters:
             tags:
-              only: /^\d+\.\d+\.\d.*/
+              only: /^v\d+\.\d+\.\d.*/
             branches:
               ignore: /.*/
 
