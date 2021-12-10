@@ -63,8 +63,8 @@ func TestPostgresCollectionsProxy(suite *testing.T) {
 func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col.PostgresListener)) func(context.Context, *testing.T) (ReadCallback, WriteCallback) {
 	return func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
 		db, listener := setup(ctx, t)
-
-		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, col.WithListBufferCapOverride(3))
+		opts := []col.Option{col.WithListBufferCapOverride(3)} // set the list buffer capacity to 3
+		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, opts...)
 		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *pachsql.Tx) error {
 			return col.SetupPostgresCollections(ctx, sqlTx, testCol)
 		}))
