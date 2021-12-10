@@ -14,7 +14,7 @@ func main() {
 		slug := "pachyderm/gcp-go-gke/gcp-test"
 		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)
 
-		kubeConfig := stackRef.GetOutput(pulumi.String("kubeConfig"))
+		kubeConfig := stackRef.GetOutput(pulumi.String("kubeconfig"))
 
 		k8sProvider, err := kubernetes.NewProvider(ctx, "k8sprovider", &kubernetes.ProviderArgs{
 			Kubeconfig: pulumi.StringPtrOutput(kubeConfig),
