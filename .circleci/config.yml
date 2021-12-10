@@ -200,17 +200,17 @@ jobs:
       - run:
           name: Setup gcloud
           command: |
+            # NOTE: Needed to enable cloud resource manager in the project
+            # https://console.cloud.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=pulumi-ci-334619
             cd ~/
             curl -Ss --retry 5 https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-<<parameters.gcloud-sdk-version>>-linux-x86_64.tar.gz | tar xz
-            echo 'source ~/google-cloud-sdk/path.bash.inc' >> $BASH_ENV
             
-            if [[ $(command -v gcloud) == "" ]]; then
-              install
-            else
-              echo "gcloud CLI is already installed."
+            ./google-cloud-sdk/install.sh -q
+            echo 'source ~/google-cloud-sdk/path.bash.inc' >> $BASH_ENV
+            source $BASH_ENV
 
             # Store service account
-            echo ${GOOGLE_CREDENTIALS} > ${HOME}/gcloud-service-key.json
+            echo ${HELM_GOOGLE_CREDENTIAL} > ${HOME}/gcloud-service-key.json
 
             # Initialize gcloud CLI
             gcloud --quiet config set core/disable_usage_reporting true
