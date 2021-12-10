@@ -13,6 +13,17 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/fatih/color"
+	"github.com/gogo/protobuf/types"
+	"github.com/juju/ansiterm"
+	"github.com/mattn/go-isatty"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/status"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -34,16 +45,6 @@ import (
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-
-	"github.com/fatih/color"
-	"github.com/gogo/protobuf/types"
-	"github.com/juju/ansiterm"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	prefixed "github.com/x-cray/logrus-prefixed-formatter"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc/grpclog"
-	"google.golang.org/grpc/status"
 )
 
 const (
