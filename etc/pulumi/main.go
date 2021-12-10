@@ -17,7 +17,7 @@ func main() {
 		kubeConfig := stackRef.GetOutput(pulumi.String("kubeconfig"))
 
 		k8sProvider, err := kubernetes.NewProvider(ctx, "k8sprovider", &kubernetes.ProviderArgs{
-			Kubeconfig: pulumi.StringPtrOutput(kubeConfig),
+			Kubeconfig: pulumi.StringOutput(kubeConfig),
 		}) //, pulumi.DependsOn([]pulumi.Resource{cluster})
 		if err != nil {
 			return err
