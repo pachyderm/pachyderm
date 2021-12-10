@@ -1,9 +1,6 @@
 package main
 
 import (
-	"github.com/pulumi/pulumi-gcp/sdk/v5/go/gcp/container"
-	"github.com/pulumi/pulumi-gcp/sdk/v5/go/gcp/projects"
-	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/storage"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
 	appsv1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/apps/v1"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
@@ -13,53 +10,15 @@ import (
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
-		// Create a GCP resource (Storage Bucket)
-		bucket, err := storage.NewBucket(ctx, "my-bucket", &storage.BucketArgs{
-			Location: pulumi.String("US"),
-		})
-		if err != nil {
-			return err
-		}
 
-		// Export the DNS name of the bucket
-		ctx.Export("bucketName", bucket.Url)
+		slug := "pachyderm/gcp-go-gke/gcp-test"
+		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)
 
-		containerService, err := projects.NewService(ctx, "project", &projects.ServiceArgs{
-			Service: pulumi.String("container.googleapis.com"),
-		})
-		if err != nil {
-			return err
-		}
-
-		engineVersions, err := container.GetEngineVersions(ctx, &container.GetEngineVersionsArgs{})
-		if err != nil {
-			return err
-		}
-		masterVersion := engineVersions.LatestMasterVersion
-
-		cluster, err := container.NewCluster(ctx, "demo-cluster", &container.ClusterArgs{
-			InitialNodeCount: pulumi.Int(2),
-			MinMasterVersion: pulumi.String(masterVersion),
-			NodeVersion:      pulumi.String(masterVersion),
-			NodeConfig: &container.ClusterNodeConfigArgs{
-				MachineType: pulumi.String("n1-standard-1"),
-				OauthScopes: pulumi.StringArray{
-					pulumi.String("https://www.googleapis.com/auth/compute"),
-					pulumi.String("https://www.googleapis.com/auth/devstorage.read_only"),
-					pulumi.String("https://www.googleapis.com/auth/logging.write"),
-					pulumi.String("https://www.googleapis.com/auth/monitoring"),
-				},
-			},
-		}, pulumi.DependsOn([]pulumi.Resource{containerService}))
-		if err != nil {
-			return err
-		}
-
-		ctx.Export("kubeconfig", generateKubeconfig(cluster.Endpoint, cluster.Name, cluster.MasterAuth))
+		kubeConfig := stackRef.GetOutput(pulumi.String("kubeConfig"))
 
 		k8sProvider, err := kubernetes.NewProvider(ctx, "k8sprovider", &kubernetes.ProviderArgs{
-			Kubeconfig: generateKubeconfig(cluster.Endpoint, cluster.Name, cluster.MasterAuth),
-		}, pulumi.DependsOn([]pulumi.Resource{cluster}))
+			Kubeconfig: pulumi.StringPtrOutput(kubeConfig),
+		}) //, pulumi.DependsOn([]pulumi.Resource{cluster})
 		if err != nil {
 			return err
 		}
@@ -133,36 +92,4 @@ func main() {
 
 		return nil
 	})
-}
-
-func generateKubeconfig(clusterEndpoint pulumi.StringOutput, clusterName pulumi.StringOutput,
-	clusterMasterAuth container.ClusterMasterAuthOutput) pulumi.StringOutput {
-	context := pulumi.Sprintf("demo_%s", clusterName)
-
-	return pulumi.Sprintf(`apiVersion: v1
-clusters:
-- cluster:
-    certificate-authority-data: %s
-    server: https://%s
-  name: %s
-contexts:
-- context:
-    cluster: %s
-    user: %s
-  name: %s
-current-context: %s
-kind: Config
-preferences: {}
-users:
-- name: %s
-  user:
-    auth-provider:
-      config:
-        cmd-args: config config-helper --format=json
-        cmd-path: gcloud
-        expiry-key: '{.credential.token_expiry}'
-        token-key: '{.credential.access_token}'
-      name: gcp`,
-		clusterMasterAuth.ClusterCaCertificate().Elem(),
-		clusterEndpoint, context, context, context, context, context, context)
 }
