@@ -313,7 +313,7 @@ func sortOrderOperator(order SortOrder) string {
 	return ">"
 }
 
-func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[string]string, opts *Options, afterRow interface{}) (string, []interface{}, error) {
+func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[string]string, opts *Options, afterRow interface{}, afterRowKey string) (string, []interface{}, error) {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
 	var args []interface{}
@@ -334,10 +334,16 @@ func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[st
 			return "", err
 		}
 		args = append(args, afterRow)
+		// condition ends up including:
+		// where ... (<TARGET> <OP> <VALUE> or (<TARGET> = <VALUE> and key > '<PKEY>'))
+		// This covers the case where we only want to return rows following a certain offset value.
+		// We handle the case where multiple rows have the same sort value (when it isn't sorted by primary key)
+		// by including "or (<TARGET> = <VALUE> and key > '<PKEY>')" and also ordering by Primary Key as a tie breaker
+		cond := fmt.Sprintf("(%s %s $%d or (%s = $%d and key > '%s'))", ts, sortOrderOperator(ord), len(args), ts, len(args), afterRowKey)
 		if len(withFields) > 0 {
-			return fmt.Sprintf(" and %s %s $%d", ts, sortOrderOperator(ord), len(args)), nil
+			return " and " + cond, nil
 		} else {
-			return fmt.Sprintf(" where %s %s $%d", ts, sortOrderOperator(ord), len(args)), nil
+			return " where " + cond, nil
 		}
 	}
 
@@ -354,8 +360,7 @@ func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[st
 				}
 				query += ac
 			}
-			query += fmt.Sprintf(" order by %s %s", target, order)
-
+			query += fmt.Sprintf(" order by %s %s, key asc", target, order)
 		}
 	} else {
 		if afterRow != nil {
@@ -365,6 +370,7 @@ func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[st
 			}
 			query += ac
 		}
+		query += " order by key asc"
 	}
 
 	if opts.Limit > 0 {
@@ -381,7 +387,7 @@ func (c *postgresCollection) list(
 	q sqlx.ExtContext,
 	f func(*model) error,
 ) error {
-	query, args, err := c.listQueryStr(ctx, withFields, opts, nil)
+	query, args, err := c.listQueryStr(ctx, withFields, opts, nil, "")
 	if err != nil {
 		return err
 	}
@@ -456,10 +462,14 @@ func (c *postgresCollection) list(
 		st = SortByKey
 	}
 
-	var lastRowSortVal interface{}
+	var last *model
 	for {
-		if lastRowSortVal != nil {
-			query, args, err = c.listQueryStr(ctx, withFields, opts, lastRowSortVal)
+		if last != nil {
+			lastRowSortVal, err := sortTargetValue(last, st)
+			if err != nil {
+				return err
+			}
+			query, args, err = c.listQueryStr(ctx, withFields, opts, lastRowSortVal, last.Key)
 			if err != nil {
 				return err
 			}
@@ -479,10 +489,7 @@ func (c *postgresCollection) list(
 				}
 				return err
 			}
-			lastRowSortVal, err = sortTargetValue(v, st)
-			if err != nil {
-				return err
-			}
+			last = v
 		}
 		if rowCnt < c.listBufferCapacity {
 			break
