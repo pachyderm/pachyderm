@@ -216,8 +216,8 @@ jobs:
             gcloud --quiet config set core/disable_usage_reporting true
             gcloud --quiet config set component_manager/disable_update_check true
             gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
-            gcloud --quiet config set project $<<parameters.gcp-project>>
-            gcloud --quiet config set compute/zone $<<parameters.gcp-compute-zone>>
+            gcloud --quiet config set project <<parameters.gcp-project>>
+            gcloud --quiet config set compute/zone <<parameters.gcp-compute-zone>>
 
       - run:
           name: Preview Stack
