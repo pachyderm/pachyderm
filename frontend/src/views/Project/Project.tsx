@@ -89,7 +89,7 @@ const Project: React.FC = () => {
                 min={(minScale * 100).toString()}
                 max={(MAX_SCALE_VALUE * 100).toString()}
                 onChange={(d: React.ChangeEvent<HTMLInputElement>) =>
-                  applySliderZoom(d)
+                  applySliderZoom(Number(d.currentTarget.value))
                 }
                 value={sliderZoomValue * 100}
                 disabled={noDags}

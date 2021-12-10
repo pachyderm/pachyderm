@@ -310,33 +310,44 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     }
   }, [dags]);
 
-  const applySliderZoom = useCallback(
-    (e: React.FormEvent<HTMLInputElement>) => {
-      dispatch({type: 'ZOOM'});
-      const nextScale = Number(e.currentTarget.value) / 100;
-      zoomRef.current &&
-        zoomRef.current.scaleTo(
-          select<SVGSVGElement, unknown>('#Svg'),
-          nextScale,
-        );
-    },
-    [],
-  );
+  const applySliderZoom = useCallback((value: number) => {
+    dispatch({type: 'ZOOM'});
+    const nextScale = value / 100;
+    zoomRef.current &&
+      zoomRef.current.scaleTo(
+        select<SVGSVGElement, unknown>('#Svg'),
+        nextScale,
+      );
+  }, []);
 
   const zoomOut = useCallback(() => {
     dispatch({type: 'RESET'});
   }, []);
 
+  // DAG controls keyboard interactions
   useEffect(() => {
-    const zoomOutListener = (event: KeyboardEvent) => {
+    const ZOOM_INCREMENT = 10;
+
+    document.onkeydown = (event) => {
       if (event.key === '@') {
         zoomOut();
       }
+      if (event.metaKey && event.key === '-') {
+        event.preventDefault();
+        event.stopPropagation();
+        applySliderZoom(sliderZoomValue * 100 - ZOOM_INCREMENT);
+      }
+      if (event.metaKey && event.key === '=') {
+        event.preventDefault();
+        event.stopPropagation();
+        applySliderZoom(sliderZoomValue * 100 + ZOOM_INCREMENT);
+      }
     };
-    window.addEventListener('keydown', zoomOutListener);
 
-    return () => window.removeEventListener('keydown', zoomOutListener);
-  }, [zoomOut]);
+    return () => {
+      document.onkeydown = null;
+    };
+  }, [applySliderZoom, sliderZoomValue, zoomOut]);
 
   useEffect(() => {
     if (overlay) {
