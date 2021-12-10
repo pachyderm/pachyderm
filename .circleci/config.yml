@@ -176,6 +176,13 @@ jobs:
           ./etc/testing/circle/upgrade_test.sh $base $head
     
   helm-gcp:
+    parameters:
+      gcp-project:
+        type: string
+      gcp-compute-zone:
+        type: string
+      gcloud-sdk-version:
+        type: string
     docker:
       - image: cimg/go:1.17.5
     steps:
@@ -191,12 +198,29 @@ jobs:
             source $BASH_ENV
             pulumi login --non-interactive
       - run:
+          name: Setup gcloud
+          command: |
+            cd ~/
+            curl -Ss --retry 5 https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-<<parameters.gcloud-sdk-version>>-linux-x86_64.tar.gz | tar xz
+            echo 'source ~/google-cloud-sdk/path.bash.inc' >> $BASH_ENV
+            
+            # Store service account
+            echo ${GOOGLE_CREDENTIALS} > ${HOME}/gcloud-service-key.json
+
+            # Initialize gcloud CLI
+            gcloud --quiet config set core/disable_usage_reporting true
+            gcloud --quiet config set component_manager/disable_update_check true
+            gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+            gcloud --quiet config set project $<<parameters.gcp-project>>
+            gcloud --quiet config set compute/zone $<<parameters.google-compute-zone>>
+
+      - run:
           name: Preview Stack
           command: |
             cd etc/pulumi
             pulumi stack init $CIRCLE_BRANCH-$CIRCLE_SHA1 --non-interactive
-            pulumi config set gcp:zone us-east1-b
-            pulumi config set gcp:project pulumi-ci-334619
+            pulumi config set gcp:zone $<<parameters.google-compute-zone>>
+            pulumi config set gcp:project $<<parameters.gcp-project>>
             pulumi preview
             pulumi up --yes
             pulumi destroy --yes
@@ -204,7 +228,10 @@ jobs:
 workflows:
   circleci:
     jobs:
-      - helm-gcp
+      - helm-gcp:
+          gcp-project: pulumi-ci-334619
+          gcp-compute-zone: us-east1-b
+          gcloud-sdk-version: "363.0.0"
       #- circleci:
       #    matrix:
       #      parameters:
