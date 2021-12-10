@@ -224,8 +224,8 @@ jobs:
           command: |
             cd etc/pulumi
             pulumi stack init $CIRCLE_BRANCH-$CIRCLE_SHA1 --non-interactive
-            pulumi config set gcp:zone $<<parameters.gcp-compute-zone>>
-            pulumi config set gcp:project $<<parameters.gcp-project>>
+            pulumi config set gcp:zone <<parameters.gcp-compute-zone>>
+            pulumi config set gcp:project <<parameters.gcp-project>>
             pulumi preview
             pulumi up --yes
             pulumi destroy --yes
