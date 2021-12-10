@@ -584,11 +584,16 @@ func collectDump(tw *tar.Writer, prefix ...string) error {
 func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limit int64) collectPipelineFunc {
 	return func(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
-			fullPipelineInfo, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name, true)
+			fullPipelineInfos, err := pachClient.ListPipelineHistory(pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
 				return err
 			}
-			return s.marshaller.Marshal(w, fullPipelineInfo)
+			for _, fullPipelineInfo := range fullPipelineInfos {
+				if err := s.marshaller.Marshal(w, fullPipelineInfo); err != nil {
+					return err
+				}
+			}
+			return nil
 		}, prefix...); err != nil {
 			return err
 		}
@@ -624,7 +629,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 	if err := collectDebugFile(tw, "jobs", "json", func(w io.Writer) error {
 		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
-		return pachClient.ListJobF(pipelineName, nil, 0, false, func(ji *pps.JobInfo) error {
+		return pachClient.ListJobF(pipelineName, nil, -1, false, func(ji *pps.JobInfo) error {
 			if count >= limit {
 				return errutil.ErrBreak
 			}
