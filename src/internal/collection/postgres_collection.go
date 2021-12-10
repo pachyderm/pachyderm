@@ -335,9 +335,9 @@ func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[st
 		}
 		args = append(args, afterRow)
 		if len(withFields) > 0 {
-			return fmt.Sprintf(" %s %s $%d", ts, sortOrderOperator(ord), len(args)+1), nil
+			return fmt.Sprintf(" and %s %s $%d", ts, sortOrderOperator(ord), len(args)), nil
 		} else {
-			return fmt.Sprintf(" where key %s %s $%d", ts, sortOrderOperator(ord), len(args)+1), nil
+			return fmt.Sprintf(" where %s %s $%d", ts, sortOrderOperator(ord), len(args)), nil
 		}
 	}
 
@@ -430,9 +430,9 @@ func (c *postgresCollection) list(
 	bufferResults := func(rs *sqlx.Rows) ([]*model, int, error) {
 		defer rs.Close()
 		var rowCnt int
-		rowsBuffer := make([]*model, 0, listBufferCapacity)
+		rowsBuffer := make([]*model, 0, c.listBufferCapacity)
 		result := &model{}
-		for rs.Next() && rowCnt < listBufferCapacity {
+		for rs.Next() && rowCnt < c.listBufferCapacity {
 			if err := rs.StructScan(result); err != nil {
 				return nil, 0, c.mapSQLError(err, "")
 			}
@@ -484,7 +484,7 @@ func (c *postgresCollection) list(
 				return err
 			}
 		}
-		if rowCnt < listBufferCapacity {
+		if rowCnt < c.listBufferCapacity {
 			break
 		}
 	}
