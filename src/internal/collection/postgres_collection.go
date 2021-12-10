@@ -313,7 +313,7 @@ func sortOrderOperator(order SortOrder) string {
 	return ">"
 }
 
-func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[string]string, opts *Options, afterRow interface{}, afterRowKey string) (string, []interface{}, error) {
+func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[string]string, opts *Options, last *model) (string, []interface{}, error) {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
 	var args []interface{}
@@ -333,13 +333,17 @@ func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[st
 		if err != nil {
 			return "", err
 		}
-		args = append(args, afterRow)
+		afterSortVal, err := sortTargetValue(last, t)
+		if err != nil {
+			return "", err
+		}
+		args = append(args, afterSortVal)
 		// condition ends up including:
 		// where ... (<TARGET> <OP> <VALUE> or (<TARGET> = <VALUE> and key > '<PKEY>'))
 		// This covers the case where we only want to return rows following a certain offset value.
 		// We handle the case where multiple rows have the same sort value (when it isn't sorted by primary key)
 		// by including "or (<TARGET> = <VALUE> and key > '<PKEY>')" and also ordering by Primary Key as a tie breaker
-		cond := fmt.Sprintf("(%s %s $%d or (%s = $%d and key > '%s'))", ts, sortOrderOperator(ord), len(args), ts, len(args), afterRowKey)
+		cond := fmt.Sprintf("(%s %s $%d or (%s = $%d and key > '%s'))", ts, sortOrderOperator(ord), len(args), ts, len(args), last.Key)
 		if len(withFields) > 0 {
 			return " and " + cond, nil
 		} else {
@@ -347,30 +351,29 @@ func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[st
 		}
 	}
 
-	if opts.Order != SortNone {
-		if order, err := orderToSQL(opts.Order); err != nil {
-			return "", nil, err
-		} else if target, err := targetToSQL(opts.Target); err != nil {
-			return "", nil, err
-		} else {
-			if afterRow != nil {
-				ac, err := afterCondition(opts.Target, opts.Order)
-				if err != nil {
-					return "", nil, err
-				}
-				query += ac
-			}
-			query += fmt.Sprintf(" order by %s %s, key asc", target, order)
-		}
+	st := opts.Target
+	so := opts.Order
+	if opts.Order == SortNone { // defaults if to "order by key asc" if no sort specified
+		st = SortByKey
+		so = SortAscend
+	}
+	if order, err := orderToSQL(so); err != nil {
+		return "", nil, err
+	} else if target, err := targetToSQL(st); err != nil {
+		return "", nil, err
 	} else {
-		if afterRow != nil {
-			ac, err := afterCondition(SortByKey, SortAscend)
+		if last != nil {
+			ac, err := afterCondition(st, so)
 			if err != nil {
 				return "", nil, err
 			}
 			query += ac
 		}
-		query += " order by key asc"
+		if st == SortByKey {
+			query += fmt.Sprintf(" order by key %s", order)
+		} else {
+			query += fmt.Sprintf(" order by %s %s, key asc", target, order)
+		}
 	}
 
 	if opts.Limit > 0 {
@@ -387,7 +390,7 @@ func (c *postgresCollection) list(
 	q sqlx.ExtContext,
 	f func(*model) error,
 ) error {
-	query, args, err := c.listQueryStr(ctx, withFields, opts, nil, "")
+	query, args, err := c.listQueryStr(ctx, withFields, opts, nil)
 	if err != nil {
 		return err
 	}
@@ -455,21 +458,10 @@ func (c *postgresCollection) list(
 		return rowsBuffer, rowCnt, nil
 	}
 
-	// the sort target instructs which field to use as an offset in
-	// the query to the next iteration of filling the buffer
-	st := opts.Target
-	if opts.Order == SortNone {
-		st = SortByKey
-	}
-
 	var last *model
 	for {
 		if last != nil {
-			lastRowSortVal, err := sortTargetValue(last, st)
-			if err != nil {
-				return err
-			}
-			query, args, err = c.listQueryStr(ctx, withFields, opts, lastRowSortVal, last.Key)
+			query, args, err = c.listQueryStr(ctx, withFields, opts, last)
 			if err != nil {
 				return err
 			}
