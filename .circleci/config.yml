@@ -204,6 +204,11 @@ jobs:
             curl -Ss --retry 5 https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-<<parameters.gcloud-sdk-version>>-linux-x86_64.tar.gz | tar xz
             echo 'source ~/google-cloud-sdk/path.bash.inc' >> $BASH_ENV
             
+            if [[ $(command -v gcloud) == "" ]]; then
+              install
+            else
+              echo "gcloud CLI is already installed."
+
             # Store service account
             echo ${GOOGLE_CREDENTIALS} > ${HOME}/gcloud-service-key.json
 
