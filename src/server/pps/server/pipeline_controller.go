@@ -151,7 +151,7 @@ func (pc *pipelineController) Start(timestamp time.Time) {
 			return
 		case ts := <-pc.bumpChan:
 			// pc.step returns true if the pipeline was deleted, and the controller can try to shutdown
-			if pc.step(ts) {
+			if isDelete, _ := pc.step(ts); isDelete {
 				pc.tryFinish()
 			}
 		}
@@ -177,10 +177,9 @@ func (pc *pipelineController) tryFinish() {
 // 3. updates 'pipelineInfo', if needed, to reflect the action it just took
 //
 // returns true if the pipeline is deleted, and the pipelineController can try to shutdown
-func (pc *pipelineController) step(timestamp time.Time) bool {
+func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr error) {
 	log.Debugf("PPS master: processing event for %q", pc.pipeline)
 
-	var finalErr error
 	// Handle tracing
 	span, _ := extended.AddSpanToAnyPipelineTrace(pc.ctx,
 		pc.env.EtcdClient, pc.pipeline, "/pps.Master/ProcessPipelineUpdate")
@@ -190,59 +189,60 @@ func (pc *pipelineController) step(timestamp time.Time) bool {
 		tracing.TagAnySpan(span, "pollpipelines-event", "true")
 	}
 	defer func() {
-		tracing.FinishAnySpan(span, "err", finalErr)
+		tracing.FinishAnySpan(span, "err", retErr)
 	}()
 
 	// if we fail to create a new step, there was an error querying the pipeline info, and there's nothing we can do
-	step, err := pc.newStep()
-	if err != nil {
-		finalErr = err
-		log.Errorf("PPS master: failed to set up step data to handle event for pipeline '%s': %v", pc.pipeline,
-			errors.Wrapf(err, "failing pipeline %q", pc.pipeline))
-	}
-
-	// interpret the event as a delete operation
-	if step == nil {
+	if step, err := pc.newStep(); err != nil {
+		msg := fmt.Sprintf("failed to set up step data to handle event for pipeline '%s': %v", pc.pipeline, errors.Wrapf(err, "failing pipeline %q", pc.pipeline))
+		log.Errorf("PPS master: " + msg)
+		failError := step.setPipelineFailure(msg)
+		if failError != nil {
+			log.Errorf("PPS master: error failing pipeline '%s': %v", pc.pipeline,
+				errors.Wrapf(failError, "error failing pipeline %q, after error (%v)", pc.pipeline, err))
+		}
+		return false, err
+	} else if step == nil {
+		// interpret the event as a delete operation
 		if err := pc.deletePipelineResources(); err != nil {
-			finalErr = err
 			log.Errorf("PPS master: error deleting pipelineController resources for pipeline '%s': %v", pc.pipeline,
 				errors.Wrapf(err, "failing pipeline %q", pc.pipeline))
+			return true, err
 		}
-		return true
-	}
+		return true, nil
+	} else {
+		var stepErr stepError
+		errCount := 0
+		err = backoff.RetryNotify(func() error {
+			// set pc.rc
+			// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
+			// the pipeline indefinitely)
+			if err := step.getRC(noExpectation); err != nil && !errors.Is(err, errRCNotFound) {
+				return err
+			}
 
-	var stepErr stepError
-	errCount := 0
-	err = backoff.RetryNotify(func() error {
-		// set pc.rc
-		// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
-		// the pipeline indefinitely)
-		if err := step.getRC(noExpectation); err != nil && !errors.Is(err, errRCNotFound) {
-			return err
-		}
-
-		// Create/Modify/Delete pipeline resources as needed per new state
-		return step.run()
-	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		errCount++
-		if errors.As(err, &stepErr) {
-			if stepErr.retry && errCount < maxErrCount {
-				log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
-					pc.pipeline, err, d)
-				return nil
+			// Create/Modify/Delete pipeline resources as needed per new state
+			return step.updateRcAndState()
+		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
+			errCount++
+			if errors.As(err, &stepErr) {
+				if stepErr.retry && errCount < maxErrCount {
+					log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
+						pc.pipeline, err, d)
+					return nil
+				}
+			}
+			return errors.Wrapf(err, "could not update resource for pipeline %q", pc.pipeline)
+		})
+		if errors.As(err, &stepErr) && stepErr.failPipeline {
+			failError := step.setPipelineFailure(fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err))
+			if failError != nil {
+				log.Errorf("PPS master: error starting a pipelineController for pipeline '%s': %v", pc.pipeline,
+					errors.Wrapf(failError, "error failing pipeline %q (%v)", pc.pipeline, stepErr))
 			}
 		}
-		return errors.Wrapf(err, "could not update resource for pipeline %q", pc.pipeline)
-	})
-	finalErr = err
-	if errors.As(err, &stepErr) && stepErr.failPipeline {
-		failError := step.setPipelineFailure(fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err))
-		if failError != nil {
-			log.Errorf("PPS master: error starting a pipelineController for pipeline '%s': %v", pc.pipeline,
-				errors.Wrapf(failError, "error failing pipeline %q (%v)", pc.pipeline, stepErr))
-		}
+		return false, err
 	}
-	return false
 }
 
 // returns nil, nil if the step is found to be a delete operation
@@ -277,7 +277,7 @@ func (pc *pipelineController) newStep() (*pcStep, error) {
 	return step, nil
 }
 
-func (step *pcStep) run() error {
+func (step *pcStep) updateRcAndState() error {
 	// Bring 'pipeline' into the correct state by taking appropriate action
 	switch step.pipelineInfo.State {
 	case pps.PipelineState_PIPELINE_STARTING, pps.PipelineState_PIPELINE_RESTARTING:
@@ -693,7 +693,7 @@ func (step *pcStep) getRC(expectation rcExpectation) (retErr error) {
 	return backoff.RetryNotify(func() error {
 		// List all RCs, so stale RCs from old pipelines are noticed and deleted
 		rcs, err := step.pc.env.KubeClient.CoreV1().ReplicationControllers(step.pc.namespace).List(
-			ctx,
+			step.ctx,
 			metav1.ListOptions{LabelSelector: selector})
 		if err != nil && !errutil.IsNotFoundError(err) {
 			return err
