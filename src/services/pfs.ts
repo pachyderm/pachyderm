@@ -62,6 +62,7 @@ import {
 import streamToObjectArray from '../utils/streamToObjectArray';
 
 import {GRPC_MAX_MESSAGE_LENGTH} from './constants/pfs';
+import {RPC_DEADLINE_MS} from './constants/rpc';
 
 const pfs = ({
   pachdAddress,
@@ -83,7 +84,9 @@ const pfs = ({
       listFileRequest.setFile(file);
       listFileRequest.setDetails(true);
 
-      const stream = client.listFile(listFileRequest, credentialMetadata);
+      const stream = client.listFile(listFileRequest, credentialMetadata, {
+        deadline: Date.now() + RPC_DEADLINE_MS,
+      });
 
       return streamToObjectArray<FileInfo, FileInfo.AsObject>(stream);
     },
@@ -94,8 +97,12 @@ const pfs = ({
       getFileRequest.setFile(file);
 
       const stream = tar
-        ? client.getFileTAR(getFileRequest, credentialMetadata)
-        : client.getFile(getFileRequest, credentialMetadata);
+        ? client.getFileTAR(getFileRequest, credentialMetadata, {
+            deadline: Date.now() + RPC_DEADLINE_MS,
+          })
+        : client.getFile(getFileRequest, credentialMetadata, {
+            deadline: Date.now() + RPC_DEADLINE_MS,
+          });
 
       return new Promise<Buffer>((resolve, reject) => {
         const buffers: Buffer[] = [];
@@ -169,7 +176,9 @@ const pfs = ({
       listCommitRequest.setAll(all);
       listCommitRequest.setReverse(reverse);
 
-      const stream = client.listCommit(listCommitRequest, credentialMetadata);
+      const stream = client.listCommit(listCommitRequest, credentialMetadata, {
+        deadline: Date.now() + RPC_DEADLINE_MS,
+      });
 
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
     },
@@ -298,6 +307,9 @@ const pfs = ({
       const stream = client.subscribeCommit(
         subscribeCommitRequest,
         credentialMetadata,
+        {
+          deadline: Date.now() + RPC_DEADLINE_MS,
+        },
       );
 
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
@@ -311,6 +323,9 @@ const pfs = ({
       const stream = client.inspectCommitSet(
         inspectCommitSetRequest,
         credentialMetadata,
+        {
+          deadline: Date.now() + RPC_DEADLINE_MS,
+        },
       );
 
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
@@ -320,6 +335,9 @@ const pfs = ({
       const stream = client.listCommitSet(
         listCommitSetRequest,
         credentialMetadata,
+        {
+          deadline: Date.now() + RPC_DEADLINE_MS,
+        },
       );
 
       return streamToObjectArray<CommitSetInfo, CommitSetInfo.AsObject>(stream);
@@ -413,7 +431,9 @@ const pfs = ({
         new Repo().setName(repo?.name || '').setType('user'),
       );
       listBranchRequest.setReverse(reverse);
-      const stream = client.listBranch(listBranchRequest, credentialMetadata);
+      const stream = client.listBranch(listBranchRequest, credentialMetadata, {
+        deadline: Date.now() + RPC_DEADLINE_MS,
+      });
 
       return streamToObjectArray<BranchInfo, BranchInfo.AsObject>(stream);
     },
@@ -446,7 +466,9 @@ const pfs = ({
     },
     listRepo: (type = 'user') => {
       const listRepoRequest = new ListRepoRequest().setType(type);
-      const stream = client.listRepo(listRepoRequest, credentialMetadata);
+      const stream = client.listRepo(listRepoRequest, credentialMetadata, {
+        deadline: Date.now() + RPC_DEADLINE_MS,
+      });
 
       return streamToObjectArray<RepoInfo, RepoInfo.AsObject>(stream);
     },

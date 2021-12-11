@@ -75,7 +75,7 @@ const client = ({
   // NOTE: These service clients are singletons, as we
   // don't want to create a new instance of APIClient for
   // every call stream in a transaction.
-  const services = {
+  const methods = {
     pfs: () => {
       if (pfsService) return pfsService;
 
@@ -140,9 +140,16 @@ const client = ({
 
       return modifyFile;
     },
+    attachCredentials: ({
+      authToken = '',
+      projectId = '',
+    }: Pick<ClientArgs, 'authToken' | 'projectId'>) => {
+      credentialMetadata.set('authn-token', authToken);
+      credentialMetadata.set('project-id', projectId);
+    },
   };
 
-  return services;
+  return methods;
 };
 
 export default client;

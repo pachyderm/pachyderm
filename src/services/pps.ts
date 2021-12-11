@@ -53,6 +53,8 @@ import {
 import {DEFAULT_JOBS_LIMIT} from '../services/constants/pps';
 import streamToObjectArray from '../utils/streamToObjectArray';
 
+import {RPC_DEADLINE_MS} from './constants/rpc';
+
 export interface ListArgs {
   limit?: number | null;
 }
@@ -199,6 +201,9 @@ const pps = ({
       const stream = client.listPipeline(
         listPipelineRequest,
         credentialMetadata,
+        {
+          deadline: Date.now() + RPC_DEADLINE_MS,
+        },
       );
 
       return streamToObjectArray<PipelineInfo, PipelineInfo.AsObject>(stream);
@@ -211,7 +216,9 @@ const pps = ({
         listJobRequest.setPipeline(new Pipeline().setName(pipelineId));
       }
 
-      const stream = client.listJob(listJobRequest, credentialMetadata);
+      const stream = client.listJob(listJobRequest, credentialMetadata, {
+        deadline: Date.now() + RPC_DEADLINE_MS,
+      });
 
       return streamToObjectArray<JobInfo, JobInfo.AsObject>(
         stream,
@@ -245,6 +252,9 @@ const pps = ({
       const stream = client.inspectJobSet(
         inspectJobSetRequest,
         credentialMetadata,
+        {
+          deadline: Date.now() + RPC_DEADLINE_MS,
+        },
       );
 
       return streamToObjectArray<JobInfo, JobInfo.AsObject>(stream);
@@ -253,7 +263,9 @@ const pps = ({
     listJobSets: ({limit}: ListArgs = {}) => {
       const listJobSetRequest = new ListJobSetRequest().setDetails(true);
 
-      const stream = client.listJobSet(listJobSetRequest, credentialMetadata);
+      const stream = client.listJobSet(listJobSetRequest, credentialMetadata, {
+        deadline: Date.now() + RPC_DEADLINE_MS,
+      });
 
       return streamToObjectArray<JobSetInfo, JobSetInfo.AsObject>(
         stream,
@@ -294,7 +306,9 @@ const pps = ({
         since,
         follow,
       });
-      const stream = client.getLogs(getLogsRequest, credentialMetadata);
+      const stream = client.getLogs(getLogsRequest, credentialMetadata, {
+        deadline: Date.now() + RPC_DEADLINE_MS,
+      });
 
       return streamToObjectArray<LogMessage, LogMessage.AsObject>(stream);
     },
@@ -314,7 +328,9 @@ const pps = ({
               since,
               follow,
             });
-            const stream = client.getLogs(getLogsRequest, credentialMetadata);
+            const stream = client.getLogs(getLogsRequest, credentialMetadata, {
+              deadline: Date.now() + RPC_DEADLINE_MS,
+            });
 
             return resolve(stream);
           } catch (error) {
