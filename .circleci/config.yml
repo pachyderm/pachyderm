@@ -170,10 +170,15 @@ jobs:
       - run: etc/testing/circle/launch-loki.sh
 
       - run: |
-          url=https://api.github.com/repos/pachyderm/pachyderm/pulls/${CIRCLE_PULL_REQUEST##*/}
-          base=$(curl $url | jq '.base.ref' | tr -d '"')
-          head=$(git rev-parse --abbrev-ref HEAD)
-          ./etc/testing/circle/upgrade_test.sh $base $head
+          if [[ -n "$CIRCLE_PULL_REQUEST" ]]; then
+            url=https://api.github.com/repos/pachyderm/pachyderm/pulls/${CIRCLE_PULL_REQUEST##*/}
+            base=$(curl $url | jq '.base.ref' | tr -d '"')
+            head=$(git rev-parse --abbrev-ref HEAD)
+            ./etc/testing/circle/upgrade_test.sh $base $head
+          elif [[ "$CIRCLE_BRANCH" != "master" ]]; then
+            echo "$CIRCLE_PULL_REQUEST must be set to run upgrade test."
+            exit 1;
+          fi;
 
 workflows:
   circleci:
