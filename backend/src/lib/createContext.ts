@@ -1,13 +1,10 @@
-import {pachydermClient} from '@pachyderm/node-pachyderm';
 import {v4 as uuid} from 'uuid';
 
-import errorPlugin from '@dash-backend/grpc/plugins/errorPlugin';
-import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
 import baseLogger from '@dash-backend/lib/log';
 import {Account} from '@graphqlTypes';
 
 import {getAccountFromIdToken} from './auth';
-const {GRPC_SSL} = process.env;
+import getPachClient from './getPachClient';
 
 type createContextProps = {
   idToken: string;
@@ -36,21 +33,11 @@ const createContext = async ({
       id: account?.id,
       email: account?.email,
     },
-  });
-
-  const grpcLogger = baseLogger.child({
-    eventSource: 'grpc client',
-    pachdAddress,
     projectId,
   });
 
-  const pachClient = pachydermClient({
-    authToken,
-    pachdAddress,
-    projectId,
-    plugins: [loggingPlugin(grpcLogger), errorPlugin],
-    ssl: GRPC_SSL === 'true',
-  });
+  const pachClient = getPachClient();
+  pachClient.attachCredentials({projectId, authToken});
 
   return {
     account,
