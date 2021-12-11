@@ -238,7 +238,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	}
 }
 
-// returns nil, nil if the step is found to be a delete operation
+// returns nil, nil, nil if the step is found to be a delete operation
 func (pc *pipelineController) newStep() (*pcStep, context.Context, error) {
 
 	// query pipelineInfo
