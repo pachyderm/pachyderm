@@ -13,5 +13,5 @@ var state_2_1_0 migrations.State = state_2_0_0.
 		if err := col.SetupPostgresCollections(ctx, env.Tx, enterpriseserver.EnterpriseConfigCollection(nil, nil)); err != nil {
 			return err
 		}
-		return enterpriseserver.TryEnterpriseConfigPostgresMigration(ctx, env)
+		return enterpriseserver.EnterpriseConfigPostgresMigration(ctx, env)
 	})

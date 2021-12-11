@@ -57,7 +57,11 @@ func EnterpriseConfigCollection(db *pachsql.DB, listener col.PostgresListener) c
 	)
 }
 
-func TryEnterpriseConfigPostgresMigration(ctx context.Context, migrationEnv migrations.Env) error {
+// The enterpriseConfig collection stores the information necessary for the enterprise-service to
+// heartbeat to the license service for ongoing license validity checks. For clusters with enterprise,
+// if this information were lost, the cluster would eventually become locked out. We migrate
+// This data is migrated to postgres so that the data stored in etcd can truly be considered ephemeral.
+func EnterpriseConfigPostgresMigration(ctx context.Context, migrationEnv migrations.Env) error {
 	config, err := checkForEtcdRecord(ctx, migrationEnv)
 	if err != nil {
 		return err
@@ -69,7 +73,7 @@ func TryEnterpriseConfigPostgresMigration(ctx context.Context, migrationEnv migr
 }
 
 func checkForEtcdRecord(ctx context.Context, migrationEnv migrations.Env) (*ec.EnterpriseConfig, error) {
-	etcdConfigCol := col.NewEtcdCollection(migrationEnv.EtcdClient, migrationEnv.EtcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil)
+	etcdConfigCol := col.NewEtcdCollection(migrationEnv.EtcdClient, "", nil, &ec.EnterpriseConfig{}, nil, nil)
 	var config ec.EnterpriseConfig
 	if err := etcdConfigCol.ReadOnly(ctx).Get(configKey, &config); err != nil {
 		if col.IsErrNotFound(err) {

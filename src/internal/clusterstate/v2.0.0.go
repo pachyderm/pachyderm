@@ -98,3 +98,4 @@ var state_2_0_0 migrations.State = migrations.InitialState().
 	Apply("add rotation_token_expiry to identity.config table", func(ctx context.Context, env migrations.Env) error {
 		return identity.AddRotationTokenExpiryConfig(ctx, env.Tx)
 	})
+	// DO NOT MODIFY THIS STATE
