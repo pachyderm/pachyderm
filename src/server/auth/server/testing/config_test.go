@@ -20,12 +20,13 @@ func TestSetGetConfigBasic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
-	tu.ConfigureOIDCProvider(t)
+	tu.ConfigureOIDCProvider(t, c)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
@@ -51,12 +52,13 @@ func TestIssuerNotLocalhost(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
-	tu.ConfigureOIDCProvider(t)
+	tu.ConfigureOIDCProvider(t, c)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 
 	// set the issuer to locahost:1658 so we don't need to set LocalhostIssuer = true
 	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
@@ -91,10 +93,11 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 	// Confirm that the auth config starts out default
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
@@ -103,7 +106,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	require.Equal(t, true, proto.Equal(&authserver.DefaultOIDCConfig, configResp.GetConfiguration()))
 
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.GetAuthenticatedPachClient(t, c, alice)
 
 	// Alice tries to set the current configuration and fails
 	conf := &auth.OIDCConfig{
@@ -128,7 +131,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, proto.Equal(&authserver.DefaultOIDCConfig, configResp.Configuration))
 
-	tu.ConfigureOIDCProvider(t)
+	tu.ConfigureOIDCProvider(t, c)
 
 	// Modify the configuration and make sure alice can't read it, but admin can
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
@@ -157,12 +160,13 @@ func TestConfigRestartAuth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
-	tu.ConfigureOIDCProvider(t)
+	tu.ConfigureOIDCProvider(t, c)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
@@ -234,7 +238,7 @@ func TestConfigRestartAuth(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	require.Equal(t, true, proto.Equal(conf, configResp.Configuration))
-	tu.DeleteAll(t)
+	tu.DeleteAll(t, c)
 }
 
 // TestSetGetNilConfig tests that setting an empty config and setting a nil
@@ -243,12 +247,13 @@ func TestSetGetNilConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
-	tu.ConfigureOIDCProvider(t)
+	tu.ConfigureOIDCProvider(t, c)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
@@ -278,5 +283,5 @@ func TestSetGetNilConfig(t *testing.T) {
 	require.NoError(t, err)
 	conf = proto.Clone(&authserver.DefaultOIDCConfig).(*auth.OIDCConfig)
 	require.Equal(t, true, proto.Equal(conf, configResp.Configuration))
-	tu.DeleteAll(t)
+	tu.DeleteAll(t, c)
 }

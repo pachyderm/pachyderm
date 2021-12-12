@@ -8,11 +8,17 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 )
+
+func newClient(t *testing.T) *client.APIClient {
+	return minikubetestenv.NewPachClient(t)
+}
 
 // TestActivate tests that we can activate the license server
 // by providing a valid enterprise activation code. This is exercised
@@ -22,10 +28,9 @@ func TestActivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client := newClient(t)
+	tu.DeleteAll(t, client)
+	defer tu.DeleteAll(t, client)
 
 	// Activate Enterprise
 	tu.ActivateEnterprise(t, client)
@@ -43,10 +48,9 @@ func TestExpired(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client := newClient(t)
+	tu.DeleteAll(t, client)
+	defer tu.DeleteAll(t, client)
 
 	expires := time.Now().Add(-30 * time.Second)
 	expiresProto, err := types.TimestampProto(expires)
@@ -73,10 +77,10 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	aliceClient := tu.GetAuthenticatedPachClient(t, "robot:alice")
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
+	aliceClient := tu.GetAuthenticatedPachClient(t, c, "robot:alice")
 	_, err := aliceClient.License.GetActivationCode(aliceClient.Ctx(), &license.GetActivationCodeRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -88,10 +92,9 @@ func TestDeleteAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client := newClient(t)
+	tu.DeleteAll(t, client)
+	defer tu.DeleteAll(t, client)
 
 	// Activate Enterprise, which activates a license and adds a "localhost" cluster
 	tu.ActivateEnterprise(t, client)
@@ -128,10 +131,10 @@ func TestDeleteAllNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	aliceClient := tu.GetAuthenticatedPachClient(t, "robot:alice")
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
+	aliceClient := tu.GetAuthenticatedPachClient(t, c, "robot:alice")
 	_, err := aliceClient.License.DeleteAll(aliceClient.Ctx(), &license.DeleteAllRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -143,13 +146,12 @@ func TestClusterCRUD(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client := newClient(t)
+	tu.DeleteAll(t, client)
+	defer tu.DeleteAll(t, client)
 
 	// Activate enterprise, which will register the localhost cluster
 	tu.ActivateEnterprise(t, client)
-	tu.ActivateAuth(t)
 
 	clusters, err := client.License.ListClusters(client.Ctx(), &license.ListClustersRequest{})
 	require.NoError(t, err)
@@ -264,10 +266,10 @@ func TestAddClusterUnreachable(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	client := newClient(t)
+	tu.DeleteAll(t, client)
+	defer tu.DeleteAll(t, client)
 
-	client := tu.GetPachClient(t)
 	tu.ActivateEnterprise(t, client)
 
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
@@ -285,10 +287,10 @@ func TestUpdateClusterUnreachable(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	client := newClient(t)
+	tu.DeleteAll(t, client)
+	defer tu.DeleteAll(t, client)
 
-	client := tu.GetPachClient(t)
 	tu.ActivateEnterprise(t, client)
 
 	_, err := client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
@@ -306,10 +308,10 @@ func TestAddClusterNoLicense(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	client := newClient(t)
+	tu.DeleteAll(t, client)
+	defer tu.DeleteAll(t, client)
 
-	client := tu.GetPachClient(t)
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
 		Address: "grpc://localhost:1650",
@@ -325,9 +327,10 @@ func TestClusterCRUDNotAdmin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	aliceClient := tu.GetAuthenticatedPachClient(t, "robot:alice")
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
+	aliceClient := tu.GetAuthenticatedPachClient(t, c, "robot:alice")
 
 	_, err := aliceClient.License.AddCluster(aliceClient.Ctx(), &license.AddClusterRequest{})
 	require.YesError(t, err)
@@ -358,9 +361,10 @@ func TestHeartbeat(t *testing.T) {
 	}
 
 	// Reset the cluster and enable auth, to make sure heartbeat works with auth enabled
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
+	rootClient := tu.GetAuthenticatedPachClient(t, c, auth.RootUser)
 
 	// Confirm the localhost cluster is configured as expected
 	clusters, err := rootClient.License.ListClusters(rootClient.Ctx(), &license.ListClustersRequest{})
@@ -369,7 +373,7 @@ func TestHeartbeat(t *testing.T) {
 	require.Equal(t, false, clusters.Clusters[0].AuthEnabled)
 
 	// Heartbeat using the correct shared secret, confirm the activation code is returned
-	pachClient := tu.GetUnauthenticatedPachClient(t)
+	pachClient := tu.GetUnauthenticatedPachClient(t, c)
 	resp, err := pachClient.License.Heartbeat(pachClient.Ctx(), &license.HeartbeatRequest{
 		Id:          "localhost",
 		Secret:      "localhost",
@@ -395,11 +399,12 @@ func TestHeartbeatWrongSecret(t *testing.T) {
 	}
 
 	// Reset the cluster and enable auth, to make sure heartbeat works with auth enabled
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c := newClient(t)
+	tu.DeleteAll(t, c)
+	defer tu.DeleteAll(t, c)
 
 	// Heartbeat using the wrong shared secret
-	pachClient := tu.GetUnauthenticatedPachClient(t)
+	pachClient := tu.GetUnauthenticatedPachClient(t, c)
 	_, err := pachClient.License.Heartbeat(pachClient.Ctx(), &license.HeartbeatRequest{
 		Id:          "localhost",
 		Secret:      "wrong secret",
@@ -414,13 +419,13 @@ func TestListUserClusters(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client := newClient(t)
+	tu.DeleteAll(t, client)
+	defer tu.DeleteAll(t, client)
 
 	// Activate enterprise, which will register the localhost cluster
 	tu.ActivateEnterprise(t, client)
-	tu.ActivateAuth(t)
+	tu.ActivateAuth(t, client)
 
 	resp, err := client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
 	require.NoError(t, err)
