@@ -246,6 +246,14 @@ pachd:
   enterpriseCallbackAddress: ""
   # Indicates to pachd whether dex is embedded in its process.
   localhostIssuer: "" # "true", "false", or "" (used string as bool doesn't support empty value)
+  # set the initial pachyderm cluster role bindings, mapping a user to their list of roles
+  # ex.
+  # pachAuthClusterRoleBindings: |
+  #   robot:wallie:
+  #   - repoReader
+  #   robot:eve:
+  #   - repoWriter
+  pachAuthClusterRoleBindings: {}
   serviceAccount:
     create: true
     additionalAnnotations: {}
