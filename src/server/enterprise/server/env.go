@@ -6,7 +6,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -61,19 +60,22 @@ func EnterpriseConfigCollection(db *pachsql.DB, listener col.PostgresListener) c
 // heartbeat to the license service for ongoing license validity checks. For clusters with enterprise,
 // if this information were lost, the cluster would eventually become locked out. We migrate
 // This data is migrated to postgres so that the data stored in etcd can truly be considered ephemeral.
-func EnterpriseConfigPostgresMigration(ctx context.Context, migrationEnv migrations.Env) error {
-	config, err := checkForEtcdRecord(ctx, migrationEnv)
+func EnterpriseConfigPostgresMigration(ctx context.Context, tx *pachsql.Tx, etcd *clientv3.Client) error {
+	if err := col.SetupPostgresCollections(ctx, tx, EnterpriseConfigCollection(nil, nil)); err != nil {
+		return err
+	}
+	config, err := checkForEtcdRecord(ctx, etcd)
 	if err != nil {
 		return err
 	}
 	if config != nil {
-		return EnterpriseConfigCollection(nil, nil).ReadWrite(migrationEnv.Tx).Put(configKey, config)
+		return EnterpriseConfigCollection(nil, nil).ReadWrite(tx).Put(configKey, config)
 	}
 	return nil
 }
 
-func checkForEtcdRecord(ctx context.Context, migrationEnv migrations.Env) (*ec.EnterpriseConfig, error) {
-	etcdConfigCol := col.NewEtcdCollection(migrationEnv.EtcdClient, "", nil, &ec.EnterpriseConfig{}, nil, nil)
+func checkForEtcdRecord(ctx context.Context, etcd *clientv3.Client) (*ec.EnterpriseConfig, error) {
+	etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &ec.EnterpriseConfig{}, nil, nil)
 	var config ec.EnterpriseConfig
 	if err := etcdConfigCol.ReadOnly(ctx).Get(configKey, &config); err != nil {
 		if col.IsErrNotFound(err) {
@@ -82,4 +84,16 @@ func checkForEtcdRecord(ctx context.Context, migrationEnv migrations.Env) (*ec.E
 		return nil, err
 	}
 	return &config, nil
+}
+
+func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) error {
+	if _, err := col.NewSTM(ctx, etcd, func(stm col.STM) error {
+		etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &ec.EnterpriseConfig{}, nil, nil)
+		return etcdConfigCol.ReadWrite(stm).Delete(configKey)
+	}); err != nil {
+		if !col.IsErrNotFound(err) {
+			return err
+		}
+	}
+	return nil
 }
