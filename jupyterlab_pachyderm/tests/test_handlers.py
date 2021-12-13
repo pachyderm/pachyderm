@@ -91,28 +91,40 @@ async def test_list_repos(mock_client, jp_fetch):
     "jupyterlab_pachyderm.handlers.RepoHandler.mount_client", spec=PachydermMountClient
 )
 async def test_get_repo(mock_client, jp_fetch):
-    repo = "myrepo"
-    mock_client.get.return_value = {
-        "branches": {
-            "master": {
-                "mount": {
-                    "name": None,
-                    "state": "unmounted",
-                    "mode": None,
-                    "status": None,
-                    "mountpoint": None,
-                },
+    mock_client.list.return_value = {
+        "images": {
+            "branches": {
+                "master": {
+                    "mount": {
+                        "name": None,
+                        "state": "unmounted",
+                        "status": None,
+                        "mode": None,
+                        "mountpoint": None,
+                    }
+                }
             }
-        }
+        },
+        "edges": {
+            "branches": {
+                "master": {
+                    "mount": {
+                        "name": None,
+                        "state": "unmounted",
+                        "status": None,
+                        "mode": None,
+                        "mountpoint": None,
+                    }
+                }
+            }
+        },
     }
 
-    r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/repos/{repo}")
-
-    mock_client.get.assert_called_with(repo)
+    r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/repos/images")
 
     assert r.code == 200
     assert json.loads(r.body) == {
-        "repo": repo,
+        "repo": "images",
         "branches": [
             {
                 "branch": "master",
@@ -148,13 +160,15 @@ async def test_mount_without_name(jp_fetch):
 async def test_mount(mock_client, jp_fetch):
     repo, name, mode = "myrepo", "myrepo_mount_name", "ro"
     mock_client.mount.return_value = {
+        "repo": repo,
+        "branch": "master",
         "mount": {
             "name": name,
             "mode": mode,
             "state": "mounted",
             "status": None,
             "mountpoint": f"/pfs/{name}",
-        }
+        },
     }
 
     r = await jp_fetch(
@@ -188,13 +202,15 @@ async def test_mount(mock_client, jp_fetch):
 async def test_mount_with_branch_and_mode(mock_client, jp_fetch):
     repo, branch, mode, name = "myrepo", "mybranch", "rw", "myrepo_mount_name"
     mock_client.mount.return_value = {
+        "repo": repo,
+        "branch": branch,
         "mount": {
             "name": name,
             "mode": mode,
             "state": "mounted",
             "status": None,
             "mountpoint": f"/pfs/{name}",
-        }
+        },
     }
 
     r = await jp_fetch(

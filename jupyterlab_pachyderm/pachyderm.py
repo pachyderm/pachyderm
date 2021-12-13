@@ -1,36 +1,9 @@
 import os
-from collections import defaultdict
 
 import python_pachyderm
 
 READ_ONLY = "ro"
 READ_WRITE = "rw"
-
-
-def _normalize_mode(mode):
-    if mode in ["r", "ro"]:
-        return READ_ONLY
-    elif mode in ["w", "rw"]:
-        return READ_WRITE
-    else:
-        raise Exception("Mode not valid")
-
-
-def _parse_pfs_path(path):
-    """
-    a path can be one of
-        - repo/branch/commit
-        - repo/branch
-        - repo -> defaults to master branch
-    returns a 3-tuple (repo, branch, commit)
-    """
-    parts = path.split("/")
-    if len(parts) == 3:
-        return tuple(parts)
-    if len(parts) == 2:
-        return parts[0], parts[1], None
-    if len(parts) == 1:
-        return parts[0], "master", None
 
 
 class PachydermClient:
@@ -66,121 +39,115 @@ class PachydermMountClient:
     ):
         self.client = client
         self.mount_dir = mount_dir
-        """
-        repos schema
+        """[mount_states schema]
         {
-            $repo_name: {
-                "branches": {
-                    $branch_name: {
-                        "mount": {
-                            "state": "unmounted",
-                            "status": "",
-                            "mode": "",
-                            "mountpoint": ""
-                        }
-                    }
-                },
-                "commits": {
-                    $commit_id: {},
-                    ...
-                }
+            (repo, branch/commit): {
+                "state": "unmounted",
+                "status": "",
+                "mode": "",
+                "mountpoint": ""
             }
         }
         """
-        self.repos = defaultdict(
-            lambda: defaultdict(
-                lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(str)))
-            )
-        )
+        self.mount_states = {}
 
-    def _prepare_repos_for_pachctl_mount(self):
+    def _mount_string(self, repo, branch, mode):
+        if mode == READ_ONLY:
+            mode = "r"
+        elif mode == READ_WRITE:
+            mode = "w"
+        return f"{repo}@{branch}+{mode}"
+
+    def _default_mount_state(self):
+        return {
+            "name": None,
+            "state": "unmounted",
+            "status": None,
+            "mode": None,
+            "mountpoint": None,
+        }
+
+    def _current_mount_strings(self):
         result = []
-        for repo_name, repo in self.repos.items():
-            for branch_name, branch in repo.get("branches").items():
-                if branch["mount"]["state"] == "mounted":
-                    mode = branch["mount"]["mode"]
-                    if mode == READ_ONLY:
-                        mode = "r"
-                    elif mode == READ_WRITE:
-                        mode = "w"
-                    result.append(f"{repo_name}@{branch_name}+{mode}")
+        for (repo, branch), mount_state in self.mount_states.items():
+            if mount_state["state"] == "mounted":
+                result.append(self._mount_string(repo, branch, mount_state["mode"]))
         return result
 
-    def _unmount_branch(self, repo, branch):
-        branch_info = self.repos.get(repo).get("branches").get(branch)
-        branch_info["mount"]["name"] = None
-        branch_info["mount"]["state"] = "unmounted"
-        branch_info["mount"]["mode"] = None
-        branch_info["mount"]["mountpoint"] = None
-
     def list(self):
-        """Gets a list of repos and the branches per repo from Pachyderm.
-        Update in memory db to reflect the most recent info.
+        """Get a list of available repos and their branches,
+        and overlay with their mount states.
         """
-        # TODO cleanup repos that don't exist anymore
+        result = {}
         repos = list(self.client.list_repo())
         for repo in repos:
-            name = repo.repo.name
-            branches = [branch.name for branch in repo.branches]
-            for branch in branches:
-                if branch not in self.repos[name]["branches"]:
-                    self.repos[name]["branches"][branch]["mount"]["name"] = None
-                    self.repos[name]["branches"][branch]["mount"]["state"] = "unmounted"
-                    self.repos[name]["branches"][branch]["mount"]["status"] = None
-                    self.repos[name]["branches"][branch]["mount"]["mode"] = None
-                    self.repos[name]["branches"][branch]["mount"]["mountpoint"] = None
-        return self.repos
+            repo_name = repo.repo.name
+            result[repo_name] = {"branches": {}}
+            for branch_name in [branch.name for branch in repo.branches]:
+                result[repo_name]["branches"][branch_name] = {
+                    "mount": self.mount_states.get(
+                        (repo_name, branch_name), self._default_mount_state()
+                    ),
+                }
 
-    def get(self, repo):
-        return self.repos.get(repo)
+        return result
 
     def mount(self, repo, branch, mode, name=None):
         """Mounts a repo@branch+mode to /pfs/name
         Note that `name` is currently not used.
+        Does nothing if repo is already mounted.
         """
         if name is None:
             name = repo
-        repo_branch = self.repos.get(repo, {}).get("branches", {}).get(branch)
-        if repo_branch:
-            if (
-                repo_branch["mount"]["state"] == "unmounted"
-                or repo_branch["mount"]["mode"] != mode
-            ):
-                repo_branch["mount"]["name"] = name
-                repo_branch["mount"]["state"] = "mounted"
-                repo_branch["mount"]["mode"] = mode
-                repo_branch["mount"]["mountpoint"] = os.path.join(self.mount_dir, name)
+        mount_key = (repo, branch)
+        mount_state = self.mount_states.get(mount_key, self._default_mount_state())
+        if mount_state.get("state") == "unmounted":
+            # unmounts all and remounts existing mounted repos + new repo
+            mount_strings = self._current_mount_strings()
+            mount_strings.append(self._mount_string(repo, branch, mode))
 
-                self.client.mount(
-                    self.mount_dir, self._prepare_repos_for_pachctl_mount()
-                )
-            return repo_branch
-        return {}
+            try:
+                self.client.mount(self.mount_dir, mount_strings)
+            except Exception:
+                return {}
+            else:
+                # update mount_state after mount is successful
+                mount_state["state"] = "mounted"
+                mount_state["name"] = name
+                mount_state["mode"] = mode
+                mount_state["mountpoint"] = os.path.join(self.mount_dir, name)
+                self.mount_states[mount_key] = mount_state
+
+                return {
+                    "repo": repo,
+                    "branch": branch,
+                    "mount": self.mount_states.get(mount_key),
+                }
 
     def unmount(self, repo, branch, name=None):
-        """Unmounts all, updates metadata, and remounts what's left"""
-        repo_branch = self.repos.get(repo, {}).get("branches", {}).get(branch)
-        if repo_branch:
-            if repo_branch["mount"]["state"] == "mounted":
-                self._unmount_branch(repo, branch)
-
-                # need to explicitly unmount for the case when there is only one repo left to unmount
-                # _prepare_repos_for_pachctl_mount would return empty, and no mount call would be made
+        """Unmounts all, update mount_state, and remounts what's left"""
+        mount_key = (repo, branch)
+        if self.mount_states.get(mount_key, {}).get("state") == "mounted":
+            # need to explicitly unmount for the case when there is only one repo left to unmount
+            # _prepare_repos_for_pachctl_mount would return empty, and no mount call would be made
+            try:
                 self.client.unmount(self.mount_dir)
-                self.client.mount(
-                    self.mount_dir, self._prepare_repos_for_pachctl_mount()
-                )
-            return repo_branch
+                self.client.mount(self.mount_dir, self._current_mount_strings())
+            except Exception:
+                return {}
+            else:
+                del self.mount_states[mount_key]
+                return {"repo": repo, "branch": branch, "mount": {"state": "unmounted"}}
 
     def unmount_all(self):
         result = []
-        for repo, repo_info in self.repos.items():
-            for branch, branch_info in repo_info["branches"].items():
-                if branch_info["mount"]["state"] == "mounted":
-                    self._unmount_branch(repo, branch)
-                    result.append((repo, branch))
+        for (repo, branch) in self.mount_states:
+            result.append(
+                {"repo": repo, "branch": branch, "mount": {"state": "unmounted"}}
+            )
 
         self.client.unmount(all_mounts=True)
+        self.mount_states = {}
         return result
 
     def commit(self, repo, branch, name, message):

@@ -11,16 +11,41 @@ from .filemanager import PFSContentsManager
 from .mock_pachyderm import MockPachydermClient
 from .pachyderm import (
     READ_ONLY,
+    READ_WRITE,
     PachydermClient,
     PachydermMountClient,
-    _parse_pfs_path,
-    _normalize_mode,
 )
 
 
 # Frontend hard codes this in src/handler.ts
 NAMESPACE = "pachyderm"
 VERSION = "v1"
+
+
+def _normalize_mode(mode):
+    if mode in ["r", "ro"]:
+        return READ_ONLY
+    elif mode in ["w", "rw"]:
+        return READ_WRITE
+    else:
+        raise Exception("Mode not valid")
+
+
+def _parse_pfs_path(path):
+    """
+    a path can be one of
+        - repo/branch/commit
+        - repo/branch
+        - repo -> defaults to master branch
+    returns a 3-tuple (repo, branch, commit)
+    """
+    parts = path.split("/")
+    if len(parts) == 3:
+        return tuple(parts)
+    if len(parts) == 2:
+        return parts[0], parts[1], None
+    if len(parts) == 1:
+        return parts[0], "master", None
 
 
 class BaseHandler(APIHandler):
@@ -68,20 +93,22 @@ class ReposUnmountHandler(BaseHandler):
 
 class RepoHandler(BaseHandler):
     @tornado.web.authenticated
-    def get(self, path):
-        repo, _, _ = _parse_pfs_path(path)
-        result = self.mount_client.get(repo)
-        self.finish(
-            json.dumps(
-                {
-                    "repo": repo,
-                    "branches": [
-                        {"branch": branch_name, "mount": info["mount"]}
-                        for branch_name, info in result["branches"].items()
-                    ],
-                }
+    def get(self, repo):
+        repos = self.mount_client.list()
+        if repo in repos:
+            self.finish(
+                json.dumps(
+                    {
+                        "repo": repo,
+                        "branches": [
+                            {"branch": branch_name, "mount": mount_state["mount"]}
+                            for branch_name, mount_state in repos[repo][
+                                "branches"
+                            ].items()
+                        ],
+                    }
+                )
             )
-        )
 
 
 class RepoMountHandler(BaseHandler):
@@ -101,13 +128,7 @@ class RepoMountHandler(BaseHandler):
                 reason=f"{mode} is not valid; valid modes are in {{ro, rw}}",
             )
         repo, branch, _ = _parse_pfs_path(path)
-        result = self.mount_client.mount(repo, branch, mode, name)
-        if result:
-            self.finish(
-                json.dumps(
-                    {"repo": repo, "branch": branch, "mount": result.get("mount")}
-                )
-            )
+        self.finish(json.dumps(self.mount_client.mount(repo, branch, mode, name)))
 
 
 class RepoUnmountHandler(BaseHandler):

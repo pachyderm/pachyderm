@@ -1,6 +1,7 @@
 import pytest
 
-from jupyterlab_pachyderm.pachyderm import PachydermMountClient, _parse_pfs_path
+from jupyterlab_pachyderm.handlers import _parse_pfs_path
+from jupyterlab_pachyderm.pachyderm import PachydermMountClient
 from jupyterlab_pachyderm.mock_pachyderm import MockPachydermClient
 
 MOUNT_DIR = "/pfs"
@@ -16,7 +17,6 @@ class TestPachydermMountClient:
     @pytest.fixture()
     def client(self) -> PachydermMountClient:
         c = PachydermMountClient(MockPachydermClient(), MOUNT_DIR)
-        c.list()  # need this to get the repo data
         return c
 
     def test_list(self, client: PachydermMountClient):
@@ -73,55 +73,43 @@ class TestPachydermMountClient:
             "new_repo",
         }
 
-    def test_get(self, client: PachydermMountClient):
-        assert client.get("images") == {
-            "branches": {
-                "master": {
-                    "mount": {
-                        "name": None,
-                        "state": "unmounted",
-                        "status": None,
-                        "mode": None,
-                        "mountpoint": None,
-                    }
-                }
-            }
-        }
+    def test_list_when_repo_is_removed(self, client: PachydermMountClient):
+        assert client.list().keys() == {"edges", "images", "montage"}
+        client.client._delete_repo("images")
+        assert client.list().keys() == {"edges", "montage"}
 
-    def test_get_noe(self, client: PachydermMountClient):
-        assert client.get("repo_noe") == None
-
-    def test_prepare_repos_for_pachctl_mount_repos(self, client: PachydermMountClient):
-        assert client._prepare_repos_for_pachctl_mount() == []
-
-        client.mount("images", "master", "r")
-        assert client._prepare_repos_for_pachctl_mount() == ["images@master+r"]
+    def test_current_mount_strings(self, client: PachydermMountClient):
+        assert client._current_mount_strings() == []
 
         # make sure ro -> r for pachctl
         client.mount("images", "master", "ro")
-        assert client._prepare_repos_for_pachctl_mount() == ["images@master+r"]
+        assert client._current_mount_strings() == ["images@master+r"]
 
         # idempotent
-        client.mount("images", "master", "r")
-        assert client._prepare_repos_for_pachctl_mount() == ["images@master+r"]
+        client.mount("images", "master", "ro")
+        assert client._current_mount_strings() == ["images@master+r"]
 
-        # change the mode
-        client.mount("images", "master", "w")
-        assert client._prepare_repos_for_pachctl_mount() == ["images@master+w"]
+        # r also works
+        client.unmount("images", "master")
+        client.mount("images", "master", "r")
+        assert client._current_mount_strings() == ["images@master+r"]
 
         # make sure rw -> w for pachctl
+        client.unmount("images", "master")
         client.mount("images", "master", "rw")
-        assert client._prepare_repos_for_pachctl_mount() == ["images@master+w"]
+        assert client._current_mount_strings() == ["images@master+w"]
 
         # add another repo
         client.mount("edges", "master", "ro")
-        assert sorted(client._prepare_repos_for_pachctl_mount()) == [
+        assert sorted(client._current_mount_strings()) == [
             "edges@master+r",
             "images@master+w",
         ]
 
     def test_mount(self, client: PachydermMountClient):
         assert client.mount("images", "master", "r") == {
+            "repo": "images",
+            "branch": "master",
             "mount": {
                 "name": "images",
                 "mode": "r",
@@ -130,19 +118,6 @@ class TestPachydermMountClient:
                 "mountpoint": "/pfs/images",
             },
         }
-        assert client.get("images") == {
-            "branches": {
-                "master": {
-                    "mount": {
-                        "name": "images",
-                        "state": "mounted",
-                        "status": None,
-                        "mode": "r",
-                        "mountpoint": "/pfs/images",
-                    }
-                }
-            }
-        }
 
     def test_mount_repo_noexist(self, client: PachydermMountClient):
         assert client.mount("noe_repo", "master", "r") == {}
@@ -150,16 +125,15 @@ class TestPachydermMountClient:
     def test_unmount(self, client: PachydermMountClient):
         client.mount("images", "master", "r")
         assert client.unmount("images", "master", "r") == {
-            "mount": {
-                "name": None,
-                "mode": None,
-                "state": "unmounted",
-                "status": None,
-                "mountpoint": None,
-            },
+            "repo": "images",
+            "branch": "master",
+            "mount": {"state": "unmounted"},
         }
 
     def test_unmount_all(self, client: PachydermMountClient):
         client.mount("images", "master", "rw")
         client.mount("edges", "master", "ro")
-        assert client.unmount_all() == [("images", "master"), ("edges", "master")]
+        assert client.unmount_all() == [
+            {"repo": "images", "branch": "master", "mount": {"state": "unmounted"}},
+            {"repo": "edges", "branch": "master", "mount": {"state": "unmounted"}},
+        ]

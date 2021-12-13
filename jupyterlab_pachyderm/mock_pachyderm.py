@@ -45,11 +45,30 @@ class MockPachydermClient:
                 )
             )
 
+    def _delete_repo(self, name):
+        found = False
+        for repo in self.repos:
+            if repo.repo.name == name:
+                found = True
+                break
+
+        if found:
+            self.repos.remove(repo)
+
+    def _repo_exists(self, name):
+        for repo in self.repos:
+            if repo.repo.name == name:
+                return True
+        return False
+
     def list_repo(self):
         return self.repos
 
     def mount(self, mount_dir, repos):
-        pass
+        for repo in repos:
+            repo, branch_plus = repo.split("@")
+            if not self._repo_exists(repo):
+                raise ValueError(f"{repo} does not exist")
 
     def unmount(self, mount_dir=None, all_mounts=None):
         pass
