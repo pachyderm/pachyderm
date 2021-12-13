@@ -13,7 +13,7 @@ metadata:
   name: pachd
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.pachd.replicas }}
   selector:
     matchLabels:
       app: pachd
@@ -210,8 +210,14 @@ spec:
       securityContext:
         runAsUser: 0 # Need to run as root local for hostpath support
       {{- end }}
+      {{-  if .Values.pachd.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.pachd.nodeSelector | nindent 8 }}
+      {{- end }}
       {{- if .Values.pachd.serviceAccount.name }}
       serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
+      {{- end }}
+      {{-  if .Values.pachd.tolerations }}
+      tolerations: {{ toYaml .Values.pachd.tolerations | nindent 8 }}
       {{- end }}
       volumes:
       - name: pach-disk
