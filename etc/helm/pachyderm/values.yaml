@@ -85,6 +85,9 @@ etcd:
     repository: "pachyderm/etcd"
     tag: "v3.5.1"
     pullPolicy: "IfNotPresent"
+  # maxTxnOps sets the --max-txn-ops in the container args
+  maxTxnOps: 10000
+  nodeSelector: {}
   # podLabels specifies labels to add to the etcd pod.
   podLabels: {}
   # resources specifies the resource request and limits
@@ -117,6 +120,7 @@ etcd:
     type: ClusterIP
   securityContext:
     enabled: true
+  tolerations: {}
 
 enterpriseServer:
   enabled: false
@@ -193,9 +197,12 @@ pachd:
     enabled: true
     # endpoint should be the URL of the metrics endpoint.
     endpoint: ""
+  nodeSelector: {}
   # podLabels specifies labels to add to the pachd pod.
   podLabels: {}
   # resources specifies the resource requests and limits
+  # replicas sets the number of pachd running pods
+  replicas: 1 
   resources: {}
     #limits:
     #  cpu: "1"
@@ -385,6 +392,7 @@ pachd:
       create: false
       crt: ""
       key: ""
+  tolerations: {}
   worker:
     image:
       repository: "pachyderm/worker"
