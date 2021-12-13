@@ -46,6 +46,9 @@ plugins:
       minify_html: true
   - git-revision-date-localized
   - macros
+  - git-snippet:
+      all_pages: false
+
 
 # Customization
 extra:
