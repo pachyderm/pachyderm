@@ -58,10 +58,12 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
     displayTaskInstance,
     handleStoryChange,
     handleTaskCompletion,
-    handleNextStep,
+    handleNextStory,
     minimized,
     nextTaskIndex,
     setMinimized,
+    taskSections,
+    tutorialModalRef,
   } = useTutorialModal(stories, initialStory, iniitalTask);
 
   const classes = classNames(styles.modal, {
@@ -87,17 +89,15 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
             <NextTaskInstance
               currentTask={currentTask}
               nextTaskIndex={nextTaskIndex}
-              storyLength={stories[currentStory].sections.length}
-              taskName={
-                stories[currentStory]?.sections[nextTaskIndex]?.taskName
-              }
+              storyLength={taskSections.length}
+              taskName={taskSections[nextTaskIndex]?.taskName}
             />
           </div>
         ) : null}
         <div className={styles.header}>
           <Button
             className={styles.button}
-            onClick={handleNextStep}
+            onClick={handleNextStory}
             disabled={
               currentStory === stories.length - 1 ||
               currentTask <= stories[currentStory]?.sections.length - 1
@@ -130,8 +130,9 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
             currentTask={currentTask}
             stories={stories}
             handleStoryChange={handleStoryChange}
+            taskSections={taskSections}
           />
-          <div className={styles.content}>
+          <div className={styles.content} ref={tutorialModalRef}>
             {stories[currentStory].sections.map((section, i) => {
               return (
                 <div className={styles.section} key={i}>
@@ -156,12 +157,14 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
                       name={section.taskName}
                     />
                   )}
-                  <div className={styles.followUp}>{section.followUp}</div>
+                  {section.followUp && (
+                    <div className={styles.followUp}>{section.followUp}</div>
+                  )}
                 </div>
               );
             })}
             <TaskCard
-              index={stories[currentStory].sections.length}
+              index={taskSections.length}
               currentTask={currentTask}
               task={
                 <div>
@@ -169,7 +172,7 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
                   next story
                 </div>
               }
-              action={handleNextStep}
+              action={handleNextStory}
               actionText={
                 <>
                   Next Story

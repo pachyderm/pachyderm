@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
 import {Story} from 'TutorialModal/lib/types';
 
@@ -9,10 +9,15 @@ const useTutorialModal = (
   initialStory: number,
   initialTask: number,
 ) => {
+  const tutorialModalRef = useRef<HTMLDivElement>(null);
   const [minimized, setMinimized] = useState(false);
   const [currentTask, setCurrentTask] = useState(initialTask);
   const [currentStory, setCurrentStory] = useState(initialStory);
   const {visitStep, completeStep, clear} = useProgressBar();
+  const taskSections = useMemo(
+    () => stories[currentStory].sections.filter((section) => section.Task),
+    [stories, currentStory],
+  );
 
   useEffect(() => {
     visitStep('0');
@@ -31,26 +36,27 @@ const useTutorialModal = (
     [currentTask, completeStep, visitStep],
   );
 
-  const handleNextStep = () => {
+  const handleNextStory = () => {
     setCurrentStory((prevValue) => Math.min(prevValue + 1, stories.length - 1));
     setCurrentTask(0);
     clear();
+    if (tutorialModalRef.current) tutorialModalRef.current.scrollIntoView();
   };
 
   const handleStoryChange = useCallback(
     (name: string) => {
       if (name !== stories[currentStory].name) {
-        setCurrentStory(stories.findIndex((step) => step.name === name));
+        setCurrentStory(stories.findIndex((story) => story.name === name));
         setCurrentTask(0);
         clear();
+        if (tutorialModalRef.current) tutorialModalRef.current.scrollIntoView();
       }
     },
     [stories, clear, currentStory],
   );
 
   const displayTaskIndex = currentTask === 0 ? 0 : currentTask - 1;
-  const displayTaskInstance =
-    stories[currentStory].sections[displayTaskIndex].taskName;
+  const displayTaskInstance = taskSections[displayTaskIndex].taskName;
   const nextTaskIndex = displayTaskIndex === 0 ? 1 : displayTaskIndex + 1;
 
   return {
@@ -58,13 +64,15 @@ const useTutorialModal = (
     currentTask,
     displayTaskIndex,
     displayTaskInstance,
-    handleNextStep,
+    handleNextStory,
     handleStoryChange,
     handleTaskCompletion,
     minimized,
     nextTaskIndex,
     setCurrentStory,
     setMinimized,
+    taskSections,
+    tutorialModalRef,
   };
 };
 

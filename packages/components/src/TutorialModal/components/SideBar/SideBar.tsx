@@ -3,7 +3,7 @@ import React from 'react';
 import {Dropdown, DropdownProps} from 'Dropdown';
 import ProgressBar from 'ProgressBar';
 
-import {Story} from '../../lib/types';
+import {Story, Section} from '../../lib/types';
 
 import styles from './SideBar.module.css';
 
@@ -12,11 +12,13 @@ const SideBar = ({
   currentTask,
   handleStoryChange,
   stories,
+  taskSections,
 }: {
   currentStory: number;
   currentTask: number;
   handleStoryChange: DropdownProps['onSelect'];
   stories: Story[];
+  taskSections: Section[];
 }) => {
   return (
     <div className={styles.base}>
@@ -25,7 +27,7 @@ const SideBar = ({
           {`Story ${currentStory + 1} of ${stories.length}`}
         </div>
         <Dropdown
-          storeSelected
+          selectedId={stories[currentStory].name}
           initialSelectId={stories[0].name}
           className={styles.dropdown}
           onSelect={handleStoryChange}
@@ -48,20 +50,19 @@ const SideBar = ({
           </Dropdown.Menu>
         </Dropdown>
         <ProgressBar.Container>
-          {stories[currentStory] &&
-            stories[currentStory].sections.map((section, i) => (
-              <ProgressBar.Step
-                key={i}
-                id={i.toString()}
-                nextStepID={
-                  i < stories[currentStory].sections.length - 1
-                    ? (i + 1).toString()
-                    : undefined
-                }
-              >
-                <span className={styles.taskInfo}>{section.taskName}</span>
-              </ProgressBar.Step>
-            ))}
+          {taskSections.map((section, i) => (
+            <ProgressBar.Step
+              key={i}
+              id={i.toString()}
+              nextStepID={
+                i < stories[currentStory].sections.length - 1
+                  ? (i + 1).toString()
+                  : undefined
+              }
+            >
+              <span className={styles.taskInfo}>{section.taskName}</span>
+            </ProgressBar.Step>
+          ))}
         </ProgressBar.Container>
       </div>
     </div>

@@ -22,3 +22,5 @@ Object.defineProperty(window.document, 'execCommand', {
   configurable: true,
   writable: true,
 });
+
+window.HTMLElement.prototype.scrollIntoView = jest.fn();

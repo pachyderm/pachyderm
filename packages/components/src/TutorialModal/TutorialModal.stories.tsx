@@ -246,6 +246,10 @@ const stories: Story[] = [
           </p>
         ),
       },
+      {
+        header: 'Section without Task',
+        info: 'This is a section without a task.',
+      },
     ],
   },
   {
