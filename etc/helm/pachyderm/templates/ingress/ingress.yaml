@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
 {{- if and .Values.console.enabled .Values.ingress.enabled -}}
-apiVersion: "networking.k8s.io/v1beta1"
+apiVersion: "networking.k8s.io/v1"
 kind: "Ingress"
 metadata:
   name: "console"
@@ -23,16 +23,25 @@ spec:
     - host: {{ required "ingress.host is required when ingress.enabled" .Values.ingress.host | quote }}
       http:
         paths:
-          - path: "/"
-            backend:
-              serviceName: "console"
-              servicePort: "console-http"
           - path: "/dex"
+            pathType: Prefix
             backend:
-              serviceName: "pachd"
-              servicePort: "identity-port"
+              service:
+                name: "pachd"
+                port:
+                  name: "identity-port"
           - path: "/authorization-code/callback"
+            pathType: Prefix
             backend:
-              serviceName: "pachd"
-              servicePort: "oidc-port"
+              service:
+                name: "pachd"
+                port:
+                  name: "oidc-port"
+          - path: "/"
+            pathType: Prefix
+            backend:
+              service:
+                name: "console"
+                port:
+                  name: "console-http"
 {{ end -}}
