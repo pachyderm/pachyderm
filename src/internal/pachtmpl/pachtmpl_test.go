@@ -18,7 +18,7 @@ func TestEval(t *testing.T) {
 				`),
 		"myFunction.jsonnet": []byte(`function (arg1) std.toString(arg1)`),
 	}
-	output, err := Eval(fsCtx, "entry.jsonnet", nil)
+	output, err := Eval(fsCtx, "entry.jsonnet")
 	require.NoError(t, err)
 	t.Log(string(output))
 }

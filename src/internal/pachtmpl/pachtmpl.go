@@ -9,8 +9,47 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
+// Arg is an argument provided to a template.
+type Arg struct {
+	Key, Value string
+}
+
+// ParseArgs parses args of the form key=value
+func ParseArgs(argStrs []string) (ret []Arg, _ error) {
+	for _, argStr := range argStrs {
+		kv := strings.SplitN(argStr, "=", 2)
+		if len(kv) != 2 {
+			return nil, errors.Errorf("invalid template argument %q: must have form \"key=value\"", argStr)
+		}
+		ret = append(ret, Arg{Key: kv[0], Value: kv[1]})
+	}
+	return ret, nil
+}
+
+// RenderTemplate renders the template tmpl, using args and returns the result.
+func RenderTemplate(tmpl string, args []Arg) (string, error) {
+	vm := newVM(nil)
+	for _, arg := range args {
+		vm.TLAVar(arg.Key, arg.Value)
+	}
+	output, err := vm.EvaluateAnonymousSnippet("main", string(tmpl))
+	if err != nil {
+		return "", errors.Wrapf(err, "template err")
+	}
+	return output, nil
+}
+
 // Eval evaluates the jsonnet at entrypointPath using fsContext to resolve imports
-func Eval(fsContext map[string][]byte, entrypointPath string, args []string) ([]byte, error) {
+func Eval(fsContext map[string][]byte, entrypointPath string) ([]byte, error) {
+	vm := newVM(fsContext)
+	output, err := vm.EvaluateFile(entrypointPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "template err")
+	}
+	return []byte(output), nil
+}
+
+func newVM(fsContext map[string][]byte) *jsonnet.VM {
 	vm := jsonnet.MakeVM()
 	// setup importer for fs
 	memImp := jsonnet.MemoryImporter{
@@ -26,19 +65,7 @@ func Eval(fsContext map[string][]byte, entrypointPath string, args []string) ([]
 		{Importer: &memImp},
 	}
 	vm.Importer(&imp)
-	// parse arguments
-	for _, argStr := range args {
-		kv := strings.SplitN(argStr, "=", 2)
-		if len(kv) != 2 {
-			return nil, errors.Errorf("invalid template argument %q: must have form \"key=value\"", argStr)
-		}
-		vm.TLAVar(kv[0], kv[1])
-	}
-	output, err := vm.EvaluateFile(entrypointPath)
-	if err != nil {
-		return nil, errors.Wrapf(err, "template err")
-	}
-	return []byte(output), nil
+	return vm
 }
 
 type httpImporter struct {
