@@ -176,7 +176,7 @@ jobs:
             head=$(git rev-parse --abbrev-ref HEAD)
             ./etc/testing/circle/upgrade_test.sh $base $head
           elif [[ "$CIRCLE_BRANCH" != "master" ]]; then
-            echo "$CIRCLE_PULL_REQUEST must be set to run upgrade test."
+            echo "$CIRCLE_PULL_REQUEST must be set to run upgrade test. For now, this fails on the first CI run of a PR - please re-run this failed job."
             exit 1;
           fi;
 
