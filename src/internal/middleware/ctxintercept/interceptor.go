@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	defaultMethodTimeout time.Duration = 5 * time.Second
-	unlimited            time.Duration = 0
+	defaultMethodTimeout time.Duration = 20 * time.Second
+	unlimited            time.Duration = -1
 )
 
 var customTimeoutMethods = map[string]time.Duration{
