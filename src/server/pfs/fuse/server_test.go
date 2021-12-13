@@ -15,6 +15,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 )
 
+func put(path string) (*http.Response, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://localhost:9002/%s", path), nil)
+	if err != nil {
+		panic(err)
+	}
+	return client.Do(req)
+}
+
 func TestBasicServer(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
@@ -25,7 +34,8 @@ func TestBasicServer(t *testing.T) {
 	require.NoError(t, err)
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 
-		// TODO: mount "repo"
+		_, err := put("repos/repo/master/_mount?name=repo&mode=ro")
+		require.NoError(t, err)
 
 		repos, err := ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
