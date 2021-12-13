@@ -81,3 +81,28 @@ func (s *Storage) List(ctx context.Context, cb func(id ID) error) error {
 func (s *Storage) NewDeleter() track.Deleter {
 	return &deleter{}
 }
+
+// Check runs an integrity check on the objects in object storage.
+func (s *Storage) Check(ctx context.Context, readChunks bool) error {
+	c := NewClient(s.store, s.db, s.tracker, nil).(*trackedClient)
+	var first []byte
+	for {
+		last, err := c.CheckEntries(ctx, first, 100, readChunks)
+		if err != nil {
+			return err
+		}
+		if last == nil {
+			break
+		}
+		first = keyAfter(last)
+	}
+	return nil
+}
+
+// keyAfter returns a byte slice ordered immediately after x lexicographically
+// the motivating use case is iteration.
+func keyAfter(x []byte) []byte {
+	y := append([]byte{}, x...)
+	y = append(y, 0x00)
+	return y
+}

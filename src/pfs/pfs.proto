@@ -430,6 +430,12 @@ message RunLoadTestResponse {
   google.protobuf.Duration duration = 5;
 }
 
+message CheckStorageRequest {
+  bool read_data = 1;    
+}
+
+message CheckStorageResponse {}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -507,6 +513,8 @@ service API {
   rpc RenewFileSet(RenewFileSetRequest) returns (google.protobuf.Empty) {}
   // ComposeFileSet composes a file set from a list of file sets.
   rpc ComposeFileSet(ComposeFileSetRequest) returns (CreateFileSetResponse) {}
+  // CheckStorage runs integrity checks for the storage layer.
+  rpc CheckStorage(CheckStorageRequest) returns (CheckStorageResponse) {}
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
