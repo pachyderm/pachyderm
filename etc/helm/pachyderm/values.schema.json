@@ -265,6 +265,12 @@
                         "postgresqlDatabase": {
                             "type": "string"
                         },
+                        "postgresqlExistingSecretKey": {
+                            "type": "string"
+                        },
+                        "postgresqlExistingSecretName": {
+                            "type": "string"
+                        },
                         "postgresqlHost": {
                             "type": "string"
                         },
