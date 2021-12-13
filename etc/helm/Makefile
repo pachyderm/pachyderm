@@ -14,29 +14,32 @@ lint:
 test: pachyderm/values.schema.json kubeval-aws kubeval-gcp kubeval-gcp-tls kubeval-hub kubeval-local kubeval-local-dev kubeval-minio kubeval-microsoft
 	go test -race ./... -count 1
 
-kubeval-aws:
-	helm template pachyderm -f examples/aws-values.yaml | kubeval --strict
+kubeval-aws-gp2:
+	helm template pachyderm -f examples/aws-gp2-values.yaml | kubeval --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master --strict
+
+kubeval-aws-gp3:
+	helm template pachyderm -f examples/aws-gp3-values.yaml | kubeval --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master --strict
 
 kubeval-gcp:
-	helm template pachyderm -f examples/gcp-values.yaml | kubeval --strict
+	helm template pachyderm -f examples/gcp-values.yaml | kubeval --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master --strict
 
 kubeval-gcp-tls:
-	helm template pachyderm -f examples/gcp-values-tls.yaml | kubeval --strict
+	helm template pachyderm -f examples/gcp-values-tls.yaml | kubeval --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master --strict
 
 kubeval-hub:
-	helm template pachyderm -f examples/hub-values.yaml | kubeval --strict
+	helm template pachyderm -f examples/hub-values.yaml | kubeval --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master --strict
 
 kubeval-local-dev:
-	helm template pachyderm -f examples/local-dev-values.yaml | kubeval --strict
+	helm template pachyderm -f examples/local-dev-values.yaml | kubeval --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master --strict
 
 kubeval-minio:
-	helm template pachyderm -f examples/minio-values.yaml | kubeval --strict
+	helm template pachyderm -f examples/minio-values.yaml | kubeval --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master --strict
 
 kubeval-microsoft:
-	helm template pachyderm -f examples/microsoft-values.yaml | kubeval --strict
+	helm template pachyderm -f examples/microsoft-values.yaml | kubeval --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master --strict
 
 kubeval-enterprise:
-	helm template pachyderm -f examples/enterprise-values.yaml | kubeval --strict
+	helm template pachyderm -f examples/enterprise-values.yaml | kubeval --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master --strict
 
 schema:
 	helm schema-gen pachyderm/values.yaml > pachyderm/values.schema.json
