@@ -9,7 +9,6 @@ import (
 	"github.com/gruntwork-io/terratest/modules/helm"
 	appsV1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/networking/v1beta1"
 )
 
 func TestHub(t *testing.T) {
@@ -43,7 +42,7 @@ func TestHub(t *testing.T) {
 	}
 	for _, object := range objects {
 		switch object := object.(type) {
-		case *v1beta1.Ingress:
+		case *appsV1.Ingress:
 			for _, rule := range object.Spec.Rules {
 				if rule.Host == "console.test" {
 					checks["ingress"] = true
