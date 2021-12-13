@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	defaultMethodTimeout time.Duration = 20 * time.Second
+	defaultMethodTimeout time.Duration = 200 * time.Second
 	unlimited            time.Duration = -1
 )
 
