@@ -52,11 +52,11 @@ spec:
           value: "extra_float_digits"
         - name: PGBOUNCER_UNIX_SOCKET_DIR
           value: " "
-        - name: POSTGRESQL_PASSWORD
+        - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres # Must match secret setup by postgres subchart, or postgres-secret.yaml 
-              key: postgresql-password
+              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
+              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
         image: bitnami/pgbouncer:1.16.0
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
