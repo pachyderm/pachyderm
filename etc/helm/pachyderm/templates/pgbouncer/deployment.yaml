@@ -52,7 +52,7 @@ spec:
           value: "extra_float_digits"
         - name: PGBOUNCER_UNIX_SOCKET_DIR
           value: " "
-        - name: POSTGRES_PASSWORD
+        - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
