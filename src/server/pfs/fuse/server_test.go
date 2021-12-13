@@ -1,7 +1,9 @@
 package fuse
 
 import (
+	"fmt"
 	"io/ioutil"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -22,6 +24,9 @@ func TestBasicServer(t *testing.T) {
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+
+		// TODO: mount "repo"
+
 		repos, err := ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
@@ -46,20 +51,26 @@ func TestBasicServer(t *testing.T) {
 
 // TODO: pass reference to the MountManager object to the test func, so that the
 // test can call MountBranch, UnmountBranch etc directly for convenience
-func withServerMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
+func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f func(mountPoint string)) {
 	dir := tb.TempDir()
-	if opts == nil {
-		opts = &Options{}
+	if sopts == nil {
+		sopts = &ServerOptions{
+			Daemonize: false,
+			MountDir:  dir,
+		}
 	}
-	if opts.Unmount == nil {
-		opts.Unmount = make(chan struct{})
+	if sopts.Unmount == nil {
+		sopts.Unmount = make(chan struct{})
 	}
 	unmounted := make(chan struct{})
 	var mountErr error
 	defer func() {
-		close(opts.Unmount)
+		fmt.Printf("=== IN DEFER FUNC, CLOSING ===\n")
+		close(sopts.Unmount)
+		fmt.Printf("=== IN DEFER FUNC, <-UNMOUNTED ===\n")
 		<-unmounted
-		require.NoError(tb, mountErr)
+		require.ErrorIs(tb, mountErr, http.ErrServerClosed)
+		fmt.Printf("=== IN DEFER FUNC, DONE ===\n")
 	}()
 	defer func() {
 		// recover because panics leave the mount in a weird state that makes
@@ -70,7 +81,7 @@ func withServerMount(tb testing.TB, c *client.APIClient, opts *Options, f func(m
 		}
 	}()
 	go func() {
-		mountErr = Mount(c, dir, opts)
+		mountErr = Server(c, sopts)
 		close(unmounted)
 	}()
 	// Gotta give the fuse mount time to come up.

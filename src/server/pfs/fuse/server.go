@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -115,6 +116,9 @@ type ServerOptions struct {
 	MountDir  string
 	Socket    string
 	LogFile   string
+	// Unmount is a channel that will be closed when the filesystem has been
+	// unmounted. It can be nil in which case it's ignored.
+	Unmount chan struct{}
 }
 
 type Request struct {
@@ -334,9 +338,9 @@ func (mm *MountManager) FinishAll() (retErr error) {
 	return retErr
 }
 
-func Server(c *client.APIClient, opts *ServerOptions) error {
+func Server(c *client.APIClient, sopts *ServerOptions) error {
 	// TODO: respect opts.Daemonize
-	fmt.Printf("Dynamically mounting pfs to %s\n", opts.MountDir)
+	fmt.Printf("Dynamically mounting pfs to %s\n", sopts.MountDir)
 
 	mountOpts := &Options{
 		Write: true,
@@ -348,6 +352,8 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 			},
 		},
 		RepoOptions: make(map[string]*RepoOptions),
+		// thread this through for the tests
+		Unmount: sopts.Unmount,
 	}
 	fmt.Printf("mountOpts: %+v\n", mountOpts)
 
@@ -358,24 +364,10 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 	// TODO: make this not be a global!
 	ALLOW_EMPTY = true
 
-	mm, err := NewMountManager(c, opts.MountDir, mountOpts)
+	mm, err := NewMountManager(c, sopts.MountDir, mountOpts)
 	if err != nil {
 		return err
 	}
-
-	go func() {
-		err := mm.Start()
-		if err != nil {
-			fmt.Printf("Error running mount manager: %s\n", err)
-			os.Exit(1)
-		}
-		err = mm.Cleanup()
-		if err != nil {
-			fmt.Printf("Error cleaning up mount manager: %s\n", err)
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}()
 
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -462,9 +454,24 @@ func Server(c *client.APIClient, opts *ServerOptions) error {
 
 	// TODO: switch http server for gRPC server and bind to a unix socket not a
 	// TCP port (just for convenient manual testing with curl for now...)
-	http.Handle("/", router)
 	// TODO: make port and bind ip parameterizable
-	return http.ListenAndServe(":9002", nil)
+	srv := &http.Server{Addr: ":9002", Handler: router}
+
+	go func() {
+		err := mm.Start()
+		if err != nil {
+			fmt.Printf("Error running mount manager: %s\n", err)
+			os.Exit(1)
+		}
+		err = mm.Cleanup()
+		if err != nil {
+			fmt.Printf("Error cleaning up mount manager: %s\n", err)
+			os.Exit(1)
+		}
+		srv.Shutdown(context.Background())
+	}()
+
+	return srv.ListenAndServe()
 }
 
 type MountState struct {
