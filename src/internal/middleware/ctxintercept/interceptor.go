@@ -83,30 +83,32 @@ func NewContextInterceptor(enabled bool) *ContextInterceptor {
 	return &ContextInterceptor{enabled: enabled}
 }
 
-func (ci *ContextInterceptor) setTimeout(fullMethod string, ctx context.Context) context.Context {
+func (ci *ContextInterceptor) setTimeout(fullMethod string, ctx context.Context) (context.Context, func()) {
 	if !ci.enabled {
-		return ctx
+		return ctx, nil
 	}
 	if timeout, ok := customTimeoutMethods[fullMethod]; ok {
 		if timeout == unlimited {
-			return ctx
+			return ctx, nil
 		}
-		newCtx, cf := context.WithTimeout(ctx, timeout)
-		defer cf()
-		return newCtx
+		return context.WithTimeout(ctx, timeout)
 	}
-	newCtx, cf := context.WithTimeout(ctx, defaultMethodTimeout)
-	defer cf()
-	return newCtx
+	return context.WithTimeout(ctx, defaultMethodTimeout)
 }
 
 func (ci *ContextInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	ctx = ci.setTimeout(info.FullMethod, ctx)
-	return handler(ctx, req)
+	newCtx, cf := ci.setTimeout(info.FullMethod, ctx)
+	if cf != nil {
+		defer cf()
+	}
+	return handler(newCtx, req)
 }
 
 func (ci *ContextInterceptor) StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	ctx := ci.setTimeout(info.FullMethod, stream.Context())
-	streamProxy := util.ServerStreamWrapper{Stream: stream, Ctx: ctx}
+	newCtx, cf := ci.setTimeout(info.FullMethod, stream.Context())
+	if cf != nil {
+		defer cf()
+	}
+	streamProxy := util.ServerStreamWrapper{Stream: stream, Ctx: newCtx}
 	return handler(srv, streamProxy)
 }
