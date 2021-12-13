@@ -37,6 +37,8 @@ func TestBasicServer(t *testing.T) {
 		_, err := put("repos/repo/master/_mount?name=repo&mode=ro")
 		require.NoError(t, err)
 
+		fmt.Printf("=====> MOUNTPOINT IS %s\n", mountPoint)
+		//time.Sleep(60 * time.Second)
 		repos, err := ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))

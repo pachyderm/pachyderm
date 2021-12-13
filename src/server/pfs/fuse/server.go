@@ -590,17 +590,6 @@ func unmountedState(m *MountStateMachine) StateFn {
 				Commit: req.Commit,
 			}
 			m.MountState.Mode = req.Mode
-			// TODO: could push responsibility to writing to the responses
-			// channel to the end of mountingState, that way we'd catch more
-			// errors and be able to return them to the http client
-			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
-				MountState: m.MountState,
-				Error:      nil,
-			}
 			return mountingState
 		} else {
 			m.responses <- Response{
@@ -617,6 +606,8 @@ func unmountedState(m *MountStateMachine) StateFn {
 }
 
 func mountingState(m *MountStateMachine) StateFn {
+	// NB: this function is responsible for placing a response on m.responses
+	// _in all cases_
 	m.transitionedTo("mounting", "")
 	// TODO: refactor this so we're not reaching into another struct's lock
 	func() {
@@ -632,6 +623,14 @@ func mountingState(m *MountStateMachine) StateFn {
 	// re-downloading the repos with an updated RepoOptions set will have the
 	// effect of causing it to pop into existence
 	err := m.manager.root.downloadRepos()
+	m.responses <- Response{
+		Repo:       m.MountKey.Repo,
+		Branch:     m.MountKey.Branch,
+		Commit:     m.MountKey.Commit,
+		Name:       m.Name,
+		MountState: m.MountState,
+		Error:      err,
+	}
 	if err != nil {
 		m.transitionedTo("error", err.Error())
 		return errorState
@@ -654,14 +653,6 @@ func mountedState(m *MountStateMachine) StateFn {
 			// if mounted ro and switching to rw, just upgrade
 			// if mounted rw and switching to ro, upload changes, then switch the mount type
 		} else {
-			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
-				MountState: m.MountState,
-				Error:      nil,
-			}
 			return unmountingState
 		}
 		m.responses <- Response{}
@@ -692,6 +683,8 @@ func cleanByPrefixFileStates(theMap map[string]fileState, prefix string) {
 }
 
 func unmountingState(m *MountStateMachine) StateFn {
+	// NB: this function is responsible for placing a response on m.responses
+	// _in all cases_
 	m.transitionedTo("unmounting", "")
 	// For now unmountingState is the only place where actual uploads to
 	// Pachyderm happen. In the future, we want to split this out to a separate
@@ -708,6 +701,14 @@ func unmountingState(m *MountStateMachine) StateFn {
 	if err != nil {
 		fmt.Printf("Error while uploading! %s", err)
 		m.transitionedTo("error", err.Error())
+		m.responses <- Response{
+			Repo:       m.MountKey.Repo,
+			Branch:     m.MountKey.Branch,
+			Commit:     m.MountKey.Commit,
+			Name:       m.Name,
+			MountState: m.MountState,
+			Error:      err,
+		}
 		return errorState
 	}
 
@@ -716,12 +717,28 @@ func unmountingState(m *MountStateMachine) StateFn {
 	if err != nil {
 		fmt.Printf("Error while getting mfc! %s", err)
 		m.transitionedTo("error", err.Error())
+		m.responses <- Response{
+			Repo:       m.MountKey.Repo,
+			Branch:     m.MountKey.Branch,
+			Commit:     m.MountKey.Commit,
+			Name:       m.Name,
+			MountState: m.MountState,
+			Error:      err,
+		}
 		return errorState
 	}
 	err = mfc.Close()
 	if err != nil {
 		fmt.Printf("Error while closing mfc! %s", err)
 		m.transitionedTo("error", err.Error())
+		m.responses <- Response{
+			Repo:       m.MountKey.Repo,
+			Branch:     m.MountKey.Branch,
+			Commit:     m.MountKey.Commit,
+			Name:       m.Name,
+			MountState: m.MountState,
+			Error:      err,
+		}
 		return errorState
 	}
 
@@ -746,7 +763,16 @@ func unmountingState(m *MountStateMachine) StateFn {
 	// TODO: rm -rf
 	cleanPath := m.manager.root.rootPath + "/" + m.Name
 	fmt.Printf("Path is %s\n", cleanPath)
+
 	err = os.RemoveAll(cleanPath)
+	m.responses <- Response{
+		Repo:       m.MountKey.Repo,
+		Branch:     m.MountKey.Branch,
+		Commit:     m.MountKey.Commit,
+		Name:       m.Name,
+		MountState: m.MountState,
+		Error:      err,
+	}
 	if err != nil {
 		fmt.Printf("Error while cleaning! %s", err)
 		m.transitionedTo("error", err.Error())
