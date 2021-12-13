@@ -23,6 +23,9 @@ spec:
     metadata:
       annotations:
         checksum/storage-secret: {{ include (print $.Template.BasePath "/pachd/storage-secret.yaml") . | sha256sum }}
+        {{- if .Values.pachd.annotations -}}
+        {{ toYaml .Values.pachd.annotations | nindent 4 }}
+        {{- end }}
       labels:
         app: pachd
         suite: pachyderm

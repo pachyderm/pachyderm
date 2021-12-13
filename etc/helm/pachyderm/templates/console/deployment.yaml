@@ -27,6 +27,9 @@ spec:
         {{- end }}
       name: console
       namespace: {{ .Release.Namespace }}
+      {{- if .Values.console.annotations }}
+      annotations: {{ toYaml .Values.console.annotations | nindent 4 }}
+      {{- end }}
     spec:
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
