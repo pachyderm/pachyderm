@@ -22,7 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
-	context_mw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/context"
+	context_mw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/ctxintercept"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"

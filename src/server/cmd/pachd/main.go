@@ -24,7 +24,7 @@ import (
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
-	context_mw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/context"
+	context_mw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/ctxintercept"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
