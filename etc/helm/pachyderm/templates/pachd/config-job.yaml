@@ -11,6 +11,9 @@ metadata:
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": hook-succeeded
+  {{- if .Values.pachd.configJob.annotations -}}
+    {{ toYaml .Values.pachd.configJob.annotations | nindent 4 }}
+  {{- end }}
   labels:
     app: pachd
     suite: pachyderm
