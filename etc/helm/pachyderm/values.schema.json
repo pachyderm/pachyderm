@@ -465,6 +465,9 @@
                 "oauthRedirectURI": {
                     "type": "string"
                 },
+                "pachAuthClusterRoleBindings": {
+                    "type": "object"
+                },
                 "podLabels": {
                     "type": "object"
                 },
