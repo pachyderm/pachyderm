@@ -151,9 +151,19 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
                   {section.Task && (
                     <section.Task
                       currentTask={currentTask}
-                      onCompleted={() => handleTaskCompletion(i)}
+                      onCompleted={() =>
+                        handleTaskCompletion(
+                          taskSections.findIndex(
+                            (taskSection) =>
+                              taskSection.taskName === section.taskName,
+                          ),
+                        )
+                      }
                       minimized={minimized}
-                      index={i}
+                      index={taskSections.findIndex(
+                        (taskSection) =>
+                          taskSection.taskName === section.taskName,
+                      )}
                       name={section.taskName}
                     />
                   )}

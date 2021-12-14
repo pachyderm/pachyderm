@@ -138,6 +138,10 @@ const stories: Story[] = [
     name: 'Easy-to-use Pipelines',
     sections: [
       {
+        header: 'Section without Task',
+        info: 'This is a section without a task.',
+      },
+      {
         header: 'Creating pipelines with just a few lines of code',
         info: (
           <>
@@ -179,6 +183,10 @@ const stories: Story[] = [
             repos visible to the running pipeline.
           </p>
         ),
+      },
+      {
+        header: 'Section without Task',
+        info: 'This is a section without a task.',
       },
       {
         isSubHeader: true,
