@@ -128,7 +128,7 @@ func workerLargeObjects(t *testing.T, s *workerTestState) {
 		ContentType: "text/plain",
 	})
 	require.NoError(t, err)
-	require.Equal(t, int(l), 68157450)
+	require.Equal(t, int(l), fileSize)
 
 	// try getting an object that does not exist
 	err = s.minioClient.FGetObject("foobar", "file", "foo", minio.GetObjectOptions{})
@@ -144,7 +144,7 @@ func workerLargeObjects(t *testing.T, s *workerTestState) {
 		require.NoError(t, err)
 		info, err := os.Stat(outputFile.Name())
 		require.NoError(t, err)
-		require.Equal(t, fileSize, info.Size())
+		require.Equal(t, fileSize, int(info.Size()))
 	} else {
 		keyNotFoundError(t, err)
 	}
