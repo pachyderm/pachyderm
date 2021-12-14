@@ -76,7 +76,6 @@ func TestBasicServerSameNames(t *testing.T) {
 	})
 }
 
-/*
 func TestBasicServerDifferingNames(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
@@ -112,7 +111,6 @@ func TestBasicServerDifferingNames(t *testing.T) {
 		require.Equal(t, "foo", string(data))
 	})
 }
-*/
 
 // TODO: pass reference to the MountManager object to the test func, so that the
 // test can call MountBranch, UnmountBranch etc directly for convenience

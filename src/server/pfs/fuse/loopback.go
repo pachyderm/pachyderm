@@ -6,6 +6,7 @@ package fuse
 
 import (
 	"context"
+	"fmt"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -529,6 +530,11 @@ func (n *loopbackNode) mkdirMountNames() (retErr error) {
 	// we only mount explicitly named repos now
 	for name := range ros {
 		p := n.namePath(name)
+		fmt.Printf("> MKDIR %s, %s\n", name, p)
+		fmt.Printf("> repoOpts: %+v\n", n.root().repoOpts)
+		fmt.Printf("> branches: %+v\n", n.root().branches)
+		fmt.Printf("> commits: %+v\n", n.root().commits)
+		fmt.Printf("> files: %+v\n", n.root().files)
 		if err := os.MkdirAll(p, 0777); err != nil {
 			return errors.WithStack(err)
 		}

@@ -606,8 +606,7 @@ func mountingState(m *MountStateMachine) StateFn {
 	func() {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
-		// TODO: shouldn't be repo, should be name
-		m.manager.root.repoOpts[m.MountKey.Repo] = &RepoOptions{
+		m.manager.root.repoOpts[m.MountState.Name] = &RepoOptions{
 			Repo:   m.MountKey.Repo,
 			Branch: m.MountKey.Repo,
 			Write:  m.Mode == "rw",
@@ -637,9 +636,6 @@ func mountedState(m *MountStateMachine) StateFn {
 		// TODO: check request type. unmount requests can be satisfied by going
 		// into unmounting. mount requests for already mounted repos should
 		// go back into mounting, as they can remount a fs as ro/rw.
-		//
-		// XXX TODO: need to start respecting name rather than always mounting
-		// repos at their own name in /pfs
 		req := <-m.requests
 		if req.Mount {
 			// TODO: handle remount case (switching mode):
@@ -688,8 +684,6 @@ func unmountingState(m *MountStateMachine) StateFn {
 	// lock which multiple fs operations can hold but only one "pauser" can.
 
 	// upload any files whose paths start with where we're mounted
-	// XXX if user sets Name != Repo then this will break right now until we
-	// support Name properly
 	err := m.manager.uploadFiles(m.Name)
 	if err != nil {
 		fmt.Printf("Error while uploading! %s", err)
@@ -745,15 +739,13 @@ func unmountingState(m *MountStateMachine) StateFn {
 		m.manager.root.mu.Lock()
 		defer m.manager.root.mu.Unlock()
 		// forget what we knew about the mount
-		// TODO: shouldn't be repo, should be name
-		delete(m.manager.root.repoOpts, m.MountKey.Repo)
-		cleanByPrefixStrings(m.manager.root.branches, m.MountKey.Repo)
-		cleanByPrefixStrings(m.manager.root.commits, m.MountKey.Repo)
-		cleanByPrefixFileStates(m.manager.root.files, m.MountKey.Repo)
+		delete(m.manager.root.repoOpts, m.MountState.Name)
+		cleanByPrefixStrings(m.manager.root.branches, m.MountState.Name)
+		cleanByPrefixStrings(m.manager.root.commits, m.MountState.Name)
+		cleanByPrefixFileStates(m.manager.root.files, m.MountState.Name)
 	}()
 
 	// remove from loopback filesystem so that it actually disappears for the user
-	// TODO: rm -rf
 	cleanPath := m.manager.root.rootPath + "/" + m.Name
 	fmt.Printf("Path is %s\n", cleanPath)
 
