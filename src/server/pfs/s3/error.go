@@ -26,7 +26,7 @@ func writeToOutputBranchError(r *http.Request) *s2.Error {
 }
 
 func maybeNotFoundError(r *http.Request, err error) *s2.Error {
-	if pfs.IsRepoNotFoundErr(err) || pfs.IsBranchNotFoundErr(err) || errors.Is(err, errNoLocalBucket) {
+	if pfs.IsRepoNotFoundErr(err) || pfs.IsBranchNotFoundErr(err) {
 		return s2.NoSuchBucketError(r)
 	} else if pfs.IsFileNotFoundErr(err) || errors.Is(err, fs.ErrNotExist) {
 		return s2.NoSuchKeyError(r)
