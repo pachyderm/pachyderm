@@ -2,7 +2,9 @@ package s3
 
 import (
 	"fmt"
+	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -12,9 +14,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/s2"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/s2"
 )
 
 // Bucket represents an S3 bucket
@@ -23,6 +25,9 @@ type Bucket struct {
 	Commit *pfs.Commit
 	// Name is the name of the bucket
 	Name string
+	// Path is the (implicity) root of the filesystem this bucket accesses,
+	// understood as the root if empty
+	Path string
 }
 
 type bucketCapabilities struct {
@@ -38,11 +43,18 @@ type Driver interface {
 	bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error)
 	bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error)
 	canModifyBuckets() bool
+	listObjects(pc *client.APIClient, bucket *Bucket, pattern, prefix, marker string, recursive bool, maxKeys int) (*s2.ListObjectsResult, error)
+	getObject(pc *client.APIClient, bucket *Bucket, path, version string) (*s2.GetObjectResult, error)
+	copyObject(pc *client.APIClient, srcBucket, destBucket *Bucket, srcFile, destFile string) (string, error)
+	putObject(pc *client.APIClient, bucket *Bucket, path string, reader io.Reader) (*s2.PutObjectResult, error)
+	deleteObject(pc *client.APIClient, bucket *Bucket, file string) error
 }
 
 // MasterDriver is the driver for the s3gateway instance running on pachd
 // master
-type MasterDriver struct{}
+type MasterDriver struct {
+	pachFS
+}
 
 // NewMasterDriver constructs a new master driver
 func NewMasterDriver() *MasterDriver {
@@ -128,6 +140,7 @@ func (d *MasterDriver) canModifyBuckets() bool {
 // WorkerDriver is the driver for the s3gateway instance running on pachd
 // workers
 type WorkerDriver struct {
+	pachFS
 	inputBuckets []*Bucket
 	outputBucket *Bucket
 	namesMap     map[string]*Bucket
@@ -211,5 +224,55 @@ func (d *WorkerDriver) bucketCapabilities(pc *client.APIClient, r *http.Request,
 }
 
 func (d *WorkerDriver) canModifyBuckets() bool {
+	return false
+}
+
+// LocalDriver is the driver for the s3gateway instance running on pachd
+// workers
+type LocalDriver struct {
+	localFS
+	root string
+}
+
+// NewLocalDriver creates a new worker driver. `inputBuckets` is a list of
+// whitelisted buckets to be served from input repos. `outputBucket` is the
+// whitelisted bucket to be served from an output repo. If `nil`, no output
+// bucket will be available.
+func NewLocalDriver(root string) *LocalDriver {
+	return &LocalDriver{
+		root: root,
+	}
+}
+
+func (d *LocalDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]*s2.Bucket) error {
+	bucketPaths, err := filepath.Glob(filepath.Join(d.root, "*"))
+	if err != nil {
+		return err
+	}
+
+	for _, path := range bucketPaths {
+		*buckets = append(*buckets, &s2.Bucket{
+			Name: filepath.Base(path),
+		})
+	}
+	return nil
+}
+
+func (d *LocalDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
+	return &Bucket{
+		Name: name,
+		Path: filepath.Join(d.root, name),
+	}, nil
+}
+
+func (d *LocalDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
+	return bucketCapabilities{
+		readable:         true,
+		writable:         true,
+		historicVersions: false,
+	}, nil
+}
+
+func (d *LocalDriver) canModifyBuckets() bool {
 	return false
 }

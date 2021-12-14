@@ -1,8 +1,10 @@
 package s3
 
 import (
+	"io/fs"
 	"net/http"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
 )
@@ -26,7 +28,7 @@ func writeToOutputBranchError(r *http.Request) *s2.Error {
 func maybeNotFoundError(r *http.Request, err error) *s2.Error {
 	if pfs.IsRepoNotFoundErr(err) || pfs.IsBranchNotFoundErr(err) {
 		return s2.NoSuchBucketError(r)
-	} else if pfs.IsFileNotFoundErr(err) {
+	} else if pfs.IsFileNotFoundErr(err) || errors.Is(err, fs.ErrNotExist) {
 		return s2.NoSuchKeyError(r)
 	}
 	return s2.InternalError(r, err)

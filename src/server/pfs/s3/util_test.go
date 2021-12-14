@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -88,6 +89,14 @@ func putListFileTestObject(t *testing.T, mf client.ModifyFile, dir string, i int
 		fmt.Sprintf("%s%d", dir, i),
 		strings.NewReader(fmt.Sprintf("%d\n", i)),
 	))
+}
+
+func putLocalListFileTestObject(t *testing.T, tmp, dir string, i int) {
+	os.MkdirAll(filepath.Join(tmp, dir), 0777)
+	file, err := os.Create(filepath.Join(tmp, dir, strconv.Itoa(i)))
+	require.NoError(t, err)
+	defer file.Close()
+	file.WriteString(fmt.Sprintf("%d\n", i))
 }
 
 func bucketNotFoundError(t *testing.T, err error) {

@@ -85,7 +85,9 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 }
 
 func workerRemoveObject(t *testing.T, s *workerTestState) {
-	require.NoError(t, s.pachClient.PutFile(client.NewCommit(s.outputRepo, s.outputBranch, ""), "file", strings.NewReader("content")))
+	r := strings.NewReader("content")
+	_, err := s.minioClient.PutObject("out", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
 
 	// as per PFS semantics, the second delete should be a no-op
 	require.NoError(t, s.minioClient.RemoveObject("out", "file"))
@@ -320,6 +322,91 @@ func TestWorkerDriver(t *testing.T) {
 		t.Run("RemoveObjectInputRepo", func(t *testing.T) {
 			workerRemoveObjectInputRepo(t, s)
 		})
+		t.Run("LargeObjects", func(t *testing.T) {
+			workerLargeObjects(t, s)
+		})
+		t.Run("MakeBucket", func(t *testing.T) {
+			workerMakeBucket(t, s)
+		})
+		t.Run("BucketExists", func(t *testing.T) {
+			workerBucketExists(t, s)
+		})
+		t.Run("RemoveBucket", func(t *testing.T) {
+			workerRemoveBucket(t, s)
+		})
+		t.Run("ListObjectsPaginated", func(t *testing.T) {
+			workerListObjectsPaginated(t, s)
+		})
+		t.Run("ListObjectsRecursive", func(t *testing.T) {
+			workerListObjectsRecursive(t, s)
+		})
+	})
+}
+
+func TestLocalDriver(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+	root, err := os.MkdirTemp(os.TempDir(), "root*")
+	require.NoError(t, err)
+
+	localDriver := &LocalDriver{
+		root: root,
+	}
+	defer os.Remove(root)
+
+	in1, _ := localDriver.bucket(nil, nil, "in1")
+	in2, _ := localDriver.bucket(nil, nil, "in2")
+	out, _ := localDriver.bucket(nil, nil, "out")
+
+	require.NoError(t, os.MkdirAll(in1.Path, 0777))
+	require.NoError(t, os.MkdirAll(in2.Path, 0777))
+	require.NoError(t, os.MkdirAll(out.Path, 0777))
+
+	putLocalListFileTestObject(t, in1.Path, "", 0)
+	putLocalListFileTestObject(t, in1.Path, "rootdir/", 1)
+	putLocalListFileTestObject(t, in1.Path, "rootdir/subdir/", 2)
+
+	for i := 0; i <= 100; i++ {
+		putLocalListFileTestObject(t, in2.Path, "", i)
+	}
+	for i := 0; i < 10; i++ {
+		putLocalListFileTestObject(t, in2.Path, "dir/", i)
+	}
+
+	testRunner(t, env.PachClient, "local", localDriver, func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+		s := &workerTestState{
+			pachClient:  pachClient,
+			minioClient: minioClient,
+		}
+
+		//t.Run("ListBuckets", func(t *testing.T) {
+		//	workerListBuckets(t, s)
+		//})
+		t.Run("GetObject", func(t *testing.T) {
+			workerGetObject(t, s)
+		})
+		t.Run("GetObjectOutputRepo", func(t *testing.T) {
+			workerGetObjectOutputRepo(t, s)
+		})
+		t.Run("StatObject", func(t *testing.T) {
+			workerStatObject(t, s)
+		})
+		t.Run("PutObject", func(t *testing.T) {
+			workerPutObject(t, s)
+		})
+		//t.Run("PutObjectInputRepo", func(t *testing.T) {
+		//	workerPutObjectInputRepo(t, s)
+		//})
+		t.Run("RemoveObject", func(t *testing.T) {
+			workerRemoveObject(t, s)
+		})
+		//t.Run("RemoveObjectInputRepo", func(t *testing.T) {
+		//	workerRemoveObjectInputRepo(t, s)
+		//})
 		t.Run("LargeObjects", func(t *testing.T) {
 			workerLargeObjects(t, s)
 		})

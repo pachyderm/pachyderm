@@ -51,6 +51,12 @@ type controller struct {
 	clientFactory ClientFactory
 }
 
+type pachFS struct {
+}
+
+type localFS struct {
+}
+
 // requestPachClient uses the clientFactory to construct a request-scoped
 // pachyderm client
 func (c *controller) requestClient(r *http.Request) (*client.APIClient, error) {
