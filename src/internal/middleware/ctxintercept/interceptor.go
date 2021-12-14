@@ -2,6 +2,7 @@ package ctxintercept
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/util"
@@ -24,10 +25,11 @@ var customTimeoutMethods = map[string]time.Duration{
 	//
 	// PFS API
 	//
-	"/pfs_v2.API/ActivateAuth":       unlimited,
-	"/pfs_v2.API/ListRepo":           10 * time.Second,
-	"/pfs_v2.API/DeleteRepo":         10 * time.Second,
-	"/pfs_v2.API/FinishCommit":       20 * time.Second,
+	"/pfs_v2.API/ActivateAuth": unlimited,
+	"/pfs_v2.API/ListRepo":     10 * time.Second,
+	"/pfs_v2.API/DeleteRepo":   10 * time.Second,
+	"/pfs_v2.API/FinishCommit": 20 * time.Second,
+	// "/pfs_v2.API/StartCommit":        20 * time.Second,
 	"/pfs_v2.API/InspectCommit":      unlimited,
 	"/pfs_v2.API/InspectCommitSet":   unlimited,
 	"/pfs_v2.API/ListCommit":         20 * time.Second,
@@ -45,6 +47,8 @@ var customTimeoutMethods = map[string]time.Duration{
 	"/pfs_v2.API/DiffFile":           20 * time.Second,
 	"/pfs_v2.API/DeleteAll":          unlimited,
 	"/pfs_v2.API/Fsck":               unlimited,
+	"/pfs_v2.API/CreateFileSet":      20 * time.Second,
+	"/pfs_v2.API/GetFileSet":         20 * time.Second,
 	"/pfs_v2.API/RenewFileSet":       unlimited,
 	"/pfs_v2.API/RunLoadTest":        unlimited,
 	"/pfs_v2.API/RunLoadTestDefault": unlimited,
@@ -66,9 +70,10 @@ var customTimeoutMethods = map[string]time.Duration{
 	"/pps_v2.API/GetLogs":         unlimited,
 	"/pps_v2.API/GarbageCollect":  unlimited,
 	"/pps_v2.API/UpdateJobState":  unlimited,
-	"/pps_v2.API/ListPipeline":    20 * time.Second,
-	"/pps_v2.API/ActivateAuth":    unlimited,
-	"/pps_v2.API/DeleteAll":       unlimited,
+	// "/pps_v2.API/CreatePipeline":  20 * time.Second,
+	"/pps_v2.API/ListPipeline": 20 * time.Second,
+	"/pps_v2.API/ActivateAuth": unlimited,
+	"/pps_v2.API/DeleteAll":    unlimited,
 
 	"/pps_v2.API/ListSecret":         10 * time.Second,
 	"/pps_v2.API/RunLoadTest":        unlimited,
@@ -93,6 +98,7 @@ func (ci *ContextInterceptor) setTimeout(fullMethod string, ctx context.Context)
 		}
 		return context.WithTimeout(ctx, timeout)
 	}
+	fmt.Printf("NO TIMEOUT FOR::: %s\n", fullMethod)
 	return context.WithTimeout(ctx, defaultMethodTimeout)
 }
 
