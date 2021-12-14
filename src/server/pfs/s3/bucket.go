@@ -185,7 +185,7 @@ func (lfs *localFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, p
 			continue // not in the bucket somehow
 		}
 		if path == "" {
-			continue
+			continue // ignore root
 		}
 		info, err := os.Lstat(fullPath)
 		if err != nil {
@@ -205,7 +205,7 @@ func (lfs *localFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, p
 			result.Contents = append(result.Contents, newLocalContents(path, info))
 		} else {
 			result.CommonPrefixes = append(result.CommonPrefixes, &s2.CommonPrefixes{
-				Prefix: path,
+				Prefix: path + "/",
 				Owner:  defaultUser,
 			})
 		}
