@@ -716,6 +716,21 @@ message SecretInfos {
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
+message RenderTemplateRequest {
+  string template = 1;
+  map<string, string> args = 2;
+}
+
+message RenderTemplateResponse {
+  string json = 1;
+  repeated CreatePipelineRequest specs = 2;
+}
+
+message ApplyTemplateRequest {
+  string template = 1;
+  map<string, string> args = 2;
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -759,4 +774,9 @@ service API {
   rpc RunLoadTest(pfs_v2.RunLoadTestRequest) returns (pfs_v2.RunLoadTestResponse) {}
   // RunLoadTestDefault runs the default load test.
   rpc RunLoadTestDefault(google.protobuf.Empty) returns (pfs_v2.RunLoadTestResponse) {}
+
+  // RenderTemplate renders the provided template and arguments into a list of pipeline specs
+  rpc RenderTemplate(RenderTemplateRequest) returns (RenderTemplateResponse) {}
+  // ApplyTemplate renders the template into specs, and then creates pipelines for each of those in a transaction.
+  rpc ApplyTemplate(ApplyTemplateRequest) returns (google.protobuf.Empty) {}
 }

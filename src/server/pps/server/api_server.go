@@ -36,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
@@ -3103,4 +3104,51 @@ func labels(app string) map[string]string {
 		"suite":     suite,
 		"component": "worker",
 	}
+}
+
+func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error) {
+	jsonResult, err := pachtmpl.RenderTemplate(req.Template, req.Args)
+	if err != nil {
+		return nil, err
+	}
+	var specs []*pps.CreatePipelineRequest
+	switch jsonResult[0] {
+	case '[':
+		if err := json.Unmarshal([]byte(jsonResult), &specs); err != nil {
+			return nil, err
+		}
+	case '{':
+		var spec pps.CreatePipelineRequest
+		if err := jsonpb.Unmarshal(strings.NewReader(jsonResult), &spec); err != nil {
+			return nil, err
+		}
+		specs = append(specs, &spec)
+	default:
+		return nil, errors.Errorf("not a json object or list: %v", jsonResult)
+	}
+	return &pps.RenderTemplateResponse{
+		Json:  jsonResult,
+		Specs: specs,
+	}, nil
+}
+
+func (a *apiServer) ApplyTemplate(ctx context.Context, req *pps.ApplyTemplateRequest) (*types.Empty, error) {
+	renderRes, err := a.RenderTemplate(ctx, &pps.RenderTemplateRequest{
+		Template: req.Template,
+		Args:     req.Args,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		for _, spec := range renderRes.Specs {
+			if err := txn.CreatePipeline(spec); err != nil {
+				return err
+			}
+		}
+		return nil
+	}, nil); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
 }

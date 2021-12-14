@@ -9,28 +9,25 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-// Arg is an argument provided to a template.
-type Arg struct {
-	Key, Value string
-}
-
 // ParseArgs parses args of the form key=value
-func ParseArgs(argStrs []string) (ret []Arg, _ error) {
+func ParseArgs(argStrs []string) (map[string]string, error) {
+	ret := make(map[string]string)
 	for _, argStr := range argStrs {
 		kv := strings.SplitN(argStr, "=", 2)
 		if len(kv) != 2 {
 			return nil, errors.Errorf("invalid template argument %q: must have form \"key=value\"", argStr)
 		}
-		ret = append(ret, Arg{Key: kv[0], Value: kv[1]})
+		key, value := kv[0], kv[1]
+		ret[key] = value
 	}
 	return ret, nil
 }
 
 // RenderTemplate renders the template tmpl, using args and returns the result.
-func RenderTemplate(tmpl string, args []Arg) (string, error) {
+func RenderTemplate(tmpl string, args map[string]string) (string, error) {
 	vm := newVM(nil)
-	for _, arg := range args {
-		vm.TLAVar(arg.Key, arg.Value)
+	for key, value := range args {
+		vm.TLAVar(key, value)
 	}
 	output, err := vm.EvaluateAnonymousSnippet("main", string(tmpl))
 	if err != nil {
