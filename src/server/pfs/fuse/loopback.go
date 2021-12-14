@@ -519,30 +519,16 @@ func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*
 	return n, nil
 }
 
-var ALLOW_EMPTY bool
-
-func (n *loopbackNode) downloadRepos() (retErr error) {
-	/*if n.getFileState("") != none {
-		return nil
-	}*/
+func (n *loopbackNode) mkdirMountNames() (retErr error) {
 	defer func() {
 		if retErr == nil {
 			n.setFileState("", meta)
 		}
 	}()
-	ris, err := n.c().ListRepo()
-	if err != nil {
-		return err
-	}
-	ro := n.root().repoOpts
-	for _, ri := range ris {
-		// If we've specified any repos at all in the opts, and the repo wasn't
-		// specified, skip it. So, if user specifies no repos, all repos are
-		// made visible. _Unless_, ALLOW_EMPTY is true.
-		if (len(ro) > 0 || ALLOW_EMPTY) && ro[ri.Repo.Name] == nil {
-			continue
-		}
-		p := n.repoPath(ri)
+	ros := n.root().repoOpts
+	// we only mount explicitly named repos now
+	for name := range ros {
+		p := n.namePath(name)
 		if err := os.MkdirAll(p, 0777); err != nil {
 			return errors.WithStack(err)
 		}
@@ -558,7 +544,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 		// Already got this file, so we can just return
 		return nil
 	}
-	if err := n.downloadRepos(); err != nil {
+	if err := n.mkdirMountNames(); err != nil {
 		return err
 	}
 	path = n.trimPath(path)
@@ -571,21 +557,23 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	// Note, len(parts) < 1 should not actually be possible, but just in case
 	// no need to panic.
 	if len(parts) < 1 || parts[0] == "" {
-		return nil //already downloaded in downloadRepos
+		return nil // already downloaded in downloadRepos
 	}
-	branch := n.root().branch(parts[0])
-	commit, err := n.commit(parts[0])
+	name := parts[0]
+	branch := n.root().branch(name)
+	commit, err := n.commit(name)
 	if err != nil {
 		return err
 	}
 	if commit == "" {
 		return nil
 	}
-	if err := n.c().ListFile(client.NewCommit(parts[0], branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
+	// XXX translate name -> repo
+	if err := n.c().ListFile(client.NewCommit(name, branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
 		if fi.FileType == pfs.FileType_DIR {
-			return os.MkdirAll(n.filePath(fi), 0777)
+			return os.MkdirAll(n.filePath(name, fi), 0777)
 		}
-		p := n.filePath(fi)
+		p := n.filePath(name, fi)
 		// Make sure the directory exists
 		// I think this may be unnecessary based on the constraints the
 		// OS imposes, but don't want to rely on that, especially
@@ -634,17 +622,17 @@ func (n *loopbackNode) branch(name string) string {
 	return "master"
 }
 
-func (n *loopbackNode) commit(repo string) (string, error) {
+func (n *loopbackNode) commit(name string) (string, error) {
 	if commit, ok := func() (string, bool) {
 		n.root().mu.Lock()
 		defer n.root().mu.Unlock()
-		commit, ok := n.root().commits[repo]
+		commit, ok := n.root().commits[name]
 		return commit, ok
 	}(); ok {
 		return commit, nil
 	}
-	branch := n.root().branch(repo)
-	bi, err := n.root().c.InspectBranch(repo, branch)
+	branch := n.root().branch(name)
+	bi, err := n.root().c.InspectBranch(name, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		return "", err
 	}
@@ -654,19 +642,19 @@ func (n *loopbackNode) commit(repo string) (string, error) {
 	// You can access branches that don't exist, which allows you to create
 	// branches through the fuse mount.
 	if errutil.IsNotFoundError(err) {
-		n.root().commits[repo] = ""
+		n.root().commits[name] = ""
 		return "", nil
 	}
-	n.root().commits[repo] = bi.Head.ID
+	n.root().commits[name] = bi.Head.ID
 	return bi.Head.ID, nil
 }
 
-func (n *loopbackNode) repoPath(ri *pfs.RepoInfo) string {
-	return filepath.Join(n.root().rootPath, ri.Repo.Name)
+func (n *loopbackNode) namePath(name string) string {
+	return filepath.Join(n.root().rootPath, name)
 }
 
-func (n *loopbackNode) filePath(fi *pfs.FileInfo) string {
-	return filepath.Join(n.root().rootPath, fi.File.Commit.Branch.Repo.Name, fi.File.Path)
+func (n *loopbackNode) filePath(name string, fi *pfs.FileInfo) string {
+	return filepath.Join(n.root().rootPath, name, fi.File.Path)
 }
 
 func (n *loopbackNode) getFileState(path string) fileState {
@@ -682,10 +670,10 @@ func (n *loopbackNode) setFileState(path string, state fileState) {
 }
 
 func (n *loopbackNode) checkWrite(path string) syscall.Errno {
-	repo := strings.Split(n.trimPath(path), "/")[0]
+	name := strings.Split(n.trimPath(path), "/")[0]
 	ros := n.root().repoOpts
 	if len(ros) > 0 {
-		ro, ok := ros[repo]
+		ro, ok := ros[name]
 		if !ok || !ro.Write {
 			return syscall.EROFS
 		}

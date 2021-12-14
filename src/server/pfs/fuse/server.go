@@ -357,13 +357,6 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 	}
 	fmt.Printf("mountOpts: %+v\n", mountOpts)
 
-	// in server mode, we allow empty mounts. normally, passing no repoOptions
-	// makes fuse mount everything, but we actually want to start out with an
-	// empty mount in the server case.
-	//
-	// TODO: make this not be a global!
-	ALLOW_EMPTY = true
-
 	mm, err := NewMountManager(c, sopts.MountDir, mountOpts)
 	if err != nil {
 		return err
@@ -622,7 +615,7 @@ func mountingState(m *MountStateMachine) StateFn {
 	}()
 	// re-downloading the repos with an updated RepoOptions set will have the
 	// effect of causing it to pop into existence
-	err := m.manager.root.downloadRepos()
+	err := m.manager.root.mkdirMountNames()
 	m.responses <- Response{
 		Repo:       m.MountKey.Repo,
 		Branch:     m.MountKey.Branch,

@@ -63,6 +63,8 @@ func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 		if repo == "" {
 			return nil, errors.Errorf("invalid format %q: repo cannot be empty", arg)
 		}
+		// NB: `pachctl mount` always mounts a repo at its own name, but that
+		// key can be something else
 		result[repo] = opts
 	}
 	return result, nil

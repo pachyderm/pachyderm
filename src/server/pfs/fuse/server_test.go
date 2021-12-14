@@ -34,6 +34,9 @@ Tests to write:
 - write, unmount, remount, data comes back
 - simple mount under different name works
 - mount two versions of the same repo under different names works
+	- there is no cache interference between them
+- listing repos works and shows status
+- when a repo is deleted in pachyderm it shows up as missing
 
 */
 
@@ -72,6 +75,8 @@ func TestBasicServerSameNames(t *testing.T) {
 		require.Equal(t, "foo", string(data))
 	})
 }
+
+/*
 func TestBasicServerDifferingNames(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
@@ -107,6 +112,7 @@ func TestBasicServerDifferingNames(t *testing.T) {
 		require.Equal(t, "foo", string(data))
 	})
 }
+*/
 
 // TODO: pass reference to the MountManager object to the test func, so that the
 // test can call MountBranch, UnmountBranch etc directly for convenience
