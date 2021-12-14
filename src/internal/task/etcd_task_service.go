@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strings"
 	"sync/atomic"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -36,22 +37,17 @@ func NewEtcdService(etcdClient *etcd.Client, etcdPrefix string) Service {
 	}
 }
 
-func (es *etcdService) Doer(ctx context.Context, namespace, groupID string, cb func(context.Context, Doer) error) error {
+func (es *etcdService) NewDoer(namespace, group string) Doer {
+	if group == "" {
+		group = uuid.NewWithoutDashes()
+	}
 	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	return namespaceEtcd.groupCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
-		if err := renewer.Put(ctx, groupID, &Group{}); err != nil {
-			return err
-		}
-		return namespaceEtcd.taskCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
-			ed := newEtcdDoer(namespaceEtcd, groupID, renewer)
-			return cb(ctx, ed)
-		})
-	})
+	return newEtcdDoer(namespaceEtcd, group)
 }
 
-func (es *etcdService) Maker(namespace string) Maker {
+func (es *etcdService) NewSource(namespace string) Source {
 	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	return newEtcdMaker(namespaceEtcd)
+	return newEtcdSource(namespaceEtcd)
 }
 
 func (es *etcdService) TaskCount(ctx context.Context, namespace string) (tasks int64, claims int64, _ error) {
@@ -94,69 +90,116 @@ func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Me
 
 type etcdDoer struct {
 	*namespaceEtcd
-	groupID string
-	renewer *col.Renewer
+	group string
 }
 
-func newEtcdDoer(namespaceEtcd *namespaceEtcd, groupID string, renewer *col.Renewer) Doer {
+func newEtcdDoer(namespaceEtcd *namespaceEtcd, group string) Doer {
 	return &etcdDoer{
 		namespaceEtcd: namespaceEtcd,
-		groupID:       groupID,
-		renewer:       renewer,
+		group:         group,
 	}
 }
 
-func (ed *etcdDoer) Do(ctx context.Context, any *types.Any) (*types.Any, error) {
-	taskID, err := computeTaskID(any)
-	if err != nil {
-		return nil, err
-	}
-	prefix := uuid.NewWithoutDashes()
-	taskKey := path.Join(ed.groupID, prefix, taskID)
-	task := &Task{
-		ID:    taskID,
-		Input: any,
-		State: State_RUNNING,
-	}
-	if err := ed.renewer.Put(ctx, taskKey, task); err != nil {
-		return nil, err
-	}
-	defer func() {
-		if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
-			if err := ed.taskCol.ReadWrite(stm).Delete(taskKey); err != nil {
-				return err
+func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb CollectFunc) error {
+	return ed.withGroup(ctx, func(ctx context.Context, renewer *col.Renewer) error {
+		var eg errgroup.Group
+		prefix := path.Join(ed.group, uuid.NewWithoutDashes())
+		done := make(chan struct{})
+		var count int64
+		ctx, cancel := context.WithCancel(ctx)
+		defer func() {
+			cancel()
+			eg.Wait()
+		}()
+		eg.Go(func() error {
+			return ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
+				if e.Type == watch.EventDelete {
+					return errors.New("task was deleted while waiting for results")
+				}
+				var key string
+				task := &Task{}
+				if err := e.Unmarshal(&key, task); err != nil {
+					return err
+				}
+				if task.State == State_RUNNING {
+					return nil
+				}
+				var err error
+				if task.State == State_FAILURE {
+					err = errors.New(task.Reason)
+				}
+				if err := cb(task.Index, task.Output, err); err != nil {
+					return err
+				}
+				atomic.AddInt64(&count, -1)
+				select {
+				case <-done:
+					if count == 0 {
+						return errutil.ErrBreak
+					}
+				default:
+				}
+				return nil
+			})
+		})
+		defer func() {
+			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
+				if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
+					return err
+				}
+				return ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix)
+			}); err != nil {
+				fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
 			}
-			return ed.claimCol.ReadWrite(stm).Delete(taskKey)
-		}); err != nil {
-			fmt.Printf("errored deleting task %v: %v\n", taskKey, err)
+		}()
+		var index int64
+		for {
+			select {
+			case input, more := <-inputChan:
+				if !more {
+					close(done)
+					// If the tasks have already been collected (or there were none), then just return.
+					if atomic.LoadInt64(&count) == 0 {
+						return nil
+					}
+					return eg.Wait()
+				}
+				taskID, err := computeTaskID(input)
+				if err != nil {
+					return err
+				}
+				taskKey := path.Join(prefix, taskID)
+				task := &Task{
+					ID:    taskID,
+					Input: input,
+					State: State_RUNNING,
+					Index: index,
+				}
+				index++
+				if err := renewer.Put(ctx, taskKey, task); err != nil {
+					return err
+				}
+				atomic.AddInt64(&count, 1)
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 		}
-	}()
-	var result *types.Any
-	if err := ed.taskCol.ReadOnly(ctx).WatchOneF(taskKey, func(e *watch.Event) error {
-		if e.Type == watch.EventDelete {
-			return errors.New("task was deleted while waiting for results")
-		}
-		var key string
-		task := &Task{}
-		if err := e.Unmarshal(&key, task); err != nil {
+	})
+}
+
+func (ed *etcdDoer) withGroup(ctx context.Context, cb func(ctx context.Context, renewer *col.Renewer) error) error {
+	return ed.groupCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
+		if err := renewer.Put(ctx, path.Join(ed.group, uuid.NewWithoutDashes()), &Group{}); err != nil {
 			return err
 		}
-		if task.State == State_RUNNING {
-			return nil
-		}
-		if task.State == State_FAILURE {
-			return errors.New(task.Reason)
-		}
-		result = task.Output
-		return errutil.ErrBreak
-	}); err != nil {
-		return nil, err
-	}
-	return result, nil
+		return ed.taskCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
+			return cb(ctx, renewer)
+		})
+	})
 }
 
-func computeTaskID(any *types.Any) (string, error) {
-	val, err := proto.Marshal(any)
+func computeTaskID(input *types.Any) (string, error) {
+	val, err := proto.Marshal(input)
 	if err != nil {
 		return "", err
 	}
@@ -164,127 +207,44 @@ func computeTaskID(any *types.Any) (string, error) {
 	return pachhash.EncodeHash(sum[:]), nil
 }
 
-func (ed *etcdDoer) DoBatch(ctx context.Context, anys []*types.Any, cb CollectFunc) error {
-	var eg errgroup.Group
-	anyChan := make(chan *types.Any)
-	eg.Go(func() error {
-		return ed.DoChan(ctx, anyChan, cb)
-	})
-	for _, any := range anys {
-		select {
-		case anyChan <- any:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-	close(anyChan)
-	return eg.Wait()
-}
-
-func (ed *etcdDoer) DoChan(ctx context.Context, anyChan chan *types.Any, cb CollectFunc) error {
-	var eg errgroup.Group
-	prefix := path.Join(ed.groupID, uuid.NewWithoutDashes())
-	done := make(chan struct{})
-	var count int64
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	eg.Go(func() error {
-		return ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
-			if e.Type == watch.EventDelete {
-				return errors.New("task was deleted while waiting for results")
-			}
-			var key string
-			task := &Task{}
-			if err := e.Unmarshal(&key, task); err != nil {
-				return err
-			}
-			if task.State == State_RUNNING {
-				return nil
-			}
-			var err error
-			if task.State == State_FAILURE {
-				err = errors.New(task.Reason)
-			}
-			if err := cb(task.Index, task.Output, err); err != nil {
-				return err
-			}
-			atomic.AddInt64(&count, -1)
-			select {
-			case <-done:
-				if count == 0 {
-					return errutil.ErrBreak
-				}
-			default:
-			}
-			return nil
-		})
-	})
-	defer func() {
-		if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
-			if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
-				return err
-			}
-			return ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix)
-		}); err != nil {
-			fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
-		}
-	}()
-	var index int64
-	for {
-		select {
-		case any, more := <-anyChan:
-			if !more {
-				close(done)
-				// If the tasks have already been collected (or there were none), then just return.
-				if atomic.LoadInt64(&count) == 0 {
-					return nil
-				}
-				return eg.Wait()
-			}
-			taskID, err := computeTaskID(any)
-			if err != nil {
-				return err
-			}
-			taskKey := path.Join(prefix, taskID)
-			task := &Task{
-				ID:    taskID,
-				Input: any,
-				State: State_RUNNING,
-				Index: index,
-			}
-			index++
-			if err := ed.renewer.Put(ctx, taskKey, task); err != nil {
-				return err
-			}
-			atomic.AddInt64(&count, 1)
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-type etcdMaker struct {
+type etcdSource struct {
 	*namespaceEtcd
 }
 
-func newEtcdMaker(namespaceEtcd *namespaceEtcd) Maker {
-	return &etcdMaker{
+func newEtcdSource(namespaceEtcd *namespaceEtcd) Source {
+	return &etcdSource{
 		namespaceEtcd: namespaceEtcd,
 	}
 }
 
-func (em *etcdMaker) Make(ctx context.Context, cb ProcessFunc) error {
+func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
+	groups := make(map[string]map[string]struct{})
 	tq := newTaskQueue(ctx)
-	return em.groupCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
-		groupID := string(e.Key)
+	return es.groupCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
+		group, uuid := path.Split(string(e.Key))
+		group = strings.TrimRight(group, "/")
+		groupMap, ok := groups[group]
 		if e.Type == watch.EventDelete {
-			tq.deleteGroup(groupID)
+			if !ok {
+				return nil
+			}
+			delete(groupMap, uuid)
+			if len(groupMap) == 0 {
+				tq.deleteGroup(group)
+			}
 			return nil
 		}
-		return tq.group(ctx, groupID, func(ctx context.Context, taskFuncChan chan taskFunc) {
-			if err := em.forEachTask(ctx, groupID, func(taskKey string) error {
+		if ok {
+			groupMap[uuid] = struct{}{}
+			return nil
+		}
+		groupMap = make(map[string]struct{})
+		groups[group] = groupMap
+		groupMap[uuid] = struct{}{}
+		return tq.group(ctx, group, func(ctx context.Context, taskFuncChan chan taskFunc) {
+			if err := es.forEachTask(ctx, group, func(taskKey string) error {
 				select {
-				case taskFuncChan <- em.createTaskFunc(ctx, taskKey, cb):
+				case taskFuncChan <- es.createTaskFunc(ctx, taskKey, cb):
 					return nil
 				case <-ctx.Done():
 					return ctx.Err()
@@ -296,13 +256,13 @@ func (em *etcdMaker) Make(ctx context.Context, cb ProcessFunc) error {
 	})
 }
 
-func (em *etcdMaker) forEachTask(ctx context.Context, groupID string, cb func(string) error) error {
-	claimWatch, err := em.claimCol.ReadOnly(ctx).WatchOne(groupID, watch.IgnorePut)
+func (es *etcdSource) forEachTask(ctx context.Context, group string, cb func(string) error) error {
+	claimWatch, err := es.claimCol.ReadOnly(ctx).WatchOne(group, watch.IgnorePut)
 	if err != nil {
 		return err
 	}
 	defer claimWatch.Close()
-	taskWatch, err := em.taskCol.ReadOnly(ctx).WatchOne(groupID, watch.IgnoreDelete)
+	taskWatch, err := es.taskCol.ReadOnly(ctx).WatchOne(group, watch.IgnoreDelete)
 	if err != nil {
 		return err
 	}
@@ -331,31 +291,27 @@ func (em *etcdMaker) forEachTask(ctx context.Context, groupID string, cb func(st
 	}
 }
 
-func (em *etcdMaker) createTaskFunc(ctx context.Context, taskKey string, cb ProcessFunc) taskFunc {
+func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb ProcessFunc) taskFunc {
 	return func() {
 		if err := func() error {
-			// (bryce) this should be refactored to have the check and claim in the same stm.
-			// there is a rare race condition that does not affect correctness, but it is less
-			// than ideal because a task could get run once more than necessary.
 			task := &Task{}
-			if _, err := col.NewSTM(ctx, em.etcdClient, func(stm col.STM) error {
-				return em.taskCol.ReadWrite(stm).Get(taskKey, task)
+			if _, err := col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
+				return es.taskCol.ReadWrite(stm).Get(taskKey, task)
 			}); err != nil {
 				return err
 			}
 			if task.State != State_RUNNING {
 				return nil
 			}
-			return em.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
+			return es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
 				taskOutput, taskErr := cb(ctx, task.Input)
 				// If the task context was canceled or the claim was lost, just return with no error.
 				if errors.Is(ctx.Err(), context.Canceled) {
 					return nil
 				}
 				task := &Task{}
-				_, err := col.NewSTM(ctx, em.etcdClient, func(stm col.STM) error {
-					return em.taskCol.ReadWrite(stm).Update(taskKey, task, func() error {
-						// (bryce) remove when check and claim are in the same stm.
+				_, err := col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
+					return es.taskCol.ReadWrite(stm).Update(taskKey, task, func() error {
 						if task.State != State_RUNNING {
 							return nil
 						}

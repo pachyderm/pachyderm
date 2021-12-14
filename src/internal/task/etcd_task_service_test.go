@@ -60,12 +60,12 @@ func test(t *testing.T, s Service, workerFailProb, groupCancelProb, taskFailProb
 	workerEg, errCtx := errgroup.WithContext(workerCtx)
 	for i := 0; i < numWorkers; i++ {
 		workerEg.Go(func() error {
-			maker := s.Maker("")
+			src := s.NewSource("")
 			for {
 				if err := func() error {
 					ctx, cancel := context.WithCancel(errCtx)
 					defer cancel()
-					err := maker.Make(ctx, func(_ context.Context, input *types.Any) (*types.Any, error) {
+					err := src.Iterate(ctx, func(_ context.Context, input *types.Any) (*types.Any, error) {
 						if rand.Float64() < workerFailProb {
 							cancel()
 							return nil, nil
@@ -114,31 +114,30 @@ func test(t *testing.T, s Service, workerFailProb, groupCancelProb, taskFailProb
 			}
 			ctx, cancel := context.WithCancel(errCtx)
 			defer cancel()
-			return s.Doer(ctx, "", strconv.Itoa(i), func(ctx context.Context, d Doer) error {
-				if err := d.DoBatch(ctx, inputs, func(j int64, output *types.Any, err error) error {
-					if rand.Float64() < groupCancelProb {
-						created[i] = nil
-						collected[i] = nil
-						cancel()
-						return nil
-					}
-					if err != nil {
-						if err.Error() != errTaskFailure.Error() {
-							return errors.Errorf("task error message (%v) does not equal expected error message (%v)", err.Error(), errTaskFailure.Error())
-						}
-					} else {
-						_, err = deserializeTestTask(output)
-						if err != nil {
-							return err
-						}
-					}
-					collected[i][j] = true
+			d := s.NewDoer("", strconv.Itoa(i))
+			if err := DoBatch(ctx, d, inputs, func(j int64, output *types.Any, err error) error {
+				if rand.Float64() < groupCancelProb {
+					created[i] = nil
+					collected[i] = nil
+					cancel()
 					return nil
-				}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
-					return err
 				}
+				if err != nil {
+					if err.Error() != errTaskFailure.Error() {
+						return errors.Errorf("task error message (%v) does not equal expected error message (%v)", err.Error(), errTaskFailure.Error())
+					}
+				} else {
+					_, err = deserializeTestTask(output)
+					if err != nil {
+						return err
+					}
+				}
+				collected[i][j] = true
 				return nil
-			})
+			}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
+				return err
+			}
+			return nil
 		})
 	}
 	require.NoError(t, groupEg.Wait(), msg)
@@ -176,7 +175,8 @@ func TestRunZeroTasks(t *testing.T) {
 	t.Parallel()
 	env := testetcd.NewEnv(t)
 	s := NewEtcdService(env.EtcdClient, "")
-	require.NoError(t, s.Doer(context.Background(), "", "", func(ctx context.Context, d Doer) error {
-		return d.DoBatch(ctx, nil, func(_ int64, _ *types.Any, _ error) error { return errors.New("no tasks should exist") })
+	d := s.NewDoer("", "")
+	require.NoError(t, DoBatch(context.Background(), d, nil, func(_ int64, _ *types.Any, _ error) error {
+		return errors.New("no tasks should exist")
 	}))
 }

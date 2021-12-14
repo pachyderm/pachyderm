@@ -123,7 +123,8 @@ func newDriver(env Env) (*driver, error) {
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.DB, tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
 	// Set up compaction worker.
-	go compactionWorker(env.BackgroundContext, env.TaskService, d.storage)
+	taskSource := env.TaskService.NewSource(storageTaskNamespace)
+	go compactionWorker(env.BackgroundContext, taskSource, d.storage)
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
 	return d, nil
 }

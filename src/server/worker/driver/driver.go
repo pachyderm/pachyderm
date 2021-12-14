@@ -53,8 +53,8 @@ type Driver interface {
 	Jobs() col.PostgresCollection
 	Pipelines() col.PostgresCollection
 
-	NewTaskMaker() task.Maker
-	WithTaskDoer(context.Context, string, func(context.Context, task.Doer) error) error
+	NewTaskSource() task.Source
+	NewTaskDoer(string) task.Doer
 
 	// Returns the PipelineInfo for the pipeline that this worker belongs to
 	PipelineInfo() *pps.PipelineInfo
@@ -265,16 +265,16 @@ func (d *driver) Pipelines() col.PostgresCollection {
 	return d.pipelines
 }
 
-func (d *driver) NewTaskMaker() task.Maker {
+func (d *driver) NewTaskSource() task.Source {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.Maker(TaskNamespace(d.pipelineInfo))
+	return taskService.NewSource(TaskNamespace(d.pipelineInfo))
 }
 
-func (d *driver) WithTaskDoer(ctx context.Context, groupID string, cb func(context.Context, task.Doer) error) error {
+func (d *driver) NewTaskDoer(groupID string) task.Doer {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.Doer(ctx, TaskNamespace(d.pipelineInfo), groupID, cb)
+	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID)
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {

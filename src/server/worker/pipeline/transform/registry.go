@@ -277,7 +277,9 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return err
 		}
 	}
-	if err := reg.driver.WithTaskDoer(pachClient.Ctx(), pj.ji.Job.ID, func(ctx context.Context, taskDoer task.Doer) error {
+	ctx := pachClient.Ctx()
+	taskDoer := reg.driver.NewTaskDoer(pj.ji.Job.ID)
+	if err := func() error {
 		if err := pj.withParallelDatums(ctx, func(ctx context.Context, dit datum.Iterator) error {
 			return reg.processDatums(ctx, pj, taskDoer, dit)
 		}); err != nil {
@@ -286,7 +288,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 		return pj.withSerialDatums(ctx, func(ctx context.Context, dit datum.Iterator) error {
 			return reg.processDatums(ctx, pj, taskDoer, dit)
 		})
-	}); err != nil {
+	}(); err != nil {
 		if errors.Is(err, errutil.ErrBreak) {
 			return nil
 		}
@@ -325,23 +327,23 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 		}
 	}
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
-	anyChan := make(chan *types.Any)
+	inputChan := make(chan *types.Any)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		eg, ctx := errgroup.WithContext(ctx)
 		pachClient = pachClient.WithCtx(ctx)
 		// Setup goroutine for creating datum set subtasks.
 		eg.Go(func() error {
-			defer close(anyChan)
+			defer close(inputChan)
 			storageRoot := filepath.Join(pj.driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 			// TODO: The dit needs to iterate with the inner context.
 			return datum.CreateSets(dit, storageRoot, setSpec, func(upload func(client.ModifyFile) error) error {
-				any, err := createDatumSetTask(pachClient, pj, upload, renewer)
+				input, err := createDatumSetTask(pachClient, pj, upload, renewer)
 				if err != nil {
 					return err
 				}
 				select {
-				case anyChan <- any:
+				case inputChan <- input:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -351,9 +353,9 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 		// Setup goroutine for running and collecting datum set subtasks.
 		eg.Go(func() error {
 			return pj.logger.LogStep("running and collecting datum set subtasks", func() error {
-				return taskDoer.DoChan(
+				return taskDoer.Do(
 					ctx,
-					anyChan,
+					inputChan,
 					func(_ int64, any *types.Any, err error) error {
 						if err != nil {
 							return err

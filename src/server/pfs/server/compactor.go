@@ -30,17 +30,9 @@ func newCompactor(taskService task.Service, storage *fileset.Storage, maxFanIn i
 	}
 }
 
-func (c *compactor) Compact(ctx context.Context, groupID string, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+func (c *compactor) Compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 	return c.storage.CompactLevelBased(ctx, ids, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
-		var id *fileset.ID
-		if err := c.taskService.Doer(ctx, storageTaskNamespace, groupID, func(ctx context.Context, d task.Doer) error {
-			var err error
-			id, err = c.compact(ctx, d, ids, ttl)
-			return err
-		}); err != nil {
-			return nil, err
-		}
-		return id, nil
+		return c.compact(ctx, taskDoer, ids, ttl)
 	})
 }
 
@@ -105,7 +97,7 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 		inputs = append(inputs, input)
 	}
 	results := make([][]*CompactTask, len(inputs))
-	if err := taskDoer.DoBatch(ctx, inputs, func(i int64, output *types.Any, err error) error {
+	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
 		if err != nil {
 			return err
 		}
@@ -139,7 +131,7 @@ func (c *compactor) processCompactTasks(ctx context.Context, taskDoer task.Doer,
 		inputs[i] = input
 	}
 	results := make([]fileset.ID, len(inputs))
-	if err := taskDoer.DoBatch(ctx, inputs, func(i int64, output *types.Any, err error) error {
+	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
 		if err != nil {
 			return err
 		}
@@ -179,7 +171,7 @@ func (c *compactor) concat(ctx context.Context, taskDoer task.Doer, renewer *fil
 		inputs = append(inputs, input)
 	}
 	results := make([]fileset.ID, len(inputs))
-	if err := taskDoer.DoBatch(ctx, inputs, func(i int64, output *types.Any, err error) error {
+	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
 		if err != nil {
 			return err
 		}
@@ -202,10 +194,9 @@ func (c *compactor) concat(ctx context.Context, taskDoer task.Doer, renewer *fil
 	return results, nil
 }
 
-func compactionWorker(ctx context.Context, taskService task.Service, storage *fileset.Storage) error {
-	maker := taskService.Maker(storageTaskNamespace)
+func compactionWorker(ctx context.Context, taskSource task.Source, storage *fileset.Storage) error {
 	return backoff.RetryUntilCancel(ctx, func() error {
-		return maker.Make(ctx, func(ctx context.Context, input *types.Any) (*types.Any, error) {
+		return taskSource.Iterate(ctx, func(ctx context.Context, input *types.Any) (*types.Any, error) {
 			switch {
 			case types.Is(input, &ShardTask{}):
 				shardTask, err := deserializeShardTask(input)

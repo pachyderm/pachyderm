@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -91,7 +90,7 @@ func (c *etcdCollection) ReadOnly(ctx context.Context) EtcdReadOnlyCollection {
 	}
 }
 
-func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {
+func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Message, cb func(context.Context) error) error {
 	var claimed bool
 	if _, err := NewSTM(ctx, c.etcdClient, func(stm STM) error {
 		readWriteC := c.ReadWrite(stm)
@@ -110,30 +109,12 @@ func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Messag
 	if !claimed {
 		return ErrNotClaimed
 	}
-	claimCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go func() {
-		for {
-			select {
-			case <-time.After((time.Second * time.Duration(ttl)) / 2):
-				// (bryce) potential race condition, goroutine does PutTTL after Put for completion which deletes work
-				// potential way around this is to have this only update the lease and not do a put (maybe through keepalive?)
-				if _, err := NewSTM(claimCtx, c.etcdClient, func(stm STM) error {
-					readWriteC := c.ReadWrite(stm)
-					if err := readWriteC.Get(key, val); err != nil {
-						return err
-					}
-					return readWriteC.PutTTL(key, val, ttl)
-				}); err != nil {
-					cancel()
-					return
-				}
-			case <-claimCtx.Done():
-				return
-			}
+	return c.WithRenewer(ctx, func(ctx context.Context, renewer *Renewer) error {
+		if err := renewer.Put(ctx, key, val); err != nil {
+			return err
 		}
-	}()
-	return f(claimCtx)
+		return cb(ctx)
+	})
 }
 
 type Renewer struct {

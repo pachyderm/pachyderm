@@ -88,7 +88,7 @@ func (w *Worker) worker() {
 
 		// Run any worker tasks that the master creates
 		eg.Go(func() error {
-			return driver.NewTaskMaker().Make(
+			return driver.NewTaskSource().Iterate(
 				ctx,
 				func(ctx context.Context, any *types.Any) (*types.Any, error) {
 					driver := w.driver.WithContext(ctx)

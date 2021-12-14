@@ -119,12 +119,12 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 					return err
 				}
 				// Compact the commit.
+				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID)
 				var totalId *fileset.ID
 				start := time.Now()
 				if err := miscutil.LogStep(fmt.Sprintf("compacting commit %v", commit), func() error {
 					var err error
-					// TODO: Commit ID as group ID?
-					totalId, err = compactor.Compact(ctx, commit.ID, []fileset.ID{*id}, defaultTTL)
+					totalId, err = compactor.Compact(ctx, taskDoer, []fileset.ID{*id}, defaultTTL)
 					if err != nil {
 						return err
 					}
