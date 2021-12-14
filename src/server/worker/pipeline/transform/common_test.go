@@ -71,11 +71,11 @@ func (td *testDriver) Jobs() col.PostgresCollection {
 func (td *testDriver) Pipelines() col.PostgresCollection {
 	return td.inner.Pipelines()
 }
-func (td *testDriver) NewTaskMaker() task.Maker {
-	return td.inner.NewTaskMaker()
+func (td *testDriver) NewTaskSource() task.Source {
+	return td.inner.NewTaskSource()
 }
-func (td *testDriver) WithTaskDoer(ctx context.Context, groupID string, cb func(context.Context, task.Doer) error) error {
-	return td.inner.WithTaskDoer(ctx, groupID, cb)
+func (td *testDriver) NewTaskDoer(groupID string) task.Doer {
+	return td.inner.NewTaskDoer(groupID)
 }
 func (td *testDriver) PipelineInfo() *pps.PipelineInfo {
 	return td.inner.PipelineInfo()

@@ -109,7 +109,7 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 
 	eg.Go(func() error {
 		err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
-			return env.driver.NewTaskMaker().Make(
+			return env.driver.NewTaskSource().Iterate(
 				env.driver.PachClient().Ctx(),
 				func(ctx context.Context, any *types.Any) (*types.Any, error) {
 					status := &Status{}
