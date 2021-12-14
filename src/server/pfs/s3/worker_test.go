@@ -136,7 +136,7 @@ func workerLargeObjects(t *testing.T, s *workerTestState) {
 
 	// get the file that does exist, doesn't work because we're reading from
 	// an output repo
-	outputFile, err := ioutil.TempFile(t.Name(), "pachyderm-test-large-objects-output-*")
+	outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
 	require.NoError(t, err)
 	defer os.Remove(outputFile.Name())
 	err = s.minioClient.FGetObject("out", "file", outputFile.Name(), minio.GetObjectOptions{})

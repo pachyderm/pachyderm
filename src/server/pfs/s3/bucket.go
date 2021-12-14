@@ -176,7 +176,10 @@ func (lfs *localFS) listObjects(pc *client.APIClient, bucket *Bucket, prefix, ma
 		CommonPrefixes: []*s2.CommonPrefixes{},
 	}
 
-	err := filepath.WalkDir(filepath.Join(bucket.Path, prefix), func(path string, d fs.DirEntry, err error) error {
+	// WalkDir expects an actual directory, so split the prefix into a dir and a possible partial name
+	dir, _ := filepath.Split(prefix)
+
+	err := filepath.WalkDir(filepath.Join(bucket.Path, dir), func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -184,7 +187,7 @@ func (lfs *localFS) listObjects(pc *client.APIClient, bucket *Bucket, prefix, ma
 		if err != nil {
 			return nil // not in the bucket somehow
 		}
-		if path == "" || path <= marker {
+		if path == "." || path <= marker || !strings.HasPrefix(path, prefix) {
 			return nil // ignore root and already-processed objects
 		}
 		if recursive && d.IsDir() {
