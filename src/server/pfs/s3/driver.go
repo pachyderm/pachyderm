@@ -45,7 +45,7 @@ type Driver interface {
 	bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error)
 	bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error)
 	canModifyBuckets() bool
-	listObjects(pc *client.APIClient, bucket *Bucket, pattern, prefix, marker string, recursive bool, maxKeys int) (*s2.ListObjectsResult, error)
+	listObjects(pc *client.APIClient, bucket *Bucket, prefix, marker string, recursive bool, maxKeys int) (*s2.ListObjectsResult, error)
 	getObject(pc *client.APIClient, bucket *Bucket, path, version string) (*s2.GetObjectResult, error)
 	copyObject(pc *client.APIClient, srcBucket, destBucket *Bucket, srcFile, destFile string) (string, error)
 	putObject(pc *client.APIClient, bucket *Bucket, path string, reader io.Reader) (*s2.PutObjectResult, error)

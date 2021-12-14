@@ -2,10 +2,10 @@ package s3
 
 import (
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -13,6 +13,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	glob "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -102,6 +103,16 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 	}
 
 	recursive := delimiter == ""
+
+	return c.driver.listObjects(pc, bucket, prefix, marker, recursive, maxKeys)
+}
+
+func (pfs *pachFS) listObjects(pc *client.APIClient, bucket *Bucket, prefix, marker string, recursive bool, maxKeys int) (*s2.ListObjectsResult, error) {
+	result := s2.ListObjectsResult{
+		Contents:       []*s2.Contents{},
+		CommonPrefixes: []*s2.CommonPrefixes{},
+	}
+
 	var pattern string
 	if recursive {
 		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(prefix))
@@ -109,14 +120,6 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
-	return c.driver.listObjects(pc, bucket, pattern, prefix, marker, recursive, maxKeys)
-}
-
-func (pfs *pachFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, prefix, marker string, recursive bool, maxKeys int) (*s2.ListObjectsResult, error) {
-	result := s2.ListObjectsResult{
-		Contents:       []*s2.Contents{},
-		CommonPrefixes: []*s2.CommonPrefixes{},
-	}
 	err := pc.GlobFile(bucket.Commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
@@ -167,50 +170,50 @@ func (pfs *pachFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, pr
 	return &result, err
 }
 
-func (lfs *localFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, prefix, marker string, recursive bool, maxKeys int) (*s2.ListObjectsResult, error) {
+func (lfs *localFS) listObjects(pc *client.APIClient, bucket *Bucket, prefix, marker string, recursive bool, maxKeys int) (*s2.ListObjectsResult, error) {
 	result := s2.ListObjectsResult{
 		Contents:       []*s2.Contents{},
 		CommonPrefixes: []*s2.CommonPrefixes{},
 	}
-	matches, err := filepath.Glob(filepath.Join(bucket.Path, pattern))
-	if err != nil {
-		return nil, err
-	}
-	start := sort.Search(len(matches), func(i int) bool {
-		return matches[i] > marker
-	})
-	for _, fullPath := range matches[start:] {
-		path, err := filepath.Rel(bucket.Path, fullPath)
+
+	err := filepath.WalkDir(filepath.Join(bucket.Path, prefix), func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			continue // not in the bucket somehow
+			return err
 		}
-		if path == "" {
-			continue // ignore root
-		}
-		info, err := os.Lstat(fullPath)
+		path, err = filepath.Rel(bucket.Path, path)
 		if err != nil {
-			return nil, err
+			return nil // not in the bucket somehow
 		}
-		if recursive && info.IsDir() {
-			continue
+		if path == "" || path <= marker {
+			return nil // ignore root and already-processed objects
+		}
+		if recursive && d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
 		}
 
 		if len(result.Contents)+len(result.CommonPrefixes) >= maxKeys {
 			if maxKeys > 0 {
 				result.IsTruncated = true
 			}
-			break
+			return errutil.ErrBreak
 		}
-		if !info.IsDir() {
-			result.Contents = append(result.Contents, newLocalContents(path, info))
-		} else {
+		if info.IsDir() {
 			result.CommonPrefixes = append(result.CommonPrefixes, &s2.CommonPrefixes{
 				Prefix: path + "/",
 				Owner:  defaultUser,
 			})
+			return fs.SkipDir
 		}
+		result.Contents = append(result.Contents, newLocalContents(path, info))
+		return nil
+	})
+	if err != nil && errors.Is(err, errutil.ErrBreak) {
+		err = nil
 	}
-
 	return &result, err
 }
 
