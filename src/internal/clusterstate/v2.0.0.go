@@ -99,3 +99,4 @@ var state_2_0_0 migrations.State = migrations.InitialState().
 		return identity.AddRotationTokenExpiryConfig(ctx, env.Tx)
 	})
 	// DO NOT MODIFY THIS STATE
+	// IT HAS ALREADY SHIPPED IN A RELEASE

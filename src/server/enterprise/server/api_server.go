@@ -209,12 +209,13 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 		}); err != nil {
 			return err
 		}
-		if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
-			return a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record)
-		}); err != nil {
-			return err
-		}
 		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
+		return a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record)
 	}); err != nil {
 		return nil, err
 	}
@@ -327,13 +328,14 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 		if err != nil && !col.IsErrNotFound(err) {
 			return err
 		}
-		if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
-			err = a.configCol.ReadWrite(txCtx.SqlTx).Delete(configKey)
-			if err != nil && !col.IsErrNotFound(err) {
-				return err
-			}
-			return nil
-		}); err != nil {
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+		err := a.configCol.ReadWrite(txCtx.SqlTx).Delete(configKey)
+		if err != nil && !col.IsErrNotFound(err) {
 			return err
 		}
 		return nil
