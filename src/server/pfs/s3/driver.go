@@ -3,7 +3,9 @@ package s3
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -227,6 +229,8 @@ func (d *WorkerDriver) canModifyBuckets() bool {
 	return false
 }
 
+var errNoLocalBucket = errors.New("No directory corresponding to the given bucket name")
+
 // LocalDriver is the driver for the s3gateway instance running on pachd
 // workers
 type LocalDriver struct {
@@ -266,6 +270,13 @@ func (d *LocalDriver) bucket(pc *client.APIClient, r *http.Request, name string)
 }
 
 func (d *LocalDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
+	_, err := os.Stat(bucket.Path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			err = errNoLocalBucket
+		}
+		return bucketCapabilities{}, err
+	}
 	return bucketCapabilities{
 		readable:         true,
 		writable:         true,

@@ -395,9 +395,9 @@ func TestLocalDriver(t *testing.T) {
 		t.Run("StatObject", func(t *testing.T) {
 			workerStatObject(t, s)
 		})
-		t.Run("PutObject", func(t *testing.T) {
-			workerPutObject(t, s)
-		})
+		//t.Run("PutObject", func(t *testing.T) {
+		//	workerPutObject(t, s)
+		//})
 		//t.Run("PutObjectInputRepo", func(t *testing.T) {
 		//	workerPutObjectInputRepo(t, s)
 		//})
