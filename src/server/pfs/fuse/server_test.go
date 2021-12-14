@@ -24,7 +24,20 @@ func put(path string) (*http.Response, error) {
 	return client.Do(req)
 }
 
-func TestBasicServer(t *testing.T) {
+/*
+
+Tests to write:
+
+- read only is read only
+- read write is read write
+- write, unmount, files have gone
+- write, unmount, remount, data comes back
+- simple mount under different name works
+- mount two versions of the same repo under different names works
+
+*/
+
+func TestBasicServerSameNames(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
@@ -38,7 +51,6 @@ func TestBasicServer(t *testing.T) {
 		require.NoError(t, err)
 
 		fmt.Printf("=====> MOUNTPOINT IS %s\n", mountPoint)
-		//time.Sleep(60 * time.Second)
 		repos, err := ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
@@ -56,6 +68,41 @@ func TestBasicServer(t *testing.T) {
 		require.Equal(t, "file2", filepath.Base(files[1].Name()))
 
 		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "file1"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+	})
+}
+func TestBasicServerDifferingNames(t *testing.T) {
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	commit := client.NewCommit("repo", "master", "")
+	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+
+		_, err := put("repos/repo/master/_mount?name=newname&mode=ro")
+		require.NoError(t, err)
+
+		fmt.Printf("=====> MOUNTPOINT IS %s\n", mountPoint)
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		require.Equal(t, "newname", filepath.Base(repos[0].Name()))
+
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "newname"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "dir", filepath.Base(files[0].Name()))
+
+		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "newname", "dir"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		require.Equal(t, "file1", filepath.Base(files[0].Name()))
+		require.Equal(t, "file2", filepath.Base(files[1].Name()))
+
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "newname", "dir", "file1"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
 	})
