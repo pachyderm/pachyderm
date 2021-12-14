@@ -231,6 +231,7 @@ func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 			delete(groupMap, uuid)
 			if len(groupMap) == 0 {
 				tq.deleteGroup(group)
+				delete(groups, group)
 			}
 			return nil
 		}
