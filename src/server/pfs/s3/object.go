@@ -3,6 +3,7 @@ package s3
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
@@ -51,7 +53,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 	}
 }
 
-func (fs *pachFS) getObject(pc *client.APIClient, bucket *Bucket, file, version string) (*s2.GetObjectResult, error) {
+func (pfs *pachFS) getObject(pc *client.APIClient, bucket *Bucket, file, version string) (*s2.GetObjectResult, error) {
 	commitID := bucket.Commit.ID
 	if version != "" {
 		commitID = version
@@ -83,7 +85,7 @@ func (fs *pachFS) getObject(pc *client.APIClient, bucket *Bucket, file, version 
 	return &result, nil
 }
 
-func (fs *localFS) getObject(pc *client.APIClient, bucket *Bucket, path, version string) (*s2.GetObjectResult, error) {
+func (lfs *localFS) getObject(pc *client.APIClient, bucket *Bucket, path, version string) (*s2.GetObjectResult, error) {
 	fullPath := filepath.Join(bucket.Path, path)
 	info, err := os.Stat(fullPath)
 	if err != nil {
@@ -145,7 +147,7 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 	}
 }
 
-func (fs *pachFS) copyObject(pc *client.APIClient, srcBucket, destBucket *Bucket, srcFile, destFile string) (string, error) {
+func (pfs *pachFS) copyObject(pc *client.APIClient, srcBucket, destBucket *Bucket, srcFile, destFile string) (string, error) {
 	if err := pc.CopyFile(destBucket.Commit, destFile, srcBucket.Commit, srcFile); err != nil {
 		return "", err
 	}
@@ -162,7 +164,7 @@ func (fs *pachFS) copyObject(pc *client.APIClient, srcBucket, destBucket *Bucket
 	return version, nil
 }
 
-func (fs *localFS) copyObject(pc *client.APIClient, srcBucket, destBucket *Bucket, srcFile, destFile string) (string, error) {
+func (lfs *localFS) copyObject(pc *client.APIClient, srcBucket, destBucket *Bucket, srcFile, destFile string) (string, error) {
 	src, err := os.Open(filepath.Join(srcBucket.Path, srcFile))
 	if err != nil {
 		return "", err
@@ -220,7 +222,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 	}
 }
 
-func (fs *pachFS) putObject(pc *client.APIClient, bucket *Bucket, path string, reader io.Reader) (*s2.PutObjectResult, error) {
+func (pfs *pachFS) putObject(pc *client.APIClient, bucket *Bucket, path string, reader io.Reader) (*s2.PutObjectResult, error) {
 	bucketCommit := bucket.Commit
 	if err := pc.PutFile(bucketCommit, path, reader); err != nil {
 		return nil, err
@@ -239,7 +241,7 @@ func (fs *pachFS) putObject(pc *client.APIClient, bucket *Bucket, path string, r
 	return &result, nil
 }
 
-func (fs *localFS) putObject(pc *client.APIClient, bucket *Bucket, path string, reader io.Reader) (*s2.PutObjectResult, error) {
+func (lfs *localFS) putObject(pc *client.APIClient, bucket *Bucket, path string, reader io.Reader) (*s2.PutObjectResult, error) {
 	file, err := os.Create(filepath.Join(bucket.Path, path))
 	if err != nil {
 		return nil, err
@@ -293,10 +295,14 @@ func (c *controller) DeleteObject(r *http.Request, bucketName, file, version str
 	return &result, nil
 }
 
-func (fs *pachFS) deleteObject(pc *client.APIClient, bucket *Bucket, file string) error {
+func (pfs *pachFS) deleteObject(pc *client.APIClient, bucket *Bucket, file string) error {
 	return pc.DeleteFile(bucket.Commit, file)
 }
 
-func (fs *localFS) deleteObject(pc *client.APIClient, bucket *Bucket, file string) error {
-	return os.Remove(filepath.Join(bucket.Path, file))
+func (lfs *localFS) deleteObject(pc *client.APIClient, bucket *Bucket, file string) error {
+	err := os.Remove(filepath.Join(bucket.Path, file))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return err
 }

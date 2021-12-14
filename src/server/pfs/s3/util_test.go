@@ -95,7 +95,7 @@ func putLocalListFileTestObject(t *testing.T, tmp, dir string, i int) {
 	os.MkdirAll(filepath.Join(tmp, dir), 0777)
 	file, err := os.Create(filepath.Join(tmp, dir, strconv.Itoa(i)))
 	require.NoError(t, err)
-	defer require.NoError(t, file.Close())
+	defer file.Close()
 	file.WriteString(fmt.Sprintf("%d\n", i))
 }
 

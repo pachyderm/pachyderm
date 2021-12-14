@@ -21,9 +21,9 @@ import (
 	"github.com/pachyderm/s2"
 )
 
-func newLocalContents(fileInfo os.FileInfo) *s2.Contents {
+func newLocalContents(path string, fileInfo os.FileInfo) *s2.Contents {
 	return &s2.Contents{
-		Key:          fileInfo.Name(),
+		Key:          path,
 		LastModified: fileInfo.ModTime(),
 		Size:         uint64(fileInfo.Size()),
 		StorageClass: globalStorageClass,
@@ -112,7 +112,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 	return c.driver.listObjects(pc, bucket, pattern, prefix, marker, recursive, maxKeys)
 }
 
-func (fs *pachFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, prefix, marker string, recursive bool, maxKeys int) (*s2.ListObjectsResult, error) {
+func (pfs *pachFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, prefix, marker string, recursive bool, maxKeys int) (*s2.ListObjectsResult, error) {
 	result := s2.ListObjectsResult{
 		Contents:       []*s2.Contents{},
 		CommonPrefixes: []*s2.CommonPrefixes{},
@@ -167,7 +167,7 @@ func (fs *pachFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, pre
 	return &result, err
 }
 
-func (fs *localFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, prefix, marker string, recursive bool, maxKeys int) (*s2.ListObjectsResult, error) {
+func (lfs *localFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, prefix, marker string, recursive bool, maxKeys int) (*s2.ListObjectsResult, error) {
 	result := s2.ListObjectsResult{
 		Contents:       []*s2.Contents{},
 		CommonPrefixes: []*s2.CommonPrefixes{},
@@ -179,23 +179,19 @@ func (fs *localFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, pr
 	start := sort.Search(len(matches), func(i int) bool {
 		return matches[i] > marker
 	})
-	for _, path := range matches[start:] {
-		path, err := filepath.Rel(path, bucket.Path)
+	for _, fullPath := range matches[start:] {
+		path, err := filepath.Rel(bucket.Path, fullPath)
 		if err != nil {
 			continue // not in the bucket somehow
 		}
 		if path == "" {
 			continue
 		}
-		info, err := os.Lstat(path)
+		info, err := os.Lstat(fullPath)
 		if err != nil {
 			return nil, err
 		}
 		if recursive && info.IsDir() {
-			continue
-		}
-
-		if !strings.HasPrefix(path, prefix) {
 			continue
 		}
 
@@ -206,7 +202,7 @@ func (fs *localFS) listObjects(pc *client.APIClient, bucket *Bucket, pattern, pr
 			break
 		}
 		if !info.IsDir() {
-			result.Contents = append(result.Contents, newLocalContents(info))
+			result.Contents = append(result.Contents, newLocalContents(path, info))
 		} else {
 			result.CommonPrefixes = append(result.CommonPrefixes, &s2.CommonPrefixes{
 				Prefix: path,
