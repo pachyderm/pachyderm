@@ -265,6 +265,9 @@ export const UIIcons = () => {
         <SVGWrapper title="ShrinkSVG">
           <IconsSVG.ShrinkSVG />
         </SVGWrapper>
+        <SVGWrapper title="SpinnerSVG">
+          <IconsSVG.SpinnerSVG />
+        </SVGWrapper>
         <SVGWrapper title="SupportSVG">
           <IconsSVG.SupportSVG />
         </SVGWrapper>

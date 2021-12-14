@@ -1,0 +1,27 @@
+.base {
+  position: relative;
+  color: var(--dropshadow-grey);
+  font-size: var(--font-size-body-large);
+  padding: 0.5rem 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.error {
+  color: var(--error-red);
+}
+
+.success {
+  color: var(--icon-green);
+}
+
+.icon {
+  margin-right: 0.5rem;
+}
+
+.content {
+  padding: 0 0.5rem;
+  display: flex;
+  align-items: center;
+}

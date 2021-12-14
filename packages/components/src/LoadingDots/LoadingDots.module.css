@@ -11,6 +11,14 @@
   }
 }
 
+.container {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
 .base, .base::before, .base::after {
   position: absolute;
   width: 10px;
@@ -22,8 +30,6 @@
 
 .base {
   text-align: left;
-  margin-left: 50%;
-  top: 50%;
   animation-delay: .25s;  
 }
 

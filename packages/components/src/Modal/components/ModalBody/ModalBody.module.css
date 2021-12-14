@@ -1,5 +1,15 @@
 .base {
   font-size: var(--font-size-body-large);
   line-height: 1.625rem;
-  padding: 0 2.5rem;
+  padding: 0 2rem;
+  overflow-y: auto;
+}
+
+.base::-webkit-scrollbar {
+  width: 10px;
+}
+
+.base::-webkit-scrollbar-thumb {
+  background: var(--line-grey);
+  border-radius: 10px;
 }

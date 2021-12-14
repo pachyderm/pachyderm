@@ -1,13 +1,15 @@
 import noop from 'lodash/noop';
 import React from 'react';
 
+import {LoadingDots} from 'LoadingDots';
+
 import {Modal} from './../../Modal';
+import styles from './BasicModal.module.css';
 
 type BasicModalProps = {
   cancelTestId?: string;
   confirmTestId?: string;
   important?: boolean;
-  success?: boolean;
   show: boolean;
   onHide?: () => void;
   onShow?: () => void;
@@ -16,11 +18,13 @@ type BasicModalProps = {
   confirmText?: string;
   actionable?: boolean;
   loading?: boolean;
+  updating?: boolean;
   disabled?: boolean;
   className?: string;
   hideActions?: boolean;
-  pinTop?: boolean;
   errorMessage?: string;
+  successMessage?: string;
+  small?: boolean;
 };
 
 const BasicModal: React.FC<BasicModalProps> = ({
@@ -32,17 +36,22 @@ const BasicModal: React.FC<BasicModalProps> = ({
   onShow = noop,
   headerContent,
   onConfirm,
-  success = false,
   important = false,
   confirmText = 'Okay',
   actionable = false,
   loading = true,
+  updating = false,
   disabled = false,
   className,
   hideActions = false,
-  pinTop = false,
   errorMessage = '',
+  successMessage = '',
+  small = false,
 }) => {
+  const modalStatus =
+    (updating && 'updating') ||
+    (errorMessage && 'error') ||
+    (successMessage && 'success');
   return (
     <Modal
       show={show}
@@ -50,24 +59,26 @@ const BasicModal: React.FC<BasicModalProps> = ({
       onShow={onShow}
       actionable={actionable}
       className={className}
-      pinTop={pinTop}
+      small={small}
     >
-      {errorMessage && <Modal.Error>{errorMessage}</Modal.Error>}
+      {modalStatus ? (
+        <Modal.Status status={modalStatus}>
+          {errorMessage || successMessage}
+        </Modal.Status>
+      ) : null}
 
       <Modal.Header
         onHide={onHide}
         actionable={actionable}
         important={important}
-        success={success}
-        error={Boolean(errorMessage)}
-        loading={loading}
+        small={small}
       >
         {headerContent}
       </Modal.Header>
 
-      <Modal.Body>{children}</Modal.Body>
+      <Modal.Body>{loading ? <LoadingDots /> : children}</Modal.Body>
 
-      {!hideActions && (
+      {!hideActions && actionable ? (
         <Modal.Footer
           cancelTestId={cancelTestId}
           confirmTestId={confirmTestId}
@@ -76,6 +87,8 @@ const BasicModal: React.FC<BasicModalProps> = ({
           onConfirm={onConfirm || onHide}
           onHide={onHide}
         />
+      ) : (
+        <div className={styles.infoFooter} />
       )}
     </Modal>
   );

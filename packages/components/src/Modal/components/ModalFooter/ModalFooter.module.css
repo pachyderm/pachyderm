@@ -1,9 +1,12 @@
 .base {
-  border-top: none;
+  border-top: 1px solid var(--grey-20);
 }
 
 .base[class$='modal-footer'] {
-  padding: 1.875rem 1.5rem 0.75rem;
+  height: 5.625rem;
+  display: flex;
+  align-items: center;
+  padding: 1rem;
 }
 
 .base[class$='modal-footer']>* {

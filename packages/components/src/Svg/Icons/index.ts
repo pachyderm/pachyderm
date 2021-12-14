@@ -51,6 +51,7 @@ export {ReactComponent as RotateSVG} from './rotate.svg';
 export {ReactComponent as SearchSVG} from './search.svg';
 export {ReactComponent as SettingsSVG} from './settings.svg';
 export {ReactComponent as ShrinkSVG} from './shrink.svg';
+export {ReactComponent as SpinnerSVG} from './spinner.svg';
 export {ReactComponent as StatusBlockedSVG} from './statusBlocked.svg';
 export {ReactComponent as StatusCheckmarkSVG} from './statusCheckmark.svg';
 export {ReactComponent as StatusPausedSVG} from './statusPaused.svg';

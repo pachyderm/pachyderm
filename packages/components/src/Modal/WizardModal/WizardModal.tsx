@@ -3,6 +3,8 @@ import noop from 'lodash/noop';
 import React, {useState} from 'react';
 import BootstrapModalFooter from 'react-bootstrap/ModalFooter';
 
+import {LoadingDots} from 'LoadingDots';
+
 import {Button} from './../../Button';
 import {ButtonLink} from './../../ButtonLink';
 import {Group} from './../../Group';
@@ -33,24 +35,16 @@ const WizardModal: React.FC<WizardModalProps> = ({
   const [modalIndex, setModalIndex] = useState(0);
 
   return (
-    <Modal
-      show={show}
-      onHide={onHide}
-      onShow={onShow}
-      className={className}
-      pinTop={true}
-    >
-      {errorMessage && <Modal.Error>{errorMessage}</Modal.Error>}
+    <Modal show={show} onHide={onHide} onShow={onShow} className={className}>
+      {errorMessage && (
+        <Modal.Status status="error">{errorMessage}</Modal.Status>
+      )}
 
-      <Modal.Header
-        onHide={onHide}
-        error={Boolean(errorMessage)}
-        loading={loading}
-      >
-        {headerContent[modalIndex]}
-      </Modal.Header>
+      <Modal.Header onHide={onHide}>{headerContent[modalIndex]}</Modal.Header>
 
-      <Modal.Body>{modalContent[modalIndex]}</Modal.Body>
+      <Modal.Body>
+        {loading ? <LoadingDots /> : modalContent[modalIndex]}
+      </Modal.Body>
 
       <BootstrapModalFooter className={styles.footer}>
         <Group spacing={32}>

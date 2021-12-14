@@ -16,7 +16,7 @@ export interface ModalProps
   onShow?: () => void;
   actionable?: boolean;
   className?: string;
-  pinTop?: boolean;
+  small?: boolean;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -26,7 +26,7 @@ const Modal: React.FC<ModalProps> = ({
   onShow = noop,
   actionable = false,
   className,
-  pinTop = false,
+  small = false,
   ...props
 }) => {
   const {showing, animation} = usePopUp(show);
@@ -36,7 +36,7 @@ const Modal: React.FC<ModalProps> = ({
       {...props}
       onShow={onShow}
       className={classNames(styles.base, className, animation, {
-        [styles.pinTop]: pinTop,
+        [styles.small]: small,
       })}
       animation={false}
       show={showing}
