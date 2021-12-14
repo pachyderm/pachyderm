@@ -8,10 +8,10 @@ import (
 	"path"
 	"testing"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/embed"
-	etcdwal "github.com/coreos/etcd/wal"
 	"github.com/coreos/pkg/capnslog"
+	etcd "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/server/v3/embed"
+	etcdwal "go.etcd.io/etcd/server/v3/wal"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -49,7 +49,6 @@ func NewEnv(t testing.TB) *Env {
 	etcdwal.SegmentSizeBytes = 1 * 1000 * 1000 // 1 MB
 
 	etcdConfig := embed.NewConfig()
-	etcdConfig.LogOutput = "default"
 	etcdConfig.MaxTxnOps = 10000
 
 	// Create test dirs for etcd data

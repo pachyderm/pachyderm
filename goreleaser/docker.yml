@@ -52,6 +52,19 @@ builds:
       - darwin
     goarch:
       - amd64
+  -
+    id: pachtf
+    dir: src/server/cmd/pachtf
+    main: main.go
+    binary: pachtf
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - "{{ .Env.LD_FLAGS }}"
+    goos:
+      - linux
+    goarch:
+      - amd64
 
 archives:
   - format: binary
@@ -120,3 +133,20 @@ dockers:
     extra_files:
       - LICENSE
       - licenses
+  -
+    image_templates:
+      - pachyderm/pachtf
+    ids:
+      - pachtf
+    goos: linux
+    goarch: amd64
+    skip_push: false
+    dockerfile: Dockerfile.pachtf
+    build_flag_templates:
+      - "--progress=plain"
+      - "--label=version={{.Version}}"
+      - "--label=release={{.Version}}"
+    extra_files:
+      - LICENSE
+      - licenses
+ 

@@ -12,10 +12,10 @@ import (
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/client-go/kubernetes"
 )

@@ -90,7 +90,7 @@ type pipelineController struct {
 	monitorCancel         func()
 	crashingMonitorCancel func()
 
-	bumpChan chan struct{}
+	bumpChan chan time.Time
 	pcMgr    *pcManager
 }
 
@@ -113,7 +113,7 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		pipelines:  m.a.pipelines,
 		etcdPrefix: m.a.etcdPrefix,
 
-		bumpChan: make(chan struct{}, 1),
+		bumpChan: make(chan time.Time, 1),
 		pcMgr:    m.pcMgr,
 	}
 	return pc
@@ -128,9 +128,9 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 //
 // Note: since pc.bumpChan is a buffered channel of length 1, Bump() will
 // add to the channel if it's empty, and do nothing otherwise.
-func (pc *pipelineController) Bump() {
+func (pc *pipelineController) Bump(ts time.Time) {
 	select {
-	case pc.bumpChan <- struct{}{}:
+	case pc.bumpChan <- ts:
 	default:
 	}
 }
@@ -143,13 +143,13 @@ func (pc *pipelineController) Bump() {
 // Other errors are simply logged and ignored, assuming that some future polling
 // of the pipeline will succeed.
 func (pc *pipelineController) Start(timestamp time.Time) {
-	pc.Bump()
+	pc.Bump(timestamp)
 	for {
 		select {
 		case <-pc.ctx.Done():
 			return
-		case <-pc.bumpChan:
-			err := pc.step(timestamp)
+		case ts := <-pc.bumpChan:
+			err := pc.step(ts)
 			// we've given up on the step, check if the error indicated that the pipeline should fail
 			if err != nil {
 				log.Errorf("PPS master: error starting a pipelineController for pipeline '%s': %v", pc.pipeline,
@@ -164,8 +164,8 @@ func (pc *pipelineController) tryFinish() {
 	pc.pcMgr.Lock()
 	defer pc.pcMgr.Unlock()
 	select {
-	case <-pc.bumpChan:
-		pc.Bump()
+	case ts := <-pc.bumpChan:
+		pc.Bump(ts)
 	default:
 		pc.cancel()
 		delete(pc.pcMgr.pcs, pc.pipeline)
@@ -415,6 +415,7 @@ func (step *pcStep) rcIsFresh() bool {
 	rcPachVersion := step.rc.ObjectMeta.Annotations[pachVersionAnnotation]
 	rcAuthTokenHash := step.rc.ObjectMeta.Annotations[hashedAuthTokenAnnotation]
 	rcPipelineVersion := step.rc.ObjectMeta.Annotations[pipelineVersionAnnotation]
+	rcSpecCommit := step.rc.ObjectMeta.Annotations[pipelineSpecCommitAnnotation]
 	switch {
 	case rcAuthTokenHash != hashAuthToken(step.pipelineInfo.AuthToken):
 		log.Errorf("PPS master: auth token in %q is stale %s != %s",
@@ -423,6 +424,10 @@ func (step *pcStep) rcIsFresh() bool {
 	case rcPipelineVersion != strconv.FormatUint(step.pipelineInfo.Version, 10):
 		log.Errorf("PPS master: pipeline version in %q looks stale %s != %d",
 			step.pipelineInfo.Pipeline.Name, rcPipelineVersion, step.pipelineInfo.Version)
+		return false
+	case rcSpecCommit != step.pipelineInfo.SpecCommit.ID:
+		log.Errorf("PPS master: pipeline spec commit in %q looks stale %s != %s",
+			step.pipelineInfo.Pipeline.Name, rcSpecCommit, step.pipelineInfo.SpecCommit.ID)
 		return false
 	case rcPachVersion != version.PrettyVersion():
 		log.Errorf("PPS master: %q is using stale pachd v%s != current v%s",
@@ -667,6 +672,7 @@ func (step *pcStep) getRC(ctx context.Context, expectation rcExpectation) (retEr
 	return backoff.RetryNotify(func() error {
 		// List all RCs, so stale RCs from old pipelines are noticed and deleted
 		rcs, err := step.pc.env.KubeClient.CoreV1().ReplicationControllers(step.pc.namespace).List(
+			ctx,
 			metav1.ListOptions{LabelSelector: selector})
 		if err != nil && !errutil.IsNotFoundError(err) {
 			return err
@@ -742,7 +748,7 @@ func (step *pcStep) updateRC(update func(rc *v1.ReplicationController)) error {
 	// Apply op's update to rc
 	update(&newRC)
 	// write updated RC to k8s
-	if _, err := rc.Update(&newRC); err != nil {
+	if _, err := rc.Update(step.ctx, &newRC, metav1.UpdateOptions{}); err != nil {
 		return newRetriableError(err, "error updating RC")
 	}
 	return nil
@@ -787,15 +793,15 @@ func (pc *pipelineController) deletePipelineKubeResources() (retErr error) {
 
 	// Delete any services associated with pc.pipeline
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pc.pipeline)
-	opts := &metav1.DeleteOptions{
+	opts := metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	services, err := kubeClient.CoreV1().Services(namespace).List(metav1.ListOptions{LabelSelector: selector})
+	services, err := kubeClient.CoreV1().Services(namespace).List(pc.ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list services")
 	}
 	for _, service := range services.Items {
-		if err := kubeClient.CoreV1().Services(namespace).Delete(service.Name, opts); err != nil {
+		if err := kubeClient.CoreV1().Services(namespace).Delete(pc.ctx, service.Name, opts); err != nil {
 			if !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "could not delete service %q", service.Name)
 			}
@@ -803,12 +809,12 @@ func (pc *pipelineController) deletePipelineKubeResources() (retErr error) {
 	}
 
 	// Delete any secrets associated with pc.pipeline
-	secrets, err := kubeClient.CoreV1().Secrets(namespace).List(metav1.ListOptions{LabelSelector: selector})
+	secrets, err := kubeClient.CoreV1().Secrets(namespace).List(pc.ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list secrets")
 	}
 	for _, secret := range secrets.Items {
-		if err := kubeClient.CoreV1().Secrets(namespace).Delete(secret.Name, opts); err != nil {
+		if err := kubeClient.CoreV1().Secrets(namespace).Delete(pc.ctx, secret.Name, opts); err != nil {
 			if !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "could not delete secret %q", secret.Name)
 			}
@@ -817,12 +823,12 @@ func (pc *pipelineController) deletePipelineKubeResources() (retErr error) {
 
 	// Finally, delete pc.pipeline's RC, which will cause pollPipelines to stop
 	// polling it.
-	rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(metav1.ListOptions{LabelSelector: selector})
+	rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(pc.ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list RCs")
 	}
 	for _, rc := range rcs.Items {
-		if err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(rc.Name, opts); err != nil {
+		if err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(pc.ctx, rc.Name, opts); err != nil {
 			if !errutil.IsNotFoundError(err) {
 				return errors.Wrapf(err, "could not delete RC %q", rc.Name)
 			}

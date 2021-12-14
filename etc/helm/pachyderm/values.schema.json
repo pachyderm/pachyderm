@@ -53,6 +53,9 @@
         "console": {
             "type": "object",
             "properties": {
+                "annotations": {
+                    "type": "object"
+                },
                 "config": {
                     "type": "object",
                     "properties": {
@@ -119,6 +122,9 @@
             "type": "object",
             "properties": {
                 "affinity": {
+                    "type": "object"
+                },
+                "annotations": {
                     "type": "object"
                 },
                 "clusterDeploymentID": {
@@ -188,6 +194,9 @@
                 "affinity": {
                     "type": "object"
                 },
+                "annotations": {
+                    "type": "object"
+                },
                 "dynamicNodes": {
                     "type": "integer"
                 },
@@ -204,6 +213,12 @@
                             "type": "string"
                         }
                     }
+                },
+                "maxTxnOps": {
+                    "type": "integer"
+                },
+                "nodeSelector": {
+                    "type": "object"
                 },
                 "podLabels": {
                     "type": "object"
@@ -238,12 +253,18 @@
                 },
                 "storageSize": {
                     "type": "string"
+                },
+                "tolerations": {
+                    "type": "object"
                 }
             }
         },
         "global": {
             "type": "object",
             "properties": {
+                "customCaCerts": {
+                    "type": "boolean"
+                },
                 "imagePullSecrets": {
                     "type": "array"
                 },
@@ -251,6 +272,12 @@
                     "type": "object",
                     "properties": {
                         "postgresqlDatabase": {
+                            "type": "string"
+                        },
+                        "postgresqlExistingSecretKey": {
+                            "type": "string"
+                        },
+                        "postgresqlExistingSecretName": {
                             "type": "string"
                         },
                         "postgresqlHost": {
@@ -308,6 +335,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "uriHttpsProtoOverride": {
+                    "type": "boolean"
                 }
             }
         },
@@ -340,6 +370,9 @@
         "pachd": {
             "type": "object",
             "properties": {
+                "activateAuth": {
+                    "type": "boolean"
+                },
                 "activateEnterprise": {
                     "type": "boolean"
                 },
@@ -349,8 +382,19 @@
                 "affinity": {
                     "type": "object"
                 },
+                "annotations": {
+                    "type": "object"
+                },
                 "clusterDeploymentID": {
                     "type": "string"
+                },
+                "configJob": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object"
+                        }
+                    }
                 },
                 "enabled": {
                     "type": "boolean"
@@ -427,6 +471,9 @@
                         }
                     }
                 },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "oauthClientID": {
                     "type": "string"
                 },
@@ -435,6 +482,9 @@
                 },
                 "oauthRedirectURI": {
                     "type": "string"
+                },
+                "pachAuthClusterRoleBindings": {
+                    "type": "object"
                 },
                 "podLabels": {
                     "type": "object"
@@ -449,6 +499,9 @@
                             "type": "boolean"
                         }
                     }
+                },
+                "replicas": {
+                    "type": "integer"
                 },
                 "requireCriticalServersOnly": {
                     "type": "boolean"
@@ -643,6 +696,9 @@
                         }
                     }
                 },
+                "tolerations": {
+                    "type": "object"
+                },
                 "worker": {
                     "type": "object",
                     "properties": {
@@ -678,6 +734,9 @@
         "pgbouncer": {
             "type": "object",
             "properties": {
+                "annotations": {
+                    "type": "object"
+                },
                 "maxConnections": {
                     "type": "integer"
                 },

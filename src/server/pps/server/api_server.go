@@ -15,13 +15,13 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -265,15 +265,15 @@ func validateTransform(transform *pps.Transform) error {
 	return nil
 }
 
-func (a *apiServer) validateKube() {
+func (a *apiServer) validateKube(ctx context.Context) {
 	errors := false
 	kubeClient := a.env.KubeClient
-	_, err := kubeClient.CoreV1().Pods(a.namespace).Watch(metav1.ListOptions{Watch: true})
+	_, err := kubeClient.CoreV1().Pods(a.namespace).Watch(ctx, metav1.ListOptions{Watch: true})
 	if err != nil {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
 	}
-	pods, err := a.rcPods("pachd")
+	pods, err := a.rcPods(ctx, "pachd")
 	if err != nil || len(pods) == 0 {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
@@ -283,7 +283,7 @@ func (a *apiServer) validateKube() {
 		_, err = kubeClient.CoreV1().Pods(a.namespace).GetLogs(
 			pod.ObjectMeta.Name, &v1.PodLogOptions{
 				Container: "pachd",
-			}).Timeout(10 * time.Second).Do().Raw()
+			}).Timeout(10 * time.Second).Do(ctx).Raw()
 		if err != nil {
 			errors = true
 			logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
@@ -320,13 +320,13 @@ func (a *apiServer) validateKube() {
 			},
 		},
 	}
-	if _, err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
+	if _, err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
 		if err != nil {
 			errors = true
 			logrus.Errorf("unable to create kubernetes replication controllers, Pachyderm will not function properly until this is fixed. error: %v", err)
 		}
 	}
-	if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(name, nil); err != nil {
+	if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
 		if err != nil {
 			errors = true
 			logrus.Errorf("unable to delete kubernetes replication controllers, Pachyderm function properly but pipeline cleanup will not work. error: %v", err)
@@ -1204,7 +1204,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	}
 
 	// Get pods managed by the RC we're scraping (either pipeline or pachd)
-	pods, err := a.rcPods(rcName)
+	pods, err := a.rcPods(apiGetLogsServer.Context(), rcName)
 	if err != nil {
 		return errors.Wrapf(err, "could not get pods in rc \"%s\" containing logs", rcName)
 	}
@@ -1246,7 +1246,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 						Follow:       request.Follow,
 						TailLines:    tailLines,
 						SinceSeconds: &sinceSeconds,
-					}).Timeout(10 * time.Second).Stream()
+					}).Timeout(10 * time.Second).Stream(apiGetLogsServer.Context())
 				if err != nil {
 					return err
 				}
@@ -2181,7 +2181,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 		kubeClient := a.env.KubeClient
 		if info.Details.Service != nil {
 			rcName := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
-			service, err := kubeClient.CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
+			service, err := kubeClient.CoreV1().Services(a.namespace).Get(ctx, fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
 			if err != nil {
 				if !errutil.IsNotFoundError(err) {
 					return nil, err
@@ -2642,12 +2642,13 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			}); err != nil {
 				return err
 			}
-			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
-				Provenance: nil,
-			}); err != nil && !errutil.IsNotFoundError(err) {
-				// don't error if we're stopping a spout or service pipeline
-				return err
+			if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
+				if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+					Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+					Provenance: nil,
+				}); err != nil {
+					return err
+				}
 			}
 
 			newPipelineInfo := &pps.PipelineInfo{}
@@ -2796,7 +2797,7 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	labels["secret-source"] = "pachyderm-user"
 	s.SetLabels(labels)
 
-	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(&s); err != nil {
+	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(ctx, &s, metav1.CreateOptions{}); err != nil {
 		return nil, errors.Wrapf(err, "failed to create secret")
 	}
 	return &types.Empty{}, nil
@@ -2809,7 +2810,7 @@ func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Delete(request.Secret.Name, &metav1.DeleteOptions{}); err != nil {
+	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Delete(ctx, request.Secret.Name, metav1.DeleteOptions{}); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete secret")
 	}
 	return &types.Empty{}, nil
@@ -2822,14 +2823,11 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	secret, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(request.Secret.Name, metav1.GetOptions{})
+	secret, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, request.Secret.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get secret")
 	}
-	creationTimestamp, err := ptypes.TimestampProto(secret.GetCreationTimestamp().Time)
-	if err != nil {
-		return nil, errors.Errorf("failed to parse creation timestamp")
-	}
+	creationTimestamp := timestamppb.New(secret.GetCreationTimestamp().Time)
 	return &pps.SecretInfo{
 		Secret: &pps.Secret{
 			Name: secret.Name,
@@ -2849,7 +2847,7 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	secrets, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).List(metav1.ListOptions{
+	secrets, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "secret-source=pachyderm-user",
 	})
 	if err != nil {
@@ -2857,10 +2855,8 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 	}
 	secretInfos := []*pps.SecretInfo{}
 	for _, s := range secrets.Items {
-		creationTimestamp, err := ptypes.TimestampProto(s.GetCreationTimestamp().Time)
-		if err != nil {
-			return nil, errors.Errorf("failed to parse creation timestamp")
-		}
+		creationTimestamp := timestamppb.New(s.GetCreationTimestamp().Time)
+
 		secretInfos = append(secretInfos, &pps.SecretInfo{
 			Secret: &pps.Secret{
 				Name: s.Name,
@@ -2887,7 +2883,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 		return nil, err
 	}
 
-	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
+	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
 		LabelSelector: "secret-source=pachyderm-user",
 	}); err != nil {
 		return nil, err
@@ -3069,8 +3065,8 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
-	podList, err := a.env.KubeClient.CoreV1().Pods(a.namespace).List(metav1.ListOptions{
+func (a *apiServer) rcPods(ctx context.Context, rcName string) ([]v1.Pod, error) {
+	podList, err := a.env.KubeClient.CoreV1().Pods(a.namespace).List(ctx, metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",

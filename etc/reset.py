@@ -10,7 +10,7 @@ import collections
 import http.client
 from pathlib import Path
 
-ETCD_IMAGE = "pachyderm/etcd:v3.3.5"
+ETCD_IMAGE = "pachyderm/etcd:v3.5.1"
 
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 

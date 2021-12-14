@@ -27,6 +27,9 @@ spec:
         {{- end }}
       name: console
       namespace: {{ .Release.Namespace }}
+      {{- if .Values.console.annotations }}
+      annotations: {{ toYaml .Values.console.annotations | nindent 4 }}
+      {{- end }}
     spec:
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
@@ -37,7 +40,7 @@ spec:
         - containerPort: {{ .Values.console.config.graphqlPort }}
           name: console-http
         env:
-        {{- if eq .Values.deployTarget "LOCAL" }}
+        {{- if not .Values.ingress.enabled }}
         - name: REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX
           value: ":{{ .Values.console.config.graphqlPort }}/graphql"
         {{- end }}
@@ -60,7 +63,25 @@ spec:
             secretKeyRef:
               name: pachyderm-console-secret
               key: OAUTH_CLIENT_SECRET
+        {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
+        - name: NODE_EXTRA_CA_CERTS
+          value:  /pach-tls/certs/root.crt
+        {{- end }}
         {{- if .Values.console.resources }}
         resources: {{ toYaml .Values.console.resources | nindent 10 }}
         {{- end }}
+        volumeMounts:
+        {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
+        - mountPath: /pach-tls/certs
+          name: pachd-tls-cert
+        {{- end }}
+      volumes:
+      {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
+      - name: pachd-tls-cert
+        secret:
+          secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
+          items:
+          - key: tls.crt
+            path: root.crt
+      {{- end }}
 {{ end -}}

@@ -3,7 +3,7 @@ site_description: A Pachyderm documentation website that provides information on
 site_author: Pachyderm
 site_url: https://docs.pachyderm.com/2.0.x-rc/
 docs_dir: docs/master/
-site_dir: site/2.0.x-rc/
+site_dir: site/master/
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
@@ -13,10 +13,10 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '2.0.1'
-pach_latest_version: '2.0.1'
+pach_featured_version: '2.0.2'
+pach_latest_version: '2.0.2'
 pach_major_minor_version: '2.0'
-search_index_version: '2.0.x-rc'
+search_index_version: '2.0.x'
 
 # Configuration
 theme:
@@ -161,7 +161,7 @@ nav:
                 - Export Your Data with pachctl: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl.md
                 - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md
                 - Mount a Repo to a Local Computer: how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer.md        
-            - Delete Data: how-tos/basic-data-operations/removing_data_from_pachyderm.md
+            - Delete a Commit / Delete Data: how-tos/basic-data-operations/removing_data_from_pachyderm.md
         - Pipeline Operations:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md

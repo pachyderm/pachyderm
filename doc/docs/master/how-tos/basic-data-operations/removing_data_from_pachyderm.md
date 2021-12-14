@@ -1,96 +1,142 @@
-# Delete Data
+#  Delete Commits, Squash Commits, and Delete Data
 
-If *bad* data was committed into a Pachyderm input repository, your
-pipeline might result in an error. In this case, you might need to
-delete this data to resolve the issue. Depending on the nature of
-the bad data and whether or not the bad data is in the HEAD of
+If *bad* data was committed into a Pachyderm input repository, you might need to
+delete a commit or surgically delete files from your history. 
+Depending on whether or not the bad data is in the HEAD commit of
 the branch, you can perform one of the following actions:
 
 - [Delete the HEAD of a Branch](#delete-the-head-of-a-branch).
-If the incorrect data was added in the latest commit and no additional
-data was committed since then, follow the steps in this section to fix
-the HEAD of the corrupted branch.
-- [Delete Old Commits](#delete-old-commits). If after
-committing the incorrect data, you have added more data to the same
-branch, follow the steps in this section to delete corrupted files.
+If the incorrect data was added in the latest commit and provided that the commit does not have children: Follow the steps in this section to fix the HEAD of the corrupted branch.
+- If your changes are relatively recent (see conditions below), you can [delete a particular file](#delete-files-from-history), then erase it from your history.
 
-
+Additionally, although this is a separate use-case, you have the option to [squash non-HEAD commits](#squash-non-head-commits) to rewrite your commit history.
 ## Delete the HEAD of a Branch
 
 To fix a broken HEAD, run the following command:
 
 ```shell
-pachctl delete commit <repo>@<branch-or-commit-id>
+pachctl delete commit <commit-ID>
 ```
 
-When you delete a bad commit, Pachyderm performs the following actions:
+When you delete a HEAD commit, Pachyderm performs the following actions:
 
-- Deletes the commit metadata.
 - Changes HEADs of all the branches that had the bad commit as their
-  HEAD to the bad commit's parent. If the bad commit does not have
-  a parent, Pachyderm sets the branch's HEAD to `nil`.
-- If the bad commit has children, sets their parents to the deleted commit
-  parent. If the deleted commit does not have a parent, then the
-  children commit parents are set to `nil`.
-- Deletes all the jobs that were triggered by the bad commit. Also,
-  Pachyderm interrupts all running jobs, including not only the
+  HEAD to their bad commit's parent and deletes the commit. 
+  **The data in the deleted commit is lost**.
+  If the bad commit does not have
+  a parent, Pachyderm sets the branch's HEAD to a new empty commit. 
+- Interrupts all running jobs, including not only the
   jobs that use the bad commit as a direct input but also the ones farther
   downstream in your DAG.
-- Deletes the output commits from the deleted jobs. All the actions
-  listed above are applied to those commits as well.
+- Deletes the output commits from the deleted jobs. All the actions listed above are applied to those commits as well.
 
-## Delete Old Commits
+!!! Warning
+     This command will **only succeed if the HEAD commit has no children on any branch**. `pachctl delete commit` will error when attempting to delete a HEAD commit with children. 
 
-If you have committed more data to the branch after the bad data
-was added, you can try to delete the commit as described in
-[Delete the HEAD of a Branch](#delete-the-head-of-a-branch).
-However, unless the subsequent commits overwrote or deleted the
-bad data, the bad data might still be present in the
-children commits. Deleting a commit does not modify its children.
+!!! Note "Are you wondering how a HEAD commit can have children?"
+     A commit can be the head of a branch and still have children. 
+     For instance, given a `master` branch in a repository named `repo`, if you branch `master` by running `pachctl create branch repo@staging --head repo@master`, the `master`'s HEAD will have an alias child on `staging`. 
 
-In Git terms, `pachctl delete commit` is equivalent to squashing a
-commit out of existence, such as with the `git reset --hard` command.
-The `delete commit` command is not equivalent to reverting a
-commit in Git. The reason for this
-behavior is that the semantics of revert can get ambiguous
-when the files that are being reverted have been
-otherwise modified. Because Pachyderm is a centralized system
-and the volume of data that you typically store in Pachyderm is
-large, merge conflicts can quickly become untenable. Therefore,
-Pachyderm prevents merge conflicts entirely.
+## Squash non-HEAD Commits
 
-To resolve issues with the commits that are not at the tip of the
-branch, you can try to delete the children commits. However,
-those commits might also have the data that you might want to
-keep.
+If your commit has children, you have the option to use the `squash commit` command.
+Squashing is a way to rewrite your commit history; this helps clean up and simplify your commit history before sharing your work with team members.
+Squashing a commit in Pachyderm means that you are **combining all the file changes in the commits of a global commit
+into their children** and then removing the global commit.
+This behavior is inspired by the squash option in git rebase.
+**No data stored in PFS is removed** since they remain in the child commits.
 
-To delete a file in an older commit:
+```shell
+pachctl squash commit <commit-ID>
+```
 
-1. Start a new commit:
+!!! Warning "Important"
+    - Squashing a global commit on the head of a branch (no children) will fail. Use `pachctl delete commit` instead.
+    - Squash commit only applies to [user repositories](../../../concepts/data-concepts/repo/). For example, you cannot squash a commit that updated a pipeline (Commit that lives in a spec repository).
+    - Similarly to `pachctl delete commit`, `pachctl squash commit` stops (but does not delete) associated jobs.
 
-      ```shell
-      pachctl start commit <repo>@<branch>
-      ```
+!!! Example
 
-1. Delete all corrupted files from the newly opened commit:
+      In the simple example below, we create three successive commits on the master branch of a repo `repo`:
+      
+      - In commit ID1, we added files A and B.
+      - In commit ID2, we added file C.
+      - In commit ID3, the latest commit, we altered the content of files A and C.
 
-      ```shell
-      pachctl delete file <repo>@<branch or commitID>:/path/to/files
-      ```
+      We then run `pachctl squash commit ID1`, then `pachctl squash commit ID2`, and look at our branch and remaining commit(s).
 
-1. Finish the commit:
+      ![Squash example](../images/squash-delete.png)
+      * A’ and C' are altered versions of files A and C.
 
-      ```shell
-      pachctl finish commit <repo>@<branch>
-      ```
+      At any moment, `pachctl list file repo@master` invariably returns the same files A’, B, C’. `pachctl list commit` however, differs in each case, since, by squashing commits, we have deleted them from the branch. 
 
-4. Delete the initial bad commit and all its children up to
+## Delete Files from History
+
+!!! Important
+    It is important to note that this use case is limited to simple cases where the "bad" changes were made relatively recently, as any pipeline update since then will make it impossible.
+
+I rare cases, you might need to delete a particular file from a given commit and further choose to delete its complete history. 
+In such a case, you will need to:
+
+- Create a new commit in which you surgically remove the problematic file.
+    1. Start a new commit:
+
+        ```shell
+        pachctl start commit <repo>@<branch>
+        ```
+
+    1. Delete all corrupted files from the newly opened commit:
+
+        ```shell
+        pachctl delete file <repo>@<branch or commitID>:/path/to/files
+        ```
+
+    1. Finish the commit:
+
+        ```shell
+        pachctl finish commit <repo>@<branch>
+        ```
+
+- Optionally, wipe this file from your history by squashing the initial bad commit and all its children up to
    the newly finished commit.
 
-      Depending on how you use Pachyderm, the final step might be
-      optional. After you finish the commit, the HEADs of all your
-      branches converge to correct results as downstream jobs finish.
-      However, deleting those commits cleans up your
+      Unless the subsequent commits overwrote or deleted the
+      bad data, the data might still be present in the
+      children commits. Squashing those commits cleans up your
       commit history and ensures that the errant data is not
-      available when non-HEAD versions of the data is read.
+      available when non-HEAD versions of the data are read.
 
+
+!!! Example
+
+      In the simple example below, we want to delete file C in commit 2. 
+      How would we do that?
+
+      For now, `pachctl list file repo@master` returns the files A’, B, C’, E, F.
+
+      ![Delete data example](../images/delete-data.png)
+      * A’ and C' are altered versions of files A and C.
+
+      - We create a new commit in which we surgically remove file C:
+
+        ``` shell
+          pachctl start commit repo@master
+          pachctl delete file repo@master:path/to/C
+          pachctl finish commit repo@master   
+        ```
+        At this point, `pachctl list file repo@master` returns the files A’, B, E, F. We removed file C. However, it still exists in the commit history.
+
+      - To remove C from the commit history, we squash the commits in which C appears, all the way down to the last commit.  
+        ```
+          pachctl squash commitID2
+          pachctl squash commitID3
+        ```
+        It is as if C never existed.
+
+
+
+
+
+      
+
+      

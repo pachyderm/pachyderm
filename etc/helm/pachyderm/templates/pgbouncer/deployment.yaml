@@ -24,6 +24,9 @@ spec:
         suite: pachyderm
       name: pg-bouncer
       namespace: {{ .Release.Namespace }}
+      {{- if .Values.pgbouncer.annotations }}
+      annotations: {{ toYaml .Values.pgbouncer.annotations | nindent 4 }}
+      {{- end }}
     spec:
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
@@ -55,8 +58,8 @@ spec:
         - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres # Must match secret setup by postgres subchart, or postgres-secret.yaml 
-              key: postgresql-password
+              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
+              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
         image: bitnami/pgbouncer:1.16.0
         imagePullPolicy: IfNotPresent
         name: pg-bouncer

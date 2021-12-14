@@ -12,7 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	uuid "github.com/satori/go.uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 
 	"github.com/spf13/cobra"
 )
@@ -95,7 +95,7 @@ func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 	require.NoError(t, err)
 
 	cfg := &config.Config{
-		UserID: uuid.NewV4().String(),
+		UserID: uuid.NewWithoutDashes(),
 		V2: &config.ConfigV2{
 			ActiveContext: "test",
 			Contexts: map[string]*config.Context{

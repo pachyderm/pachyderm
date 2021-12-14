@@ -27,6 +27,7 @@ we recommend that you:
 
     !!! Note
         Optionally, you can use a certificate manager such as [cert-manager](https://cert-manager.io/docs/) to refresh certificates and inject them as kubernetes secrets into your cluster for the ingress and load balancer to use.
+  
    
 * **Use Pachyderm authentication/authorization**
 
@@ -89,10 +90,15 @@ If your `ingress` is enabled:
             serviceName: "console"
             servicePort: "console-http"
 ```
+
 See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L143) for all available fields.
 
 !!! Info
     You might choose to deploy your preferred Ingress Controller (Traefik, NGINX). Read about the installation and configuration of [Traefik](./pach-ui-ingress/) on a cluster.
+
+!!! Warning
+    To have the ingress routes use the https protocol without enabling the cert secret configuration, set `ingress.uriHttpsProtoOverride` to true in your values.yaml.
+
 
 === "Example on AWS EKS"
 
@@ -139,8 +145,11 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
         annotations:
             kubernetes.io/ingress.class: "nginx"
         host: "your_domain_name" 
-  
+        tls:
+            enabled: true
+            secretName: "pach-tls" 
     ```
+    **ATTENTION: You must use TLS when deploying on Azure.**
 
 
 As of today, few Ingress Controller offer full support of the gRPC protocol. To access `pachd` over gRPC (for example, when using `pachctl` or the s3Gateway, we recommend using a Load Balancer instead.

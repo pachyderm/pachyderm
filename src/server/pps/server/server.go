@@ -4,7 +4,6 @@ import (
 	"context"
 	"path"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -19,6 +18,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	logrus "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -95,7 +95,7 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		peerPort:              config.PeerPort,
 		gcPercent:             config.GCPercent,
 	}
-	apiServer.validateKube()
+	apiServer.validateKube(apiServer.env.BackgroundContext)
 	go apiServer.master()
 	return apiServer, nil
 }

@@ -14,7 +14,7 @@ import (
 
 const (
 	mysqlPort     = 9100
-	mysqlPassword = "root"
+	MySQLPassword = "root"
 	mysqlUser     = "root"
 )
 
@@ -22,6 +22,12 @@ const (
 // backed by a docker container.
 // The database is cleaned up after the test is closed.
 func NewMySQL(t testing.TB) *pachsql.DB {
+	u := NewMySQLURL(t)
+	return testutil.OpenDBURL(t, u, MySQLPassword)
+}
+
+// NewMySQLURL returns a pachsql.URL to an ephemeral database.
+func NewMySQLURL(t testing.TB) pachsql.URL {
 	ctx := context.Background()
 	log := logrus.StandardLogger()
 
@@ -32,7 +38,7 @@ func NewMySQL(t testing.TB) *pachsql.DB {
 			mysqlPort: 3306,
 		},
 		Env: map[string]string{
-			"MYSQL_ROOT_PASSWORD": mysqlPassword,
+			"MYSQL_ROOT_PASSWORD": MySQLPassword,
 		},
 	})
 	require.NoError(t, err)
@@ -43,12 +49,12 @@ func NewMySQL(t testing.TB) *pachsql.DB {
 		Port:     mysqlPort,
 		Database: "",
 	}
-	db := testutil.OpenDBURL(t, u, mysqlPassword)
+	db := testutil.OpenDBURL(t, u, MySQLPassword)
 	ctx, cf := context.WithTimeout(ctx, 30*time.Second)
 	defer cf()
 	require.NoError(t, dbutil.WaitUntilReady(ctx, log, db))
 	dbName := testutil.CreateEphemeralDB(t, db)
 	u2 := u
 	u2.Database = dbName
-	return testutil.OpenDBURL(t, u2, mysqlPassword)
+	return u2
 }

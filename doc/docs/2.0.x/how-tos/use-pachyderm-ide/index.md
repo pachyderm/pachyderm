@@ -2,7 +2,7 @@
 
 !!! Warning 
      - Notebooks [**beta**](../../contributing/supported-releases/#beta) is available on our Saas solution [Hub](https://hub.pachyderm.com). 
-     - Create a workspace and experiment with Notebooks right away with our **21-day free trial**\*.
+     - [Contact us](mailto:sales@pachyderm.com) to create a workspace and start experimenting with Notebooks right away with our **21-day free trial**\*.
 
      *\*Offer limited to one single user workspace with 4 vCPUs, 15GB RAM, and unlimited object storage.*
     

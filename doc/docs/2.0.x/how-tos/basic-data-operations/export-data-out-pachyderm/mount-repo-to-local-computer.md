@@ -22,75 +22,6 @@ locally, but cannot modify them.
 * `Read-write` — you can read mounted files, modify their contents, and
 push them back into your centralized Pachyderm input repositories.
 
-## Mounting Repositories in Read-Only Mode
-
-By default, Pachyderm mounts
-all repositories in read-only mode. You can access the
-files through your file browser or enable third-party applications
-access. Read-only access enables you to explore and experiment with
-the data, without modifying it. For example, you can mount your
-repo to a local computer and then open that directory in a Jupyter
-Notebook for exploration. 
-
-## Mounting Specific Branches and Commits
-
-The `pachctl mount` command allows you to mount not only the default
-branch, typically a `master` branch, but also other Pachyderm
-branches. By default, Pachyderm mounts the `master` branch. However,
-if you add a branch to the name of the repo, the `HEAD` of that branch
-will be mounted.
-
-**Example:**
-
-```shell
-pachctl mount images --repos images@staging
-```
-
-You can also mount a specific commit, but because commits
-might be on multiple branches, modifying them might result in data deletion
-in the `HEAD` of the branches. Therefore, you can only mount commits in
-read-only mode. If you want to write to a specific commit that is not
-the `HEAD` of a branch, you can create a new branch with that commit as `HEAD`.
-
-## Mounting Repositories in Read-Write Mode
-
-Running the `pachctl mount` command with the `--write` flag grants you
-write access to the mounted repositories, which means that you can
-open the files for editing and put them back to the Pachyderm
-repository. 
-
-For example, you have the [OpenCV example pipeline](../../../../getting_started/beginner_tutorial/#image-processing-with-opencv)
-up and running. If you want to edit files in the `images`
-repository, experiment with brightness and contrast
-settings in `liberty.png`, and finally have your `edges`
-pipeline process those changes.
-If you do not mount the `images` repo, you would have to
-first download the files to your computer, edit them,
-and then put them back to the repository. The `pachctl mount`
-command automates all these steps for you. You can mount just the
-`images` repo or all Pachyderm repositories as directories
-on you machine, edit as needed, and, when done,
-exit the `pachctl mount` command. Upon exiting the `pachctl mount`
-command, Pachyderm uploads all the changes to the corresponding
-repository.
-
-If someone else modifies the files while you are working on them
-locally, their changes will likely be overwritten when you exit
-`pachctl mount`. This happens because your changes are saved to
-the Pachyderm repository only after you interrupt the `pachctl mount`
-command. Therefore, make sure that you do not work on the
-same files while someone else is working on them.
-
-!!! warning
-    Use writable mount **ONLY** when you have sole ownership
-    over the mounted data. Otherwise, merge conflicts or
-    unexpected data overwrites can occur.
-
-Because output repositories are created by the Pachyderm
-pipelines, they are immutable. Only a pipeline
-can change and update files in these repositories. If you try to change
-a file in an output repo, you will get an error message.
-
 ## Prerequisites
 
 You must have the following configured for this functionality to work:
@@ -113,9 +44,80 @@ Yosemite or later.
 
     For more information, see:
 
-    * [FUSE for macOS](https://osxfuse.github.io/)
+  * [FUSE for macOS](https://osxfuse.github.io/)
 
-## Mount a Pachyderm Repo
+## Mounting Repositories in Read-Only Mode
+
+By default, Pachyderm mounts
+all repositories in read-only mode. You can access the
+files through your file browser or enable third-party applications
+access. Read-only access enables you to explore and experiment with
+the data, without modifying it. For example, you can mount your
+repo to a local computer and then open that directory in a Jupyter
+Notebook for exploration. 
+
+!!! Note
+      The `pachctl mount` command allows you to mount not only the default
+      branch, typically a `master` branch, but also other Pachyderm
+      branches. By default, Pachyderm mounts the `master` branch. However,
+      if you add a branch to the name of the repo, the `HEAD` of that branch
+      will be mounted.
+
+      **Example:**
+
+      ```shell
+      pachctl mount images --repos images@staging
+      ```
+
+      You can also mount a specific commit, but because commits
+      might be on multiple branches, modifying them might result in data deletion
+      in the `HEAD` of the branches. Therefore, you can only mount commits in
+      read-only mode. If you want to write to a specific commit that is not
+      the `HEAD` of a branch, you can create a new branch with that commit as `HEAD`.
+
+## Mounting Repositories in Read-Write Mode
+
+Running the `pachctl mount` command with the `--write` flag grants you
+write access to the mounted repositories, which means that you can
+open the files for editing and put them back to the Pachyderm
+repository. 
+
+!!! Warning
+    Your changes are saved to the Pachyderm repository only **after you interrupt the `pachctl mount` with  `CTRL+C`** or with `pachctl unmount`, `unmount /<path-to-mount>`, or `fusermount -u /<path-to-mount>`.
+
+For example, you have the [OpenCV example pipeline](../../../../getting_started/beginner_tutorial/#image-processing-with-opencv)
+up and running. If you want to edit files in the `images`
+repository, experiment with brightness and contrast
+settings in `liberty.png`, and finally have your `edges`
+pipeline process those changes.
+If you do not mount the `images` repo, you would have to
+first download the files to your computer, edit them,
+and then put them back to the repository. The `pachctl mount`
+command automates all these steps for you. You can mount just the
+`images` repo or all Pachyderm repositories as directories
+on you machine, edit as needed, and, when done,
+exit the `pachctl mount` command. Upon exiting the `pachctl mount`
+command, Pachyderm uploads all the changes to the corresponding
+repository.
+
+If someone else modifies the files while you are working on them
+locally, their changes will likely be overwritten when you exit
+`pachctl mount`. This happens because  Therefore, make sure that you do not work on the
+same files while someone else is working on them.
+
+!!! Note
+    
+    - Use writable mount **ONLY** when you have sole ownership
+    over the mounted data. Otherwise, merge conflicts or
+    unexpected data overwrites can occur.
+
+    - Because output repositories are created by the Pachyderm
+      pipelines, they are immutable. Only a pipeline
+      can change and update files in these repositories. If you try to change
+      a file in an output repo, you will get an error message.
+
+
+### How to Mount/Unmount a Pachyderm Repo
 
 To mount a Pachyderm repo on a local computer, complete the following
 steps:
@@ -191,13 +193,13 @@ in your terminal:
       ![finder-repo-mount](../../../assets/images/s_finder_repo_mount.png)
 
 1. Edit the files as needed.
-1. When ready, add your changes to the Pachyderm repo by stopping
+1. When ready, **add your changes to the Pachyderm repo by stopping
 the `pachctl mount` command with `CTRL+C` or by running `pachctl unmount
-<mountpoint>`.
+<mountpoint>`** (or `unmount /<path-to-mount>`, or `fusermount -u /<path-to-mount>`).
 
-      If you have mounted a writable Pachyderm share interrupting the
-      `pachctl mount` command results in uploads
-      your changes to the corresponding repo and branch, which is equivalent
+      If you have mounted a writable Pachyderm share, **interrupting the
+      `pachctl mount` command results in the upload of
+      your changes to the corresponding repo and branch**, which is equivalent
       to running the `pachctl put file` command. You can check that
       Pachyderm runs a new job for this work by listing current jobs with
       `pachctl list job`.
