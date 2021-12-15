@@ -44,42 +44,42 @@ spec:
           valueFrom:
             secretKeyRef:
               name: {{ .Values.pachd.rootTokenSecretName }}
-              key: rootToken
+              key: root-token
         {{- end }}
         {{- if .Values.pachd.enterpriseRootTokenSecretName }}
         - name: ENTERPRISE_ROOT_TOKEN
           valueFrom:
             secretKeyRef:
               name: {{ .Values.pachd.enterpriseRootTokenSecretName }}
-              key: enterpriseRootToken
+              key: enterprise-root-token
         {{- end }}
         {{- if .Values.pachd.enterpriseSecretSecretName }}
         - name: ENTERPRISE_SECRET
           valueFrom:
             secretKeyRef:
               name: {{ .Values.pachd.enterpriseSecretSecretName }}
-              key: enterpriseSecret
+              key: enterprise-secret
         {{- end }}
         {{- if .Values.pachd.oauthClientSecretSecretName }}
         - name: PACHD_OAUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
               name: {{ .Values.pachd.oauthClientSecretSecretName }}
-              key: pachdOauthClientSecret
+              key: pachd-oauth-client-secret
         {{- end }}
         {{- if .Values.pachd.enterpriseLicenseKeySecretName }}
         - name: ENTERPRISE_LICENSE_KEY
           valueFrom:
             secretKeyRef:
               name: {{ .Values.pachd.enterpriseLicenseKeySecretName }}
-              key: enterpriseLicenseKey
+              key: enterprise-license-key
         {{- end }}   
         {{- if .Values.oidc.upstreamIDPsSecretName }}
         - name: UPSTREAM_IDPS
           valueFrom:
             secretKeyRef:
               name: {{ .Values.oidc.upstreamIDPsSecretName }}
-              key: upstreamIDPs
+              key: upstream-idps
         {{- end }}        
         envFrom:
         - secretRef:
