@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
@@ -545,6 +546,30 @@ func NewEnterpriseClientOnUserMachine(prefix string, options ...Option) (*APICli
 	return newOnUserMachine(cfg, context, name, prefix, options...)
 }
 
+func CheckPortForwardLiveness(context *config.Context) bool {
+	// Check if old PortForwarder is still running. Note: 'pid' will not be
+	// set by pachctl <2.0.4, so it won't always exist.
+	if pid, ok := context.PortForwarders["pid"]; ok {
+		// If old port-forward pid no longer exists at all, it's dead.
+		if _, err := os.Stat(fmt.Sprintf("/proc/%d", pid)); errors.Is(err, os.ErrNotExist) {
+			return false
+		} else if err != nil {
+			log.Errorf("Can't stat /proc/%d to establish whether old port-forward process is alive: %v", pid, err)
+			return true // assume alive
+		}
+		// If old port-forward pid isn't "pachctl port-forward", it's dead.
+		if pfname, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid)); err == nil {
+			if !bytes.HasPrefix(pfname, []byte{'p', 'a', 'c', 'h', 'c', 't', 'l'}) {
+				return false
+			}
+		} else {
+			log.Errorf("Can't read /proc/%d/cmdline to establish whether old port-forward process is alive: %v", pid, err)
+			return true // assume alive
+		}
+	}
+	return true
+}
+
 // TODO(msteffen) this logic is fairly linux/unix specific, and makes the
 // pachyderm client library incompatible with Windows. We may want to move this
 // (and similar) logic into src/server and have it call a NewFromOptions()
@@ -558,13 +583,20 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 
 	var fw *PortForwarder
 	if pachdAddress == nil && context.PortForwarders != nil {
-		pachdLocalPort, ok := context.PortForwarders["pachd"]
-		if ok {
-			log.Debugf("Connecting to explicitly port forwarded pachd instance on port %d", pachdLocalPort)
-			pachdAddress = &grpcutil.PachdAddress{
-				Secured: false,
-				Host:    "localhost",
-				Port:    uint16(pachdLocalPort),
+		if !CheckPortForwardLiveness(context) {
+			context.PortForwarders = nil
+			if err = cfg.Write(); err != nil {
+				return nil, errors.Wrap(err, "could not write config to remove port-forward ports")
+			}
+		} else {
+			pachdLocalPort, ok := context.PortForwarders["pachd"]
+			if ok {
+				log.Debugf("Connecting to explicitly port forwarded pachd instance on port %d", pachdLocalPort)
+				pachdAddress = &grpcutil.PachdAddress{
+					Secured: false,
+					Host:    "localhost",
+					Port:    uint16(pachdLocalPort),
+				}
 			}
 		}
 	}

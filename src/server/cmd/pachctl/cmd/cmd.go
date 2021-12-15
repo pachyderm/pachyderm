@@ -16,7 +16,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
-	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
@@ -559,6 +558,13 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return err
 			}
+			if !client.CheckPortForwardLiveness(context) {
+				context.PortForwarders = nil
+				if err = cfg.Write(); err != nil {
+					log.Errorf("Could not write config to remove port-forward ports: %v", err)
+				}
+			}
+
 			if context.PortForwarders != nil && len(context.PortForwarders) > 0 {
 				fmt.Println("Port forwarding appears to already be running for this context. Running multiple forwarders may not work correctly.")
 				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
@@ -574,7 +580,9 @@ This resets the cluster to its initial state.`,
 			}
 			defer fw.Close()
 
-			context.PortForwarders = map[string]uint32{}
+			context.PortForwarders = map[string]uint32{
+				"pid": uint32(os.Getpid()),
+			}
 			successCount := 0
 
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
