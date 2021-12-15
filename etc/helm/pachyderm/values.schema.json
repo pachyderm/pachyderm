@@ -362,19 +362,8 @@
                 "upstreamIDPs": {
                     "type": "array"
                 },
-                "upstreamIDPsSecret": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "key": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    }
+                "upstreamIDPsSecretName": {
+                    "type": "string"
                 },
                 "userAccessibleOauthIssuerHost": {
                     "type": "string"
@@ -419,53 +408,20 @@
                 "enterpriseLicenseKey": {
                     "type": "string"
                 },
-                "enterpriseLicenseKeySecret": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "key": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    }
+                "enterpriseLicenseKeySecretName": {
+                    "type": "string"
                 },
                 "enterpriseRootToken": {
                     "type": "string"
                 },
-                "enterpriseRootTokenSecret": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "key": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    }
+                "enterpriseRootTokenSecretName": {
+                    "type": "string"
                 },
                 "enterpriseSecret": {
                     "type": "string"
                 },
-                "enterpriseSecretSecret": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "key": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    }
+                "enterpriseSecretSecretName": {
+                    "type": "string"
                 },
                 "enterpriseServerAddress": {
                     "type": "string"
@@ -536,19 +492,8 @@
                 "oauthClientSecret": {
                     "type": "string"
                 },
-                "oauthClientSecretSecret": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "key": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    }
+                "oauthClientSecretSecretName": {
+                    "type": "string"
                 },
                 "oauthRedirectURI": {
                     "type": "string"
@@ -582,19 +527,8 @@
                 "rootToken": {
                     "type": "string"
                 },
-                "rootTokenSecret": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "key": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    }
+                "rootTokenSecretName": {
+                    "type": "string"
                 },
                 "securityContext": {
                     "type": "object",

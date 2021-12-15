@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
       - name: config-pod
-        image: config-pod:test-4
+        image: pachyderm/config-pod:0.5
         command: [ "/config-pod" ]
         volumeMounts:
         - name: config
@@ -39,47 +39,47 @@ spec:
         - name: PACH_ADDR
           value: "grpc://pach-enterprise:1650"
         {{- end }}
-        {{- if .Values.pachd.rootTokenSecret.enabled }}    
+        {{- if .Values.pachd.rootTokenSecretName }}    
         - name: ROOT_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.pachd.rootTokenSecret.name }}
-              key: {{ .Values.pachd.rootTokenSecret.key }}
+              name: {{ .Values.pachd.rootTokenSecretName }}
+              key: rootToken
         {{- end }}
-        {{- if .Values.pachd.enterpriseRootTokenSecret.enabled }}
+        {{- if .Values.pachd.enterpriseRootTokenSecretName }}
         - name: ENTERPRISE_ROOT_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.pachd.enterpriseRootTokenSecret.name }}
-              key: {{ .Values.pachd.enterpriseRootTokenSecret.key }}
+              name: {{ .Values.pachd.enterpriseRootTokenSecretName }}
+              key: enterpriseRootToken
         {{- end }}
-        {{- if .Values.pachd.enterpriseSecretSecret.enabled }}
+        {{- if .Values.pachd.enterpriseSecretSecretName }}
         - name: ENTERPRISE_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.pachd.enterpriseSecretSecret.name }}
-              key: {{ .Values.pachd.enterpriseSecretSecret.key }}
+              name: {{ .Values.pachd.enterpriseSecretSecretName }}
+              key: enterpriseSecret
         {{- end }}
-        {{- if .Values.pachd.oauthClientSecretSecret.enabled }}
+        {{- if .Values.pachd.oauthClientSecretSecretName }}
         - name: PACHD_OAUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.pachd.oauthClientSecretSecret.name }}
-              key: {{ .Values.pachd.oauthClientSecretSecret.key }}
+              name: {{ .Values.pachd.oauthClientSecretSecretName }}
+              key: pachdOauthClientSecret
         {{- end }}
-        {{- if .Values.pachd.enterpriseLicenseKeySecret.enabled }}
+        {{- if .Values.pachd.enterpriseLicenseKeySecretName }}
         - name: ENTERPRISE_LICENSE_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.pachd.enterpriseLicenseKeySecret.name }}
-              key: {{ .Values.pachd.enterpriseLicenseKeySecret.key }}
+              name: {{ .Values.pachd.enterpriseLicenseKeySecretName }}
+              key: enterpriseLicenseKey
         {{- end }}   
-        {{- if .Values.oidc.upstreamIDPsSecret.enabled }}
+        {{- if .Values.oidc.upstreamIDPsSecretName }}
         - name: UPSTREAM_IDPS
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.oidc.upstreamIDPsSecret.name }}
-              key: {{ .Values.oidc.upstreamIDPsSecret.key }}
+              name: {{ .Values.oidc.upstreamIDPsSecretName }}
+              key: upstreamIDPs
         {{- end }}        
         envFrom:
         - secretRef:
