@@ -225,9 +225,7 @@ workflows:
           cron: "15 * * * *"
           filters:
             branches:
-              only: 
-                - master
-                - 2.0.x
+              only: master 
     jobs:
       - load:
           matrix:
