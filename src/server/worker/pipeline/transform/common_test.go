@@ -11,8 +11,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -71,11 +71,11 @@ func (td *testDriver) Jobs() col.PostgresCollection {
 func (td *testDriver) Pipelines() col.PostgresCollection {
 	return td.inner.Pipelines()
 }
-func (td *testDriver) NewTaskWorker() *work.Worker {
-	return td.inner.NewTaskWorker()
+func (td *testDriver) NewTaskSource() task.Source {
+	return td.inner.NewTaskSource()
 }
-func (td *testDriver) NewTaskQueue() (*work.TaskQueue, error) {
-	return td.inner.NewTaskQueue()
+func (td *testDriver) NewTaskDoer(groupID string) task.Doer {
+	return td.inner.NewTaskDoer(groupID)
 }
 func (td *testDriver) PipelineInfo() *pps.PipelineInfo {
 	return td.inner.PipelineInfo()

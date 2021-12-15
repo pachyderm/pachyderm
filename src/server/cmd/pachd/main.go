@@ -443,7 +443,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err := logGRPCServerSetup("PPS API", func() error {
 		ppsAPIServer, err := pps_server.NewSidecarAPIServer(
 			pps_server.EnvFromServiceEnv(env, txnEnv, nil),
-			path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
 			env.Config().Namespace,
 			env.Config().PPSWorkerPort,
 			env.Config().PeerPort,

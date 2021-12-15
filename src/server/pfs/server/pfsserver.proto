@@ -4,13 +4,11 @@ package pfsserver;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/server/pfs/server";
 
 message ShardTask {
-  int64 index = 1;
-  repeated string inputs = 2;
+  repeated string inputs = 1;
 }
 
 message ShardTaskResult {
-  int64 index = 1;
-  repeated CompactTask compact_tasks = 2;
+  repeated CompactTask compact_tasks = 1;
 }
 
 message PathRange {
@@ -19,22 +17,18 @@ message PathRange {
 }
 
 message CompactTask {
-  int64 index = 1;
-  repeated string inputs = 2;
-  PathRange path_range = 3;
+  repeated string inputs = 1;
+  PathRange path_range = 2;
 }
 
 message CompactTaskResult {
-  int64 index = 1;
-  string id = 2;
+  string id = 1;
 }
 
 message ConcatTask {
-  int64 index = 1;
-  repeated string inputs = 2;
+  repeated string inputs = 1;
 }
 
 message ConcatTaskResult {
-  int64 index = 1;
-  string id = 2;
+  string id = 1;
 }

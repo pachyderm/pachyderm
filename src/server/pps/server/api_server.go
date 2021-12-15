@@ -46,7 +46,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
@@ -2200,11 +2199,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 			info.Details.WorkersAvailable = int64(len(workerStatus))
 			info.Details.WorkersRequested = int64(info.Parallelism)
 		}
-		tasks, claims, err := work.NewWorker(
-			a.env.EtcdClient,
-			a.etcdPrefix,
-			driver.WorkNamespace(info),
-		).TaskCount(ctx)
+		tasks, claims, err := a.env.TaskService.TaskCount(ctx, driver.TaskNamespace(info))
 		if err != nil {
 			return nil, err
 		}
