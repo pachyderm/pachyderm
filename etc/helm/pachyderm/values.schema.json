@@ -362,6 +362,20 @@
                 "upstreamIDPs": {
                     "type": "array"
                 },
+                "upstreamIDPsSecret": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "key": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "userAccessibleOauthIssuerHost": {
                     "type": "string"
                 }
@@ -404,6 +418,20 @@
                 },
                 "enterpriseLicenseKey": {
                     "type": "string"
+                },
+                "enterpriseLicenseKeySecret": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "key": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
                 },
                 "enterpriseRootToken": {
                     "type": "string"

@@ -2,7 +2,7 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{ if and (or (.Values.pachd.enterpriseLicenseKey) (.Values.pachd.activateEnterpriseMember)) ( or (.Release.IsInstall) (.Values.pachd.activateEnterprise)) }}
+{{ if or (.Values.pachd.activateEnterprise) (and .Release.IsInstall (or .Values.pachd.enterpriseLicenseKey .Values.pachd.activateEnterpriseMember)) }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
       - name: config-pod
-        image: pachyderm/config-pod:0.5
+        image: config-pod:test-4
         command: [ "/config-pod" ]
         volumeMounts:
         - name: config
@@ -67,6 +67,20 @@ spec:
               name: {{ .Values.pachd.oauthClientSecretSecret.name }}
               key: {{ .Values.pachd.oauthClientSecretSecret.key }}
         {{- end }}
+        {{- if .Values.pachd.enterpriseLicenseKeySecret.enabled }}
+        - name: ENTERPRISE_LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseLicenseKeySecret.name }}
+              key: {{ .Values.pachd.enterpriseLicenseKeySecret.key }}
+        {{- end }}   
+        {{- if .Values.oidc.upstreamIDPsSecret.enabled }}
+        - name: UPSTREAM_IDPS
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.oidc.upstreamIDPsSecret.name }}
+              key: {{ .Values.oidc.upstreamIDPsSecret.key }}
+        {{- end }}        
         envFrom:
         - secretRef:
             name: pachyderm-deployment-id-secret
