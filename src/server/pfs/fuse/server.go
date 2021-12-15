@@ -611,6 +611,7 @@ func mountingState(m *MountStateMachine) StateFn {
 			Branch: m.MountKey.Repo,
 			Write:  m.Mode == "rw",
 		}
+		fmt.Printf("*** MOUNTINGSTATE repoOpts: %+v\n", m.manager.root.repoOpts)
 	}()
 	// re-downloading the repos with an updated RepoOptions set will have the
 	// effect of causing it to pop into existence
@@ -655,7 +656,7 @@ func mountedState(m *MountStateMachine) StateFn {
 // delete abc/foo
 // but do NOT delete abcde
 func cleanByPrefixStrings(theMap map[string]string, prefix string) {
-	for k, _ := range theMap {
+	for k := range theMap {
 		if k == prefix || strings.HasPrefix(k, prefix+"/") {
 			delete(theMap, k)
 		}
@@ -664,7 +665,7 @@ func cleanByPrefixStrings(theMap map[string]string, prefix string) {
 
 // same as above for fileState type maps. _sigh_ .oO { generics! }
 func cleanByPrefixFileStates(theMap map[string]fileState, prefix string) {
-	for k, _ := range theMap {
+	for k := range theMap {
 		if k == prefix || strings.HasPrefix(k, prefix+"/") {
 			delete(theMap, k)
 		}

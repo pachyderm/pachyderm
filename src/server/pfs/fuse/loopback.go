@@ -575,7 +575,15 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 		return nil
 	}
 	// XXX translate name -> repo
-	if err := n.c().ListFile(client.NewCommit(name, branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
+	fmt.Printf("*** COMMIT repoOpts: %+v\n", n.root().repoOpts)
+	ro, ok := n.root().repoOpts[name]
+	if !ok {
+		// not ready or something?
+		// XXX should this be an error?
+		return nil
+	}
+	repoName := ro.Repo
+	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
 		if fi.FileType == pfs.FileType_DIR {
 			return os.MkdirAll(n.filePath(name, fi), 0777)
 		}
@@ -637,8 +645,16 @@ func (n *loopbackNode) commit(name string) (string, error) {
 	}(); ok {
 		return commit, nil
 	}
+	fmt.Printf("*** COMMIT repoOpts: %+v\n", n.root().repoOpts)
+	ro, ok := n.root().repoOpts[name]
+	if !ok {
+		// not ready or something?
+		// XXX should this be an error?
+		return "", nil
+	}
+	repoName := ro.Repo
 	branch := n.root().branch(name)
-	bi, err := n.root().c.InspectBranch(name, branch)
+	bi, err := n.root().c.InspectBranch(repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		return "", err
 	}
@@ -652,6 +668,7 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		return "", nil
 	}
 	n.root().commits[name] = bi.Head.ID
+	fmt.Printf("*** COMMIT END commits: %+v\n", n.root().commits)
 	return bi.Head.ID, nil
 }
 

@@ -77,6 +77,11 @@ func TestBasicServerSameNames(t *testing.T) {
 }
 
 func TestBasicServerDifferingNames(t *testing.T) {
+	// XXX why nothing in commits and files like working case above:
+	/*
+		> commits: map[.Trash: .Trash-1000: repo:2f359ea64d7a44ddb6147a038acba380]
+		> files: map[:1 .Trash:1 .Trash-1000:1 repo:1 repo/dir:1]
+	*/
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
