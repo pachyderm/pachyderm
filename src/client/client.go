@@ -559,7 +559,7 @@ func CheckPortForwardLiveness(context *config.Context) bool {
 		}
 		// If old port-forward pid isn't "pachctl port-forward", it's dead.
 		if pfname, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid)); err == nil {
-			if !bytes.HasPrefix(pfname, []byte{'p', 'a', 'c', 'h', 'c', 't', 'l'}) {
+			if !strings.HasPrefix(string(pfname), "pachctl") {
 				return false
 			}
 		} else {
