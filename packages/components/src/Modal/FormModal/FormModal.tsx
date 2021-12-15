@@ -69,7 +69,7 @@ const FormModal = <T,>({
           confirmText={confirmText}
           disabled={disabled}
           onConfirm={() => {
-            formContext.handleSubmit(onSubmit);
+            formContext.handleSubmit(onSubmit)();
           }}
           onHide={onHide}
         />
