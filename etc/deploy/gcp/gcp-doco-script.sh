@@ -12,6 +12,15 @@ PROJECT_ID="pachyderm-gcp-test"
 NAME="fuzzy-alpaca"
 SQL_ADMIN_PASSWORD="batteryhorsestaple"
 
+# To enable console set CONSOLE_ENABLED=true and,
+# add your ENTERPRISE_LICENSE_KEY between the quotes below
+ENTERPRISE_LICENSE_KEY=""
+CONSOLE_ENABLED=false
+
+# To use a specific billing account replace the default value with the billing account name
+# found at https://console.cloud.google.com/billing
+BILLING_ACCOUNT_NAME="*"
+
 # This group of variables can be changed, but are sane defaults
 GCP_REGION="us-central1"
 GCP_ZONE="us-central1-a"
@@ -39,12 +48,19 @@ CLOUDSQLAUTHPROXY_WI="serviceAccount:${PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/
 kubectl version --client=true
 
 gcloud version
+gcloud components install alpha bq gsutil
 
 helm version
 
 jq --version
 
-gcloud config set project ${PROJECT_ID}
+gcloud projects create ${PROJECT_ID} --name=${NAME} --set-as-default
+
+BILLING_ACCOUNT_ID=$(gcloud alpha billing accounts list --filter=NAME:${BILLING_ACCOUNT_NAME} --format=value\(ACCOUNT_ID\) )
+
+gcloud alpha billing projects link ${PROJECT_ID} --billing-account=${BILLING_ACCOUNT_ID}
+
+gcloud services enable sqladmin.googleapis.com gkeconnect.googleapis.com container.googleapis.com
 
 gcloud config set compute/zone ${GCP_ZONE}
 
@@ -122,7 +138,7 @@ pachd:
     aPIGrpcport:    31400
     loadBalancerIP: ${STATIC_IP_ADDR}
   image:
-    tag: "2.0.0-rc.6"
+    tag: "2.0.3"
   storage:
     google:
       bucket: "${BUCKET_NAME}"
@@ -137,6 +153,9 @@ pachd:
         iam.gke.io/gcp-service-account: "${SERVICE_ACCOUNT}"
       create: true
       name:   "pachyderm-worker"
+  enterpriseLicenseKey: "${ENTERPRISE_LICENSE_KEY}"
+console:
+  enabled: ${CONSOLE_ENABLED}
 
 cloudsqlAuthProxy:
   enabled: true
@@ -156,7 +175,7 @@ global:
     postgresqlPort: "5432"
     postgresqlSSL: "disable"
     postgresqlUsername: "postgres"
-    postgresqlPassword: "batteryhorsestaple"
+    postgresqlPassword: "${SQL_ADMIN_PASSWORD}"
 EOF
 
 helm repo add pach https://helm.pachyderm.com
@@ -166,3 +185,4 @@ helm install pachyderm -f ./${NAME}.values.yaml pach/pachyderm
 STATIC_IP_ADDR_NO_QUOTES=$(echo "$STATIC_IP_ADDR" | tr -d '"')
 echo "{\"pachd_address\": \"grpc://${STATIC_IP_ADDR_NO_QUOTES}:30650\"}" | pachctl config set context "${CLUSTER_NAME}" --overwrite
 pachctl config set active-context ${CLUSTER_NAME}
+pachctl config get active-context

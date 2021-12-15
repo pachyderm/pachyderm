@@ -22,13 +22,13 @@ In particular, you will:
 
 !!! Warning "TL;DR - Give me the script"
 
-    [This script](https://github.com/pachyderm/pachyderm/blob/master/etc/deploy/gcp/gcp-doco-script.sh) will create a GKE cluster, the workload identity service accounts and permissions you need, a static IP, the cloud SQL instance and databases, and a cloud storage bucket. It will also install Pachyderm into the cluster. 
+    [This script](https://github.com/pachyderm/pachyderm/blob/master/etc/deploy/gcp/gcp-doco-script.sh) will create the following: a new GCP project with required APIs, a GKE cluster, the workload identity service accounts and permissions you need, a static IP, the cloud SQL instance and databases, and a cloud storage bucket. It will also install Pachyderm into the cluster. 
 
-      - Before running it, update the global variables at the top of the script and make sure to go through the [prerequisites](#1-prerequisites), as we are assuming that you have created a project and enabled the necessary APIs.  
-      Note that it will also create a file called ${NAME}.values.yaml in the current directory.
+      - Before running it, update the global variables at the top of the script and make sure to install the clients found in the [prerequisites](#1-prerequisites). If you have not already initialized the Google SDK, follow the QuickStart Guide found in the prerequisites.
 
-    - Once your script has run, [configure your context](#7-have-pachctl-and-your-cluster-communicate)   and [check that your cluster is up and running](#8-check-that-your-cluster-is-up-and-running).
+    - Once your script has run, [check that your cluster is up and running](#8-check-that-your-cluster-is-up-and-running).
 
+      This script will create a file called ${NAME}.values.yaml in the current directory. If you enabled console, [Connect to Console](../console/#connect-to-console) using the quick install instructions.
 
 ## 1. Prerequisites
 
