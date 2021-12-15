@@ -356,11 +356,11 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 				return taskDoer.Do(
 					ctx,
 					inputChan,
-					func(_ int64, any *types.Any, err error) error {
+					func(_ int64, output *types.Any, err error) error {
 						if err != nil {
 							return err
 						}
-						data, err := deserializeDatumSet(any)
+						data, err := deserializeDatumSet(output)
 						if err != nil {
 							return err
 						}

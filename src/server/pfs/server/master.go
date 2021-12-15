@@ -64,7 +64,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 			cancel()
 		}
 	}()
-	compactor := newCompactor(d.env.TaskService, d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
+	compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
 	return d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
 		if ev.Type == watch.EventError {
 			return ev.Err

@@ -17,16 +17,14 @@ import (
 )
 
 type compactor struct {
-	taskService task.Service
-	storage     *fileset.Storage
-	maxFanIn    int
+	storage  *fileset.Storage
+	maxFanIn int
 }
 
-func newCompactor(taskService task.Service, storage *fileset.Storage, maxFanIn int) *compactor {
+func newCompactor(storage *fileset.Storage, maxFanIn int) *compactor {
 	return &compactor{
-		taskService: taskService,
-		storage:     storage,
-		maxFanIn:    maxFanIn,
+		storage:  storage,
+		maxFanIn: maxFanIn,
 	}
 }
 

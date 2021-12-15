@@ -8,7 +8,7 @@ import (
 )
 
 // DoOne executes one task.
-// NOTE: This interface is much less performant than the stream / batch intefaces for many tasks.
+// NOTE: This interface is much less performant than the stream / batch interfaces for many tasks.
 // Only use this interface for development / a small number of tasks.
 func DoOne(ctx context.Context, doer Doer, input *types.Any) (*types.Any, error) {
 	var result *types.Any

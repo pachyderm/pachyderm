@@ -26,12 +26,12 @@ import (
 // datum queuing (probably should be handled by datum package).
 // capture datum logs.
 // git inputs.
-func Worker(driver driver.Driver, logger logs.TaggedLogger, any *types.Any, status *Status) (*types.Any, error) {
-	datumSet, err := deserializeDatumSet(any)
+func Worker(driver driver.Driver, logger logs.TaggedLogger, input *types.Any, status *Status) (*types.Any, error) {
+	datumSet, err := deserializeDatumSet(input)
 	if err != nil {
 		return nil, err
 	}
-	var result *types.Any
+	var output *types.Any
 	if err := status.withJob(datumSet.JobID, func() error {
 		logger = logger.WithJob(datumSet.JobID)
 		if err := logger.LogStep("datum task", func() error {
@@ -44,12 +44,12 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, any *types.Any, stat
 		}); err != nil {
 			return err
 		}
-		result, err = serializeDatumSet(datumSet)
+		output, err = serializeDatumSet(datumSet)
 		return err
 	}); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return output, nil
 }
 
 func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {

@@ -86,13 +86,13 @@ func (w *Worker) worker() {
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
 
-		// Run any worker tasks that the master creates
+		// Process any tasks that the master creates.
 		eg.Go(func() error {
 			return driver.NewTaskSource().Iterate(
 				ctx,
-				func(ctx context.Context, any *types.Any) (*types.Any, error) {
+				func(ctx context.Context, input *types.Any) (*types.Any, error) {
 					driver := w.driver.WithContext(ctx)
-					return transform.Worker(driver, logger, any, w.status)
+					return transform.Worker(driver, logger, input, w.status)
 				},
 			)
 		})
