@@ -408,8 +408,36 @@
                 "enterpriseRootToken": {
                     "type": "string"
                 },
+                "enterpriseRootTokenSecret": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "key": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "enterpriseSecret": {
                     "type": "string"
+                },
+                "enterpriseSecretSecret": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "key": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
                 },
                 "enterpriseServerAddress": {
                     "type": "string"
@@ -480,6 +508,20 @@
                 "oauthClientSecret": {
                     "type": "string"
                 },
+                "oauthClientSecretSecret": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "key": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "oauthRedirectURI": {
                     "type": "string"
                 },
@@ -511,6 +553,20 @@
                 },
                 "rootToken": {
                     "type": "string"
+                },
+                "rootTokenSecret": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "key": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
                 },
                 "securityContext": {
                     "type": "object",

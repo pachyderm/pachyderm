@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
       - name: config-pod
-        image: pachyderm/config-pod:0.4
+        image: pachyderm/config-pod:0.5
         command: [ "/config-pod" ]
         volumeMounts:
         - name: config
@@ -38,6 +38,34 @@ spec:
         {{- if .Values.enterpriseServer.enabled }}
         - name: PACH_ADDR
           value: "grpc://pach-enterprise:1650"
+        {{- end }}
+        {{- if .Values.pachd.rootTokenSecret.enabled }}    
+        - name: ROOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.rootTokenSecret.name }}
+              key: {{ .Values.pachd.rootTokenSecret.key }}
+        {{- end }}
+        {{- if .Values.pachd.enterpriseRootTokenSecret.enabled }}
+        - name: ENTERPRISE_ROOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseRootTokenSecret.name }}
+              key: {{ .Values.pachd.enterpriseRootTokenSecret.key }}
+        {{- end }}
+        {{- if .Values.pachd.enterpriseSecretSecret.enabled }}
+        - name: ENTERPRISE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseSecretSecret.name }}
+              key: {{ .Values.pachd.enterpriseSecretSecret.key }}
+        {{- end }}
+        {{- if .Values.pachd.oauthClientSecretSecret.enabled }}
+        - name: PACHD_OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.oauthClientSecretSecret.name }}
+              key: {{ .Values.pachd.oauthClientSecretSecret.key }}
         {{- end }}
         envFrom:
         - secretRef:
