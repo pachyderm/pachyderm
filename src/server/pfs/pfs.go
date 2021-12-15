@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc/codes"
@@ -13,80 +14,95 @@ import (
 
 // ErrFileNotFound represents a file-not-found error.
 type ErrFileNotFound struct {
+	errors.UserError
 	File *pfs.File
 }
 
 // ErrRepoNotFound represents a repo-not-found error.
 type ErrRepoNotFound struct {
+	errors.UserError
 	Repo *pfs.Repo
 }
 
 // ErrRepoExists represents a repo-exists error.
 type ErrRepoExists struct {
+	errors.UserError
 	Repo *pfs.Repo
 }
 
 // ErrBranchNotFound represents a branch-not-found error.
 type ErrBranchNotFound struct {
+	errors.UserError
 	Branch *pfs.Branch
 }
 
 // ErrBranchExists represents a branch-exists error.
 type ErrBranchExists struct {
+	errors.UserError
 	Branch *pfs.Branch
 }
 
 // ErrCommitNotFound represents a commit-not-found error.
 type ErrCommitNotFound struct {
+	errors.UserError
 	Commit *pfs.Commit
 }
 
 // ErrCommitSetNotFound represents a commitset-not-found error.
 type ErrCommitSetNotFound struct {
+	errors.UserError
 	CommitSet *pfs.CommitSet
 }
 
 // ErrCommitExists represents an error where the commit already exists.
 type ErrCommitExists struct {
+	errors.UserError
 	Commit *pfs.Commit
 }
 
 // ErrCommitFinished represents an error where the commit has been finished
 // (e.g from PutFile or DeleteFile)
 type ErrCommitFinished struct {
+	errors.UserError
 	Commit *pfs.Commit
 }
 
 // ErrCommitError represents an error where the commit has been finished with an error.
 type ErrCommitError struct {
+	errors.UserError
 	Commit *pfs.Commit
 }
 
 // ErrCommitDeleted represents an error where the commit has been deleted (e.g.
 // from InspectCommit)
 type ErrCommitDeleted struct {
+	errors.UserError
 	Commit *pfs.Commit
 }
 
 // ErrParentCommitNotFound represents a parent-commit-not-found error.
 type ErrParentCommitNotFound struct {
+	errors.UserError
 	Commit *pfs.Commit
 }
 
 // ErrOutputCommitNotFinished represents an error where the commit has not
 // been finished
 type ErrOutputCommitNotFinished struct {
+	errors.UserError
 	Commit *pfs.Commit
 }
 
 // ErrCommitNotFinished represents an error where the commit has not been finished.
 type ErrCommitNotFinished struct {
+	errors.UserError
 	Commit *pfs.Commit
 }
 
 // ErrAmbiguousCommit represents an error where a user-specified commit did not
 // specify a branch and resolved to multiple commits on different branches.
 type ErrAmbiguousCommit struct {
+	errors.UserError
 	Commit *pfs.Commit
 }
 
@@ -94,6 +110,7 @@ type ErrAmbiguousCommit struct {
 // create a CommitSet with multiple commits in the same branch, which would
 // result in inconsistent data dependencies.
 type ErrInconsistentCommit struct {
+	errors.UserError
 	Branch *pfs.Branch
 	Commit *pfs.Commit
 }
@@ -108,6 +125,7 @@ func (e ErrInconsistentCommit) Is(other error) bool {
 // Users should not manually try to start a commit in an output branch, this
 // should only be done internally in PFS.
 type ErrCommitOnOutputBranch struct {
+	errors.UserError
 	Branch *pfs.Branch
 }
 
@@ -117,6 +135,7 @@ type ErrCommitOnOutputBranch struct {
 // this situation, so it is not allowed.  To proceed anyway, use the
 // DropCommitSet operation, which implies data loss.
 type ErrSquashWithoutChildren struct {
+	errors.UserError
 	Commit *pfs.Commit
 }
 
@@ -126,6 +145,7 @@ type ErrSquashWithoutChildren struct {
 // However, a drop is still allowed for a commit with no children as there is no
 // cleanup needed for child commits.
 type ErrDropWithChildren struct {
+	errors.UserError
 	Commit *pfs.Commit
 }
 

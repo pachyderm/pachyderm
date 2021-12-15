@@ -21,8 +21,8 @@ var reportMetricsOnce sync.Once
 
 // Logger is a helper for emitting our grpc API logs
 type Logger interface {
-	Log(request interface{}, response interface{}, err error, duration time.Duration)
-	LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int)
+	Log(request interface{}, response interface{}, err interface{}, duration time.Duration)
+	LogAtLevelFromDepth(request interface{}, response interface{}, err interface{}, duration time.Duration, level logrus.Level, depth int)
 }
 
 type logger struct {
@@ -80,7 +80,7 @@ func newLogger(service string, exportStats bool, l *logrus.Logger) Logger {
 
 // Helper function used to log requests and responses from our GRPC method
 // implementations
-func (l *logger) Log(request interface{}, response interface{}, err error, duration time.Duration) {
+func (l *logger) Log(request interface{}, response interface{}, err interface{}, duration time.Duration) {
 	if err != nil {
 		l.LogAtLevelFromDepth(request, response, err, duration, logrus.ErrorLevel, 4)
 	} else {
@@ -99,7 +99,7 @@ func getMethodName() string {
 	return split[len(split)-1]
 }
 
-func (l *logger) ReportMetric(method string, duration time.Duration, err error) {
+func (l *logger) ReportMetric(method string, duration time.Duration, err interface{}) {
 	if !l.exportStats {
 		return
 	}
@@ -168,7 +168,7 @@ func (l *logger) LogAtLevel(entry *logrus.Entry, level logrus.Level, args ...int
 	entry.Log(level, args...)
 }
 
-func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int) {
+func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, err interface{}, duration time.Duration, level logrus.Level, depth int) {
 	// We're only interested in 1 stack frame, however due to weirdness with
 	// inlining sometimes you need to get more than 1 caller so that
 	// CallersFrames can resolve the first function. 2 seems to be enough be
@@ -191,13 +191,17 @@ func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, 
 		fields["response"] = response
 	}
 	if err != nil {
-		// "err" itself might be a code or even an empty struct
-		fields["error"] = err.Error()
-		var frames []string
-		errors.ForEachStackFrame(err, func(frame errors.Frame) {
-			frames = append(frames, fmt.Sprintf("%+v", frame))
-		})
-		fields["stack"] = frames
+		if goerr, ok := err.(error); ok {
+			// "err" itself might be a code or even an empty struct
+			fields["error"] = goerr.Error()
+			if usererr, ok := err.(errors.UserErrorer); !ok || !usererr.IsUserError() {
+				var frames []string
+				errors.ForEachStackFrame(goerr, func(frame errors.Frame) {
+					frames = append(frames, fmt.Sprintf("%+v", frame))
+				})
+				fields["stack"] = frames
+			}
+		}
 	}
 	if duration > 0 {
 		fields["duration"] = duration

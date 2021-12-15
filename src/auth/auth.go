@@ -183,6 +183,7 @@ const errNoRoleBindingMsg = "no role binding exists for"
 
 // ErrNoRoleBinding is returned if no role binding exists for a resource.
 type ErrNoRoleBinding struct {
+	errors.UserError
 	Resource Resource
 }
 
@@ -201,8 +202,8 @@ func IsErrNoRoleBinding(err error) bool {
 // ErrNotAuthorized is returned if the user is not authorized to perform
 // a certain operation.
 type ErrNotAuthorized struct {
-	Subject string // subject trying to perform blocked operation -- always set
-
+	errors.UserError
+	Subject  string       // subject trying to perform blocked operation -- always set
 	Resource Resource     // Resource that the user is attempting to access
 	Required []Permission // Caller needs 'Required'-level access to 'Resource'
 }
@@ -228,6 +229,7 @@ func IsErrNotAuthorized(err error) bool {
 // ErrInvalidPrincipal indicates that a an argument to e.g. GetScope,
 // SetScope, or SetACL is invalid
 type ErrInvalidPrincipal struct {
+	errors.UserError
 	Principal string
 }
 
@@ -247,6 +249,7 @@ func IsErrInvalidPrincipal(err error) bool {
 // ErrTooShortTTL is returned by the ExtendAuthToken if request.Token already
 // has a TTL longer than request.TTL.
 type ErrTooShortTTL struct {
+	errors.UserError
 	RequestTTL, ExistingTTL int64
 }
 

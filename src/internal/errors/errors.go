@@ -33,6 +33,20 @@ var (
 	WithStack = errors.WithStack
 )
 
+// UserError is a type used to indicate that an error is not an internal error
+// so that we can log it differently (i.e. do not log at the ERROR level with a
+// stack trace)
+type UserError struct{}
+
+func (err UserError) IsUserError() bool {
+	return true
+}
+
+// Interface for type-checking user errors
+type UserErrorer interface {
+	IsUserError() bool
+}
+
 // StackTrace is stack of Frames from innermost (newest) to outermost (oldest).
 type StackTrace = errors.StackTrace
 

@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 // ErrJobFinished represents a finished job error.
 type ErrJobFinished struct {
+	errors.UserError
 	Job *pps.Job
 }
 
@@ -18,6 +20,7 @@ func (e ErrJobFinished) Error() string {
 }
 
 type ErrPipelineNotFound struct {
+	errors.UserError
 	Pipeline *pps.Pipeline
 }
 
