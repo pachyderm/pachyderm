@@ -222,10 +222,12 @@ workflows:
   hub_load_tests:
     triggers:
       - schedule:
-          cron: "15 * * * *"
+          cron: "0 6 * * *"
           filters:
             branches:
-              only: master 
+              only:
+                - master
+                - 2.0.x
     jobs:
       - load:
           matrix:
