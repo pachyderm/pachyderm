@@ -2,19 +2,21 @@ import json
 
 from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
-from jupyter_server.utils import url_path_join
+from jupyter_server.utils import url_path_join, ensure_async
 import python_pachyderm
 import tornado
 
-from .env import MOCK_PACHYDERM_SERVICE, PFS_MOUNT_DIR
+from .env import MOCK_PACHYDERM_SERVICE, MOUNT_SERVER_ENABLED, PFS_MOUNT_DIR
 from .filemanager import PFSContentsManager
 from .mock_pachyderm import MockPachydermClient
 from .pachyderm import (
     READ_ONLY,
     READ_WRITE,
-    PachydermClient,
-    PachydermMountClient,
+    MountInterface,
+    PythonPachydermClient,
+    PythonPachydermMountClient,
 )
+from .mount_server_client import MountServerClient
 
 
 # Frontend hard codes this in src/handler.ts
@@ -50,8 +52,8 @@ def _parse_pfs_path(path):
 
 class BaseHandler(APIHandler):
     @property
-    def mount_client(self) -> PachydermMountClient:
-        return self.settings["PachydermMountClient"]
+    def mount_client(self) -> MountInterface:
+        return self.settings["pachyderm_mount_client"]
 
     def get_required_query_param_name(self) -> str:
         name = self.get_argument("name", None)
@@ -67,10 +69,10 @@ class ReposHandler(BaseHandler):
     # patch, put, delete, options) to ensure only authorized user can request the
     # Jupyter server
     @tornado.web.authenticated
-    def get(self):
-        repos = self.mount_client.list()
+    async def get(self):
+        repos = await self.mount_client.list()
         # convert nested structure to list
-        resp = [
+        response = [
             {
                 "repo": repo_name,
                 "branches": [
@@ -80,21 +82,21 @@ class ReposHandler(BaseHandler):
             }
             for repo_name, repo_info in repos.items()
         ]
-        self.finish(json.dumps(resp))
+        self.finish(json.dumps(response))
 
 
 class ReposUnmountHandler(BaseHandler):
     """Unmounts all repos"""
 
     @tornado.web.authenticated
-    def put(self):
-        self.finish(json.dumps({"unmounted": self.mount_client.unmount_all()}))
+    async def put(self):
+        self.finish(json.dumps({"unmounted": await self.mount_client.unmount_all()}))
 
 
 class RepoHandler(BaseHandler):
     @tornado.web.authenticated
-    def get(self, repo):
-        repos = self.mount_client.list()
+    async def get(self, repo):
+        repos = await self.mount_client.list()
         if repo in repos:
             self.finish(
                 json.dumps(
@@ -117,7 +119,7 @@ class RepoMountHandler(BaseHandler):
     """
 
     @tornado.web.authenticated
-    def put(self, path):
+    async def put(self, path):
         name = self.get_required_query_param_name()
         mode = self.get_query_argument("mode", READ_ONLY)  # default ro
         try:
@@ -128,29 +130,30 @@ class RepoMountHandler(BaseHandler):
                 reason=f"{mode} is not valid; valid modes are in {{ro, rw}}",
             )
         repo, branch, _ = _parse_pfs_path(path)
-        self.finish(json.dumps(self.mount_client.mount(repo, branch, mode, name)))
+        response = await self.mount_client.mount(repo, branch, mode, name)
+        self.finish(json.dumps(response))
 
 
 class RepoUnmountHandler(BaseHandler):
     @tornado.web.authenticated
-    def put(self, path):
+    async def put(self, path):
         name = self.get_required_query_param_name()
         repo, branch, _ = _parse_pfs_path(path)
-        result = self.mount_client.unmount(repo, branch, name)
+        response = await self.mount_client.unmount(repo, branch, name)
         self.finish(
-            json.dumps({"repo": repo, "branch": branch, "mount": result["mount"]})
+            json.dumps({"repo": repo, "branch": branch, "mount": response["mount"]})
         )
 
 
 class RepoCommitHandler(BaseHandler):
     @tornado.web.authenticated
-    def post(self, path):
+    async def post(self, path):
         name = self.get_required_query_param_name()
         body = self.get_json_body()
         message = body.get("message", "")
         repo, branch, _ = _parse_pfs_path(path)
-        resp = self.mount_client.commit(repo, branch, name, message)
-        self.finish(json.dumps(resp))
+        response = await self.mount_client.commit(repo, branch, name, message)
+        self.finish(json.dumps(response))
 
 
 class PFSHandler(ContentsHandler):
@@ -159,7 +162,7 @@ class PFSHandler(ContentsHandler):
         return self.settings["pfs_contents_manager"]
 
     @tornado.web.authenticated
-    def get(self, path):
+    async def get(self, path):
         """Copied from https://github.com/jupyter-server/jupyter_server/blob/29be9c6658d7ef04f9b124c54102f7334b610253/jupyter_server/services/contents/handlers.py#L86
 
         Serves files rooted at PFS_MOUNT_DIR instead of the default content manager's root_dir
@@ -177,25 +180,32 @@ class PFSHandler(ContentsHandler):
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = int(content)
 
-        model = self.pfs_contents_manager.get(
-            path=path,
-            type=type,
-            format=format,
-            content=content,
+        model = await ensure_async(
+            self.pfs_contents_manager.get(
+                path=path,
+                type=type,
+                format=format,
+                content=content,
+            )
         )
         validate_model(model, expect_content=content)
         self._finish_model(model, location=False)
 
 
 def setup_handlers(web_app):
+    web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
+
     if MOCK_PACHYDERM_SERVICE:
-        web_app.settings["PachydermMountClient"] = PachydermMountClient(
+        web_app.settings["pachyderm_mount_client"] = PythonPachydermMountClient(
             MockPachydermClient(), PFS_MOUNT_DIR
         )
+    elif MOUNT_SERVER_ENABLED:
+        web_app.settings["pachyderm_mount_client"] = MountServerClient(
+            PFS_MOUNT_DIR
+        )
     else:
-        web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
-        web_app.settings["PachydermMountClient"] = PachydermMountClient(
-            PachydermClient(
+        web_app.settings["pachyderm_mount_client"] = PythonPachydermMountClient(
+            PythonPachydermClient(
                 python_pachyderm.Client(), python_pachyderm.ExperimentalClient()
             ),
             PFS_MOUNT_DIR,

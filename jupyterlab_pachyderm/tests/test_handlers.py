@@ -6,7 +6,7 @@ import pytest
 import tornado
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
-from jupyterlab_pachyderm.pachyderm import PachydermMountClient
+from jupyterlab_pachyderm.pachyderm import MountInterface
 
 
 pytest_plugins = ["jupyter_server.pytest_plugin"]
@@ -18,9 +18,7 @@ def jp_server_config():
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch(
-    "jupyterlab_pachyderm.handlers.ReposHandler.mount_client", spec=PachydermMountClient
-)
+@patch("jupyterlab_pachyderm.handlers.ReposHandler.mount_client", spec=MountInterface)
 async def test_list_repos(mock_client, jp_fetch):
     mock_client.list.return_value = {
         "images": {
@@ -87,9 +85,7 @@ async def test_list_repos(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch(
-    "jupyterlab_pachyderm.handlers.RepoHandler.mount_client", spec=PachydermMountClient
-)
+@patch("jupyterlab_pachyderm.handlers.RepoHandler.mount_client", spec=MountInterface)
 async def test_get_repo(mock_client, jp_fetch):
     mock_client.list.return_value = {
         "images": {
@@ -155,7 +151,7 @@ async def test_mount_without_name(jp_fetch):
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch(
     "jupyterlab_pachyderm.handlers.RepoMountHandler.mount_client",
-    spec=PachydermMountClient,
+    spec=MountInterface,
 )
 async def test_mount(mock_client, jp_fetch):
     repo, name, mode = "myrepo", "myrepo_mount_name", "ro"
@@ -197,7 +193,7 @@ async def test_mount(mock_client, jp_fetch):
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch(
     "jupyterlab_pachyderm.handlers.RepoMountHandler.mount_client",
-    spec=PachydermMountClient,
+    spec=MountInterface,
 )
 async def test_mount_with_branch_and_mode(mock_client, jp_fetch):
     repo, branch, mode, name = "myrepo", "mybranch", "rw", "myrepo_mount_name"
@@ -239,7 +235,7 @@ async def test_mount_with_branch_and_mode(mock_client, jp_fetch):
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch(
     "jupyterlab_pachyderm.handlers.RepoUnmountHandler.mount_client",
-    spec=PachydermMountClient,
+    spec=MountInterface,
 )
 async def test_unmount_with_branch(mock_client, jp_fetch):
     repo, branch, name = "myrepo", "mybranch", "mount_name"
@@ -279,7 +275,7 @@ async def test_unmount_with_branch(mock_client, jp_fetch):
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch(
     "jupyterlab_pachyderm.handlers.ReposUnmountHandler.mount_client",
-    spec=PachydermMountClient,
+    spec=MountInterface,
 )
 async def test_unmount_all(mock_client, jp_fetch):
     mock_client.unmount_all.return_value = [("images", "master")]
@@ -295,7 +291,7 @@ async def test_unmount_all(mock_client, jp_fetch):
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch(
     "jupyterlab_pachyderm.handlers.RepoCommitHandler.mount_client",
-    spec=PachydermMountClient,
+    spec=MountInterface,
 )
 async def test_commit(mock_client, jp_fetch):
     repo, branch, name, message = "myrepo", "mybranch", "mount_name", "First commit"

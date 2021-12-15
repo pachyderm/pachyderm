@@ -6,7 +6,24 @@ READ_ONLY = "ro"
 READ_WRITE = "rw"
 
 
-class PachydermClient:
+class MountInterface:
+    async def list(self):
+        pass
+
+    async def mount(self, repo, branch, mode, name):
+        pass
+
+    async def unmount(self, repo, branch, name):
+        pass
+
+    async def unmount_all(self):
+        pass
+
+    async def commit(self, repo, branch, name, message):
+        pass
+
+
+class PythonPachydermClient:
     """Interface for interacting with real Pachyderm backend."""
 
     def __init__(
@@ -29,12 +46,12 @@ class PachydermClient:
         return self.exp_client.unmount(mount_dir=mount_dir, all_mounts=all_mounts)
 
 
-class PachydermMountClient:
+class PythonPachydermMountClient(MountInterface):
     """Interface for handlers to consume to call mount operations."""
 
     def __init__(
         self,
-        client: PachydermClient,
+        client: PythonPachydermClient,
         mount_dir: str,
     ):
         self.client = client
@@ -74,9 +91,25 @@ class PachydermMountClient:
                 result.append(self._mount_string(repo, branch, mount_state["mode"]))
         return result
 
-    def list(self):
+    async def list(self):
         """Get a list of available repos and their branches,
         and overlay with their mount states.
+        Returns
+        {
+            "repo": {
+                "branches": {
+                    "branch": {
+                        "mount": {
+                            "name": name,
+                            "state": state,
+                            "status": status,
+                            "mode": mode,
+                            "mountpoint": mountpoint
+                        }
+                    }
+                }
+            }
+        }
         """
         result = {}
         repos = list(self.client.list_repo())
@@ -92,7 +125,7 @@ class PachydermMountClient:
 
         return result
 
-    def mount(self, repo, branch, mode, name=None):
+    async def mount(self, repo, branch, mode, name=None):
         """Mounts a repo@branch+mode to /pfs/name
         Note that `name` is currently not used.
         Does nothing if repo is already mounted.
@@ -124,7 +157,7 @@ class PachydermMountClient:
                     "mount": self.mount_states.get(mount_key),
                 }
 
-    def unmount(self, repo, branch, name=None):
+    async def unmount(self, repo, branch, name=None):
         """Unmounts all, update mount_state, and remounts what's left"""
         mount_key = (repo, branch)
         if self.mount_states.get(mount_key, {}).get("state") == "mounted":
@@ -139,7 +172,7 @@ class PachydermMountClient:
                 del self.mount_states[mount_key]
                 return {"repo": repo, "branch": branch, "mount": {"state": "unmounted"}}
 
-    def unmount_all(self):
+    async def unmount_all(self):
         result = []
         for (repo, branch) in self.mount_states:
             result.append(
