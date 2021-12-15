@@ -33,10 +33,12 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
   const {fileToPreview, loading} = useFileBrowser();
 
   const {commits, loading: commitsLoading} = useCommits({
-    projectId,
-    repoName: repoId,
-    branchName: branchId,
-    number: COMMIT_LIMIT,
+    args: {
+      projectId,
+      repoName: repoId,
+      branchName: branchId,
+      number: COMMIT_LIMIT,
+    },
   });
 
   const {previousCommit, nextCommit} = useMemo(() => {

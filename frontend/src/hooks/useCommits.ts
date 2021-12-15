@@ -4,9 +4,15 @@ import {useGetCommitsQuery} from '@dash-frontend/generated/hooks';
 
 export const COMMIT_LIMIT = 100;
 
-const useCommits = (args: CommitsQueryArgs) => {
+type UseCommitArgs = {
+  args: CommitsQueryArgs;
+  skip?: boolean;
+};
+
+const useCommits = ({args, skip = false}: UseCommitArgs) => {
   const {data, error, loading} = useGetCommitsQuery({
     variables: {args},
+    skip,
   });
 
   return {

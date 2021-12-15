@@ -31,12 +31,15 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
   );
 
   const {commits, loading} = useCommits({
-    projectId,
-    repoName: repoId,
-    pipelineName: repo?.linkedPipeline?.name,
-    originKind: hideAutoCommits ? OriginKind.USER : undefined,
-    branchName: branchId,
-    number: COMMIT_LIMIT,
+    args: {
+      projectId,
+      repoName: repoId,
+      pipelineName: repo?.linkedPipeline?.name,
+      originKind: hideAutoCommits ? OriginKind.USER : undefined,
+      branchName: branchId,
+      number: COMMIT_LIMIT,
+    },
+    skip: repo?.branches.length === 0,
   });
 
   if (loading) {
@@ -50,7 +53,7 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
   if (
     !hideAutoCommits &&
     (repo?.branches?.length || 0) <= 1 &&
-    commits?.length === 0
+    !commits?.length
   ) {
     return <EmptyState title={LETS_START_TITLE} message={emptyRepoMessage} />;
   }
