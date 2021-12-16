@@ -13,7 +13,7 @@ metadata:
   name: pachd
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.pachd.replicas }}
   selector:
     matchLabels:
       app: pachd
@@ -23,6 +23,9 @@ spec:
     metadata:
       annotations:
         checksum/storage-secret: {{ include (print $.Template.BasePath "/pachd/storage-secret.yaml") . | sha256sum }}
+        {{- if .Values.pachd.annotations -}}
+        {{ toYaml .Values.pachd.annotations | nindent 4 }}
+        {{- end }}
       labels:
         app: pachd
         suite: pachyderm
@@ -65,8 +68,8 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres # Must match secret setup by postgres subchart or postgres-secret.yaml
-              key: postgresql-password
+              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
+              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
         - name: PG_BOUNCER_HOST
           value: pg-bouncer # Must match pgbouncer service name
         - name: PG_BOUNCER_PORT
@@ -116,14 +119,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        {{- if and .Values.pachd.resources .Values.pachd.resources.memory }}
-        - name: PACHD_MEMORY_REQUEST
-          valueFrom:
-            resourceFieldRef:
-              containerName: pachd
-              divisor: "0"
-              resource: requests.memory
-        {{- end }}
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
         - name: PACHD_POD_NAME
@@ -137,6 +132,10 @@ spec:
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
+        {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
+        - name: SSL_CERT_DIR
+          value:  /pachd-tls-cert
+        {{- end }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
@@ -180,9 +179,15 @@ spec:
         {{- if .Values.pachd.tls.enabled }}
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
-        {{- end }} 
+        {{- end }}
+      {{-  if .Values.pachd.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.pachd.nodeSelector | nindent 8 }}
+      {{- end }}
       {{- if .Values.pachd.serviceAccount.name }}
       serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
+      {{- end }}
+      {{-  if .Values.pachd.tolerations }}
+      tolerations: {{ toYaml .Values.pachd.tolerations | nindent 8 }}
       {{- end }}
       volumes:
       - name: pach-disk

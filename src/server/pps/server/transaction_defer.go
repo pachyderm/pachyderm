@@ -102,6 +102,9 @@ func (jf *JobFinisher) Run() error {
 		pipelines := jf.a.pipelines.ReadWrite(jf.txnCtx.SqlTx)
 		jobs := jf.a.jobs.ReadWrite(jf.txnCtx.SqlTx)
 		for _, commitInfo := range jf.commitInfos {
+			if commitInfo.Commit.Branch.Repo.Type != pfs.UserRepoType {
+				continue
+			}
 			jobKey := ppsdb.JobKey(client.NewJob(commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.ID))
 			jobInfo := &pps.JobInfo{}
 			if err := jobs.Get(jobKey, jobInfo); err != nil {

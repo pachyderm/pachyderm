@@ -92,7 +92,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// pipeline 'foo'). Even if we do delete a live pipeline's RC, it'll be
 			// fixed in the next cycle)
 			kc := m.a.env.KubeClient.CoreV1().ReplicationControllers(m.a.env.Config.Namespace)
-			rcs, err := kc.List(metav1.ListOptions{
+			rcs, err := kc.List(ctx, metav1.ListOptions{
 				LabelSelector: "suite=pachyderm,pipelineName",
 			})
 			if err != nil {
@@ -175,6 +175,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		kubePipelineWatch, err := m.a.env.KubeClient.CoreV1().Pods(m.a.namespace).Watch(
+			ctx,
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 					map[string]string{

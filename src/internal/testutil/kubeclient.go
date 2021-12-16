@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -48,6 +49,7 @@ func GetKubeClient(t testing.TB) *kube.Clientset {
 func DeletePachdPod(t testing.TB) {
 	kubeClient := GetKubeClient(t)
 	podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+		context.Background(),
 		metav1.ListOptions{
 			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 				map[string]string{"app": "pachd", "suite": "pachyderm"},
@@ -56,12 +58,14 @@ func DeletePachdPod(t testing.TB) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(podList.Items))
 	require.NoError(t, kubeClient.CoreV1().Pods(v1.NamespaceDefault).Delete(
-		podList.Items[0].ObjectMeta.Name, &metav1.DeleteOptions{}))
+		context.Background(),
+		podList.Items[0].ObjectMeta.Name, metav1.DeleteOptions{}))
 
 	// Make sure pachd goes down
 	startTime := time.Now()
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 					map[string]string{"app": "pachd", "suite": "pachyderm"},
@@ -82,6 +86,7 @@ func DeletePachdPod(t testing.TB) {
 	// Make sure pachd comes back up
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 					map[string]string{"app": "pachd", "suite": "pachyderm"},
@@ -98,6 +103,7 @@ func DeletePachdPod(t testing.TB) {
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 					map[string]string{"app": "pachd", "suite": "pachyderm"},
@@ -121,6 +127,7 @@ func DeletePachdPod(t testing.TB) {
 func DeletePipelineRC(t testing.TB, pipeline string) {
 	kubeClient := GetKubeClient(t)
 	rcs, err := kubeClient.CoreV1().ReplicationControllers(v1.NamespaceDefault).List(
+		context.Background(),
 		metav1.ListOptions{
 			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 				map[string]string{"pipelineName": pipeline},
@@ -129,11 +136,13 @@ func DeletePipelineRC(t testing.TB, pipeline string) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rcs.Items))
 	require.NoError(t, kubeClient.CoreV1().ReplicationControllers(v1.NamespaceDefault).Delete(
-		rcs.Items[0].ObjectMeta.Name, &metav1.DeleteOptions{
+		context.Background(),
+		rcs.Items[0].ObjectMeta.Name, metav1.DeleteOptions{
 			GracePeriodSeconds: &zero,
 		}))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		rcs, err := kubeClient.CoreV1().ReplicationControllers(v1.NamespaceDefault).List(
+			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 					map[string]string{"pipelineName": pipeline},
@@ -153,7 +162,7 @@ func DeletePipelineRC(t testing.TB, pipeline string) {
 // kubernetes namespace and returns it.
 func PachdDeployment(t testing.TB, namespace string) *apps.Deployment {
 	k := GetKubeClient(t)
-	result, err := k.AppsV1().Deployments(namespace).Get("pachd", metav1.GetOptions{})
+	result, err := k.AppsV1().Deployments(namespace).Get(context.Background(), "pachd", metav1.GetOptions{})
 	require.NoError(t, err)
 	return result
 }
@@ -175,14 +184,14 @@ func WaitForPachdReady(t testing.TB, namespace string) {
 	k := GetKubeClient(t)
 	deployment := PachdDeployment(t, namespace)
 	for {
-		newDeployment, err := k.AppsV1().Deployments(namespace).Get(deployment.Name, metav1.GetOptions{})
+		newDeployment, err := k.AppsV1().Deployments(namespace).Get(context.Background(), deployment.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 		if newDeployment.Status.ObservedGeneration >= deployment.Generation && newDeployment.Status.Replicas == *newDeployment.Spec.Replicas {
 			break
 		}
 		time.Sleep(time.Second * 5)
 	}
-	watch, err := k.CoreV1().Pods(namespace).Watch(metav1.ListOptions{
+	watch, err := k.CoreV1().Pods(namespace).Watch(context.Background(), metav1.ListOptions{
 		LabelSelector: "app=pachd",
 	})
 	defer watch.Stop()

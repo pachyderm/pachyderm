@@ -53,6 +53,9 @@
         "console": {
             "type": "object",
             "properties": {
+                "annotations": {
+                    "type": "object"
+                },
                 "config": {
                     "type": "object",
                     "properties": {
@@ -64,6 +67,9 @@
                         },
                         "oauthClientSecret": {
                             "type": "string"
+                        },
+                        "oauthClientSecretSecretName": {
+                            "type": "null"
                         },
                         "oauthRedirectURI": {
                             "type": "string"
@@ -119,6 +125,9 @@
             "type": "object",
             "properties": {
                 "affinity": {
+                    "type": "object"
+                },
+                "annotations": {
                     "type": "object"
                 },
                 "clusterDeploymentID": {
@@ -188,6 +197,9 @@
                 "affinity": {
                     "type": "object"
                 },
+                "annotations": {
+                    "type": "object"
+                },
                 "dynamicNodes": {
                     "type": "integer"
                 },
@@ -204,6 +216,12 @@
                             "type": "string"
                         }
                     }
+                },
+                "maxTxnOps": {
+                    "type": "integer"
+                },
+                "nodeSelector": {
+                    "type": "object"
                 },
                 "podLabels": {
                     "type": "object"
@@ -238,12 +256,18 @@
                 },
                 "storageSize": {
                     "type": "string"
+                },
+                "tolerations": {
+                    "type": "object"
                 }
             }
         },
         "global": {
             "type": "object",
             "properties": {
+                "customCaCerts": {
+                    "type": "boolean"
+                },
                 "imagePullSecrets": {
                     "type": "array"
                 },
@@ -251,6 +275,12 @@
                     "type": "object",
                     "properties": {
                         "postgresqlDatabase": {
+                            "type": "string"
+                        },
+                        "postgresqlExistingSecretKey": {
+                            "type": "string"
+                        },
+                        "postgresqlExistingSecretName": {
                             "type": "string"
                         },
                         "postgresqlHost": {
@@ -308,6 +338,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "uriHttpsProtoOverride": {
+                    "type": "boolean"
                 }
             }
         },
@@ -332,6 +365,9 @@
                 "upstreamIDPs": {
                     "type": "array"
                 },
+                "upstreamIDPsSecretName": {
+                    "type": "string"
+                },
                 "userAccessibleOauthIssuerHost": {
                     "type": "string"
                 }
@@ -340,6 +376,9 @@
         "pachd": {
             "type": "object",
             "properties": {
+                "activateAuth": {
+                    "type": "boolean"
+                },
                 "activateEnterprise": {
                     "type": "boolean"
                 },
@@ -349,8 +388,19 @@
                 "affinity": {
                     "type": "object"
                 },
+                "annotations": {
+                    "type": "object"
+                },
                 "clusterDeploymentID": {
                     "type": "string"
+                },
+                "configJob": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object"
+                        }
+                    }
                 },
                 "enabled": {
                     "type": "boolean"
@@ -361,10 +411,19 @@
                 "enterpriseLicenseKey": {
                     "type": "string"
                 },
+                "enterpriseLicenseKeySecretName": {
+                    "type": "string"
+                },
                 "enterpriseRootToken": {
                     "type": "string"
                 },
+                "enterpriseRootTokenSecretName": {
+                    "type": "string"
+                },
                 "enterpriseSecret": {
+                    "type": "string"
+                },
+                "enterpriseSecretSecretName": {
                     "type": "string"
                 },
                 "enterpriseServerAddress": {
@@ -427,14 +486,23 @@
                         }
                     }
                 },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "oauthClientID": {
                     "type": "string"
                 },
                 "oauthClientSecret": {
                     "type": "string"
                 },
+                "oauthClientSecretSecretName": {
+                    "type": "string"
+                },
                 "oauthRedirectURI": {
                     "type": "string"
+                },
+                "pachAuthClusterRoleBindings": {
+                    "type": "object"
                 },
                 "podLabels": {
                     "type": "object"
@@ -450,6 +518,9 @@
                         }
                     }
                 },
+                "replicas": {
+                    "type": "integer"
+                },
                 "requireCriticalServersOnly": {
                     "type": "boolean"
                 },
@@ -457,6 +528,9 @@
                     "type": "object"
                 },
                 "rootToken": {
+                    "type": "string"
+                },
+                "rootTokenSecretName": {
                     "type": "string"
                 },
                 "securityContext": {
@@ -643,6 +717,9 @@
                         }
                     }
                 },
+                "tolerations": {
+                    "type": "object"
+                },
                 "worker": {
                     "type": "object",
                     "properties": {
@@ -678,6 +755,9 @@
         "pgbouncer": {
             "type": "object",
             "properties": {
+                "annotations": {
+                    "type": "object"
+                },
                 "maxConnections": {
                     "type": "integer"
                 },

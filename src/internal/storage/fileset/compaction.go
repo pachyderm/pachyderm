@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
@@ -34,6 +33,16 @@ func indexOfCompacted(factor int64, inputs []*Primitive) int {
 		leftSize := inputs[i].SizeBytes
 		rightSize := inputs[i+1].SizeBytes
 		if leftSize < rightSize*factor {
+			var size int64
+			for j := i; j < l; j++ {
+				size += inputs[j].SizeBytes
+			}
+			for ; i > 0; i-- {
+				if inputs[i-1].SizeBytes >= size*factor {
+					return i
+				}
+				size += inputs[i-1].SizeBytes
+			}
 			return i
 		}
 	}
@@ -58,109 +67,6 @@ func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts
 		return nil, err
 	}
 	return w.Close()
-}
-
-// CompactionTask contains everything needed to perform the smallest unit of compaction
-type CompactionTask struct {
-	Inputs    []ID
-	PathRange *index.PathRange
-}
-
-// Compactor performs compaction
-type Compactor interface {
-	Compact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error)
-}
-
-// CompactionWorker can perform CompactionTasks
-type CompactionWorker func(ctx context.Context, spec CompactionTask) (*ID, error)
-
-// CompactionBatchWorker can perform batches of CompactionTasks
-type CompactionBatchWorker func(ctx context.Context, renewer *Renewer, spec []CompactionTask) ([]ID, error)
-
-// DistributedCompactor performs compaction by fanning out tasks to workers.
-type DistributedCompactor struct {
-	s          *Storage
-	maxFanIn   int
-	workerFunc CompactionBatchWorker
-}
-
-// NewDistributedCompactor returns a DistributedCompactor which will compact by fanning out
-// work to workerFunc, while respecting maxFanIn
-// TODO: change this to CompactionWorker after work package changes.
-func NewDistributedCompactor(s *Storage, maxFanIn int, workerFunc CompactionBatchWorker) *DistributedCompactor {
-	return &DistributedCompactor{
-		s:          s,
-		maxFanIn:   maxFanIn,
-		workerFunc: workerFunc,
-	}
-}
-
-// Compact compacts the contents of ids into a new fileset with the specified ttl and returns the ID.
-// Compact always returns the ID of a primitive fileset.
-func (c *DistributedCompactor) Compact(ctx context.Context, ids []ID, ttl time.Duration) (_ *ID, retErr error) {
-	var err error
-	ids, err = c.s.Flatten(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-	var tasks []CompactionTask
-	var taskLens []int
-	for start := 0; start < len(ids); start += c.maxFanIn {
-		end := start + c.maxFanIn
-		if end > len(ids) {
-			end = len(ids)
-		}
-		ids := ids[start:end]
-		taskLen := len(tasks)
-		if err := miscutil.LogStep(fmt.Sprintf("sharding %v file sets", len(ids)), func() error {
-			return c.s.Shard(ctx, ids, func(pathRange *index.PathRange) error {
-				tasks = append(tasks, CompactionTask{
-					Inputs:    ids,
-					PathRange: pathRange,
-				})
-				return nil
-			})
-		}); err != nil {
-			return nil, err
-		}
-		taskLens = append(taskLens, len(tasks)-taskLen)
-	}
-	var id *ID
-	if err := c.s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
-		var resultIds []ID
-		if err := miscutil.LogStep(fmt.Sprintf("compacting %v tasks", len(tasks)), func() error {
-			results, err := c.workerFunc(ctx, renewer, tasks)
-			if err != nil {
-				return err
-			}
-			if len(results) != len(tasks) {
-				return errors.Errorf("results are a different length than tasks")
-			}
-			for _, taskLen := range taskLens {
-				id, err := c.s.Concat(ctx, results[:taskLen], ttl)
-				if err != nil {
-					return err
-				}
-				if err := renewer.Add(ctx, *id); err != nil {
-					return err
-				}
-				resultIds = append(resultIds, *id)
-				results = results[taskLen:]
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-		if len(resultIds) == 1 {
-			id = &resultIds[0]
-			return nil
-		}
-		id, err = c.Compact(ctx, resultIds, ttl)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return id, nil
 }
 
 // CompactCallback is the standard callback signature for a compaction operation.

@@ -67,7 +67,7 @@ func (c *controller) requestClient(r *http.Request) (*client.APIClient, error) {
 		}
 	}
 
-	return pc, nil
+	return pc.WithCtx(r.Context()), nil
 }
 
 // Router creates an http server like object that serves an S3-like API for PFS. This allows you to

@@ -5,7 +5,7 @@ moves along with new commits as they are submitted. By default,
 when you create a repository, Pachyderm does not create any branches.
 Most users prefer to create a `master` branch by initiating the first
 commit and specifying the `master` branch in the `put file` command.
-Also, you can create additional branches to experiment with the data.
+
 Branches enable collaboration between teams of data scientists.
 However, many users find it sufficient to
 use the master branch for all their work. Although the concept of a
@@ -22,7 +22,9 @@ branch. Pachyderm pipelines look at the `HEAD` of the branch
 for changes and, if they detect new changes, trigger a job. **When you
 commit a new change, the `HEAD` of the branch moves to the latest commit.**
 
-To view a list of branches in a repo, run the `pachctl list branch` command.
+You can create additional branches to experiment with the data (`pachctl create branch <myrepo>@<branchname>`. Optionally, you can add `--head  <myrepo>@<master>` for the head of the new branch to reference the head commit on master).
+
+To view a list of branches in a repo, run the `pachctl list branch <myrepo>` command.
 
 !!! example
     ```shell
@@ -35,3 +37,6 @@ To view a list of branches in a repo, run the `pachctl list branch` command.
     BRANCH HEAD
     master c32879ae0e6f4b629a43429b7ec10ccc
     ```
+!!! Attention "It is important to note that..."
+    - Deleting a branch (`pachctl delete branch <myrepo>@<branchname>`) does not delete the commits on it.
+    - All branches must have a head commit. 

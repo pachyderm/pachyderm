@@ -6,8 +6,14 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+)
+
+const (
+	ProtocolPostgres = "postgres"
+	ProtocolMySQL    = "mysql"
 )
 
 // DB is an alias for sqlx.DB which is the standard database type used throughout the project
@@ -23,10 +29,10 @@ func OpenURL(u URL, password string) (*DB, error) {
 	var driver string
 	var dsn string
 	switch u.Protocol {
-	case "postgresql", "postgres":
+	case ProtocolPostgres, "postgresql":
 		driver = "pgx"
 		dsn = postgresDSN(u, password)
-	case "mysql":
+	case ProtocolMySQL:
 		driver = "mysql"
 		dsn = mySQLDSN(u, password)
 	default:
@@ -56,12 +62,24 @@ func postgresDSN(u URL, password string) string {
 }
 
 func mySQLDSN(u URL, password string) string {
+	params := copyParams(u.Params)
+	params["parseTime"] = "true"
 	config := mysql.Config{
-		User:   u.User,
-		Passwd: password,
-		Addr:   net.JoinHostPort(u.Host, strconv.Itoa(int(u.Port))),
-		DBName: u.Database,
-		Params: u.Params,
+		User:                 u.User,
+		Passwd:               password,
+		Net:                  "tcp",
+		Addr:                 net.JoinHostPort(u.Host, strconv.Itoa(int(u.Port))),
+		DBName:               u.Database,
+		Params:               params,
+		AllowNativePasswords: true,
 	}
 	return config.FormatDSN()
+}
+
+func copyParams(x map[string]string) map[string]string {
+	y := make(map[string]string, len(x))
+	for k, v := range x {
+		y[k] = v
+	}
+	return y
 }

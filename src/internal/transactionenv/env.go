@@ -72,6 +72,13 @@ type TransactionServer interface {
 type TransactionEnv struct {
 	serviceEnv serviceenv.ServiceEnv
 	txnServer  TransactionServer
+	initDone   chan struct{}
+}
+
+func New() *TransactionEnv {
+	return &TransactionEnv{
+		initDone: make(chan struct{}),
+	}
 }
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
@@ -81,6 +88,7 @@ func (tnxEnv *TransactionEnv) Initialize(
 ) {
 	tnxEnv.serviceEnv = serviceEnv
 	tnxEnv.txnServer = txnServer
+	close(tnxEnv.initDone)
 }
 
 // Transaction is an interface to unify the code that may either perform an
@@ -314,9 +322,21 @@ func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *pachsql.Tx, cb 
 	return txnCtx.Finish()
 }
 
+func (env *TransactionEnv) waitReady(ctx context.Context) error {
+	select {
+	case <-env.initDone:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 // WithWriteContext will call the given callback with a txncontext.TransactionContext
 // which can be used to perform reads and writes on the current cluster state.
 func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
+	if err := env.waitReady(ctx); err != nil {
+		return err
+	}
 	return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *pachsql.Tx) error {
 		return env.attemptTx(ctx, sqlTx, cb)
 	})
@@ -326,6 +346,9 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
 func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
+	if err := env.waitReady(ctx); err != nil {
+		return err
+	}
 	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *pachsql.Tx) error {
 		return env.attemptTx(ctx, sqlTx, cb)
 	})

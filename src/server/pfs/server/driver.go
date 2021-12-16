@@ -31,10 +31,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
 )
 
 const (
@@ -122,8 +122,9 @@ func newDriver(env Env) (*driver, error) {
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.DB, tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
-	// Setup compaction queue and worker.
-	go compactionWorker(env.BackgroundContext, d.storage, env.EtcdClient, env.EtcdPrefix)
+	// Set up compaction worker.
+	taskSource := env.TaskService.NewSource(storageTaskNamespace)
+	go compactionWorker(env.BackgroundContext, taskSource, d.storage)
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
 	return d, nil
 }
@@ -1625,7 +1626,7 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 	if err != nil {
 		return err
 	}
-	if commitInfo.Finished != nil {
+	if commitInfo.Finishing != nil {
 		return errors.Errorf("cannot clear finished commit")
 	}
 	return d.commitStore.DropFileSets(ctx, commit)

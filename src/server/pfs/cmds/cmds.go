@@ -387,7 +387,7 @@ $ {{alias}} test@fork -p XXX`,
 				return grpcutil.ScrubGRPC(err)
 			}
 			if commitInfo == nil {
-				return errors.Errorf("commit %s not found", commit.ID)
+				return errors.Errorf("commit %s not found", commit)
 			}
 			if raw {
 				return cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo)
@@ -771,6 +771,27 @@ The squash will fail if it includes a commit with no children`,
 	shell.RegisterCompletionFunc(squashCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(squashCommit, "squash commit"))
 
+	deleteCommit := &cobra.Command{
+		Use:   "{{alias}} <commit-id>",
+		Short: "Delete the sub-commits of a commit.",
+		Long: `Delete the sub-commits of a commit.  The data in the sub-commits will be lost.
+This operation is only supported if none of the sub-commits have children.`,
+
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				return c.DropCommitSet(args[0])
+			})
+		}),
+	}
+	shell.RegisterCompletionFunc(deleteCommit, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
+
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
 		Long: `A branch in Pachyderm records provenance relationships between data in different repos,
@@ -974,34 +995,28 @@ from commits with 'get file'.`,
 		Short: "Put a file into the filesystem.",
 		Long:  "Put a file into the filesystem.  This command supports a number of ways to insert data into PFS.",
 		Example: `
-# Put data from stdin as repo/branch/path:
+# Put data from stdin at repo@branch:/path
 $ echo "data" | {{alias}} repo@branch:/path
 
-# Put data from stdin as repo/branch/path and start / finish a new commit on the branch.
-$ echo "data" | {{alias}} -c repo@branch:/path
-
-# Put a file from the local filesystem as repo/branch/path:
-$ {{alias}} repo@branch:/path -f file
-
-# Put a file from the local filesystem as repo/branch/file:
+# Put a file from the local filesystem at repo@branch:/file
 $ {{alias}} repo@branch -f file
 
-# Put the contents of a directory as repo/branch/path/dir/file:
-$ {{alias}} -r repo@branch:/path -f dir
+# Put a file from the local filesystem at repo@branch:/path
+$ {{alias}} repo@branch:/path -f file
 
-# Put the contents of a directory as repo/branch/dir/file:
+# Put the contents of a directory at repo@branch:/dir/file
 $ {{alias}} -r repo@branch -f dir
 
-# Put the contents of a directory as repo/branch/file, i.e. put files at the top level:
-$ {{alias}} -r repo@branch:/ -f dir
+# Put the contents of a directory at repo@branch:/path/file (without /dir)
+$ {{alias}} -r repo@branch:/path -f dir
 
-# Put the data from a URL as repo/branch/path:
-$ {{alias}} repo@branch:/path -f http://host/path
+# Put the data from a URL at repo@branch:/example.png
+$ {{alias}} repo@branch -f http://host/example.png
 
-# Put the data from a URL as repo/branch/path:
-$ {{alias}} repo@branch -f http://host/path
+# Put the data from a URL at repo@branch:/dir/example.png
+$ {{alias}} repo@branch:/dir -f http://host/example.png
 
-# Put the data from an S3 bucket as repo/branch/s3_object:
+# Put the data from an S3 bucket at repo@branch:/s3_object
 $ {{alias}} repo@branch -r -f s3://my_bucket
 
 # Put several files or URLs that are listed in file.

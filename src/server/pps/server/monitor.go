@@ -16,10 +16,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -191,17 +191,22 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							return err
 						}
 
-						// Stay running while commits are available
+						// Stay running while commits are available and there's still job-related compaction to do
 					running:
 						for {
-							// Wait for the commit to be finished before blocking on the
-							// job because the job may not exist yet.
 							pachClient := pc.env.GetPachClient(ctx)
-							if _, err := pachClient.WaitCommit(ci.Commit.Branch.Repo.Name, ci.Commit.Branch.Name, ci.Commit.ID); err != nil {
-								return err
+							// wait for both meta and output commits
+							if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+								Commit: ci.Commit,
+								Wait:   pfs.CommitState_FINISHED,
+							}); err != nil {
+								return grpcutil.ScrubGRPC(err)
 							}
-							if _, err := pachClient.InspectJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID, true); err != nil {
-								return err
+							if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+								Commit: ppsutil.MetaCommit(ci.Commit),
+								Wait:   pfs.CommitState_FINISHED,
+							}); err != nil {
+								return grpcutil.ScrubGRPC(err)
 							}
 
 							tracing.FinishAnySpan(childSpan)
@@ -247,14 +252,10 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 		if pipelineInfo.Details.ParallelismSpec != nil && pipelineInfo.Details.ParallelismSpec.Constant > 1 && pipelineInfo.Details.Autoscaling {
 			eg.Go(func() error {
 				pachClient := pc.env.GetPachClient(ctx)
+				taskService := pc.env.TaskService
 				return backoff.RetryUntilCancel(ctx, func() error {
-					worker := work.NewWorker(
-						pc.env.EtcdClient,
-						pc.etcdPrefix,
-						driver.WorkNamespace(pipelineInfo),
-					)
 					for {
-						nTasks, nClaims, err := worker.TaskCount(pachClient.Ctx())
+						nTasks, nClaims, err := taskService.TaskCount(pachClient.Ctx(), driver.TaskNamespace(pipelineInfo))
 						if err != nil {
 							return err
 						}
@@ -262,7 +263,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							kubeClient := pc.env.KubeClient
 							namespace := pc.namespace
 							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
-							scale, err := rc.GetScale(pipelineInfo.Details.WorkerRc, metav1.GetOptions{})
+							scale, err := rc.GetScale(ctx, pipelineInfo.Details.WorkerRc, metav1.GetOptions{})
 							n := nTasks
 							if n > int64(pipelineInfo.Details.ParallelismSpec.Constant) {
 								n = int64(pipelineInfo.Details.ParallelismSpec.Constant)
@@ -272,7 +273,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							}
 							if int64(scale.Spec.Replicas) < n {
 								scale.Spec.Replicas = int32(n)
-								if _, err := rc.UpdateScale(pipelineInfo.Details.WorkerRc, scale); err != nil {
+								if _, err := rc.UpdateScale(ctx, pipelineInfo.Details.WorkerRc, scale, metav1.UpdateOptions{}); err != nil {
 									return err
 								}
 							}
