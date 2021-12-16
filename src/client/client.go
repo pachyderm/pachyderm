@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
