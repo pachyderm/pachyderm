@@ -61,7 +61,7 @@ spec:
         - name: OAUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: pachyderm-console-secret
+              name: {{ .Values.console.config.oauthClientSecretSecretName | default "pachyderm-console-secret"}}
               key: OAUTH_CLIENT_SECRET
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: NODE_EXTRA_CA_CERTS
