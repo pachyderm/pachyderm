@@ -39,11 +39,11 @@ something similar to the following:
 
 # JSON Schema
 
-We use [helm-schema-gen](https://github.com/karuppiah7890/helm-schema-gen)
+We use [helm-schema-gen](https://github.com/tybritten/helm-schema-gen)
 to manage the JSON schema.  It can be installed with:
 
 ```shell
-$ helm plugin install https://github.com/karuppiah7890/helm-schema-gen.git
+$ helm plugin install https://github.com/tybritten/helm-schema-gen.git
 ```
 
 When updating `values.yaml` please run the following to update the
