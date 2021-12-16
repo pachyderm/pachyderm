@@ -584,19 +584,19 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	var fw *PortForwarder
 	if pachdAddress == nil && context.PortForwarders != nil {
 		if !CheckPortForwardLiveness(context) {
+			portForwardersBackup := context.PortForwarders
 			context.PortForwarders = nil
 			if err = cfg.Write(); err != nil {
-				return nil, errors.Wrap(err, "could not write config to remove port-forward ports")
+				log.Errorf("could not write to pachctl config in order to remove port-forward ports: %v", err)
+				// keep in-memory config in-line with on-disk config
+				context.PortForwarders = portForwardersBackup
 			}
-		} else {
-			pachdLocalPort, ok := context.PortForwarders["pachd"]
-			if ok {
-				log.Debugf("Connecting to explicitly port forwarded pachd instance on port %d", pachdLocalPort)
-				pachdAddress = &grpcutil.PachdAddress{
-					Secured: false,
-					Host:    "localhost",
-					Port:    uint16(pachdLocalPort),
-				}
+		} else if pachdLocalPort, ok := context.PortForwarders["pachd"]; ok {
+			log.Debugf("Connecting to explicitly port forwarded pachd instance on port %d", pachdLocalPort)
+			pachdAddress = &grpcutil.PachdAddress{
+				Secured: false,
+				Host:    "localhost",
+				Port:    uint16(pachdLocalPort),
 			}
 		}
 	}
