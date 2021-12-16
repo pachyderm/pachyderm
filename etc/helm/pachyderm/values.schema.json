@@ -353,6 +353,9 @@
                 "upstreamIDPs": {
                     "type": "array"
                 },
+                "upstreamIDPsSecretName": {
+                    "type": "string"
+                },
                 "userAccessibleOauthIssuerHost": {
                     "type": "string"
                 }
@@ -396,10 +399,19 @@
                 "enterpriseLicenseKey": {
                     "type": "string"
                 },
+                "enterpriseLicenseKeySecretName": {
+                    "type": "string"
+                },
                 "enterpriseRootToken": {
                     "type": "string"
                 },
+                "enterpriseRootTokenSecretName": {
+                    "type": "string"
+                },
                 "enterpriseSecret": {
+                    "type": "string"
+                },
+                "enterpriseSecretSecretName": {
                     "type": "string"
                 },
                 "enterpriseServerAddress": {
@@ -468,6 +480,9 @@
                 "oauthClientSecret": {
                     "type": "string"
                 },
+                "oauthClientSecretSecretName": {
+                    "type": "string"
+                },
                 "oauthRedirectURI": {
                     "type": "string"
                 },
@@ -495,6 +510,9 @@
                     "type": "object"
                 },
                 "rootToken": {
+                    "type": "string"
+                },
+                "rootTokenSecretName": {
                     "type": "string"
                 },
                 "securityContext": {
