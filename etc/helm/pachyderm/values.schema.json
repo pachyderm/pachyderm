@@ -69,7 +69,7 @@
                             "type": "string"
                         },
                         "oauthClientSecretSecretName": {
-                            "type": "null"
+                            "type": "string"
                         },
                         "oauthRedirectURI": {
                             "type": "string"
