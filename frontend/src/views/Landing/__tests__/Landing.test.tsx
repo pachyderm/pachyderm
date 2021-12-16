@@ -195,7 +195,7 @@ describe('Landing', () => {
 
   it('should display an all tab when viewing just the default project', async () => {
     const error = createServiceError({code: status.UNIMPLEMENTED});
-    mockServer.setProjectsError(error);
+    mockServer.setError(error);
 
     const {findByText} = render(<Landing />);
 
@@ -204,7 +204,7 @@ describe('Landing', () => {
 
   it('should display the project details', async () => {
     const error = createServiceError({code: status.UNIMPLEMENTED});
-    mockServer.setProjectsError(error);
+    mockServer.setError(error);
 
     const {findByText} = render(<Landing />);
 

@@ -27,7 +27,7 @@ describe('Auth resolver', () => {
     it('should return an error if there is a problem exchanging the id token', async () => {
       const error = createServiceError({code: status.UNAUTHENTICATED});
 
-      mockServer.setAuthError(error);
+      mockServer.setError(error);
 
       const {data, errors = []} = await executeMutation<{
         exchangeCode: Tokens;

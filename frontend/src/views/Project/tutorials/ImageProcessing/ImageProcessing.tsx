@@ -3,8 +3,8 @@ import React from 'react';
 
 import stories from './stories';
 
-const OpenCvTutorial = () => {
+const ImageProcessing = () => {
   return <TutorialModal stories={stories} />;
 };
 
-export default OpenCvTutorial;
+export default ImageProcessing;

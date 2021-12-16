@@ -2,10 +2,50 @@ import {Story} from '@pachyderm/components';
 import React from 'react';
 
 import CreatePipelineTask from './tasks/CreatePipelineTask';
+import CreateRepoTask from './tasks/CreateRepoTask';
 
-const CreatePipelineStory: Story = {
-  name: 'Creating Pipelines',
+const EasyToUsePipelines: Story = {
+  name: 'Easy-to-use Pipelines',
   sections: [
+    {
+      header: 'Video and image processing at scale with Pachyderm',
+      info: (
+        <>
+          <p>
+            This tutorial walks you through the deployment of a two-pipeline DAG
+            that processes images, performing edge detection and then creating a
+            single montage of the images. We&apos;ll take you through creating
+            input data repositories for storing versioned data, and two
+            data-driven pipelines that automatically process data as it&apos;s
+            received.
+          </p>
+          <p>
+            Pachyderm&apos;s data-driven pipelines can be defined in just a few
+            lines of JSON or YAML.You just need to define the inputs, the docker
+            image, the command to be executed, and give it a name.
+          </p>
+          <p>
+            In the next few steps, you&apos;ll create an input repository called
+            <q>images</q>, define a pipeline called <q>edges</q> that takes
+            input from images, and after that you will process some images with
+            the <q>edges</q> pipeline.
+          </p>
+        </>
+      ),
+    },
+    {
+      header: 'Create the images repository',
+      taskName: 'Create images repo',
+      info: (
+        <p>
+          Before you create a Pachyderm data-driven pipeline, you need to create
+          at least one versioned data repository from which it will get its
+          data. In this case, the repo will be named <q>images</q>, because
+          it&apos;s where we&apos;ll put our images to be processed.
+        </p>
+      ),
+      Task: CreateRepoTask,
+    },
     {
       header: 'Create a pipeline',
       taskName: <div>Create the edges pipeline</div>,
@@ -53,4 +93,4 @@ const CreatePipelineStory: Story = {
   ],
 };
 
-export default CreatePipelineStory;
+export default EasyToUsePipelines;

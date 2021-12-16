@@ -96,6 +96,24 @@ describe('Pipeline resolver', () => {
       );
     });
     it('should update a pipeline', async () => {
+      const {errors: creationErrors = []} =
+        await executeMutation<CreatePipelineMutation>(
+          CREATE_PIPELINE_MUTATION,
+          {
+            args: {
+              name: 'test',
+              image: 'alpine',
+              cmdList: ['sh'],
+              pfs: {
+                name: 'images',
+                repo: {name: 'images'},
+              },
+              projectId,
+            },
+          },
+        );
+      expect(creationErrors.length).toBe(0);
+
       const {data: pipeline} = await executeQuery<PipelineQuery>(
         GET_PIPELINE_QUERY,
         {

@@ -4,14 +4,14 @@ import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSetting
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
-import OpenCvTutorial from './OpenCvTutorial';
+import ImageProcessing from './ImageProcessing';
 
 type TutorialMap = {
   [key: string]: React.FC;
 };
 
 const TUTORIALS: TutorialMap = {
-  'open-cv': OpenCvTutorial,
+  'image-processing': ImageProcessing,
 };
 
 const ProjectTutorial: React.FC = () => {

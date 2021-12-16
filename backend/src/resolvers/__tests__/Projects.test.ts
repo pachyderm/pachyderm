@@ -49,7 +49,7 @@ describe('Projects Resolver', () => {
   describe('projects', () => {
     it('should return the default project when the project service is unimplemented', async () => {
       const error = createServiceError({code: status.UNIMPLEMENTED});
-      mockServer.setProjectsError(error);
+      mockServer.setError(error);
 
       const {data} = await executeQuery<{
         projects: Project[];

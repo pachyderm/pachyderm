@@ -85,3 +85,7 @@ export const getUrlState = (): UrlState => {
   const searchParams = new URLSearchParams(window.location.search);
   return JSON.parse(atob(searchParams.get('view') || '{}'));
 };
+
+export const generateTutorialView = (tutorialId: string) => {
+  return btoa(JSON.stringify({tutorialId}));
+};

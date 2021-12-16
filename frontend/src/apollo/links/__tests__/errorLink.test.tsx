@@ -88,7 +88,7 @@ describe('errorLink', () => {
     });
 
     it('should redirect the user to /error if there is a service error', async () => {
-      mockServer.setProjectsError(createServiceError({code: 13}));
+      mockServer.setError(createServiceError({code: 13}));
       render(<TestBed />);
 
       await waitFor(() => expect(window.location.pathname).toBe('/error'));

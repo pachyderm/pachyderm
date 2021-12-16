@@ -48,7 +48,7 @@ describe('AuthenticatedRoute', () => {
 
   it('should redirect the user to the error page if there is an issue with redeeming the auth code', async () => {
     const error = createServiceError({code: status.UNAUTHENTICATED});
-    mockServer.setAuthError(error);
+    mockServer.setError(error);
     window.localStorage.setItem('oauthCode', 'code');
 
     render(<TestBed />);

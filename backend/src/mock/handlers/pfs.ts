@@ -26,12 +26,11 @@ import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 import uniqueId from 'lodash/uniqueId';
 
 import {REPO_READER_PERMISSIONS} from '@dash-backend/constants/permissions';
-import commits from '@dash-backend/mock/fixtures/commits';
-import files from '@dash-backend/mock/fixtures/files';
-import repos from '@dash-backend/mock/fixtures/repos';
 import {createServiceError} from '@dash-backend/testHelpers';
 
 import repoAuthInfos from '../fixtures/repoAuthInfos';
+
+import MockState from './MockState';
 
 const setAuthInfoForRepo = (repo: RepoInfo, accountId = '') => {
   const repoName = repo.getRepo()?.getName();
@@ -55,7 +54,6 @@ const setAuthInfoForRepos = (repos: RepoInfo[], accountId = '') => {
 };
 
 const pfs = () => {
-  let state = {repos, commits, files};
   return {
     getService: (): Pick<
       PfsIAPIServer,
@@ -76,7 +74,9 @@ const pfs = () => {
           const [projectId] = call.metadata.get('project-id');
           const [accountId] = call.metadata.get('authn-token');
           const projectRepos = setAuthInfoForRepos(
-            projectId ? state.repos[projectId.toString()] : state.repos['1'],
+            projectId
+              ? MockState.state.repos[projectId.toString()]
+              : MockState.state.repos['1'],
             accountId.toString(),
           );
 
@@ -92,8 +92,8 @@ const pfs = () => {
           const repoName = call.request.getRepo()?.getName();
           const repo = (
             projectId
-              ? state.repos[projectId.toString()]
-              : state.repos['tutorial']
+              ? MockState.state.repos[projectId.toString()]
+              : MockState.state.repos['tutorial']
           ).find((r) => r.getRepo()?.getName() === repoName);
 
           if (repo) {
@@ -147,7 +147,8 @@ const pfs = () => {
           }
 
           const allCommits =
-            state.commits[projectId.toString()] || state.commits['1'];
+            MockState.state.commits[projectId.toString()] ||
+            MockState.state.commits['1'];
 
           allCommits.forEach((commit) => {
             if (
@@ -167,8 +168,8 @@ const pfs = () => {
           const [projectId] = call.metadata.get('project-id');
           const path = call.request.getFile()?.getPath() || '/';
           const directories = projectId
-            ? state.files[projectId.toString()]
-            : state.files['1'];
+            ? MockState.state.files[projectId.toString()]
+            : MockState.state.files['1'];
           const replyFiles = directories[path] || directories['/'];
           replyFiles.forEach((file) => call.write(file));
           call.end();
@@ -189,8 +190,8 @@ const pfs = () => {
           const update = call.request.getUpdate();
           const description = call.request.getDescription();
           const projectRepos = projectId
-            ? state.repos[projectId.toString()]
-            : state.repos['1'];
+            ? MockState.state.repos[projectId.toString()]
+            : MockState.state.repos['1'];
           if (repoName) {
             const existingRepo = projectRepos.find(
               (repo) => repo.getRepo()?.getName() === repoName,
@@ -230,7 +231,7 @@ const pfs = () => {
         inspectBranch: (call, callback) => {
           const [projectId] = call.metadata.get('project-id');
           const requestBranch = call.request.getBranch();
-          const projectRepos = repos[projectId.toString()];
+          const projectRepos = MockState.state.repos[projectId.toString()];
           if (!projectRepos) {
             callback({
               code: Status.NOT_FOUND,
@@ -261,7 +262,8 @@ const pfs = () => {
             });
             return;
           }
-          const projectCommits = commits[projectId.toString()] || [];
+          const projectCommits =
+            MockState.state.commits[projectId.toString()] || [];
           const head = projectCommits.find(
             (commitInfo) =>
               commitInfo.getCommit()?.getBranch()?.getName() ===
@@ -279,7 +281,7 @@ const pfs = () => {
             if (requestBranch) {
               const branchName = requestBranch.getName();
               const repoName = requestBranch.getRepo()?.getName();
-              const projectRepos = repos[projectId.toString()];
+              const projectRepos = MockState.state.repos[projectId.toString()];
               if (!projectRepos) {
                 callback({
                   code: Status.NOT_FOUND,
@@ -299,7 +301,9 @@ const pfs = () => {
               const branches = repo?.getBranchesList();
 
               if (call.request.getHead()) {
-                const commitIndex = commits[projectId.toString()].findIndex(
+                const commitIndex = MockState.state.commits[
+                  projectId.toString()
+                ].findIndex(
                   (commit) =>
                     commit.getCommit()?.getId() ===
                     call.request.getHead()?.getId(),
@@ -313,14 +317,15 @@ const pfs = () => {
                   });
                   return;
                 }
-                commits[projectId.toString()] = commits[
-                  projectId.toString()
-                ].filter((commit, index) => {
-                  return (
-                    commit.getCommit()?.getBranch()?.getName() !== branchName ||
-                    index >= commitIndex
+                MockState.state.commits[projectId.toString()] =
+                  MockState.state.commits[projectId.toString()].filter(
+                    (commit, index) => {
+                      return (
+                        commit.getCommit()?.getBranch()?.getName() !==
+                          branchName || index >= commitIndex
+                      );
+                    },
                   );
-                });
               }
               const existingBranch = branches?.find(
                 (b) => b.getName() === branchName,
@@ -382,25 +387,27 @@ const pfs = () => {
                 const dirPath = path.dirname(addFile.getPath());
                 if (
                   Object.prototype.hasOwnProperty.call(
-                    state.files[projectId.toString()],
+                    MockState.state.files[projectId.toString()],
                     dirPath,
                   ) &&
-                  !state.files[projectId.toString()][dirPath].some(
+                  !MockState.state.files[projectId.toString()][dirPath].some(
                     (file) => file.getFile()?.getPath() === addFile.getPath(),
                   )
                 ) {
-                  state.files[projectId.toString()][dirPath].push(fileInfo);
+                  MockState.state.files[projectId.toString()][dirPath].push(
+                    fileInfo,
+                  );
                 } else {
-                  state.files[projectId.toString()] = {
-                    ...state.files[projectId.toString()],
+                  MockState.state.files[projectId.toString()] = {
+                    ...MockState.state.files[projectId.toString()],
                     [dirPath]: [fileInfo],
                   };
                 }
-                const commitInfo = state.commits[projectId.toString()].find(
-                  (commitInfo) => {
-                    return commitInfo.getCommit()?.getId() === commit?.getId();
-                  },
-                );
+                const commitInfo = MockState.state.commits[
+                  projectId.toString()
+                ].find((commitInfo) => {
+                  return commitInfo.getCommit()?.getId() === commit?.getId();
+                });
                 commitInfo
                   ?.getDetails()
                   ?.setSizeBytes(
@@ -437,16 +444,16 @@ const pfs = () => {
             },
             originKind: OriginKind.USER,
           });
-          if (state.commits[projectId.toString()])
-            state.commits[projectId.toString()].push(newCommit);
-          else state.commits[projectId.toString()] = [newCommit];
+          if (MockState.state.commits[projectId.toString()])
+            MockState.state.commits[projectId.toString()].push(newCommit);
+          else MockState.state.commits[projectId.toString()] = [newCommit];
 
           callback(null, newCommit.getCommit());
         },
         finishCommit: (call, callback) => {
           const [projectId] = call.metadata.get('project-id');
           const request = call.request;
-          const commit = state.commits[projectId.toString()].find(
+          const commit = MockState.state.commits[projectId.toString()].find(
             (commitInfo) => {
               return (
                 commitInfo.getCommit()?.getId() === request.getCommit()?.getId()
@@ -471,9 +478,6 @@ const pfs = () => {
           }
         },
       };
-    },
-    resetState: () => {
-      state = {repos, commits, files};
     },
   };
 };

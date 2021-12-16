@@ -229,7 +229,7 @@ const nestedFolders = (() => {
   }, {});
 })();
 
-type Files = {
+export type Files = {
   [projectId: string]: {
     [path: string]: FileInfo[];
   };

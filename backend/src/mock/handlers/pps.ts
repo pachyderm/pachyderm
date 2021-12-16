@@ -6,22 +6,23 @@ import {
   Pipeline,
   PipelineInfo,
   JobSet,
+  RepoInfo,
+  Repo,
+  Branch,
 } from '@pachyderm/node-pachyderm';
 import {pipelineInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pps';
+import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 
-import jobs from '@dash-backend/mock/fixtures/jobs';
-import pipelines from '@dash-backend/mock/fixtures/pipelines';
 import {createServiceError} from '@dash-backend/testHelpers';
 
-import jobSets from '../fixtures/jobSets';
-import {pipelineAndJobLogs, workspaceLogs} from '../fixtures/logs';
 import runJQFilter from '../utils/runJQFilter';
+
+import MockState from './MockState';
 
 const DEFAULT_SINCE_TIME = 86400;
 
 const pps = () => {
-  let state = {pipelines, jobs, jobSets, pipelineAndJobLogs, workspaceLogs};
   return {
     getService: (): Pick<
       PpsIAPIServer,
@@ -48,8 +49,8 @@ const pps = () => {
             );
           }
           let replyPipelines = projectId
-            ? state.pipelines[projectId.toString()]
-            : state.pipelines['1'];
+            ? MockState.state.pipelines[projectId.toString()]
+            : MockState.state.pipelines['1'];
 
           if (call.request.getJqfilter()) {
             replyPipelines = await runJQFilter({
@@ -67,8 +68,8 @@ const pps = () => {
         listJob: async (call) => {
           const [projectId] = call.metadata.get('project-id');
           let replyJobs = projectId
-            ? state.jobs[projectId.toString()]
-            : state.jobs['1'];
+            ? MockState.state.jobs[projectId.toString()]
+            : MockState.state.jobs['1'];
 
           const pipeline = call.request.getPipeline();
           if (pipeline) {
@@ -84,8 +85,8 @@ const pps = () => {
         inspectJob: (call, callback) => {
           const [projectId] = call.metadata.get('project-id');
           const replyJobs = projectId
-            ? state.jobs[projectId.toString()]
-            : state.jobs['1'];
+            ? MockState.state.jobs[projectId.toString()]
+            : MockState.state.jobs['1'];
 
           const foundJob = replyJobs.find(
             (job) =>
@@ -102,8 +103,8 @@ const pps = () => {
         inspectPipeline: (call, callback) => {
           const [projectId] = call.metadata.get('project-id');
           const projectPipelines = projectId
-            ? state.pipelines[projectId.toString()]
-            : state.pipelines['1'];
+            ? MockState.state.pipelines[projectId.toString()]
+            : MockState.state.pipelines['1'];
           const foundPipeline = projectPipelines.find((pipeline) => {
             return (
               pipeline.getPipeline()?.getName() ===
@@ -120,7 +121,8 @@ const pps = () => {
         inspectJobSet: (call) => {
           const [projectId] = call.metadata.get('project-id');
           const projectJobSets =
-            state.jobSets[projectId.toString()] || state.jobSets['default'];
+            MockState.state.jobSets[projectId.toString()] ||
+            MockState.state.jobSets['default'];
 
           const foundJobSet =
             projectJobSets[call.request.getJobSet()?.getId() || ''];
@@ -141,7 +143,8 @@ const pps = () => {
         listJobSet: (call) => {
           const [projectId] = call.metadata.get('project-id');
           const projectJobSets =
-            state.jobSets[projectId.toString()] || state.jobSets['default'];
+            MockState.state.jobSets[projectId.toString()] ||
+            MockState.state.jobSets['default'];
 
           Object.keys(projectJobSets).forEach((jobId) =>
             call.write(
@@ -154,7 +157,7 @@ const pps = () => {
         },
         getLogs: async (call) => {
           if (!call.request.getPipeline() && !call.request.getJob()) {
-            state.workspaceLogs
+            MockState.state.workspaceLogs
               .slice(-call.request.getTail() || 0)
               .forEach((log) => {
                 call.write(log);
@@ -163,8 +166,8 @@ const pps = () => {
             let filteredLogs: LogMessage[] = [];
             const [projectId] = call.metadata.get('project-id');
             const projectLogs = projectId
-              ? state.pipelineAndJobLogs[projectId.toString()]
-              : state.pipelineAndJobLogs['1'];
+              ? MockState.state.pipelineAndJobLogs[projectId.toString()]
+              : MockState.state.pipelineAndJobLogs['1'];
 
             const pipelineName = call.request.getPipeline()?.getName();
             if (pipelineName) {
@@ -209,8 +212,8 @@ const pps = () => {
           const input = call.request.getInput();
           const description = call.request.getDescription();
           const projectPipelines = projectId
-            ? state.pipelines[projectId.toString()]
-            : state.pipelines['1'];
+            ? MockState.state.pipelines[projectId.toString()]
+            : MockState.state.pipelines['1'];
 
           if (pipelineName) {
             const existingPipeline = projectPipelines.find(
@@ -238,19 +241,26 @@ const pps = () => {
                     .setDescription(description),
                 );
               projectPipelines.push(newPipeline);
+
+              const projectRepos = projectId
+                ? MockState.state.repos[projectId.toString()]
+                : MockState.state.repos['1'];
+              const newRepo = new RepoInfo()
+                .setRepo(new Repo().setName(pipelineName).setType('user'))
+                .setDetails(new RepoInfo.Details().setSizeBytes(0))
+                .setBranchesList([new Branch().setName('master')])
+                .setCreated(
+                  timestampFromObject({
+                    seconds: Math.floor(Date.now() / 1000),
+                    nanos: 0,
+                  }),
+                )
+                .setDescription(`Output repo for ${pipelineName}`);
+              projectRepos.push(newRepo);
             }
           }
           callback(null, new Empty());
         },
-      };
-    },
-    resetState: () => {
-      state = {
-        pipelines,
-        jobs,
-        jobSets,
-        pipelineAndJobLogs,
-        workspaceLogs,
       };
     },
   };

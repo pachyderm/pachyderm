@@ -3,7 +3,7 @@ import http from 'http';
 import {AddressInfo} from 'net';
 import {URL} from 'url';
 
-import {Server, ServerCredentials} from '@grpc/grpc-js';
+import {Server, ServerCredentials, ServiceError} from '@grpc/grpc-js';
 import {
   AuthAPIService,
   PfsAPIService,
@@ -21,6 +21,7 @@ import accounts from './fixtures/accounts';
 import keys from './fixtures/keys';
 import openIdConfiguration from './fixtures/openIdConfiguration';
 import auth from './handlers/auth';
+import MockState from './handlers/MockState';
 import pfs from './handlers/pfs';
 import pps from './handlers/pps';
 import projects from './handlers/projects';
@@ -144,8 +145,7 @@ const createServer = () => {
     },
 
     // mock methods
-    setAuthError: auth.setError,
-    setProjectsError: projects.setError,
+    setError: (error: ServiceError | null) => (MockState.state.error = error),
     setTokenError: (tokenError: boolean) =>
       (mockServer.state.tokenError = tokenError),
     setAuthConfigurationError: (authConfigurationError: boolean) =>
@@ -154,12 +154,9 @@ const createServer = () => {
       mockServer.state.account = accounts[id] || accounts.default;
     },
     getAccount: () => mockServer.state.account,
+    getState: () => MockState.getState(),
     resetState: () => {
-      auth.resetState();
-      projects.resetState();
-      pfs.resetState();
-      pps.resetState();
-      // Add additional handler resets here
+      MockState.resetState();
 
       mockServer.state = {
         ...cloneDeep(defaultState),

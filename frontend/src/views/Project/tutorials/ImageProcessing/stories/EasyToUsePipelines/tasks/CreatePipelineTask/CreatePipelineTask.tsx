@@ -55,7 +55,7 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
       index={index}
       action={createPipeline}
       currentTask={currentTask}
-      actionText="Simulate Terminal Command"
+      actionText="Create the edges pipeline"
       taskInfoTitle="Create the edges pipeline"
       taskInfo={
         <>

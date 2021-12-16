@@ -1,20 +1,16 @@
-import {ServiceError, status} from '@grpc/grpc-js';
+import {status} from '@grpc/grpc-js';
 import {AuthIAPIServer, AuthenticateResponse} from '@pachyderm/node-pachyderm';
 
 import {getAccountFromIdToken} from '@dash-backend/lib/auth';
 
-const defaultState: {error: ServiceError | null} = {
-  error: null,
-};
+import MockState from './MockState';
 
 const auth = () => {
-  let state = {...defaultState};
-
   return {
     getService: (): Pick<AuthIAPIServer, 'authenticate'> => {
       return {
         authenticate: async ({request}, callback) => {
-          if (state.error?.code === status.UNAUTHENTICATED) {
+          if (MockState.state.error?.code === status.UNAUTHENTICATED) {
             return callback(new Error('Invalid ID token'), null);
           }
 
@@ -23,12 +19,6 @@ const auth = () => {
           return callback(null, new AuthenticateResponse().setPachToken(id));
         },
       };
-    },
-    setError: (error: ServiceError | null) => {
-      state.error = error;
-    },
-    resetState: () => {
-      state = {...defaultState};
     },
   };
 };
