@@ -33,7 +33,7 @@ spec:
         - name: CONSOLE_OAUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: pachyderm-console-secret
+              name: {{ .Values.console.config.oauthClientSecretSecretName | default "pachyderm-console-secret" }}
               key: OAUTH_CLIENT_SECRET
         {{- end}}
         {{- if .Values.enterpriseServer.enabled }}
