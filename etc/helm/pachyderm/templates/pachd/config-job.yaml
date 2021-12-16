@@ -18,7 +18,7 @@ spec:
   template:
     {{- if .Values.pachd.configJob.annotations }}
     metadata:
-      annotations: {{ toYaml .Values.pachd.configJob.annotations | nindent 4 }}
+      annotations: {{ toYaml .Values.pachd.configJob.annotations | nindent 8 }}
     {{- end }}
     spec:
       containers:
