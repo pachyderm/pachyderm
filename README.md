@@ -1,6 +1,9 @@
-# jupyterlab_pachyderm
+# jupyterlab-pachyderm
 
-A JupyterLab extension.
+[![CircleCI](https://circleci.com/gh/pachyderm/jupyterlab-pachyderm/tree/main.svg?style=shield&circle-token=23e1645bde6312d903e50be2dec7073bf0bcfbd0)](https://circleci.com/gh/pachyderm/jupyterlab-pachyderm/tree/main)
+[![PyPI version](https://badge.fury.io/py/jupyterlab-pachyderm.svg)](https://pypi.org/project/jupyterlab-pachyderm)
+
+A JupyterLab extension for integrations with Pachyderm.
 
 This extension is composed of a Python package named `jupyterlab_pachyderm`
 for the server extension and a NPM package named `jupyterlab-pachyderm`
