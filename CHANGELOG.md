@@ -1,6 +1,13 @@
 # Changelog
 
 <!-- <START NEW CHANGELOG ENTRY> -->
+## 0.1.0-beta2
+
+### Fixed
+- Bug in unmount where we unmount then remounts the same repo
+- Flakey test in mock-e2e
+
+<!-- <END NEW CHANGELOG ENTRY> -->
 ## 0.1.0-beta
 
 ### Added
@@ -11,7 +18,6 @@
 ### Fixed
 - Bug where deleted repos in Pachyderm still persist in list repo response
 
-<!-- <END NEW CHANGELOG ENTRY> -->
 ## 0.1.0-alpha3
 
 ### Added
