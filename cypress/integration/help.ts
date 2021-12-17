@@ -1,6 +1,7 @@
 describe('help', () => {
   beforeEach(() => {
     cy.visit('/lab');
+    cy.isAppReady();
   });
 
   it('Should open the pachyderm docs from the help menu.', () => {
