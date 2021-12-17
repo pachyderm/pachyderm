@@ -631,7 +631,7 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 		}
 
 		// if waitEv was set but not sent yet, send it now
-		if waitEv != nil && interested(waitEv, options.SortTarget) {
+		if waitEv != nil {
 			if err := watcher.sendInitial(waitEv.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
 				watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
 				watcher.listener.Unregister(watcher)
