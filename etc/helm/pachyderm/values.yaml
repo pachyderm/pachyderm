@@ -123,7 +123,7 @@ etcd:
     type: ClusterIP
   securityContext:
     enabled: true
-  tolerations: {}
+  tolerations: []
 
 enterpriseServer:
   enabled: false
@@ -410,7 +410,7 @@ pachd:
       create: false
       crt: ""
       key: ""
-  tolerations: {}
+  tolerations: []
   worker:
     image:
       repository: "pachyderm/worker"
