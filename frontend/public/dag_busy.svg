@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" style="margin:auto;background:0 0" width="16" height="16" viewBox="0 0 20 20" preserveAspectRatio="xMidYMid" display="block">
-  <g transform="translate(-26 -26) scale(0.75)" fill="#5ABFDE">
+  <g transform="translate(-28 -28) scale(0.75)" fill="#5ABFDE">
     <circle cx="60" cy="50" r="2">
       <animate attributeName="r" values="1.2;1.2;2;1.2;1.2" dur="1s" repeatCount="indefinite" begin="-0.875s"/>
       <animate attributeName="fill" values="#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE;#5ABFDE" repeatCount="indefinite" dur="1s" begin="-0.875s"/>

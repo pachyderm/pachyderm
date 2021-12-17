@@ -1,3 +1,8 @@
+.commit {
+  overflow-y: hidden;
+  transition: all 400ms ease-in;
+}
+
 .commit, .empty {
   padding: 0 1.5625rem;
 }
@@ -29,4 +34,19 @@
 .autoCommits {
   padding: 0rem 1.5625rem;
   margin-bottom: 1.25rem;
+}
+
+/* Transition group styles */
+.commitEnterActive {
+  max-height: 0rem;
+  opacity: 0;
+}
+
+.commitEnterDone {
+  max-height: 7.125rem;
+  opacity: 1;
+}
+
+.commitEnterActive .commitInfo, .commitEnterDone .commitInfo {
+  border-left: 1px dashed var(--banner-green);
 }

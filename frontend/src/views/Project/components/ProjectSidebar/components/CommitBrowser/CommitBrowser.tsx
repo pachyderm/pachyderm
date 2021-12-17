@@ -1,6 +1,7 @@
 import {OriginKind, RepoQuery} from '@graphqlTypes';
 import {Link, LoadingDots, Tooltip, PureCheckbox} from '@pachyderm/components';
 import React from 'react';
+import {CSSTransition, TransitionGroup} from 'react-transition-group';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
@@ -71,54 +72,67 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
       </div>
       <div className={styles.commits}>
         {commits?.length ? (
-          commits.map((commit) => {
-            return (
-              <div className={styles.commit} key={commit.id}>
-                <div className={styles.commitTime}>
-                  <CommitTime commit={commit} />
-                  {` (${commit.sizeDisplay})`}
-                </div>
-                <dl className={styles.commitInfo}>
-                  {commit.description ? (
-                    <Tooltip
-                      tooltipText={commit.description}
-                      placement="left"
-                      tooltipKey="description"
-                    >
-                      <dt className={styles.commitData}>ID {commit.id}</dt>
-                    </Tooltip>
-                  ) : (
-                    <dt className={styles.commitData}>ID {commit.id}</dt>
-                  )}
-                  <dt className={styles.commitData}>
-                    {commit.hasLinkedJob && (
-                      <Link
-                        to={jobRoute({
-                          projectId,
-                          jobId: commit.id,
-                          pipelineId: repo?.name,
-                        })}
-                      >
-                        Linked Job
-                      </Link>
-                    )}
-                  </dt>
-                  <dt className={styles.commitData}>
-                    <Link
-                      to={fileBrowserRoute({
-                        projectId,
-                        branchId,
-                        repoId: repoId,
-                        commitId: commit.id,
-                      })}
-                    >
-                      View Files
-                    </Link>
-                  </dt>
-                </dl>
-              </div>
-            );
-          })
+          <TransitionGroup>
+            {commits.map((commit) => {
+              return (
+                <CSSTransition
+                  timeout={400}
+                  classNames={{
+                    enterActive: styles.commitEnterActive,
+                    enterDone: styles.commitEnterDone,
+                    exitActive: styles.commitExit,
+                    exitDone: styles.commitExitActive,
+                  }}
+                  key={commit.id}
+                >
+                  <div className={styles.commit}>
+                    <div className={styles.commitTime}>
+                      <CommitTime commit={commit} />
+                      {` (${commit.sizeDisplay})`}
+                    </div>
+                    <dl className={styles.commitInfo}>
+                      {commit.description ? (
+                        <Tooltip
+                          tooltipText={commit.description}
+                          placement="left"
+                          tooltipKey="description"
+                        >
+                          <dt className={styles.commitData}>ID {commit.id}</dt>
+                        </Tooltip>
+                      ) : (
+                        <dt className={styles.commitData}>ID {commit.id}</dt>
+                      )}
+                      <dt className={styles.commitData}>
+                        {commit.hasLinkedJob && (
+                          <Link
+                            to={jobRoute({
+                              projectId,
+                              jobId: commit.id,
+                              pipelineId: repo?.name,
+                            })}
+                          >
+                            Linked Job
+                          </Link>
+                        )}
+                      </dt>
+                      <dt className={styles.commitData}>
+                        <Link
+                          to={fileBrowserRoute({
+                            projectId,
+                            branchId,
+                            repoId: repoId,
+                            commitId: commit.id,
+                          })}
+                        >
+                          View Files
+                        </Link>
+                      </dt>
+                    </dl>
+                  </div>
+                </CSSTransition>
+              );
+            })}
+          </TransitionGroup>
         ) : (
           <div className={styles.empty}>
             There are no commits for this branch
