@@ -775,8 +775,8 @@ service API {
   // RunLoadTestDefault runs the default load test.
   rpc RunLoadTestDefault(google.protobuf.Empty) returns (pfs_v2.RunLoadTestResponse) {}
 
-  // RenderTemplate renders the provided template and arguments into a list of pipeline specs
+  // RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
   rpc RenderTemplate(RenderTemplateRequest) returns (RenderTemplateResponse) {}
-  // ApplyTemplate renders the template into specs, and then creates pipelines for each of those in a transaction.
+  // ApplyTemplate renders the template into Pipeline specicifications, and then creates pipelines for each of those in a transaction.
   rpc ApplyTemplate(ApplyTemplateRequest) returns (google.protobuf.Empty) {}
 }

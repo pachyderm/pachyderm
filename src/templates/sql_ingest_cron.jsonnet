@@ -11,7 +11,7 @@ local pachtf(args, env={}) = {
 	cmd: ["/app/pachtf"] + args,
 };
 
-function (name, url, query, format, cronSpec, secret_name)
+function (name, url, query, format, cronSpec, secretName)
 	local queryPipelineName = name + "_queries";
 	[
 	newPipeline(
