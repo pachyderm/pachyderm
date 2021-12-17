@@ -102,9 +102,12 @@ func TestCheck(t *testing.T) {
 	ctx := context.Background()
 	objC, chunks := newTestStorage(t)
 	writeRandom(t, chunks)
-	require.NoError(t, chunks.Check(ctx, false))
+	n, err := chunks.Check(ctx, nil, nil, false)
+	require.NoError(t, err)
+	require.True(t, n > 0)
 	deleteOne(t, objC)
-	require.YesError(t, chunks.Check(ctx, false))
+	_, err = chunks.Check(ctx, nil, nil, false)
+	require.YesError(t, err)
 }
 
 func deleteOne(t testing.TB, objC obj.Client) {

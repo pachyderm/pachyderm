@@ -431,10 +431,14 @@ message RunLoadTestResponse {
 }
 
 message CheckStorageRequest {
-  bool read_data = 1;    
+  bool read_chunk_data = 1;
+  bytes chunk_begin = 2;
+  bytes chunk_end = 3;
 }
 
-message CheckStorageResponse {}
+message CheckStorageResponse {
+  int64 chunk_object_count = 1;
+}
 
 service API {
   // CreateRepo creates a new repo.

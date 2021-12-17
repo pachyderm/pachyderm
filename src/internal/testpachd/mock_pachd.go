@@ -785,7 +785,7 @@ func (api *pfsServerAPI) CheckStorage(ctx context.Context, req *pfs.CheckStorage
 	if api.mock.CheckStorage.handler != nil {
 		return api.mock.CheckStorage.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.RunLoadTestDefault")
+	return nil, errors.Errorf("unhandled pachd mock CheckStorage")
 }
 
 /* PPS Server Mocks */

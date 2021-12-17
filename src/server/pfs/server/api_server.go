@@ -812,10 +812,13 @@ func (a *apiServer) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetR
 
 func (a *apiServer) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error) {
 	chunks := a.driver.storage.ChunkStorage()
-	if err := chunks.Check(ctx, req.ReadData); err != nil {
+	count, err := chunks.Check(ctx, req.ChunkBegin, req.ChunkEnd, req.ReadChunkData)
+	if err != nil {
 		return nil, err
 	}
-	return &pfs.CheckStorageResponse{}, nil
+	return &pfs.CheckStorageResponse{
+		ChunkObjectCount: int64(count),
+	}, nil
 }
 
 // RunLoadTest implements the pfs.RunLoadTest RPC

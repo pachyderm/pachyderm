@@ -1,6 +1,7 @@
 package chunk
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -83,20 +84,27 @@ func (s *Storage) NewDeleter() track.Deleter {
 }
 
 // Check runs an integrity check on the objects in object storage.
-func (s *Storage) Check(ctx context.Context, readChunks bool) error {
+// It will check objects for chunks with IDs in the range [first, last)
+// As a special case: if len(end) == 0 then it is ignored.
+func (s *Storage) Check(ctx context.Context, begin, end []byte, readChunks bool) (int, error) {
 	c := NewClient(s.store, s.db, s.tracker, nil).(*trackedClient)
-	var first []byte
+	first := append([]byte{}, begin...)
+	var count int
 	for {
-		last, err := c.CheckEntries(ctx, first, 100, readChunks)
+		n, last, err := c.CheckEntries(ctx, first, 100, readChunks)
+		count += n
 		if err != nil {
-			return err
+			return count, err
 		}
 		if last == nil {
 			break
 		}
+		if len(end) > 0 && bytes.Compare(last, end) > 0 {
+			break
+		}
 		first = keyAfter(last)
 	}
-	return nil
+	return count, nil
 }
 
 // keyAfter returns a byte slice ordered immediately after x lexicographically

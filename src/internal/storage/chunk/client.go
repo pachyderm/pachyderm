@@ -1,6 +1,7 @@
 package chunk
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	fmt "fmt"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -82,7 +84,7 @@ func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadat
 	if err := dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) (retErr error) {
 		// This function can be called multiple times.  In order to be sure
 		// that needsUpload and gen are set every run, we nil them here.
-		// This also protects this us from dbutil.WithTx dropping an error, if
+		// This also protects us from dbutil.WithTx dropping an error, if
 		// we only set these values before a `return nil`
 		needUpload, gen = nil, nil
 		if err := c.tracker.CreateTx(tx, chunkTID, pointsTo, c.ttl); err != nil {
@@ -168,7 +170,7 @@ func (c *trackedClient) Close() error {
 
 // Check checks that there are entries for the chunk and they have successfully uploaded objects.
 func (c *trackedClient) Check(ctx context.Context, id ID, readChunk bool) error {
-	last, err := c.CheckEntries(ctx, id, 1, readChunk)
+	_, last, err := c.CheckEntries(ctx, id, 1, readChunk)
 	if err != nil {
 		return err
 	}
@@ -180,7 +182,7 @@ func (c *trackedClient) Check(ctx context.Context, id ID, readChunk bool) error 
 
 // CheckEntries runs an integrity check on the objects in object storage.
 // It lists through chunks with IDs >= first, lexicographically.
-func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit int, readChunks bool) (last ID, _ error) {
+func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit int, readChunks bool) (n int, last ID, _ error) {
 	if first == nil {
 		first = []byte{} // in SQL: nothing is comparable to nil
 	}
@@ -191,27 +193,54 @@ func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit in
 		ORDER BY chunk_id
 		LIMIT $2
 	`, first, limit); err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 	for _, ent := range ents {
 		if readChunks {
 			if err := c.store.Get(ctx, chunkKey(ent.ChunkID, ent.Gen), func(data []byte) error {
 				return verifyData(ent.ChunkID, data)
 			}); err != nil {
-				return nil, err
+				if pacherr.IsNotExist(err) {
+					if exists, err := c.entryExists(ctx, ent.ChunkID, ent.Gen); err != nil {
+						return n, nil, err
+					} else if exists {
+						return n, nil, newErrMissingObject(ent)
+					}
+				}
 			}
 		} else {
 			exists, err := c.store.Exists(ctx, chunkKey(ent.ChunkID, ent.Gen))
 			if err != nil {
-				return nil, err
+				return n, nil, err
 			}
 			if !exists {
-				return nil, errors.Errorf("missing object for chunk entry: chunkID=%v gen=%v uploaded=%v tombstone=%v", ent.ChunkID, ent.Gen, ent.Uploaded, ent.Tombstone)
+				if exists2, err := c.entryExists(ctx, ent.ChunkID, ent.Gen); err != nil {
+					return n, nil, err
+				} else if exists2 {
+					return n, nil, newErrMissingObject(ent)
+				}
 			}
 		}
 		last = ent.ChunkID
+		n++
 	}
-	return last, nil
+	if n == limit && bytes.Equal(first, last) {
+		return n, nil, errors.Errorf("limit too small to check all chunk entries limit=%d", limit)
+	}
+	return n, last, nil
+}
+
+func (c *trackedClient) entryExists(ctx context.Context, chunkID ID, gen uint64) (bool, error) {
+	var x int
+	err := c.db.GetContext(ctx, &x, `SELECT FROM storage.chunk_objects WHERE chunk_id = $1 AND gen = $2`, chunkID, gen)
+	switch err {
+	case sql.ErrNoRows:
+		return false, nil
+	case nil:
+		return true, nil
+	default:
+		return false, err
+	}
 }
 
 func chunkPath(chunkID ID, gen uint64) string {
@@ -223,6 +252,10 @@ func chunkPath(chunkID ID, gen uint64) string {
 
 func chunkKey(chunkID ID, gen uint64) []byte {
 	return []byte(chunkPath(chunkID, gen))
+}
+
+func newErrMissingObject(ent Entry) error {
+	return errors.Errorf("missing object for chunk entry: chunkID=%v gen=%v uploaded=%v tombstone=%v", ent.ChunkID, ent.Gen, ent.Uploaded, ent.Tombstone)
 }
 
 var _ track.Deleter = &deleter{}
