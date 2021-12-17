@@ -27,16 +27,25 @@ spec:
             pathType: Prefix
             backend:
               service:
+              {{- if .Values.enterpriseServer.enabled }}
+                name: "pach-enterprise"
+              {{- else }}
                 name: "pachd"
+              {{- end }}
                 port:
                   name: "identity-port"
           - path: "/authorization-code/callback"
             pathType: Prefix
             backend:
               service:
+              {{- if .Values.enterpriseServer.enabled }}
+                name: "pach-enterprise"
+              {{- else }}
                 name: "pachd"
+              {{- end }}
                 port:
                   name: "oidc-port"
+          {{- if .Values.console.enabled }}
           - path: "/"
             pathType: Prefix
             backend:
@@ -44,4 +53,5 @@ spec:
                 name: "console"
                 port:
                   name: "console-http"
+          {{- end }}
 {{ end -}}
