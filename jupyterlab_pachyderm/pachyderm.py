@@ -166,11 +166,11 @@ class PythonPachydermMountClient(MountInterface):
             # _prepare_repos_for_pachctl_mount would return empty, and no mount call would be made
             try:
                 self.client.unmount(self.mount_dir)
+                del self.mount_states[mount_key]
                 self.client.mount(self.mount_dir, self._current_mount_strings())
             except Exception:
                 return {}
             else:
-                del self.mount_states[mount_key]
                 return {"repo": repo, "branch": branch, "mount": {"state": "unmounted"}}
 
     async def unmount_all(self):

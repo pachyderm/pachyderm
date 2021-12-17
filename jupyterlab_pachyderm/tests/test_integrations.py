@@ -94,3 +94,28 @@ def test_mount(pachyderm_resources):
     )
     assert r.status_code == 200
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
+
+
+def test_unmount(pachyderm_resources):
+    repos, files = pachyderm_resources
+
+    # populate in-memory map of repos and mount states
+    # TODO automatically call list repos for mount
+    requests.get(f"{BASE_URL}/repos")
+
+    r = requests.put(
+        f"{BASE_URL}/repos/images/_mount",
+        params={"name": "images"},
+    )
+    assert r.status_code == 200
+    assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, "images")))[0][2]) == sorted(
+        files
+    )
+
+    # unmount
+    r = requests.put(
+        f"{BASE_URL}/repos/images/_unmount",
+        params={"name": "images"},
+    )
+    assert r.status_code == 200
+    assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
