@@ -117,6 +117,10 @@
   user-select: none;
 }
 
+.pachyderm-mount-sortableList-item-no-branchs {
+  opacity: 50%;
+}
+
 .pachyderm-mount-sortableList-item:hover {
   background: var(--jp-layout-color2);
 }

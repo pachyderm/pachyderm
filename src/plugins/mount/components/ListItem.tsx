@@ -21,14 +21,17 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
   }, [repo]);
 
   useEffect(() => {
-    const found = repo.branches.find((branch) => branch.branch === 'master');
-    setSelectedBranch(found ? found.branch : repo.branches[0].branch);
+    if (repo.branches.length > 0) {
+      const found = repo.branches.find((branch) => branch.branch === 'master');
+      setSelectedBranch(found ? found.branch : repo.branches[0].branch);
+    }
   }, [repo]);
 
   const onChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedBranch(e.target.value);
   };
 
+  const hasBranches = repo?.branches?.length > 0;
   const buttonText = mountedBanch ? 'Unmount' : 'Mount';
 
   const openFolder = () => {
@@ -59,6 +62,18 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
     open('');
   };
 
+  if (!hasBranches) {
+    return (
+      <li className="pachyderm-mount-sortableList-item">
+        <span className="pachyderm-mount-list-item-name pachyderm-mount-sortableList-item-no-branchs">
+          {repo.repo}
+        </span>
+        <span className="pachyderm-mount-list-item-name pachyderm-mount-sortableList-item-no-branchs">
+          No Branches
+        </span>
+      </li>
+    );
+  }
   return (
     <li className="pachyderm-mount-sortableList-item" onClick={openFolder}>
       <span className="pachyderm-mount-list-item-name">{repo.repo}</span>

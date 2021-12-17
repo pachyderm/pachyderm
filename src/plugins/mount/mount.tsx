@@ -2,12 +2,13 @@ import React from 'react';
 import {ILayoutRestorer, JupyterFrontEnd} from '@jupyterlab/application';
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {SplitPanel} from '@lumino/widgets';
-import {ReactWidget} from '@jupyterlab/apputils';
+import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
 import {IFileBrowserFactory} from '@jupyterlab/filebrowser';
 import {mountLogoIcon} from '../../utils/icons';
 
 import SortableList from './components/SortableList';
 import {MountDrive} from './mountDrive';
+import {PollRepos} from './pollRepos';
 
 export type Branch = {
   branch: string;
@@ -53,19 +54,32 @@ export const init = async (
   };
 
   const mountBrowser = createFileBrowser(app, manager, factory);
+
+  const poller = new PollRepos('PollRepos');
+
   const mountedList = ReactWidget.create(
-    <div className="pachyderm-mount-base">
-      <div className="pachyderm-mount-base-title">Mounted Repositories</div>
-      <SortableList open={open} type="mounted" />
-    </div>,
+    <UseSignal signal={poller.mountedSignal}>
+      {(_, mounted) => (
+        <div className="pachyderm-mount-base">
+          <div className="pachyderm-mount-base-title">Mounted Repositories</div>
+          <SortableList open={open} repos={mounted ? mounted : []} />
+        </div>
+      )}
+    </UseSignal>,
   );
   mountedList.addClass('pachyderm-mount-react-wrapper');
 
   const unmountedList = ReactWidget.create(
-    <div className="pachyderm-mount-base">
-      <div className="pachyderm-mount-base-title">Unmounted Repositories</div>
-      <SortableList open={open} type="unmounted" />
-    </div>,
+    <UseSignal signal={poller.unmountedSignal}>
+      {(_, unmounted) => (
+        <div className="pachyderm-mount-base">
+          <div className="pachyderm-mount-base-title">
+            Unmounted Repositories
+          </div>
+          <SortableList open={open} repos={unmounted ? unmounted : []} />
+        </div>
+      )}
+    </UseSignal>,
   );
   unmountedList.addClass('pachyderm-mount-react-wrapper');
 
