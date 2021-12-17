@@ -9,7 +9,6 @@ import styles from './BasicModal.module.css';
 type BasicModalProps = {
   cancelTestId?: string;
   confirmTestId?: string;
-  important?: boolean;
   show: boolean;
   onHide?: () => void;
   onShow?: () => void;
@@ -36,7 +35,6 @@ const BasicModal: React.FC<BasicModalProps> = ({
   onShow = noop,
   headerContent,
   onConfirm,
-  important = false,
   confirmText = 'Okay',
   actionable = false,
   loading = true,
@@ -67,12 +65,7 @@ const BasicModal: React.FC<BasicModalProps> = ({
         </Modal.Status>
       ) : null}
 
-      <Modal.Header
-        onHide={onHide}
-        actionable={actionable}
-        important={important}
-        small={small}
-      >
+      <Modal.Header onHide={onHide} actionable={actionable} small={small}>
         {headerContent}
       </Modal.Header>
 

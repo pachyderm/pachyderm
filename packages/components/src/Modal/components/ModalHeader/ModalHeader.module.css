@@ -20,10 +20,6 @@
   width: 100%;
 }
 
-.important {
-  color: var(--error-red);
-}
-
 .checkmark {
   height: 1.2rem;
 }

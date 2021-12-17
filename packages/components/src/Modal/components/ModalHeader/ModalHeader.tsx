@@ -11,7 +11,6 @@ export interface ModalHeaderProps
   extends Omit<BootstrapModalHeaderProps, 'onHide'> {
   actionable?: boolean;
   onHide: () => void;
-  important?: boolean;
   small?: boolean;
 }
 
@@ -19,7 +18,6 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
   children,
   onHide,
   actionable = false,
-  important = false,
   small = false,
   ref, // Note: The ModalHeader from Bootstrap errors out when forwarding a ref
   ...props
@@ -28,7 +26,6 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
     <BootstrapModalHeader
       {...props}
       className={classNames(styles.base, {
-        [styles.important]: important,
         [styles.small]: small,
       })}
     >
