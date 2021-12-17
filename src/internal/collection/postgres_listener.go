@@ -217,6 +217,7 @@ type postgresEvent struct {
 	protoData []byte          // the serialized protobuf of the row data (exclusive with storedID)
 	storedID  string          // the ID of a temporary row in the large_notifications table
 	err       error           // any error that occurred in parsing
+	create    bool
 }
 
 func parsePostgresEpoch(s string) (time.Time, error) {
@@ -263,7 +264,10 @@ func parsePostgresEvent(payload string) *postgresEvent {
 	}
 
 	switch parts[2] {
-	case "INSERT", "UPDATE":
+	case "INSERT":
+		result.create = true
+		result.eventType = watch.EventPut
+	case "UPDATE":
 		result.eventType = watch.EventPut
 	case "DELETE":
 		result.eventType = watch.EventDelete

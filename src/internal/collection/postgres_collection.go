@@ -571,17 +571,49 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 		return nil, err
 	}
 
+	interested := func(e *postgresEvent, target etcd.SortTarget) bool {
+		return (target == etcd.SortByModRevision && e.eventType != watch.EventPut) || (target == etcd.SortByCreateRevision && !e.create)
+	}
+
 	go func() {
 		// Do a list of the collection to get the initial state
 		lastUpdated := time.Time{}
 		val := cloneProtoMsg(c.template)
-		if err := c.list(nil, &Options{Target: options.SortTarget, Order: options.SortOrder}, func(m *model) error {
+		var waitEv *postgresEvent // represents the popped item for our buffer that's waiting to be sent
+		// Since list is not a snapshot of the DB, we must interleave postgres events with the list as they arrive
+		// At every element visited by list, see if there are any buffered events and if their
+		// timestamp is ahead of our list of item, send them to the client until there are either no buffered events, or they're in the future
+		if err := c.list(nil, &Options{Target: options.SortTarget, Order: etcd.SortAscend}, func(m *model) error {
 			if err := proto.Unmarshal(m.Proto, val); err != nil {
 				return errors.EnsureStack(err)
 			}
 
 			if lastUpdated.Before(m.UpdatedAt) {
 				lastUpdated = m.UpdatedAt
+			}
+
+			if waitEv != nil && waitEv.time.Unix() <= lastUpdated.Unix() {
+				if interested(waitEv, options.SortTarget) {
+					watcher.sendInitial(waitEv.WatchEvent(c.ctx, watcher.db, watcher.template))
+				}
+				waitEv = nil
+			}
+			if waitEv == nil {
+			loop:
+				for {
+					select {
+					case eventData := <-watcher.buf:
+						if eventData.time.Unix() >= lastUpdated.Unix() {
+							waitEv = eventData
+							break loop
+						}
+						if interested(eventData, options.SortTarget) {
+							watcher.sendInitial(eventData.WatchEvent(c.ctx, watcher.db, watcher.template))
+						}
+					default:
+						break loop
+					}
+				}
 			}
 
 			return watcher.sendInitial(&watch.Event{
@@ -596,6 +628,14 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
 			watcher.listener.Unregister(watcher)
 			return
+		}
+
+		// if waitEv was set but not sent yet, send it now
+		if waitEv != nil && interested(waitEv, options.SortTarget) {
+			if err := watcher.sendInitial(waitEv.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
+				watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
+				watcher.listener.Unregister(watcher)
+			}
 		}
 
 		// Forward all buffered notifications until the watcher is closed
