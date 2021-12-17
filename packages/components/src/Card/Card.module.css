@@ -11,12 +11,3 @@
 .base.autoHeight {
   height: auto;
 }
-
-.base ::-webkit-scrollbar {
-  width: 10px;
-}
-
-.base ::-webkit-scrollbar-thumb {
-  background: var(--line-grey);
-  border-radius: 10px;
-}

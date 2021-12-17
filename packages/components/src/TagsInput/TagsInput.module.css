@@ -71,12 +71,3 @@
   font-weight: 600;
   white-space: nowrap;
 }
-
-.base::-webkit-scrollbar {
-  width: 10px;
-}
-
-.base::-webkit-scrollbar-thumb {
-  background: var(--line-grey);
-  border-radius: 10px;
-}
