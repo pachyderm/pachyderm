@@ -420,7 +420,7 @@ func (c *pfsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Em
 	return nil, unsupportedError("RunLoadTestDefault")
 }
 func (c *pfsBuilderClient) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest, opts ...grpc.CallOption) (*pfs.CheckStorageResponse, error) {
-	return nil, unsupportedError("RunLoadTestDefault")
+	return nil, unsupportedError("CheckStorage")
 }
 
 func (c *ppsBuilderClient) InspectJobSet(ctx context.Context, req *pps.InspectJobSetRequest, opts ...grpc.CallOption) (pps.API_InspectJobSetClient, error) {
