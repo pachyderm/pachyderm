@@ -1,13 +1,20 @@
 # Changelog
 
 <!-- <START NEW CHANGELOG ENTRY> -->
+## 0.1.0-beta3
+
+### Added
+- Improved data polling in ui
+### Fixed
+- Bug in ui when repo has no branches
+
+<!-- <END NEW CHANGELOG ENTRY> -->
 ## 0.1.0-beta2
 
 ### Fixed
 - Bug in unmount where we unmount then remounts the same repo
 - Flakey test in mock-e2e
 
-<!-- <END NEW CHANGELOG ENTRY> -->
 ## 0.1.0-beta
 
 ### Added
