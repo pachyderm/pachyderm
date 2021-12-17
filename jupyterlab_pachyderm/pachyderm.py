@@ -1,6 +1,7 @@
 import os
 
 import python_pachyderm
+from .log import get_logger
 
 READ_ONLY = "ro"
 READ_WRITE = "rw"
@@ -39,7 +40,7 @@ class PythonPachydermClient:
 
     def mount(self, mount_dir, repos):
         if repos:
-            print("calling pachctl mount on", mount_dir, repos)
+            get_logger().info(f"calling pachctl mount on {mount_dir} {repos}")
             return self.exp_client.mount(mount_dir, repos)
 
     def unmount(self, mount_dir=None, all_mounts=None):

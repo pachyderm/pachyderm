@@ -8,6 +8,7 @@ import tornado
 
 from .env import MOCK_PACHYDERM_SERVICE, MOUNT_SERVER_ENABLED, PFS_MOUNT_DIR
 from .filemanager import PFSContentsManager
+from .log import get_logger
 from .mock_pachyderm import MockPachydermClient
 from .pachyderm import (
     READ_ONLY,
@@ -82,6 +83,7 @@ class ReposHandler(BaseHandler):
             }
             for repo_name, repo_info in repos.items()
         ]
+        get_logger().debug(f"Repos: {response}")
         self.finish(json.dumps(response))
 
 
@@ -90,7 +92,9 @@ class ReposUnmountHandler(BaseHandler):
 
     @tornado.web.authenticated
     async def put(self):
-        self.finish(json.dumps({"unmounted": await self.mount_client.unmount_all()}))
+        response = json.dumps({"unmounted": await self.mount_client.unmount_all()})
+        get_logger().debug(f"RepoUnmount: {response}")
+        self.finish(response)
 
 
 class RepoHandler(BaseHandler):
@@ -98,19 +102,19 @@ class RepoHandler(BaseHandler):
     async def get(self, repo):
         repos = await self.mount_client.list()
         if repo in repos:
-            self.finish(
-                json.dumps(
-                    {
-                        "repo": repo,
-                        "branches": [
-                            {"branch": branch_name, "mount": mount_state["mount"]}
-                            for branch_name, mount_state in repos[repo][
-                                "branches"
-                            ].items()
-                        ],
-                    }
-                )
+            response = json.dumps(
+                {
+                    "repo": repo,
+                    "branches": [
+                        {"branch": branch_name, "mount": mount_state["mount"]}
+                        for branch_name, mount_state in repos[repo][
+                            "branches"
+                        ].items()
+                    ],
+                }
             )
+            get_logger().debug(f"Repo: {response}")
+            self.finish(response)
 
 
 class RepoMountHandler(BaseHandler):
@@ -131,6 +135,7 @@ class RepoMountHandler(BaseHandler):
             )
         repo, branch, _ = _parse_pfs_path(path)
         response = await self.mount_client.mount(repo, branch, mode, name)
+        get_logger().debug(f"RepoMount: {response}")
         self.finish(json.dumps(response))
 
 
@@ -139,10 +144,12 @@ class RepoUnmountHandler(BaseHandler):
     async def put(self, path):
         name = self.get_required_query_param_name()
         repo, branch, _ = _parse_pfs_path(path)
-        response = await self.mount_client.unmount(repo, branch, name)
-        self.finish(
-            json.dumps({"repo": repo, "branch": branch, "mount": response["mount"]})
+        result = await self.mount_client.unmount(repo, branch, name)
+        response = json.dumps(
+            {"repo": repo, "branch": branch, "mount": result["mount"]}
         )
+        get_logger().debug(f"RepoUnmount: {response}")
+        self.finish(response)
 
 
 class RepoCommitHandler(BaseHandler):
@@ -193,9 +200,12 @@ class PFSHandler(ContentsHandler):
 
 
 def setup_handlers(web_app):
+    get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")
     web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
-
     if MOCK_PACHYDERM_SERVICE:
+        get_logger().info(
+            f"MOCK_PACHYDERM_SERVICE=true -- using the MockPachydermClient"
+        )
         web_app.settings["pachyderm_mount_client"] = PythonPachydermMountClient(
             MockPachydermClient(), PFS_MOUNT_DIR
         )
