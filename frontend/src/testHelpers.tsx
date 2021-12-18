@@ -11,6 +11,7 @@ import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 import useRouteController from './hooks/useRouteController';
 import {UrlState} from './hooks/useUrlQueryState';
 import {Dag} from './lib/types';
+import LoggedInProvider from './providers/LoggedInProvider';
 import {PROJECT_PATHS} from './views/Project/constants/projectPaths';
 
 export {default as server} from '@dash-backend/index';
@@ -23,9 +24,11 @@ export const withContextProviders = (
   return (props: any): any => {
     return (
       <BrowserRouter>
-        <ApolloProvider>
-          <Component {...props} />
-        </ApolloProvider>
+        <LoggedInProvider>
+          <ApolloProvider>
+            <Component {...props} />
+          </ApolloProvider>
+        </LoggedInProvider>
       </BrowserRouter>
     );
   };

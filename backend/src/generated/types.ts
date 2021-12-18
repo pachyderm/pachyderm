@@ -1741,10 +1741,6 @@ export type JobSetQuery = {__typename?: 'Query'} & {
   jobSet: {__typename?: 'JobSet'} & JobSetFieldsFragment;
 };
 
-export type LoggedInQueryVariables = Exact<{[key: string]: never}>;
-
-export type LoggedInQuery = {__typename?: 'Query'} & Pick<Query, 'loggedIn'>;
-
 export type GetWorkspaceLogsQueryVariables = Exact<{
   args: WorkspaceLogsArgs;
 }>;

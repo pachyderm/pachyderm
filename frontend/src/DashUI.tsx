@@ -8,6 +8,8 @@ import AnalyticsProvider from '@dash-frontend/providers/AnalyticsProvier';
 import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 import ErrorView from '@dash-frontend/views/ErrorView';
 
+import LoggedInProvider from './providers/LoggedInProvider';
+
 const Landing = lazy(
   () => import(/* webpackPrefetch: true */ '@dash-frontend/views/Landing'),
 );
@@ -18,34 +20,40 @@ const Project = lazy(
 const DashUI: React.FC = () => {
   return (
     <BrowserRouter>
-      <ApolloProvider>
-        <AnalyticsProvider>
-          <NotificationBannerProvider>
-            <main id="main">
-              <Suspense fallback={<LoadingSkeleton />}>
-                <Switch>
-                  <Route
-                    path="/"
-                    exact
-                    component={AuthenticatedRoute(Landing)}
-                  />
+      <LoggedInProvider>
+        <ApolloProvider>
+          <AnalyticsProvider>
+            <NotificationBannerProvider>
+              <main id="main">
+                <Suspense fallback={<LoadingSkeleton />}>
+                  <Switch>
+                    <Route
+                      path="/"
+                      exact
+                      component={AuthenticatedRoute(Landing)}
+                    />
 
-                  <Route
-                    path="/project/:projectId"
-                    component={AuthenticatedRoute(Project)}
-                  />
+                    <Route
+                      path="/project/:projectId"
+                      component={AuthenticatedRoute(Project)}
+                    />
 
-                  <Route path="/not-found" exact component={ErrorView} />
-                  <Route path="/unauthenticated" exact component={ErrorView} />
-                  <Route path="/error" exact component={ErrorView} />
+                    <Route path="/not-found" exact component={ErrorView} />
+                    <Route
+                      path="/unauthenticated"
+                      exact
+                      component={ErrorView}
+                    />
+                    <Route path="/error" exact component={ErrorView} />
 
-                  <Redirect to={'/not-found'} />
-                </Switch>
-              </Suspense>
-            </main>
-          </NotificationBannerProvider>
-        </AnalyticsProvider>
-      </ApolloProvider>
+                    <Redirect to={'/not-found'} />
+                  </Switch>
+                </Suspense>
+              </main>
+            </NotificationBannerProvider>
+          </AnalyticsProvider>
+        </ApolloProvider>
+      </LoggedInProvider>
     </BrowserRouter>
   );
 };

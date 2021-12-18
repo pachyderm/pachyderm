@@ -1,4 +1,4 @@
-import {ApolloError, useApolloClient} from '@apollo/client';
+import {ApolloError} from '@apollo/client';
 import {MutationExchangeCodeArgs} from '@graphqlTypes';
 import Cookies from 'js-cookie';
 import noop from 'lodash/noop';
@@ -6,7 +6,6 @@ import {useCallback, useEffect} from 'react';
 
 import {useExchangeCodeMutation} from '@dash-frontend/generated/hooks';
 import useAuthConfig from '@dash-frontend/hooks/useAuthConfig';
-import {GET_LOGGED_IN_QUERY} from '@dash-frontend/queries/GetLoggedInQuery';
 
 import useLoggedIn from './useLoggedIn';
 
@@ -18,8 +17,7 @@ interface UseAuthArgs {
 }
 
 const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
-  const client = useApolloClient();
-  const loggedIn = useLoggedIn();
+  const {loggedIn, setLoggedIn} = useLoggedIn();
   const {authConfig, error: authConfigError} = useAuthConfig({
     skip: loggedIn,
   });
@@ -59,17 +57,14 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
         },
       );
 
-      client.writeQuery({
-        query: GET_LOGGED_IN_QUERY,
-        data: {
-          loggedIn: Boolean(
-            window.localStorage.getItem('auth-token') &&
-              window.localStorage.getItem('id-token'),
-          ),
-        },
-      });
+      setLoggedIn(
+        Boolean(
+          window.localStorage.getItem('auth-token') &&
+            window.localStorage.getItem('id-token'),
+        ),
+      );
     }
-  }, [client, codeMutationData]);
+  }, [codeMutationData, setLoggedIn]);
 
   return {
     exchangeCode,

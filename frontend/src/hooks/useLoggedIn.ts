@@ -1,9 +1,9 @@
-import {useLoggedInQuery} from '@dash-frontend/generated/hooks';
+import {useContext} from 'react';
+
+import {LoggedInContext} from '@dash-frontend/providers/LoggedInProvider';
 
 const useLoggedIn = () => {
-  const {data} = useLoggedInQuery();
-
-  return Boolean(data?.loggedIn);
+  return useContext(LoggedInContext);
 };
 
 export default useLoggedIn;

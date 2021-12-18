@@ -50,6 +50,8 @@
   },
   "devDependencies": {
     "@cypress/code-coverage": "3.9.5",
+    "@graphql-tools/graphql-file-loader": "^7.3.3",
+    "@graphql-tools/load": "^7.4.1",
     "@pachyderm/config": "0.7.0",
     "@pachyderm/scripts": "0.7.0",
     "@sentry/cli": "1.55.0",
@@ -89,6 +91,7 @@
     "eslint-loader": "^4.0.2",
     "eslint-plugin-cypress": "^2.12.1",
     "eslint-plugin-flowtype": "^5.2.0",
+    "eslint-plugin-graphql": "^4.0.0",
     "eslint-plugin-import": "^2.24.2",
     "eslint-plugin-jest": "^24.0.0",
     "eslint-plugin-jsx-a11y": "^6.4.1",

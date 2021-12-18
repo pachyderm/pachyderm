@@ -903,59 +903,6 @@ export type JobSetQueryResult = Apollo.QueryResult<
   Types.JobSetQuery,
   Types.JobSetQueryVariables
 >;
-export const LoggedInDocument = gql`
-  query loggedIn {
-    loggedIn @client
-  }
-`;
-
-/**
- * __useLoggedInQuery__
- *
- * To run a query within a React component, call `useLoggedInQuery` and pass it any options that fit your needs.
- * When your component renders, `useLoggedInQuery` returns an object from Apollo Client that contains loading, error, and data properties
- * you can use to render your UI.
- *
- * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
- *
- * @example
- * const { data, loading, error } = useLoggedInQuery({
- *   variables: {
- *   },
- * });
- */
-export function useLoggedInQuery(
-  baseOptions?: Apollo.QueryHookOptions<
-    Types.LoggedInQuery,
-    Types.LoggedInQueryVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useQuery<Types.LoggedInQuery, Types.LoggedInQueryVariables>(
-    LoggedInDocument,
-    options,
-  );
-}
-export function useLoggedInLazyQuery(
-  baseOptions?: Apollo.LazyQueryHookOptions<
-    Types.LoggedInQuery,
-    Types.LoggedInQueryVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useLazyQuery<Types.LoggedInQuery, Types.LoggedInQueryVariables>(
-    LoggedInDocument,
-    options,
-  );
-}
-export type LoggedInQueryHookResult = ReturnType<typeof useLoggedInQuery>;
-export type LoggedInLazyQueryHookResult = ReturnType<
-  typeof useLoggedInLazyQuery
->;
-export type LoggedInQueryResult = Apollo.QueryResult<
-  Types.LoggedInQuery,
-  Types.LoggedInQueryVariables
->;
 export const GetWorkspaceLogsDocument = gql`
   query getWorkspaceLogs($args: WorkspaceLogsArgs!) {
     workspaceLogs(args: $args) {
