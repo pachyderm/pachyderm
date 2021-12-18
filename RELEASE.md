@@ -1,69 +1,39 @@
-# Making a new release of jupyterlab_pachyderm
+# Making a new release of jupyterlab-pachyderm
 
-The extension can be published to `PyPI` and `npm` manually.
+The extension can be published to `PyPI` via CI.
 
-## Manual release
+## Automated Release using CircleCI
 
-Assuming we want to release a new version `v1.2.3`:
+Below is an example release for `v1.2.3`:
 
-- From `main` branch, run `git checkout -b v1.2.3-release`
-- Bump up `"version"` in `package.json`
-  - run `npm install` to update `package-lock.json`
-- Update `CHANGELOG.md`
-  - What to include? You can try to summarize the changes by comparing the previous release to the latest main, something like `https://github.com/pachyderm/jupyterlab-pachyderm/compare/v1.2.2...main`
-  - You can also add `[Changes](https://github.com/pachyderm/jupyterlab-pachyderm/compare/v1.2.2...v1.2.3)` to the changelog
-- `git commit -m "v1.2.3 Release"`, make PR, then **Squash and Merge** into `main`
-- back in `main`, run `git tag -a v1.2.3 -m "Release version 1.2.3" && git push origin v1.2.3`
+1. From `main` branch, run `git checkout -b release-v1.2.3`
+1. Changes to do in this branch:
+    1. Bump up `"version"` in `package.json`
+    1. Run `npm install` to update `package-lock.json`
+    1. Update `CHANGELOG.md` by summarizing the changes. You can see the changes via `https://github.com/pachyderm/jupyterlab-pachyderm/compare/v1.2.2...main`
+1. `git commit -m "Release v1.2.3"`, push, and make a PR
 
-### Python package
+Once the PR is approved
+1. On the release branch `release-v1.2.3`, run
+    ```
+    git tag -a v1.2.3 -m "Release version 1.2.3"
+    git push origin tag v1.2.3
+    ```
+    > This will kick off the automated release process to TestPyPI. You will need to go to [CircleCI](https://app.circleci.com/pipelines/github/pachyderm/jupyterlab-pachyderm) to approve pushing to PyPI.
 
-This extension can be distributed as Python
-packages. All of the Python
-packaging instructions in the `pyproject.toml` file to wrap your extension in a
-Python package. Before generating a package, we first need to install `build`.
+1. Merge the PR once the release is created and assets are published to PyPI.
 
-```bash
-pip install build twine
-```
-
-To create a Python source package (``.tar.gz``) and the binary package (`.whl`) in the `dist/` directory, do:
-
-```bash
-python -m build
-```
-
-> `python setup.py sdist bdist_wheel` is deprecated and will not work for this package.
-
-Then to upload the package to PyPI, do:
-
-```bash
-twine upload dist/*
-```
-
-Or try uploading to TestPyPI, first:
-
-```bash
-twine upload --repository testpypi dist/*
-```
-
-### NPM package
-
-To publish the frontend part of the extension as a NPM package, do:
-
-```bash
-npm login
-npm publish --access public
-```
 ### GitHub Releases
 
-Follow [instructions](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)
+[Release instructions primer](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)
 
-- Choose the tag we just created
-- The Python package should be at `dist/*.tar.gz`, whish is produced by the `python -m build` command
-  - Upload the tar file via the GitHub Web GUI ([Step 8])[https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#:~:text=generate%20release%20notes.-,Optionally,-%2C%20to%20include%20binary]
-- If we produce a npm package, upload that as well
+1. Go to [tags on GitHub](https://github.com/pachyderm/jupyterlab-pachyderm/tags), and choose the tag we just created
+1. Click on the tag > then click `Create release from tag` button
+1. Name it after version number without the `v` prefix
+1. Autogenerate the change doc by comparing the commits between this tag and the previous release.
+1. If this is a pre-release, then make sure to check that box as well.
 
-## Publishing to `conda-forge`
+## [todo] Publishing to `conda-forge`
 
 If the package is not on conda forge yet, check the documentation to learn how to add it: https://conda-forge.org/docs/maintainer/adding_pkgs.html
 
