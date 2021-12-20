@@ -38,6 +38,9 @@ latest available version of the components listed below.
 
 ## 2. Deploy Kubernetes
 
+!!! Attention 
+      Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+
 You can deploy Kubernetes on Azure by following the official [Azure Kubernetes Service documentation](https://docs.microsoft.com/azure/aks/tutorial-kubernetes-deploy-cluster), [use the quickstart walkthrough](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough), or follow the steps in this section.
 
 At a minimum, you will need to specify the parameters below:

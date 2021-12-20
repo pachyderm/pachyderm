@@ -74,6 +74,10 @@ Additionally, before you begin your installation:
 
 ## 2. Deploy Kubernetes
 
+!!! Attention
+    Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+
+
 To create a new Kubernetes cluster by using GKE, run:
 
 ```shell

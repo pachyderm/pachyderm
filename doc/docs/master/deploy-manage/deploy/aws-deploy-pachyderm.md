@@ -34,6 +34,9 @@ you have the following prerequisites installed and configured:
 
 ## 2. Deploy Kubernetes by using `eksctl`
 
+!!! Attention
+      Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+
 Use the `eksctl` tool to deploy an EKS cluster in your
 Amazon AWS environment. The `eksctl create cluster` command
 creates a virtual private cloud (VPC), a security group,
