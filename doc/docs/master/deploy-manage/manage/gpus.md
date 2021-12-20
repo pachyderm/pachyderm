@@ -7,7 +7,7 @@ skip to [Configure GPUs in Pipelines](#configure-gpus-in-pipelines).
 ## Set up a GPU-enabled Kubernetes Cluster
 
 For instructions on how to set up a GPU-enabled Kubernetes cluster
-through device plugins, see the [Kubernetes documentation](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/).
+through device plugins, see the [Kubernetes documentation](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/){target=_blank}.
 
 Depending your hardware and applications, setting up a GPU-enabled
 Kubernetes cluster might require significant effort. If you are run
@@ -18,7 +18,7 @@ that applications that run in Docker containers can use the GPUs. This is
 highly dependent on the manufacturer of the GPUs and how you use them.
 The most straightforward approach is to get a VM image with this
 pre-installed and use management software such as
-[kops nvidia-device-plugin](https://github.com/kubernetes/kops/tree/master/hooks/nvidia-device-plugin).
+[kops nvidia-device-plugin](https://github.com/kubernetes/kops/tree/master/hooks/nvidia-device-plugin){target=_blank}.
 
 2. Kubernetes exposes the GPU resources. You can check this by
 describing the GPU nodes with `kubectl describe node`. If the GPU resources

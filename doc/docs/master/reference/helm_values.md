@@ -542,7 +542,7 @@ If you're using Microsoft Blob Storage as your storage backend, configure it her
 
 ##### pachd.storage.minio
 
-If you're using [MinIO](https://min.io/) as your storage backend, configure it here.
+If you're using [MinIO](https://min.io/){target=_blank} as your storage backend, configure it here.
 
 - `storage.minio.bucket` sets the bucket to use.
 

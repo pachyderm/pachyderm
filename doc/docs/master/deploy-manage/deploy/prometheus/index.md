@@ -15,7 +15,7 @@ Only available for self-managed deployments today.
     Please refer to your full Prometheus documentation 
     for further installation details and any troubleshooting advice.
 ## Prometheus installation and Service Monitor creation
-1. Helm install [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack#kube-prometheus-stack),
+1. Helm install [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack#kube-prometheus-stack){target=_blank},
 Prometheus' **Kubernetes cluster monitoring** using the Prometheus Operator:
 
     - Get Repo Info
@@ -98,5 +98,5 @@ In the ClassicUI tab, you should be able to see the new pachyderm metrics.
 * Find the full list of Pachyderm metrics here:
     - [Pachd metrics](./pachd_metrics)
     - [Pipeline metrics](./job_metrics)
-* [Kube Prometheus Stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) documentation.
-* Prometheus [documentation](https://prometheus.io/docs/introduction/overview/).
+* [Kube Prometheus Stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack){target=_blank} documentation.
+* Prometheus [documentation](https://prometheus.io/docs/introduction/overview/){target=_blank}.

@@ -25,8 +25,8 @@ standards to developing our own.
 
 - We have several Go checks that run as part of CI, those should pass. You can
 run them with `make lint`.
-- [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
-- [Effective Go](https://golang.org/doc/effective_go.html)
+- [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments){target=_blank}
+- [Effective Go](https://golang.org/doc/effective_go.html){target=_blank}
 - Command-line flags should use dashes, not underscores.
 - Naming
   - Please consider package name when selecting an interface name, and avoid redundancy.
@@ -56,10 +56,10 @@ commit).
     or for a more specific version
     `go get foo@v1.2.3`, `go get foo@master`, `go get foo@e3702bed2`
   - import foo package to you go code as needed.
-- Note: Go modules requires you clone the repo outside of the `$GOPATH` or you must pass the `GO111MODULE=on` flag to any go commands. See wiki page on [activating module support](https://github.com/golang/go/wiki/Modules#how-to-install-and-activate-module-support)
+- Note: Go modules requires you clone the repo outside of the `$GOPATH` or you must pass the `GO111MODULE=on` flag to any go commands. See wiki page on [activating module support](https://github.com/golang/go/wiki/Modules#how-to-install-and-activate-module-support){target=_blank}
 
 - See
-[The official go modules wiki](https://github.com/golang/go/wiki/Modules)
+[The official go modules wiki](https://github.com/golang/go/wiki/Modules){target=_blank}
 for more info.
 
 ### Docs

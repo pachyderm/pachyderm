@@ -1,10 +1,10 @@
 # Pachyderm Integration with Identity Providers
 
 !!! Note
-    - Return to our [Enterprise landing page](https://docs.pachyderm.com/latest/enterprise/) if you do not have an enterprise key.
+    - Return to our [Enterprise landing page](https://docs.pachyderm.com/latest/enterprise/){target=_blank} if you do not have an enterprise key.
     - Before connecting your IdP to Pachyderm, verify that
     the [Authentication](../../#activate-user-access-management) is enabled by running `pachctl auth whoami`. The command should return `You are "pach:root" `(i.e., your are the **Root User** with `clusterAdmin` privileges). 
-    Alternatively, [**you have the option to set your IdP values directly through Helm**](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L489). 
+    Alternatively, [**you have the option to set your IdP values directly through Helm**](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L489){target=_blank}. 
     In any case, we recommend going through this page to understand the specifics of all the fields you will need to set up.
     - Run `pachctl auth use-auth-token` to login as a Root User.
     
@@ -19,16 +19,16 @@ Your users should now be able to [login to Pachyderm](./login.md).
 
 We chose to illustrate those steps
 by using Auth0 as our Identity Provider.
-([Auth0](https://auth0.com/) is an open source, online authentication platform that
+([Auth0](https://auth0.com/){target=_blank} is an open source, online authentication platform that
 users can use to log in to various applications).
 
-However, Pachyderm's Identity Service is based on [Dex](https://dexidp.io/docs/) 
-and can therefore provide connectors to a large [variety of IdPs](https://dexidp.io/docs/connectors/) (LDAP, GitHub, SAML, OIDC...). 
+However, Pachyderm's Identity Service is based on [Dex](https://dexidp.io/docs/){target=_blank}
+and can therefore provide connectors to a large [variety of IdPs](https://dexidp.io/docs/connectors/){target=_blank} (LDAP, GitHub, SAML, OIDC...). 
 Use the IdP of your choice.
 
 <! More IdP connectors example:
 
-#- [Okta](./connectors/okta.md)/>
+#- [Okta](./connectors/okta.md){target=_blank}/>
 
 For now, let's configure Pachyderm so that our
 Pachyderm users can log in through Auth0.
@@ -91,7 +91,7 @@ Then, complete the following steps:
 To configure your Idp-Pachyderm integration, **create a connector configuration file** corresponding to your IdP. 
 
 !!! Info
-    For a list of available connectors and their configuration options, see [Dex documentation](https://dexidp.io/docs/connectors/).
+    For a list of available connectors and their configuration options, see [Dex documentation](https://dexidp.io/docs/connectors/){target=_blank}.
 
 In the case of our integration with Auth0, we will use an oidc connector with the following parameters:
 
@@ -180,7 +180,7 @@ to **Allowed Callback URLs** when registering Pachyderm on your IdP website.
 
 !!! Note
 
-    Note that Pachyderm's YAML format is **a simplified version** of Dex's [sample config](https://dexidp.io/docs/connectors/oidc/).
+    Note that Pachyderm's YAML format is **a simplified version** of Dex's [sample config](https://dexidp.io/docs/connectors/oidc/){target=_blank}.
 
 ### Create Your Idp-Pachyderm Connection
 Once your Pachyderm application is registered with your IdP (here Auth0), 
