@@ -563,7 +563,9 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 
 func (s *debugServer) collectDescribe(tw *tar.Writer, pod string, prefix ...string) error {
 	return collectDebugFile(tw, "describe", "txt", func(w io.Writer) error {
-		pd := describe.PodDescriber{s.env.GetKubeClient()}
+		pd := describe.PodDescriber{
+			Interface: s.env.GetKubeClient(),
+		}
 		output, err := pd.Describe(s.env.Config().Namespace, pod, describe.DescriberSettings{ShowEvents: true})
 		if err != nil {
 			return err
