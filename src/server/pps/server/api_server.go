@@ -586,9 +586,9 @@ func forEachCommitInJob(pachClient *client.APIClient, jobID string, wait bool, c
 // ListJobSet implements the protobuf pps.ListJobSet RPC
 func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_ListJobSetServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	sent := 0
+	var sent, skipped int
 	defer func(start time.Time) {
-		a.Log(request, fmt.Sprintf("stream containing %d JobSetInfos", sent), retErr, time.Since(start))
+		a.Log(request, fmt.Sprintf("stream containing %d JobSetInfos (%d skipped)", sent, skipped), retErr, time.Since(start))
 	}(time.Now())
 
 	pachClient := a.env.GetPachClient(serv.Context())
@@ -607,6 +607,10 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 
 		jobInfos, err := pachClient.InspectJobSet(jobInfo.Job.ID, request.Details)
 		if err != nil {
+			if auth.IsErrNotAuthorized(err) {
+				skipped++
+				return nil
+			}
 			return err
 		}
 
