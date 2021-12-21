@@ -59,34 +59,28 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	if err := c.renewer.Add(ctx, chunkID); err != nil {
 		return nil, err
 	}
-	if !*needUpload {
+	if !needUpload {
 		return chunkID, nil
 	}
-	key := chunkKey(chunkID, *gen)
+	key := chunkKey(chunkID, gen)
 	if err := c.store.Put(ctx, key, chunkData); err != nil {
 		return nil, err
 	}
-	if err := c.afterUpload(ctx, chunkID, *gen); err != nil {
+	if err := c.afterUpload(ctx, chunkID, gen); err != nil {
 		return nil, err
 	}
 	return chunkID, nil
 }
 
 // beforeUpload checks the table in postgres to see if a chunk with chunkID already exists.
-// if err != nil then needUpload and gen will be nil
-// if *needUpload is false, then gen will be nil
-func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadata) (needUpload *bool, gen *uint64, _ error) {
+func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadata) (needUpload bool, gen uint64, _ error) {
 	var pointsTo []string
 	for _, cid := range md.PointsTo {
 		pointsTo = append(pointsTo, cid.TrackerID())
 	}
 	chunkTID := chunkID.TrackerID()
 	if err := dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) (retErr error) {
-		// This function can be called multiple times.  In order to be sure
-		// that needsUpload and gen are set every run, we nil them here.
-		// This also protects us from dbutil.WithTx dropping an error, if
-		// we only set these values before a `return nil`
-		needUpload, gen = nil, nil
+		needUpload, gen = false, 0
 		if err := c.tracker.CreateTx(tx, chunkTID, pointsTo, c.ttl); err != nil {
 			return err
 		}
@@ -98,22 +92,20 @@ func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadat
 			return err
 		}
 		if len(ents) > 0 {
-			needUpload = boolPtr(false)
+			needUpload = false
 			return nil
 		}
-		var gen2 uint64
-		if err := tx.Get(&gen2, `
+		if err := tx.Get(&gen, `
 		INSERT INTO storage.chunk_objects (chunk_id, size)
 		VALUES ($1, $2)
 		RETURNING gen
 		`, chunkID, md.Size); err != nil {
 			return err
 		}
-		needUpload = boolPtr(true)
-		gen = &gen2
+		needUpload = true
 		return nil
 	}); err != nil {
-		return nil, nil, err
+		return false, 0, err
 	}
 	return needUpload, gen, nil
 }
@@ -273,8 +265,4 @@ func (d *deleter) DeleteTx(tx *pachsql.Tx, id string) error {
 		WHERE chunk_id = $1
 	`, chunkID)
 	return err
-}
-
-func boolPtr(x bool) *bool {
-	return &x
 }
