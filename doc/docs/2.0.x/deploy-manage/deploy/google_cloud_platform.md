@@ -7,7 +7,7 @@ For a quick test installation of Pachyderm on GCP (suitable for development), ju
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
       - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
 
-The following section walks you through deploying a Pachyderm cluster on [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/) (GKE). 
+The following section walks you through deploying a Pachyderm cluster on [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/){target=_blank} (GKE). 
 
 In particular, you will:
 
@@ -22,7 +22,7 @@ In particular, you will:
 
 !!! Warning "TL;DR - Give me the script"
 
-    [This script](https://github.com/pachyderm/pachyderm/blob/master/etc/deploy/gcp/gcp-doco-script.sh) will create a GKE cluster, the workload identity service accounts and permissions you need, a static IP, the cloud SQL instance and databases, and a cloud storage bucket. It will also install Pachyderm into the cluster. 
+    [This script](https://github.com/pachyderm/pachyderm/blob/master/etc/deploy/gcp/gcp-doco-script.sh){target=_blank} will create a GKE cluster, the workload identity service accounts and permissions you need, a static IP, the cloud SQL instance and databases, and a cloud storage bucket. It will also install Pachyderm into the cluster. 
 
       - Before running it, update the global variables at the top of the script and make sure to go through the [prerequisites](#1-prerequisites), as we are assuming that you have created a project and enabled the necessary APIs.  
       Note that it will also create a file called ${NAME}.values.yaml in the current directory.
@@ -34,13 +34,13 @@ In particular, you will:
 
 Install the following clients:
 
-- [Google Cloud SDK](https://cloud.google.com/sdk/) >= 124.0.0
-- [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+- [Google Cloud SDK](https://cloud.google.com/sdk/){target=_blank} >= 124.0.0
+- [kubectl](https://kubernetes.io/docs/user-guide/prereqs/){target=_blank}
 - [pachctl](../../../getting_started/local_installation/#install-pachctl)
-- [jq](https://stedolan.github.io/jq/download/)
+- [jq](https://stedolan.github.io/jq/download/){target=_blank}
 
 If this is the first time you use the SDK, follow
-the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts).
+the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts){target=_blank}.
 
 !!! tip
     You can install `kubectl` by using the Google Cloud SDK and
@@ -52,7 +52,7 @@ the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts)
 
 Additionally, before you begin your installation: 
 
-- make sure to [create a new Project](https://cloud.google.com/resource-manager/docs/creating-managing-projects) or retrieve the ID of an existing Project you want to deploy your cluster on. 
+- make sure to [create a new Project](https://cloud.google.com/resource-manager/docs/creating-managing-projects){target=_blank} or retrieve the ID of an existing Project you want to deploy your cluster on. 
 
     All of the commands in this section are **assuming that you are going to set your gcloud config to automatically select your project**.  Please take the time to do so now with the following command, or be aware you will need to pass additional project parameters to the rest of the commands in this documentation.
 
@@ -62,9 +62,9 @@ Additionally, before you begin your installation:
     gcloud config set project ${PROJECT_ID}
     ```
 
-- [Enable the GKE API on your project](https://console.cloud.google.com/apis/library/container.googleapis.com?q=kubernetes%20engine) if you have not done so already.
+- [Enable the GKE API on your project](https://console.cloud.google.com/apis/library/container.googleapis.com?q=kubernetes%20engine){target=_blank} if you have not done so already.
 
-- Enable the [CloudSQL Admin API](https://cloud.google.com/sql/docs/postgres/admin-api) to administer your instance. 
+- Enable the [CloudSQL Admin API](https://cloud.google.com/sql/docs/postgres/admin-api){target=_blank} to administer your instance. 
 
     - In Google Cloud Console, on your Project's *Dashboard* View, click the *Go to APIs Overview* link in the APIs Section.
     - On the *APIs & Services* page, click the *+Enable APIs and Services* tab, search for `CloudSQL Admin`, then click *Cloud SQL Admin API*. Click the *Enable* button. Et voilà!
@@ -122,7 +122,7 @@ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-ad
 ```
 
 This might take a few minutes to start up. You can check the status on
-the [GCP Console](https://console.cloud.google.com/compute/instances).
+the [GCP Console](https://console.cloud.google.com/compute/instances){target=_blank}.
 A `kubeconfig` entry is automatically generated and set as the current
 context. As a sanity check, make sure your cluster is up and running
 by running the following `kubectl` command:
@@ -170,7 +170,7 @@ Once your Kubernetes cluster is up, and your infrastructure configured, you are 
 
 ### Create an GCS object store bucket for your data
 
-Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) (Object store) to store your data. You can create the bucket by running the following commands:
+Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/){target=_blank} (Object store) to store your data. You can create the bucket by running the following commands:
 
 !!! Warning
      The GCS bucket name must be globally unique.
@@ -211,7 +211,7 @@ To access your GCP resources, Pachyderm uses a GCP Project Service Account with 
     gcloud iam service-accounts create ${GSA_NAME}
     ```
     
-More information about the creation and management of a Service account on [GCP documentation](https://cloud.google.com/iam/docs/creating-managing-service-accounts).
+More information about the creation and management of a Service account on [GCP documentation](https://cloud.google.com/iam/docs/creating-managing-service-accounts){target=_blank}.
 
 ### Configure Your Service Account Permissions
 
@@ -244,7 +244,7 @@ For Pachyderm to access your Google Cloud Resources, run the following:
         --role="roles/storage.admin"
     ```
 
-- Use [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) to run Pachyderm Services as the Service Account 
+- Use [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity){target=_blank} to run Pachyderm Services as the Service Account 
 
     Workload Identity is the recommended way to access Google Cloud services from applications running within GKE. 
 
@@ -262,11 +262,11 @@ For Pachyderm to access your Google Cloud Resources, run the following:
         --member "${CLOUDSQLAUTHPROXY_WI}"
     ```
 
-For a set of standard roles, read the [GCP IAM permissions documentation](https://cloud.google.com/storage/docs/access-control/iam-permissions#bucket_permissions).
+For a set of standard roles, read the [GCP IAM permissions documentation](https://cloud.google.com/storage/docs/access-control/iam-permissions#bucket_permissions){target=_blank}.
 
 ## 4. Persistent Volumes Creation
 
-etcd and PostgreSQL (metadata storage) each claim the creation of a [persistent disk](https://cloud.google.com/compute/docs/disks/). 
+etcd and PostgreSQL (metadata storage) each claim the creation of a [persistent disk](https://cloud.google.com/compute/docs/disks/){target=_blank}. 
 
 If you plan to deploy Pachyderm with its default bundled PostgreSQL instance, read the warning below, and jump to the [deployment section](#6-deploy-pachyderm): 
 
@@ -294,7 +294,7 @@ This section will provide guidance on the configuration settings you will need t
 
 ### Create A CloudSQL Instance
 
-Find the details of the steps and available parameters to create a CloudSQL instance in [GCP  Documentation: "Create instances: CloudSQL for PostgreSQL"](https://cloud.google.com/sql/docs/postgres/create-instance#gcloud).
+Find the details of the steps and available parameters to create a CloudSQL instance in [GCP  Documentation: "Create instances: CloudSQL for PostgreSQL"](https://cloud.google.com/sql/docs/postgres/create-instance#gcloud){target=_blank}.
 
 * Set up the following system variable:
 
@@ -314,9 +314,9 @@ gcloud sql instances create ${INSTANCE_NAME} \
 --root-password="<InstanceRootPassword>"
 ```
 
-When you create a new Cloud SQL for PostgreSQL instance, a [default admin user](https://cloud.google.com/sql/docs/postgres/users#default-users) `Username: "postgres"` is created. It will later be used by Pachyderm to access its databases. Note that the `--root-password` flag above sets the password for this user.
+When you create a new Cloud SQL for PostgreSQL instance, a [default admin user](https://cloud.google.com/sql/docs/postgres/users#default-users){target=_blank} `Username: "postgres"` is created. It will later be used by Pachyderm to access its databases. Note that the `--root-password` flag above sets the password for this user.
 
-Check out Google documentation for more information on how to [Create and Manage PostgreSQL Users](https://cloud.google.com/sql/docs/postgres/create-manage-users).
+Check out Google documentation for more information on how to [Create and Manage PostgreSQL Users](https://cloud.google.com/sql/docs/postgres/create-manage-users){target=_blank}.
 
 ### Create Your Databases
 After the instance is created, those two commands create the databases that pachyderm uses.
@@ -377,7 +377,7 @@ You have set up your infrastructure, created your GCP bucket and a CloudSQL inst
 
 ### Update Your Values.yaml   
 
-[See an example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml). 
+[See an example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml){target=_blank}. 
  
 You might want to create a static IP address to access your cluster externally. Refer to our [infrastructure documentation](../ingress/#loadbalancer) for more details or check the example below:
 
@@ -444,7 +444,7 @@ global:
 ```
 
 !!! Note
-    Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
+    Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 ### Deploy Pachyderm on the Kubernetes cluster
 
 - You can now deploy a Pachyderm cluster by running this command:

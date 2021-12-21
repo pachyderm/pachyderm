@@ -19,7 +19,7 @@ A minimum cron pipeline must include the following parameters:
 | Parameter  | Description  |
 | ---------- | ------------ |
 | `"name"`   | A descriptive name of the cron pipeline. |
-| `"spec"`   | An interval between scheduled cron jobs. You can specify any value that is <br> formatted according to [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt). <br> For example, if you set `*/10 * * * *`, the pipeline runs every ten minutes. |
+| `"spec"`   | An interval between scheduled cron jobs. You can specify any value that is <br> formatted according to [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt){target=_blank}. <br> For example, if you set `*/10 * * * *`, the pipeline runs every ten minutes. |
 
 ## Example of a Cron Pipeline
 
@@ -66,4 +66,4 @@ Pachyderm, see [Datum processing](../datum/index.md).
     ```
 
 !!! note "See Also:"
-    [Periodic Ingress from MongoDB](https://github.com/pachyderm/pachyderm/tree/master/examples/db)
+    [Periodic Ingress from MongoDB](https://github.com/pachyderm/pachyderm/tree/master/examples/db){target=_blank}

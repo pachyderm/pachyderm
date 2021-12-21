@@ -22,15 +22,15 @@ This guide assumes that you already have Pachyderm running.
 
 This tutorial walks you through the deployment of a Pachyderm pipeline
 that performs [edge
-detection](https://en.wikipedia.org/wiki/Edge_detection) on a few
+detection](https://en.wikipedia.org/wiki/Edge_detection){target=_blank} on a few
 images. Thanks to Pachyderm's built-in processing primitives, we can
 keep our code simple but still run the pipeline in a
 distributed, streaming fashion. Moreover, **as new data is added, the
 pipeline automatically processes it** and outputs the results.
 
 If you hit any errors not covered in this guide, get help in our [public
-community Slack](http://slack.pachyderm.io), submit an issue on
-[GitHub](https://github.com/pachyderm/pachyderm), or email us at
+community Slack](http://slack.pachyderm.io){target=_blank}, submit an issue on
+[GitHub](https://github.com/pachyderm/pachyderm){target=_blank}, or email us at
 <support@pachyderm.io>. We are here to help!
 
 ### Create a Repo
@@ -167,8 +167,8 @@ pachctl get file images@master:liberty.png | display
 Now that you have some data in your repo, it is time to do something
 with it. Pipelines are the core processing primitive in Pachyderm.
 Pipelines are defined with a simple JSON file called a pipeline
-specification or pipeline spec for short. For this [example](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv), we already
-[created the pipeline spec for you](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/edges.json).
+specification or pipeline spec for short. For this [example](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv){target=_blank}, we already
+[created the pipeline spec for you](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/edges.json){target=_blank}.
 
 When you want to create your own pipeline specification later, you can refer to the
 full [Pipeline Specification](../../reference/pipeline_spec) to use
@@ -537,6 +537,6 @@ You can also dig in and learn more details about:
 
 Again, we would love to help and see what you come up with! Submit any
 questions, comment, contribution on
-[GitHub](https://github.com/pachyderm/pachyderm),
-[Slack](http://slack.pachyderm.io), or email at <support@pachyderm.io>
+[GitHub](https://github.com/pachyderm/pachyderm){target=_blank},
+[Slack](http://slack.pachyderm.io){target=_blank}, or email at <support@pachyderm.io>
 if you want to show off anything nifty you've created!
