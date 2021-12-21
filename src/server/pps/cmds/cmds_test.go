@@ -679,3 +679,127 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 		`).Run()
 	})
 }
+
+func TestJsonnetPipelineTemplate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+	`).Run())
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo data
+		pachctl put file data@master:/foo <<<"foo-data"
+		pachctl create pipeline --jsonnet - --arg name=foo --arg output=bar <<EOF
+		function(name, output) {
+		  pipeline: { name: name+"-pipeline" },
+		  input: {
+		    pfs: {
+		      name: "input",
+		      glob: "/*",
+		      repo: "data"
+		    }
+		  },
+		  transform: {
+		    cmd: [ "/bin/bash" ],
+		    stdin: [ "cp /pfs/input/* /pfs/out/"+output ]
+		  }
+		}
+		EOF
+		pachctl list pipeline | match foo-pipeline
+		pachctl wait commit foo-pipeline@master
+		pachctl get file foo-pipeline@master:/bar | match foo-data
+		`).Run())
+}
+
+func TestJsonnetPipelineTemplateMulti(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+	`).Run())
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo data
+		pachctl put file data@master:/foo <<<"foo-data"
+		pachctl create pipeline --jsonnet - \
+		  --arg firstname=foo --arg lastname=bar --arg output=baz <<EOF
+		function(firstname, lastname, output) [ {
+		  pipeline: { name: firstname+"-pipeline" },
+		  input: {
+		    pfs: {
+		      name: "input",
+		      glob: "/*",
+		      repo: "data"
+		    }
+		  },
+		  transform: {
+		    cmd: [ "/bin/bash" ],
+		    stdin: [ "cp /pfs/input/* /pfs/out/"+output+"-middle" ]
+		  }
+		}, {
+		  pipeline: { name: lastname+"-pipeline" },
+		  input: {
+		    pfs: {
+		      name: "input",
+		      glob: "/*",
+		      repo: firstname+"-pipeline"
+		    }
+		  },
+		  transform: {
+		    cmd: [ "/bin/bash" ],
+		    stdin: [ "cp /pfs/input/"+output+"-middle /pfs/out/"+output+"-final" ]
+		  }
+		} ]
+		EOF
+		pachctl list pipeline | match foo-pipeline | match bar-pipeline
+		pachctl wait commit bar-pipeline@master
+		pachctl get file foo-pipeline@master:/baz-middle | match foo-data
+		pachctl get file bar-pipeline@master:/baz-final | match foo-data
+		`).Run())
+}
+
+func TestJsonnetPipelineTemplateError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+	`).Run())
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo data
+		pachctl put file data@master:/foo <<<"foo-data"
+		# expect 'create pipeline' to fail, but still run 'match'
+		set +e +o pipefail
+		# create a pipeline, and confirm that error message appears on stderr
+		# Note: discard stdout, and send stderr on stdout instead
+		createpipeline_stderr="$(
+		  pachctl create pipeline \
+		    --jsonnet - --arg parallelism=NaN 2>&1 >/dev/null <<EOF
+		function(parallelism) {
+		  pipeline: { name: "pipeline" },
+		  input: {
+		    pfs: {
+		      name: "input",
+		      glob: "/*",
+		      repo: "data"
+		    }
+		  },
+		  parallelism_spec: {
+		    constant: std.parseInt(parallelism)
+		  },
+		  transform: {
+		    cmd: [ "/bin/bash" ],
+		    stdin: [ "cp /pfs/input/* /pfs/out/" ]
+		  }
+		}
+		EOF
+		  )"
+		createpipeline_status="$?"
+		# reset error options before testing output
+		set -e -o pipefail
+		echo "${createpipeline_status}" | match -v "0"
+		echo "${createpipeline_stderr}" | match 'NaN is not a base 10 integer'
+		pachctl list pipeline | match -v foo-pipeline
+		`).Run())
+}
