@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	middleware_auth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
@@ -94,17 +94,17 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 	// Retrieve pipelineInfo from the spec repo
 	op, err := m.newPipelineOp(opCtx, pipeline)
 	if err != nil {
-		// Don't put the pipeline in a failing state if we're in the middle
-		// of activating auth, retry in a bit
-		if auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err) {
-			return newRetriableError(err, "couldn't initialize pipeline op")
+		if col.IsErrNotFound(err) {
+			// if we can't get the pipeline info, fail immediately without retry
+			return stepError{
+				error:        errors.Wrap(err, "couldn't initialize pipeline op"),
+				failPipeline: true,
+			}
 		}
 
-		// otherwise fail immediately without retry
-		return stepError{
-			error:        errors.Wrap(err, "couldn't initialize pipeline op"),
-			failPipeline: true,
-		}
+		// Don't put the pipeline in a failing state if we're in the middle of activating auth
+		// or there was a transient error getting pipeline info, retry in a bit
+		return newRetriableError(err, "couldn't initialize pipeline op")
 	}
 	// set op.rc
 	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
