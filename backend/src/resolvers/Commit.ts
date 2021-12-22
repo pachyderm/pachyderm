@@ -12,7 +12,7 @@ interface CommitResolver {
 
 const getJobSetIds = async (pachClient: PachClient) => {
   try {
-    const jobSets = await pachClient.pps().listJobSets();
+    const jobSets = await pachClient.pps().listJobSets({details: false});
     return jobSets.reduce((memo, {jobSet}) => {
       memo.add(jobSet?.id);
       return memo;

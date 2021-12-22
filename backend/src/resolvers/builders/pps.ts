@@ -173,15 +173,19 @@ const getAggregateJobState = (jobs: Job[]) => {
   return GQLJobState.JOB_SUCCESS;
 };
 
-export const jobInfosToGQLJobSet = (jobInfos: JobInfo.AsObject[]): JobSet => {
+export const jobInfosToGQLJobSet = (
+  jobInfos: JobInfo.AsObject[],
+  id: string,
+): JobSet => {
   const sortedJobInfos = sortJobInfos(jobInfos);
 
   const jobs = sortedJobInfos.map(jobInfoToGQLJob);
 
   return {
-    id: jobs[0].id,
+    id,
     // grab the oldest jobs createdAt date
-    createdAt: jobs[0].createdAt,
+    createdAt:
+      jobs.length > 0 ? jobs.find((job) => job.createdAt)?.createdAt : null,
     state: getAggregateJobState(jobs),
     jobs,
   };
@@ -190,7 +194,9 @@ export const jobInfosToGQLJobSet = (jobInfos: JobInfo.AsObject[]): JobSet => {
 export const jobSetsToGQLJobSets = (
   jobSet: JobSetInfo.AsObject[],
 ): JobSet[] => {
-  return jobSet.map((jobSet) => jobInfosToGQLJobSet(jobSet.jobsList));
+  return jobSet.map((jobSet) =>
+    jobInfosToGQLJobSet(jobSet.jobsList, jobSet.jobSet?.id || ''),
+  );
 };
 
 export const logMessageToGQLLog = (logMessage: LogMessage.AsObject) => {

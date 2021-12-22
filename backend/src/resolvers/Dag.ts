@@ -5,6 +5,7 @@ import keyBy from 'lodash/keyBy';
 import uniqBy from 'lodash/uniqBy';
 import objectHash from 'object-hash';
 
+import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 import {
   toGQLJobState,
   toGQLPipelineState,
@@ -146,12 +147,18 @@ const dagResolver: DagResolver = {
           if (jobSetId) {
             const jobSet = await pachClient
               .pps()
-              .inspectJobSet({projectId, id: jobSetId});
+              .inspectJobSet({id: jobSetId, projectId, details: false});
 
             // stabalize elkjs inputs.
             // listRepo and listPipeline are both stabalized on 'name',
             // but jobsets come back in a stream with random order.
-            const sortedJobSet = sortJobInfos(jobSet);
+            const sortedJobSet = sortJobInfos(
+              await getJobsFromJobSet({
+                jobSet,
+                projectId,
+                pachClient,
+              }),
+            );
 
             const pipelineMap = keyBy(
               sortedJobSet.map((job) => job.job?.pipeline),

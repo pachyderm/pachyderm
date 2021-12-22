@@ -30,6 +30,7 @@ const searchResolver: SearchResolver = {
           try {
             const jobSet = jobInfosToGQLJobSet(
               await pachClient.pps().inspectJobSet({id: query, projectId}),
+              query,
             );
 
             return {
@@ -45,7 +46,7 @@ const searchResolver: SearchResolver = {
                 jobSet: null,
               };
             }
-            return e;
+            throw e;
           }
         }
 
