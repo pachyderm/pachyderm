@@ -150,7 +150,7 @@ func (c *fsClient) transformError(err error, name string) error {
 		return nil
 	}
 	if os.IsNotExist(err) || strings.HasSuffix(err.Error(), ": no such file or directory") {
-		return pacherr.NewNotExist(c.rootDir, name)
+		return pacherr.NewNotExist(c.BucketURL().String(), name)
 	}
 	return err
 }
