@@ -79,6 +79,9 @@
                         },
                         "reactAppRuntimeIssuerURI": {
                             "type": "string"
+                        },
+                        "disableTelemetry": {
+                            "type": "boolean"
                         }
                     }
                 },
