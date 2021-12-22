@@ -62,6 +62,10 @@ export interface ListJobArgs extends ListArgs {
   pipelineId?: string | null;
 }
 
+export interface ListJobSetArgs extends ListArgs {
+  details?: boolean;
+}
+
 export interface CreatePipelineRequestOptions
   extends Omit<
     CreatePipelineRequest.AsObject,
@@ -243,11 +247,11 @@ const pps = ({
       });
     },
 
-    inspectJobSet: ({id}: JobSetQueryArgs) => {
+    inspectJobSet: ({id, details = true}: JobSetQueryArgs) => {
       const inspectJobSetRequest = new InspectJobSetRequest()
         .setWait(false)
         .setJobSet(new JobSet().setId(id))
-        .setDetails(true);
+        .setDetails(details);
 
       const stream = client.inspectJobSet(
         inspectJobSetRequest,
@@ -260,8 +264,8 @@ const pps = ({
       return streamToObjectArray<JobInfo, JobInfo.AsObject>(stream);
     },
 
-    listJobSets: ({limit}: ListArgs = {}) => {
-      const listJobSetRequest = new ListJobSetRequest().setDetails(true);
+    listJobSets: ({limit, details = true}: ListJobSetArgs = {}) => {
+      const listJobSetRequest = new ListJobSetRequest().setDetails(details);
 
       const stream = client.listJobSet(listJobSetRequest, credentialMetadata, {
         deadline: Date.now() + RPC_DEADLINE_MS,

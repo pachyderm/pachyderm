@@ -40,6 +40,7 @@ export interface ServiceArgs {
 export type JobSetQueryArgs = {
   id: string;
   projectId: string;
+  details?: boolean;
 };
 
 export type JobQueryArgs = {
