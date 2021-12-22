@@ -70,6 +70,7 @@ const createServer = () => {
 
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
+    enabled: process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY !== 'true',
     tracesSampleRate: 0.5,
   });
 
