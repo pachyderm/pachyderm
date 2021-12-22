@@ -21,7 +21,7 @@ func TestGC(t *testing.T) {
 	tracker := track.NewTestTracker(t, db)
 	oc, s := NewTestStorage(t, db, tracker)
 
-	writeRandom(ctx, t, s)
+	writeRandom(t, s)
 	count, err := countObjects(ctx, oc)
 	require.NoError(t, err)
 	require.True(t, count > 0)
@@ -64,7 +64,8 @@ func countObjects(ctx context.Context, client obj.Client) (int, error) {
 	return count, nil
 }
 
-func writeRandom(ctx context.Context, t testing.TB, s *Storage) {
+func writeRandom(t testing.TB, s *Storage) {
+	ctx := context.Background()
 	const seed = 10
 	const size = 1e8
 	rng := rand.New(rand.NewSource(seed))

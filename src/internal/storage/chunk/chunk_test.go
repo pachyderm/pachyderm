@@ -98,6 +98,31 @@ func TestCopy(t *testing.T) {
 	}
 }
 
+func TestCheck(t *testing.T) {
+	ctx := context.Background()
+	objC, chunks := newTestStorage(t)
+	writeRandom(t, chunks)
+	n, err := chunks.Check(ctx, nil, nil, false)
+	require.NoError(t, err)
+	require.True(t, n > 0)
+	deleteOne(t, objC)
+	_, err = chunks.Check(ctx, nil, nil, false)
+	require.YesError(t, err)
+}
+
+func deleteOne(t testing.TB, objC obj.Client) {
+	ctx := context.Background()
+	done := false
+	err := objC.Walk(ctx, "", func(p string) error {
+		if !done {
+			require.NoError(t, objC.Delete(ctx, p))
+			done = true
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func BenchmarkWriter(b *testing.B) {
 	_, chunks := newTestStorage(b)
 	seed := time.Now().UTC().UnixNano()
