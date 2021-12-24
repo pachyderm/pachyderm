@@ -22,7 +22,7 @@ and can get started right away.
 ## Get started in 4 simple steps
 ![Hub Steps](../images/hub_steps.png)
 ## Before you start
-Log in with your GitHub or Google account to start using [hub.pachyderm.com](https://hub.pachyderm.com). 
+Log in with your GitHub or Google account to start using [Pachyderm Hub](https://www.pachyderm.com/try-pachyderm-hub/). 
 ![Hub Login](../images/hub_login.png)
 ## 1- Create a Workspace 
 Click the **Create a 4-hr Workspace** button and fill out the form.

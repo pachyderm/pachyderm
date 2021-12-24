@@ -111,7 +111,7 @@ User Access Management is an Enterprise feature.
 
 ### New Console and Notebooks
 
-We have entirely re-worked our Web UI (`Console`) and are launching a beta version of our new integrated development environment (`Notebooks`) - namely, JupyterLab on Pachyderm. Both are readily accessible on [Hub](https://hub.pachyderm.com/). 
+We have entirely re-worked our Web UI (`Console`) and are launching a beta version of our new integrated development environment (`Notebooks`) - namely, JupyterLab on Pachyderm. Both are readily accessible on [Hub](https://www.pachyderm.com/try-pachyderm-hub/). 
 
 - Introducing Pachyderm `Console`: Console replaces our Dashboard in Pachyderm 1. 
 
@@ -122,7 +122,7 @@ We have entirely re-worked our Web UI (`Console`) and are launching a beta versi
 !!! Note
     [Deploy Console Locally](../../deploy-manage/deploy/console/#deploy-locally) on your Minikube or Docker Desktop and browse through your DAGs' pipelines, check the content of your commits in a repo, look at the files they contain, check your DAG's jobs, or zoom in on their logs.
 
-- Additionally, we are releasing the first iteration of our `Notebooks` product (In its beta version), accessible on [Hub](https://hub.pachyderm.com/). The coming GA release of Notebooks will be an Enterprise Feature. 
+- Additionally, we are releasing the first iteration of our `Notebooks` product (In its beta version), accessible on [Hub](https://www.pachyderm.com/try-pachyderm-hub/). The coming GA release of Notebooks will be an Enterprise Feature. 
 
      You can now run and test your pipelines and data experiments from your favorite Jupiter notebooks.
 

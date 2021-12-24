@@ -67,6 +67,6 @@ Introducing Pachyderm 2.0 with several foundational improvements. Read more deta
 
 Updated docs are at [docs.pachyderm.com](https://docs.pachyderm.com/latest/)
 
-Try Pachyderm 2.0 on [hub.pachyderm.com](https://hub.pachyderm.com/landing?redirect=%2F)
+Try Pachyderm 2.0 on [Pachyderm Hub](https://www.pachyderm.com/try-pachyderm-hub/)
 
 Pachyderm 2.x is not backwards compatible with Pachyderm 1.x data formats. If you require assistance or have any questions, please contact [support@pachyderm.com](mailto:support@pachyderm.com)
