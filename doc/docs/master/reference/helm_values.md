@@ -90,6 +90,8 @@ This is where the primary configuration settings for the console are configured,
 
 - `config.graphqlPort` the http port that the console service will be accessible on.
 
+- `config.disableTelemetry` this can be set to true to opt out of console's analytics and error data collection.
+
 ### etcd
 
 This section is to configure the etcd cluster in the deployment.
