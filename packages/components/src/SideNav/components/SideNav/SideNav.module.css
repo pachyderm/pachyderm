@@ -1,0 +1,68 @@
+
+.base {
+  display: flex;
+  flex-direction: column;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  text-align: center;
+  width: var(--width-sidenav);
+  transition: width 0.1s ease-out;
+  z-index: var(--z-index-sidenav);
+}
+
+.base.dark {
+  background-color: var(--background-black);  
+}
+
+.base.light {
+  background-color: var(--white);
+  border-right: solid 1px var(--line-grey);
+}
+
+.base.collapsed {
+  width: var(--width-sidenav-collapsed);
+}
+
+.collapse {
+  position: fixed;
+  bottom: 0;
+  display: flex;
+  border: none;
+  color: var(--dropshadow-grey);
+  background-color: transparent;
+  padding: 1.5rem 2rem;
+  font-weight: 600;
+  font-size: var(--font-size-body-medium);
+  overflow-x: hidden;
+  white-space: nowrap;
+  transition: color .2s;
+}
+
+.base.light .collapse{
+  color: var(--pachyderm-black);
+}
+
+.collapse:hover {
+  color: var(--pachyderm-orange);
+}
+
+.collapse:hover > .collapseIcon svg > path {
+  fill: var(--pachyderm-orange);
+}
+
+.collapse:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.collapseIcon {
+  margin-left: 0.25rem;
+}
+
+.collapseIcon svg > path {
+  color: var(--dropshadow-grey);
+  transition: fill .2s;
+}
+
+.flipSVG {
+  transform: scale(-1, 1);
+}

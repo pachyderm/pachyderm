@@ -1,0 +1,24 @@
+.base {
+  margin: 0.25rem 1rem;
+}
+
+.base.minimized {
+  margin: 0.25rem 1.75rem;
+  padding: 0.25rem;
+  width: auto;
+}
+
+.base:not(.minimized) {
+  overflow-x: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.base:not(.minimized) .icon {
+  margin-right: 0.5rem;
+}
+
+.icon svg {
+  color: var(--white);
+  transition: fill .2s;
+}

@@ -118,11 +118,17 @@ export const Pachyderm = () => {
         <SVGWrapper title="PachydermLogoSVG">
           <PachydermSVG.PachydermLogoSVG viewBox="0 0 160 32" />
         </SVGWrapper>
+        <SVGWrapper title="PipelineSVG">
+          <PachydermSVG.PipelineSVG />
+        </SVGWrapper>
         <SVGWrapper title="PipelinesSVG">
           <PachydermSVG.PipelinesSVG />
         </SVGWrapper>
         <SVGWrapper title="RectangleSVG">
           <PachydermSVG.RectangleSVG />
+        </SVGWrapper>
+        <SVGWrapper title="RepoSVG">
+          <PachydermSVG.RepoSVG />
         </SVGWrapper>
         <SVGWrapper title="SectionRectangleSVG">
           <PachydermSVG.SectionRectangleSVG />
@@ -226,6 +232,9 @@ export const UIIcons = () => {
         <SVGWrapper title="EditSVG">
           <IconsSVG.EditSVG />
         </SVGWrapper>
+        <SVGWrapper title="EducationSVG">
+          <IconsSVG.EducationSVG />
+        </SVGWrapper>
         <SVGWrapper title="ExpandSVG">
           <IconsSVG.ExpandSVG />
         </SVGWrapper>
@@ -244,11 +253,17 @@ export const UIIcons = () => {
         <SVGWrapper title="InfoSVG">
           <IconsSVG.InfoSVG />
         </SVGWrapper>
+        <SVGWrapper title="JobsSVG">
+          <IconsSVG.JobsSVG />
+        </SVGWrapper>
         <SVGWrapper title="LinkSVG">
           <IconsSVG.LinkSVG />
         </SVGWrapper>
         <SVGWrapper title="MinimizeSVG">
           <IconsSVG.MinimizeSVG />
+        </SVGWrapper>
+        <SVGWrapper title="NotebooksSVG">
+          <IconsSVG.NotebooksSVG />
         </SVGWrapper>
         <SVGWrapper title="OverflowSVG">
           <IconsSVG.OverflowSVG />
