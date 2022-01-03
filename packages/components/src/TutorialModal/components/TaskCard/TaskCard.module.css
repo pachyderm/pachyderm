@@ -15,18 +15,7 @@
   justify-content: space-between;
 }
 
-.taskHeader path + path {
-  fill: var(--white);
-}
-
 .headerComplete {
-  background-color: var(--green);
-  height: 1.25rem;
-  width: 1.25rem;
-  border-radius: 50%;
-  display: flex;
-  padding: 0.1rem;
-  align-items: center;
   margin-right: -2rem;
 }
 

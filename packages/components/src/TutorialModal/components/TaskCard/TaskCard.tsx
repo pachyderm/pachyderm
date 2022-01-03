@@ -2,7 +2,7 @@ import classNames from 'classnames';
 import React from 'react';
 
 import {Button} from '../../../Button';
-import {CheckmarkSVG, InfoSVG} from '../../../Svg';
+import {CheckmarkSVG, StatusCheckmarkSVG, InfoSVG} from '../../../Svg';
 
 import styles from './TaskCard.module.css';
 
@@ -35,9 +35,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
         >
           <h6 className={styles.task}>{`Task ${index + 1}`}</h6>
           {currentTask > index && (
-            <div className={styles.headerComplete}>
-              <CheckmarkSVG aria-label={`Task ${index + 1} complete`} />
-            </div>
+            <StatusCheckmarkSVG
+              aria-label={`Task ${index + 1} complete`}
+              className={styles.headerComplete}
+            />
           )}
         </div>
         <div className={styles.taskHeaderWrapperChild}>{task}</div>

@@ -1,4 +1,6 @@
-import React, {useCallback, useEffect} from 'react';
+import React, {useCallback} from 'react';
+
+import {useMinimizeTask} from 'index';
 
 import {Link} from '../Link';
 
@@ -68,11 +70,7 @@ const Task2Component: React.FC<TaskComponentProps> = ({
   minimized,
   index,
 }) => {
-  useEffect(() => {
-    if (currentTask === index && minimized) {
-      onCompleted();
-    }
-  }, [currentTask, minimized, onCompleted, index]);
+  useMinimizeTask({currentTask, onCompleted, minimized, index});
 
   return (
     <TaskCard
