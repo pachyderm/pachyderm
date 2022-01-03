@@ -1,256 +1,30 @@
+---
+# YAML header
+ignore_macros: true
+---
+
+<!-- git-snippet: enable -->
+
 # Helm Chart Values
+
 
 This document discusses each of the fields present in the `values.yaml` that can be used to deploy with Helm.
 To see how to use a helm values files to customize your deployment, refer to our [Helm Deployment Documentation](../../deploy-manage/deploy/helm_install/) section.
 
 !!! Note
+    You rarely need to specify all the fields. Most fields either come with sensible defaults or can be empty.
     Values that are unchanged from the defaults can be omitted from the values file you supply at installation.
+    
+    Take a look at our deployment instructions [locally](../../getting_started/local_installation/) or [in the cloud](../../deploy-manage/deploy/quickstart/) to identify which of those are required for your deployment target.
 
 ## Values.yaml
-Find the complete list of fields available here. Each section is detailed further in its own sub-chapter.
+The following section displays the complete list of fields available in the [values.yaml](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/pachyderm/values.yaml). 
+Each section is further detailed in its own sub-chapter. 
+
+
 ```yaml
-imagePullSecret: ""
-
-deployTarget: ""
-
-global:
-  postgresql:
-    postgresqlUsername: "pachyderm"
-    postgresqlPassword: "elephantastic"
-    postgresqlDatabase: "pachyderm"
-    postgresqlHost: "postgres"
-    postgresqlPort: "5432"
-    postgresqlSSL: "disable"
-  imagePullSecrets: []
-
-console:
-  enabled: false
-  image:
-    repository: "pachyderm/console"
-    pullPolicy: "IfNotPresent"
-    tag: "41f09332d40f1e897314f0529fd5bbda37fc069e"
-  podLabels: {}
-  resources: {}
-  config:
-    reactAppRuntimeIssuerURI: ""
-    oauthRedirectURI: ""
-    oauthClientID: ""
-    oauthClientSecret: ""
-    graphqlPort: 4000
-    disableTelemetry: false
-
-  service:
-    labels: {}
-    type: ClusterIP
-
-etcd:
-  affinity: {}
-  dynamicNodes: 1
-  image:
-    repository: "pachyderm/etcd"
-    tag: "v3.3.5"
-    pullPolicy: "IfNotPresent"
-  podLabels: {}
-  resources: {}
-  storageClass: ""
-  storageSize: ""
-  service:
-    annotations: {}
-    labels: {}
-    type: ClusterIP
-
-enterpriseServer:
-  enabled: false
-  affinity: {}
-  service:
-    type: ClusterIP
-  tls:
-    enabled: false
-    secretName: ""
-    newSecret:
-      create: false
-      crt: ""
-      key: ""
-  resources: {}
-  podLabels: {}
-  clusterDeploymentID: ""
-  image:
-    repository: "pachyderm/pachd"
-    pullPolicy: "IfNotPresent"
-    tag: ""
-
-ingress:
-  enabled: false
-  annotations: {}
-  host: ""
-  uriHttpsProtoOverride: false
-  tls:
-    enabled: false
-    secretName: ""
-    newSecret:
-      create: false
-      crt: ""
-      key: ""
-
-oidc:
-  issuerURI: "" #Inferred if running locally or using ingress
-  requireVerifiedEmail: false
-  IDTokenExpiry: 24h
-  RotationTokenExpiry: 48h
-  upstreamIDPs: []
-  mockIDP: false
-  userAccessibleOauthIssuerHost: ""
-
-pachd:
-  enabled: true
-  affinity: {}
-  clusterDeploymentID: ""
-  goMaxProcs: 0
-  image:
-    repository: "pachyderm/pachd"
-    pullPolicy: "IfNotPresent"
-    tag: ""
-  logLevel: "info"
-  lokiLogging: false
-  metrics:
-    enabled: true
-    endpoint: ""
-  podLabels: {}
-  resources: {}
-
-  requireCriticalServersOnly: false
-
-  externalService:
-    enabled: false
-    loadBalancerIP: ""
-    apiGRPCPort: 30650
-    s3GatewayPort: 30600
-  service:
-    labels: {}
-    type: "ClusterIP"
-
-  activateEnterprise: false
-  activateEnterpriseMember: false
-  enterpriseLicenseKey: ""
-  rootToken: ""
-  enterpriseSecret: ""
-  oauthClientID: "pachd"
-  oauthClientSecret: ""
-  oauthRedirectURI: ""
-  localhostIssuer: ""
-  serviceAccount:
-    create: true
-    additionalAnnotations: {}
-    name: "pachyderm"
-  storage:
-    backend: ""
-    amazon:
-      bucket: ""
-      cloudFrontDistribution: ""
-      customEndpoint: ""
-      disableSSL: false
-      id: ""
-      logOptions: ""
-      maxUploadParts: 10000
-      verifySSL: true
-      partSize: "5242880"
-      region: ""
-      retries: 10
-      reverse: true
-      secret: ""
-      timeout: "5m"
-      token: ""
-      uploadACL: "bucket-owner-full-control"
-    google:
-      bucket: ""
-      cred: ""
-    local:
-      hostPath: ""
-      requireRoot: true
-    microsoft:
-      container: ""
-      id: ""
-      secret: ""
-    minio:
-      bucket: ""
-      endpoint: ""
-      id: ""
-      secret: ""
-      secure: ""
-      signature: ""
-    putFileConcurrencyLimit: 100
-    uploadConcurrencyLimit: 100
-  ppsWorkerGRPCPort: 1080
-  tls:
-    enabled: false
-    secretName: ""
-    newSecret:
-      create: false
-      crt: ""
-      key: ""
-  worker:
-    image:
-      repository: "pachyderm/worker"
-      pullPolicy: "IfNotPresent"
-    serviceAccount:
-      create: true
-      additionalAnnotations: {}
-      name: "pachyderm-worker"
-  rbac:
-    create: true
-
-pgbouncer:
-  service:
-    type: ClusterIP
-  resources: {}
-
-postgresql:
-  enabled: true
-  image:
-    tag: "13.3.0"
-  initdbScripts:
-    dex.sh: |
-      #!/bin/bash
-      set -e
-      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-        CREATE DATABASE dex;
-        GRANT ALL PRIVILEGES ON DATABASE dex TO "$POSTGRES_USER";
-      EOSQL
-  fullnameOverride: postgres
-  persistence:
-    storageClass: ""
-    size: 10Gi
-    labels:
-      suite: pachyderm
-
-cloudsqlAuthProxy:
-  connectionName: ""
-  serviceAccount: ""
-  port: 5432
-  enabled: false
-  image:
-    repository: "gcr.io/cloudsql-docker/gce-proxy"
-    pullPolicy: "IfNotPresent"
-    tag: "1.23.0"
-  podLabels: {}
-  resources: {}
-
-  service:
-    labels: {}
-    type: ClusterIP
+{{ gitsnippet('pachyderm/pachyderm', 'etc/helm/pachyderm/values.yaml', '2.0.x') }}
 ```
-!!! Example "In Pratice"
-    You rarely need to specify all the fields.
-    Most fields either come with sensible defaults or can be empty.
-    The following text is an example of a minimum spec that includes the console:
-
-    ```yaml
-    deployTarget: LOCAL
-
-    console:
-      enabled: true
-    ```
-
 ### deployTarget
 
 `deployTarget` is where you're deploying pachyderm. It configures the storage backend to use and cloud provider settings.
@@ -274,7 +48,8 @@ This section is to configure the connection to the postgresql database. By defau
 When using autogenerated value for the initial install, it must be pulled from the postgres secret and added to values.yaml for future helm upgrades.
 - `postgresqlDatabase` is the database name where pachyderm data will be stored
 - `postgresqlHost` is the postgresql database host to connect to.
-- `postgresqlPort` is the postgresql database port to connect to.`postgresqlSSL` is the SSL mode to use for connecting to Postgres, for the default local postgres it is disabled
+- `postgresqlPort` is the postgresql database port to connect to.
+- `postgresqlSSL` is the SSL mode to use for connecting to Postgres, for the default local postgres it is disabled
 
 #### global.imagePullSecrets
 
@@ -314,6 +89,7 @@ This is where the primary configuration settings for the console are configured,
 - `config.oauthClientSecret` the secret configured for the client with pachd
 
 - `config.graphqlPort` the http port that the console service will be accessible on.
+
 - `config.disableTelemetry` this can be set to true to opt out of console's analytics and error data collection.
 
 ### etcd
@@ -366,6 +142,9 @@ This section is to configure an ingress resource for an existing ingress control
 
 - `ingress.annotations` specifies annotations to add to the ingress resource.
 
+- `host` your domain name, external IP address, or localhost.
+
+- `uriHttpsProtoOverride` when set to true, uriHttpsProtoOverride will add the https protocol to the ingress URI routes without configuring certs
 #### ingress.tls
 
 There are three options for configuring TLS on the ingress under `ingress.tls`.
@@ -373,26 +152,6 @@ There are three options for configuring TLS on the ingress under `ingress.tls`.
 1. `disabled`. TLS is not used.
 1. `enabled`, using an existing secret. You must set enabled to true and provide a secret name where the exiting cert and key are stored.
 1. `enabled`, using a new secret. You must set enabled to true and `newSecret.create` to true and specify a secret name, and a cert and key in string format
-
-To have the ingress routes use the https protocol without enabling the cert secret configuration, `ingress.uriHttpsProtoOverride` can be set to true.
-
-## oidc
-
-This section is to configure the oidc settings within pachyderm.
-
-- `oidc.issuerURI` specifies the Oauth Issuer. Inferred if running locally or using ingress.
-
-- `oidc.requireVerifiedEmail` specifies whether email verification is required for authentication.
-
-- `oidc.IDTokenExpiry` specifies the duration where OIDC ID Tokens are valid.
-
-- `oidc.RotationTokenExpiry` if set, enables OIDC Rotation Tokens and specifies the duration where they are valid.
-
-- `oidc.upstreamIDPs` specifies a list of Identity Providers to use for authentication.
-
-- `oidc.mockIDP` when set to `true`, specifes to ignore `upstreamIDPs` in favor of a placeholder IDP with a username/password preset to "admin" and "password".
-
-- `oidc.userAccessibleOauthIssuerHost` specifies the Oauth issuer's address host that's used in the Oauth authorization redirect URI. This value is only necessary in local settings or anytime the registered Issuer address isn't accessible outside the cluster.
 
 ### pachd
 
@@ -412,7 +171,9 @@ This section is to configure the pachd deployment.
 
 - `pachd.requireCriticalServersOnly` only requires the critical pachd servers to startup and run without errors.
 
-- `pachd.service.labels` specifies labels to add to the console service.
+- `pachd.service.labels` specifies labels to add to the pachd service.
+
+- `pachd.service.type` specifies the Kubernetes type of the pachd service. The default is `ClusterIP`.
 
 - `pachd.externalService.enabled` creates a kubernetes service of type `loadBalancer` that is safe to expose externally.
 
@@ -422,31 +183,34 @@ This section is to configure the pachd deployment.
 
 - `pachd.externalService.s3GatewayPort` is the desired s3 gateway port (30600 is default).
 
-- `pachd.service.type` specifies the Kubernetes type of the pachd service. The default is `ClusterIP`.
+- `pachd.externalService.annotations` add your service annotations.
 
-- `pachd.activateEnterprise` instructs the config-pod enterprise bootstrap job to run on upgrades.
+- `pachd.activateEnterprise` instruct the config-pod to bootstrap enterprise on the cluster, even in upgrade releases. Default to false.
 
 - `pachd.activateEnterpriseMember` specifies whether to activate with an enterprise server.
+  If pachd.activateEnterpriseMember is set, enterprise will be activated and connected to an existing enterprise server.
 
-- `pachd.enterpriseLicenseKey` specify the enterprise license key if you have one.
+- `activateAuth` If pachd.activateAuth is set, auth will be bootstrapped by the config-job. Defaults to true.
+
+- `pachd.enterpriseLicenseKey` specify the enterprise license key if you have one. 
+  If pachd.enterpriseLicenseKey is set, enterprise will be activated
 
 - `pachd.rootToken` is the auth token used to communicate with the cluster as the root user.
+  If a token is not provided, a secret will be autogenerated on install and stored in the k8s secret 'pachyderm-bootstrap-config.rootToken'
 
-- `pachd.enterpriseSecret` specifies the enterprise cluster secret.
+- `pachd.enterpriseSecret` specifies the enterprise cluster secret. If a secret is not provided, a secret will be autogenerated on install and stored in the k8s secret 'pachyderm-bootstrap-config.enterpriseSecret'
 
-- `pachd.oauthClientID` specifies the Oauth client ID representing pachd.
+- `pachd.oauthClientID` specifies the Oauth client ID representing pachd. Defaults to "pachd".
 
-- `pachd.oauthClientSecret` specifies the Oauth client secret.
+- `pachd.oauthClientSecret` specifies the Oauth client secret. If a secret is not provided, a secret will be autogenerated on install and stored in the k8s secret 'pachyderm-bootstrap-config.authConfig.clientSecret'.
 
-- `pachd.oauthRedirectURI` specifies the Oauth redirect URI served by pachd.
+- `pachd.oauthRedirectURI` specifies the Oauth redirect URI served by pachd. Example  `http://<PACHD-IP>:30657/authorization-code/callback`.
+
+- `pachd.enterpriseRootToken` only used if pachd.activateEnterpriseMember == true
+- `pachd.enterpriseServerAddress` only used if pachd.activateEnterpriseMember == true
+- `pachd.enterpriseCallbackAddress` only used if pachd.activateEnterpriseMember == true
 
 - `pachd.localhostIssuer` specifies to pachd whether dex is embedded in its process. This value can be set to "true", "false", or "".
-
-- `pachd.enterpriseRootToken` specifies the root token of the enterprise server. If pachd.activateEnterpriseMember is set to true, the enterprise root token will be used to register the newly deployed pachyderm cluster with the enterprise server.
-
-- `pachd.enterpriseServerAddress` specifies the grpc address of the enterprise server. If pachd.activateEnterpriseMember is set to true, the newly deployed pachyderm cluster will use the address to communicate with the enterprise server.
-
-- `pachd.enterpriseCallbackAddress` specifies the grpc address of the pachyderm cluster. If pachd.activateEnterpriseMember is set to true, the enterprise server will use this address to communicate with the pachyderm cluster.
 
 If any of `rootToken`,`enterpriseSecret`, or `oauthClientSecret` are blank, a value will be generated automatically. When using autogenerated value for the initial install, it must be pulled from the config secret and added to values.yaml for future helm upgrades.
 
@@ -460,7 +224,7 @@ This section of `pachd` configures the back end storage for pachyderm.
 
 - `storage.backend` configures the storage backend to use. It must be one of GOOGLE, AMAZON, MINIO, MICROSOFT or LOCAL. This is set automatically if deployTarget is GOOGLE, AMAZON, MICROSOFT, or LOCAL.
 
-- `storage.putFileConcurrencyLimit` sets the maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.
+- `storage.putFileConcurrencyLimit` sets the maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently. 
 
 - `storage.uploadConcurrencyLimit` sets the maximum number of concurrent object storage uploads per Pachd instance.
 ##### pachd.storage.amazon
@@ -530,8 +294,8 @@ If you're using Google Storage Buckets as your storage backend, configure it her
     }
   ```
 
-- `storage.google.local.hostpath` indicates the path on the host where the PFS metadata will be stored.
-
+- `storage.local.hostpath` indicates the path on the host where the PFS metadata will be stored.
+- `storage.local.requireRoot`
 ##### pachd.storage.microsoft
 
 If you're using Microsoft Blob Storage as your storage backend, configure it here.
@@ -574,6 +338,7 @@ This section is to configure the PGBouncer Postgres connection pooler.
 
 - `resources` specifies resources and limits in standard kubernetes format. It is left unset by default.
 
+- `maxConnections` defaults to 1000
 ### postgresql
 
 This section is to configure the PostgresQL Subchart, if used.
@@ -614,3 +379,21 @@ This section is to configure the CloudSQL Auth Proxy for deploying Pachyderm on 
 - `port` is the cloudql database port to expose. The default is `5432`
 
 - `service.type` specifies the Kubernetes type of the cloudsqlAuthProxy service. The default is `ClusterIP`.
+
+### oidc
+
+This section is to configure the oidc settings within pachyderm.
+
+- `oidc.issuerURI` specifies the Oauth Issuer. Inferred if running locally or using ingress.
+
+- `oidc.requireVerifiedEmail` specifies whether email verification is required for authentication.
+
+- `oidc.IDTokenExpiry` specifies the duration where OIDC ID Tokens are valid.
+
+- `oidc.RotationTokenExpiry` if set, enables OIDC Rotation Tokens and specifies the duration where they are valid.
+
+- `oidc.upstreamIDPs` specifies a list of Identity Providers to use for authentication.
+
+- `oidc.mockIDP` when set to `true`, specifes to ignore `upstreamIDPs` in favor of a placeholder IDP with a username/password preset to "admin" and "password".
+
+- `oidc.userAccessibleOauthIssuerHost` specifies the Oauth issuer's address host that's used in the Oauth authorization redirect URI. This value is only necessary in local settings or anytime the registered Issuer address isn't accessible outside the cluster.
