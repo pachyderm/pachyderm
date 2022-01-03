@@ -22,7 +22,7 @@ const pipelineResolver: PipelineResolver = {
   Mutation: {
     createPipeline: async (
       _field,
-      {args: {name, image, cmdList, pfs, crossList, description, update}},
+      {args: {name, transform, pfs, crossList, description, update}},
       {pachClient},
     ) => {
       const crossListInputs = (crossList || []).map((input) => {
@@ -46,7 +46,14 @@ const pipelineResolver: PipelineResolver = {
 
       await pachClient.pps().createPipeline({
         pipeline: {name},
-        transform: {image, cmdList},
+        transform: {
+          cmdList: transform.cmdList,
+          image: transform.image,
+          stdinList:
+            transform.stdinList && transform.stdinList.length
+              ? transform.stdinList
+              : undefined,
+        },
         description: description || undefined,
         input: {
           crossList: crossListInputs,

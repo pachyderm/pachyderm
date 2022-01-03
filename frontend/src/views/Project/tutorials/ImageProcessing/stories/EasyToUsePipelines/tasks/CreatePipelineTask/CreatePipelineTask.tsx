@@ -35,8 +35,10 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
   const {createPipeline, status} = useCreatePipeline(
     {
       name: 'edges',
-      image: 'pachyderm/opencv',
-      cmdList: ['python3', '/edges.py'],
+      transform: {
+        image: 'pachyderm/opencv',
+        cmdList: ['python3', '/edges.py'],
+      },
       pfs: {name: 'images', repo: {name: 'images'}, glob: '/*'},
       projectId: projectId,
     },

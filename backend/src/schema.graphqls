@@ -90,6 +90,12 @@ type Transform {
   image: String!
 }
 
+input TransformInput {
+  cmdList: [String!]!
+  image: String!
+  stdinList: [String!]
+}
+
 type NodeSelector {
   key: String!
   value: String!
@@ -385,8 +391,7 @@ input PFS {
 
 input CreatePipelineArgs {
   name: String!
-  image: String!
-  cmdList: [String!]!
+  transform: TransformInput!
   pfs: PFS
   crossList: [PFS!]
   projectId: String!

@@ -99,8 +99,7 @@ export type CreateBranchArgs = {
 
 export type CreatePipelineArgs = {
   name: Scalars['String'];
-  image: Scalars['String'];
-  cmdList: Array<Scalars['String']>;
+  transform: TransformInput;
   pfs?: Maybe<Pfs>;
   crossList?: Maybe<Array<Pfs>>;
   projectId: Scalars['String'];
@@ -594,6 +593,12 @@ export type Transform = {
   image: Scalars['String'];
 };
 
+export type TransformInput = {
+  cmdList: Array<Scalars['String']>;
+  image: Scalars['String'];
+  stdinList?: Maybe<Array<Scalars['String']>>;
+};
+
 export type Vertex = {
   __typename?: 'Vertex';
   name: Scalars['String'];
@@ -793,6 +798,7 @@ export type ResolversTypes = ResolversObject<{
   Timestamp: ResolverTypeWrapper<Timestamp>;
   Tokens: ResolverTypeWrapper<Tokens>;
   Transform: ResolverTypeWrapper<Transform>;
+  TransformInput: TransformInput;
   Vertex: ResolverTypeWrapper<Vertex>;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
@@ -855,6 +861,7 @@ export type ResolversParentTypes = ResolversObject<{
   Timestamp: Timestamp;
   Tokens: Tokens;
   Transform: Transform;
+  TransformInput: TransformInput;
   Vertex: Vertex;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;

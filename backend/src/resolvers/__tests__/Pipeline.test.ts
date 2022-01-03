@@ -58,8 +58,10 @@ describe('Pipeline resolver', () => {
         {
           args: {
             name: 'test',
-            image: 'alpine',
-            cmdList: ['sh'],
+            transform: {
+              image: 'alpine',
+              cmdList: ['sh'],
+            },
             pfs: {
               name: 'images',
               repo: {name: 'images'},
@@ -79,8 +81,10 @@ describe('Pipeline resolver', () => {
         {
           args: {
             name: 'processor',
-            image: 'alpine',
-            cmdList: ['sh'],
+            transform: {
+              image: 'alpine',
+              cmdList: ['sh'],
+            },
             pfs: {
               name: 'images',
               repo: {name: 'images'},
@@ -102,8 +106,10 @@ describe('Pipeline resolver', () => {
           {
             args: {
               name: 'test',
-              image: 'alpine',
-              cmdList: ['sh'],
+              transform: {
+                image: 'alpine',
+                cmdList: ['sh'],
+              },
               pfs: {
                 name: 'images',
                 repo: {name: 'images'},
@@ -128,8 +134,10 @@ describe('Pipeline resolver', () => {
         {
           args: {
             name: 'processor',
-            image: 'alpine',
-            cmdList: ['sh'],
+            transform: {
+              image: 'alpine',
+              cmdList: ['sh'],
+            },
             pfs: {
               name: 'images',
               repo: {name: 'images'},

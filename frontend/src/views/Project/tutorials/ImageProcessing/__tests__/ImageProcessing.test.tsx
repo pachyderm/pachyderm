@@ -28,23 +28,7 @@ describe('Image Processing', () => {
     expect(tutorialTitle).toBeInTheDocument();
   });
 
-  it('should allow the user to create the images repo', async () => {
-    const {findByRole, findByText} = render(<Tutorial />);
-
-    expect(mockServer.getState().repos['6']).toHaveLength(0);
-
-    const repoCreationButton = await findByRole('button', {
-      name: 'Create the images repo',
-    });
-
-    click(repoCreationButton);
-
-    expect(await findByText('Task Completed!')).toBeInTheDocument();
-
-    expect(mockServer.getState().repos['6']).toHaveLength(1);
-  });
-
-  it('should allow the user to create the edges Pipeline', async () => {
+  it('should allow the user to complete the tutorial', async () => {
     const {findByRole, findByText, findAllByRole} = render(<Tutorial />);
 
     expect(mockServer.getState().repos['6']).toHaveLength(0);
@@ -74,5 +58,45 @@ describe('Image Processing', () => {
     await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
     expect(mockServer.getState().repos['6']).toHaveLength(2);
     expect(mockServer.getState().pipelines['6']).toHaveLength(1);
+
+    click(nextStoryButton);
+
+    expect(
+      await findByText(
+        'Add a pipeline called "montage" that uses "edges" as its input',
+      ),
+    ).toBeInTheDocument();
+
+    const montagePipelineCreationButton = (
+      await findAllByRole('button', {
+        name: 'Create the montage pipeline',
+      })
+    )[0];
+
+    click(montagePipelineCreationButton);
+    expect(await findByText('Task Completed!')).toBeInTheDocument();
+    expect(mockServer.getState().pipelines['6']).toHaveLength(2);
+
+    const minimizeButton = (
+      await findAllByRole('button', {
+        name: 'Minimize',
+      })
+    )[0];
+
+    click(minimizeButton);
+
+    const maximizeButton = (
+      await findAllByRole('button', {
+        name: 'Maximize',
+      })
+    )[0];
+
+    click(maximizeButton);
+
+    const nextStoryButton2 = (
+      await findAllByRole('button', {name: 'Next Story'})
+    )[1];
+
+    await waitFor(() => expect(nextStoryButton2).not.toBeDisabled());
   });
 });
