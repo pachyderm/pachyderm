@@ -60,7 +60,7 @@ The object store you use must be accessible via a low-latency, high-bandwidth co
 
     You will, however, **access your Object Store using the S3 protocol**. 
 
-Storage providers like [MinIO](https://min.io){target=_blank}, [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm){target=_blank}, or [SwiftStack](https://www.swiftstack.com/){target=_blank} provide S3-compatible access to enterprise storage for on-premises deployment. 
+Storage providers like [MinIO](https://min.io){target=_blank} (the most common and officially supported option), [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm){target=_blank}, [Ceph](https://ceph.io/en/){target=_blank}, or [SwiftStack](https://www.swiftstack.com/){target=_blank} provide S3-compatible access to enterprise storage for on-premises deployment. 
 
 #### Sizing And Configuring The Object Store
 Start with a large multiple of your current data set size.
