@@ -7,7 +7,7 @@ correspond to your S3 client.
 
 ## Configure MinIO
 1. Install the MinIO client as
-described on the [MinIO download page](https://min.io/download#/macos).
+described on the [MinIO download page](https://min.io/download#/macos){target=_blank}.
 
 1. Verify that MinIO components are successfully installed by running
 the following command:
@@ -50,11 +50,11 @@ the following command:
       ```
 
 !!! Info
-      Find **MinIO** full documentation [here](https://docs.min.io/docs/minio-client-complete-guide).
+      Find **MinIO** full documentation [here](https://docs.min.io/docs/minio-client-complete-guide){target=_blank}.
 
 ## Configure The AWS CLI
 1. Install the AWS CLI as described
-in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html).
+in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html){target=_blank}.
 
 1. Verify that the AWS CLI is installed:
 
@@ -77,7 +77,7 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
       Default output format [None]:
       ```
 !!! Note
-      Note that the `--profile` flag ([named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)) is optional. If not used, your access information will be stored in the default profile. 
+      Note that the `--profile` flag ([named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html){target=_blank}) is optional. If not used, your access information will be stored in the default profile. 
       
       To reference a given profile when using the S3 client, append `--profile <name-your-profile>` at the end of your command.
 
@@ -87,15 +87,15 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
       ```
 
 !!! Info
-      Find **AWS S3 CLI** full documentation [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html).
+      Find **AWS S3 CLI** full documentation [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html){target=_blank}.
  
 ## Configure boto3
 Before using Boto3, you need to [set up authentication credentials for your AWS account](#configure-the-aws-cli) using the AWS CLI as mentioned previously.
 
-Then follow the [Using boto](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#using-boto3) documentation starting with importing boto3 in your python file and creating your S3 resources.
+Then follow the [Using boto](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#using-boto3){target=_blank} documentation starting with importing boto3 in your python file and creating your S3 resources.
    
 !!! Info   
-      Find **boto3** full documentation [here](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html).
+      Find **boto3** full documentation [here](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html){target=_blank}.
 
 
 ## Set Your Credentials

@@ -44,7 +44,7 @@ Yosemite or later.
 
     For more information, see:
 
-  * [FUSE for macOS](https://osxfuse.github.io/)
+  * [FUSE for macOS](https://osxfuse.github.io/){target=_blank}
 
 ## Mounting Repositories in Read-Only Mode
 

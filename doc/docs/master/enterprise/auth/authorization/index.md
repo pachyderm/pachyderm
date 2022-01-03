@@ -1,6 +1,6 @@
 # Authorization
 !!! Note
-    Go back to our [Enterprise landing page](https://docs.pachyderm.com/latest/enterprise/) if you do not have a key.
+    Go back to our [Enterprise landing page](https://docs.pachyderm.com/latest/enterprise/){target=_blank} if you do not have a key.
     Before setting up a Role-Based access control to Pachyderm resources, verify that:
 
     - the [User Access Management](../#activate-user-access-management) feature is on by running `pachctl auth whoami`. The command should return `You are "pach:root"` (i.e., your are the **Root User** with `clusterAdmin` privileges). Run `pachctl auth use-auth-token` to login as a Root User.

@@ -6,7 +6,7 @@
 
 Pachyderm delegates its authentication to third party Identity Providers.
 
-We embed an **Open ID Connect** identity service based on [**Dex**](https://dexidp.io/docs/) allowing for a vendor-neutral authentication (i.e., a pluggable authentication against many different identity providers).
+We embed an **Open ID Connect** identity service based on [**Dex**](https://dexidp.io/docs/){target=_blank} allowing for a vendor-neutral authentication (i.e., a pluggable authentication against many different identity providers).
 
 As a result, users can authenticate **using their existing credentials from various back-ends**, including LDAP, other OIDC providers, or SAML. 
 

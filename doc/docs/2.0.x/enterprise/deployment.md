@@ -9,7 +9,7 @@ registering for the Enterprise Edition.
 
 !!! Information
       - If you are a new user evaluating Pachyderm,
-      you can request a [FREE evaluation code](https://www.pachyderm.com/trial).
+      you can request a [FREE evaluation code](https://www.pachyderm.com/trial){target=_blank}.
       - If you are having trouble locating your activation code, contact [support@pachyderm.io](mailto:support@pachyderm.io).
 
 ## Activate The Enterprise Edition
