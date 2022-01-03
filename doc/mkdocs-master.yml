@@ -66,6 +66,7 @@ extra_css:
 
 # Extensions
 markdown_extensions:
+  - markdown.extensions.attr_list
   - markdown.extensions.admonition
   - markdown.extensions.codehilite:
       guess_lang: false
@@ -93,6 +94,7 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
+  
 
 # Page tree
 nav:

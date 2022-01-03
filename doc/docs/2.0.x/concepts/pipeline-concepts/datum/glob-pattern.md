@@ -101,8 +101,8 @@ Now let's consider what the following glob patterns would match respectively:
     ```
 
 !!! See "See Also"
-        - To understand how Pachyderm scales, read [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/).
-        - To learn about Datums' incremental processing, read our [Datum Processing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/#datum-processing) section.
+        - To understand how Pachyderm scales, read [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/){target=_blank}.
+        - To learn about Datums' incremental processing, read our [Datum Processing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/#datum-processing){target=_blank} section.
 
 ## Test a Glob pattern
 
@@ -197,7 +197,7 @@ You can use the `pachctl list datum <pipeline>@<job_ID>` command to check the da
 
 !!! info "Stats and Datum Metadata"
     - Running `list datum` on a given job execution of a pipeline allows you to additionally display the STATUS (running, failed, success) and TIME of each datum.
-    - You might want to follow up with [inspect datum pipeline@job_number datum ID](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_datum/) to detail the files that a specific datum includes.
+    - You might want to follow up with [inspect datum pipeline@job_number datum ID](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_datum/){target=_blank} to detail the files that a specific datum includes.
     
         ```shell
         $ pachctl inspect datum edges@b8687e9720f04b7ab53ae8c64541003b a4149cd1907145f982e0eb49c50af3f1d4d8fecaa8647d62f2d9d93e30578df8

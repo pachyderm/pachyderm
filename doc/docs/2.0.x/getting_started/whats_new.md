@@ -8,7 +8,7 @@ and point to their relevant documentation.
 !!! Note
     Not all changes have a visible impact; therefore some might not be mentioned.
 
-    For a complete overview of what Pachyderm 2 entails, [read this blog post](https://www.pachyderm.com/blog/getting-ready-for-pachyderm-2/). 
+    For a complete overview of what Pachyderm 2 entails, [read this blog post](https://www.pachyderm.com/blog/getting-ready-for-pachyderm-2/){target=_blank}. 
 
  So, what is new?
 
@@ -18,7 +18,7 @@ and point to their relevant documentation.
 
 The most important change in Pachyderm 2 is its **storage architecture**.
 
-- Most of Pachyderm's metadata storage has been moved from etcd to [**Postgresql**](https://www.postgresql.org/docs/). 
+- Most of Pachyderm's metadata storage has been moved from etcd to [**Postgresql**](https://www.postgresql.org/docs/){target=_blank}. 
 
     This change ultimately alters the deployment of Pachyderm in production. Along with the required object store for storing your data, you now need to create a managed instance of PostgreSQL on your favorite Cloud (RDS on AWS, CloudSQL on GCP, PostgreSQL Server on Azure). These deployment changes are addressed in the [Helm](./#helm) section below.
 
@@ -42,14 +42,14 @@ The most important change in Pachyderm 2 is its **storage architecture**.
 
 Read about the general [principles of a deployment with Helm](../../deploy-manage/deploy/helm_install/) in Pachyderm in our Deployment section.
 
-All existing `pachctl deploy` commands are [EOL](../../contributing/supported-releases/#end-of-life-eol). You can now configure the Helm values passed to [Pachyderm's chart](https://artifacthub.io/packages/helm/pachyderm/pachyderm) depending on your targeted setup.
+All existing `pachctl deploy` commands are [EOL](../../contributing/supported-releases/#end-of-life-eol). You can now configure the Helm values passed to [Pachyderm's chart](https://artifacthub.io/packages/helm/pachyderm/pachyderm){target=_blank} depending on your targeted setup.
 
 - Look at how to configure your Helm values:
 
     - For a quick deployment on a [specific Cloud target](../../deploy-manage/deploy/quickstart/), or [Locally](../local_installation/), on your machine's Docker Desktop or Minikube.
     - For [Production](../../deploy-manage/deploy/) settings.
 
-- As a reference, check the complete list of all configurable fields in our [Reference](../../reference/helm_values/) section or on [GitHub](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
+- As a reference, check the complete list of all configurable fields in our [Reference](../../reference/helm_values/) section or on [GitHub](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 ### Elimination Of Automatic Merge
  
@@ -60,7 +60,7 @@ In Pachyderm 2, **if two datums from the same repo write to the same output file
 
 Check our illustration of this new [`Single Datum Provenance Rule`](../../concepts/pipeline-concepts/datum/relationship-between-datums/#example-two-steps-mapreduce-pattern-and-single-datum-provenance-rule) in our documentation. 
  
-Alternatively, you can take a look at an implementation of the addition of a new "Reduce/Merge" pipeline in our [examples](https://github.com/pachyderm/pachyderm/tree/master/examples/joins).
+Alternatively, you can take a look at an implementation of the addition of a new "Reduce/Merge" pipeline in our [examples](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}.
  
 ### Default Overwrite Behavior
 
@@ -85,7 +85,7 @@ In Pachyderm 2, directories are implied from the paths of the files. Directories
 Global ID can be seen as **a shared TAG or identifier for all provenance-dependent commits and jobs**.
 In other words, an initial change to your data (For example, a `put file` in a repository, an `update pipeline`...) triggers a set of related commits and jobs in your data-driven DAG. The set of those commits and jobs will share the same identifier.
 
-Visit the [Global ID](../../concepts/advanced-concepts/globalID/) page to learn more about Global ID or check this didactical example to understand how [one single ID lets you track all provenance-dependent commits and jobs](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID) at once.  
+Visit the [Global ID](../../concepts/advanced-concepts/globalID/) page to learn more about Global ID or check this didactical example to understand how [one single ID lets you track all provenance-dependent commits and jobs](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID){target=_blank} at once.  
 
 !!! Note
     Pachyderm [transactions](../../how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands/#use-transactions) also use Global ID. 
@@ -111,7 +111,7 @@ User Access Management is an Enterprise feature.
 
 ### New Console and Notebooks
 
-We have entirely re-worked our Web UI (`Console`) and are launching a beta version of our new integrated development environment (`Notebooks`) - namely, JupyterLab on Pachyderm. Both are readily accessible on [Hub](https://hub.pachyderm.com/). 
+We have entirely re-worked our Web UI (`Console`) and are launching a beta version of our new integrated development environment (`Notebooks`) - namely, JupyterLab on Pachyderm. Both are readily accessible on [Hub](https://hub.pachyderm.com/){target=_blank}. 
 
 - Introducing Pachyderm `Console`: Console replaces our Dashboard in Pachyderm 1. 
 
@@ -122,13 +122,13 @@ We have entirely re-worked our Web UI (`Console`) and are launching a beta versi
 !!! Note
     [Deploy Console Locally](../../deploy-manage/deploy/console/#deploy-locally) on your Minikube or Docker Desktop and browse through your DAGs' pipelines, check the content of your commits in a repo, look at the files they contain, check your DAG's jobs, or zoom in on their logs.
 
-- Additionally, we are releasing the first iteration of our `Notebooks` product (In its beta version), accessible on [Hub](https://hub.pachyderm.com/). The coming GA release of Notebooks will be an Enterprise Feature. 
+- Additionally, we are releasing the first iteration of our `Notebooks` product (In its beta version), accessible on [Hub](https://hub.pachyderm.com/){target=_blank}. The coming GA release of Notebooks will be an Enterprise Feature. 
 
      You can now run and test your pipelines and data experiments from your favorite Jupiter notebooks.
 
 
 !!! Info "See Also"
-    Check our [Changelog](https://github.com/pachyderm/pachyderm/blob/master/CHANGELOG.md).
+    Check our [Changelog](https://github.com/pachyderm/pachyderm/blob/master/CHANGELOG.md){target=_blank}.
 
 
 

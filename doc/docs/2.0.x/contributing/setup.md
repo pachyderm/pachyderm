@@ -2,12 +2,12 @@
 
 ## General requirements
 
-First, go through the general [Local Installation Instructions](https://docs.pachyderm.com/latest/getting_started/local_installation/). Additionally, make sure you have the following installed:
+First, go through the general [Local Installation Instructions](https://docs.pachyderm.com/latest/getting_started/local_installation/){target=_blank}. Additionally, make sure you have the following installed:
 
 - golang 1.12+
 - docker
-- [jq](https://stedolan.github.io/jq/)
-- [pv](http://ivarch.com/programs/pv.shtml)
+- [jq](https://stedolan.github.io/jq/){target=_blank}
+- [pv](http://ivarch.com/programs/pv.shtml){target=_blank}
 - shellcheck
 
 ## Bash helpers

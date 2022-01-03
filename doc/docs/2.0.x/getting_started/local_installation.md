@@ -40,8 +40,8 @@ the Beginner Tutorial.
 To configure Minikube, follow these steps:  
   
 1. Install minikube and VirtualBox in your operating system as described in  
-the [Kubernetes documentation](http://kubernetes.io/docs/getting-started-guides/minikube).  
-1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/).  
+the [Kubernetes documentation](http://kubernetes.io/docs/getting-started-guides/minikube){target=_blank}.  
+1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/){target=_blank}.  
 1. Start `minikube`:  
   
       ```shell  
@@ -75,7 +75,7 @@ by following these steps:
   
 #### Using Kind  
   
-1. Install Kind according to its [documentation](https://kind.sigs.k8s.io/).  
+1. Install Kind according to its [documentation](https://kind.sigs.k8s.io/){target=_blank}.  
   
 1. From the command prompt, confirm that Kubernetes is running:  
    ```shell  
@@ -136,7 +136,7 @@ with a Pachyderm cluster in your terminal.
   
 ### Install `Helm`  
   
-Follow Helm's [installation guide](https://helm.sh/docs/intro/install/).  
+Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_blank}.  
   
 ## Deploy Pachyderm's Latest Version (Option: Deploy Pachyderm With Console)  
   
