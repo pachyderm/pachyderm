@@ -107,6 +107,7 @@ func newDriver(env Env, config Config) (*driver, error) {
 		commits:    commits,
 		branches:   branches,
 		env:        env,
+		config:     config,
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.DB)
