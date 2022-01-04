@@ -15,7 +15,7 @@ and can get started right away.
     Get a workspace up and running in a few minutes.
     Take advantage of our **21-day free trial**\* and start experimenting.
     
-    Got any questions? [Contact us](mailto:support@pachyderm.io) or ask us on our [Users Slack Channel](http://slack.pachyderm.io/). 
+    Got any questions? [Contact us](mailto:support@pachyderm.io) or ask us on our [Users Slack Channel](https://www.pachyderm.com/slack/). 
 
     *\*Offer limited to one single user workspace with 4 vCPUs, 15GB RAM, and unlimited object storage.*
 ## Get started in 4 simple steps

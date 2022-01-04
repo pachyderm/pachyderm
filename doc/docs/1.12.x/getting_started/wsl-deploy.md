@@ -77,7 +77,7 @@ machine to the `~/.kube` directory in your Ubuntu WSL machine.
 To install and configure `kubectl`
 
 1. Install `kubectl` on WSL as described in the
-[Kubernetes documentation](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
+[Kubernetes documentation](https://kubernetes.io/docs/tasks/tools/).
 1. Create a `~/.kube` directory.
 1. Copy the Minikube config file from the Windows host system to the Ubuntu
 WSL `/.kube/` directory:

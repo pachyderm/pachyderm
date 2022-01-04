@@ -55,7 +55,7 @@ It's important that bandwidth to your storage deployment meet the guidelines of 
 
 ### Deploying Kubernetes
 
-The Kubernetes docs have instructions for [deploying Kubernetes in a variety of on-premise scenarios](https://kubernetes.io/docs/getting-started-guides/#on-premises-vms).
+The Kubernetes docs have instructions for [deploying Kubernetes in a variety of on-premise scenarios](https://kubernetes.io/docs/setup/#on-premises-vms).
 We recommend following one of these guides to get Kubernetes running on premise.
 
 ### Deploying a persistent volume

@@ -27,7 +27,7 @@ Before you start, you will need the following clients installed:
 ## Setting Up To Deploy On-Premises
 
 ### Deploying Kubernetes
-The Kubernetes docs have instructions for [deploying Kubernetes in a variety of on-premise scenarios](https://kubernetes.io/docs/getting-started-guides/#on-premises-vms){target=_blank}.
+The Kubernetes docs have instructions for [deploying Kubernetes in a variety of on-premise scenarios](https://kubernetes.io/docs/setup/#on-premises-vms){target=_blank}.
 We recommend following one of these guides to get Kubernetes running.
 
 ### Storage Classes 

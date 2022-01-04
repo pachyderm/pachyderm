@@ -265,7 +265,7 @@ for backing up persistent volumes and object stores. Here are some pointers to t
 * Creating a snapshot of persistent volumes:
 
   - [Creating snapshots of GCE persistent volumes](https://cloud.google.com/compute/docs/disks/create-snapshots)
-  - [Creating snapshots of Elastic Block Store (EBS) volumes](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html)
+  - [Creating snapshots of Elastic Block Store (EBS) volumes](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html)
   - [Creating snapshots of Azure Virtual Hard Disk volumes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/snapshot-copy-managed-disk)
 
     For on-premises Kubernetes deployments, check the vendor documentation for

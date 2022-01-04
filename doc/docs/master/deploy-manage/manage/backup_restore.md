@@ -3,7 +3,7 @@
 !!! Warning "Under Construction"
     We are currently working on updating this page.    
 
-    If you have questions about backup / restore, you can post them in the community #help channel on [Slack](http://slack.pachyderm.io/){target=_blank}, or reach out to your TAM if you are an Enterprise customer.
+    If you have questions about backup / restore, you can post them in the community #help channel on [Slack](https://www.pachyderm.com/slack/){target=_blank}, or reach out to your TAM if you are an Enterprise customer.
 
 Pachyderm provides the `pachctl extract` and `pachctl restore` commands to
 back up and restore the state of a Pachyderm cluster.
@@ -270,7 +270,7 @@ for backing up persistent volumes and object stores. Here are some pointers to t
 * Creating a snapshot of persistent volumes:
 
   - [Creating snapshots of GCE persistent volumes](https://cloud.google.com/compute/docs/disks/create-snapshots){target=_blank}
-  - [Creating snapshots of Elastic Block Store (EBS) volumes](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html){target=_blank}
+  - [Creating snapshots of Elastic Block Store (EBS) volumes](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html){target=_blank}
   - [Creating snapshots of Azure Virtual Hard Disk volumes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/snapshot-copy-managed-disk){target=_blank}
 
     For on-premises Kubernetes deployments, check the vendor documentation for

@@ -431,7 +431,7 @@ workers because no machine has enough unclaimed memory. `cpu` works
 similarly, but for CPU time.
 
 For more information about resource requests and limits see the
-[Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/){target=_blank}
+[Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/){target=_blank}
 on the subject.
 
 ### Resource Limits (optional)
@@ -936,7 +936,7 @@ For more information, see [Spouts](../concepts/pipeline-concepts/pipeline/spout.
 `scheduling_spec` specifies how the pods for a pipeline should be scheduled.
 
 `scheduling_spec.node_selector` allows you to select which nodes your pipeline
-will run on. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector){target=_blank}
+will run on. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector){target=_blank}
 on node selectors for more information about how this works.
 
 `scheduling_spec.priority_class_name` allows you to select the prioriy class

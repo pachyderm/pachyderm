@@ -4,7 +4,7 @@ This section describes features available in the enterprise
 edition of Pachyderm. 
 
 !!! Warning "Get your free-trial token."
-    To try our enterprise features, fill in [this form](https://www.pachyderm.com/trial){target=_blank} or [schedule some time with one of our experts](https://www.pachyderm.com/request-a-demo/){target=_blank}. 
+    To try our enterprise features, fill in [this form](https://www.pachyderm.com/trial///){target=_blank} or [schedule some time with one of our experts](https://www.pachyderm.com/request-a-demo/){target=_blank}. 
 
 
 Read about how you can use Pachyderm Enterprise features in the following

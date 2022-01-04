@@ -108,12 +108,6 @@ If you haven't seen pix2pix, check out [this great demo](https://affinelayer.com
 
 [TensorFlow - pix2pix](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/ml/tensorflow)
 
-### Recurrent Neural Network with Tensorflow
-
-Based on [this Tensorflow example](https://www.tensorflow.org/tutorials/recurrent#recurrent-neural-networks), this pipeline generates a new Game of Thrones script using a model trained on existing Game of Thrones scripts.
-
-[Tensorflow - Recurrent Neural Network](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/ml/rnn) 
-
 ### Distributed Hyperparameter Tuning
 
 This example demonstrates how you can evaluate a model or function in a distributed manner on multiple sets of parameters.  In this particular case, we will evaluate many machine learning models, each configured uses different sets of parameters (aka hyperparameters), and we will output only the best performing model or models.
@@ -131,7 +125,7 @@ This example demonstrates integration of Spark with Pachyderm by launching a Spa
 
     In these 2 examples, we showcased how we have integrated Pachyderm's end-to-end pipelines,
     leveraging our data lineage capabilities, 
-    with [Seldon-Core's deployment platform of ML models](https://www.seldon.io/tech/products/core/#:~:text=Seldon%20Core%2C%20our%20open%2Dsource,or%20commercial%20model%20building%20framework.).
+    with [Seldon-Core's deployment platform of ML models](https://www.seldon.io/tech/products/core/).
 
     1. In this first simple example, we train a data-driven model using Pachyderm (LogisticRegression on the Iris dataset with sklearn),
     expose the model's artifacts through Pachyderm's [S3 getaway](https://docs.pachyderm.com/latest/reference/s3gateway_api/), and serve this model in production using Seldon-core. https://github.com/SeldonIO/seldon-core/blob/1.13.x/examples/pachyderm-simple/index.ipynb

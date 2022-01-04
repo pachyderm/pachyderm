@@ -63,14 +63,6 @@ in Pachyderm 1.12. Please take a look at our examples:
 
 - More extensive - Pachyderm's integration of spouts with RabbitMQ: https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-rabbitmq-spout 
 
-!!! Warning
-    The following examples are based on our previous version of spout. That implementation is now [deprecated](../../contributing/supported-releases/#deprecated). Those examples will be adapted to spout 2.0 shortly.
-
-* [Email Sentiment Analyzer](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/EmailSentimentAnalyzer){target=_blank}
-* [Commit Messages from a Kafka Queue](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-kafka-spout){target=_blank}
-* [Amazon SQS S3 Spout](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/SQS-S3){target=_blank}
-* [Spout Marker](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout-marker){target=_blank}
-
 ### Transactions
 
 Pachyderm transactions enable you to execute multiple
@@ -108,12 +100,6 @@ If you haven't seen pix2pix, check out [this great demo](https://affinelayer.com
 
 [TensorFlow - pix2pix](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/tensorflow){target=_blank}
 
-### Recurrent Neural Network with Tensorflow
-
-Based on [this Tensorflow example](https://www.tensorflow.org/tutorials/recurrent#recurrent-neural-networks){target=_blank}, this pipeline generates a new Game of Thrones script using a model trained on existing Game of Thrones scripts.
-
-[Tensorflow - Recurrent Neural Network](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/rnn){target=_blank}
-
 ### Distributed Hyperparameter Tuning
 
 This example demonstrates how you can evaluate a model or function in a distributed manner on multiple sets of parameters.  In this particular case, we will evaluate many machine learning models, each configured uses different sets of parameters (aka hyperparameters), and we will output only the best performing model or models.
@@ -131,7 +117,7 @@ This example demonstrates integration of Spark with Pachyderm by launching a Spa
 
     In these 2 examples, we showcased how we have integrated Pachyderm's end-to-end pipelines,
     leveraging our data lineage capabilities, 
-    with [Seldon-Core's deployment platform of ML models](https://www.seldon.io/tech/products/core/#:~:text=Seldon%20Core%2C%20our%20open%2Dsource,or%20commercial%20model%20building%20framework.){target=_blank}.
+    with [Seldon-Core's deployment platform of ML models](https://www.seldon.io/tech/products/core/){target=_blank}.
 
     1. In this first simple example, we train a data-driven model using Pachyderm (LogisticRegression on the Iris dataset with sklearn),
     expose the model's artifacts through Pachyderm's [S3 getaway](https://docs.pachyderm.com/latest/reference/s3gateway_api/){target=_blank}, and serve this model in production using Seldon-core. https://github.com/SeldonIO/seldon-core/blob/master/examples/pachyderm-simple/index.ipynb

@@ -30,7 +30,7 @@ latest available version of the components listed below.
 
 * [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli){target=_blank}
 * [jq](https://stedolan.github.io/jq/download/){target=_blank}
-* [kubectl](https://docs.microsoft.com/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli){target=_blank}
+* [kubectl](https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli){target=_blank}
 * [pachctl](../../../getting_started/local_installation#install-pachctl)
  
 !!! Note
@@ -38,7 +38,7 @@ latest available version of the components listed below.
 
 ## 2. Deploy Kubernetes
 
-You can deploy Kubernetes on Azure by following the official [Azure Kubernetes Service documentation](https://docs.microsoft.com/azure/aks/tutorial-kubernetes-deploy-cluster){target=_blank}, [use the quickstart walkthrough](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough){target=_blank}, or follow the steps in this section.
+You can deploy Kubernetes on Azure by following the official [Azure Kubernetes Service documentation](https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-deploy-cluster?tabs=azure-cli){target=_blank}, [use the quickstart walkthrough](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough){target=_blank}, or follow the steps in this section.
 
 At a minimum, you will need to specify the parameters below:
 
@@ -107,7 +107,7 @@ You can choose to follow the guided steps in [Azure Service Portal's Kubernetes 
 1. Confirm the version of the Kubernetes server by running  `kubectl version`.
 
 !!! note "See Also:"
-    - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general){target=_blank}
+    - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/sizes-general){target=_blank}
 
 Once your Kubernetes cluster is up, and your infrastructure configured, you are ready to prepare for the installation of Pachyderm. Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
 
