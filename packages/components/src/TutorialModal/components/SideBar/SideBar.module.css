@@ -30,6 +30,8 @@
 }
 
 .dropdown {
+  width: min-content;
+  max-width: 17.5rem;
   margin-bottom: 1.5rem;
 }
 

@@ -37,19 +37,21 @@ const useTutorialModal = (
   );
 
   const handleNextStory = () => {
+    if (tutorialModalRef.current) tutorialModalRef.current.scrollTop = 0;
+
     setCurrentStory((prevValue) => Math.min(prevValue + 1, stories.length - 1));
     setCurrentTask(0);
     clear();
-    if (tutorialModalRef.current) tutorialModalRef.current.scrollIntoView();
   };
 
   const handleStoryChange = useCallback(
     (name: string) => {
       if (name !== stories[currentStory].name) {
+        if (tutorialModalRef.current) tutorialModalRef.current.scrollTop = 0;
+
         setCurrentStory(stories.findIndex((story) => story.name === name));
         setCurrentTask(0);
         clear();
-        if (tutorialModalRef.current) tutorialModalRef.current.scrollIntoView();
       }
     },
     [stories, clear, currentStory],

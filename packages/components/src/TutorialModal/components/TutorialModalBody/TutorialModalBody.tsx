@@ -124,7 +124,7 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
             )}
           </Button>
         </div>
-        <div className={styles.body}>
+        <div className={styles.body} ref={tutorialModalRef}>
           <SideBar
             currentStory={currentStory}
             currentTask={currentTask}
@@ -132,7 +132,7 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
             handleStoryChange={handleStoryChange}
             taskSections={taskSections}
           />
-          <div className={styles.content} ref={tutorialModalRef}>
+          <div className={styles.content}>
             {stories[currentStory].sections.map((section, i) => {
               return (
                 <div className={styles.section} key={i}>
