@@ -8,8 +8,10 @@ import (
 	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 )
 
@@ -68,4 +70,38 @@ func PPSEnv(senv serviceenv.ServiceEnv, txnEnv *transactionenv.TransactionEnv, r
 		BackgroundContext: context.Background(),
 		Logger:            senv.Logger(),
 	}
+}
+
+func PFSConfig(sc *serviceenv.Configuration) pfs_server.Config {
+	return pfs_server.Config{
+		StorageConfiguration: sc.StorageConfiguration,
+	}
+}
+
+func PFSEnv(env serviceenv.ServiceEnv, txnEnv *transactionenv.TransactionEnv) (*pfs_server.Env, error) {
+	// Setup etcd, object storage, and database clients.
+	objClient, err := obj.NewClient(env.Config().StorageBackend, env.Config().StorageRoot)
+	if err != nil {
+		return nil, err
+	}
+	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix)
+	if env.AuthServer() == nil {
+		panic("auth server cannot be nil")
+	}
+	return &pfs_server.Env{
+		ObjectClient: objClient,
+		DB:           env.GetDBClient(),
+		TxnEnv:       txnEnv,
+		Listener:     env.GetPostgresListener(),
+		EtcdPrefix:   etcdPrefix,
+		EtcdClient:   env.GetEtcdClient(),
+		TaskService:  env.GetTaskService(etcdPrefix),
+
+		AuthServer:    env.AuthServer(),
+		GetPPSServer:  env.PpsServer,
+		GetPachClient: env.GetPachClient,
+
+		BackgroundContext: env.Context(),
+		Logger:            env.Logger(),
+	}, nil
 }

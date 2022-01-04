@@ -427,11 +427,11 @@ func doSidecarMode(config interface{}) (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("PFS API", func() error {
-		pfsEnv, err := pfs_server.EnvFromServiceEnv(env, txnEnv)
+		pfsEnv, err := senvutil.PFSEnv(env, txnEnv)
 		if err != nil {
 			return err
 		}
-		pfsAPIServer, err := pfs_server.NewSidecarAPIServer(*pfsEnv)
+		pfsAPIServer, err := pfs_server.NewSidecarAPIServer(*pfsEnv, senvutil.PFSConfig(env.Config()))
 		if err != nil {
 			return err
 		}
@@ -616,11 +616,11 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsEnv, err := pfs_server.EnvFromServiceEnv(env, txnEnv)
+			pfsEnv, err := senvutil.PFSEnv(env, txnEnv)
 			if err != nil {
 				return err
 			}
-			pfsAPIServer, err := pfs_server.NewAPIServer(*pfsEnv)
+			pfsAPIServer, err := pfs_server.NewAPIServer(*pfsEnv, senvutil.PFSConfig(env.Config()))
 			if err != nil {
 				return err
 			}
@@ -737,12 +737,13 @@ func doFullMode(config interface{}) (retErr error) {
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
 		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsEnv, err := pfs_server.EnvFromServiceEnv(env, txnEnv)
+			pfsEnv, err := senvutil.PFSEnv(env, txnEnv)
 			if err != nil {
 				return err
 			}
 			pfsAPIServer, err := pfs_server.NewAPIServer(
 				*pfsEnv,
+				senvutil.PFSConfig(env.Config()),
 			)
 			if err != nil {
 				return err
