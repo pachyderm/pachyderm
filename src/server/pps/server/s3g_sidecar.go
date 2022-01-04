@@ -42,12 +42,12 @@ func (a *apiServer) ServeSidecarS3G() {
 		apiServer:  a,
 		pachClient: a.env.GetPachClient(context.Background()),
 	}
-	port := a.env.Config.S3GatewayPort
+	port := a.config.S3GatewayPort
 	s.server = s3.Server(port, nil)
 
 	// Read spec commit for this sidecar's pipeline, and set auth token for pach
 	// client
-	specCommit := a.env.Config.PPSSpecCommitID
+	specCommit := a.config.PPSSpecCommitID
 	if specCommit == "" {
 		// This error is not recoverable
 		panic("cannot serve sidecar S3 gateway if no spec commit is set")
@@ -58,8 +58,8 @@ func (a *apiServer) ServeSidecarS3G() {
 			s.pachClient,
 			a.env.DB,
 			a.env.Listener,
-			a.env.Config.PPSPipelineName,
-			a.env.Config.PPSSpecCommitID,
+			a.config.PPSPipelineName,
+			a.config.PPSSpecCommitID,
 		)
 		return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -237,7 +237,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			ClusterIP: "None",
 			Ports: []v1.ServicePort{
 				{
-					Port: int32(s.s.apiServer.env.Config.S3GatewayPort),
+					Port: int32(s.s.apiServer.config.S3GatewayPort),
 					Name: "s3-gateway-port",
 				},
 			},
