@@ -15,7 +15,7 @@ Before you can deploy Pachyderm, you will need to perform the following actions:
 
 1. [Deploy Kubernetes](#deploying-kubernetes) on-premises.
 1. [Deploy two Kubernetes persistent volumes](#storage-classes ) that Pachyderm will use to store its metadata.
-1. [Deploy an on-premises object store](#deploying-an-object-store) using a storage provider like [MinIO](https://min.io){target=_blank}, [EMC's ECS](https://www.delltechnologies.com/en-us/storage/ecs/){target=_blank}, or [SwiftStack](https://www.swiftstack.com/){target=_blank} to provide S3-compatible access to your data storage.
+1. [Deploy an on-premises object store](#deploying-an-object-store) using a storage provider like [MinIO](https://min.io){target=_blank}, [EMC's ECS](https://www.delltechnologies.com/en-us/storage/ecs/index.htm){target=_blank}, or [SwiftStack](https://www.swiftstack.com/){target=_blank} to provide S3-compatible access to your data storage.
 1. Finally, [Deploy Pachyderm using Helm](./helm_install.md) by running the `helm install` command with the appropriate values configured in your values.yaml. We recommend reading these generic deployment steps if you are unfamiliar with Helm.
 
 ## Prerequisites
@@ -60,7 +60,7 @@ The object store you use must be accessible via a low-latency, high-bandwidth co
 
     You will, however, **access your Object Store using the S3 protocol**. 
 
-Storage providers like [MinIO](https://min.io){target=_blank} (the most common and officially supported option), [EMC's ECS](https://www.delltechnologies.com/en-us/storage/ecs/){target=_blank}, [Ceph](https://ceph.io/en/){target=_blank}, or [SwiftStack](https://www.swiftstack.com/){target=_blank} provide S3-compatible access to enterprise storage for on-premises deployment. 
+Storage providers like [MinIO](https://min.io){target=_blank} (the most common and officially supported option), [EMC's ECS](https://www.delltechnologies.com/en-us/storage/ecs/index.htm){target=_blank}, [Ceph](https://ceph.io/en/){target=_blank}, or [SwiftStack](https://www.swiftstack.com/){target=_blank} provide S3-compatible access to enterprise storage for on-premises deployment. 
 
 #### Sizing And Configuring The Object Store
 Start with a large multiple of your current data set size.
