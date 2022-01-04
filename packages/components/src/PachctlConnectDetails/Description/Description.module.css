@@ -8,12 +8,18 @@
 
 .mono {
   font-weight: 400;
+  display: inline-flex;
+  width: 100%;
 }
 
 .copy {
   position: absolute;
   right: -1.25rem;
   top: 0;
+}
+
+.copyIcon {
+  margin-left: 1rem;
 }
 
 .title {

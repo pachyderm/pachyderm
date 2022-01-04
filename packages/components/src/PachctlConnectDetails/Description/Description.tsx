@@ -63,21 +63,7 @@ const Description: React.FC<DescriptionProps> = ({
       <div className={styles.title}>{title}</div>
 
       {((copyText && supported) || action) && (
-        <div className={styles.copy}>
-          {action}
-
-          {!disabled && (
-            <ButtonLink
-              data-testid="Description__copy"
-              onClick={handleClick}
-              aria-label="Copy"
-            >
-              <Icon color="plum" small>
-                <CopySVG />
-              </Icon>
-            </ButtonLink>
-          )}
-        </div>
+        <div className={styles.copy}>{action}</div>
       )}
 
       {children && (
@@ -90,6 +76,19 @@ const Description: React.FC<DescriptionProps> = ({
           >
             {children}
           </BodyMonoBlock>
+
+          {!disabled && (
+            <ButtonLink
+              data-testid="Description__copy"
+              onClick={handleClick}
+              className={styles.copyIcon}
+              aria-label="Copy"
+            >
+              <Icon color="plum">
+                <CopySVG />
+              </Icon>
+            </ButtonLink>
+          )}
         </div>
       )}
       {noteText && <p className={styles.note}>Note: {noteText}</p>}

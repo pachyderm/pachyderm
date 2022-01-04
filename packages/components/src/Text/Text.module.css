@@ -38,6 +38,7 @@
   white-space: nowrap;
   overflow-x: auto;
   padding: 1rem 1.25rem;
+  flex: 1;
 }
 
 .headingText {
