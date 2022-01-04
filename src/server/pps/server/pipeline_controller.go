@@ -84,6 +84,7 @@ type pipelineController struct {
 	pipeline              string
 	namespace             string
 	env                   Env
+	config                Config
 	txEnv                 *transactionenv.TransactionEnv
 	pipelines             collection.PostgresCollection
 	etcdPrefix            string
@@ -109,6 +110,7 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		pipeline:   pipeline,
 		namespace:  m.a.namespace,
 		env:        m.a.env,
+		config:     m.a.config,
 		txEnv:      m.a.txnEnv,
 		pipelines:  m.a.pipelines,
 		etcdPrefix: m.a.etcdPrefix,

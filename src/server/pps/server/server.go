@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -41,32 +40,65 @@ type Env struct {
 	Reporter          *metrics.Reporter
 	BackgroundContext context.Context
 	Logger            *logrus.Logger
-	Config            serviceenv.Configuration
 }
 
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) Env {
-	return Env{
-		DB:            senv.GetDBClient(),
-		TxnEnv:        txnEnv,
-		Listener:      senv.GetPostgresListener(),
-		KubeClient:    senv.GetKubeClient(),
-		EtcdClient:    senv.GetEtcdClient(),
-		GetLokiClient: senv.GetLokiClient,
+// Config is configuration parameters for the API Server
+// Config does not contain instantiated dependencies.
+// If it is a user provided, primitive value (bool, string, int, etc.), then it belongs in here.
+type Config struct {
+	Namespace string
 
-		PFSServer:     senv.PfsServer(),
-		AuthServer:    senv.AuthServer(),
-		GetPachClient: senv.GetPachClient,
+	WorkerImage           string
+	WorkerSidecarImage    string
+	WorkerImagePullPolicy string
+	ImagePullSecrets      string
+	WorkerUsesRoot        bool
 
-		Reporter:          reporter,
-		BackgroundContext: context.Background(),
-		Logger:            senv.Logger(),
-		Config:            *senv.Config(),
-	}
+	StorageRoot     string
+	StorageBackend  string
+	StorageHostPath string
+
+	EtcdPrefix    string
+	PPSEtcdPrefix string
+
+	PPSWorkerPort uint16
+	Port          uint16
+	PeerPort      uint16
+	GCPercent     int
+
+	LokiLogging bool
+
+	PostgresPort     uint16
+	PostgresHost     string
+	PostgresUser     string
+	PostgresPassword string
+	PostgresDBName   string
+
+	PGBouncerHost string
+	PGBouncerPort uint16
+
+	DisableCommitProgressCounter  bool
+	GoogleCloudProfilerProject    string
+	PPSSpecCommitID               string
+	StorageUploadConcurrencyLimit int
+	S3GatewayPort                 uint16
+	PPSPipelineName               string
+	PPSMaxConcurrentK8sRequests   int
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(env Env) (ppsiface.APIServer, error) {
-	config := env.Config
+func NewAPIServer(env Env, config Config) (ppsiface.APIServer, error) {
+	srv, err := NewAPIServerNoMaster(env, config)
+	if err != nil {
+		return nil, err
+	}
+	apiServer := srv.(*apiServer)
+	apiServer.validateKube(apiServer.env.BackgroundContext)
+	go apiServer.master()
+	return srv, nil
+}
+
+func NewAPIServerNoMaster(env Env, config Config) (ppsiface.APIServer, error) {
 	etcdPrefix := path.Join(config.EtcdPrefix, config.PPSEtcdPrefix)
 	apiServer := &apiServer{
 		Logger:                log.NewLogger("pps.API", env.Logger),
@@ -90,8 +122,6 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		peerPort:              config.PeerPort,
 		gcPercent:             config.GCPercent,
 	}
-	apiServer.validateKube(apiServer.env.BackgroundContext)
-	go apiServer.master()
 	return apiServer, nil
 }
 
