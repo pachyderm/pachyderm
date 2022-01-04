@@ -2,7 +2,7 @@
 
 ## Install
 
-* [go v1.15.x+](https://golang.org/dl/){target=_blank}
+* [go v1.15.x+](https://go.dev/dl/){target=_blank}
 * [VSCode](https://code.visualstudio.com/download){target=_blank}
 * [git](https://git-scm.com/download/win){target=_blank}
 * [docker toolbox](https://github.com/docker-archive/toolbox/releases){target=_blank}
@@ -13,9 +13,7 @@
 * [make](http://gnuwin32.sourceforge.net/packages/make.htm){target=_blank}
 * [shellcheck](https://github.com/koalaman/shellcheck#user-content-installing){target=_blank}
 
-You will need one of the following, which is used by minikube as its virtualization backend:
-* [VirtualBox](https://www.virtualbox.org/wiki/Downloads){target=_blank}
-* [HyperV](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/quick-start/enable-hyper-v){target=_blank}
+You will need [HyperV](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/quick-start/enable-hyper-v) which is used by minikube as its virtualization backend.
 
 ## Configure
 

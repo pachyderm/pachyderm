@@ -29,7 +29,7 @@ WSL because it was tested and verified by our team.
 with Pachyderm. It requires a UNIX environment to run correctly. Therefore,
 you need a WSL to run `pachctl` commands. We recommend that you install an
 Ubuntu WSL. To install WSL, follow the steps in the
-[Microsoft documentation](https://docs.microsoft.com/en-us/windows/wsl/install-win10){target=_blank}.
+[Microsoft documentation](https://docs.microsoft.com/en-us/windows/wsl/install){target=_blank}.
 
 ## Enable Hyper-V
 
@@ -61,7 +61,7 @@ you prefer another installation method, it should work too.
 
 To install Minikube, complete the following steps:
 
-1. Install Chocolatey as described in the [Chocolatey documentation](https://chocolatey.org/docs/installation){target=_blank}.
+1. Install Chocolatey as described in the [Chocolatey documentation](https://docs.chocolatey.org/en-us/choco/setup){target=_blank}.
 1. Install Minikube:
 
    ```shell

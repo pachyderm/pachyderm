@@ -941,7 +941,7 @@ on node selectors for more information about how this works.
 
 `scheduling_spec.priority_class_name` allows you to select the prioriy class
 for the pipeline, which will how Kubernetes chooses to schedule and deschedule
-the pipeline. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass){target=_blank}
+the pipeline. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass){target=_blank}
 on priority and preemption for more information about how this works.
 
 ### Pod Spec (optional)

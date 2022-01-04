@@ -9,7 +9,7 @@ to configure your custom deployment:
 the kind of role the `pachyderm` service account uses
 from cluster-wide (`ClusterRole`) to namespace-specific (`Role`).
 Using `--local-roles` inhibits your ability to use the
-[coefficient parallelism](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#parallelism-spec-optional)
+[coefficient parallelism](https://docs.pachyderm.com/1.12.x/reference/pipeline_spec/#parallelism-spec-optional)
 feature. After you set the `--local-roles` flag,
 you might see a message similar to this in the `pachd` pod Kubernetes logs:
 

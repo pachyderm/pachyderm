@@ -35,7 +35,7 @@ In particular, you will:
 Install the following clients:
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/){target=_blank} >= 124.0.0
-- [kubectl](https://kubernetes.io/docs/user-guide/prereqs/){target=_blank}
+- [kubectl](https://kubernetes.io/docs/tasks/tools/){target=_blank}
 - [pachctl](../../../getting_started/local_installation/#install-pachctl)
 - [jq](https://stedolan.github.io/jq/download/){target=_blank}
 

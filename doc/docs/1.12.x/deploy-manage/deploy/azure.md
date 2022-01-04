@@ -298,7 +298,7 @@ To create these resources, follow these steps:
     ```
 
 !!! note "See Also:"
-    - [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)
+    - [Azure Storage]()
 
 
 ## Deploy Pachyderm

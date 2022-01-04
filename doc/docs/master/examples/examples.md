@@ -90,7 +90,7 @@ The "hello world" of machine learning implemented in Pachyderm.  You can deploy 
 
 ### Sentiment analysis with Neon
 
-This example implements the machine learning template pipeline discussed in [this blog post](https://medium.com/pachyderm-data/sustainable-machine-learning-workflows-8c617dd5506d#.hhkbsj1dn){target=_blank}.  It trains and utilizes a neural network (implemented in Python using Nervana Neon) to infer the sentiment of movie reviews based on data from IMDB. 
+This example implements the machine learning template pipeline discussed in [this blog post](https://medium.com/pachyderm-data/sustainable-machine-learning-workflows-8c617dd5506d){target=_blank}.  It trains and utilizes a neural network (implemented in Python using Nervana Neon) to infer the sentiment of movie reviews based on data from IMDB. 
 
 [Neon - Sentiment Analysis](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/neon){target=_blank}
 

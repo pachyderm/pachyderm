@@ -297,10 +297,6 @@ To create these resources, follow these steps:
               --account-key "${STORAGE_KEY}"
     ```
 
-!!! note "See Also:"
-    - [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)
-
-
 ## Deploy Pachyderm
 
 After you complete all the sections above, you can deploy Pachyderm

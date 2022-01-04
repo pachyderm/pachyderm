@@ -192,9 +192,6 @@ To create a new storage account, follow the steps below:
               --account-name ${STORAGE_ACCOUNT} \
               --account-key "${STORAGE_KEY}"
     ```
-
-!!! note "See Also:"
-    - [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/){target=_blank}
 ## 4. Persistent Volumes Creation
 
 etcd and PostgreSQL (metadata storage) each claim the creation of a pv. 
