@@ -4,26 +4,45 @@ The extension can be published to `PyPI` via CI.
 
 ## Automated Release using CircleCI
 
-Below is an example release for `v1.2.3`:
+### Major and Minor Releases
 
-1. From `main` branch, run `git checkout -b release-v1.2.3`
-1. Changes to do in this branch:
-    1. Bump up `"version"` in `package.json`
-    1. Run `npm install` to update `package-lock.json`
-    1. Update `CHANGELOG.md` by summarizing the changes. You can see the changes via `https://github.com/pachyderm/jupyterlab-pachyderm/compare/v1.2.2...main`
-1. `git commit -m "Release v1.2.3"`, push, and make a PR
+Major and minor version releases are published off of the `main` branch.
 
-Once the PR is approved
-1. On the release branch `release-v1.2.3`, run
+> Note for pre-releases, the steps are almost the same, except you skip steps 3-5, where you are supposed to bump versions to prepare for the next release.
+
+1. Validate release info
+    - Ensure that the `"version"` key in `package.json` contains the version to be released.
+    - Also ensure that `CHANGELOG.md` is up-to-date.
+    - Update `"version"` and `CHANGELOG.md` in a new PR if necessary.
+    - Jot down the `version` and `commit_sha` that you want to release.
+1. Create tag and push to GitHub.
+   ```
+   git tag -a v<version> <commit_sha> -m "Release version <version>"
+   git push origin tag v<version>
+   ```
+   > This will trigger CI for building and publishing the new package to TestPyPI. You will need to go to CircleCI to approve publishing to PyPI.
+1. Create a new branch for patch releases with the scheme `vA.B.x`. For example, if releasing `0.1.0`, create a new branch called `v0.1.x` to hold future patches.
+1. In the new patch release branch, bump up the `"version"` in `package.json` to contain the next *patch* version. For example `0.1.0 -> 0.1.1`.
+1. Create a PR to bump up the version in the `main` branch to contain the next *minor* version.
+
+### Patch Releases
+
+Sometimes we need to patch minor versions to fix bugs. Typically, we make a PR to fix the bug and merge into the patch release branch. Once that is merged, we are ready to publish a new patch release.
+
+1. Checkout the relevant `vA.B.x` patch release branch.
+1. Validate release info:
+    - `"version"` in `package.json`
+    - `CHANGELOG.md`
+    - Update `"version"` and `CHANGELOG.md` in a PR if necessary
+1. Jot down the `patch_version` and `commit_sha`.
+1. Create tag and push to GitHub.
     ```
-    git tag -a v1.2.3 -m "Release version 1.2.3"
-    git push origin tag v1.2.3
+    git tag -a v<patch_version> <commit_sha> -m "Release version <patch_version>"
+    git push origin tag v<patch_version>
     ```
-    > This will kick off the automated release process to TestPyPI. You will need to go to [CircleCI](https://app.circleci.com/pipelines/github/pachyderm/jupyterlab-pachyderm) to approve pushing to PyPI.
+    > This will trigger CI for building and publishing the new package to TestPyPI. You will need to go to CircleCI to approve publishing to PyPI.
 
-1. Merge the PR once the release is created and assets are published to PyPI.
-
-### GitHub Releases
+## GitHub Releases
 
 [Release instructions primer](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)
 
