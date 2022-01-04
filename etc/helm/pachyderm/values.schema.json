@@ -489,11 +489,11 @@
                         }
                     }
                 },
+                "noProxy": {
+                    "type": "string"
+                },
                 "nodeSelector": {
                     "type": "object"
-                },
-                "noproxy": {
-                    "type": "string"
                 },
                 "oauthClientID": {
                     "type": "string"

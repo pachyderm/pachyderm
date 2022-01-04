@@ -291,7 +291,7 @@ pachd:
   # Sets the HTTP/S proxy server address
   proxy: ""
   # If proxy is set, this allows you to set a comma-separated list of destinations that bypass the proxy
-  noproxy: ""
+  noProxy: ""
   storage:
     # backend configures the storage backend to use.  It must be one
     # of GOOGLE, AMAZON, MINIO, MICROSOFT or LOCAL. This is set automatically
