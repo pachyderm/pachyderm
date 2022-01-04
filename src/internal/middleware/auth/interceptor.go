@@ -7,9 +7,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/util"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 // authHandlers is a mapping of RPCs to authorization levels required to access them.
@@ -234,36 +234,6 @@ func NewInterceptor(getAuthServer func() authserver.APIServer) *Interceptor {
 	}
 }
 
-// we use ServerStreamWrapper to set the stream's Context with added values
-type ServerStreamWrapper struct {
-	stream grpc.ServerStream
-	ctx    context.Context
-}
-
-func (s ServerStreamWrapper) Context() context.Context {
-	return s.ctx
-}
-
-func (s ServerStreamWrapper) SetHeader(md metadata.MD) error {
-	return s.stream.SetHeader(md)
-}
-
-func (s ServerStreamWrapper) SendHeader(md metadata.MD) error {
-	return s.stream.SendHeader(md)
-}
-
-func (s ServerStreamWrapper) SetTrailer(md metadata.MD) {
-	s.stream.SetTrailer(md)
-}
-
-func (s ServerStreamWrapper) SendMsg(m interface{}) error {
-	return s.stream.SendMsg(m)
-}
-
-func (s ServerStreamWrapper) RecvMsg(m interface{}) error {
-	return s.stream.RecvMsg(m)
-}
-
 // Interceptor checks the authentication metadata in unary and streaming RPCs
 // and prevents unknown or unauthorized calls.
 type Interceptor struct {
@@ -310,7 +280,7 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 
 	if username != "" {
 		newCtx := setWhoAmI(ctx, username)
-		stream = ServerStreamWrapper{stream, newCtx}
+		stream = util.ServerStreamWrapper{Stream: stream, Ctx: newCtx}
 	}
 	return handler(srv, stream)
 }

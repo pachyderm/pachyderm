@@ -72,6 +72,8 @@ type GlobalConfiguration struct {
 
 	// The number of concurrent requests that the PPS Master can make against kubernetes
 	PPSMaxConcurrentK8sRequests int `env:"PPS_MAX_CONCURRENT_K8S_REQUESTS,default=10"`
+	// controls whether the interceptor that adds timeouts to all requests is active
+	ContextInterceptorEnabled bool `env:"CONTEXT_INTERCEPTOR_ENABLED,default=true"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.

@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	context_mw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/ctxintercept"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
@@ -111,16 +112,19 @@ func RunLocal() (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := auth.NewInterceptor(env.AuthServer)
+	contextInterceptor := context_mw.NewContextInterceptor(env.Config().ContextInterceptorEnabled)
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
 		grpc.ChainUnaryInterceptor(
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
+			contextInterceptor.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
+			contextInterceptor.StreamServerInterceptor,
 		),
 	)
 

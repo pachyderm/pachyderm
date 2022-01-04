@@ -24,6 +24,7 @@ import (
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	context_mw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/ctxintercept"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
@@ -141,6 +142,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
+	contextInterceptor := context_mw.NewContextInterceptor(env.Config().ContextInterceptorEnabled)
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
@@ -155,11 +157,13 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
+			contextInterceptor.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
+			contextInterceptor.StreamServerInterceptor,
 		),
 	)
 	if err != nil {
@@ -393,16 +397,19 @@ func doSidecarMode(config interface{}) (retErr error) {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
+	contextInterceptor := context_mw.NewContextInterceptor(env.Config().ContextInterceptorEnabled)
 	server, err := grpcutil.NewServer(
 		context.Background(),
 		false,
 		grpc.ChainUnaryInterceptor(
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
+			contextInterceptor.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
+			contextInterceptor.StreamServerInterceptor,
 		),
 	)
 	if err != nil {
@@ -562,6 +569,7 @@ func doFullMode(config interface{}) (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
+	contextInterceptor := context_mw.NewContextInterceptor(env.Config().ContextInterceptorEnabled)
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
@@ -576,11 +584,13 @@ func doFullMode(config interface{}) (retErr error) {
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
+			contextInterceptor.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
+			contextInterceptor.StreamServerInterceptor,
 		),
 	)
 
