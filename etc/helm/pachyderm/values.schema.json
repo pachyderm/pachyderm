@@ -59,6 +59,9 @@
                 "config": {
                     "type": "object",
                     "properties": {
+                        "disableTelemetry": {
+                            "type": "boolean"
+                        },
                         "graphqlPort": {
                             "type": "integer"
                         },
@@ -79,9 +82,6 @@
                         },
                         "reactAppRuntimeIssuerURI": {
                             "type": "string"
-                        },
-                        "disableTelemetry": {
-                            "type": "boolean"
                         }
                     }
                 },
@@ -492,6 +492,9 @@
                 "nodeSelector": {
                     "type": "object"
                 },
+                "noproxy": {
+                    "type": "string"
+                },
                 "oauthClientID": {
                     "type": "string"
                 },
@@ -512,6 +515,9 @@
                 },
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
+                },
+                "proxy": {
+                    "type": "string"
                 },
                 "rbac": {
                     "type": "object",

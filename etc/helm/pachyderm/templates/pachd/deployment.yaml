@@ -136,6 +136,22 @@ spec:
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
         {{- end }}
+        {{ if .Values.pachd.proxy }}
+        - name: http_proxy
+          value: {{ .Values.pachd.proxy }}
+        - name: https_proxy
+          value:  {{.Values.pachd.proxy}}
+        - name: HTTP_PROXY
+          value:  {{.Values.pachd.proxy}}
+        - name: HTTPS_PROXY
+          value:  {{.Values.pachd.proxy}}
+        {{ end }}
+        {{ if .Values.pachd.noProxy }}
+        - name: no_proxy
+          value:  {{.Values.pachd.noProxy}}
+        - name: NO_PROXY
+          value:  {{.Values.pachd.noProxy}}
+        {{ end }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
