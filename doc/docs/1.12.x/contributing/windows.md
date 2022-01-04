@@ -6,7 +6,7 @@
 * [VSCode](https://code.visualstudio.com/download)
 * [git](https://git-scm.com/download/win)
 * [docker toolbox](https://github.com/docker-archive/toolbox/releases)
-* [minikube](https://minikube.sigs.k8s.io/docs/start/#install-minikube-using-an-installer-executable)
+* [minikube](https://minikube.sigs.k8s.io/docs/start/)
 * [kubectl](https://kubernetes.io/docs/tasks/tools/)
 * [goreleaser](https://github.com/goreleaser/goreleaser/releases)
 * [jq](https://stedolan.github.io/jq/download/)

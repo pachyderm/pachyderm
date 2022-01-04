@@ -11,7 +11,7 @@ In this case, Pachyderm offers language specific SDKs in Go, Python, and JS.
 
 The Pachyderm team officially supports the Go client. It implements most of the functionality that is provided with the `pachctl` CLI tool.
 
-For more info, check out the [godocs](https://godoc.org/github.com/pachyderm/pachyderm/src/client){target=_blank}.
+For more info, check out the [godocs](https://pkg.go.dev/github.com/pachyderm/pachyderm/v2/src/client){target=_blank}.
 
 !!! Attention
      A compatible version of `gRPC` is needed when using the Go client.  You can identify the compatible version by searching for the version number next to `replace google.golang.org/grpc => google.golang.org/grpc` in https://github.com/pachyderm/pachyderm/blob/master/go.mod then:
@@ -25,7 +25,7 @@ For more info, check out the [godocs](https://godoc.org/github.com/pachyderm/pac
      
 ### Running Go Examples
 
-The Pachyderm [godocs](https://godoc.org/github.com/pachyderm/pachyderm/src/client){target=_blank} reference
+The Pachyderm [godocs](https://pkg.go.dev/github.com/pachyderm/pachyderm/v2/src/client){target=_blank} reference
 provides examples of how you can use the Go client API. You need to have a running Pachyderm cluster
 to run these examples.
 
