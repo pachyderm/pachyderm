@@ -40,8 +40,8 @@ the Beginner Tutorial.
 To configure Minikube, follow these steps:  
   
 1. Install minikube and VirtualBox in your operating system as described in  
-the [Kubernetes documentation](http://kubernetes.io/docs/getting-started-guides/minikube){target=_blank}.  
-1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/){target=_blank}.  
+the [Kubernetes documentation](https://kubernetes.io/docs/setup/){target=_blank}.  
+1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/){target=_blank}.  
 1. Start `minikube`:  
   
       ```shell  

@@ -24,13 +24,13 @@ Just before you start creating your cluster, install the following
 clients on your machine. Use the
 latest available version of the components listed below.
 
-* [kubectl](https://docs.microsoft.com/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli){target=_blank}: the cli to interact with your cluster.
+* [kubectl](https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli){target=_blank}: the cli to interact with your cluster.
 * [pachctl](../../../getting_started/local_installation#install-pachctl): the cli to interact with Pachyderm.
 * Install [`Helm`](https://helm.sh/docs/intro/install/){target=_blank} for your deployment. 
 
 
 !!! Warning "Optional - Quick deployment of Pachyderm with Console"
-    - The deployment of Console (Pachyderm UI) **requires a valid enterprise token**. To get your free-trial token, fill in [this form](https://www.pachyderm.com/trial){target=_blank}, or get in touch with us at [sales@pachyderm.io](mailto:sales@pachyderm.io) or on our [Slack](http://slack.pachyderm.io/){target=_blank}. 
+    - The deployment of Console (Pachyderm UI) **requires a valid enterprise token**. To get your free-trial token, fill in [this form](https://www.pachyderm.com/trial/){target=_blank}, or get in touch with us at [sales@pachyderm.io](mailto:sales@pachyderm.io) or on our [Slack](https://www.pachyderm.com/slack/){target=_blank}. 
     - When deploying with Console, we create a default mock user (username:`admin`, password: `password`) to authenticate to Console without the hassle of connecting your Identity Provider. 
 
     For a better understanding of the additional steps and helm values needed when deploying with Console in a production environment, read about the [deployment of Pachyderm with Console](../console/#deploy-in-the-cloud) page. 

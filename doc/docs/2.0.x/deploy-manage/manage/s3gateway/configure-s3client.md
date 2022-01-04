@@ -7,7 +7,7 @@ correspond to your S3 client.
 
 ## Configure MinIO
 1. Install the MinIO client as
-described on the [MinIO download page](https://min.io/download#/macos){target=_blank}.
+described on the [MinIO download page](https://min.io/download){target=_blank}.
 
 1. Verify that MinIO components are successfully installed by running
 the following command:

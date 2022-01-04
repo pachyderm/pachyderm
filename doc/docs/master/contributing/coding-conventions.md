@@ -26,7 +26,7 @@ standards to developing our own.
 - We have several Go checks that run as part of CI, those should pass. You can
 run them with `make lint`.
 - [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments){target=_blank}
-- [Effective Go](https://golang.org/doc/effective_go.html){target=_blank}
+- [Effective Go](https://go.dev/doc/effective_go){target=_blank}
 - Command-line flags should use dashes, not underscores.
 - Naming
   - Please consider package name when selecting an interface name, and avoid redundancy.

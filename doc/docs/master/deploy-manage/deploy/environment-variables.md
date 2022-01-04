@@ -57,7 +57,7 @@ environment variables.
 | `WORKER_IMAGE`             | `""`     | The base Docker image that is used to run your pipeline.|
 | `WORKER_SIDECAR_IMAGE`     | `""`     | The `pachd` image that is used as a worker sidecar. |
 | `WORKER_IMAGE_PULL_POLICY` | `IfNotPresent`| The pull policy that defines how Docker images are <br>pulled. You can set <br> a Kubernetes image pull policy as needed. |
-| `LOG_LEVEL`                | `info`   | Verbosity of the log output. If you want to disable <br> logging, set this variable to `0`. Viable Options <br>`debug` <br>`info` <br> `error`<br>For more information, see [Go logrus log levels](https://godoc.org/github.com/sirupsen/logrus#Level){target=_blank}. ||
+| `LOG_LEVEL`                | `info`   | Verbosity of the log output. If you want to disable <br> logging, set this variable to `0`. Viable Options <br>`debug` <br>`info` <br> `error`<br>For more information, see [Go logrus log levels](https://pkg.go.dev/github.com/sirupsen/logrus#Level){target=_blank}. ||
 | `IAM_ROLE`                 |  `""`    | The role that defines permissions for Pachyderm in AWS.|
 | `IMAGE_PULL_SECRET`        |  `""`    | The Kubernetes secret for image pull credentials.|
 | `EXPOSE_OBJECT_API`        |  `false` | Controls access to internal Pachyderm API.|

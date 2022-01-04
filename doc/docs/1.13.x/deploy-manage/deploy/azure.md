@@ -19,7 +19,7 @@ Install the following:
 
 * [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 * [jq](https://stedolan.github.io/jq/download/)
-* [kubectl](https://docs.microsoft.com/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli)
+* [kubectl](https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli)
 * [pachctl](#install-pachctl)
 
 ### Install `pachctl`
@@ -61,7 +61,7 @@ Install the following:
 
 ## Deploy Kubernetes
 
-You can deploy Kubernetes on Azure by following the official [Azure Container Service documentation](https://docs.microsoft.com/azure/aks/tutorial-kubernetes-deploy-cluster) or by
+You can deploy Kubernetes on Azure by following the official [Azure Container Service documentation](https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-deploy-cluster?tabs=azure-cli) or by
 following the steps in this section. When you deploy Kubernetes on Azure,
 you need to specify the following parameters:
 
@@ -192,7 +192,7 @@ To deploy Kubernetes on Azure, complete the following steps:
     ```
 
 !!! note "See Also:"
-    - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general)
+    - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/sizes-general)
 
 
 ## Add storage resources
@@ -296,10 +296,6 @@ To create these resources, follow these steps:
               --account-name ${STORAGE_ACCOUNT} \
               --account-key "${STORAGE_KEY}"
     ```
-
-!!! note "See Also:"
-    - [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)
-
 
 ## Deploy Pachyderm
 
