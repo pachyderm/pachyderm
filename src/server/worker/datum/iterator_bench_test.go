@@ -1,4 +1,4 @@
-package datum
+package datum_test
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 )
 
 func benchmarkIterators(j int, b *testing.B) {
@@ -30,17 +31,17 @@ func benchmarkIterators(j int, b *testing.B) {
 		// make one with zero datums for testing edge cases
 		in0 := client.NewPFSInput(dataRepo, "!(**)")
 		in0.Pfs.Commit = commit.ID
-		pfs0, err := NewIterator(c, in0)
+		pfs0, err := datum.NewIterator(c, in0)
 		require.NoError(b, err)
 
 		in1 := client.NewPFSInput(dataRepo, "/foo?1*")
 		in1.Pfs.Commit = commit.ID
-		pfs1, err := NewIterator(c, in1)
+		pfs1, err := datum.NewIterator(c, in1)
 		require.NoError(b, err)
 
 		in2 := client.NewPFSInput(dataRepo, "/foo*2")
 		in2.Pfs.Commit = commit.ID
-		pfs2, err := NewIterator(c, in2)
+		pfs2, err := datum.NewIterator(c, in2)
 		require.NoError(b, err)
 
 		validateDI(b, pfs0)
@@ -49,14 +50,14 @@ func benchmarkIterators(j int, b *testing.B) {
 
 		b.Run("union", func(b *testing.B) {
 			in3 := client.NewUnionInput(in1, in2)
-			union1, err := NewIterator(c, in3)
+			union1, err := datum.NewIterator(c, in3)
 			require.NoError(b, err)
 			validateDI(b, union1)
 		})
 
 		b.Run("cross", func(b *testing.B) {
 			in4 := client.NewCrossInput(in1, in2)
-			cross1, err := NewIterator(c, in4)
+			cross1, err := datum.NewIterator(c, in4)
 			require.NoError(b, err)
 			validateDI(b, cross1)
 		})
@@ -85,17 +86,17 @@ func benchmarkIterators(j int, b *testing.B) {
 			in4 := client.NewCrossInput(in1, in2)
 
 			in5 := client.NewCrossInput(in3, in4)
-			cross2, err := NewIterator(c, in5)
+			cross2, err := datum.NewIterator(c, in5)
 			require.NoError(b, err)
 
 			// cross with a zero datum input should also be zero
 			in6 := client.NewCrossInput(in3, in0, in2, in4)
-			cross3, err := NewIterator(c, in6)
+			cross3, err := datum.NewIterator(c, in6)
 			require.NoError(b, err)
 
 			// zero cross inside a cross should also be zero
 			in7 := client.NewCrossInput(in6, in1)
-			cross4, err := NewIterator(c, in7)
+			cross4, err := datum.NewIterator(c, in7)
 			require.NoError(b, err)
 
 			validateDI(b, cross2)
