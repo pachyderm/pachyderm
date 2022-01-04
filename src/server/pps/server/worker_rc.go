@@ -302,21 +302,16 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	}
 
 	workerImage := pc.env.Config.WorkerImage
-	pachSecurityCtx := &v1.SecurityContext{
-		RunAsUser:  int64Ptr(1000),
-		RunAsGroup: int64Ptr(1000),
-	}
-	var userSecurityCtx *v1.SecurityContext
-	userStr := pipelineInfo.Details.Transform.User
+	// the three containers deployed on a pod, [init, user, and storage], all run with the same security context
+	var securityCtx *v1.SecurityContext
 	if pc.env.Config.WorkerUsesRoot {
-		pachSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
-		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
-	} else if userStr != "" {
+		securityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
+	} else if userStr := pipelineInfo.Details.Transform.User; userStr != "" {
 		// This is to allow the user to be set in the pipeline spec.
 		if i, err := strconv.ParseInt(userStr, 10, 64); err != nil {
 			pc.env.Logger.Warnf("could not parse user %q into int: %v", userStr, err)
 		} else {
-			userSecurityCtx = &v1.SecurityContext{
+			securityCtx = &v1.SecurityContext{
 				RunAsUser:  int64Ptr(i),
 				RunAsGroup: int64Ptr(i),
 			}
@@ -345,7 +340,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 						v1.ResourceMemory: memDefaultQuantity,
 					},
 				},
-				SecurityContext: pachSecurityCtx,
+				SecurityContext: securityCtx,
 			},
 		},
 		Containers: []v1.Container{
@@ -363,7 +358,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 					},
 				},
 				VolumeMounts:    userVolumeMounts,
-				SecurityContext: userSecurityCtx,
+				SecurityContext: securityCtx,
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
@@ -380,7 +375,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 					},
 				},
 				Ports:           sidecarPorts,
-				SecurityContext: pachSecurityCtx,
+				SecurityContext: securityCtx,
 			},
 		},
 		ServiceAccountName:            workerServiceAccountName,
