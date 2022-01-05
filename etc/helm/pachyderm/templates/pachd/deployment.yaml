@@ -152,10 +152,8 @@ spec:
         - name: NO_PROXY
           value:  {{.Values.global.noProxy}}
         {{ end }}
-        {{- if not .Values.pachd.securityContext.enabled }}
         - name: ENABLE_WORKER_SECURITY_CONTEXTS
-          value: "false"        
-        {{- end }}
+          value: {{ .Values.pachd.securityContext.enabled | quote }}    
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
