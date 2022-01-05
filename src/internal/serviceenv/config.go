@@ -93,7 +93,8 @@ type PachdSpecificConfiguration struct {
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=false"`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
-	PachdPodName string `env:"PACHD_POD_NAME,required"`
+	PachdPodName                 string `env:"PACHD_POD_NAME,required"`
+	EnableWorkerSecurityContexts bool   `env:"ENABLE_WORKER_SECURITY_CONTEXTS,default=true"`
 }
 
 // StorageConfiguration contains the storage configuration.
