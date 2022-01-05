@@ -561,21 +561,6 @@ func (c *postgresReadOnlyCollection) Count() (int64, error) {
 	return result, c.mapSQLError(err, "")
 }
 
-// Internally, Watch scans the collection's initial state over multiple transactions,
-// making this method susceptible to inconsistent reads
-func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {
-	options := watch.SumOptions(opts...)
-
-	watcher, err := newPostgresWatcher(c.db, c.listener, c.tableWatchChannel(), c.template, nil, nil, options)
-	if err != nil {
-		return nil, err
-	}
-
-	go c.watchRoutine(watcher, options, nil)
-
-	return watcher, nil
-}
-
 // This blocking function sends watch events to the client. It first sends a list of the existing elements
 // in the collection, followed by new events. To be sure that there aren't any missed events while the initial
 // state listing is in progress, this function also takes care to interleave watch events while emitting records for the initial list.
@@ -651,6 +636,21 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 
 	// Forward all buffered notifications until the watcher is closed
 	watcher.forwardNotifications(c.ctx, lastUpdated)
+}
+
+// Internally, Watch scans the collection's initial state over multiple transactions,
+// making this method susceptible to inconsistent reads
+func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {
+	options := watch.SumOptions(opts...)
+
+	watcher, err := newPostgresWatcher(c.db, c.listener, c.tableWatchChannel(), c.template, nil, nil, options)
+	if err != nil {
+		return nil, err
+	}
+
+	go c.watchRoutine(watcher, options, nil)
+
+	return watcher, nil
 }
 
 // Internally, WatchF scans the collection's initial state over multiple transactions,
