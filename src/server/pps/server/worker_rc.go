@@ -300,7 +300,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	}
 	var userSecurityCtx *v1.SecurityContext
 	userStr := pipelineInfo.Details.Transform.User
-	if a.workerUsesRoot {
+
+	if !a.env.Config().EnableWorkerSecurityContexts {
+		pachSecurityCtx = nil
+	} else if a.workerUsesRoot {
 		pachSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
 		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
 	} else if userStr != "" {
