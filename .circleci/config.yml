@@ -263,3 +263,6 @@ workflows:
   upgrade:
     jobs:
     - upgrade
+  openshift:
+    jobs:
+    - openshift
