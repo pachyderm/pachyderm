@@ -40,6 +40,10 @@ latest available version of the components listed below.
 
 You can deploy Kubernetes on Azure by following the official [Azure Kubernetes Service documentation](https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-deploy-cluster?tabs=azure-cli){target=_blank}, [use the quickstart walkthrough](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough){target=_blank}, or follow the steps in this section.
 
+!!! Attention 
+      Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+
+
 At a minimum, you will need to specify the parameters below:
 
 |Variable|Description|
@@ -429,6 +433,7 @@ make sure that you are using the right Kubernetes context first.
     restarting. You can safely ignore those restarts.
 
 - Finally, make sure that [`pachctl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate).
+
 ## 7. Have 'pachctl' And Your Cluster Communicate
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.

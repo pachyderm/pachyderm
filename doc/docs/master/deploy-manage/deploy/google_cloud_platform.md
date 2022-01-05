@@ -1,34 +1,44 @@
-# Google Cloud Platform
+# On Premises
 
-For a quick test installation of Pachyderm on GCP (suitable for development), jump to our [Quickstart page](../quickstart/).
+This page walks you through the fundamentals of what you need to know about Kubernetes, persistent volumes, and object stores to deploy Pachyderm on-premises.
 
-!!! Important "Before your start your installation process." 
-      - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on  how to install and get started with `Helm`.
-      - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+!!! Note "Check Also"
+    - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
+    - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+    - Troubleshooting a deployment? Check out [Troubleshooting Deployments](../../troubleshooting/deploy_troubleshooting.md).
 
+<<<<<<< HEAD
 The following section walks you through deploying a Pachyderm cluster on [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/){target=_blank} (GKE). 
+=======
+## Introduction
+>>>>>>> a1c979f61c (update following changes in CORE-236 - ingress from v1beta to v1)
 
-In particular, you will:
+Deploying Pachyderm successfully on-premises requires a few prerequisites.
+Pachyderm is built on [Kubernetes](https://kubernetes.io/).
+Before you can deploy Pachyderm, you will need to perform the following actions:
 
-1. Make a few [client installations](#1-prerequisites) before you start.
-1. [Deploy Kubernetes](#2-deploy-kubernetes).
-1. [Create an GCS bucket](#3-create-a-gcs-bucket) for your data and grant Pachyderm access.
-1. [Enable The Creation of Persistent Volumes](#4-persistent-volumes-creation)
-1. [Create A GCP Managed PostgreSQL Instance](#5-create-a-gcp-managed-postgresql-database)
-1. [Deploy Pachyderm ](#6-deploy-pachyderm)
-1. Finally, you will need to install [pachctl](../../../getting_started/local_installation/#install-pachctl) to [interact with your cluster](#7-have-pachctl-and-your-cluster-communicate).
-1. And check that your cluster is [up and running](#8-check-that-your-cluster-is-up-and-running)
+1. [Deploy Kubernetes](#deploying-kubernetes) on-premises.
+1. [Deploy two Kubernetes persistent volumes](#storage-classes ) that Pachyderm will use to store its metadata.
+1. [Deploy an on-premises object store](#deploying-an-object-store) using a storage provider like [MinIO](https://min.io), [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) to provide S3-compatible access to your data storage.
+1. Finally, [Deploy Pachyderm using Helm](./helm_install.md) by running the `helm install` command with the appropriate values configured in your values.yaml. We recommend reading these generic deployment steps if you are unfamiliar with Helm.
 
-!!! Warning "TL;DR - Give me the script"
+## Prerequisites
+Before you start, you will need the following clients installed: 
 
+<<<<<<< HEAD
     [This script](https://github.com/pachyderm/pachyderm/blob/master/etc/deploy/gcp/gcp-doco-script.sh){target=_blank} will create a GKE cluster, the workload identity service accounts and permissions you need, a static IP, the cloud SQL instance and databases, and a cloud storage bucket. It will also install Pachyderm into the cluster. 
+=======
+1. [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+2. [pachctl](../../../getting_started/local_installation/#install-pachctl)
+>>>>>>> a1c979f61c (update following changes in CORE-236 - ingress from v1beta to v1)
 
-      - Before running it, update the global variables at the top of the script and make sure to go through the [prerequisites](#1-prerequisites), as we are assuming that you have created a project and enabled the necessary APIs.  
-      Note that it will also create a file called ${NAME}.values.yaml in the current directory.
+## Setting Up To Deploy On-Premises
 
-    - Once your script has run, [configure your context](#7-have-pachctl-and-your-cluster-communicate)   and [check that your cluster is up and running](#8-check-that-your-cluster-is-up-and-running).
+### Deploying Kubernetes
+The Kubernetes docs have instructions for [deploying Kubernetes in a variety of on-premise scenarios](https://kubernetes.io/docs/getting-started-guides/#on-premises-vms).
+We recommend following one of these guides to get Kubernetes running.
 
+<<<<<<< HEAD
 ## 1. Prerequisites
 
 Install the following clients:
@@ -339,109 +349,77 @@ You will need to retrieve the name of your Cloud SQL connection:
 ```shell
 CLOUDSQL_CONNECTION_NAME=$(gcloud sql instances describe ${INSTANCE_NAME} --format=json | jq ."connectionName")
 ```
+=======
+!!! Attention
+    Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+### Storage Classes 
+Once you deploy Kubernetes, you will also need to configure [storage classes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1) to consume persistent volumes for `etcd` and `postgresql`. 
 
+!!! Warning
+    The database and metadata service (Persistent disks) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your storage provider, you may need to oversize the volume significantly to ensure enough IOPS.
+>>>>>>> a1c979f61c (update following changes in CORE-236 - ingress from v1beta to v1)
+
+Once you have determined the name of the storage classes you are going to use and the sizes, you can add them to your helm values file, specifically:
 
 ```yaml
-cloudsqlAuthProxy:
-  enabled: true
-  connectionName: "<CLOUDSQL_CONNECTION_NAME>"
-  serviceAccount: "<SERVICE_ACCOUNT>"
-  resources:
-    requests:
-      memory: "500Mi"
-      cpu:    "250m"
+etcd:
+  storageClass: MyStorageClass
+  size: 10Gi
 
 postgresql:
-  # turns off the install of the bundled postgres.
-  # If not using the built in Postgres, you must specify a Postgresql
-  # database server to connect to in global.postgresql
-  enabled: false
-
-global:
-  postgresql:
-    # The postgresql database host to connect to. Defaults to postgres service in subchart
-    postgresqlHost: "cloudsql-auth-proxy.default.svc.cluster.local."
-    # The postgresql database port to connect to. Defaults to postgres server in subchart
-    postgresqlPort: "5432"
-    postgresqlSSL: "disable"
-    postgresqlUsername: "postgres"
-    postgresqlPassword: "<InstanceRootPassword>"
+  persistence:
+    storageClass: MyStorageClass
+    size: 10Gi
 ```
+   
+### Deploying An Object Store
+An object store is used by Pachyderm's `pachd` for storing all your data. 
+The object store you use must be accessible via a low-latency, high-bandwidth connection.
 
-## 6. Deploy Pachyderm
-You have set up your infrastructure, created your GCP bucket and a CloudSQL instance, and granted your cluster access to both: you can now finalize your values.yaml and deploy Pachyderm.
+!!! Note
+    For an on-premises deployment, 
+    it is not advisable to use a cloud-based storage mechanism.
+    Do not deploy an on-premises Pachyderm cluster against cloud-based object stores (such as S3, GCS, Azure Blob Storage). 
 
-!!! Warning "Optional: If you plan to deploy with Console"
-    If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console) and **add the relevant fields in your values.yaml**.
+    You will, however, **access your Object Store using the S3 protocol**. 
 
-### Update Your Values.yaml   
+Storage providers like [MinIO](https://min.io), [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) provide S3-compatible access to enterprise storage for on-premises deployment. 
 
+<<<<<<< HEAD
 [See an example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml){target=_blank}. 
  
 You might want to create a static IP address to access your cluster externally. Refer to our [infrastructure documentation](../ingress/#loadbalancer) for more details or check the example below:
+=======
+#### Sizing And Configuring The Object Store
+Start with a large multiple of your current data set size.
+>>>>>>> a1c979f61c (update following changes in CORE-236 - ingress from v1beta to v1)
 
-```shell
-STATIC_IP_NAME=<your address name>
+You will need four items to configure the object store.
+We are prefixing each item with how we will refer to it in the helm values file.
 
-gcloud compute addresses create ${STATIC_IP_NAME} --region=${GCP_REGION}
+1. `endpoint`: The access endpoint.
+   For example, MinIO's endpoints are usually something like `minio-server:9000`. 
 
-STATIC_IP_ADDR=$(gcloud compute addresses describe ${STATIC_IP_NAME} --region=${GCP_REGION} --format=json --flatten=address | jq '.[]' )
-```
+    Do not begin it with the protocol; it is an endpoint, not an url. Also, check if your object store (e.g. MinIO) is using SSL/TLS.
+    If not, disable it using `secure: false`.
 
-!!! Note
-     - If you have not created a Managed CloudSQL instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml and remove the `cloudsqlAuthProxy` fields. This setup is **not recommended in production environments**.
-     
-Retrieve these additional variables, then fill in their values in the YAML file below:
-
-```shell
-echo $BUCKET_NAME
-echo $SERVICE_ACCOUNT
-echo $CLOUDSQL_CONNECTION_NAME
-```
+2. `bucket`: The bucket name you are dedicating to Pachyderm. Pachyderm will need exclusive access to this bucket.
+3. `id`: The access key id for the object store.  
+4. `secret`: The secret key for the object store.  
 
 ```yaml
-deployTarget: GOOGLE
-
 pachd:
-  enabled: true
-  externalService:
-    enabled: true
-    aPIGrpcport:    31400
-    loadBalancerIP: "<STATIC_IP_ADDR>"
   storage:
-    google:
-      bucket: "<BUCKET_NAME"
-  serviceAccount:
-    additionalAnnotations:
-      iam.gke.io/gcp-service-account: "<SERVICE_ACCOUNT>"
-    name:   "pachyderm"
-  worker:
-    serviceAccount:
-      additionalAnnotations:
-        iam.gke.io/gcp-service-account: "<SERVICE_ACCOUNT>"
-    name:   "pachyderm-worker"
-
-cloudsqlAuthProxy:
-  enabled: true
-  connectionName: "<CLOUDSQL_CONNECTION_NAME>"
-  serviceAccount: "<SERVICE_ACCOUNT>"
-  resources:
-    requests:
-      memory: "500Mi"
-      cpu:    "250m" 
-
-postgresql:
-  enabled: false
-
-global:
-  postgresql:
-    postgresqlHost: "cloudsql-auth-proxy.default.svc.cluster.local."
-    postgresqlPort: "5432"
-    postgresqlSSL: "disable"
-    postgresqlUsername: "postgres"
-    postgresqlPassword: "<InstanceRootPassword>"
+    backend: minio
+    minio:
+      bucket: ""
+      endpoint: ""
+      id: ""
+      secret: ""
+      secure: ""
 ```
 
+<<<<<<< HEAD
 !!! Note
     Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 ### Deploy Pachyderm on the Kubernetes cluster
@@ -547,3 +525,7 @@ pachd               {{ config.pach_latest_version }}
 ```
 
 
+=======
+### Next Step: Proceed to your Helm installation
+Once you have Kubernetes deployed, your storage classes setup, and your object store configured, follow those steps [to Helm install Pachyderm on your cluster](./helm_install.md).
+>>>>>>> a1c979f61c (update following changes in CORE-236 - ingress from v1beta to v1)
