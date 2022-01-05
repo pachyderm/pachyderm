@@ -194,8 +194,10 @@ jobs:
       - run:
           command: >
             oc new-project pach-test
-            kubectl get services
-          name: Test Openshift Deployment
+          name: Create OS Project
+      - run: kubectl config set-context --current --namespace=pach-test
+      - run: ./etc/testing/circle/build-openshift.sh
+      - run: ./etc/testing/circle/launch-openshift.sh
 
 workflows:
   circleci:
