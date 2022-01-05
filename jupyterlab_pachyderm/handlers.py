@@ -146,7 +146,7 @@ class RepoUnmountHandler(BaseHandler):
         repo, branch, _ = _parse_pfs_path(path)
         result = await self.mount_client.unmount(repo, branch, name)
         response = json.dumps(
-            {"repo": repo, "branch": branch, "mount": result["mount"]}
+            {"repo": repo, "branch": branch, "mount": result}
         )
         get_logger().debug(f"RepoUnmount: {response}")
         self.finish(response)

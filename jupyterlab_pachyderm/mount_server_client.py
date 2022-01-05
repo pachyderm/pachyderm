@@ -42,20 +42,20 @@ class MountServerClient(MountInterface):
         }
 
     async def mount(self, repo, branch, mode, name):
-        response = self.client.fetch(
+        await self.client.fetch(
             f"{self.address}/repos/{repo}/{branch}/_mount?name={name}&mode={mode}",
             method="PUT",
             body="{}",
         )
-        return {"repo": repo, "branch": branch, "response": response}
+        return {"repo": repo, "branch": branch}
 
     async def unmount(self, repo, branch, name):
-        response = await self.client.fetch(
+        await self.client.fetch(
             f"{self.address}/repos/{repo}/{branch}/_unmount?name={name}",
             method="PUT",
             body="{}",
         )
-        return {"repo": repo, "branch": branch, "reponse": response}
+        return {"repo": repo, "branch": branch}
 
     async def unmount_all(self):
         pass

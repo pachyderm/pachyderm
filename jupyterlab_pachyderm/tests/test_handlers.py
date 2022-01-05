@@ -263,11 +263,13 @@ async def test_unmount_with_branch(mock_client, jp_fetch):
         "repo": repo,
         "branch": branch,
         "mount": {
-            "name": None,
-            "mode": None,
-            "state": "unmounted",
-            "status": None,
-            "mountpoint": None,
+            "mount": {
+                "name": None,
+                "mode": None,
+                "state": "unmounted",
+                "status": None,
+                "mountpoint": None,
+            }
         },
     }
 
