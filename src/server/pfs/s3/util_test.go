@@ -1,4 +1,4 @@
-package s3
+package s3_test
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 	minio "github.com/minio/minio-go/v6"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 )
 
 func getObject(t *testing.T, minioClient *minio.Client, bucket, file string) (string, error) {
@@ -128,11 +129,11 @@ func fileHash(t *testing.T, name string) (int64, []byte) {
 	return fi.Size(), hashSum
 }
 
-func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
-	router := Router(driver, func() (*client.APIClient, error) {
+func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver s3.Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
+	router := s3.Router(driver, func() (*client.APIClient, error) {
 		return pachClient.WithCtx(context.Background()), nil
 	})
-	server := Server(0, router)
+	server := s3.Server(0, router)
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 

@@ -396,7 +396,7 @@ func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWr
 	var id *fileset.ID
 	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var err error
-		id, err = d.withUnorderedWriter(ctx, renewer, cb, fileset.WithCompact(d.env.StorageConfig.StorageCompactionMaxFanIn))
+		id, err = d.withUnorderedWriter(ctx, renewer, cb, fileset.WithCompact(d.config.StorageCompactionMaxFanIn))
 		return err
 	}); err != nil {
 		return nil, err

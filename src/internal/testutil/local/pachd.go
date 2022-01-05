@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv/senvutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -131,7 +132,7 @@ func RunLocal() (retErr error) {
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err := pfs_server.NewAPIServer(pfs_server.Env{})
+			pfsAPIServer, err := pfs_server.NewAPIServer(pfs_server.Env{}, senvutil.PFSConfig(env.Config()))
 			if err != nil {
 				return err
 			}
@@ -143,7 +144,8 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("PPS API", func() error {
 			ppsAPIServer, err := pps_server.NewAPIServer(
-				pps_server.EnvFromServiceEnv(env, txnEnv, reporter),
+				senvutil.PPSEnv(env, txnEnv, reporter),
+				senvutil.PPSConfig(env.Config()),
 			)
 			if err != nil {
 				return err
@@ -267,6 +269,7 @@ func RunLocal() (retErr error) {
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err := pfs_server.NewAPIServer(
 				pfs_server.Env{},
+				senvutil.PFSConfig(env.Config()),
 			)
 			if err != nil {
 				return err
@@ -278,7 +281,8 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("PPS API", func() error {
 			ppsAPIServer, err := pps_server.NewAPIServer(
-				pps_server.EnvFromServiceEnv(env, txnEnv, reporter),
+				senvutil.PPSEnv(env, txnEnv, reporter),
+				senvutil.PPSConfig(env.Config()),
 			)
 			if err != nil {
 				return err

@@ -5,8 +5,8 @@ import (
 )
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(env Env) (pfsserver.APIServer, error) {
-	a, err := newAPIServer(env)
+func NewAPIServer(env Env, config Config) (pfsserver.APIServer, error) {
+	a, err := newAPIServer(env, config)
 	if err != nil {
 		return nil, err
 	}
@@ -14,8 +14,8 @@ func NewAPIServer(env Env) (pfsserver.APIServer, error) {
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }
 
-func NewSidecarAPIServer(env Env) (pfsserver.APIServer, error) {
-	a, err := newAPIServer(env)
+func NewSidecarAPIServer(env Env, config Config) (pfsserver.APIServer, error) {
+	a, err := newAPIServer(env, config)
 	if err != nil {
 		return nil, err
 	}

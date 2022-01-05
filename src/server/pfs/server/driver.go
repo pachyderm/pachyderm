@@ -67,7 +67,8 @@ type CommitStream interface {
 }
 
 type driver struct {
-	env Env
+	env    Env
+	config Config
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -82,8 +83,8 @@ type driver struct {
 	commitStore commitStore
 }
 
-func newDriver(env Env) (*driver, error) {
-	storageConfig := env.StorageConfig
+func newDriver(env Env, config Config) (*driver, error) {
+	storageConfig := config.StorageConfiguration
 	objClient := env.ObjectClient
 	// test object storage.
 	if err := func() error {
@@ -106,6 +107,7 @@ func newDriver(env Env) (*driver, error) {
 		commits:    commits,
 		branches:   branches,
 		env:        env,
+		config:     config,
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.DB)

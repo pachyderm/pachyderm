@@ -83,6 +83,7 @@ type apiServer struct {
 	log.Logger
 	etcdPrefix            string
 	env                   Env
+	config                Config
 	txnEnv                *txnenv.TransactionEnv
 	namespace             string
 	workerImage           string
@@ -1133,7 +1134,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
-	if a.env.Config.LokiLogging || request.UseLokiBackend {
+	if a.config.LokiLogging || request.UseLokiBackend {
 		pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
 		resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
 			&enterpriseclient.GetStateRequest{})
@@ -2205,7 +2206,6 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 		}
 		info.Details.UnclaimedTasks = tasks - claims
 	}
-
 	return info, nil
 }
 
@@ -2642,13 +2642,12 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			}); err != nil {
 				return err
 			}
-			if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
-				if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-					Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
-					Provenance: nil,
-				}); err != nil {
-					return err
-				}
+			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+				Provenance: nil,
+			}); err != nil && !errutil.IsNotFoundError(err) {
+				// don't error if we're stopping a spout or service pipeline
+				return err
 			}
 
 			newPipelineInfo := &pps.PipelineInfo{}

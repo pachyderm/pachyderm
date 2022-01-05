@@ -1,4 +1,4 @@
-package s3
+package s3_test
 
 import (
 	"fmt"
@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 )
 
 func masterListBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
@@ -532,7 +533,7 @@ func TestMasterDriver(t *testing.T) {
 	}
 	t.Parallel()
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	testRunner(t, env.PachClient, "master", NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	testRunner(t, env.PachClient, "master", s3.NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 		t.Run("ListBuckets", func(t *testing.T) {
 			masterListBuckets(t, pachClient, minioClient)
 		})

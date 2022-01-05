@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv/senvutil"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -94,10 +95,10 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetAuthServer(realEnv.AuthServer)
 
 	// PFS
-	pfsEnv, err := pfsserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
+	pfsEnv, err := senvutil.PFSEnv(realEnv.ServiceEnv, txnEnv)
 	require.NoError(t, err)
 	pfsEnv.EtcdPrefix = ""
-	realEnv.PFSServer, err = pfsserver.NewAPIServer(*pfsEnv)
+	realEnv.PFSServer, err = pfsserver.NewAPIServer(*pfsEnv, senvutil.PFSConfig(realEnv.ServiceEnv.Config()))
 	require.NoError(t, err)
 	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetPfsServer(realEnv.PFSServer)
 

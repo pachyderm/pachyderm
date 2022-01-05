@@ -1,8 +1,6 @@
 package server
 
 import (
-	"path"
-
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -36,34 +34,9 @@ type Env struct {
 
 	BackgroundContext context.Context
 	Logger            *logrus.Logger
-	StorageConfig     serviceenv.StorageConfiguration
 }
 
-func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*Env, error) {
-	// Setup etcd, object storage, and database clients.
-	objClient, err := obj.NewClient(env.Config().StorageBackend, env.Config().StorageRoot)
-	if err != nil {
-		return nil, err
-	}
-	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix)
-	if env.AuthServer() == nil {
-		panic("auth server cannot be nil")
-	}
-	return &Env{
-		ObjectClient: objClient,
-		DB:           env.GetDBClient(),
-		TxnEnv:       txnEnv,
-		Listener:     env.GetPostgresListener(),
-		EtcdPrefix:   etcdPrefix,
-		EtcdClient:   env.GetEtcdClient(),
-		TaskService:  env.GetTaskService(etcdPrefix),
-
-		AuthServer:    env.AuthServer(),
-		GetPPSServer:  env.PpsServer,
-		GetPachClient: env.GetPachClient,
-
-		BackgroundContext: env.Context(),
-		StorageConfig:     env.Config().StorageConfiguration,
-		Logger:            env.Logger(),
-	}, nil
+// Config contains user provided primitive values
+type Config struct {
+	serviceenv.StorageConfiguration
 }
