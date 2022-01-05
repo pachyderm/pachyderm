@@ -308,7 +308,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	}
 	var userSecurityCtx *v1.SecurityContext
 	userStr := pipelineInfo.Details.Transform.User
-	if pc.env.Config.DisableWorkerSecurityContexts {
+	if !pc.env.Config.EnableWorkerSecurityContexts {
 		pachSecurityCtx = nil
 	} else if pc.env.Config.WorkerUsesRoot {
 		pachSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
