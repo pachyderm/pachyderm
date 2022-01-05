@@ -1,0 +1,3 @@
+name: ci-cluster
+runtime: go
+description: Creates the cluster used by pachyderm CI

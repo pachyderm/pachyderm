@@ -1,0 +1,3 @@
+config:
+  gcp:project: pulumi-ci-334619
+  gcp:zone: us-east1-b
