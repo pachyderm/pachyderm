@@ -608,9 +608,10 @@ func mountingState(m *MountStateMachine) StateFn {
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.MountState.Name] = &RepoOptions{
 			Repo:   m.MountKey.Repo,
-			Branch: m.MountKey.Repo,
+			Branch: m.MountKey.Branch,
 			Write:  m.Mode == "rw",
 		}
+		m.manager.root.branches[m.Name] = m.MountKey.Branch
 		fmt.Printf("*** MOUNTINGSTATE repoOpts: %+v\n", m.manager.root.repoOpts)
 	}()
 	// re-downloading the repos with an updated RepoOptions set will have the

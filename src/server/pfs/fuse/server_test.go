@@ -76,6 +76,41 @@ func TestBasicServerSameNames(t *testing.T) {
 	})
 }
 
+func TestBasicServerNonMasterBranch(t *testing.T) {
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	commit := client.NewCommit("repo", "dev", "")
+	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+
+		_, err := put("repos/repo/dev/_mount?name=repo&mode=ro")
+		require.NoError(t, err)
+
+		fmt.Printf("=====> MOUNTPOINT IS %s\n", mountPoint)
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
+
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "dir", filepath.Base(files[0].Name()))
+
+		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		require.Equal(t, "file1", filepath.Base(files[0].Name()))
+		require.Equal(t, "file2", filepath.Base(files[1].Name()))
+
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "file1"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+	})
+}
 func TestBasicServerDifferingNames(t *testing.T) {
 	// XXX why nothing in commits and files like working case above:
 	/*
