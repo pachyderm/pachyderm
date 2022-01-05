@@ -35,6 +35,10 @@ global:
   imagePullSecrets: []
   # when set, the certificate file in pachd-tls-cert will be loaded as the root certificate for pachd, console, and enterprise-server pods
   customCaCerts: false
+  # Sets the HTTP/S proxy server address for console, pachd, and enteprise server
+  proxy: ""
+  # If proxy is set, this allows you to set a comma-separated list of destinations that bypass the proxy
+  noProxy: ""
 
 console:
   # enabled controls whether the console manifests are created or not.
