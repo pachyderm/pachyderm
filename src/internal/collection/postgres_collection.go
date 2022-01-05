@@ -571,78 +571,86 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 		return nil, err
 	}
 
+	go c.watchRoutine(watcher, options, nil)
+
+	return watcher, nil
+}
+
+// This blocking function sends watch events to the client. It first sends a list of the existing elements
+// in the collection, followed by new events. To be sure that there aren't any missed events while the initial
+// state listing is in progress, this function also takes care to interleave watch events while emitting records for the initial list.
+// This is necessary because the list() method used may return results from non-isolated snapshots of the DB.
+// For example, the edge case covered could be as follows:
+// ex. while list is returning records from a batch `n`, a record `r` may be inserted that would have otherwise been returned in batch n-1.
+func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, options watch.WatchOptions, withFields map[string]string) {
 	interested := func(e *postgresEvent, target etcd.SortTarget) bool {
 		return (target == etcd.SortByModRevision && e.eventType != watch.EventPut) || (target == etcd.SortByCreateRevision && !e.create)
 	}
+	// Do a list of the collection to get the initial state
+	lastUpdated := time.Time{}
+	val := cloneProtoMsg(c.template)
+	var waitEv *postgresEvent // represents the popped item for our buffer that's waiting to be sent
 
-	go func() {
-		// Do a list of the collection to get the initial state
-		lastUpdated := time.Time{}
-		val := cloneProtoMsg(c.template)
-		var waitEv *postgresEvent // represents the popped item for our buffer that's waiting to be sent
-		// Since list is not a snapshot of the DB, we must interleave postgres events with the list as they arrive
-		// At every element visited by list, see if there are any buffered events and if their
-		// timestamp is ahead of our list of item, send them to the client until there are either no buffered events, or they're in the future
-		if err := c.list(nil, &Options{Target: options.SortTarget, Order: etcd.SortAscend}, func(m *model) error {
-			if err := proto.Unmarshal(m.Proto, val); err != nil {
-				return errors.EnsureStack(err)
-			}
+	// Since list is not a snapshot of the DB, we must interleave postgres events with the list as they arrive
+	// At every element visited by list, see if there are any buffered events and if their
+	// timestamp is ahead of the latest item in the list, send them to the client until there are either no buffered events, or they're in the future
+	if err := c.list(withFields, &Options{Target: options.SortTarget, Order: etcd.SortAscend}, func(m *model) error {
+		if err := proto.Unmarshal(m.Proto, val); err != nil {
+			return errors.EnsureStack(err)
+		}
 
-			if lastUpdated.Before(m.UpdatedAt) {
-				lastUpdated = m.UpdatedAt
-			}
+		if lastUpdated.Before(m.UpdatedAt) {
+			lastUpdated = m.UpdatedAt
+		}
 
-			if waitEv != nil && waitEv.time.Unix() <= lastUpdated.Unix() {
-				if interested(waitEv, options.SortTarget) {
-					watcher.sendInitial(waitEv.WatchEvent(c.ctx, watcher.db, watcher.template))
-				}
-				waitEv = nil
+		if waitEv != nil && waitEv.time.Unix() <= lastUpdated.Unix() {
+			if interested(waitEv, options.SortTarget) {
+				watcher.sendInitial(waitEv.WatchEvent(c.ctx, watcher.db, watcher.template))
 			}
-			if waitEv == nil {
-			loop:
-				for {
-					select {
-					case eventData := <-watcher.buf:
-						if eventData.time.Unix() >= lastUpdated.Unix() {
-							waitEv = eventData
-							break loop
-						}
-						if interested(eventData, options.SortTarget) {
-							watcher.sendInitial(eventData.WatchEvent(c.ctx, watcher.db, watcher.template))
-						}
-					default:
+			waitEv = nil
+		}
+		if waitEv == nil {
+		loop:
+			for {
+				select {
+				case eventData := <-watcher.buf:
+					if eventData.time.Unix() >= lastUpdated.Unix() {
+						waitEv = eventData
 						break loop
 					}
+					if interested(eventData, options.SortTarget) {
+						watcher.sendInitial(eventData.WatchEvent(c.ctx, watcher.db, watcher.template))
+					}
+				default:
+					break loop
 				}
 			}
+		}
 
-			return watcher.sendInitial(&watch.Event{
-				Key:      []byte(m.Key),
-				Value:    m.Proto,
-				Type:     watch.EventPut,
-				Template: c.template,
-				Rev:      m.UpdatedAt.Unix(),
-			})
-		}); err != nil {
-			// Ignore any additional error here - we're already attempting to send an error to the user
+		return watcher.sendInitial(&watch.Event{
+			Key:      []byte(m.Key),
+			Value:    m.Proto,
+			Type:     watch.EventPut,
+			Template: c.template,
+			Rev:      m.UpdatedAt.Unix(),
+		})
+	}); err != nil {
+		// Ignore any additional error here - we're already attempting to send an error to the user
+		watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
+		watcher.listener.Unregister(watcher)
+		return
+	}
+
+	// if waitEv was set but not sent yet, send it now
+	if waitEv != nil {
+		if err := watcher.sendInitial(waitEv.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
 			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
 			watcher.listener.Unregister(watcher)
-			return
 		}
+	}
 
-		// if waitEv was set but not sent yet, send it now
-		if waitEv != nil {
-			if err := watcher.sendInitial(waitEv.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
-				watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
-				watcher.listener.Unregister(watcher)
-			}
-		}
-
-		// Forward all buffered notifications until the watcher is closed
-		watcher.forwardNotifications(c.ctx, lastUpdated)
-	}()
-
-	return watcher, nil
+	// Forward all buffered notifications until the watcher is closed
+	watcher.forwardNotifications(c.ctx, lastUpdated)
 }
 
 // Internally, WatchF scans the collection's initial state over multiple transactions,
@@ -727,38 +735,8 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 		return nil, err
 	}
 
-	go func() {
-		// Do a list of the collection to get the initial state
-		lastUpdated := time.Time{}
-		val := cloneProtoMsg(c.template)
-		opts := &Options{Target: options.SortTarget, Order: options.SortOrder}
-		withFields := map[string]string{indexFieldName(index): indexVal}
-		if err := c.list(withFields, opts, func(m *model) error {
-			if err := proto.Unmarshal(m.Proto, val); err != nil {
-				return errors.EnsureStack(err)
-			}
-
-			if lastUpdated.Before(m.UpdatedAt) {
-				lastUpdated = m.UpdatedAt
-			}
-
-			return watcher.sendInitial(&watch.Event{
-				Key:      []byte(m.Key),
-				Value:    m.Proto,
-				Type:     watch.EventPut,
-				Template: c.template,
-				Rev:      m.UpdatedAt.Unix(),
-			})
-		}); err != nil {
-			// Ignore any additional error here - we're already attempting to send an error to the user
-			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
-			watcher.listener.Unregister(watcher)
-			return
-		}
-
-		// Forward all buffered notifications until the watcher is closed
-		watcher.forwardNotifications(c.ctx, lastUpdated)
-	}()
+	withFields := map[string]string{indexFieldName(index): indexVal}
+	go c.watchRoutine(watcher, options, withFields)
 
 	return watcher, nil
 }
