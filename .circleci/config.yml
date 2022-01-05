@@ -195,7 +195,7 @@ jobs:
           command: >
             oc new-project pach-test
           name: Create OS Project
-      - run: kubectl config set-context --current --namespace=pach-test
+      - run: kubectl config set-context $(kubectl config current-context) --namespace=pach-test
       - run: ./etc/testing/circle/build-openshift.sh
       - run: ./etc/testing/circle/launch-openshift.sh
 
