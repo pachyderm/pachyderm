@@ -183,6 +183,7 @@ jobs:
   openshift:
     executor: redhat-openshift/machine-for-local-cluster
     steps:
+      - checkout
       - redhat-openshift/create-local-cluster-with-oc:
           skip-registry-check: true
       - redhat-openshift/login-and-update-kubeconfig:
@@ -196,7 +197,6 @@ jobs:
             oc new-project pach-test
           name: Create OS Project
       - run: kubectl config set-context $(kubectl config current-context) --namespace=pach-test
-      - checkout
       - run: ./etc/testing/circle/build-openshift.sh
       - run: ./etc/testing/circle/launch-openshift.sh
 
