@@ -236,7 +236,7 @@ func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, 
 	})
 }
 
-// Internally, GetByIndex scans the collection over multiple transactions,
+// NOTE: Internally, GetByIndex scans the collection over multiple transactions,
 // making this method susceptible to inconsistent reads
 func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
 	return c.getByIndex(c.ctx, c.db, index, indexVal, val, opts, false, f)
@@ -494,7 +494,7 @@ func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Op
 	return c.postgresCollection.list(c.ctx, withFields, opts, false, c.db, f)
 }
 
-// Internally, List scans the collection over multiple transactions,
+// NOTE: Internally, List scans the collection over multiple transactions,
 // making this method susceptible to inconsistent reads
 func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
 	return c.list(nil, opts, func(m *model) error {
@@ -638,7 +638,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 	watcher.forwardNotifications(c.ctx, lastUpdated)
 }
 
-// Internally, Watch scans the collection's initial state over multiple transactions,
+// NOTE: Internally, Watch scans the collection's initial state over multiple transactions,
 // making this method susceptible to inconsistent reads
 func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
@@ -653,7 +653,7 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 	return watcher, nil
 }
 
-// Internally, WatchF scans the collection's initial state over multiple transactions,
+// NOTE: Internally, WatchF scans the collection's initial state over multiple transactions,
 // making this method susceptible to inconsistent reads
 func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...watch.Option) error {
 	watcher, err := c.Watch(opts...)
@@ -720,7 +720,7 @@ func (c *postgresReadOnlyCollection) WatchOneF(key interface{}, f func(*watch.Ev
 	return watchF(c.ctx, watcher, f)
 }
 
-// Internally, WatchByIndex scans the collection's initial state over multiple transactions,
+// NOTE: Internally, WatchByIndex scans the collection's initial state over multiple transactions,
 // making this method susceptible to inconsistent reads
 func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string, opts ...watch.Option) (watch.Watcher, error) {
 	if err := c.validateIndex(index); err != nil {
@@ -741,7 +741,7 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 	return watcher, nil
 }
 
-// Internally, WatchByIndexF scans the collection's initial state over multiple transactions,
+// NOTE: Internally, WatchByIndexF scans the collection's initial state over multiple transactions,
 // making this method susceptible to inconsistent reads
 func (c *postgresReadOnlyCollection) WatchByIndexF(index *Index, indexVal string, f func(*watch.Event) error, opts ...watch.Option) error {
 	watcher, err := c.WatchByIndex(index, indexVal, opts...)
