@@ -1,5 +1,9 @@
-import {TaskCard, TaskComponentProps} from '@pachyderm/components';
-import React, {useEffect} from 'react';
+import {
+  TaskCard,
+  TaskComponentProps,
+  useMinimizeTask,
+} from '@pachyderm/components';
+import React from 'react';
 
 const MinimizeTask: React.FC<TaskComponentProps> = ({
   onCompleted,
@@ -8,11 +12,7 @@ const MinimizeTask: React.FC<TaskComponentProps> = ({
   name,
   minimized,
 }) => {
-  useEffect(() => {
-    if (currentTask === index && minimized) {
-      onCompleted();
-    }
-  }, [currentTask, minimized, onCompleted, index]);
+  useMinimizeTask({currentTask, index, minimized, onCompleted});
 
   return (
     <TaskCard

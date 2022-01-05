@@ -385,11 +385,11 @@ const pfs = () => {
                   sizeBytes,
                 });
                 const dirPath = path.dirname(addFile.getPath());
+                if (!MockState.state.files[projectId.toString()]) {
+                  MockState.state.files[projectId.toString()] = {};
+                }
                 if (
-                  Object.prototype.hasOwnProperty.call(
-                    MockState.state.files[projectId.toString()],
-                    dirPath,
-                  ) &&
+                  MockState.state.files[projectId.toString()][dirPath] &&
                   !MockState.state.files[projectId.toString()][dirPath].some(
                     (file) => file.getFile()?.getPath() === addFile.getPath(),
                   )

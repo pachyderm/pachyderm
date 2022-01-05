@@ -466,5 +466,5 @@ type Mutation {
   createRepo(args: CreateRepoArgs!): Repo!
   createPipeline(args: CreatePipelineArgs!): Pipeline!
   createBranch(args: CreateBranchArgs!): Branch!
-  putFilesFromURLs(args: PutFilesFromURLsArgs!): String!
+  putFilesFromURLs(args: PutFilesFromURLsArgs!): [String!]!
 }

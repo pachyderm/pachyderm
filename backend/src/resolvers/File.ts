@@ -73,7 +73,7 @@ const fileResolver: FileResolver = {
       });
       await fileClient.end();
       await pachClient.pfs().finishCommit({commit});
-      return commit.id;
+      return files.map((file) => file.url);
     },
   },
 };

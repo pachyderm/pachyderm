@@ -271,7 +271,7 @@ export type Mutation = {
   createRepo: Repo;
   createPipeline: Pipeline;
   createBranch: Branch;
-  putFilesFromURLs: Scalars['String'];
+  putFilesFromURLs: Array<Scalars['String']>;
 };
 
 export type MutationExchangeCodeArgs = {
@@ -1118,7 +1118,7 @@ export type MutationResolvers<
     RequireFields<MutationCreateBranchArgs, 'args'>
   >;
   putFilesFromURLs?: Resolver<
-    ResolversTypes['String'],
+    Array<ResolversTypes['String']>,
     ParentType,
     ContextType,
     RequireFields<MutationPutFilesFromUrLsArgs, 'args'>
