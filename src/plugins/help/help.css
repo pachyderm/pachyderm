@@ -15,4 +15,9 @@
 
 .pachyderm-help-link {
   color: var(--jp-content-link-color);
+  cursor: pointer;
+}
+
+.pachyderm-help-link:hover {
+  text-decoration: underline;
 }

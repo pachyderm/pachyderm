@@ -43,7 +43,6 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
   const onClickHandler = (
     e: React.MouseEvent<HTMLAnchorElement, MouseEvent>,
   ) => {
-    e.stopPropagation();
     mount();
   };
 
@@ -86,6 +85,7 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
             value={selectedBranch}
             className="pachyderm-mount-list-item-branch-select"
             onChange={onChange}
+            data-testid="ListItem__select"
           >
             {repo.branches.map((branch) => {
               return (
@@ -98,9 +98,13 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
         )}
       </span>
       <span className="pachyderm-mount-list-item-action">
-        <a onClick={onClickHandler} className="pachyderm-help-link">
+        <span
+          onClick={onClickHandler}
+          className="pachyderm-help-link"
+          data-testid={`ListItem__${buttonText.toLowerCase()}`}
+        >
           {buttonText}
-        </a>
+        </span>
       </span>
     </li>
   );
