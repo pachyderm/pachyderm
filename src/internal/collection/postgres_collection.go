@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	listBufferCapacity = 10
+	defaultListBufferCapacity = 10
 )
 
 type postgresCollection struct {
@@ -77,7 +77,7 @@ func WithNotFoundMessage(format func(interface{}) string) Option {
 	}
 }
 
-func WithListBufferCapOverride(cap int) Option {
+func WithListBufferCapacity(cap int) Option {
 	return func(c *postgresCollection) {
 		c.listBufferCapacity = cap
 	}
@@ -91,7 +91,7 @@ func NewPostgresCollection(name string, db *pachsql.DB, listener PostgresListene
 		listener:           listener,
 		template:           template,
 		indexes:            indexes,
-		listBufferCapacity: listBufferCapacity,
+		listBufferCapacity: defaultListBufferCapacity,
 	}
 	for _, opt := range opts {
 		opt(col)
@@ -390,20 +390,20 @@ func (c *postgresCollection) list(
 	q sqlx.ExtContext,
 	f func(*model) error,
 ) error {
-	query, args, err := c.listQueryStr(ctx, withFields, opts, nil)
-	if err != nil {
-		return err
-	}
-	rows, err := q.QueryxContext(ctx, query, args...)
-	if err != nil {
-		return c.mapSQLError(err, "")
-	}
-	defer rows.Close()
-
 	// greedy=true indicates that this may be run in a transaction, so we have to
 	// read the entire result set before returning control back to the user, or
 	// they could run a nested query which will break the pq parser.
 	if greedy {
+		query, args, err := c.listQueryStr(ctx, withFields, opts, nil)
+		if err != nil {
+			return err
+		}
+		rows, err := q.QueryxContext(ctx, query, args...)
+		if err != nil {
+			return c.mapSQLError(err, "")
+		}
+		defer rows.Close()
+
 		results := []*model{}
 		for rows.Next() {
 			result := &model{}
@@ -430,47 +430,45 @@ func (c *postgresCollection) list(
 		return nil
 	}
 
-	// To avoid holding the DB connection open for an unknown duration
+	// To avoid holding a transaction open (which holds a DB connection) for an unknown duration
 	// dictated by the client's callback, we:
 	// (1) buffer the SQL rows
 	// (2) close the connection
 	// (3) apply f(), the client's callback, to results in the buffer
 	// (4) if the buffer was full, re-execute the query, offset by key, and repeat (1)
-	bufferResults := func(rs *sqlx.Rows) ([]*model, int, error) {
+	bufferResults := func(last *model) ([]*model, bool, error) {
+		query, args, err := c.listQueryStr(ctx, withFields, opts, last)
+		if err != nil {
+			return nil, false, err
+		}
+		rs, err := q.QueryxContext(ctx, query, args...)
+		if err != nil {
+			return nil, false, c.mapSQLError(err, "")
+		}
 		defer rs.Close()
+
 		var rowCnt int
 		rowsBuffer := make([]*model, 0, c.listBufferCapacity)
-		result := &model{}
 		for rs.Next() && rowCnt < c.listBufferCapacity {
+			result := &model{}
 			if err := rs.StructScan(result); err != nil {
-				return nil, 0, c.mapSQLError(err, "")
+				return nil, false, c.mapSQLError(err, "")
 			}
 			rowsBuffer = append(rowsBuffer, result)
-			result = &model{}
 			rowCnt++
 		}
 		if err := rs.Err(); err != nil {
-			return nil, 0, errors.EnsureStack(err)
+			return nil, false, errors.EnsureStack(err)
 		}
 		if err := rs.Close(); err != nil {
-			return nil, 0, c.mapSQLError(rs.Close(), "")
+			return nil, false, c.mapSQLError(rs.Close(), "")
 		}
-		return rowsBuffer, rowCnt, nil
+		return rowsBuffer, rowCnt == c.listBufferCapacity, nil
 	}
 
 	var last *model
 	for {
-		if last != nil {
-			query, args, err = c.listQueryStr(ctx, withFields, opts, last)
-			if err != nil {
-				return err
-			}
-			rows, err = q.QueryxContext(ctx, query, args...)
-			if err != nil {
-				return err
-			}
-		}
-		rowsBuffer, rowCnt, err := bufferResults(rows) // closes rows
+		rowsBuffer, fullBuffer, err := bufferResults(last)
 		if err != nil {
 			return err
 		}
@@ -483,7 +481,7 @@ func (c *postgresCollection) list(
 			}
 			last = v
 		}
-		if rowCnt < c.listBufferCapacity {
+		if !fullBuffer {
 			break
 		}
 	}
@@ -586,25 +584,18 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 		lastTs := lastTimestamp(m, options.SortTarget)
 
 		if bufEvent == nil {
-		loop:
-			for {
-				select {
-				case eventData := <-watcher.buf:
-					bufEvent = eventData
-				default:
-					break loop
-				}
+			select {
+			case eventData := <-watcher.buf:
+				bufEvent = eventData
+			default:
 			}
 		}
 
-		if bufEvent != nil {
-			if bufEvent.time.Unix() <= lastTs.Unix() {
-				if err := watcher.sendInitial(bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
-					watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
-					watcher.listener.Unregister(watcher)
-				}
-				return errutil.ErrBreak
+		if bufEvent != nil && bufEvent.time.Unix() <= lastTs.Unix() {
+			if err := watcher.sendInitial(bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
+				return err
 			}
+			return errutil.ErrBreak
 		}
 
 		return watcher.sendInitial(&watch.Event{
