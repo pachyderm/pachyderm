@@ -1,6 +1,12 @@
 
 # Changelog
 
+## 2.0.5
+- Make ingress work for enterprise server - #7224
+- Unset Worker SecurityContexts when pachd.securityContext.enabled=false - #7223
+- Add http/s proxy settings for pachd - #7222
+- CheckStorage rpc and chunk layer integrity checking - #7208
+- Do not fail pipeline for transient database issues - #7206
 ## 2.0.4
 - Fix access to console over port-forward. Gate setting of REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX by ingress.enabled=false - #7170
 - Make Sensitive Helm values injectable via k8s secrets - #7193 #7194 #7188
