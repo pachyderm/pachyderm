@@ -14,6 +14,7 @@ type TaskCardProps = {
   actionText?: React.ReactNode;
   taskInfoTitle?: string;
   taskInfo?: React.ReactNode;
+  disabled?: boolean;
 };
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -25,6 +26,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   task,
   taskInfoTitle,
   taskInfo,
+  disabled = false,
 }) => {
   return (
     <div className={styles.taskCard}>
@@ -68,7 +70,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
           {currentTask <= index && (
             <div>
               <Button
-                disabled={currentTask < index}
+                disabled={currentTask < index || disabled}
                 onClick={action}
                 className={styles.button}
               >
