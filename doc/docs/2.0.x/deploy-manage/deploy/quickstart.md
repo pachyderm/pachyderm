@@ -58,11 +58,11 @@ Install [AWS CLI](https://aws.amazon.com/cli/){target=_blank}
       storage:
         amazon:
           bucket: "bucket_name"      
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
-            id: "AKIAIOSFODNN7EXAMPLE"                
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
-            secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-            region: "us-east-2"
+          # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
+          id: "AKIAIOSFODNN7EXAMPLE"                
+          # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          region: "us-east-2"
       externalService:
         enabled: true
     ```
@@ -74,11 +74,11 @@ Install [AWS CLI](https://aws.amazon.com/cli/){target=_blank}
       storage:
         amazon:
           bucket: "bucket_name"                
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
-            id: "AKIAIOSFODNN7EXAMPLE"                
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
-            secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-            region: "us-east-2"
+          # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
+          id: "AKIAIOSFODNN7EXAMPLE"                
+          # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          region: "us-east-2"
       # pachyderm enterprise key 
       enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
     console:
