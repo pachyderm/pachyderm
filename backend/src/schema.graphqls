@@ -162,7 +162,7 @@ type Commit {
   id: ID!
   started: Int
   finished: Int
-  sizeBytes: Int!
+  sizeBytes: Float!
   sizeDisplay: String!
 }
 
@@ -172,7 +172,7 @@ type Repo {
   description: String!
   id: ID!
   name: ID!
-  sizeBytes: Int!
+  sizeBytes: Float!
   sizeDisplay: String!
 
   # The Dash API will have to derive this field until core pach can expose it for us

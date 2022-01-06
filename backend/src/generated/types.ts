@@ -72,7 +72,7 @@ export type Commit = {
   id: Scalars['ID'];
   started?: Maybe<Scalars['Int']>;
   finished?: Maybe<Scalars['Int']>;
-  sizeBytes: Scalars['Int'];
+  sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
 };
 
@@ -517,7 +517,7 @@ export type Repo = {
   description: Scalars['String'];
   id: Scalars['ID'];
   name: Scalars['ID'];
-  sizeBytes: Scalars['Int'];
+  sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
   linkedPipeline?: Maybe<Pipeline>;
 };
@@ -744,6 +744,7 @@ export type ResolversTypes = ResolversObject<{
   Commit: ResolverTypeWrapper<Commit>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
+  Float: ResolverTypeWrapper<Scalars['Float']>;
   CommitInput: CommitInput;
   CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
@@ -752,7 +753,6 @@ export type ResolversTypes = ResolversObject<{
   CronInput: ResolverTypeWrapper<CronInput>;
   DagQueryArgs: DagQueryArgs;
   File: ResolverTypeWrapper<File>;
-  Float: ResolverTypeWrapper<Scalars['Float']>;
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
   FileType: FileType;
@@ -816,6 +816,7 @@ export type ResolversParentTypes = ResolversObject<{
   Commit: Commit;
   Boolean: Scalars['Boolean'];
   Int: Scalars['Int'];
+  Float: Scalars['Float'];
   CommitInput: CommitInput;
   CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
@@ -824,7 +825,6 @@ export type ResolversParentTypes = ResolversObject<{
   CronInput: CronInput;
   DagQueryArgs: DagQueryArgs;
   File: File;
-  Float: Scalars['Float'];
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
   GitInput: GitInput;
@@ -924,7 +924,7 @@ export type CommitResolvers<
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   started?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   finished?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  sizeBytes?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -1344,7 +1344,7 @@ export type RepoResolvers<
   description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  sizeBytes?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   linkedPipeline?: Resolver<
     Maybe<ResolversTypes['Pipeline']>,
