@@ -424,7 +424,7 @@ export type PutFilesFromUrLsArgs = {
   files: Array<FileFromUrl>;
   branch: Scalars['String'];
   repo: Scalars['String'];
-  projectId?: Maybe<Scalars['String']>;
+  projectId: Scalars['String'];
 };
 
 export type Query = {

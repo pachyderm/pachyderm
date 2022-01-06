@@ -10,21 +10,21 @@ import {usePutFilesFromUrLsMutation} from '@dash-frontend/generated/hooks';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const files = {
-  'https://imgur.com/Togu2RY.jpg': {
-    name: 'pooh.jpg',
-    path: '/pooh.jpg',
+  'https://i.imgur.com/FOO9q43.jpg': {
+    name: 'birthday-cake.jpg',
+    path: '/birthday-cake.jpg',
   },
-  'https://i.imgur.com/46Q8nDz.jpg': {
-    name: 'statue-of-liberty.jpg',
-    path: '/statue-of-liberty.jpg',
+  'https://i.imgur.com/8rfjLgG.jpg': {
+    name: 'sutro-tower.jpg',
+    path: '/sutro-tower.jpg',
   },
-  'https://i.imgur.com/g2QnNqa.jpg': {
-    name: 'kitten.jpg',
-    path: '/kitten.jpg',
+  'https://i.imgur.com/SpYheUO.jpg': {
+    name: 'wine.jpg',
+    path: '/wine.jpg',
   },
-  'https://i.imgur.com/8MN9Kg0.jpg': {
-    name: 'at-at.jpg',
-    path: '/at-at.jpg',
+  'https://i.imgur.com/WzHCuVx.jpg': {
+    name: 'puppy.jpg',
+    path: '/puppy.jpg',
   },
 };
 
@@ -34,9 +34,8 @@ const AddImagesTask: React.FC<TaskComponentProps> = ({
   index,
   name,
 }) => {
-  const {projectId} = useUrlState();
-
   const {register, setDisabled, setUploaded} = useMultiSelectModule({files});
+  const {projectId} = useUrlState();
 
   const [putFilesFromURLsMutation, {loading}] = usePutFilesFromUrLsMutation({
     onCompleted: () => {
@@ -70,9 +69,9 @@ const AddImagesTask: React.FC<TaskComponentProps> = ({
       index={index}
       currentTask={currentTask}
       actionText={'Add these images'}
-      taskInfoTitle="Adding images to see the montage change"
+      taskInfoTitle="Adding images for processing"
       taskInfo={
-        'Select one or more images and click "add" to get them added to the images input repo. Only the new images are processed by edges, since Pachyderm\'s data-driven pipelines and data lineage are keeping track of everything.'
+        'Select one or more images and click "add" to get them added to the images input repo. Since we already added the edges pipeline, you\'ll see them get processed automatically.'
       }
       action={action}
     >

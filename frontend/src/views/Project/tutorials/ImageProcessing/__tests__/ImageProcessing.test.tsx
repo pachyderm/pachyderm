@@ -29,7 +29,37 @@ describe('Image Processing', () => {
   });
 
   it('should allow the user to complete the tutorial', async () => {
-    const {findByRole, findByText, findAllByRole} = render(<Tutorial />);
+    const {findByRole, findByText, findAllByRole, findByLabelText} = render(
+      <Tutorial />,
+    );
+
+    const minimize = async () => {
+      const minimizeButton = (
+        await findAllByRole('button', {
+          name: 'Minimize',
+        })
+      )[0];
+
+      click(minimizeButton);
+    };
+
+    const maximize = async () => {
+      const maximizeButton = (
+        await findAllByRole('button', {
+          name: 'Maximize',
+        })
+      )[0];
+      click(maximizeButton);
+    };
+
+    const nextStory = async () => {
+      const nextStoryButton = (
+        await findAllByRole('button', {name: 'Next Story'})
+      )[1];
+
+      await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
+      click(nextStoryButton);
+    };
 
     expect(mockServer.getState().repos['6']).toHaveLength(0);
     expect(mockServer.getState().pipelines['6']).toHaveLength(0);
@@ -56,10 +86,32 @@ describe('Image Processing', () => {
     )[1];
 
     await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
+
     expect(mockServer.getState().repos['6']).toHaveLength(2);
     expect(mockServer.getState().pipelines['6']).toHaveLength(1);
 
-    click(nextStoryButton);
+    await nextStory();
+
+    expect(
+      await findByText('Add files to the images repo you created'),
+    ).toBeInTheDocument();
+
+    expect(mockServer.getState().files['6']).toBeUndefined();
+    const checkbox1 = await findByLabelText('birthday-cake.jpg');
+    click(checkbox1);
+
+    const imageUploadButton1 = await findByRole('button', {
+      name: 'Add these images',
+    });
+
+    click(imageUploadButton1);
+    expect(await findByText('Task Completed!')).toBeInTheDocument();
+    expect(mockServer.getState().files['6']['/']).toHaveLength(1);
+
+    await minimize();
+    await maximize();
+
+    await nextStory();
 
     expect(
       await findByText(
@@ -77,26 +129,39 @@ describe('Image Processing', () => {
     expect(await findByText('Task Completed!')).toBeInTheDocument();
     expect(mockServer.getState().pipelines['6']).toHaveLength(2);
 
-    const minimizeButton = (
-      await findAllByRole('button', {
-        name: 'Minimize',
-      })
-    )[0];
+    await minimize();
+    await maximize();
 
-    click(minimizeButton);
+    await nextStory();
 
-    const maximizeButton = (
-      await findAllByRole('button', {
-        name: 'Maximize',
-      })
-    )[0];
+    expect(
+      await findByText('Global identifiers tie together commits and code'),
+    ).toBeInTheDocument();
 
-    click(maximizeButton);
+    await minimize();
+    await maximize();
 
-    const nextStoryButton2 = (
-      await findAllByRole('button', {name: 'Next Story'})
-    )[1];
+    await nextStory();
 
-    await waitFor(() => expect(nextStoryButton2).not.toBeDisabled());
+    expect(
+      await findByText('About Incremental Scalability'),
+    ).toBeInTheDocument();
+
+    const checkbox2 = await findByLabelText('pooh.jpg');
+    click(checkbox2);
+
+    const imageUploadButton2 = await findByRole('button', {
+      name: 'Add these images',
+    });
+
+    click(imageUploadButton2);
+    expect(await findByText('Task Completed!')).toBeInTheDocument();
+
+    expect(mockServer.getState().files['6']['/']).toHaveLength(2);
+
+    await minimize();
+    await maximize();
+
+    await nextStory();
   });
 });
