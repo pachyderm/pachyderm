@@ -574,6 +574,8 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 		}
 		return m.CreatedAt
 	}
+
+	var bufEvent *postgresEvent
 	// Since list is not a snapshot of the DB, we break out early and hand-off
 	// event emition to the watcher if we encounter a listed record that is
 	// in the future of a buffered event
@@ -583,19 +585,25 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 		}
 		lastTs := lastTimestamp(m, options.SortTarget)
 
-	loop:
-		for {
-			select {
-			case eventData := <-watcher.buf:
-				if eventData.time.Unix() <= lastTs.Unix() {
-					if err := watcher.sendInitial(eventData.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
-						watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
-						watcher.listener.Unregister(watcher)
-					}
-					return errutil.ErrBreak
+		if bufEvent == nil {
+		loop:
+			for {
+				select {
+				case eventData := <-watcher.buf:
+					bufEvent = eventData
+				default:
+					break loop
 				}
-			default:
-				break loop
+			}
+		}
+
+		if bufEvent != nil {
+			if bufEvent.time.Unix() <= lastTs.Unix() {
+				if err := watcher.sendInitial(bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
+					watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
+					watcher.listener.Unregister(watcher)
+				}
+				return errutil.ErrBreak
 			}
 		}
 
