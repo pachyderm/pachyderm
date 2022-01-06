@@ -34,6 +34,9 @@ you have the following prerequisites installed and configured:
 
 ## 2. Deploy Kubernetes by using `eksctl`
 
+!!! Attention
+      Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+
 Use the `eksctl` tool to deploy an EKS cluster in your
 Amazon AWS environment. The `eksctl create cluster` command
 creates a virtual private cloud (VPC), a security group,
@@ -201,8 +204,9 @@ etcd and PostgreSQL (metadata storage) each claim the creation of a pv.
 
 If you plan on using **gp2** EBS volumes:
 
-- [Skip this section and jump to the deployment of Pachyderm](#6-deploy-pachyderm) 
-- or, for deployments in production, [jump to AWS-managed PostgreSQL](#5-create-an-aws-managed-postgresql-database)
+- For deployments in **production**, [go to the AWS-managed PostgreSQL deployment and setup section](#5-create-an-aws-managed-postgresql-database)
+- Otherwise, you will be using the default bundled version of PostgreSQL: [Go to the deployment of Pachyderm](#6-deploy-pachyderm) 
+
 
 For gp3 volumes, you will need to **deploy an Amazon EBS CSI driver to your cluster as detailed below**.
 

@@ -38,7 +38,12 @@ latest available version of the components listed below.
 
 ## 2. Deploy Kubernetes
 
+
 You can deploy Kubernetes on Azure by following the official [Azure Kubernetes Service documentation](https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-deploy-cluster?tabs=azure-cli){target=_blank}, [use the quickstart walkthrough](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough){target=_blank}, or follow the steps in this section.
+
+!!! Attention 
+      Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+
 
 At a minimum, you will need to specify the parameters below:
 
@@ -46,13 +51,13 @@ At a minimum, you will need to specify the parameters below:
 |--------|-----------|
 |RESOURCE_GROUP|A unique name for the resource group where Pachyderm is deployed. For example, `pach-resource-group`.|
 |LOCATION|An Azure availability zone where AKS is available. For example, `centralus`.|
-|NODE_SIZE|The size of the Kubernetes virtual machine (VM) instances. To avoid performance issues, Pachyderm recommends that you set this value to at least `Standard_DS4_v2` which gives you 8 CPUs, 28 Gib of Memory, 56 Gib SSD.<br> <br>In any case, use VMs that support **premium storage**. See [Azure VM sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/sizes) for details around which sizes support Premium storage.|
+|NODE_SIZE|The size of the Kubernetes virtual machine (VM) instances. To avoid performance issues, Pachyderm recommends that you set this value to at least `Standard_DS4_v2` which gives you 8 CPUs, 28 Gib of Memory, 56 Gib SSD.<br> <br>In any case, use VMs that support **premium storage**. See [Azure VM sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/sizes){target=_blank}  for details around which sizes support Premium storage.|
 |CLUSTER_NAME|A unique name for the Pachyderm cluster. For example, `pach-aks-cluster`.|
 
 You can choose to follow the guided steps in [Azure Service Portal's Kubernetes Services](https://portal.azure.com/){target=_blank} or use Azure CLI.
 
 
-1. [Log in](https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli) to Azure:
+1. [Log in](https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli){target=_blank} to Azure:
 
     ```shell
     az login
@@ -192,7 +197,6 @@ To create a new storage account, follow the steps below:
               --account-name ${STORAGE_ACCOUNT} \
               --account-key "${STORAGE_KEY}"
     ```
-
 ## 4. Persistent Volumes Creation
 
 etcd and PostgreSQL (metadata storage) each claim the creation of a pv. 
@@ -379,6 +383,7 @@ make sure that you are using the right Kubernetes context first.
       # database server to connect to in global.postgresql
       enabled: false
     ```
+
     Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 ### Deploy Pachyderm On The Kubernetes Cluster

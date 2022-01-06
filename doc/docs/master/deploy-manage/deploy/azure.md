@@ -38,7 +38,12 @@ latest available version of the components listed below.
 
 ## 2. Deploy Kubernetes
 
+
 You can deploy Kubernetes on Azure by following the official [Azure Kubernetes Service documentation](https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-deploy-cluster?tabs=azure-cli){target=_blank}, [use the quickstart walkthrough](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough){target=_blank}, or follow the steps in this section.
+
+!!! Attention 
+      Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+
 
 At a minimum, you will need to specify the parameters below:
 
@@ -378,6 +383,7 @@ make sure that you are using the right Kubernetes context first.
       # database server to connect to in global.postgresql
       enabled: false
     ```
+
     Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 ### Deploy Pachyderm On The Kubernetes Cluster
@@ -462,7 +468,6 @@ If you're not exposing `pachd` publicly, you can run:
 # Background this process because it blocks.
 $ pachctl port-forward
 ``` 
-
 ## 8. Check That Your Cluster Is Up And Running
 
 !!! Attention

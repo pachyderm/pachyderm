@@ -3,7 +3,7 @@
 For a quick test installation of Pachyderm on GCP (suitable for development), jump to our [Quickstart page](../quickstart/).
 
 !!! Important "Before your start your installation process." 
-      - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on  how to install and get started with `Helm`.
+      - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
       - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
 
@@ -28,6 +28,7 @@ In particular, you will:
       Note that it will also create a file called ${NAME}.values.yaml in the current directory.
 
     - Once your script has run, [configure your context](#7-have-pachctl-and-your-cluster-communicate)   and [check that your cluster is up and running](#8-check-that-your-cluster-is-up-and-running).
+
 
 ## 1. Prerequisites
 
@@ -72,6 +73,10 @@ Additionally, before you begin your installation:
 
 
 ## 2. Deploy Kubernetes
+
+!!! Attention
+    Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+
 
 To create a new Kubernetes cluster by using GKE, run:
 
@@ -210,7 +215,7 @@ To access your GCP resources, Pachyderm uses a GCP Project Service Account with 
     gcloud iam service-accounts create ${GSA_NAME}
     ```
     
-More infornation about the creation and management of a Service account on [GCP documentation](https://cloud.google.com/iam/docs/creating-managing-service-accounts){target=_blank}.
+More information about the creation and management of a Service account on [GCP documentation](https://cloud.google.com/iam/docs/creating-managing-service-accounts){target=_blank}.
 
 ### Configure Your Service Account Permissions
 
@@ -389,8 +394,8 @@ STATIC_IP_ADDR=$(gcloud compute addresses describe ${STATIC_IP_NAME} --region=${
 ```
 
 !!! Note
-     - If you have not created a Managed CloudSQL instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml and remove the `cloudsqlAuthProxy` fields. This setup is **not recommended in production environments**.
-     
+     If you have not created a Managed CloudSQL instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml and remove the `cloudsqlAuthProxy` fields. This setup is **not recommended in production environments**.
+
 Retrieve these additional variables, then fill in their values in the YAML file below:
 
 ```shell
