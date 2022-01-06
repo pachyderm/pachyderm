@@ -51,17 +51,18 @@ type workerOptions struct {
 	specCommit    string // Pipeline spec commit ID (needed for s3 inputs)
 	s3GatewayPort int32  // s3 gateway port (if any s3 pipeline inputs)
 
-	userImage             string              // The user's pipeline/job image
-	labels                map[string]string   // k8s labels attached to the RC and workers
-	annotations           map[string]string   // k8s annotations attached to the RC and workers
-	parallelism           int32               // Number of replicas the RC maintains
-	resourceRequests      *v1.ResourceList    // Resources requested by pipeline/job pods
-	resourceLimits        *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the user and init containers
-	sidecarResourceLimits *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the sidecar container
-	workerEnv             []v1.EnvVar         // Environment vars set in the user container
-	volumes               []v1.Volume         // Volumes that we expose to the user container
-	volumeMounts          []v1.VolumeMount    // Paths where we mount each volume in 'volumes'
-	schedulingSpec        *pps.SchedulingSpec // the SchedulingSpec for the pipeline
+	userImage             string                // The user's pipeline/job image
+	labels                map[string]string     // k8s labels attached to the RC and workers
+	annotations           map[string]string     // k8s annotations attached to the RC and workers
+	parallelism           int32                 // Number of replicas the RC maintains
+	resourceRequests      *v1.ResourceList      // Resources requested by pipeline/job pods
+	resourceLimits        *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the user and init containers
+	sidecarResourceLimits *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the sidecar container
+	workerEnv             []v1.EnvVar           // Environment vars set in the user container
+	volumes               []v1.Volume           // Volumes that we expose to the user container
+	volumeMounts          []v1.VolumeMount      // Paths where we mount each volume in 'volumes'
+	postgresSecret        *v1.SecretKeySelector // the reference to the postgres password
+	schedulingSpec        *pps.SchedulingSpec   // the SchedulingSpec for the pipeline
 	podSpec               string
 	podPatch              string
 
@@ -109,12 +110,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	}, {
 		Name: "POSTGRES_PASSWORD",
 		ValueFrom: &v1.EnvVarSource{
-			SecretKeyRef: &v1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: client.PostgresSecretName,
-				},
-				Key: "postgresql-password",
-			},
+			SecretKeyRef: options.postgresSecret,
 		},
 	}, {
 		Name:  "POSTGRES_DATABASE",
@@ -477,7 +473,7 @@ func hashAuthToken(token string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-func (pc *pipelineController) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+func (pc *pipelineController) getWorkerOptions(ctx context.Context, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
 	pipelineName := pipelineInfo.Pipeline.Name
 	pipelineVersion := pipelineInfo.Version
 	var resourceRequests *v1.ResourceList
@@ -631,6 +627,24 @@ func (pc *pipelineController) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (
 		s3GatewayPort = int32(pc.env.Config.S3GatewayPort)
 	}
 
+	// Get the reference to the postgres secret used by the current pod
+	podName := pc.env.Config.PachdPodName
+	selfPodInfo, err := pc.env.KubeClient.CoreV1().Pods(pc.namespace).Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	var postgresSecretRef *v1.SecretKeySelector
+	for _, container := range selfPodInfo.Spec.Containers {
+		for _, envVar := range container.Env {
+			if envVar.Name == "POSTGRES_PASSWORD" && envVar.ValueFrom != nil && envVar.ValueFrom.SecretKeyRef != nil {
+				postgresSecretRef = envVar.ValueFrom.SecretKeyRef
+			}
+		}
+	}
+	if postgresSecretRef == nil {
+		return nil, errors.New("could not load the existing postgres secret reference from kubernetes")
+	}
+
 	// Generate options for new RC
 	return &workerOptions{
 		rcName:                rcName,
@@ -646,6 +660,7 @@ func (pc *pipelineController) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (
 		workerEnv:             workerEnv,
 		volumes:               volumes,
 		volumeMounts:          volumeMounts,
+		postgresSecret:        postgresSecretRef,
 		imagePullSecrets:      imagePullSecrets,
 		service:               service,
 		schedulingSpec:        pipelineInfo.Details.SchedulingSpec,
@@ -721,7 +736,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 		}
 	}
 
-	options, err := pc.getWorkerOptions(pipelineInfo)
+	options, err := pc.getWorkerOptions(ctx, pipelineInfo)
 	if err != nil {
 		return noValidOptionsErr{err}
 	}
