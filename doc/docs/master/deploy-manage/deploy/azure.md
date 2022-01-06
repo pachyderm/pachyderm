@@ -468,7 +468,6 @@ If you're not exposing `pachd` publicly, you can run:
 # Background this process because it blocks.
 $ pachctl port-forward
 ``` 
-
 ## 8. Check That Your Cluster Is Up And Running
 
 !!! Attention
