@@ -70,7 +70,6 @@ const client = ({
   let ppsService: ReturnType<typeof pps> | undefined;
   let authService: ReturnType<typeof auth> | undefined;
   let projectsService: ReturnType<typeof projects> | undefined;
-  let modifyFile: ModifyFile | undefined;
 
   // NOTE: These service clients are singletons, as we
   // don't want to create a new instance of APIClient for
@@ -129,16 +128,12 @@ const client = ({
       return projectsService;
     },
     modifyFile: () => {
-      if (modifyFile) return modifyFile;
-
-      modifyFile = new ModifyFile({
+      return new ModifyFile({
         pachdAddress,
         channelCredentials,
         credentialMetadata,
         plugins,
       });
-
-      return modifyFile;
     },
     attachCredentials: ({
       authToken = '',
