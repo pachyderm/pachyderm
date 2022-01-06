@@ -59,6 +59,9 @@
                 "config": {
                     "type": "object",
                     "properties": {
+                        "disableTelemetry": {
+                            "type": "boolean"
+                        },
                         "graphqlPort": {
                             "type": "integer"
                         },
@@ -79,9 +82,6 @@
                         },
                         "reactAppRuntimeIssuerURI": {
                             "type": "string"
-                        },
-                        "disableTelemetry": {
-                            "type": "boolean"
                         }
                     }
                 },
@@ -274,6 +274,9 @@
                 "imagePullSecrets": {
                     "type": "array"
                 },
+                "noProxy": {
+                    "type": "string"
+                },
                 "postgresql": {
                     "type": "object",
                     "properties": {
@@ -302,6 +305,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "proxy": {
+                    "type": "string"
                 }
             }
         },
