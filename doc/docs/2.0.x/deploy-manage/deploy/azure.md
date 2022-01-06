@@ -38,6 +38,7 @@ latest available version of the components listed below.
 
 ## 2. Deploy Kubernetes
 
+
 You can deploy Kubernetes on Azure by following the official [Azure Kubernetes Service documentation](https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-deploy-cluster?tabs=azure-cli){target=_blank}, [use the quickstart walkthrough](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough){target=_blank}, or follow the steps in this section.
 
 !!! Attention 
@@ -196,7 +197,6 @@ To create a new storage account, follow the steps below:
               --account-name ${STORAGE_ACCOUNT} \
               --account-key "${STORAGE_KEY}"
     ```
-
 ## 4. Persistent Volumes Creation
 
 etcd and PostgreSQL (metadata storage) each claim the creation of a pv. 
@@ -383,6 +383,7 @@ make sure that you are using the right Kubernetes context first.
       # database server to connect to in global.postgresql
       enabled: false
     ```
+
     Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 ### Deploy Pachyderm On The Kubernetes Cluster
@@ -433,7 +434,6 @@ make sure that you are using the right Kubernetes context first.
     restarting. You can safely ignore those restarts.
 
 - Finally, make sure that [`pachctl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate).
-
 ## 7. Have 'pachctl' And Your Cluster Communicate
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
