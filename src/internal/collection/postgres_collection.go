@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	defaultListBufferCapacity = 10
+	defaultListBufferCapacity = 1000
 )
 
 type postgresCollection struct {
