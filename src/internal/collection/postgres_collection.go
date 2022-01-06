@@ -224,11 +224,11 @@ func (c *postgresCollection) withKey(key interface{}, query func(string) error) 
 	return nil
 }
 
-func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message, opts *Options, greedy bool, f func(string) error) error {
+func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
-	return c.list(ctx, map[string]string{indexFieldName(index): indexVal}, opts, greedy, q, func(m *model) error {
+	return c.list(ctx, map[string]string{indexFieldName(index): indexVal}, opts, q, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -239,16 +239,18 @@ func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, 
 // NOTE: Internally, GetByIndex scans the collection over multiple transactions,
 // making this method susceptible to inconsistent reads
 func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
-	return c.getByIndex(c.ctx, c.db, index, indexVal, val, opts, false, f)
+	return c.getByIndex(c.ctx, c.db, index, indexVal, val, opts, f)
 }
 
+// NOTE: Internally, GetByIndex scans the collection using multiple queries,
+// making this method susceptible to inconsistent reads
 func (c *postgresReadWriteCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
-	return c.getByIndex(context.Background(), c.tx, index, indexVal, val, opts, true, f)
+	return c.getByIndex(context.Background(), c.tx, index, indexVal, val, opts, f)
 }
 
 func (c *postgresCollection) getUniqueByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message) error {
 	found := false
-	if err := c.getByIndex(ctx, q, index, indexVal, val, DefaultOptions(), false, func(string) error {
+	if err := c.getByIndex(ctx, q, index, indexVal, val, DefaultOptions(), func(string) error {
 		if found {
 			return ErrNotUnique{Type: c.table, Index: index.Name, Value: indexVal}
 		}
@@ -386,50 +388,9 @@ func (c *postgresCollection) list(
 	ctx context.Context,
 	withFields map[string]string,
 	opts *Options,
-	greedy bool,
 	q sqlx.ExtContext,
 	f func(*model) error,
 ) error {
-	// greedy=true indicates that this may be run in a transaction, so we have to
-	// read the entire result set before returning control back to the user, or
-	// they could run a nested query which will break the pq parser.
-	if greedy {
-		query, args, err := c.listQueryStr(ctx, withFields, opts, nil)
-		if err != nil {
-			return err
-		}
-		rows, err := q.QueryxContext(ctx, query, args...)
-		if err != nil {
-			return c.mapSQLError(err, "")
-		}
-		defer rows.Close()
-
-		results := []*model{}
-		for rows.Next() {
-			result := &model{}
-			if err := rows.StructScan(result); err != nil {
-				return c.mapSQLError(err, "")
-			}
-			results = append(results, result)
-		}
-		if err := rows.Err(); err != nil {
-			return errors.EnsureStack(err)
-		}
-		if err := rows.Close(); err != nil {
-			return c.mapSQLError(err, "")
-		}
-
-		for _, result := range results {
-			if err := f(result); err != nil {
-				if errors.Is(err, errutil.ErrBreak) {
-					return nil
-				}
-				return err
-			}
-		}
-		return nil
-	}
-
 	// To avoid holding a transaction open (which holds a DB connection) for an unknown duration
 	// dictated by the client's callback, we:
 	// (1) buffer the SQL rows
@@ -489,7 +450,7 @@ func (c *postgresCollection) list(
 }
 
 func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Options, f func(*model) error) error {
-	return c.postgresCollection.list(c.ctx, withFields, opts, false, c.db, f)
+	return c.postgresCollection.list(c.ctx, withFields, opts, c.db, f)
 }
 
 // NOTE: Internally, List scans the collection over multiple transactions,
