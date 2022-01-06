@@ -57,7 +57,7 @@ At a minimum, you will need to specify the parameters below:
 You can choose to follow the guided steps in [Azure Service Portal's Kubernetes Services](https://portal.azure.com/){target=_blank} or use Azure CLI.
 
 
-1. [Log in](https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli) to Azure:
+1. [Log in](https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli){target=_blank} to Azure:
 
     ```shell
     az login
