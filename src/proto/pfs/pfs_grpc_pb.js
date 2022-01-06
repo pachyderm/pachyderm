@@ -76,6 +76,28 @@ function deserialize_pfs_v2_BranchInfo(buffer_arg) {
   return pfs_pfs_pb.BranchInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_CheckStorageRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.CheckStorageRequest)) {
+    throw new Error('Expected argument of type pfs_v2.CheckStorageRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_CheckStorageRequest(buffer_arg) {
+  return pfs_pfs_pb.CheckStorageRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_CheckStorageResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.CheckStorageResponse)) {
+    throw new Error('Expected argument of type pfs_v2.CheckStorageResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_CheckStorageResponse(buffer_arg) {
+  return pfs_pfs_pb.CheckStorageResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_ClearCommitRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.ClearCommitRequest)) {
     throw new Error('Expected argument of type pfs_v2.ClearCommitRequest');
@@ -915,6 +937,18 @@ composeFileSet: {
     requestDeserialize: deserialize_pfs_v2_ComposeFileSetRequest,
     responseSerialize: serialize_pfs_v2_CreateFileSetResponse,
     responseDeserialize: deserialize_pfs_v2_CreateFileSetResponse,
+  },
+  // CheckStorage runs integrity checks for the storage layer.
+checkStorage: {
+    path: '/pfs_v2.API/CheckStorage',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.CheckStorageRequest,
+    responseType: pfs_pfs_pb.CheckStorageResponse,
+    requestSerialize: serialize_pfs_v2_CheckStorageRequest,
+    requestDeserialize: deserialize_pfs_v2_CheckStorageRequest,
+    responseSerialize: serialize_pfs_v2_CheckStorageResponse,
+    responseDeserialize: deserialize_pfs_v2_CheckStorageResponse,
   },
   // RunLoadTest runs a load test.
 runLoadTest: {

@@ -48,6 +48,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     addFileSet: IAPIService_IAddFileSet;
     renewFileSet: IAPIService_IRenewFileSet;
     composeFileSet: IAPIService_IComposeFileSet;
+    checkStorage: IAPIService_ICheckStorage;
     runLoadTest: IAPIService_IRunLoadTest;
     runLoadTestDefault: IAPIService_IRunLoadTestDefault;
 }
@@ -358,6 +359,15 @@ interface IAPIService_IComposeFileSet extends grpc.MethodDefinition<pfs_pfs_pb.C
     responseSerialize: grpc.serialize<pfs_pfs_pb.CreateFileSetResponse>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CreateFileSetResponse>;
 }
+interface IAPIService_ICheckStorage extends grpc.MethodDefinition<pfs_pfs_pb.CheckStorageRequest, pfs_pfs_pb.CheckStorageResponse> {
+    path: "/pfs_v2.API/CheckStorage";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.CheckStorageRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.CheckStorageRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.CheckStorageResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.CheckStorageResponse>;
+}
 interface IAPIService_IRunLoadTest extends grpc.MethodDefinition<pfs_pfs_pb.RunLoadTestRequest, pfs_pfs_pb.RunLoadTestResponse> {
     path: "/pfs_v2.API/RunLoadTest";
     requestStream: false;
@@ -414,6 +424,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     addFileSet: grpc.handleUnaryCall<pfs_pfs_pb.AddFileSetRequest, google_protobuf_empty_pb.Empty>;
     renewFileSet: grpc.handleUnaryCall<pfs_pfs_pb.RenewFileSetRequest, google_protobuf_empty_pb.Empty>;
     composeFileSet: grpc.handleUnaryCall<pfs_pfs_pb.ComposeFileSetRequest, pfs_pfs_pb.CreateFileSetResponse>;
+    checkStorage: grpc.handleUnaryCall<pfs_pfs_pb.CheckStorageRequest, pfs_pfs_pb.CheckStorageResponse>;
     runLoadTest: grpc.handleUnaryCall<pfs_pfs_pb.RunLoadTestRequest, pfs_pfs_pb.RunLoadTestResponse>;
     runLoadTestDefault: grpc.handleUnaryCall<google_protobuf_empty_pb.Empty, pfs_pfs_pb.RunLoadTestResponse>;
 }
@@ -510,6 +521,9 @@ export interface IAPIClient {
     composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
     composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
     composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
+    checkStorage(request: pfs_pfs_pb.CheckStorageRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
+    checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
+    checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
     runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
@@ -611,6 +625,9 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
     public composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
     public composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
+    public checkStorage(request: pfs_pfs_pb.CheckStorageRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
+    public checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
+    public checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
     public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;

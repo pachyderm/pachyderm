@@ -74,6 +74,7 @@ export {
   IAPIService_IWalkFile,
   IAPIService_IDropCommitSet,
   IAPIService_IRunLoadTestDefault as PfsIAPIService_IRunLoadTestDefault,
+  IAPIService_ICheckStorage,
 } from './proto/pfs/pfs_grpc_pb';
 export {
   ActivateAuthRequest as PfsActivateAuthRequest,
@@ -132,6 +133,8 @@ export {
   BranchInfo,
   ModifyFileRequest,
   DropCommitSetRequest,
+  CheckStorageRequest,
+  CheckStorageResponse,
 } from './proto/pfs/pfs_pb';
 export {
   APIClient as PpsAPIClient,

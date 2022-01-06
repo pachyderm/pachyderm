@@ -1650,6 +1650,56 @@ export namespace RunLoadTestResponse {
     }
 }
 
+export class CheckStorageRequest extends jspb.Message { 
+    getReadChunkData(): boolean;
+    setReadChunkData(value: boolean): CheckStorageRequest;
+    getChunkBegin(): Uint8Array | string;
+    getChunkBegin_asU8(): Uint8Array;
+    getChunkBegin_asB64(): string;
+    setChunkBegin(value: Uint8Array | string): CheckStorageRequest;
+    getChunkEnd(): Uint8Array | string;
+    getChunkEnd_asU8(): Uint8Array;
+    getChunkEnd_asB64(): string;
+    setChunkEnd(value: Uint8Array | string): CheckStorageRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CheckStorageRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: CheckStorageRequest): CheckStorageRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CheckStorageRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CheckStorageRequest;
+    static deserializeBinaryFromReader(message: CheckStorageRequest, reader: jspb.BinaryReader): CheckStorageRequest;
+}
+
+export namespace CheckStorageRequest {
+    export type AsObject = {
+        readChunkData: boolean,
+        chunkBegin: Uint8Array | string,
+        chunkEnd: Uint8Array | string,
+    }
+}
+
+export class CheckStorageResponse extends jspb.Message { 
+    getChunkObjectCount(): number;
+    setChunkObjectCount(value: number): CheckStorageResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CheckStorageResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: CheckStorageResponse): CheckStorageResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CheckStorageResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CheckStorageResponse;
+    static deserializeBinaryFromReader(message: CheckStorageResponse, reader: jspb.BinaryReader): CheckStorageResponse;
+}
+
+export namespace CheckStorageResponse {
+    export type AsObject = {
+        chunkObjectCount: number,
+    }
+}
+
 export enum OriginKind {
     ORIGIN_KIND_UNKNOWN = 0,
     USER = 1,
