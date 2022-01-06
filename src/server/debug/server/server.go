@@ -584,6 +584,9 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 }
 
 func (s *debugServer) collectLogsLoki(tw *tar.Writer, pod, container string, prefix ...string) error {
+	if s.env.Config().LokiHost == "" {
+		return nil
+	}
 	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) error {
 		queryStr := `{pod="` + pod
 		if container != "" {
@@ -626,23 +629,25 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
 			return err
 		}
-		if err := s.forEachWorkerLoki(pipelineInfo, func(pod string) error {
-			workerPrefix := join(podPrefix, pod)
-			if len(prefix) > 0 {
-				workerPrefix = join(prefix[0], workerPrefix)
+		if s.env.Config().LokiHost != "" {
+			if err := s.forEachWorkerLoki(pipelineInfo, func(pod string) error {
+				workerPrefix := join(podPrefix, pod)
+				if len(prefix) > 0 {
+					workerPrefix = join(prefix[0], workerPrefix)
+				}
+				userPrefix := join(workerPrefix, client.PPSWorkerUserContainerName)
+				if err := s.collectLogsLoki(tw, pod, client.PPSWorkerUserContainerName, userPrefix); err != nil {
+					return err
+				}
+				sidecarPrefix := join(workerPrefix, client.PPSWorkerSidecarContainerName)
+				return s.collectLogsLoki(tw, pod, client.PPSWorkerSidecarContainerName, sidecarPrefix)
+			}); err != nil {
+				name := "loki"
+				if len(prefix) > 0 {
+					name = join(prefix[0], name)
+				}
+				return writeErrorFile(tw, err, name)
 			}
-			userPrefix := join(workerPrefix, client.PPSWorkerUserContainerName)
-			if err := s.collectLogsLoki(tw, pod, client.PPSWorkerUserContainerName, userPrefix); err != nil {
-				return err
-			}
-			sidecarPrefix := join(workerPrefix, client.PPSWorkerSidecarContainerName)
-			return s.collectLogsLoki(tw, pod, client.PPSWorkerSidecarContainerName, sidecarPrefix)
-		}); err != nil {
-			name := "loki"
-			if len(prefix) > 0 {
-				name = join(prefix[0], name)
-			}
-			return writeErrorFile(tw, err, name)
 		}
 		return nil
 	}
