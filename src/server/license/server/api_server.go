@@ -32,8 +32,8 @@ type apiServer struct {
 	license col.PostgresCollection
 }
 
-func (a *apiServer) LogReq(request interface{}) {
-	a.pachLogger.Log(request, nil, nil, 0)
+func (a *apiServer) LogReq(ctx context.Context, request interface{}) {
+	a.pachLogger.Log(ctx, request, nil, nil, 0)
 }
 
 // New returns an implementation of license.APIServer.
@@ -48,8 +48,8 @@ func New(env Env) (lc.APIServer, error) {
 
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp *lc.ActivateResponse, retErr error) {
-	a.LogReq(nil)
-	defer func(start time.Time) { a.pachLogger.Log(nil, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, nil)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, nil, resp, retErr, time.Since(start)) }(time.Now())
 
 	// Validate the activation code
 	expiration, err := license.Validate(req.ActivationCode)
@@ -95,8 +95,8 @@ func (a *apiServer) GetActivationCode(ctx context.Context, req *lc.GetActivation
 		return copyResp
 	}
 
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
 	return a.getLicenseRecord(ctx)
 }
@@ -167,8 +167,8 @@ func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (
 		copyReq.Secret = ""
 		return copyReq
 	}
-	a.LogReq(removeSecret(req))
-	defer func(start time.Time) { a.pachLogger.Log(removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, removeSecret(req))
+	defer func(start time.Time) { a.pachLogger.Log(ctx, removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
 
 	// Make sure we have an active license
 	if err := a.checkLicenseState(ctx); err != nil {
@@ -214,8 +214,8 @@ func stripSecretFromRequest(req *lc.HeartbeatRequest) *lc.HeartbeatRequest {
 
 func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (resp *lc.HeartbeatResponse, retErr error) {
 	redactedRequest := stripSecretFromRequest(req)
-	a.LogReq(redactedRequest)
-	defer func(start time.Time) { a.pachLogger.Log(redactedRequest, nil, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, redactedRequest)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, redactedRequest, nil, retErr, time.Since(start)) }(time.Now())
 
 	var count int
 	if err := a.env.DB.GetContext(ctx, &count, `SELECT COUNT(*) FROM license.clusters WHERE id=$1 and secret=$2`, req.Id, req.Secret); err != nil {
@@ -241,8 +241,8 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (resp *lc.DeleteAllResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	// TODO: attempt to synchronously deactivate enterprise licensing on every registered cluster
 
@@ -264,8 +264,8 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 }
 
 func (a *apiServer) ListClusters(ctx context.Context, req *lc.ListClustersRequest) (resp *lc.ListClustersResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	clusters := make([]*lc.ClusterStatus, 0)
 	err := a.env.DB.SelectContext(ctx, &clusters, "SELECT id, address, version, auth_enabled, last_heartbeat FROM license.clusters;")
@@ -279,8 +279,8 @@ func (a *apiServer) ListClusters(ctx context.Context, req *lc.ListClustersReques
 }
 
 func (a *apiServer) DeleteCluster(ctx context.Context, req *lc.DeleteClusterRequest) (resp *lc.DeleteClusterResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	// TODO: attempt to synchronously deactivate enterprise licensing on the specified cluster
 
@@ -292,8 +292,8 @@ func (a *apiServer) DeleteCluster(ctx context.Context, req *lc.DeleteClusterRequ
 }
 
 func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequest) (resp *lc.UpdateClusterResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if req.Address != "" {
 		if err := a.validateClusterConfig(ctx, req.Address); err != nil {
@@ -328,8 +328,8 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 }
 
 func (a *apiServer) ListUserClusters(ctx context.Context, req *lc.ListUserClustersRequest) (resp *lc.ListUserClustersResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 	clusters := make([]*lc.UserClusterInfo, 0)
 	if err := a.env.DB.SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id, user_address, is_enterprise_server FROM license.clusters WHERE is_enterprise_server = false`); err != nil {
 		return nil, err
