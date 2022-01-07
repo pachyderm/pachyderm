@@ -228,9 +228,9 @@ jobs:
             pulumi config set gcp:project <<parameters.gcp-project>>
             pulumi config set entActCode $ENT_ACT_CODE --secret
             pulumi config set sha $CIRCLE_SHA1
-            pulumi preview
+            # pulumi preview
             pulumi up --yes
-            pulumi destroy --yes
+            # pulumi destroy --yes
 
 workflows:
   circleci:
