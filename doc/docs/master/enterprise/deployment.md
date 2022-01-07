@@ -9,7 +9,7 @@ registering for the Enterprise Edition.
 
 !!! Information
       - If you are a new user evaluating Pachyderm,
-      you can request a [FREE evaluation code](https://www.pachyderm.com/trial).
+      you can request a [FREE evaluation code](https://www.pachyderm.com/trial/){target=_blank}.
       - If you are having trouble locating your activation code, contact [support@pachyderm.io](mailto:support@pachyderm.io).
 
 ## Activate The Enterprise Edition
@@ -24,6 +24,8 @@ Enabling Pachyderm's Enterprise Edition can be done in one of two flavors:
 
 !!! Attention 
       When enterprise is enabled [through Helm, auth is automatically activated](../auth/).
+       auth is automatically activated.
+      Set the helm value `pachd.activateAuth` to false to prevent the bootstrap of auth on the cluster. 
 
 ### Activate Pachyderm Enterprise Edition On An Existing Cluster
 

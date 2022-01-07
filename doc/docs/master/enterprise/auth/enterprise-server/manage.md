@@ -17,7 +17,7 @@ pachctl config get active-enterprise-context
 `pachctl auth` commands accept an `--enterprise` flag to run against the enterprise context.
 
 ## Configuring IDPs
-To configure IDP integrations, use `pachctl idp create-connector` as documented in. 
+To configure IDP integrations, use `pachctl idp create-connector` as documented in 
 the [**Pachyderm Integration with Identity Providers**](../../authentication/idp-dex) page.
 
 ## Manage your Enterprise Server

@@ -38,16 +38,19 @@ The deployment of Console in your favorite Cloud usually requires, at a minimum,
 
     - Set up your [Ingress](../ingress/#ingress) and DNS.
     - Set up your IDP during deployment.
-        To configure your Identity Provider as a part of `helm install`, see examples for the `oidc.upstreamIDPs` value in the [helm chart values specification](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L461) and read [our IDP Configuration page](../../../enterprise/auth/authentication/idp-dex) for a better understanding of each field. 
+        To configure your Identity Provider as a part of `helm install`, see examples for the `oidc.upstreamIDPs` value in the [helm chart values specification](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L461){target=_blank} and read [our IDP Configuration page](../../../enterprise/auth/authentication/idp-dex) for a better understanding of each field. 
     - Or manually update your values.yaml with `oidc.mockIDP = false` then [set up an Identity Provider by using `pachctl`](../../../enterprise/auth/authentication/idp-dex).
 
 !!! Warning
     - **When enterprise is enabled through Helm, auth is automatically activated** (i.e., you do not need to run `pachctl auth activate`) and a `pachyderm-bootstrap-config` k8s secret is created containing an entry for your [rootToken](../../../enterprise/auth/#activate-user-access-management). Use `{{"kubectl get secret pachyderm-bootstrap-config -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
+    
+        However, **this secret is only used when configuring through helm**:
 
-    However, **this secret is only used when configuring through helm**:
+        - If you run `pachctl auth activate`, the secret is not updated. Instead, the rootToken is printed in your STDOUT for you to save.
+        - Same behavior if you [activate enterprise manually](../../../enterprise/deployment/) (`pachctl license activate`) then [activate authentication](../../../enterprise/auth/) (`pachctl auth activate`).
 
-     - If you run `pachctl auth activate`, the secret is not updated. Instead, the rootToken is printed in your STDOUT for you to save.
-     - Same behavior if you [activate enterprise manually](../../../enterprise/deployment/) (`pachctl license activate`) then [activate authentication](../../../enterprise/auth/) (`pachctl auth activate`).
+
+    - **Set the helm value `pachd.activateAuth` to false to prevent the automatic bootstrap of auth on the cluster**.
 
 ## Connect to Console
 

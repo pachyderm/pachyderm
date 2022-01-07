@@ -47,7 +47,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
@@ -2201,11 +2200,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 			info.Details.WorkersAvailable = int64(len(workerStatus))
 			info.Details.WorkersRequested = int64(info.Parallelism)
 		}
-		tasks, claims, err := work.NewWorker(
-			a.env.EtcdClient,
-			a.etcdPrefix,
-			driver.WorkNamespace(info),
-		).TaskCount(ctx)
+		tasks, claims, err := a.env.TaskService.TaskCount(ctx, driver.TaskNamespace(info))
 		if err != nil {
 			return nil, err
 		}
@@ -2648,12 +2643,13 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			}); err != nil {
 				return err
 			}
-			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
-				Provenance: nil,
-			}); err != nil && !errutil.IsNotFoundError(err) {
-				// don't error if we're stopping a spout or service pipeline
-				return err
+			if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
+				if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+					Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+					Provenance: nil,
+				}); err != nil {
+					return err
+				}
 			}
 
 			newPipelineInfo := &pps.PipelineInfo{}

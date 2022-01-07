@@ -69,7 +69,7 @@ kubectl logs po/pachd-1333950811-0sm1p
 
 These logs will most likely reveal the issue directly, or at the very least, a good indicator as to what's causing the problem. For example, you might see, `BucketRegionError: incorrect region, the bucket is not in 'us-west-2' region`. In that case, your object store bucket in a different region than your pachyderm cluster and the fix would be to recreate the bucket in the same region as your pachydermm cluster.
 
-If the error / recourse isn't obvious from the error message, post the error as well as the `pachd` logs in our [Slack channel](http://slack.pachyderm.io), or open a [GitHub Issue](https://github.com/pachyderm/pachyderm/issues/new) and provide the necessary details prompted by the issue template. Please do be sure provide these logs either way as it is extremely helpful in resolving the issue.
+If the error / recourse isn't obvious from the error message, post the error as well as the `pachd` logs in our [Slack channel](https://www.pachyderm.com/slack/), or open a [GitHub Issue](https://github.com/pachyderm/pachyderm/issues/new) and provide the necessary details prompted by the issue template. Please do be sure provide these logs either way as it is extremely helpful in resolving the issue.
 
 ### Pod stuck in `CrashLoopBackoff` - with error attaching volume
 

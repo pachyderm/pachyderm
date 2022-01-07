@@ -1,6 +1,6 @@
 # Overview
 
-Pachyderm runs on [Kubernetes](http://kubernetes.io/) and
+Pachyderm runs on [Kubernetes](https://kubernetes.io/) and
 is backed by an object store of your choice. This section covers common
 deployment options and related topics:
 

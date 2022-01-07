@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 )
 
@@ -43,7 +44,7 @@ type apiServer struct {
 	enterpriseTokenCol col.EtcdCollection
 
 	// configCol is a collection containing the license server configuration
-	configCol col.EtcdCollection
+	configCol col.PostgresCollection
 }
 
 func (a *apiServer) LogReq(request interface{}) {
@@ -67,7 +68,7 @@ func NewEnterpriseServer(env Env, heartbeat bool) (ec.APIServer, error) {
 		env:                  env,
 		enterpriseTokenCache: keycache.NewCache(env.BackgroundContext, enterpriseTokenCol.ReadOnly(env.BackgroundContext), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
-		configCol:            col.NewEtcdCollection(env.EtcdClient, env.EtcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
+		configCol:            EnterpriseConfigCollection(env.DB, env.Listener),
 	}
 	go s.enterpriseTokenCache.Watch()
 
@@ -200,15 +201,20 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	record := &ec.EnterpriseRecord{License: heartbeatResp.License}
 
 	// If the test heartbeat succeeded, write the state and config to etcd
-	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
-		if err := a.configCol.ReadWrite(stm).Put(configKey, &ec.EnterpriseConfig{
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+		if err := a.configCol.ReadWrite(txCtx.SqlTx).Put(configKey, &ec.EnterpriseConfig{
 			LicenseServer: req.LicenseServer,
 			Id:            req.Id,
 			Secret:        req.Secret,
 		}); err != nil {
 			return err
 		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 
+	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		return a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record)
 	}); err != nil {
 		return nil, err
@@ -322,7 +328,13 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 		if err != nil && !col.IsErrNotFound(err) {
 			return err
 		}
-		err = a.configCol.ReadWrite(stm).Delete(enterpriseTokenKey)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+		err := a.configCol.ReadWrite(txCtx.SqlTx).Delete(configKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return err
 		}

@@ -2,7 +2,7 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{ if and (or (.Values.pachd.enterpriseLicenseKey) (.Values.pachd.activateEnterpriseMember)) ( or (.Release.IsInstall) (.Values.pachd.activateEnterprise)) }}
+{{ if or (.Values.pachd.activateEnterprise) (and .Release.IsInstall (or .Values.pachd.enterpriseLicenseKey .Values.pachd.activateEnterpriseMember)) }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -16,10 +16,14 @@ metadata:
     suite: pachyderm
 spec:
   template:
+    {{- if .Values.pachd.configJob.annotations }}
+    metadata:
+      annotations: {{ toYaml .Values.pachd.configJob.annotations | nindent 8 }}
+    {{- end }}
     spec:
       containers:
       - name: config-pod
-        image: pachyderm/config-pod:0.4
+        image: pachyderm/config-pod:0.5
         command: [ "/config-pod" ]
         volumeMounts:
         - name: config
@@ -29,13 +33,60 @@ spec:
         - name: CONSOLE_OAUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: pachyderm-console-secret
+              name: {{ .Values.console.config.oauthClientSecretSecretName | default "pachyderm-console-secret" }}
               key: OAUTH_CLIENT_SECRET
         {{- end}}
         {{- if .Values.enterpriseServer.enabled }}
+        {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
         - name: PACH_ADDR
           value: "grpc://pach-enterprise:1650"
+        {{- else }}
+        - name: PACH_ADDR
+          value: "grpc://pach-enterprise:30650"        
         {{- end }}
+        {{- end }}
+        {{- if .Values.pachd.rootTokenSecretName }}    
+        - name: ROOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.rootTokenSecretName }}
+              key: root-token
+        {{- end }}
+        {{- if .Values.pachd.enterpriseRootTokenSecretName }}
+        - name: ENTERPRISE_ROOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseRootTokenSecretName }}
+              key: enterprise-root-token
+        {{- end }}
+        {{- if .Values.pachd.enterpriseSecretSecretName }}
+        - name: ENTERPRISE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseSecretSecretName }}
+              key: enterprise-secret
+        {{- end }}
+        {{- if .Values.pachd.oauthClientSecretSecretName }}
+        - name: PACHD_OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.oauthClientSecretSecretName }}
+              key: pachd-oauth-client-secret
+        {{- end }}
+        {{- if .Values.pachd.enterpriseLicenseKeySecretName }}
+        - name: ENTERPRISE_LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseLicenseKeySecretName }}
+              key: enterprise-license-key
+        {{- end }}   
+        {{- if .Values.oidc.upstreamIDPsSecretName }}
+        - name: UPSTREAM_IDPS
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.oidc.upstreamIDPsSecretName }}
+              key: upstream-idps
+        {{- end }}        
         envFrom:
         - secretRef:
             name: pachyderm-deployment-id-secret

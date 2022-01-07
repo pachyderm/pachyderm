@@ -187,7 +187,7 @@ They have, however, contributed to the creation of the previous `AUTO` commits.
 To make sure that we have a complete view of all the data and pipeline versions involved in all the commits resulting from the initial 
 `put file`, their version is kept as `ALIAS` commits under the same global ID.
 
-For a full view of GlobalID in action, take a look at our [GlobalID illustration](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID).
+For a full view of GlobalID in action, take a look at our [GlobalID illustration](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID){target=_blank}.
 
 ## Track Provenance Downstream
 
@@ -198,14 +198,10 @@ Unlike the `list commit <commitID>`, each line is printed as soon as a new (sub)
 
 Change `commit` in `job` to list the jobs related to your global job as they finish processing a commit.
 
-## Squash A Global Commit
+## Squash And Delete Commit
 
-`pachctl squash commit <commitID>`
-**combines all the file changes in the commits of a global commit
-into their children** and then removes the global commit.
-This behavior is inspired by the squash option in git rebase.
-No data stored in PFS is removed since they remain in the child commits.
+See [`squash commit`](../../../how-tos/basic-data-operations/removing_data_from_pachyderm/#squash-non-head-commits) and  [`delete commit`](../../../how-tos/basic-data-operations/removing_data_from_pachyderm/#delete-the-head-of-a-branch) in the `Delete a Commit / Delete Data` page of the How-Tos section of this Documentation.
 
-!!! Warning "Important"
-    Squashing a global commit on the head of a branch (no children) will fail.
+
+
 

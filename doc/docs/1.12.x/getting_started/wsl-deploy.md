@@ -29,7 +29,7 @@ WSL because it was tested and verified by our team.
 with Pachyderm. It requires a UNIX environment to run correctly. Therefore,
 you need a WSL to run `pachctl` commands. We recommend that you install an
 Ubuntu WSL. To install WSL, follow the steps in the
-[Microsoft documentation](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
+[Microsoft documentation](https://docs.microsoft.com/en-us/windows/wsl/install).
 
 ## Enable Hyper-V
 
@@ -61,7 +61,7 @@ you prefer another installation method, it should work too.
 
 To install Minikube, complete the following steps:
 
-1. Install Chocolatey as described in the [Chocolatey documentation](https://chocolatey.org/docs/installation).
+1. Install Chocolatey as described in the [Chocolatey documentation](https://docs.chocolatey.org/en-us/choco/setup).
 1. Install Minikube:
 
    ```shell
@@ -77,7 +77,7 @@ machine to the `~/.kube` directory in your Ubuntu WSL machine.
 To install and configure `kubectl`
 
 1. Install `kubectl` on WSL as described in the
-[Kubernetes documentation](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
+[Kubernetes documentation](https://kubernetes.io/docs/tasks/tools/).
 1. Create a `~/.kube` directory.
 1. Copy the Minikube config file from the Windows host system to the Ubuntu
 WSL `/.kube/` directory:

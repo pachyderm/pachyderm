@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/sirupsen/logrus"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 // Env contains all the objects that can be manipulated during a migration.
@@ -18,14 +19,16 @@ type Env struct {
 	// TODO: etcd
 	ObjectClient obj.Client
 	Tx           *pachsql.Tx
+	EtcdClient   *clientv3.Client
 }
 
 // MakeEnv returns a new Env
 // The only advantage to this contructor is you can be sure all the fields are set.
 // You can also create an Env using a struct literal.
-func MakeEnv(objC obj.Client) Env {
+func MakeEnv(objC obj.Client, etcdC *clientv3.Client) Env {
 	return Env{
 		ObjectClient: objC,
+		EtcdClient:   etcdC,
 	}
 }
 

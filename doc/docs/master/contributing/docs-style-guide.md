@@ -5,7 +5,7 @@ that describes Pachyderm concepts and operations. This style guide is
 based on Google Developer Documentation Style Guide and serves as a quick
 reference for everyone who wants to contribute to the Pachyderm documentation.
 For a more detailed overview, see the [Google Developer Documentation
-Style Guide](https://developers.google.com/style/).
+Style Guide](https://developers.google.com/style/){target=_blank}.
 
 ## Overview
 
@@ -127,7 +127,7 @@ introduce a link.
 ## Markdown
 
 The Pachyderm documentation uses Python Markdown, and many [PyMdown
-Extensions](https://facelessuser.github.io/pymdown-extensions/) are supported.
+Extensions](https://facelessuser.github.io/pymdown-extensions/){target=_blank} are supported.
 See the `mkdocs.yaml` file for the list of supported
 extensions.
 

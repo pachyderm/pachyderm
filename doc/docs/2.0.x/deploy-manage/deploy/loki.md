@@ -12,7 +12,7 @@ sends logs from Kubernetes pods to the Loki API Server,
 tagging each log entry with information
 about the pod that produced it. 
 
-You need to [configure Promtail](https://grafana.com/docs/loki/latest/clients/promtail/configuration/) for your environment
+You need to [configure Promtail](https://grafana.com/docs/loki/latest/clients/promtail/configuration/){target=_blank} for your environment
 to ship logs to your Loki instance. 
 If you are running **multiple nodes**, 
 then you will need to install and configure Promtail
