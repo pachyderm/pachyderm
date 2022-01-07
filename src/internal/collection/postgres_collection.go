@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	defaultListBufferCapacity = 1000
+	defaultListBufferCapacity = 10
 )
 
 type postgresCollection struct {
@@ -311,11 +311,11 @@ func sortOrderOperator(order SortOrder) string {
 	if order == SortDescend {
 		return "<"
 	}
-	// SortAcend + SortNone
+	// SortAscend + SortNone
 	return ">"
 }
 
-func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[string]string, opts *Options, last *model) (string, []interface{}, error) {
+func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[string]string, opts *Options, last *model, offset int) (string, []interface{}, error) {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
 	var args []interface{}
@@ -378,8 +378,10 @@ func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[st
 		}
 	}
 
-	if opts.Limit > 0 {
-		query += fmt.Sprintf(" limit %d", opts.Limit)
+	if batchLimit := opts.Limit - offset; opts.Limit > 0 && batchLimit < c.listBufferCapacity {
+		query += fmt.Sprintf(" limit %d", batchLimit)
+	} else {
+		query += fmt.Sprintf(" limit %d", c.listBufferCapacity)
 	}
 	return query, args, nil
 }
@@ -393,12 +395,11 @@ func (c *postgresCollection) list(
 ) error {
 	// To avoid holding a transaction open (which holds a DB connection) for an unknown duration
 	// dictated by the client's callback, we:
-	// (1) buffer the SQL rows
-	// (2) close the connection
-	// (3) apply f(), the client's callback, to results in the buffer
-	// (4) if the buffer was full, re-execute the query, offset by key, and repeat (1)
-	bufferResults := func(last *model) ([]*model, bool, error) {
-		query, args, err := c.listQueryStr(ctx, withFields, opts, last)
+	// (1) query a limited count of SQL rows into a buffer
+	// (2) apply f(), the client's callback, to results in the buffer
+	// (3) if the buffer was full, re-execute the query, offset by key, and repeat (1)
+	bufferResults := func(last *model, offset int) ([]*model, bool, error) {
+		query, args, err := c.listQueryStr(ctx, withFields, opts, last, offset)
 		if err != nil {
 			return nil, false, err
 		}
@@ -428,8 +429,9 @@ func (c *postgresCollection) list(
 	}
 
 	var last *model
+	var offset int
 	for {
-		rowsBuffer, fullBuffer, err := bufferResults(last)
+		rowsBuffer, fullBuffer, err := bufferResults(last, offset)
 		if err != nil {
 			return err
 		}
@@ -441,6 +443,7 @@ func (c *postgresCollection) list(
 				return err
 			}
 			last = v
+			offset++
 		}
 		if !fullBuffer {
 			break
