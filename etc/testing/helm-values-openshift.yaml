@@ -1,0 +1,23 @@
+pachd:
+  securityContext:
+    enabled: false
+  storage:
+    minio:
+      endpoint: "minio.default.svc.cluster.local:9000"
+
+etcd:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512M
+
+postgresql:
+  enabled: true
+  service:
+    type: NodePort
+  securityContext:
+    enabled: false
+  containerSecurityContext:
+    enabled: false
+  persistence:
+    enabled: false

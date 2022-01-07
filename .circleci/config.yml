@@ -3,6 +3,7 @@ version: 2.1
 
 orbs:
   go: circleci/go@1.6.0
+  redhat-openshift: circleci/redhat-openshift@0.2.0
 
 parameters:
   run_flaky_tests:
@@ -179,6 +180,26 @@ jobs:
             echo "$CIRCLE_PULL_REQUEST must be set to run upgrade test. For now, this fails on the first CI run of a PR - please re-run this failed job."
             exit 1;
           fi;
+  openshift:
+    executor: redhat-openshift/machine-for-local-cluster
+    steps:
+      - checkout
+      - run: ./etc/testing/circle/build-openshift.sh
+      - redhat-openshift/create-local-cluster-with-oc:
+          skip-registry-check: true
+      - redhat-openshift/login-and-update-kubeconfig:
+          insecure-skip-tls-verify: true
+          openshift-platform-version: 3.x
+          password: password
+          server-address: 'https://127.0.0.1:8443'
+          username: dev1
+      - run:
+          command: >
+            oc new-project pach-test
+          name: Create OS Project
+      - run: kubectl config set-context $(kubectl config current-context) --namespace=pach-test
+      - run: ./etc/testing/circle/push-openshift.sh
+      - run: ./etc/testing/circle/launch-openshift.sh
 
 workflows:
   circleci:
@@ -246,3 +267,6 @@ workflows:
   upgrade:
     jobs:
     - upgrade
+  openshift:
+    jobs:
+    - openshift
