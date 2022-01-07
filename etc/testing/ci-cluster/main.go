@@ -4,11 +4,8 @@ import (
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/compute"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/container"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/projects"
-	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/storage"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
-	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
 	helm "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
-	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
@@ -59,6 +56,7 @@ func main() {
 		if err != nil {
 			return err
 		}
+		ctx.Export("ingressIP", ingressIP.Address)
 
 		_, err = helm.NewRelease(ctx, "traefik", &helm.ReleaseArgs{
 			RepositoryOpts: helm.RepositoryOptsArgs{
@@ -115,95 +113,6 @@ func main() {
 				Repo: pulumi.String("https://helm.mittwald.de"),
 			},
 			Chart: pulumi.String("kubernetes-replicator"),
-		}, pulumi.Provider(k8sProvider))
-
-		if err != nil {
-			return err
-		}
-
-		bucket, err := storage.NewBucket(ctx, "my-fine-cluster-bucket", &storage.BucketArgs{
-			Name:     pulumi.String("myfinecluster"),
-			Location: pulumi.String("US"), // FIXME: make configurable
-			Labels: pulumi.StringMap{
-				"workspace": pulumi.String("myfinecluster"),
-			},
-		})
-		if err != nil {
-			return err
-		}
-
-		//TODO Create Service account for each pach install and assign to bucket
-		defaultSA := compute.GetDefaultServiceAccountOutput(ctx, compute.GetDefaultServiceAccountOutputArgs{}, nil)
-		if err != nil {
-			return err
-		}
-
-		_, err = storage.NewBucketIAMMember(ctx, "bucket-role", &storage.BucketIAMMemberArgs{
-			Bucket: bucket.Name,
-			Role:   pulumi.String("roles/storage.admin"),
-			Member: defaultSA.Email().ApplyT(func(s string) string { return "serviceAccount:" + s }).(pulumi.StringOutput),
-		})
-		if err != nil {
-			return err
-		}
-		//Install Cert Secret
-		//Setup DNS
-
-		namespace, err := corev1.NewNamespace(ctx, "app-ns", &corev1.NamespaceArgs{
-			Metadata: &metav1.ObjectMetaArgs{
-				Name: pulumi.String("demo-ns"),
-				Labels: pulumi.StringMap{
-					"needs-ci-tls": pulumi.String("true"), //Uses kubernetes replicator to replicate TLS secret to new NS
-				},
-			},
-		}, pulumi.Provider(k8sProvider))
-
-		if err != nil {
-			return err
-		}
-
-		_, err = helm.NewRelease(ctx, "pach-1234", &helm.ReleaseArgs{
-			Namespace: namespace.Metadata.Elem().Name(),
-			RepositoryOpts: helm.RepositoryOptsArgs{
-				Repo: pulumi.String("https://helm.pachyderm.com"),
-			},
-			Chart: pulumi.String("pachyderm"),
-			Values: pulumi.Map{
-				"deployTarget": pulumi.String("GOOGLE"),
-				"console": pulumi.Map{
-					"enabled": pulumi.Bool(true),
-				},
-				"ingress": pulumi.Map{
-					"annotations": pulumi.Map{
-						"kubernetes.io/ingress.class":              pulumi.String("traefik"),
-						"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
-					},
-					"enabled": pulumi.Bool(true),
-					"host":    pulumi.String("myfinecluster.clusters-ci.pachyderm.io"), // Dynamic Value
-					"tls": pulumi.Map{
-						"enabled":    pulumi.Bool(true),
-						"secretName": pulumi.String("wildcard-tls"), // Dynamic Value
-					},
-				},
-				"pachd": pulumi.Map{
-					"externalService": pulumi.Map{
-						"enabled":        pulumi.Bool(true),
-						"loadBalancerIP": ingressIP.Address, //Dynamic Value
-						"apiGRPCPort":    pulumi.Int(30650), //Dynamic Value
-						"s3GatewayPort":  pulumi.Int(30600), //Dynamic Value
-					},
-					"enterpriseLicenseKey": pulumi.String(""), //TODO
-					"storage": pulumi.Map{
-						"google": pulumi.Map{
-							"bucket": bucket.Name, //Dynamic Value
-						},
-						"tls": pulumi.Map{
-							"enabled":    pulumi.Bool(true),
-							"secretName": pulumi.String("wildcard-tls"),
-						},
-					},
-				},
-			},
 		}, pulumi.Provider(k8sProvider))
 
 		if err != nil {
