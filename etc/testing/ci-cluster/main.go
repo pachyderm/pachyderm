@@ -6,7 +6,9 @@ import (
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/projects"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/storage"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
+	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
 	helm "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
+	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
@@ -58,7 +60,6 @@ func main() {
 			return err
 		}
 
-		//TODO Static IP for Load Balancer
 		_, err = helm.NewRelease(ctx, "traefik", &helm.ReleaseArgs{
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.traefik.io/traefik"),
@@ -87,6 +88,24 @@ func main() {
 			},
 		}, pulumi.Provider(k8sProvider))
 
+		//TODO Create Cluster Issuer with DNS Validation
+
+		// TODO Create Certificate Resource for wildcard
+		/*
+			apiVersion: cert-manager.io/v1
+			kind: Certificate
+			metadata:
+			  name: ci-cluster-wildcafd
+			spec:
+			  secretName: example-com-tls
+			  secretTemplate:
+			    annotations:
+			      replicator.v1.mittwald.de/replicate-to-matching: needs-ci-tls=true
+			  issuerRef:
+			    name: ca-issuer # Reference above issuer
+			    kind: Issuer #Cluster issuer
+		*/
+
 		if err != nil {
 			return err
 		}
@@ -102,7 +121,6 @@ func main() {
 			return err
 		}
 
-		//TODO Create bucket and give default service account access
 		bucket, err := storage.NewBucket(ctx, "my-fine-cluster-bucket", &storage.BucketArgs{
 			Name:     pulumi.String("myfinecluster"),
 			Location: pulumi.String("US"), // FIXME: make configurable
@@ -114,6 +132,7 @@ func main() {
 			return err
 		}
 
+		//TODO Create Service account for each pach install and assign to bucket
 		defaultSA := compute.GetDefaultServiceAccountOutput(ctx, compute.GetDefaultServiceAccountOutputArgs{}, nil)
 		if err != nil {
 			return err
@@ -122,15 +141,29 @@ func main() {
 		_, err = storage.NewBucketIAMMember(ctx, "bucket-role", &storage.BucketIAMMemberArgs{
 			Bucket: bucket.Name,
 			Role:   pulumi.String("roles/storage.admin"),
-			Member: defaultSA.Email().ApplyT(func(s string) string { return "serviceAccount:" + s }).(pulumi.StringOutput), //Might need "serviceaccount:" prefix
+			Member: defaultSA.Email().ApplyT(func(s string) string { return "serviceAccount:" + s }).(pulumi.StringOutput),
 		})
 		if err != nil {
 			return err
 		}
-		//Install Cert
+		//Install Cert Secret
 		//Setup DNS
 
+		namespace, err := corev1.NewNamespace(ctx, "app-ns", &corev1.NamespaceArgs{
+			Metadata: &metav1.ObjectMetaArgs{
+				Name: pulumi.String("demo-ns"),
+				Labels: pulumi.StringMap{
+					"needs-ci-tls": pulumi.String("true"), //Uses kubernetes replicator to replicate TLS secret to new NS
+				},
+			},
+		}, pulumi.Provider(k8sProvider))
+
+		if err != nil {
+			return err
+		}
+
 		_, err = helm.NewRelease(ctx, "pach-1234", &helm.ReleaseArgs{
+			Namespace: namespace.Metadata.Elem().Name(),
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.pachyderm.com"),
 			},
@@ -154,15 +187,19 @@ func main() {
 				},
 				"pachd": pulumi.Map{
 					"externalService": pulumi.Map{
-						"enabled": pulumi.Bool(true),
-						//"loadBalancerIP": pulumi.String("34.138.68.211"), //Dynamic Value
-						"apiGRPCPort":   pulumi.Int(30650), //Dynamic Value
-						"s3GatewayPort": pulumi.Int(30600), //Dynamic Value
+						"enabled":        pulumi.Bool(true),
+						"loadBalancerIP": ingressIP.Address, //Dynamic Value
+						"apiGRPCPort":    pulumi.Int(30650), //Dynamic Value
+						"s3GatewayPort":  pulumi.Int(30600), //Dynamic Value
 					},
 					"enterpriseLicenseKey": pulumi.String(""), //TODO
 					"storage": pulumi.Map{
 						"google": pulumi.Map{
 							"bucket": bucket.Name, //Dynamic Value
+						},
+						"tls": pulumi.Map{
+							"enabled":    pulumi.Bool(true),
+							"secretName": pulumi.String("wildcard-tls"),
 						},
 					},
 				},
@@ -175,6 +212,7 @@ func main() {
 
 		return nil
 	})
+
 }
 
 func generateKubeconfig(clusterEndpoint pulumi.StringOutput, clusterName pulumi.StringOutput,
