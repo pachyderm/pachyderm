@@ -20,16 +20,16 @@ func main() {
 			return err
 		}
 
-		engineVersions, err := container.GetEngineVersions(ctx, &container.GetEngineVersionsArgs{})
+		/*engineVersions, err := container.GetEngineVersions(ctx, &container.GetEngineVersionsArgs{}, pulumi.DependsOn([]pulumi.Resource{containerService}))
 		if err != nil {
 			return err
 		}
-		masterVersion := engineVersions.LatestMasterVersion
+		masterVersion := engineVersions.LatestMasterVersion*/
 
 		cluster, err := container.NewCluster(ctx, "ci-cluster", &container.ClusterArgs{
 			InitialNodeCount: pulumi.Int(2),
-			MinMasterVersion: pulumi.String(masterVersion),
-			NodeVersion:      pulumi.String(masterVersion),
+			MinMasterVersion: pulumi.String("1.21.5-gke.1302"),
+			NodeVersion:      pulumi.String("1.21.5-gke.1302"),
 			NodeConfig: &container.ClusterNodeConfigArgs{
 				MachineType: pulumi.String("n1-standard-1"),
 				OauthScopes: pulumi.StringArray{
@@ -53,12 +53,24 @@ func main() {
 			return err
 		}
 
+		ingressIP, err := compute.NewAddress(ctx, "ingress-ip", nil)
+		if err != nil {
+			return err
+		}
+
 		//TODO Static IP for Load Balancer
 		_, err = helm.NewRelease(ctx, "traefik", &helm.ReleaseArgs{
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.traefik.io/traefik"),
 			},
 			Chart: pulumi.String("traefik"),
+			Values: pulumi.Map{
+				"service": pulumi.Map{
+					"spec": pulumi.Map{
+						"loadBalancerIP": ingressIP.Address,
+					},
+				},
+			},
 		}, pulumi.Provider(k8sProvider))
 
 		if err != nil {
@@ -115,6 +127,8 @@ func main() {
 		if err != nil {
 			return err
 		}
+		//Install Cert
+		//Setup DNS
 
 		_, err = helm.NewRelease(ctx, "pach-1234", &helm.ReleaseArgs{
 			RepositoryOpts: helm.RepositoryOptsArgs{
