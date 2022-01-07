@@ -28,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv/senvutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -443,7 +442,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	if err := logGRPCServerSetup("PPS API", func() error {
 		ppsAPIServer, err := pps_server.NewSidecarAPIServer(
-			senvutil.PPSEnv(env, txnEnv, nil),
+			pps_server.EnvFromServiceEnv(env, txnEnv, nil),
 			path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
 			env.Config().Namespace,
 			env.Config().PPSWorkerPort,
@@ -633,8 +632,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("PPS API", func() error {
 			ppsAPIServer, err := pps_server.NewAPIServer(
-				senvutil.PPSEnv(env, txnEnv, reporter),
-				pps_server.Config{},
+				pps_server.EnvFromServiceEnv(env, txnEnv, reporter),
 			)
 			if err != nil {
 				return err
@@ -756,8 +754,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("PPS API", func() error {
 			ppsAPIServer, err := pps_server.NewAPIServer(
-				senvutil.PPSEnv(env, txnEnv, reporter),
-				pps_server.Config{},
+				pps_server.EnvFromServiceEnv(env, txnEnv, reporter),
 			)
 			if err != nil {
 				return err

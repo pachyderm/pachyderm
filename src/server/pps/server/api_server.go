@@ -85,7 +85,6 @@ type apiServer struct {
 	log.Logger
 	etcdPrefix            string
 	env                   Env
-	config                Config
 	txnEnv                *txnenv.TransactionEnv
 	namespace             string
 	workerImage           string
@@ -1136,7 +1135,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
-	if a.config.LokiLogging || request.UseLokiBackend {
+	if a.env.Config.LokiLogging || request.UseLokiBackend {
 		pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
 		resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
 			&enterpriseclient.GetStateRequest{})

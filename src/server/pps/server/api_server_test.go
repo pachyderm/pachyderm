@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -56,9 +57,13 @@ func newServer(t testing.TB) pps.APIServer {
 
 		TxnEnv:        txnEnv,
 		GetPachClient: nil,
+		Config:        newConfig(t),
 	}
-	config := Config{}
-	srv, err := NewAPIServerNoMaster(env, config)
+	srv, err := NewAPIServerNoMaster(env)
 	require.NoError(t, err)
 	return srv
+}
+
+func newConfig(testing.TB) serviceenv.Configuration {
+	return *serviceenv.ConfigFromOptions()
 }

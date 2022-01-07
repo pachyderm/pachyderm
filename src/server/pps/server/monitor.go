@@ -313,7 +313,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 	pipelineRCName := ppsutil.PipelineRcName(pipeline, pipelineInfo.Version)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		workerStatus, err := workerserver.Status(ctx, pipelineRCName,
-			pc.env.EtcdClient, pc.etcdPrefix, pc.config.PPSWorkerPort)
+			pc.env.EtcdClient, pc.etcdPrefix, pc.env.Config.PPSWorkerPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
 		}

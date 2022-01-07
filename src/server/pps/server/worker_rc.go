@@ -88,7 +88,7 @@ func getPachctlSecretVolumeAndMount(secret string) (v1.Volume, v1.VolumeMount) {
 }
 
 func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo *pps.PipelineInfo) (v1.PodSpec, error) {
-	pullPolicy := pc.config.WorkerImagePullPolicy
+	pullPolicy := pc.env.Config.WorkerImagePullPolicy
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
@@ -96,16 +96,16 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	// Environment variables that are shared between both containers
 	commonEnv := []v1.EnvVar{{
 		Name:  "PACH_ROOT",
-		Value: pc.config.StorageRoot,
+		Value: pc.env.Config.StorageRoot,
 	}, {
 		Name:  "PACH_NAMESPACE",
 		Value: pc.namespace,
 	}, {
 		Name:  "STORAGE_BACKEND",
-		Value: pc.config.StorageBackend,
+		Value: pc.env.Config.StorageBackend,
 	}, {
 		Name:  "POSTGRES_USER",
-		Value: pc.config.PostgresUser,
+		Value: pc.env.Config.PostgresUser,
 	}, {
 		Name: "POSTGRES_PASSWORD",
 		ValueFrom: &v1.EnvVarSource{
@@ -118,16 +118,16 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		},
 	}, {
 		Name:  "POSTGRES_DATABASE",
-		Value: pc.config.PostgresDBName,
+		Value: pc.env.Config.PostgresDBName,
 	}, {
 		Name:  "PG_BOUNCER_HOST",
-		Value: pc.config.PGBouncerHost,
+		Value: pc.env.Config.PGBouncerHost,
 	}, {
 		Name:  "PG_BOUNCER_PORT",
-		Value: strconv.FormatInt(int64(pc.config.PGBouncerPort), 10),
+		Value: strconv.FormatInt(int64(pc.env.Config.PGBouncerPort), 10),
 	}, {
 		Name:  client.PeerPortEnv,
-		Value: strconv.FormatUint(uint64(pc.config.PeerPort), 10),
+		Value: strconv.FormatUint(uint64(pc.env.Config.PeerPort), 10),
 	}, {
 		Name:  client.PPSSpecCommitEnv,
 		Value: options.specCommit,
@@ -148,7 +148,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{{
 		Name:  "PORT",
-		Value: strconv.FormatUint(uint64(pc.config.Port), 10),
+		Value: strconv.FormatUint(uint64(pc.env.Config.Port), 10),
 	}, {
 		Name: "PACHD_POD_NAME",
 		ValueFrom: &v1.EnvVarSource{
@@ -159,7 +159,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		},
 	}, {
 		Name:  "GC_PERCENT",
-		Value: strconv.FormatInt(int64(pc.config.GCPercent), 10),
+		Value: strconv.FormatInt(int64(pc.env.Config.GCPercent), 10),
 	}}
 
 	sidecarEnv = append(sidecarEnv, pc.getStorageEnvVars(pipelineInfo)...)
@@ -200,7 +200,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		},
 		{
 			Name:  client.PPSWorkerPortEnv,
-			Value: strconv.FormatUint(uint64(pc.config.PPSWorkerPort), 10),
+			Value: strconv.FormatUint(uint64(pc.env.Config.PPSWorkerPort), 10),
 		},
 	}...)
 	workerEnv = append(workerEnv, commonEnv...)
@@ -217,15 +217,15 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		})
 	}
 	// Propagate feature flags to worker and sidecar
-	if pc.config.DisableCommitProgressCounter {
+	if pc.env.Config.DisableCommitProgressCounter {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 	}
-	if pc.config.LokiLogging {
+	if pc.env.Config.LokiLogging {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 	}
-	if p := pc.config.GoogleCloudProfilerProject; p != "" {
+	if p := pc.env.Config.GoogleCloudProfilerProject; p != "" {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
 	}
@@ -236,18 +236,18 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	var sidecarVolumeMounts []v1.VolumeMount
 	userVolumeMounts := make([]v1.VolumeMount, len(options.volumeMounts))
 	copy(userVolumeMounts, options.volumeMounts)
-	if pc.config.StorageHostPath != "" {
+	if pc.env.Config.StorageHostPath != "" {
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: storageVolumeName,
 			VolumeSource: v1.VolumeSource{
 				HostPath: &v1.HostPathVolumeSource{
-					Path: pc.config.StorageHostPath,
+					Path: pc.env.Config.StorageHostPath,
 				},
 			},
 		})
 		storageMount := v1.VolumeMount{
 			Name:      storageVolumeName,
-			MountPath: pc.config.StorageRoot,
+			MountPath: pc.env.Config.StorageRoot,
 		}
 		sidecarVolumeMounts = append(sidecarVolumeMounts, storageMount)
 		userVolumeMounts = append(userVolumeMounts, storageMount)
@@ -262,7 +262,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		})
 		emptyDirVolumeMount := v1.VolumeMount{
 			Name:      "pach-dir-volume",
-			MountPath: pc.config.StorageRoot,
+			MountPath: pc.env.Config.StorageRoot,
 		}
 		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
 		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount)
@@ -301,14 +301,14 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		})
 	}
 
-	workerImage := pc.config.WorkerImage
+	workerImage := pc.env.Config.WorkerImage
 	pachSecurityCtx := &v1.SecurityContext{
 		RunAsUser:  int64Ptr(1000),
 		RunAsGroup: int64Ptr(1000),
 	}
 	var userSecurityCtx *v1.SecurityContext
 	userStr := pipelineInfo.Details.Transform.User
-	if pc.config.WorkerUsesRoot {
+	if pc.env.Config.WorkerUsesRoot {
 		pachSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
 		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
 	} else if userStr != "" {
@@ -367,7 +367,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
-				Image:           pc.config.WorkerSidecarImage,
+				Image:           pc.env.Config.WorkerSidecarImage,
 				Command:         []string{"/pachd", "--mode", "sidecar"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
@@ -460,7 +460,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 
 func (pc *pipelineController) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
-		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(pc.config.StorageUploadConcurrencyLimit)},
+		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(pc.env.Config.StorageUploadConcurrencyLimit)},
 		{Name: client.PPSPipelineNameEnv, Value: pipelineInfo.Pipeline.Name},
 	}
 	return vars
@@ -585,8 +585,8 @@ func (pc *pipelineController) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (
 	for _, secret := range transform.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: secret})
 	}
-	if pc.config.ImagePullSecrets != "" {
-		secrets := strings.Split(pc.config.ImagePullSecrets, ",")
+	if pc.env.Config.ImagePullSecrets != "" {
+		secrets := strings.Split(pc.env.Config.ImagePullSecrets, ",")
 		for _, secret := range secrets {
 			imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: secret})
 		}
@@ -628,7 +628,7 @@ func (pc *pipelineController) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (
 	}
 	var s3GatewayPort int32
 	if ppsutil.ContainsS3Inputs(pipelineInfo.Details.Input) || pipelineInfo.Details.S3Out {
-		s3GatewayPort = int32(pc.config.S3GatewayPort)
+		s3GatewayPort = int32(pc.env.Config.S3GatewayPort)
 	}
 
 	// Generate options for new RC
@@ -776,7 +776,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 			Selector: options.labels,
 			Ports: []v1.ServicePort{
 				{
-					Port: int32(pc.config.PPSWorkerPort),
+					Port: int32(pc.env.Config.PPSWorkerPort),
 					Name: "grpc-port",
 				},
 				{

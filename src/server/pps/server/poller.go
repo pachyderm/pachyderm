@@ -91,7 +91,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// database and querying k8s, then we might delete the RC for brand-new
 			// pipeline 'foo'). Even if we do delete a live pipeline's RC, it'll be
 			// fixed in the next cycle)
-			kc := m.a.env.KubeClient.CoreV1().ReplicationControllers(m.a.config.Namespace)
+			kc := m.a.env.KubeClient.CoreV1().ReplicationControllers(m.a.env.Config.Namespace)
 			rcs, err := kc.List(ctx, metav1.ListOptions{
 				LabelSelector: "suite=pachyderm,pipelineName",
 			})
