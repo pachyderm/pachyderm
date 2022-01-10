@@ -13,8 +13,8 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '2.0.4'
-pach_latest_version: '2.0.4'
+pach_featured_version: '2.0.5'
+pach_latest_version: '2.0.5'
 pach_major_minor_version: '2.0'
 search_index_version: '2.0.x'
 
@@ -46,6 +46,8 @@ plugins:
       minify_html: true
   - git-revision-date-localized
   - macros
+  - git-snippet:
+      all_pages: false
 
 # Customization
 extra:
@@ -66,6 +68,7 @@ extra_css:
 
 # Extensions
 markdown_extensions:
+  - markdown.extensions.attr_list
   - markdown.extensions.admonition
   - markdown.extensions.codehilite:
       guess_lang: false
@@ -93,6 +96,7 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
+  
 
 # Page tree
 nav:

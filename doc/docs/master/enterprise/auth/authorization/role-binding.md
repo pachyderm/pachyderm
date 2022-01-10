@@ -138,7 +138,7 @@ Let's keep using our Auth0 example as an illustration, and:
 1. Grant the group an owner access to a specific repo in Pachyderm.
 
 !!! Info
-    To enable the Group creation in Auth0, you will need to install an [`Authorization Extension`](https://auth0.com/docs/extensions/authorization-extension) to Auth0:
+    To enable the Group creation in Auth0, you will need to install an [`Authorization Extension`](https://auth0.com/docs/extensions/authorization-extension){target=_blank} to Auth0:
 
     - Go to **Auth0 Dashboard > Extensions**.
     - Select **Auth0 Authorization** and answer the prompt to install.

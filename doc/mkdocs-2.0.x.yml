@@ -13,8 +13,8 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '2.0.4'
-pach_latest_version: '2.0.4'
+pach_featured_version: '2.0.5'
+pach_latest_version: '2.0.5'
 pach_major_minor_version: '2.0'
 search_index_version: 'latest'
 
@@ -69,6 +69,7 @@ extra_css:
 
 # Extensions
 markdown_extensions:
+  - markdown.extensions.attr_list
   - markdown.extensions.admonition
   - markdown.extensions.codehilite:
       guess_lang: false

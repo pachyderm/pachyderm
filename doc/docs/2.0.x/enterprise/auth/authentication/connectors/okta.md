@@ -1,6 +1,6 @@
 # Authenticating with Okta
 
-If [Okta® access management software](https://www.okta.com) 
+If [Okta® access management software](https://www.okta.com){target=_blank}
 is your preferred choice of IdP,
 you can configure Pachyderm to use Okta as an OpenID Connect (OIDC) 
 identity provider using the following steps. 
@@ -14,7 +14,7 @@ identity provider using the following steps.
 
 ## Register Pachyderm with Okta
 
-For more detailed step by step instructions, follow this [documentation](https://developer.okta.com/docs/guides/add-an-external-idp/apple/register-app-in-okta/).
+For more detailed step by step instructions, follow this [documentation](https://developer.okta.com/docs/guides/add-an-external-idp/apple/register-app-in-okta/){target=_blank}.
 
 1. Sign in to your Okta organization with your administrator account.
 1. From the Admin Console side navigation, click **Applications > Applications**.

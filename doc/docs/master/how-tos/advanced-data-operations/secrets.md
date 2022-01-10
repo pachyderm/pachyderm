@@ -1,6 +1,6 @@
 # Create and Manage Secrets in Pachyderm
 
-Pachyderm uses Kubernetes' *Secrets* to store and manage sensitive data, such as passwords, OAuth tokens, or ssh keys. You can use any of [Kubernetes' types of Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-types) that match your use case. 
+Pachyderm uses Kubernetes' *Secrets* to store and manage sensitive data, such as passwords, OAuth tokens, or ssh keys. You can use any of [Kubernetes' types of Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-types){target=_blank} that match your use case. 
 Namely, `generic` (or Opaque), `tls`, or `docker-registry`.
 
 !!! Warning
@@ -53,7 +53,7 @@ Let's first generate your secret configuration file using the `kubectl` command.
          }
       }
       ```
-Find more detailed information on the [creation of Secrets](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/) in Kubernetes documentation.
+Find more detailed information on the [creation of Secrets](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/){target=_blank} in Kubernetes documentation.
 
 ### Create your Secret in Pachyderm
 Next, run the following to actually create the secret in the Pachyderm Kubernetes cluster:
@@ -74,7 +74,7 @@ You can now edit your pipeline specification file as follow.
 
 
 ## Reference a Secret in Pachyderm's specification file
-Now that your secret is created on Pachyderm cluster, you will need to notify your pipeline by updating your pipeline [specification file](https://docs.pachyderm.com/latest/reference/pipeline_spec/#manifest-format).
+Now that your secret is created on Pachyderm cluster, you will need to notify your pipeline by updating your pipeline [specification file](https://docs.pachyderm.com/latest/reference/pipeline_spec/#manifest-format){target=_blank}.
 In Pachyderm, a Secret can be used in three different ways:
 
 1. **As a container environment variable**:
@@ -163,7 +163,7 @@ In Pachyderm, a Secret can be used in three different ways:
 
 1. **When pulling images**:
 
-      [Image pull Secrets](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod) are a different kind of secret used to store access credentials to your private image registry. 
+      [Image pull Secrets](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod){target=_blank} are a different kind of secret used to store access credentials to your private image registry. 
       
       You reference Image Pull Secrets (or Docker Registry Secrets) by setting the **`image_pull_secrets`** field of your pipeline specification file to the secret's name you created (ex: `"mysecretname"`).
 
