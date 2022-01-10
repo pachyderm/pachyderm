@@ -112,10 +112,7 @@ Plan
 */
 
 type ServerOptions struct {
-	Daemonize bool
-	MountDir  string
-	Socket    string
-	LogFile   string
+	MountDir string
 	// Unmount is a channel that will be closed when the filesystem has been
 	// unmounted. It can be nil in which case it's ignored.
 	Unmount chan struct{}
@@ -339,7 +336,6 @@ func (mm *MountManager) FinishAll() (retErr error) {
 }
 
 func Server(c *client.APIClient, sopts *ServerOptions) error {
-	// TODO: respect opts.Daemonize
 	fmt.Printf("Dynamically mounting pfs to %s\n", sopts.MountDir)
 
 	mountOpts := &Options{

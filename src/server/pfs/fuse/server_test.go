@@ -30,7 +30,7 @@ Tests to write:
 
 - read only is read only
 - read write is read write
-- write, unmount, files have gone
+- write, unmount, files have gone from local mount
 - write, unmount, remount, data comes back
 - simple mount under different name works
 - mount two versions of the same repo under different names works
@@ -112,11 +112,6 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 	})
 }
 func TestBasicServerDifferingNames(t *testing.T) {
-	// XXX why nothing in commits and files like working case above:
-	/*
-		> commits: map[.Trash: .Trash-1000: repo:2f359ea64d7a44ddb6147a038acba380]
-		> files: map[:1 .Trash:1 .Trash-1000:1 repo:1 repo/dir:1]
-	*/
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
@@ -158,8 +153,7 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 	dir := tb.TempDir()
 	if sopts == nil {
 		sopts = &ServerOptions{
-			Daemonize: false,
-			MountDir:  dir,
+			MountDir: dir,
 		}
 	}
 	if sopts.Unmount == nil {

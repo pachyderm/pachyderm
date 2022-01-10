@@ -113,14 +113,11 @@ func mountCmds() []*cobra.Command {
 	mount.MarkFlagCustom("repos", "__pachctl_get_repo_branch")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
-	var daemonize bool
 	var mountDir string
-	var socket string
-	var logFile string
 	mountServer := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Start a mount server for controlling FUSE mounts via a local gRPC API.",
-		Long:  "Starts a gRPC mount server on the given socket, logging to the given log-file, daemonizing and exiting once it is active if requested, otherwise running in the foreground and logging to stdout.\n\nSee TODO:<link to docs> for documentation on available methods on the API.",
+		Long:  "Starts a REST mount server, running in the foreground and logging to stdout.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			// TODO: call into pfs/fuse/server.go
 			c, err := client.NewOnUserMachine("fuse")
@@ -128,20 +125,14 @@ func mountCmds() []*cobra.Command {
 				return err
 			}
 			serverOpts := &fuse.ServerOptions{
-				Daemonize: daemonize,
-				MountDir:  mountDir,
-				Socket:    socket,
-				LogFile:   logFile,
+				MountDir: mountDir,
 			}
 			defer c.Close()
 			printWarning()
 			return fuse.Server(c, serverOpts)
 		}),
 	}
-	mountServer.Flags().BoolVar(&daemonize, "daemonize", true, "Daemonize? Set to false for easier debugging; if false, logging will be to stdout")
 	mountServer.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")
-	mountServer.Flags().StringVar(&socket, "socket", "/tmp/pachyderm-mount-server.sock", "Target UNIX socket for gRPC server")
-	mountServer.Flags().StringVar(&logFile, "log-file", "/tmp/pachyderm-mount-server.log", "Target log file for gRPC server")
 	commands = append(commands, cmdutil.CreateAlias(mountServer, "mount-server"))
 
 	var all bool
