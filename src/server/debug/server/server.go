@@ -15,6 +15,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -445,7 +446,17 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 		},
 	}
 	if err := collectDebugFile(tw, "commits", "json", func(w io.Writer) error {
-		return pachClient.ListCommitF(repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
+		ctx, cancel := context.WithCancel(pachClient.Ctx())
+		defer cancel()
+		client, err := pachClient.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{
+			Repo:   repo,
+			Number: limit,
+			All:    true,
+		})
+		if err != nil {
+			return err
+		}
+		return clientsdk.ForEachCommit(client, func(ci *pfs.CommitInfo) error {
 			if ci.Finished != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
 				compactingDuration, err := types.DurationFromProto(ci.Details.CompactingTime)
 				if err != nil {
