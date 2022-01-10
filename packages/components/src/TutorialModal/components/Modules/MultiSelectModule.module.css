@@ -13,6 +13,7 @@
   width: 13rem;
   height: 12.6875rem;
   padding: 0.5rem 0rem 2rem 1.75rem;
+  object-fit: cover;
 }
 
 .imageWrapper {
