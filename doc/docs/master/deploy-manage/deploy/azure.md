@@ -406,7 +406,7 @@ make sure that you are using the right Kubernetes context first.
     STATUS: deployed
     REVISION: 1
     ```
-    Refer to our generic [Helm documentation](../helm_install/#install-the-pachyderm-helm-chart) for more information on how to select your chart version. 
+    Refer to our generic [Helm documentation](../helm_install/#install-pachyderms-helm-chart) for more information on how to select your chart version. 
 
     Pachyderm pulls containers from DockerHub. It might take some time
     before the `pachd` pods start. You can check the status of the

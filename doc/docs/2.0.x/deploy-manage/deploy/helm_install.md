@@ -39,7 +39,7 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
         Pachyderm recommends using **"platform secrets"** to hold the values needed by a cluster at the time of the deployment (such as Postgresql admin login username and password, OAuth information to set up your IdP, or your enterprise license key). 
         You have the option to: 
 
-        1. [Create those secrets](../../how-tos/advanced-data-operations/secrets/#create-a-secret) ahead of time then supply their names in the `secretName` field of your values.yaml (Recommended option). 
+        1. [Create those secrets](../../../how-tos/advanced-data-operations/secrets/#create-a-secret) ahead of time then supply their names in the `secretName` field of your values.yaml (Recommended option). 
         OR 
         1. Put the secrets' values in the dedicated fields of your values.yaml, set their `newSecret.create` value to `true`, then let helm create them for you under the name you have provided in the `secretName` field.
 
