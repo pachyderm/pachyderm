@@ -64,8 +64,8 @@ func TestPostgresCollectionsProxy(suite *testing.T) {
 func newCollectionFunc(setup func(context.Context, *testing.T) (*sqlx.DB, col.PostgresListener)) func(context.Context, *testing.T) (ReadCallback, WriteCallback) {
 	return func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
 		db, listener := setup(ctx, t)
-
-		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex})
+		opts := []col.Option{col.WithListBufferCapacity(3)} // set the list buffer capacity to 3
+		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, opts...)
 		require.NoError(t, dbutil.WithTx(ctx, db, func(sqlTx *sqlx.Tx) error {
 			return col.SetupPostgresCollections(ctx, sqlTx, testCol)
 		}))
