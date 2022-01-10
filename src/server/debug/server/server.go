@@ -15,6 +15,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -27,10 +28,8 @@ import (
 	"github.com/wcharczuk/go-chart"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	describe "k8s.io/kubectl/pkg/describe"
 )
-
-// TODO: Figure out how pipeline versions should come into play with this.
-// Right now we just collect the spec and jobs for the current pipeline version.
 
 const (
 	defaultDuration = time.Minute
@@ -153,7 +152,11 @@ func (s *debugServer) appLogs(tw *tar.Writer, apps []string) error {
 		return err
 	}
 	for _, pod := range pods.Items {
-		if err := s.collectLogs(tw, pod.Name, "", join(pod.Labels["app"], pod.Name)); err != nil {
+		prefix := join(pod.Labels["app"], pod.Name)
+		if err := s.collectDescribe(tw, pod.Name, prefix); err != nil {
+			return err
+		}
+		if err := s.collectLogs(tw, pod.Name, "", prefix); err != nil {
 			return err
 		}
 	}
@@ -397,6 +400,10 @@ func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient, limit i
 		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
 			return err
 		}
+		// Collect the pachd describe output.
+		if err := s.collectDescribe(tw, s.name, prefix...); err != nil {
+			return err
+		}
 		// Collect the pachd container logs.
 		if err := s.collectLogs(tw, s.name, "pachd", prefix...); err != nil {
 			return err
@@ -446,7 +453,17 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 		},
 	}
 	if err := collectDebugFile(tw, "commits", "json", func(w io.Writer) error {
-		return pachClient.ListCommitF(repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
+		ctx, cancel := context.WithCancel(pachClient.Ctx())
+		defer cancel()
+		client, err := pachClient.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{
+			Repo:   repo,
+			Number: limit,
+			All:    true,
+		})
+		if err != nil {
+			return err
+		}
+		return clientsdk.ForEachCommit(client, func(ci *pfs.CommitInfo) error {
 			if ci.Finished != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
 				compactingDuration, err := types.DurationFromProto(ci.Details.CompactingTime)
 				if err != nil {
@@ -534,12 +551,26 @@ func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series,
 }
 
 func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
-	return collectDebugFile(tw, "version", "", func(w io.Writer) error {
+	return collectDebugFile(tw, "version", "txt", func(w io.Writer) error {
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
 		}
 		_, err = io.Copy(w, strings.NewReader(version+"\n"))
+		return err
+	}, prefix...)
+}
+
+func (s *debugServer) collectDescribe(tw *tar.Writer, pod string, prefix ...string) error {
+	return collectDebugFile(tw, "describe", "txt", func(w io.Writer) error {
+		pd := describe.PodDescriber{
+			Interface: s.env.GetKubeClient(),
+		}
+		output, err := pd.Describe(s.env.Config().Namespace, pod, describe.DescriberSettings{ShowEvents: true})
+		if err != nil {
+			return err
+		}
+		_, err = w.Write([]byte(output))
 		return err
 	}, prefix...)
 }
@@ -667,6 +698,10 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 }
 
 func (s *debugServer) collectWorkerDump(tw *tar.Writer, pod *v1.Pod, prefix ...string) error {
+	// Collect the worker describe output.
+	if err := s.collectDescribe(tw, pod.Name, prefix...); err != nil {
+		return err
+	}
 	// Collect the worker user and storage container logs.
 	userPrefix := client.PPSWorkerUserContainerName
 	sidecarPrefix := client.PPSWorkerSidecarContainerName
