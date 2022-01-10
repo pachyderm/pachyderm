@@ -9,7 +9,7 @@ provides a fast and easy way to get Pachyderm up and running.
 You can also deploy Pachyderm on your local machine or in your favorite cloud
 provider. 
 
-Got questions? [Contact us](mailto:support@pachyderm.io), [Request a demo](https://www.pachyderm.com/request-a-demo/), or join our [Users Slack Channel](http://slack.pachyderm.io/).
+Got questions? [Contact us](mailto:support@pachyderm.io), [Request a demo](https://www.pachyderm.com/request-a-demo/), or join our [Users Slack Channel](https://www.pachyderm.com/slack/).
 
 <div class="row">
   <div class="column-2">

@@ -1,6 +1,7 @@
 package chunk
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	fmt "fmt"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -50,14 +52,35 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 		panic("client must have a renewer to create chunks")
 	}
 	chunkID := Hash(chunkData)
+	needUpload, gen, err := c.beforeUpload(ctx, chunkID, md)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.renewer.Add(ctx, chunkID); err != nil {
+		return nil, err
+	}
+	if !needUpload {
+		return chunkID, nil
+	}
+	key := chunkKey(chunkID, gen)
+	if err := c.store.Put(ctx, key, chunkData); err != nil {
+		return nil, err
+	}
+	if err := c.afterUpload(ctx, chunkID, gen); err != nil {
+		return nil, err
+	}
+	return chunkID, nil
+}
+
+// beforeUpload checks the table in postgres to see if a chunk with chunkID already exists.
+func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadata) (needUpload bool, gen uint64, _ error) {
 	var pointsTo []string
 	for _, cid := range md.PointsTo {
 		pointsTo = append(pointsTo, cid.TrackerID())
 	}
 	chunkTID := chunkID.TrackerID()
-	var needUpload bool
-	var gen uint64
-	if err := dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) (retErr error) {
+		needUpload, gen = false, 0
 		if err := c.tracker.CreateTx(tx, chunkTID, pointsTo, c.ttl); err != nil {
 			return err
 		}
@@ -82,31 +105,36 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 		needUpload = true
 		return nil
 	}); err != nil {
-		return nil, err
+		return false, 0, err
 	}
-	if err := c.renewer.Add(ctx, chunkID); err != nil {
-		return nil, err
-	}
-	if !needUpload {
-		return chunkID, nil
-	}
-	key := chunkKey(chunkID, gen)
-	if err := c.store.Put(ctx, key, chunkData); err != nil {
-		return nil, err
-	}
-	_, err := c.db.ExecContext(ctx, `
+	return needUpload, gen, nil
+}
+
+// afterUpload marks the (chunkID, gen) pair as a successfully uploaded object in postgres.
+func (c *trackedClient) afterUpload(ctx context.Context, chunkID ID, gen uint64) error {
+	res, err := c.db.ExecContext(ctx, `
 	UPDATE storage.chunk_objects
 	SET uploaded = TRUE
 	WHERE chunk_id = $1 AND gen = $2
 	`, chunkID, gen)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return chunkID, nil
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected < 1 {
+		return errors.Errorf("no chunk entry for object post upload: chunk=%v gen=%v", chunkID, gen)
+	}
+	if affected > 1 {
+		panic("(chunk_id, gen) is not unique")
+	}
+	return nil
 }
 
 // Get writes data for a chunk with ID chunkID to w.
-func (c *trackedClient) Get(ctx context.Context, chunkID ID, cb kv.ValueCallback) (retErr error) {
+func (c *trackedClient) Get(ctx context.Context, chunkID ID, cb kv.ValueCallback) error {
 	var gen uint64
 	err := c.db.Get(&gen, `
 	SELECT gen
@@ -132,6 +160,81 @@ func (c *trackedClient) Close() error {
 	return nil
 }
 
+// Check checks that there are entries for the chunk and they have successfully uploaded objects.
+func (c *trackedClient) Check(ctx context.Context, id ID, readChunk bool) error {
+	_, last, err := c.CheckEntries(ctx, id, 1, readChunk)
+	if err != nil {
+		return err
+	}
+	if last == nil {
+		return errors.Errorf("no entries for chunk %v", id)
+	}
+	return nil
+}
+
+// CheckEntries runs an integrity check on the objects in object storage.
+// It lists through chunks with IDs >= first, lexicographically.
+func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit int, readChunks bool) (n int, last ID, _ error) {
+	if first == nil {
+		first = []byte{} // in SQL: nothing is comparable to nil
+	}
+	var ents []Entry
+	if err := c.db.SelectContext(ctx, &ents,
+		`SELECT chunk_id, gen, uploaded, tombstone FROM storage.chunk_objects
+		WHERE chunk_id >= $1 AND uploaded = true AND tombstone = false
+		ORDER BY chunk_id
+		LIMIT $2
+	`, first, limit); err != nil {
+		return 0, nil, err
+	}
+	for _, ent := range ents {
+		if readChunks {
+			if err := c.store.Get(ctx, chunkKey(ent.ChunkID, ent.Gen), func(data []byte) error {
+				return verifyData(ent.ChunkID, data)
+			}); err != nil {
+				if pacherr.IsNotExist(err) {
+					if exists, err := c.entryExists(ctx, ent.ChunkID, ent.Gen); err != nil {
+						return n, nil, err
+					} else if exists {
+						return n, nil, newErrMissingObject(ent)
+					}
+				}
+			}
+		} else {
+			exists, err := c.store.Exists(ctx, chunkKey(ent.ChunkID, ent.Gen))
+			if err != nil {
+				return n, nil, err
+			}
+			if !exists {
+				if exists2, err := c.entryExists(ctx, ent.ChunkID, ent.Gen); err != nil {
+					return n, nil, err
+				} else if exists2 {
+					return n, nil, newErrMissingObject(ent)
+				}
+			}
+		}
+		last = ent.ChunkID
+		n++
+	}
+	if n == limit && bytes.Equal(first, last) {
+		return n, nil, errors.Errorf("limit too small to check all chunk entries limit=%d", limit)
+	}
+	return n, last, nil
+}
+
+func (c *trackedClient) entryExists(ctx context.Context, chunkID ID, gen uint64) (bool, error) {
+	var x int
+	err := c.db.GetContext(ctx, &x, `SELECT FROM storage.chunk_objects WHERE chunk_id = $1 AND gen = $2`, chunkID, gen)
+	switch err {
+	case sql.ErrNoRows:
+		return false, nil
+	case nil:
+		return true, nil
+	default:
+		return false, err
+	}
+}
+
 func chunkPath(chunkID ID, gen uint64) string {
 	if len(chunkID) == 0 {
 		panic("chunkID cannot be empty")
@@ -143,6 +246,10 @@ func chunkKey(chunkID ID, gen uint64) []byte {
 	return []byte(chunkPath(chunkID, gen))
 }
 
+func newErrMissingObject(ent Entry) error {
+	return errors.Errorf("missing object for chunk entry: chunkID=%v gen=%v uploaded=%v tombstone=%v", ent.ChunkID, ent.Gen, ent.Uploaded, ent.Tombstone)
+}
+
 var _ track.Deleter = &deleter{}
 
 type deleter struct{}
@@ -150,7 +257,7 @@ type deleter struct{}
 func (d *deleter) DeleteTx(tx *pachsql.Tx, id string) error {
 	chunkID, err := ParseTrackerID(id)
 	if err != nil {
-		return errors.Wrapf(err, "cannot delete")
+		return errors.Wrapf(err, "deleting chunk")
 	}
 	_, err = tx.Exec(`
 		UPDATE storage.chunk_objects

@@ -16,13 +16,13 @@ and can get started right away.
     [Contact us](mailto:sales@pachyderm.com) and
     take advantage of our **21-day free trial**\* to start experimenting.
     
-    Got any questions? [Contact our Support Team](mailto:support@pachyderm.io) or ask us on our [Users Slack Channel](http://slack.pachyderm.io/). 
+    Got any questions? [Contact our Support Team](mailto:support@pachyderm.io) or ask us on our [Users Slack Channel](https://www.pachyderm.com/slack/){target=_blank}. 
 
     *\*Offer limited to one single user workspace with 4 vCPUs, 15GB RAM, and unlimited object storage.*
 ## Get started in 4 simple steps
 ![Hub Steps](../images/hub_steps.png)
 ## Before you start
-Log in with your GitHub or Google account to start using [hub.pachyderm.com](https://hub.pachyderm.com). 
+Log in with your GitHub or Google account to start using [hub.pachyderm.com](https://hub.pachyderm.com){target=_blank}. 
 ![Hub Login](../images/hub_login.png)
 ## 1- Create a Workspace 
 Click the **Create a 4-hr Workspace** button and fill out the form.
@@ -47,7 +47,7 @@ We recommend that you use `pachctl` for all data operations and
 the Console to view your data and graphical representation of your
 pipelines.
 
-After your workspace creation, open a terminal window and [install 'pachctl'](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl).
+After your workspace creation, open a terminal window and [install 'pachctl'](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl){target=_blank}.
 
 !!! Warning
     `kubectl` commands are not supported for the workspaces deployed

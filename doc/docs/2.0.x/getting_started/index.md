@@ -3,7 +3,7 @@
 For a quick start, deploy Pachyderm on your [local machine](./local_installation/) or on your [favorite cloud](../deploy-manage/deploy/quickstart/) provider. 
 
 !!! Note "Got questions?"
-     [Request a demo](https://www.pachyderm.com/request-a-demo/), join our [Users Slack Channel](http://slack.pachyderm.io/), or [Contact our Support Team](mailto:support@pachyderm.io).
+     [Request a demo](https://www.pachyderm.com/request-a-demo/){target=_blank}, join our [Users Slack Channel](https://www.pachyderm.com/slack/){target=_blank}, or [Contact our Support Team](mailto:support@pachyderm.io).
 
 Optionally, our fully managed **SaaS platform** [Hub](../hub/hub_getting_started)
 provides a fast and easy way to get Pachyderm up and running.

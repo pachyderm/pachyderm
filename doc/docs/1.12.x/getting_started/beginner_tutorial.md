@@ -20,7 +20,7 @@ distributed, streaming fashion. Moreover, as new data is added, the
 pipeline automatically processes it and outputs the results.
 
 If you hit any errors not covered in this guide, get help in our [public
-community Slack](http://slack.pachyderm.io), submit an issue on
+community Slack](https://www.pachyderm.com/slack/), submit an issue on
 [GitHub](https://github.com/pachyderm/pachyderm), or email us at
 <support@pachyderm.io>. We are more than happy to help!
 
@@ -499,5 +499,5 @@ change this pipeline. You can also dig in and learn more details about:
 We'd love to help and see what you come up with, so submit any
 issues/questions you come across on
 [GitHub](https://github.com/pachyderm/pachyderm),
-[Slack](http://slack.pachyderm.io), or email at <support@pachyderm.io>
+[Slack](https://www.pachyderm.com/slack/), or email at <support@pachyderm.io>
 if you want to show off anything nifty you've created!

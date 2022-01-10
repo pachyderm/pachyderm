@@ -291,7 +291,7 @@ This parameter enables you to add metadata to your pipeline pods by using Kubern
 
 Similarly to labels, you can add metadata through annotations. The difference is that you can specify any arbitrary metadata through annotations.
 
-Both parameters require a key-value pair.  Do not confuse this parameter with `pod_patch` which adds metadata to the user container of the pipeline pod. For more information, see [Labels and Selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) and [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) in the Kubernetes documentation.
+Both parameters require a key-value pair.  Do not confuse this parameter with `pod_patch` which adds metadata to the user container of the pipeline pod. For more information, see [Labels and Selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/){target=_blank} and [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/){target=_blank} in the Kubernetes documentation.
 
 ### Transform (required)
 
@@ -338,7 +338,7 @@ Kubernetes secrets by name and specify a path to map the secrets or
 an environment variable (`env_var`) that the value should be bound to. Secrets
 must set `name` which should be the name of a secret in Kubernetes. Secrets
 must also specify either `mount_path` or `env_var` and `key`. See more
-information about Kubernetes secrets [here](https://kubernetes.io/docs/concepts/configuration/secret/).
+information about Kubernetes secrets [here](https://kubernetes.io/docs/concepts/configuration/secret/){target=_blank}.
 
 `transform.image_pull_secrets` is an array of image pull secrets, image pull
 secrets are similar to secrets except that they are mounted before the
@@ -352,7 +352,7 @@ kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGIS
 
 And then, notify your pipeline about it by using
 `"image_pull_secrets": [ "myregistrykey" ]`. Read more about image pull secrets
-[here](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod).
+[here](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod){target=_blank}.
 
 `transform.accept_return_code` is an array of return codes, such as exit codes
 from your Docker command that are considered acceptable.
@@ -431,7 +431,7 @@ workers because no machine has enough unclaimed memory. `cpu` works
 similarly, but for CPU time.
 
 For more information about resource requests and limits see the
-[Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/)
+[Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/){target=_blank}
 on the subject.
 
 ### Resource Limits (optional)
@@ -446,7 +446,7 @@ requesting a GPU the worker will have sole access to that GPU while it is
 running. It's recommended to enable `autoscaling` if you are using GPUs so other
 processes in the cluster will have access to the GPUs while the pipeline has
 nothing to process. For more information about scheduling GPUs see the
-[Kubernetes docs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
+[Kubernetes docs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/){target=_blank}
 on the subject.
 
 ### Sidecar Resource Limits (optional)
@@ -689,7 +689,7 @@ one or more Cron inputs, `pachd` creates a repo for each of them. The start
 time for Cron input is specified in its spec.
 When a Cron input triggers,
 `pachd` commits a single file, named by the current [RFC
-3339 timestamp](https://www.ietf.org/rfc/rfc3339.txt) to the repo which
+3339 timestamp](https://www.ietf.org/rfc/rfc3339.txt){target=_blank} to the repo which
 contains the time which satisfied the spec.
 
 ```
@@ -707,7 +707,7 @@ those of `input.pfs.name`. Except that it is not optional.
 
 `input.cron.spec` is a cron expression which specifies the schedule on
 which to trigger the pipeline. To learn more about how to write schedules,
-see the [Wikipedia page on cron](https://en.wikipedia.org/wiki/Cron).
+see the [Wikipedia page on cron](https://en.wikipedia.org/wiki/Cron){target=_blank}.
 Pachyderm supports non-standard schedules, such as `"@daily"`.
 
 `input.cron.repo` is the repo which Pachyderm creates for the input. This
@@ -720,7 +720,7 @@ time when the pipeline was created is used by default. Specifying a
 time enables you to run on matching times from the past or skip times
 from the present and only start running
 on matching times in the future. Format the time value according to [RFC
-3339](https://www.ietf.org/rfc/rfc3339.txt).
+3339](https://www.ietf.org/rfc/rfc3339.txt){target=_blank}.
 
 `input.cron.overwrite` is a flag to specify whether you want the timestamp file
 to be overwritten on each tick. This parameter is optional, and if you do not
@@ -936,12 +936,12 @@ For more information, see [Spouts](../concepts/pipeline-concepts/pipeline/spout.
 `scheduling_spec` specifies how the pods for a pipeline should be scheduled.
 
 `scheduling_spec.node_selector` allows you to select which nodes your pipeline
-will run on. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
+will run on. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector){target=_blank}
 on node selectors for more information about how this works.
 
 `scheduling_spec.priority_class_name` allows you to select the prioriy class
 for the pipeline, which will how Kubernetes chooses to schedule and deschedule
-the pipeline. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)
+the pipeline. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass){target=_blank}
 on priority and preemption for more information about how this works.
 
 ### Pod Spec (optional)
@@ -958,12 +958,12 @@ this will give you a correctly formated piece of JSON, you should then remove
 the extraneous fields that Kubernetes injects or that can be set else where.
 
 The JSON is applied after the other parameters for the `pod_spec` have already
-been set as a [JSON Merge Patch](https://tools.ietf.org/html/rfc7386). This
+been set as a [JSON Merge Patch](https://tools.ietf.org/html/rfc7386){target=_blank}. This
 means that you can modify things such as the storage and user containers.
 
 ### Pod Patch (optional)
 `pod_patch` is similar to `pod_spec` above but is applied as a [JSON
-Patch](https://tools.ietf.org/html/rfc6902). Note, this means that the
+Patch](https://tools.ietf.org/html/rfc6902){target=_blank}. Note, this means that the
 process outlined above of modifying an existing pod spec and then manually
 blanking unchanged fields won't work, you'll need to create a correctly
 formatted patch by diffing the two pod specs.

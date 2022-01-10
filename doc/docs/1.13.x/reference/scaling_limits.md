@@ -1,9 +1,9 @@
 # Pipeline Scaling Limits in Community Edition
 
-Our free Pachyderm Community Edition contains **built-in scaling limitations and parallelism thresholds**. If you want to scale beyond these limits, request your FREE 30-Day [Pachyderm Enterprise token](https://www.pachyderm.com/trial) and enjoy unlimited scaling, JupyterHub integration, and more.
+Our free Pachyderm Community Edition contains **built-in scaling limitations and parallelism thresholds**. If you want to scale beyond these limits, request your FREE 30-Day [Pachyderm Enterprise token](https://www.pachyderm.com/trial/) and enjoy unlimited scaling, JupyterHub integration, and more.
 
 !!! Info "You might qualify for a free Enterprise license." 
-    Pachyderm offers activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. [Tell us about your project!](https://www.pachyderm.com/trial)
+    Pachyderm offers activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. [Tell us about your project!](https://www.pachyderm.com/trial/)
 
 ## Scaling Limits
 

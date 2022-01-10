@@ -9,7 +9,7 @@ The `pod_patch` parameter takes a string that specifies the changes
 that you want to add to your existing manifest. To create
 a patch, you need to generate a diff of the original ReplicationController
 and the one with your changes. You can use one of the online JSON patch
-utilities, such as [JSON Patch Generator](https://extendsclass.com/json-patch.html)
+utilities, such as [JSON Patch Generator](https://extendsclass.com/json-patch.html){target=_blank}
 to create a diff. A diff for mounting a volume might look like this:
 
 ```json
@@ -44,10 +44,10 @@ to demonstrate this functionality.
 To mount a volume, complete the following steps:
 
 1. Create a PersistentVolume and a PersistentVolumeClaim as
-described in [Configure a Pod to Use a PersistentVolume for Storage](https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/). Modify `mountPath` and `path` as needed.
+described in [Configure a Pod to Use a PersistentVolume for Storage](https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/){target=_blank}. Modify `mountPath` and `path` as needed.
 
       For testing purposes, you might want to add an `index.html`
-      file as described in [Create an index.html file](https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/#create-an-index-html-file-on-your-node).
+      file as described in [Create an index.html file](https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/#create-an-index-html-file-on-your-node){target=_blank}.
 
 1. Get the ReplicationController (RC) manifest from your pipeline:
 
@@ -96,7 +96,7 @@ described in [Configure a Pod to Use a PersistentVolume for Storage](https://kub
 
 1. Save these changes to a new file.
 1. Copy the contents of the original RC to the clipboard.
-1. Go to a JSON patch generator, such as [JSON Patch Generator](https://extendsclass.com/json-patch.html),
+1. Go to a JSON patch generator, such as [JSON Patch Generator](https://extendsclass.com/json-patch.html){target=_blank},
 and paste the contents of the original RC manifest to the **Source JSON**
 field.
 1. Copy the contents of the modified RC manifest to clipboard
@@ -154,7 +154,7 @@ example, it is `/data`.
 
       You might want to adjust your pipeline code to read from or write to
       the mounted directory. For example, in the aforementioned
-      [OpenCV example](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/#create-a-pipeline),
+      [OpenCV example](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/#create-a-pipeline){target=_blank},
       the code reads from the `/pfs/images` directory and writes to the
       `/pfs/out` directory. If you want to read or write to the `/data`
       directory, you need to change those to `/data`.

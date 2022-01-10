@@ -4,7 +4,7 @@ Return files that match a glob pattern in a commit.
 
 ### Synopsis
 
-Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).
+Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://go.dev/pkg/path/filepath/#Match).
 
 ```
 pachctl glob file <repo>@<branch-or-commit>:<pattern> [flags]

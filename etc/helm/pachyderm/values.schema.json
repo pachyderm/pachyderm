@@ -59,6 +59,9 @@
                 "config": {
                     "type": "object",
                     "properties": {
+                        "disableTelemetry": {
+                            "type": "boolean"
+                        },
                         "graphqlPort": {
                             "type": "integer"
                         },
@@ -69,7 +72,7 @@
                             "type": "string"
                         },
                         "oauthClientSecretSecretName": {
-                            "type": "null"
+                            "type": "string"
                         },
                         "oauthRedirectURI": {
                             "type": "string"
@@ -258,7 +261,7 @@
                     "type": "string"
                 },
                 "tolerations": {
-                    "type": "object"
+                    "type": "array"
                 }
             }
         },
@@ -270,6 +273,9 @@
                 },
                 "imagePullSecrets": {
                     "type": "array"
+                },
+                "noProxy": {
+                    "type": "string"
                 },
                 "postgresql": {
                     "type": "object",
@@ -299,6 +305,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "proxy": {
+                    "type": "string"
                 }
             }
         },
@@ -718,7 +727,7 @@
                     }
                 },
                 "tolerations": {
-                    "type": "object"
+                    "type": "array"
                 },
                 "worker": {
                     "type": "object",

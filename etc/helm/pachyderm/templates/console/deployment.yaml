@@ -48,6 +48,8 @@ spec:
           value: {{ include "pachyderm.issuerURI" . | quote}}
         - name: REACT_APP_RUNTIME_ISSUER_URI
           value: {{ include "pachyderm.reactAppRuntimeIssuerURI" . | quote}}
+        - name: REACT_APP_RUNTIME_DISABLE_TELEMETRY
+          value: {{ .Values.console.config.disableTelemetry | quote}}
         - name: OAUTH_REDIRECT_URI
           value: {{ include "pachyderm.consoleRedirectURI" . | quote }}
         - name: OAUTH_CLIENT_ID
@@ -67,6 +69,22 @@ spec:
         - name: NODE_EXTRA_CA_CERTS
           value:  /pach-tls/certs/root.crt
         {{- end }}
+        {{ if .Values.global.proxy }}
+        - name: http_proxy
+          value: {{ .Values.global.proxy }}
+        - name: https_proxy
+          value:  {{.Values.global.proxy}}
+        - name: HTTP_PROXY
+          value:  {{.Values.global.proxy}}
+        - name: HTTPS_PROXY
+          value:  {{.Values.global.proxy}}
+        {{ end }}
+        {{ if .Values.global.noProxy }}
+        - name: no_proxy
+          value:  {{.Values.global.noProxy}}
+        - name: NO_PROXY
+          value:  {{.Values.global.noProxy}}
+        {{ end }}
         {{- if .Values.console.resources }}
         resources: {{ toYaml .Values.console.resources | nindent 10 }}
         {{- end }}

@@ -21,7 +21,7 @@ Before you can deploy Pachyderm, you or your Kubernetes administrator will need 
 
 1. [Deploy Kubernetes](#deploying-kubernetes) on-premises.
 1. [Deploy a Kubernetes persistent volume](#deploying-a-persistent-volume) that Pachyderm will use to store administrative data.
-1. [Deploy an on-premises object store](#deploying-an-object-store) using a storage provider like [MinIO](https://min.io), [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) to provide S3-compatible access to your on-premises storage.
+1. [Deploy an on-premises object store](#deploying-an-object-store) using a storage provider like [MinIO](https://min.io), [EMC's ECS](https://www.delltechnologies.com/en-us/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) to provide S3-compatible access to your on-premises storage.
 1. [Create a Pachyderm manifest](deploy_custom/deploy_custom_pachyderm_deployment_manifest.md) by running the `pachctl deploy custom` command with appropriate arguments and the `--dry-run` flag to create a Kubernetes manifest for the Pachyderm deployment.
 1. [Edit the Pachyderm manifest](deploy_custom/deploy_custom_pachyderm_deployment_manifest.md) for your particular Kubernetes deployment
 
@@ -48,14 +48,14 @@ It's important that bandwidth to your storage deployment meet the guidelines of 
 
 ### Software you will need 
     
-1. [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+1. [kubectl](https://kubernetes.io/docs/tasks/tools/)
 2. [pachctl](../../../getting_started/local_installation/#install-pachctl)
 
 ## Setting up to deploy on-premises
 
 ### Deploying Kubernetes
 
-The Kubernetes docs have instructions for [deploying Kubernetes in a variety of on-premise scenarios](https://kubernetes.io/docs/getting-started-guides/#on-premises-vms).
+The Kubernetes docs have instructions for [deploying Kubernetes in a variety of on-premise scenarios](https://kubernetes.io/docs/setup/).
 We recommend following one of these guides to get Kubernetes running on premise.
 
 ### Deploying a persistent volume
@@ -150,7 +150,7 @@ Don't deploy an on-premises Pachyderm cluster against cloud-based object stores 
 #### Object store prerequisites
 
 Object stores are accessible using the S3 protocol, created by Amazon. 
-Storage providers like [MinIO](https://min.io), [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) provide S3-compatible access to enterprise storage for on-premises deployment. 
+Storage providers like [MinIO](https://min.io), [EMC's ECS](https://www.delltechnologies.com/en-us/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) provide S3-compatible access to enterprise storage for on-premises deployment. 
 You can find links to instructions for providers of particular object stores in the [See also](#see-also) section.
 
 #### Sizing the object store
