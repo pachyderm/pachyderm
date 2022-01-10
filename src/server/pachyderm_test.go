@@ -9161,6 +9161,7 @@ func TestDebug(t *testing.T) {
 			[]string{"bash"},
 			[]string{
 				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				"sleep 15",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,

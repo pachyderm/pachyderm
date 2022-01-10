@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -159,6 +160,9 @@ func (s *debugServer) appLogs(tw *tar.Writer, apps []string) error {
 		if err := s.collectLogs(tw, pod.Name, "", prefix); err != nil {
 			return err
 		}
+		if err := s.collectLogsLoki(tw, pod.Name, "", join(pod.Labels["app"], pod.Name)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -181,12 +185,12 @@ func (s *debugServer) handlePipelineRedirect(
 			return err
 		}
 	}
-	return s.forEachWorker(tw, pipelineInfo, func(pod *v1.Pod) error {
+	return s.forEachWorker(pipelineInfo, func(pod *v1.Pod) error {
 		return s.handleWorkerRedirect(tw, pod, collectWorker, redirect, prefix)
 	})
 }
 
-func (s *debugServer) forEachWorker(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error) error {
+func (s *debugServer) forEachWorker(pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error) error {
 	pods, err := s.getWorkerPods(pipelineInfo)
 	if err != nil {
 		return err
@@ -408,6 +412,10 @@ func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient, limit i
 		if err := s.collectLogs(tw, s.name, "pachd", prefix...); err != nil {
 			return err
 		}
+		// Collect the pachd container logs from loki.
+		if err := s.collectLogsLoki(tw, s.name, "pachd", prefix...); err != nil {
+			return err
+		}
 		// Collect the pachd container dump.
 		return collectDump(tw, prefix...)
 	}
@@ -606,6 +614,23 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 	}, prefix...)
 }
 
+func (s *debugServer) collectLogsLoki(tw *tar.Writer, pod, container string, prefix ...string) error {
+	if s.env.Config().LokiHost == "" {
+		return nil
+	}
+	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) error {
+		queryStr := `{pod="` + pod
+		if container != "" {
+			queryStr += `", container="` + container
+		}
+		queryStr += `"}`
+		return s.queryLoki(queryStr, func(_ loki.LabelSet, line string) error {
+			_, err := w.Write([]byte(line))
+			return err
+		})
+	}, prefix...)
+}
+
 func collectDump(tw *tar.Writer, prefix ...string) error {
 	if err := collectProfile(tw, &debug.Profile{Name: "goroutine"}, prefix...); err != nil {
 		return err
@@ -632,7 +657,98 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 		if err := s.collectCommits(tw, pachClient, client.NewRepo(pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			return err
 		}
-		return s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...)
+		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
+			return err
+		}
+		if s.env.Config().LokiHost != "" {
+			if err := s.forEachWorkerLoki(pipelineInfo, func(pod string) error {
+				workerPrefix := join(podPrefix, pod)
+				if len(prefix) > 0 {
+					workerPrefix = join(prefix[0], workerPrefix)
+				}
+				userPrefix := join(workerPrefix, client.PPSWorkerUserContainerName)
+				if err := s.collectLogsLoki(tw, pod, client.PPSWorkerUserContainerName, userPrefix); err != nil {
+					return err
+				}
+				sidecarPrefix := join(workerPrefix, client.PPSWorkerSidecarContainerName)
+				return s.collectLogsLoki(tw, pod, client.PPSWorkerSidecarContainerName, sidecarPrefix)
+			}); err != nil {
+				name := "loki"
+				if len(prefix) > 0 {
+					name = join(prefix[0], name)
+				}
+				return writeErrorFile(tw, err, name)
+			}
+		}
+		return nil
+	}
+}
+
+func (s *debugServer) forEachWorkerLoki(pipelineInfo *pps.PipelineInfo, cb func(string) error) error {
+	pods, err := s.getWorkerPodsLoki(pipelineInfo)
+	if err != nil {
+		return err
+	}
+	for pod := range pods {
+		if err := cb(pod); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *debugServer) getWorkerPodsLoki(pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
+	queryStr := `{pipelineName="` + pipelineInfo.Pipeline.Name + `"}`
+	pods := make(map[string]struct{})
+	if err := s.queryLoki(queryStr, func(labels loki.LabelSet, _ string) error {
+		pod, ok := labels["pod"]
+		if !ok {
+			return errors.Errorf("pod label missing from loki label set")
+		}
+		pods[pod] = struct{}{}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return pods, nil
+}
+
+// TODO: Need to bump up this default on the server side, it is too low as is.
+const maxLogs = 5000
+
+func (s *debugServer) queryLoki(queryStr string, cb func(loki.LabelSet, string) error) error {
+	c, err := s.env.GetLokiClient()
+	if err != nil {
+		return err
+	}
+	start := time.Now().Add(-(30 * 24 * time.Hour))
+	end := time.Now()
+	for {
+		// TODO: Need a real context.
+		resp, err := c.QueryRange(s.env.Context(), queryStr, maxLogs, start, end, "FORWARD", 0, 0, true)
+		if err != nil {
+			return err
+		}
+		streams, ok := resp.Data.Result.(loki.Streams)
+		if !ok {
+			return errors.Errorf("resp.Data.Result must be of type loki.Streams")
+		}
+		var numLogs int
+		for _, stream := range streams {
+			for _, entry := range stream.Entries {
+				numLogs++
+				if entry.Timestamp.After(start) {
+					start = entry.Timestamp
+				}
+				if err := cb(stream.Labels, entry.Line); err != nil {
+					return err
+				}
+			}
+		}
+		if numLogs < maxLogs {
+			return nil
+		}
+		start = start.Add(time.Nanosecond)
 	}
 }
 
