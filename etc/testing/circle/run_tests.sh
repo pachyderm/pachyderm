@@ -86,6 +86,9 @@ case "${BUCKET}" in
   PFS)
     make test-pfs-server
     ;;
+  FUSE)
+    make test-fuse
+    ;;
   PPS?)
     make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
