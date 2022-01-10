@@ -690,7 +690,7 @@ func (s *debugServer) queryLoki(queryStr string, cb func(loki.LabelSet, string) 
 	if err != nil {
 		return err
 	}
-	start := time.Time{}
+	start := time.Now().Add(-(30 * 24 * time.Hour))
 	end := time.Now()
 	for {
 		// TODO: Need a real context.
