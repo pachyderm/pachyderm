@@ -333,10 +333,10 @@ launch-stats:
 	kubectl apply --filename etc/kubernetes-prometheus -R
 
 launch-loki:
-	helm repo remove loki || true
-	helm repo add loki https://grafana.github.io/loki/charts
+	helm repo remove grafana || true
+	helm repo add grafana https://grafana.github.io/helm-charts
 	helm repo update
-	helm upgrade --install loki loki/loki-stack
+	helm upgrade --install loki grafana/loki-stack
 	kubectl wait --for=condition=ready pod -l release=loki --timeout=5m
 
 clean-launch-loki:
