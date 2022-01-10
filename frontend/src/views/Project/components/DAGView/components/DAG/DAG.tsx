@@ -2,7 +2,7 @@ import React from 'react';
 
 import {Dag, DagDirection} from '@dash-frontend/lib/types';
 
-import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
+import {NODE_HEIGHT, NODE_WIDTH} from '../../../../constants/nodeSizes';
 
 import Link from './components/Link';
 import Node from './components/Node';
