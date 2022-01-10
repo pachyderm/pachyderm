@@ -27,7 +27,7 @@ import (
 type fileState int32
 
 const (
-	none  fileState = iota // we don't know about this file
+	_     fileState = iota // we don't know about this file (was "none" but linter complained)
 	meta                   // we have meta information (but not content for this file)
 	full                   // we have full content for this file
 	dirty                  // we have full content for this file and the user has written to it
