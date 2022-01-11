@@ -469,7 +469,7 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 			All:    true,
 		})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return clientsdk.ForEachCommit(client, func(ci *pfs.CommitInfo) error {
 			if ci.Finished != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
@@ -576,10 +576,10 @@ func (s *debugServer) collectDescribe(tw *tar.Writer, pod string, prefix ...stri
 		}
 		output, err := pd.Describe(s.env.Config().Namespace, pod, describe.DescriberSettings{ShowEvents: true})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		_, err = w.Write([]byte(output))
-		return err
+		return errors.EnsureStack(err)
 	}, prefix...)
 }
 
@@ -626,7 +626,7 @@ func (s *debugServer) collectLogsLoki(tw *tar.Writer, pod, container string, pre
 		queryStr += `"}`
 		return s.queryLoki(queryStr, func(_ loki.LabelSet, line string) error {
 			_, err := w.Write([]byte(line))
-			return err
+			return errors.EnsureStack(err)
 		})
 	}, prefix...)
 }
@@ -719,7 +719,7 @@ const maxLogs = 5000
 func (s *debugServer) queryLoki(queryStr string, cb func(loki.LabelSet, string) error) error {
 	c, err := s.env.GetLokiClient()
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	start := time.Now().Add(-(30 * 24 * time.Hour))
 	end := time.Now()

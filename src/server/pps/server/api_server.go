@@ -2213,7 +2213,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 		}
 		tasks, claims, err := a.env.TaskService.TaskCount(ctx, driver.TaskNamespace(info))
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		info.Details.UnclaimedTasks = tasks - claims
 	}

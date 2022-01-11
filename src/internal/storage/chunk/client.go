@@ -64,7 +64,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	}
 	key := chunkKey(chunkID, gen)
 	if err := c.store.Put(ctx, key, chunkData); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if err := c.afterUpload(ctx, chunkID, gen); err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ func (c *trackedClient) afterUpload(ctx context.Context, chunkID ID, gen uint64)
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if affected < 1 {
 		return errors.Errorf("no chunk entry for object post upload: chunk=%v gen=%v", chunkID, gen)
@@ -185,7 +185,7 @@ func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit in
 		ORDER BY chunk_id
 		LIMIT $2
 	`, first, limit); err != nil {
-		return 0, nil, err
+		return 0, nil, errors.EnsureStack(err)
 	}
 	for _, ent := range ents {
 		if readChunks {
@@ -203,7 +203,7 @@ func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit in
 		} else {
 			exists, err := c.store.Exists(ctx, chunkKey(ent.ChunkID, ent.Gen))
 			if err != nil {
-				return n, nil, err
+				return n, nil, errors.EnsureStack(err)
 			}
 			if !exists {
 				if exists2, err := c.entryExists(ctx, ent.ChunkID, ent.Gen); err != nil {
@@ -231,7 +231,7 @@ func (c *trackedClient) entryExists(ctx context.Context, chunkID ID, gen uint64)
 	case nil:
 		return true, nil
 	default:
-		return false, err
+		return false, errors.EnsureStack(err)
 	}
 }
 

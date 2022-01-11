@@ -6,6 +6,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // DataMapper maps one stream to another or errors
@@ -14,7 +16,7 @@ type DataMapper = func(r io.Reader, w io.Writer) error
 // IdentityDM is the DataMapper which maps data to itself
 func IdentityDM(r io.Reader, w io.Writer) error {
 	_, err := io.Copy(w, r)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // PathMapper is a function that maps one path to another
@@ -31,7 +33,7 @@ func IdentityPM(x string) string {
 // To leave paths unchanged use IdentityPM for pm
 // To leave file content unchanged use IdentityDM for dm
 func bijectiveMap(inputDir, outputDir string, pm PathMapper, dm DataMapper) error {
-	return filepath.WalkDir(inputDir, func(inputPath string, dirEnt fs.DirEntry, err error) error {
+	err := filepath.WalkDir(inputDir, func(inputPath string, dirEnt fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -40,22 +42,23 @@ func bijectiveMap(inputDir, outputDir string, pm PathMapper, dm DataMapper) erro
 		}
 		inputRelPath, err := filepath.Rel(inputDir, inputPath)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		outputPath := filepath.Join(outputDir, pm(inputRelPath))
 		inputFile, err := os.OpenFile(inputPath, os.O_RDONLY, 0)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		defer inputFile.Close()
 		outputFile, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		defer outputFile.Close()
 		if err := dm(inputFile, outputFile); err != nil {
 			return err
 		}
-		return outputFile.Close()
+		return errors.EnsureStack(outputFile.Close())
 	})
+	return errors.EnsureStack(err)
 }

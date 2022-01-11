@@ -139,7 +139,7 @@ func (dr *DataReader) Get(w io.Writer) error {
 		return getFromCache(dr.ctx, dr.memCache, ref, func(chunk []byte) error {
 			data := chunk[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
 			_, err := w.Write(data)
-			return err
+			return errors.EnsureStack(err)
 		})
 	}, b, func(err error, _ time.Duration) error {
 		if !pacherr.IsNotExist(err) {
@@ -155,10 +155,10 @@ func (dr *DataReader) Get(w io.Writer) error {
 
 func getFromCache(ctx context.Context, cache kv.GetPut, ref *Ref, cb kv.ValueCallback) error {
 	key := ref.Key()
-	return cache.Get(ctx, key[:], cb)
+	return errors.EnsureStack(cache.Get(ctx, key[:], cb))
 }
 
 func putInCache(ctx context.Context, cache kv.GetPut, ref *Ref, data []byte) error {
 	key := ref.Key()
-	return cache.Put(ctx, key[:], data)
+	return errors.EnsureStack(cache.Put(ctx, key[:], data))
 }

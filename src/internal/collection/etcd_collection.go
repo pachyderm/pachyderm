@@ -146,14 +146,14 @@ func (r *Renewer) Put(ctx context.Context, key string, val proto.Message) error 
 func (c *etcdCollection) WithRenewer(ctx context.Context, cb func(context.Context, *Renewer) error) error {
 	resp, err := c.etcdClient.Grant(ctx, ttl)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithCancel(ctx)
 	defer cancel()
 	keepAliveChan, err := c.etcdClient.KeepAlive(ctx, resp.ID)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	go func() {
 		for {
@@ -254,7 +254,7 @@ func (c *etcdReadWriteCollection) TTL(key string) (int64, error) {
 
 func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
 	return c.put(key, val, func(key string, val string, ptr uintptr) error {
-		return c.stm.Put(key, val, ttl, ptr)
+		return errors.EnsureStack(c.stm.Put(key, val, ttl, ptr))
 	})
 }
 
@@ -312,7 +312,7 @@ func (c *etcdReadWriteCollection) put(key string, val proto.Message, putFunc fun
 
 func (c *etcdReadWriteCollection) putLease(key string, val proto.Message, lease etcd.LeaseID) error {
 	return c.put(key, val, func(key string, val string, ptr uintptr) error {
-		return c.stm.PutLease(key, val, lease, ptr)
+		return errors.EnsureStack(c.stm.PutLease(key, val, lease, ptr))
 	})
 }
 

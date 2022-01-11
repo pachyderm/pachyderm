@@ -41,7 +41,7 @@ func NewTaskChain(ctx context.Context, parallelism int64) *TaskChain {
 // CreateTask creates a new task in the task chain.
 func (c *TaskChain) CreateTask(cb func(context.Context, func(func() error) error) error) error {
 	if err := c.sem.Acquire(c.ctx, 1); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	scb := c.serialCallback()
 	c.eg.Go(func() error {

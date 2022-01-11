@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"path"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // ** Why this is here **
@@ -62,22 +64,22 @@ func (c *Client) doRequest(ctx context.Context, path, query string, quiet bool, 
 
 	req, err := http.NewRequestWithContext(ctx, "GET", us, nil)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	defer resp.Body.Close()
-	return json.NewDecoder(resp.Body).Decode(out)
+	return errors.EnsureStack(json.NewDecoder(resp.Body).Decode(out))
 }
 
 func buildURL(u, p, q string) (string, error) {
 	url, err := url.Parse(u)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	url.Path = path.Join(url.Path, p)
 	url.RawQuery = q

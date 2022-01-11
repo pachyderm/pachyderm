@@ -352,8 +352,8 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 		})
 		// Setup goroutine for running and collecting datum set subtasks.
 		eg.Go(func() error {
-			return pj.logger.LogStep("running and collecting datum set subtasks", func() error {
-				return taskDoer.Do(
+			err := pj.logger.LogStep("running and collecting datum set subtasks", func() error {
+				err := taskDoer.Do(
 					ctx,
 					inputChan,
 					func(_ int64, output *types.Any, err error) error {
@@ -389,7 +389,9 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 						return pj.writeJobInfo()
 					},
 				)
+				return errors.EnsureStack(err)
 			})
+			return errors.EnsureStack(err)
 		})
 		return errors.EnsureStack(eg.Wait())
 	}); err != nil {

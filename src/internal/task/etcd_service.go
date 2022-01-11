@@ -54,11 +54,11 @@ func (es *etcdService) TaskCount(ctx context.Context, namespace string) (tasks i
 	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
 	nTasks, rev, err := namespaceEtcd.taskCol.ReadOnly(ctx).CountRev(0)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.EnsureStack(err)
 	}
 	nClaims, _, err := namespaceEtcd.claimCol.ReadOnly(ctx).CountRev(rev)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.EnsureStack(err)
 	}
 	return nTasks, nClaims, nil
 }
@@ -112,7 +112,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 			eg.Wait()
 		}()
 		eg.Go(func() error {
-			return ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
+			err := ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
 				if e.Type == watch.EventDelete {
 					return errors.New("task was deleted while waiting for results")
 				}
@@ -141,13 +141,14 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				}
 				return nil
 			})
+			return errors.EnsureStack(err)
 		})
 		defer func() {
 			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
 				if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
-				return ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix)
+				return errors.EnsureStack(ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix))
 			}); err != nil {
 				fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
 			}
@@ -162,7 +163,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 					if atomic.LoadInt64(&count) == 0 {
 						return nil
 					}
-					return eg.Wait()
+					return errors.EnsureStack(eg.Wait())
 				}
 				taskID, err := computeTaskID(input)
 				if err != nil {
@@ -181,27 +182,29 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				}
 				atomic.AddInt64(&count, 1)
 			case <-ctx.Done():
-				return ctx.Err()
+				return errors.EnsureStack(ctx.Err())
 			}
 		}
 	})
 }
 
 func (ed *etcdDoer) withGroup(ctx context.Context, cb func(ctx context.Context, renewer *col.Renewer) error) error {
-	return ed.groupCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
+	err := ed.groupCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
 		if err := renewer.Put(ctx, path.Join(ed.group, uuid.NewWithoutDashes()), &Group{}); err != nil {
 			return err
 		}
-		return ed.taskCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
+		err := ed.taskCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
 			return cb(ctx, renewer)
 		})
+		return errors.EnsureStack(err)
 	})
+	return errors.EnsureStack(err)
 }
 
 func computeTaskID(input *types.Any) (string, error) {
 	val, err := proto.Marshal(input)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	sum := pachhash.Sum(val)
 	return pachhash.EncodeHash(sum[:]), nil
@@ -220,7 +223,7 @@ func newEtcdSource(namespaceEtcd *namespaceEtcd) Source {
 func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 	groups := make(map[string]map[string]struct{})
 	tq := newTaskQueue(ctx)
-	return es.groupCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
+	err := es.groupCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
 		group, uuid := path.Split(string(e.Key))
 		group = strings.TrimRight(group, "/")
 		groupMap, ok := groups[group]
@@ -248,24 +251,25 @@ func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 				case taskFuncChan <- es.createTaskFunc(ctx, taskKey, cb):
 					return nil
 				case <-ctx.Done():
-					return ctx.Err()
+					return errors.EnsureStack(ctx.Err())
 				}
 			}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 				fmt.Printf("errored in group callback: %v\n", err)
 			}
 		})
 	})
+	return errors.EnsureStack(err)
 }
 
 func (es *etcdSource) forEachTask(ctx context.Context, group string, cb func(string) error) error {
 	claimWatch, err := es.claimCol.ReadOnly(ctx).WatchOne(group, watch.IgnorePut)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer claimWatch.Close()
 	taskWatch, err := es.taskCol.ReadOnly(ctx).WatchOne(group, watch.IgnoreDelete)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer taskWatch.Close()
 	for {
@@ -287,7 +291,7 @@ func (es *etcdSource) forEachTask(ctx context.Context, group string, cb func(str
 				return err
 			}
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		}
 	}
 }
@@ -297,14 +301,14 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 		if err := func() error {
 			task := &Task{}
 			if _, err := col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
-				return es.taskCol.ReadWrite(stm).Get(taskKey, task)
+				return errors.EnsureStack(es.taskCol.ReadWrite(stm).Get(taskKey, task))
 			}); err != nil {
 				return err
 			}
 			if task.State != State_RUNNING {
 				return nil
 			}
-			return es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
+			err := es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
 				taskOutput, taskErr := cb(ctx, task.Input)
 				// If the task context was canceled or the claim was lost, just return with no error.
 				if errors.Is(ctx.Err(), context.Canceled) {
@@ -312,7 +316,7 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 				}
 				task := &Task{}
 				_, err := col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
-					return es.taskCol.ReadWrite(stm).Update(taskKey, task, func() error {
+					err := es.taskCol.ReadWrite(stm).Update(taskKey, task, func() error {
 						if task.State != State_RUNNING {
 							return nil
 						}
@@ -324,9 +328,11 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 						}
 						return nil
 					})
+					return errors.EnsureStack(err)
 				})
 				return err
 			})
+			return errors.EnsureStack(err)
 		}(); err != nil {
 			// If the group context was canceled or the task was deleted / not claimed, then no error should be logged.
 			if errors.Is(ctx.Err(), context.Canceled) ||

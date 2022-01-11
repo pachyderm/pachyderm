@@ -633,7 +633,7 @@ func (pc *pipelineController) getWorkerOptions(ctx context.Context, pipelineInfo
 	podName := pc.env.Config.PachdPodName
 	selfPodInfo, err := pc.env.KubeClient.CoreV1().Pods(pc.namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	var postgresSecretRef *v1.SecretKeySelector
 	for _, container := range selfPodInfo.Spec.Containers {

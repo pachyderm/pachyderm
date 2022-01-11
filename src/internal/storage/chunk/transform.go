@@ -50,7 +50,7 @@ func Get(ctx context.Context, client Client, ref *Ref, cb kv.ValueCallback) erro
 	if ref.EncryptionAlgo != EncryptionAlgo_CHACHA20 {
 		return errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
 	}
-	return client.Get(ctx, ref.Id, func(ctext []byte) error {
+	err := client.Get(ctx, ref.Id, func(ctext []byte) error {
 		if err := verifyData(ref.Id, ctext); err != nil {
 			return err
 		}
@@ -64,10 +64,11 @@ func Get(ctx context.Context, client Client, ref *Ref, cb kv.ValueCallback) erro
 		}
 		rawData, err := ioutil.ReadAll(r)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return cb(rawData)
 	})
+	return errors.EnsureStack(err)
 }
 
 // compress attempts to compress src using algo. If the compressed data is bigger

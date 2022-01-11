@@ -257,7 +257,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					for {
 						nTasks, nClaims, err := taskService.TaskCount(pachClient.Ctx(), driver.TaskNamespace(pipelineInfo))
 						if err != nil {
-							return err
+							return errors.EnsureStack(err)
 						}
 						if nClaims < nTasks {
 							kubeClient := pc.env.KubeClient

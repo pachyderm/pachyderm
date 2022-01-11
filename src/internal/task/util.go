@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -29,18 +30,18 @@ func DoBatch(ctx context.Context, doer Doer, inputs []*types.Any, cb CollectFunc
 	var eg errgroup.Group
 	inputChan := make(chan *types.Any)
 	eg.Go(func() error {
-		return doer.Do(ctx, inputChan, cb)
+		return errors.EnsureStack(doer.Do(ctx, inputChan, cb))
 	})
 	eg.Go(func() error {
 		for _, input := range inputs {
 			select {
 			case inputChan <- input:
 			case <-ctx.Done():
-				return ctx.Err()
+				return errors.EnsureStack(ctx.Err())
 			}
 		}
 		close(inputChan)
 		return nil
 	})
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }

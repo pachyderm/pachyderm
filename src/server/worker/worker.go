@@ -88,13 +88,13 @@ func (w *Worker) worker() {
 
 		// Process any tasks that the master creates.
 		eg.Go(func() error {
-			return driver.NewTaskSource().Iterate(
+			return errors.EnsureStack(driver.NewTaskSource().Iterate(
 				ctx,
 				func(ctx context.Context, input *types.Any) (*types.Any, error) {
 					driver := w.driver.WithContext(ctx)
 					return transform.Worker(driver, logger, input, w.status)
 				},
-			)
+			))
 		})
 
 		return errors.EnsureStack(eg.Wait())
