@@ -53,7 +53,7 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
         {
           expires: COOKIE_EXPIRES,
           sameSite: IS_DEV ? 'lax' : 'strict',
-          secure: true,
+          secure: window.location.protocol === 'https:',
         },
       );
 
