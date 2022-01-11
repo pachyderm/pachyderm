@@ -7,15 +7,6 @@ linters:
     - wrapcheck
   disable:
     - errcheck
-    - deadcode
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - structcheck
-    - typecheck
-    - unused
-    - varcheck
 linters-settings:
   wrapcheck:
     ignoreSigs:
