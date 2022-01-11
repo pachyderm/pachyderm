@@ -345,9 +345,12 @@ func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oi
 }
 
 func (a *apiServer) syncGroupMembership(ctx context.Context, claims *IDTokenClaims) error {
+	logrus.Infof("Syncing group membership;")
+
 	groups := make([]string, len(claims.Groups))
 	for i, g := range claims.Groups {
 		groups[i] = fmt.Sprintf("%s%s", auth.GroupPrefix, g)
+		logrus.Infof("GROUP %d:%s", i, groups[i])
 	}
 	// Sync group membership based on the groups claim, if any
 	return a.setGroupsForUserInternal(ctx, auth.UserPrefix+claims.Email, groups)

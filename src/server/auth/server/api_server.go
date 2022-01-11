@@ -460,6 +460,8 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, err
 		}
 
+		logrus.Infof("Syncing group membership")
+
 		// Sync the user's group membership from the groups claim
 		if err := a.syncGroupMembership(ctx, claims); err != nil {
 			return nil, err
