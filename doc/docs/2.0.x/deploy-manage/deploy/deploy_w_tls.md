@@ -20,6 +20,12 @@ pachd:
       key: ""
 ```
 
+!!! Note
+    When using self signed certificates or custom certificate authority, you will need to set `global.customCaCerts` to true to add Pachyderm's certificate and CA to the list of trusted authorities for console and enterprise, allowing Pachyderm components (pachd, Console, enterprise server) to communicate over SSL. 
+
+    Make sure to set the full certificate chain in the `root.crt`.
+
+
 After you deploy Pachyderm, to connect through `pachctl` by using a
 trusted certificate, you need to configure the `pachd_address` in the
 Pachyderm context with the cluster IP address that starts with `grpcs://`.
