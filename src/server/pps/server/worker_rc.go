@@ -629,8 +629,8 @@ func (a *apiServer) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pipe
 	}
 
 	// Get the reference to the postgres secret used by the current pod
-	podName := pc.env.Config.PachdPodName
-	selfPodInfo, err := pc.env.KubeClient.CoreV1().Pods(pc.namespace).Get(ctx, podName, metav1.GetOptions{})
+	podName := a.env.Config().PachdPodName
+	selfPodInfo, err := a.env.GetKubeClient().CoreV1().Pods(a.namespace).Get(podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
