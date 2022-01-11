@@ -96,7 +96,7 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 	hostConfig := &container.HostConfig{
 		PortBindings: portBindings,
 	}
-	resp, err := dclient.ContainerCreate(ctx, containerConfig, hostConfig, nil, containerName)
+	resp, err := dclient.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, containerName)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

@@ -1,5 +1,10 @@
 deployTarget: custom
 
+global:
+  postgresql:
+    postgresqlPassword: pachyderm
+    postgresqlPostgresPassword: pachyderm
+
 pachd:
   service:
     type: NodePort
@@ -26,4 +31,3 @@ etcd:
     requests:
       cpu: 250m
       memory: 512M
-

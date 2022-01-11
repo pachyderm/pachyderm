@@ -10,10 +10,10 @@ Pachyderm supports the latest Generally Available (GA) release and the previous 
 
 | Version  | Release Status | Support |
 | -------- | -------------- | ------- |
-| 2.0.x    | alpha          | No      |
+| 2.0.x    | GA             | Yes     |
 | 1.13.x   | GA             | Yes     |
 | 1.12.x   | GA             | Yes     |
-| 1.11.x   | GA             | Yes     |
+| 1.11.x   | EOL            | No      |
 | 1.10.x   | EOL            | No      |
 | < 1.9.11 | EOL            | No      |
 
@@ -49,7 +49,7 @@ A release under development may undergo several pre-release stages before becomi
 `End of Life` or `EOL` indicates the release will no longer receive support.
 
 - Documentation will be archived.
-- Release artifacts will remain available. We keep release artifacts on [Github](https://github.com/pachyderm/pachyderm/releases) and [Docker Hub](https://hub.docker.com/u/pachyderm).
+- Release artifacts will remain available. We keep release artifacts on [Github](https://github.com/pachyderm/pachyderm/releases){target=_blank} and [Docker Hub](https://hub.docker.com/u/pachyderm){target=_blank}.
 - Support is no longer available for End of Life (EOL) releases. Support can assist with upgrading to a newer version.
 
 ## Supported Features
@@ -108,5 +108,6 @@ A release under development may undergo several pre-release stages before becomi
 | Spouts: Named Pipes | 2.0.0   | 2021-07-25 |
 | Vault Plugin        | 2.0.0   | 2021-07-25 |
 | `pachctl put file --split`| 2.0.0 | 2021-07-25|
+| MaxQueueSize | 2.0.0 | 2021-07-25|
 | S3v2 signatures   | 1.12.0  | 2021-01-05 |
 | atom inputs       | 1.9.0   | 2019-06-12 |

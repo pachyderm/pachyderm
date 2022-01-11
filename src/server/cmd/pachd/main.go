@@ -128,7 +128,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
 		return err
 	}
-	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
+	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
@@ -168,7 +168,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}
 
 	if err := logGRPCServerSetup("External Enterprise Server", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
@@ -199,7 +199,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
 				true,
 			)
 			if err != nil {
@@ -262,7 +262,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}
 
 	if err := logGRPCServerSetup("Internal Enterprise Server", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
@@ -302,7 +302,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
 				false,
 			)
 			if err != nil {
@@ -409,7 +409,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	txnEnv := &txnenv.TransactionEnv{}
+	txnEnv := txnenv.New()
 	if err := logGRPCServerSetup("Auth API", func() error {
 		authAPIServer, err := authserver.NewAuthServer(
 			authserver.EnvFromServiceEnv(env, txnEnv),
@@ -444,7 +444,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err := logGRPCServerSetup("PPS API", func() error {
 		ppsAPIServer, err := pps_server.NewSidecarAPIServer(
 			pps_server.EnvFromServiceEnv(env, txnEnv, nil),
-			path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
 			env.Config().Namespace,
 			env.Config().PPSWorkerPort,
 			env.Config().PeerPort,
@@ -460,7 +459,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	if err := logGRPCServerSetup("Enterprise API", func() error {
 		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-			eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+			eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
 			false,
 		)
 		if err != nil {
@@ -548,7 +547,7 @@ func doFullMode(config interface{}) (retErr error) {
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
 		return err
 	}
-	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
+	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
@@ -590,7 +589,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("External Pachd", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
@@ -660,7 +659,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
 				true,
 			)
 			if err != nil {
@@ -735,7 +734,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
-		txnEnv := &txnenv.TransactionEnv{}
+		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsEnv, err := pfs_server.EnvFromServiceEnv(env, txnEnv)
 			if err != nil {
@@ -820,7 +819,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
 				false,
 			)
 			if err != nil {

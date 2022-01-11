@@ -3,25 +3,27 @@ package server
 import (
 	"path"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/net/context"
 )
 
 // Env is the dependencies needed to run the PFS API server
 type Env struct {
 	ObjectClient obj.Client
-	DB           *sqlx.DB
+	DB           *pachsql.DB
 	EtcdPrefix   string
 	EtcdClient   *etcd.Client
+	TaskService  task.Service
 	TxnEnv       *txnenv.TransactionEnv
 	Listener     col.PostgresListener
 
@@ -44,7 +46,6 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		return nil, err
 	}
 	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix)
-	ctx := context.Background()
 	if env.AuthServer() == nil {
 		panic("auth server cannot be nil")
 	}
@@ -55,12 +56,13 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		Listener:     env.GetPostgresListener(),
 		EtcdPrefix:   etcdPrefix,
 		EtcdClient:   env.GetEtcdClient(),
+		TaskService:  env.GetTaskService(etcdPrefix),
 
 		AuthServer:    env.AuthServer(),
 		GetPPSServer:  env.PpsServer,
 		GetPachClient: env.GetPachClient,
 
-		BackgroundContext: ctx,
+		BackgroundContext: env.Context(),
 		StorageConfig:     env.Config().StorageConfiguration,
 		Logger:            env.Logger(),
 	}, nil

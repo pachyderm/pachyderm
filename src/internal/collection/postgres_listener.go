@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
@@ -51,7 +51,7 @@ const (
 )
 
 type postgresWatcher struct {
-	db       *sqlx.DB
+	db       *pachsql.DB
 	listener PostgresListener
 	c        chan *watch.Event
 	buf      chan *postgresEvent // buffer for messages before the initial table list is complete
@@ -68,7 +68,7 @@ type postgresWatcher struct {
 }
 
 func newPostgresWatcher(
-	db *sqlx.DB,
+	db *pachsql.DB,
 	listener PostgresListener,
 	channel string,
 	template proto.Message,
@@ -290,7 +290,7 @@ func parsePostgresEvent(payload string) *postgresEvent {
 	return result
 }
 
-func (pe *postgresEvent) WatchEvent(ctx context.Context, db *sqlx.DB, template proto.Message) *watch.Event {
+func (pe *postgresEvent) WatchEvent(ctx context.Context, db *pachsql.DB, template proto.Message) *watch.Event {
 	if pe.err != nil {
 		return &watch.Event{Err: pe.err, Type: watch.EventError}
 	}
@@ -317,11 +317,11 @@ func (pe *postgresEvent) WatchEvent(ctx context.Context, db *sqlx.DB, template p
 type notifierSet = map[string]Notifier
 
 type postgresListener struct {
-	dsn    string
-	pql    *pq.Listener
-	mu     sync.Mutex
-	eg     *errgroup.Group
-	closed bool
+	dsn                   string
+	pql                   *pq.Listener
+	registerMu, channelMu sync.Mutex
+	eg                    *errgroup.Group
+	closed                bool
 
 	channels map[string]notifierSet
 }
@@ -341,8 +341,8 @@ func NewPostgresListener(dsn string) PostgresListener {
 }
 
 func (l *postgresListener) Close() error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.registerMu.Lock()
+	defer l.registerMu.Unlock()
 
 	l.closed = true
 
@@ -356,9 +356,7 @@ func (l *postgresListener) Close() error {
 		return errors.EnsureStack(err)
 	}
 
-	if len(l.channels) != 0 {
-		l.reset(errors.New("postgres listener has been closed"))
-	}
+	l.reset(errors.New("postgres listener has been closed"))
 	return nil
 }
 
@@ -376,15 +374,16 @@ func (l *postgresListener) getPQL() *pq.Listener {
 }
 
 // reset will remove all watchers and unlisten from all channels - you must have
-// the lock on the listener's mutex before calling this.
+// the lock on the listener's register mutex before calling this.
 func (l *postgresListener) reset(err error) {
+	l.channelMu.Lock()
 	for _, notifiers := range l.channels {
 		for _, notifier := range notifiers {
 			notifier.Error(err)
 		}
 	}
-
 	l.channels = make(map[string]notifierSet)
+	l.channelMu.Unlock()
 	if !l.closed {
 		// `reset` is only ever called in the case of an error, so it should be fine to discard this error
 		l.getPQL().UnlistenAll()
@@ -392,8 +391,8 @@ func (l *postgresListener) reset(err error) {
 }
 
 func (l *postgresListener) Register(notifier Notifier) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.registerMu.Lock()
+	defer l.registerMu.Unlock()
 
 	if l.closed {
 		return errors.New("postgres listener has been closed")
@@ -402,10 +401,14 @@ func (l *postgresListener) Register(notifier Notifier) error {
 	// Subscribe the notifier to the given channel.
 	id := notifier.ID()
 	channel := notifier.Channel()
+	l.channelMu.Lock()
+	defer l.channelMu.Unlock()
 	notifiers, ok := l.channels[channel]
 	if !ok {
 		notifiers = make(notifierSet)
 		l.channels[channel] = notifiers
+		l.channelMu.Unlock()
+		defer l.channelMu.Lock()
 		if err := l.getPQL().Listen(channel); err != nil {
 			// If an error occurs, error out all notifiers and reset the state of the
 			// listener to prevent desyncs.
@@ -420,17 +423,21 @@ func (l *postgresListener) Register(notifier Notifier) error {
 }
 
 func (l *postgresListener) Unregister(notifier Notifier) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.registerMu.Lock()
+	defer l.registerMu.Unlock()
 
 	// Remove the notifier from the given channels, unlisten if any are empty.
 	id := notifier.ID()
 	channel := notifier.Channel()
+	l.channelMu.Lock()
+	defer l.channelMu.Unlock()
 	notifiers := l.channels[channel]
 	if len(notifiers) > 0 {
 		delete(notifiers, id)
 		if len(notifiers) == 0 {
 			delete(l.channels, channel)
+			l.channelMu.Unlock()
+			defer l.channelMu.Lock()
 			if err := l.getPQL().Unlisten(channel); err != nil {
 				// If an error occurs, error out all watches and reset the state of the
 				// listener to prevent desyncs.
@@ -452,9 +459,9 @@ func (l *postgresListener) multiplex(notifyChan chan *pq.Notification) error {
 		if notification == nil {
 			// A 'nil' notification means that the connection was lost - error out all
 			// current watchers so they can rebuild state.
-			l.mu.Lock()
+			l.registerMu.Lock()
 			l.reset(errors.Errorf("lost connection to database"))
-			l.mu.Unlock()
+			l.registerMu.Unlock()
 		} else {
 			l.routeNotification(notification)
 		}
@@ -462,8 +469,8 @@ func (l *postgresListener) multiplex(notifyChan chan *pq.Notification) error {
 }
 
 func (l *postgresListener) routeNotification(notification *pq.Notification) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.channelMu.Lock()
+	defer l.channelMu.Unlock()
 
 	// Ignore any messages from channels we have no notifiers for.
 	notifiers, ok := l.channels[notification.Channel]

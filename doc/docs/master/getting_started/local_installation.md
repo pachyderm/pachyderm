@@ -19,16 +19,15 @@ To install Pachyderm on Windows, take a look at [Deploy Pachyderm on Windows](ws
 Pachyderm uses `Helm` for all deployments.  
 ## Prerequisites  
   
-The following prerequisites are required for a successful local deployment of Pachyderm:  
+For a successful local deployment of Pachyderm, you will need:  
   
-- A Kubernetes cluster running on your local environment:   
+- A [Kubernetes cluster](#setup-a-local-kubernetes-cluster) running on your local environment:   
       - [Docker Desktop](#using-kubernetes-on-docker-desktop),  
       - [Minikube](#using-minikube)  
       - [Kind](#using-kind)  
-      - Oracle® VirtualBox™  
-- [Helm](#install-helm)  
+      - Oracle® VirtualBox™   
 - [Pachyderm Command Line Interface (`pachctl`)](#install-pachctl) 
-
+- [Helm](#install-helm) 
 ### Setup A Local Kubernetes Cluster
 
 #### Using Minikube  
@@ -41,8 +40,8 @@ the Beginner Tutorial.
 To configure Minikube, follow these steps:  
   
 1. Install minikube and VirtualBox in your operating system as described in  
-the [Kubernetes documentation](http://kubernetes.io/docs/getting-started-guides/minikube).  
-1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/).  
+the [Kubernetes documentation](https://kubernetes.io/docs/setup/){target=_blank}.  
+1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/){target=_blank}.  
 1. Start `minikube`:  
   
       ```shell  
@@ -76,7 +75,7 @@ by following these steps:
   
 #### Using Kind  
   
-1. Install Kind according to its [documentation](https://kind.sigs.k8s.io/).  
+1. Install Kind according to its [documentation](https://kind.sigs.k8s.io/){target=_blank}.  
   
 1. From the command prompt, confirm that Kubernetes is running:  
    ```shell  
@@ -137,7 +136,7 @@ with a Pachyderm cluster in your terminal.
   
 ### Install `Helm`  
   
-Follow Helm's [installation guide](https://helm.sh/docs/intro/install/).  
+Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_blank}.  
   
 ## Deploy Pachyderm's Latest Version (Option: Deploy Pachyderm With Console)  
   
@@ -162,7 +161,7 @@ When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your loc
       helm install pachd pach/pachyderm --set deployTarget=LOCAL  
       ```    
 === "Install Pachyderm **with Console**"
-     Console is Pachyderm's UI. Run the following helm installation: 
+     Console is Pachyderm's UI. Run the following helm command to install Pachyderm's latest version with Console: 
 
       
      ```shell  
@@ -215,23 +214,8 @@ Kubernetes restarted those pods. Re-run `kubectl get pods`
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 The easiest way to have `pachctl` connect to your local cluster is to use the `port-forward` command.
 
-=== "You have deployed Pachyderm without Console"
 
-    - Retrieve the external IP address of pachd service:
-        ```shell
-        kubectl get services | grep pachd-lb | awk '{print $4}'
-        ```
-    - Then **update your context for pachctl to point at your cluster**:
-
-        ```shell
-        echo '{"pachd_address": "grpc://<external-IP-address>:30650"}' | pachctl config set context "<choose-a-cluster-context-name>" --overwrite
-        ```
-
-        ```shell
-        pachctl config set active-context "<your-cluster-context-name>"
-        ```
-
-=== "You have deployed Pachyderm with Console"
+=== "You have deployed Pachyderm with or without Console"
     - To connect to your new Pachyderm instance, run:
 
         ```shell
@@ -243,12 +227,17 @@ The easiest way to have `pachctl` connect to your local cluster is to use the `p
 
     - Then run `pachctl port-forward` (Background this process in a new tab of your terminal).
 
-    - To connect to your Console (Pachyderm UI), point your browser to `localhost:4000` and authenticate using `admin` & `password`.
+    - If you have deployed with Console:
 
-    - Alternatively, you can connect to your Console (Pachyderm UI) directly by pointing your
-    browser to port `4000` on your minikube IP (run `minikube ip` to retrieve minikube's external IP) or docker desktop IP `http://<dockerDesktopIdaddress-or-minikube>:4000/` then authenticate using `admin` & `password`.
+            - To connect to your Console (Pachyderm UI), point your browser to `localhost:4000` 
+            and authenticate using `admin` & `password`.
 
-    - Note that you will need to run `pachctl auth login` then authenticate to Pachyderm with the mock User (`username`, `password`) to use `pachctl`.
+            - Alternatively, you can connect to your Console (Pachyderm UI) directly by
+            pointing your browser to port `4000` on your minikube IP (run `minikube ip` to retrieve minikube's external IP) or docker desktop IP `http://<dockerDesktopIdaddress-or-minikube>:4000/` 
+            then authenticate using `admin` & `password`.
+
+            - Note that you will need to run `pachctl auth login` then
+            authenticate to Pachyderm with the mock User (`username`, `password`) to use `pachctl`.
 
 
 * Verify that `pachctl` and your cluster are connected. 

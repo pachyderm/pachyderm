@@ -57,6 +57,8 @@ Return PostgreSQL postgres user password
     {{- .Values.global.postgresql.postgresqlPostgresPassword -}}
 {{- else if .Values.postgresqlPostgresPassword -}}
     {{- .Values.postgresqlPostgresPassword -}}
+{{- else if .Release.IsUpgrade -}}
+{{- fail "During an upgrade, global.postgresql.postgresqlPostgresPassword must be set. To retrieve the value generated on install, run: `kubectl get secret postgres -o yaml | grep postgresql-postgres-password | awk  '{print $2}' | base64 -d`" }}
 {{- else -}}
     {{- randAlphaNum 10 -}}
 {{- end -}}
@@ -70,6 +72,8 @@ Return PostgreSQL password
     {{- .Values.global.postgresql.postgresqlPassword -}}
 {{- else if .Values.postgresqlPassword -}}
     {{- .Values.postgresqlPassword -}}
+{{- else if .Release.IsUpgrade -}}
+{{- fail "During an upgrade, global.postgresql.postgresqlPassword must be set. To retrieve the value generated on install, run: `kubectl get secret postgres -o yaml | grep postgresql-password | awk  '{print $2}' | base64 -d`" }}
 {{- else -}}
     {{- randAlphaNum 10 -}}
 {{- end -}}
@@ -83,6 +87,8 @@ Return PostgreSQL replication password
     {{- .Values.global.postgresql.replicationPassword -}}
 {{- else if .Values.replication.password -}}
     {{- .Values.replication.password -}}
+{{- else if .Release.IsUpgrade -}}
+{{- fail "During an upgrade, global.postgresql.replicationPassword must be set. To retrieve the value generated on install, run: `kubectl get secret postgres -o yaml | grep postgresql-replication-password | awk  '{print $2}' | base64 -d`" }}
 {{- else -}}
     {{- randAlphaNum 10 -}}
 {{- end -}}

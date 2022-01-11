@@ -1,11 +1,11 @@
 # Set as you wish
 DOCKER_ACCOUNT := pachyderm
 CONTAINER_NAME := example-group
-CONTAINER_VERSION := 1.12.2
+CONTAINER_VERSION := 2.0.1
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 
 docker-image:
-	@docker build -t $(CONTAINER_TAG) .
+	@docker build -t $(CONTAINER_TAG) .  --platform linux/amd64
 	@docker push $(CONTAINER_TAG)
 
 setup-lab:
@@ -29,6 +29,8 @@ deploy-lab:
 	pachctl list file labresults@master
 	pachctl create pipeline -f lab_group_by_hospital.json 
 	pachctl create pipeline -f lab_group_by_patient.json
+	pachctl create pipeline -f reduce_group_by_hospital.json 
+	pachctl create pipeline -f reduce_group_by_patient.json
 
 setup-retail:
 	mkdir -p ./stores ./purchases ./returns

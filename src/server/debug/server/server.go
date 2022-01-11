@@ -15,21 +15,22 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	log "github.com/sirupsen/logrus"
 	"github.com/wcharczuk/go-chart"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	describe "k8s.io/kubectl/pkg/describe"
 )
-
-// TODO: Figure out how pipeline versions should come into play with this.
-// Right now we just collect the spec and jobs for the current pipeline version.
 
 const (
 	defaultDuration = time.Minute
@@ -103,7 +104,7 @@ func (s *debugServer) handleRedirect(
 						return collectDebugStream(tw, r)
 
 					}
-					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(f.Worker.Pod, metav1.GetOptions{})
+					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(pachClient.Ctx(), f.Worker.Pod, metav1.GetOptions{})
 					if err != nil {
 						return errors.EnsureStack(err)
 					}
@@ -132,7 +133,7 @@ func (s *debugServer) handleRedirect(
 }
 
 func (s *debugServer) appLogs(tw *tar.Writer, apps []string) error {
-	pods, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(metav1.ListOptions{
+	pods, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(s.env.Context(), metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
@@ -152,7 +153,14 @@ func (s *debugServer) appLogs(tw *tar.Writer, apps []string) error {
 		return errors.EnsureStack(err)
 	}
 	for _, pod := range pods.Items {
-		if err := s.collectLogs(tw, pod.Name, "", join(pod.Labels["app"], pod.Name)); err != nil {
+		prefix := join(pod.Labels["app"], pod.Name)
+		if err := s.collectDescribe(tw, pod.Name, prefix); err != nil {
+			return err
+		}
+		if err := s.collectLogs(tw, pod.Name, "", prefix); err != nil {
+			return err
+		}
+		if err := s.collectLogsLoki(tw, pod.Name, "", join(pod.Labels["app"], pod.Name)); err != nil {
 			return err
 		}
 	}
@@ -177,12 +185,12 @@ func (s *debugServer) handlePipelineRedirect(
 			return err
 		}
 	}
-	return s.forEachWorker(tw, pipelineInfo, func(pod *v1.Pod) error {
+	return s.forEachWorker(pipelineInfo, func(pod *v1.Pod) error {
 		return s.handleWorkerRedirect(tw, pod, collectWorker, redirect, prefix)
 	})
 }
 
-func (s *debugServer) forEachWorker(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error) error {
+func (s *debugServer) forEachWorker(pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error) error {
 	pods, err := s.getWorkerPods(pipelineInfo)
 	if err != nil {
 		return err
@@ -200,6 +208,7 @@ func (s *debugServer) forEachWorker(tw *tar.Writer, pipelineInfo *pps.PipelineIn
 
 func (s *debugServer) getWorkerPods(pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
 	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
+		s.env.Context(),
 		metav1.ListOptions{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "ListOptions",
@@ -242,6 +251,11 @@ func (s *debugServer) handleWorkerRedirect(tw *tar.Writer, pod *v1.Pod, collectW
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := c.Close(); err != nil {
+			log.Errorf("errored closing worker client: %v", err)
+		}
+	}()
 	r, err := cb(c.DebugClient, &debug.Filter{
 		Filter: &debug.Filter_Worker{
 			Worker: &debug.Worker{
@@ -390,8 +404,16 @@ func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient, limit i
 		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
 			return err
 		}
+		// Collect the pachd describe output.
+		if err := s.collectDescribe(tw, s.name, prefix...); err != nil {
+			return err
+		}
 		// Collect the pachd container logs.
 		if err := s.collectLogs(tw, s.name, "pachd", prefix...); err != nil {
+			return err
+		}
+		// Collect the pachd container logs from loki.
+		if err := s.collectLogsLoki(tw, s.name, "pachd", prefix...); err != nil {
 			return err
 		}
 		// Collect the pachd container dump.
@@ -439,7 +461,17 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 		},
 	}
 	if err := collectDebugFile(tw, "commits", "json", func(w io.Writer) error {
-		return pachClient.ListCommitF(repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
+		ctx, cancel := context.WithCancel(pachClient.Ctx())
+		defer cancel()
+		client, err := pachClient.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{
+			Repo:   repo,
+			Number: limit,
+			All:    true,
+		})
+		if err != nil {
+			return err
+		}
+		return clientsdk.ForEachCommit(client, func(ci *pfs.CommitInfo) error {
 			if ci.Finished != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
 				compactingDuration, err := types.DurationFromProto(ci.Details.CompactingTime)
 				if err != nil {
@@ -527,7 +559,7 @@ func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series,
 }
 
 func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
-	return collectDebugFile(tw, "version", "", func(w io.Writer) error {
+	return collectDebugFile(tw, "version", "txt", func(w io.Writer) error {
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
@@ -537,9 +569,23 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 	}, prefix...)
 }
 
+func (s *debugServer) collectDescribe(tw *tar.Writer, pod string, prefix ...string) error {
+	return collectDebugFile(tw, "describe", "txt", func(w io.Writer) error {
+		pd := describe.PodDescriber{
+			Interface: s.env.GetKubeClient(),
+		}
+		output, err := pd.Describe(s.env.Config().Namespace, pod, describe.DescriberSettings{ShowEvents: true})
+		if err != nil {
+			return err
+		}
+		_, err = w.Write([]byte(output))
+		return err
+	}, prefix...)
+}
+
 func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
 	if err := collectDebugFile(tw, "logs", "txt", func(w io.Writer) (retErr error) {
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream(s.env.Context())
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -554,7 +600,7 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 		return err
 	}
 	return collectDebugFile(tw, "logs-previous", "txt", func(w io.Writer) (retErr error) {
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream()
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream(s.env.Context())
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -568,6 +614,23 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 	}, prefix...)
 }
 
+func (s *debugServer) collectLogsLoki(tw *tar.Writer, pod, container string, prefix ...string) error {
+	if s.env.Config().LokiHost == "" {
+		return nil
+	}
+	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) error {
+		queryStr := `{pod="` + pod
+		if container != "" {
+			queryStr += `", container="` + container
+		}
+		queryStr += `"}`
+		return s.queryLoki(queryStr, func(_ loki.LabelSet, line string) error {
+			_, err := w.Write([]byte(line))
+			return err
+		})
+	}, prefix...)
+}
+
 func collectDump(tw *tar.Writer, prefix ...string) error {
 	if err := collectProfile(tw, &debug.Profile{Name: "goroutine"}, prefix...); err != nil {
 		return err
@@ -578,18 +641,114 @@ func collectDump(tw *tar.Writer, prefix ...string) error {
 func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limit int64) collectPipelineFunc {
 	return func(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
-			fullPipelineInfo, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name, true)
+			fullPipelineInfos, err := pachClient.ListPipelineHistory(pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
 				return err
 			}
-			return errors.EnsureStack(s.marshaller.Marshal(w, fullPipelineInfo))
+			for _, fullPipelineInfo := range fullPipelineInfos {
+				if err := s.marshaller.Marshal(w, fullPipelineInfo); err != nil {
+					return errors.EnsureStack(err)
+				}
+			}
+			return nil
 		}, prefix...); err != nil {
 			return err
 		}
 		if err := s.collectCommits(tw, pachClient, client.NewRepo(pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			return err
 		}
-		return s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...)
+		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
+			return err
+		}
+		if s.env.Config().LokiHost != "" {
+			if err := s.forEachWorkerLoki(pipelineInfo, func(pod string) error {
+				workerPrefix := join(podPrefix, pod)
+				if len(prefix) > 0 {
+					workerPrefix = join(prefix[0], workerPrefix)
+				}
+				userPrefix := join(workerPrefix, client.PPSWorkerUserContainerName)
+				if err := s.collectLogsLoki(tw, pod, client.PPSWorkerUserContainerName, userPrefix); err != nil {
+					return err
+				}
+				sidecarPrefix := join(workerPrefix, client.PPSWorkerSidecarContainerName)
+				return s.collectLogsLoki(tw, pod, client.PPSWorkerSidecarContainerName, sidecarPrefix)
+			}); err != nil {
+				name := "loki"
+				if len(prefix) > 0 {
+					name = join(prefix[0], name)
+				}
+				return writeErrorFile(tw, err, name)
+			}
+		}
+		return nil
+	}
+}
+
+func (s *debugServer) forEachWorkerLoki(pipelineInfo *pps.PipelineInfo, cb func(string) error) error {
+	pods, err := s.getWorkerPodsLoki(pipelineInfo)
+	if err != nil {
+		return err
+	}
+	for pod := range pods {
+		if err := cb(pod); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *debugServer) getWorkerPodsLoki(pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
+	queryStr := `{pipelineName="` + pipelineInfo.Pipeline.Name + `"}`
+	pods := make(map[string]struct{})
+	if err := s.queryLoki(queryStr, func(labels loki.LabelSet, _ string) error {
+		pod, ok := labels["pod"]
+		if !ok {
+			return errors.Errorf("pod label missing from loki label set")
+		}
+		pods[pod] = struct{}{}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return pods, nil
+}
+
+// TODO: Need to bump up this default on the server side, it is too low as is.
+const maxLogs = 5000
+
+func (s *debugServer) queryLoki(queryStr string, cb func(loki.LabelSet, string) error) error {
+	c, err := s.env.GetLokiClient()
+	if err != nil {
+		return err
+	}
+	start := time.Now().Add(-(30 * 24 * time.Hour))
+	end := time.Now()
+	for {
+		// TODO: Need a real context.
+		resp, err := c.QueryRange(s.env.Context(), queryStr, maxLogs, start, end, "FORWARD", 0, 0, true)
+		if err != nil {
+			return err
+		}
+		streams, ok := resp.Data.Result.(loki.Streams)
+		if !ok {
+			return errors.Errorf("resp.Data.Result must be of type loki.Streams")
+		}
+		var numLogs int
+		for _, stream := range streams {
+			for _, entry := range stream.Entries {
+				numLogs++
+				if entry.Timestamp.After(start) {
+					start = entry.Timestamp
+				}
+				if err := cb(stream.Labels, entry.Line); err != nil {
+					return err
+				}
+			}
+		}
+		if numLogs < maxLogs {
+			return nil
+		}
+		start = start.Add(time.Nanosecond)
 	}
 }
 
@@ -618,7 +777,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 	if err := collectDebugFile(tw, "jobs", "json", func(w io.Writer) error {
 		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
-		return pachClient.ListJobF(pipelineName, nil, 0, false, func(ji *pps.JobInfo) error {
+		return pachClient.ListJobF(pipelineName, nil, -1, false, func(ji *pps.JobInfo) error {
 			if count >= limit {
 				return errutil.ErrBreak
 			}
@@ -655,6 +814,10 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 }
 
 func (s *debugServer) collectWorkerDump(tw *tar.Writer, pod *v1.Pod, prefix ...string) error {
+	// Collect the worker describe output.
+	if err := s.collectDescribe(tw, pod.Name, prefix...); err != nil {
+		return err
+	}
 	// Collect the worker user and storage container logs.
 	userPrefix := client.PPSWorkerUserContainerName
 	sidecarPrefix := client.PPSWorkerSidecarContainerName

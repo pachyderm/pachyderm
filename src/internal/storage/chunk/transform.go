@@ -7,12 +7,8 @@ import (
 	"crypto/cipher"
 	io "io"
 	"io/ioutil"
-	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"golang.org/x/crypto/chacha20"
@@ -33,7 +29,7 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 		return nil, err
 	}
 	buf = buf[:n]
-	// encrypt in place; compress will always make a copy of the data.
+	// encrypt in place; buf is created above.
 	dek := encrypt(opts.Secret, buf, buf)
 	id, err := createFunc(ctx, buf)
 	if err != nil {
@@ -48,42 +44,29 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 	}, nil
 }
 
-// Get calls getFunc to retrieve a chunk, then verifies, decrypts, and decompresses the data.
+// Get calls client.Get to retrieve a chunk, then verifies, decrypts, and decompresses the data.
 // cb is called with the uncompressed plaintext
-// TODO: Move the cache and deduper out of this function.
-func Get(ctx context.Context, client Client, cache kv.GetPut, deduper *miscutil.WorkDeduper, ref *Ref, cb kv.ValueCallback) error {
+func Get(ctx context.Context, client Client, ref *Ref, cb kv.ValueCallback) error {
 	if ref.EncryptionAlgo != EncryptionAlgo_CHACHA20 {
 		return errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
 	}
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 1 * time.Millisecond
-	return backoff.RetryUntilCancel(ctx, func() error {
-		return getFromCache(ctx, cache, ref, cb)
-	}, b, func(err error, _ time.Duration) error {
-		if !pacherr.IsNotExist(err) {
+	return client.Get(ctx, ref.Id, func(ctext []byte) error {
+		if err := verifyData(ref.Id, ctext); err != nil {
 			return err
 		}
-		return deduper.Do(ctx, ref.Key(), func() error {
-			err := client.Get(ctx, ref.Id, func(ctext []byte) error {
-				if err := verifyData(ref.Id, ctext); err != nil {
-					return err
-				}
-				var r io.Reader = bytes.NewReader(ctext)
-				var err error
-				if r, err = decrypt(ref.Dek, r); err != nil {
-					return err
-				}
-				if r, err = decompress(ref.CompressionAlgo, r); err != nil {
-					return err
-				}
-				rawData, err := ioutil.ReadAll(r)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
-				return putInCache(ctx, cache, ref, rawData)
-			})
-			return errors.EnsureStack(err)
-		})
+		var r io.Reader = bytes.NewReader(ctext)
+		var err error
+		if r, err = decrypt(ref.Dek, r); err != nil {
+			return err
+		}
+		if r, err = decompress(ref.CompressionAlgo, r); err != nil {
+			return err
+		}
+		rawData, err := ioutil.ReadAll(r)
+		if err != nil {
+			return err
+		}
+		return cb(rawData)
 	})
 }
 
@@ -212,14 +195,4 @@ func (r *Ref) Key() pachhash.Output {
 		panic(err)
 	}
 	return pachhash.Sum(data)
-}
-
-func getFromCache(ctx context.Context, cache kv.GetPut, ref *Ref, cb kv.ValueCallback) error {
-	key := ref.Key()
-	return errors.EnsureStack(cache.Get(ctx, key[:], cb))
-}
-
-func putInCache(ctx context.Context, cache kv.GetPut, ref *Ref, data []byte) error {
-	key := ref.Key()
-	return errors.EnsureStack(cache.Put(ctx, key[:], data))
 }

@@ -1,6 +1,9 @@
 # Upgrades and Migrations
 
-**COMING SOON...**
+!!! Warning "Under Construction"
+    We are currently working on updating this page.    
+
+    If you have questions about upgrades and migrations, you can post them in the community #help channel on [Slack](https://www.pachyderm.com/slack/){target=_blank}, or reach out to your TAM if you are an Enterprise customer.
 
 As new versions of Pachyderm are released, you might need to update
 your cluster to get access to bug fixes and new features.

@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"runtime"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/fatih/camelcase"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
@@ -21,8 +23,8 @@ var reportMetricsOnce sync.Once
 
 // Logger is a helper for emitting our grpc API logs
 type Logger interface {
-	Log(request interface{}, response interface{}, err error, duration time.Duration)
-	LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int)
+	Log(ctx context.Context, request interface{}, response interface{}, err error, duration time.Duration)
+	LogAtLevelFromDepth(ctx context.Context, request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int)
 }
 
 type logger struct {
@@ -80,11 +82,11 @@ func newLogger(service string, exportStats bool, l *logrus.Logger) Logger {
 
 // Helper function used to log requests and responses from our GRPC method
 // implementations
-func (l *logger) Log(request interface{}, response interface{}, err error, duration time.Duration) {
+func (l *logger) Log(ctx context.Context, request interface{}, response interface{}, err error, duration time.Duration) {
 	if err != nil {
-		l.LogAtLevelFromDepth(request, response, err, duration, logrus.ErrorLevel, 4)
+		l.LogAtLevelFromDepth(ctx, request, response, err, duration, logrus.ErrorLevel, 4)
 	} else {
-		l.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
+		l.LogAtLevelFromDepth(ctx, request, response, err, duration, logrus.InfoLevel, 4)
 	}
 	// We have to grab the method's name here before we
 	// enter the goro's stack
@@ -168,7 +170,7 @@ func (l *logger) LogAtLevel(entry *logrus.Entry, level logrus.Level, args ...int
 	entry.Log(level, args...)
 }
 
-func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int) {
+func (l *logger) LogAtLevelFromDepth(ctx context.Context, request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int) {
 	// We're only interested in 1 stack frame, however due to weirdness with
 	// inlining sometimes you need to get more than 1 caller so that
 	// CallersFrames can resolve the first function. 2 seems to be enough be
@@ -201,6 +203,9 @@ func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, 
 	}
 	if duration > 0 {
 		fields["duration"] = duration
+	}
+	if user := auth.GetWhoAmI(ctx); user != "" {
+		fields["user"] = user
 	}
 	l.LogAtLevel(l.WithFields(fields), level)
 }

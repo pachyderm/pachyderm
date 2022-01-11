@@ -4,10 +4,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"go.etcd.io/etcd/api/v3/mvccpb"
+	etcd "go.etcd.io/etcd/client/v3"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

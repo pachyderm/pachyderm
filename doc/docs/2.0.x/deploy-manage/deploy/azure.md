@@ -28,17 +28,22 @@ Before your start creating your cluster, install the following
 clients on your machine. If not explicitly specified, use the
 latest available version of the components listed below.
 
-* [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
-* [jq](https://stedolan.github.io/jq/download/)
-* [kubectl](https://docs.microsoft.com/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli)
+* [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli){target=_blank}
+* [jq](https://stedolan.github.io/jq/download/){target=_blank}
+* [kubectl](https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli){target=_blank}
 * [pachctl](../../../getting_started/local_installation#install-pachctl)
  
 !!! Note
-    This page assumes that you have an [Azure Subsciption](https://docs.microsoft.com/en-us/azure/guides/developer/azure-developer-guide#understanding-accounts-subscriptions-and-billing).
+    This page assumes that you have an [Azure Subsciption](https://docs.microsoft.com/en-us/azure/guides/developer/azure-developer-guide#understanding-accounts-subscriptions-and-billing){target=_blank}.
 
 ## 2. Deploy Kubernetes
 
-You can deploy Kubernetes on Azure by following the official [Azure Kubernetes Service documentation](https://docs.microsoft.com/azure/aks/tutorial-kubernetes-deploy-cluster), [use the quickstart walkthrough](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough), or follow the steps in this section.
+
+You can deploy Kubernetes on Azure by following the official [Azure Kubernetes Service documentation](https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-deploy-cluster?tabs=azure-cli){target=_blank}, [use the quickstart walkthrough](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough){target=_blank}, or follow the steps in this section.
+
+!!! Attention 
+      Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+
 
 At a minimum, you will need to specify the parameters below:
 
@@ -46,13 +51,13 @@ At a minimum, you will need to specify the parameters below:
 |--------|-----------|
 |RESOURCE_GROUP|A unique name for the resource group where Pachyderm is deployed. For example, `pach-resource-group`.|
 |LOCATION|An Azure availability zone where AKS is available. For example, `centralus`.|
-|NODE_SIZE|The size of the Kubernetes virtual machine (VM) instances. To avoid performance issues, Pachyderm recommends that you set this value to at least `Standard_DS4_v2` which gives you 8 CPUs, 28 Gib of Memory, 56 Gib SSD.<br> <br>In any case, use VMs that support **premium storage**. See [Azure VM sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/sizes) for details around which sizes support Premium storage.|
+|NODE_SIZE|The size of the Kubernetes virtual machine (VM) instances. To avoid performance issues, Pachyderm recommends that you set this value to at least `Standard_DS4_v2` which gives you 8 CPUs, 28 Gib of Memory, 56 Gib SSD.<br> <br>In any case, use VMs that support **premium storage**. See [Azure VM sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/sizes){target=_blank}  for details around which sizes support Premium storage.|
 |CLUSTER_NAME|A unique name for the Pachyderm cluster. For example, `pach-aks-cluster`.|
 
-You can choose to follow the guided steps in [Azure Service Portal's Kubernetes Services](https://portal.azure.com/) or use Azure CLI.
+You can choose to follow the guided steps in [Azure Service Portal's Kubernetes Services](https://portal.azure.com/){target=_blank} or use Azure CLI.
 
 
-1. [Log in](https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli) to Azure:
+1. [Log in](https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli){target=_blank} to Azure:
 
     ```shell
     az login
@@ -62,7 +67,7 @@ You can choose to follow the guided steps in [Azure Service Portal's Kubernetes 
     Resources can now be provisioned on the Azure subscription linked to your account.
     
     
-1. Create an [Azure resource group](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/manage-resource-groups-portal#what-is-a-resource-group) or retrieve an existing group.
+1. Create an [Azure resource group](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/manage-resource-groups-portal#what-is-a-resource-group){target=_blank} or retrieve an existing group.
 
     ```shell
     az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
@@ -92,7 +97,7 @@ You can choose to follow the guided steps in [Azure Service Portal's Kubernetes 
 
 1. Create an AKS cluster in the resource group/location:
 
-    For more configuration options: Find the list of [all available flags of the `az aks create` command](https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az_aks_create).
+    For more configuration options: Find the list of [all available flags of the `az aks create` command](https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az_aks_create){target=_blank}.
 
       ```shell
       az aks create --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME} --node-vm-size ${NODE_SIZE} --node-count <node_pool_count> --location ${LOCATION}
@@ -107,16 +112,16 @@ You can choose to follow the guided steps in [Azure Service Portal's Kubernetes 
 1. Confirm the version of the Kubernetes server by running  `kubectl version`.
 
 !!! note "See Also:"
-    - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general)
+    - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/sizes-general){target=_blank}
 
 Once your Kubernetes cluster is up, and your infrastructure configured, you are ready to prepare for the installation of Pachyderm. Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
 
 
 ## 3. Create an Azure Storage Container For Your Data
 
-Pachyderm needs an [Azure Storage Container](https://docs.microsoft.com/en-us/azure/databricks/data/data-sources/azure/azure-storage) (Object store) to store your data. 
+Pachyderm needs an [Azure Storage Container](https://docs.microsoft.com/en-us/azure/databricks/data/data-sources/azure/azure-storage){target=_blank} (Object store) to store your data. 
 
-To access your data, Pachyderm uses a [Storage Account](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-overview) with permissioned access to your desired container. You can either use an existing account or create a new one in your default subscription, then use the JSON key associated with the account and pass it on to Pachyderm.
+To access your data, Pachyderm uses a [Storage Account](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-overview){target=_blank} with permissioned access to your desired container. You can either use an existing account or create a new one in your default subscription, then use the JSON key associated with the account and pass it on to Pachyderm.
 
 To create a new storage account, follow the steps below:
 
@@ -182,7 +187,7 @@ To create a new storage account, follow the steps below:
 
 !!! Note
     Find the generated key in the **Storage accounts > Access keys**
-    section in the [Azure Portal](https://portal.azure.com/) or by running the following command `az storage account keys list --account-name=${STORAGE_ACCOUNT}`.
+    section in the [Azure Portal](https://portal.azure.com/){target=_blank} or by running the following command `az storage account keys list --account-name=${STORAGE_ACCOUNT}`.
 
 
 * Create a new storage container within your storage account:
@@ -192,9 +197,6 @@ To create a new storage account, follow the steps below:
               --account-name ${STORAGE_ACCOUNT} \
               --account-key "${STORAGE_KEY}"
     ```
-
-!!! note "See Also:"
-    - [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)
 ## 4. Persistent Volumes Creation
 
 etcd and PostgreSQL (metadata storage) each claim the creation of a pv. 
@@ -223,15 +225,15 @@ This section will provide guidance on the configuration settings you will need t
 ### Create A PostgreSQL Server Instance¶
 
 !!! Info 
-    Find the details of the steps and available parameters to create a PostgreSQL Server instance with Azure Console in Azure Documentation ["Create an Azure Database for PostgreSQL server by using the Azure portal"](https://docs.microsoft.com/en-us/azure/postgresql/quickstart-create-server-database-portal). 
+    Find the details of the steps and available parameters to create a PostgreSQL Server instance with Azure Console in Azure Documentation ["Create an Azure Database for PostgreSQL server by using the Azure portal"](https://docs.microsoft.com/en-us/azure/postgresql/quickstart-create-server-database-portal){target=_blank}. 
     
-    Alternatively, you can use the cli and run [`az postgres server create`](https://docs.microsoft.com/en-us/cli/azure/postgres/server?view=azure-cli-latest) with your relevant parameters.
+    Alternatively, you can use the cli and run [`az postgres server create`](https://docs.microsoft.com/en-us/cli/azure/postgres/server?view=azure-cli-latest){target=_blank} with your relevant parameters.
 
 In the Azure console, choose the **Azure Database for PostgreSQL servers** service. You will be asked to pick your server type: `Single Server` or `Hyperscale` (for multi-tenant applications), then configure your DB instance as follows.
 
 | SETTING | Recommended value|
 |:----------------|:--------------------------------------------------------|
-| *subscription*  and *resource group*| Pick your existing [resource group](https://docs.microsoft.com/en-us/azure/cloud-adoption-framework/govern/resource-consistency/resource-access-management#what-is-an-azure-resource-group).<br><br> **Important** Your Cluster and your Database must be deployed in the **same ressource group**.|
+| *subscription*  and *resource group*| Pick your existing [resource group](https://docs.microsoft.com/en-us/azure/cloud-adoption-framework/govern/resource-consistency/resource-access-management#what-is-an-azure-resource-group){target=_blank}.<br><br> **Important** Your Cluster and your Database must be deployed in the **same ressource group**.|
 |*server name*|Name your instance.|
 |*location*|Create a database **in the region matching your Pachyderm cluster**.|
 |*compute + storage*|The standard instance size (GP_Gen5_4 = Gen5 VMs with 4 cores) should work. Remember that Pachyderm's metadata services require **high IOPS (1500)**. Oversize the disk accordingly |
@@ -265,10 +267,10 @@ Once created, go back to your newly created database, and:
 !!! Note
     Azure provides two options for pods running on an AKS worker nodes to access a PostgreSQL DB instance, pick what fit you best:
 
-      - Create a [firewall rule](https://docs.microsoft.com/en-us/azure/mysql/concepts-firewall-rules#connecting-from-azure) on the Azure DB Server with a range of IP addresses that encompasses all IPs of the AKS Cluster nodes (this can be a very large range if using node auto-scaling).
-      - Create a [VNet Rule](https://docs.microsoft.com/en-us/azure/mysql/concepts-data-access-and-security-vnet) on the Azure DB Server that allows access from the subnet the AKS nodes are in. This is used in conjunction with the Microsoft.Sql VNet Service Endpoint enabled on the cluster subnet.
+      - Create a [firewall rule](https://docs.microsoft.com/en-us/azure/mysql/concepts-firewall-rules#connecting-from-azure){target=_blank} on the Azure DB Server with a range of IP addresses that encompasses all IPs of the AKS Cluster nodes (this can be a very large range if using node auto-scaling).
+      - Create a [VNet Rule](https://docs.microsoft.com/en-us/azure/mysql/concepts-data-access-and-security-vnet){target=_blank} on the Azure DB Server that allows access from the subnet the AKS nodes are in. This is used in conjunction with the Microsoft.Sql VNet Service Endpoint enabled on the cluster subnet.
 
-    You can also choose the more secure option to [deny public access to your PostgreSQL instance](https://docs.microsoft.com/en-us/azure/postgresql/howto-deny-public-network-access) then [Create a private endpoint in the K8s vnet](https://docs.microsoft.com/en-us/azure/postgresql/howto-configure-privatelink-cli). Read more about how to [configure a private link using CLI on Azure's documentation](https://docs.microsoft.com/en-us/azure/postgresql/concepts-data-access-and-security-private-link)
+    You can also choose the more secure option to [deny public access to your PostgreSQL instance](https://docs.microsoft.com/en-us/azure/postgresql/howto-deny-public-network-access){target=_blank} then [Create a private endpoint in the K8s vnet](https://docs.microsoft.com/en-us/azure/postgresql/howto-configure-privatelink-cli){target=_blank}. Read more about how to [configure a private link using CLI on Azure's documentation](https://docs.microsoft.com/en-us/azure/postgresql/concepts-data-access-and-security-private-link){target=_blank}
 
    
    Alternativelly, in the **Connection Security** of your newly created server, *Allow access to Azure services* (This is equivalent to running `az postgres server firewall-rule create --server-name <your_server_name> --resource-group <your_resource_group> --name AllowAllAzureIps --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0`). 
@@ -285,7 +287,7 @@ az postgres db create -g <your_group> -s <server_name> -n pachyderm
 az postgres db create -g <your_group> -s <server_name> -n dex
 ```
 !!! Note
-    Note that the second database must be named `dex`. Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres).
+    Note that the second database must be named `dex`. Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
 
 Pachyderm will use the same user to connect to `pachyderm` as well as to `dex`. 
 
@@ -316,11 +318,12 @@ postgresql:
 ## 6. Deploy Pachyderm
 You have set up your infrastructure, created your data container and a Managed PostgreSQL instance, and granted your cluster access to both: you can now finalize your values.yaml and deploy Pachyderm.
 
+!!! Warning "Optional: If you plan to deploy with Console"
+    If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console) and **add the relevant fields in your values.yaml**.
 ### Update Your Values.yaml  
 
 !!! Note 
-    - If you have not created a Managed PostgreSQL Server instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml. This setup is **not recommended in production environments**.
-    - If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console/#deploy-in-the-cloud) and **update your values.yaml** accordingly. 
+     If you have not created a Managed PostgreSQL Server instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml. This setup is **not recommended in production environments**.
 
 If you have previously tried to run Pachyderm locally,
 make sure that you are using the right Kubernetes context first. 
@@ -349,7 +352,7 @@ make sure that you are using the right Kubernetes context first.
 
 1. Update your values.yaml   
 
-    Update your values.yaml with your container name ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/microsoft-values.yaml)) or use our minimal example below.
+    Update your values.yaml with your container name ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/microsoft-values.yaml){target=_blank}) or use our minimal example below.
        
     ```yaml
     deployTarget: "MICROSOFT"
@@ -380,7 +383,8 @@ make sure that you are using the right Kubernetes context first.
       # database server to connect to in global.postgresql
       enabled: false
     ```
-    Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml).
+
+    Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 ### Deploy Pachyderm On The Kubernetes Cluster
 
@@ -429,7 +433,7 @@ make sure that you are using the right Kubernetes context first.
     the `etcd` nodes are ready which might result in the `pachd` nodes
     restarting. You can safely ignore those restarts.
 
-- Finally, make sure [`pachtl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate).
+- Finally, make sure that [`pachctl` talks with your cluster](#7-have-pachctl-and-your-cluster-communicate).
 ## 7. Have 'pachctl' And Your Cluster Communicate
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.

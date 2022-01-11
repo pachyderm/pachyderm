@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -80,7 +81,7 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16, select
 		podNameSelector[selectors[i-1]] = selectors[i]
 	}
 
-	podList, err := f.core.Pods(f.namespace).List(metav1.ListOptions{
+	podList, err := f.core.Pods(f.namespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(podNameSelector)),
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",

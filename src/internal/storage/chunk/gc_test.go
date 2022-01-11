@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
@@ -21,7 +22,7 @@ func TestGC(t *testing.T) {
 	tracker := track.NewTestTracker(t, db)
 	oc, s := NewTestStorage(t, db, tracker)
 
-	writeRandom(ctx, t, s)
+	writeRandom(t, s)
 	count, err := countObjects(ctx, oc)
 	require.NoError(t, err)
 	require.True(t, count > 0)
@@ -34,8 +35,8 @@ func TestGC(t *testing.T) {
 		switch {
 		case strings.HasPrefix(tid, TrackerPrefix):
 			return s.NewDeleter()
-		case strings.HasPrefix(tid, track.TmpTrackerPrefix):
-			return track.NewTmpDeleter()
+		case strings.HasPrefix(tid, renew.TmpTrackerPrefix):
+			return renew.NewTmpDeleter()
 		default:
 			return nil
 		}
@@ -64,7 +65,8 @@ func countObjects(ctx context.Context, client obj.Client) (int, error) {
 	return count, nil
 }
 
-func writeRandom(ctx context.Context, t testing.TB, s *Storage) {
+func writeRandom(t testing.TB, s *Storage) {
+	ctx := context.Background()
 	const seed = 10
 	const size = 1e8
 	rng := rand.New(rand.NewSource(seed))

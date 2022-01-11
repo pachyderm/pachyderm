@@ -32,7 +32,7 @@ This chapter will detail how to:
 - A **repoOwner** of a given repository (or a **clusterAdmin** as mentioned above) can set any level of access to "their" repo to users by running the command:
 
     ```shell
-    $ pachctl auth set <ressource> <ressource name> [role1,role2 | none ] <prefix:subject>
+    pachctl auth set <ressource> <ressource name> [role1,role2 | none ] <prefix:subject>
     ```
 
 To keep using our Auth0 example and illustrate the attribution of a given Role to a User,
@@ -49,16 +49,16 @@ In particular, we will:
 
 - **First, let's connect as our Root User:**
     ```shell
-    $ pachctl auth use-auth-token
+    pachctl auth use-auth-token
     ```
     You will be asked to re-enter your Root token.
 
 - **Second, create a Repo as follow:**
     ```shell
-    $ mkdir -p ./testinput 
-    $ printf "this is a test" >./testinput/test.txt
-    $ pachctl create repo testinput
-    $ cd testinput && pachctl put file testinput@master -f test.txt
+    mkdir -p ./testinput 
+    printf "this is a test" >./testinput/test.txt
+    pachctl create repo testinput
+    cd testinput && pachctl put file testinput@master -f test.txt
 
     ```
     A quick `pachctl list repo` will list your new repo and display your access level on that repo as a **clusterAdmin**.
@@ -66,11 +66,11 @@ In particular, we will:
 
 - **Third, grant `repoReader` access to our user `one-pachyderm-user@gmail.com`:**
     ```shell
-    $ pachctl auth set repo testinput repoReader user:one-pachyderm-user@gmail.com
+    pachctl auth set repo testinput repoReader user:one-pachyderm-user@gmail.com
     ```
     ... and take a quick look at his access level:
     ```shell
-    $ pachctl auth get repo testinput
+    pachctl auth get repo testinput
     ```
     The command returns the list of users granted access to this repo and their associated access level. 
     ```
@@ -92,10 +92,10 @@ In particular, we will:
 - **Finally, have `one-pachyderm-user@gmail.com` try to add a file to `testinput` without proper writing privileges:**
     ```shell
     # Login as `one-pachyderm-user@gmail.com`
-    $ pachctl auth login
+    pachctl auth login
     # Try to write into testinput repo
-    $ printf "this is another test" >./testinput/anothertest.txt
-    $ cd testinput && pachctl put file testinput@master -f anothertest.txt
+    printf "this is another test" >./testinput/anothertest.txt
+    cd testinput && pachctl put file testinput@master -f anothertest.txt
     ```
     The command returns an error message: 
     ```
@@ -109,20 +109,20 @@ In particular, we will:
     - To alter a user's privileges, simply re-run the `pachctl auth set` command above with a different set of Roles. 
     For example, 
     ```shell
-    $ pachctl auth set repo testinput repoWriter user:one-pachyderm-user@gmail.com
+    pachctl auth set repo testinput repoWriter user:one-pachyderm-user@gmail.com
     ```
     will give one-pachyderm-user@gmail.com `repoWriter` privileges when they were inially granted `repoReader` access.
 
     - You can remove all access level on a repo to a user by using the `none` keyword.
     For example,
     ```shell
-    $ pachctl auth set repo testinput none user:one-pachyderm-user@gmail.com
+    pachctl auth set repo testinput none user:one-pachyderm-user@gmail.com
     ```
     will remove any previous granted rights on the repo `testinput` to the user one-pachyderm-user@gmail.com.
 
     - To assign `repoReader` access to `allClusterUsers` on a repo:
     ```shell
-    $ pachctl auth set repo testinput repoReader allClusterUsers
+    pachctl auth set repo testinput repoReader allClusterUsers
     ```   
 
 ## Set Roles to Groups
@@ -138,7 +138,7 @@ Let's keep using our Auth0 example as an illustration, and:
 1. Grant the group an owner access to a specific repo in Pachyderm.
 
 !!! Info
-    To enable the Group creation in Auth0, you will need to install an [`Authorization Extension`](https://auth0.com/docs/extensions/authorization-extension) to Auth0:
+    To enable the Group creation in Auth0, you will need to install an [`Authorization Extension`](https://auth0.com/docs/extensions/authorization-extension){target=_blank} to Auth0:
 
     - Go to **Auth0 Dashboard > Extensions**.
     - Select **Auth0 Authorization** and answer the prompt to install.
@@ -218,18 +218,18 @@ Let's keep using our Auth0 example as an illustration, and:
     Note the addition of the `scopes` and `claimMapping` fields to your original connector configuration file.
     Update your connector:
     ```shell
-    $ pachctl idp update-connector auth0 --version 2
+    pachctl idp update-connector auth0 --version 2
     ```
     Your group is all set to receive permissions to Pachyderm's ressources.
 
 - 4- Grant the group an admin access to a specific repo in Pachyderm.
 
     ```shell
-    $ pachctl auth set repo testinput repoOwner group:testgroup
+    pachctl auth set repo testinput repoOwner group:testgroup
     ```
     A quick check at this repo should give you its updated list of users an their access level:
     ```shell
-    $ pachctl auth get repo testinput
+    pachctl auth get repo testinput
     ```
     **System Response**
     ```

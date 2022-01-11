@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -15,17 +16,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/exec"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -38,9 +38,9 @@ import (
 // In general, need to spend some time walking through the old driver
 // tests to see what can be reused.
 
-// WorkNamespace returns the namespace used by the work package for this
+// TaskNamespace returns the namespace used by the task package for this
 // pipeline.
-func WorkNamespace(pipelineInfo *pps.PipelineInfo) string {
+func TaskNamespace(pipelineInfo *pps.PipelineInfo) string {
 	return fmt.Sprintf("/pipeline-%s/v%d", pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 }
 
@@ -53,8 +53,8 @@ type Driver interface {
 	Jobs() col.PostgresCollection
 	Pipelines() col.PostgresCollection
 
-	NewTaskWorker() *work.Worker
-	NewTaskQueue() (*work.TaskQueue, error)
+	NewTaskSource() task.Source
+	NewTaskDoer(string) task.Doer
 
 	// Returns the PipelineInfo for the pipeline that this worker belongs to
 	PipelineInfo() *pps.PipelineInfo
@@ -91,12 +91,12 @@ type Driver interface {
 
 	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
-	DeleteJob(*sqlx.Tx, *pps.JobInfo) error
+	DeleteJob(*pachsql.Tx, *pps.JobInfo) error
 	UpdateJobState(*pps.Job, pps.JobState, string) error
 
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
-	NewSQLTx(func(*sqlx.Tx) error) error
+	NewSQLTx(func(*pachsql.Tx) error) error
 }
 
 type driver struct {
@@ -265,12 +265,16 @@ func (d *driver) Pipelines() col.PostgresCollection {
 	return d.pipelines
 }
 
-func (d *driver) NewTaskWorker() *work.Worker {
-	return work.NewWorker(d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, WorkNamespace(d.pipelineInfo))
+func (d *driver) NewTaskSource() task.Source {
+	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
+	taskService := d.env.GetTaskService(etcdPrefix)
+	return taskService.NewSource(TaskNamespace(d.pipelineInfo))
 }
 
-func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
-	return work.NewTaskQueue(d.ctx, d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, WorkNamespace(d.pipelineInfo))
+func (d *driver) NewTaskDoer(groupID string) task.Doer {
+	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
+	taskService := d.env.GetTaskService(etcdPrefix)
+	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID)
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {
@@ -301,7 +305,7 @@ func (d *driver) PachClient() *client.APIClient {
 	return d.pachClient.WithCtx(d.ctx)
 }
 
-func (d *driver) NewSQLTx(cb func(*sqlx.Tx) error) error {
+func (d *driver) NewSQLTx(cb func(*pachsql.Tx) error) error {
 	return dbutil.WithTx(d.ctx, d.env.GetDBClient(), cb)
 }
 
@@ -450,7 +454,7 @@ func (d *driver) RunUserErrorHandlingCode(
 }
 
 func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
-	return d.NewSQLTx(func(sqlTx *sqlx.Tx) error {
+	return d.NewSQLTx(func(sqlTx *pachsql.Tx) error {
 		jobInfo := &pps.JobInfo{}
 		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
 			return errors.EnsureStack(err)
@@ -462,7 +466,7 @@ func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string)
 // DeleteJob is identical to updateJobState, except that jobInfo points to a job
 // that should be deleted rather than marked failed.  Jobs may be deleted if
 // their output commit is deleted.
-func (d *driver) DeleteJob(sqlTx *sqlx.Tx, jobInfo *pps.JobInfo) error {
+func (d *driver) DeleteJob(sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
 	return errors.EnsureStack(d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job)))
 }
 

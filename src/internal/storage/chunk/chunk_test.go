@@ -12,12 +12,12 @@ import (
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"modernc.org/mathutil"
 )
 
 type test struct {
@@ -98,6 +98,31 @@ func TestCopy(t *testing.T) {
 	}
 }
 
+func TestCheck(t *testing.T) {
+	ctx := context.Background()
+	objC, chunks := newTestStorage(t)
+	writeRandom(t, chunks)
+	n, err := chunks.Check(ctx, nil, nil, false)
+	require.NoError(t, err)
+	require.True(t, n > 0)
+	deleteOne(t, objC)
+	_, err = chunks.Check(ctx, nil, nil, false)
+	require.YesError(t, err)
+}
+
+func deleteOne(t testing.TB, objC obj.Client) {
+	ctx := context.Background()
+	done := false
+	err := objC.Walk(ctx, "", func(p string) error {
+		if !done {
+			require.NoError(t, objC.Delete(ctx, p))
+			done = true
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func BenchmarkWriter(b *testing.B) {
 	_, chunks := newTestStorage(b)
 	seed := time.Now().UTC().UnixNano()
@@ -146,7 +171,7 @@ func generateAnnotations(random *rand.Rand, t test) []*testAnnotation {
 	var as []*testAnnotation
 	for t.n > 0 {
 		a := &testAnnotation{}
-		a.data = randutil.Bytes(random, mathutil.Min(rand.Intn(t.maxAnnotationSize)+1, t.n))
+		a.data = randutil.Bytes(random, miscutil.Min(rand.Intn(t.maxAnnotationSize)+1, t.n))
 		t.n -= len(a.data)
 		as = append(as, a)
 	}

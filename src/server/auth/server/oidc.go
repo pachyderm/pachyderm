@@ -145,6 +145,8 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 		return "", "", err
 	}
 
+	// state ties this login to the auth code retrieved by the user
+	// nonce ties this login to the access/identity token returned from the IDP
 	state := random.String(30)
 	nonce := random.String(30)
 

@@ -10,28 +10,30 @@ This page walks you through the fundamentals of what you need to know about Kube
 ## Introduction
 
 Deploying Pachyderm successfully on-premises requires a few prerequisites.
-Pachyderm is built on [Kubernetes](https://kubernetes.io/).
+Pachyderm is built on [Kubernetes](https://kubernetes.io/){target=_blank}.
 Before you can deploy Pachyderm, you will need to perform the following actions:
 
 1. [Deploy Kubernetes](#deploying-kubernetes) on-premises.
 1. [Deploy two Kubernetes persistent volumes](#storage-classes ) that Pachyderm will use to store its metadata.
-1. [Deploy an on-premises object store](#deploying-an-object-store) using a storage provider like [MinIO](https://min.io), [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) to provide S3-compatible access to your data storage.
+1. [Deploy an on-premises object store](#deploying-an-object-store) using a storage provider like [MinIO](https://min.io){target=_blank}, [EMC's ECS](https://www.delltechnologies.com/en-us/storage/ecs/index.htm){target=_blank}, or [SwiftStack](https://www.swiftstack.com/){target=_blank} to provide S3-compatible access to your data storage.
 1. Finally, [Deploy Pachyderm using Helm](./helm_install.md) by running the `helm install` command with the appropriate values configured in your values.yaml. We recommend reading these generic deployment steps if you are unfamiliar with Helm.
 
 ## Prerequisites
 Before you start, you will need the following clients installed: 
 
-1. [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+1. [kubectl](https://kubernetes.io/docs/tasks/tools/){target=_blank}
 2. [pachctl](../../../getting_started/local_installation/#install-pachctl)
 
 ## Setting Up To Deploy On-Premises
 
 ### Deploying Kubernetes
-The Kubernetes docs have instructions for [deploying Kubernetes in a variety of on-premise scenarios](https://kubernetes.io/docs/getting-started-guides/#on-premises-vms).
+The Kubernetes docs have instructions for [deploying Kubernetes in a variety of on-premise scenarios](https://kubernetes.io/docs/setup/){target=_blank}.
 We recommend following one of these guides to get Kubernetes running.
 
+!!! Attention
+    Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
 ### Storage Classes 
-Once you deploy Kubernetes, you will also need to configure [storage classes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1) to consume persistent volumes for `etcd` and `postgresql`. 
+Once you deploy Kubernetes, you will also need to configure [storage classes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1){target=_blank} to consume persistent volumes for `etcd` and `postgresql`. 
 
 !!! Warning
     The database and metadata service (Persistent disks) generally requires a small persistent volume size (i.e. 10GB) but **high IOPS (1500)**, therefore, depending on your storage provider, you may need to oversize the volume significantly to ensure enough IOPS.
@@ -60,7 +62,7 @@ The object store you use must be accessible via a low-latency, high-bandwidth co
 
     You will, however, **access your Object Store using the S3 protocol**. 
 
-Storage providers like [MinIO](https://min.io), [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) provide S3-compatible access to enterprise storage for on-premises deployment. 
+Storage providers like [MinIO](https://min.io){target=_blank} (the most common and officially supported option), [EMC's ECS](https://www.delltechnologies.com/en-us/storage/ecs/index.htm){target=_blank}, [Ceph](https://ceph.io/en/){target=_blank}, or [SwiftStack](https://www.swiftstack.com/){target=_blank} provide S3-compatible access to enterprise storage for on-premises deployment. 
 
 #### Sizing And Configuring The Object Store
 Start with a large multiple of your current data set size.

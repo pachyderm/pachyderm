@@ -13,8 +13,8 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '2.0.0'
-pach_latest_version: '2.0.0'
+pach_featured_version: '2.0.5'
+pach_latest_version: '2.0.5'
 pach_major_minor_version: '2.0'
 search_index_version: 'latest'
 
@@ -46,6 +46,9 @@ plugins:
       minify_html: true
   - git-revision-date-localized
   - macros
+  - git-snippet:
+      all_pages: false
+
 
 # Customization
 extra:
@@ -66,6 +69,7 @@ extra_css:
 
 # Extensions
 markdown_extensions:
+  - markdown.extensions.attr_list
   - markdown.extensions.admonition
   - markdown.extensions.codehilite:
       guess_lang: false
@@ -161,7 +165,7 @@ nav:
                 - Export Your Data with pachctl: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl.md
                 - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md
                 - Mount a Repo to a Local Computer: how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer.md        
-            - Delete Data: how-tos/basic-data-operations/removing_data_from_pachyderm.md
+            - Delete a Commit / Delete Data: how-tos/basic-data-operations/removing_data_from_pachyderm.md
         - Pipeline Operations:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
@@ -290,6 +294,7 @@ nav:
             - reference/pachctl/pachctl_delete.md
             - reference/pachctl/pachctl_delete_all.md
             - reference/pachctl/pachctl_delete_branch.md
+            - reference/pachctl/pachctl_delete_commit.md
             - reference/pachctl/pachctl_delete_file.md
             - reference/pachctl/pachctl_delete_job.md
             - reference/pachctl/pachctl_delete_pipeline.md
@@ -369,6 +374,7 @@ nav:
             - reference/pachctl/pachctl_run.md
             - reference/pachctl/pachctl_run_cron.md
             - reference/pachctl/pachctl_run_pfs-load-test.md
+            - reference/pachctl/pachctl_run_pps-load-test.md
             - reference/pachctl/pachctl_shell.md
             - reference/pachctl/pachctl_squash.md
             - reference/pachctl/pachctl_squash_commit.md

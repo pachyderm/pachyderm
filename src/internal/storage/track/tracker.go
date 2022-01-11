@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -31,16 +31,12 @@ const ExpireNow = time.Duration(math.MinInt32)
 // Tracker tracks objects and their references to one another.
 type Tracker interface {
 	// DB returns the database the tracker is using
-	DB() *sqlx.DB
+	DB() *pachsql.DB
 
 	// CreateTx creates an object with id=id, and pointers to everything in pointsTo
 	// It errors with ErrDifferentObjectExists if the object already exists.  Callers may be able to ignore this.
 	// It errors with ErrDanglingRef if any of the elements in pointsTo do not exist
-	CreateTx(tx *sqlx.Tx, id string, pointsTo []string, ttl time.Duration) error
-
-	// SetTTLPrefix sets the expiration time to current_time + ttl for all objects with ids starting with prefix.
-	// It returns the number of objects with that prefix.
-	SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, int, error)
+	CreateTx(tx *pachsql.Tx, id string, pointsTo []string, ttl time.Duration) error
 
 	// SetTTL sets the expiration time to current_time + ttl for the specified object
 	SetTTL(ctx context.Context, id string, ttl time.Duration) (time.Time, error)
@@ -56,9 +52,10 @@ type Tracker interface {
 
 	// DeleteTx deletes the object, or returns ErrDanglingRef if deleting it would create dangling refs.
 	// If the id doesn't exist, no error is returned
-	DeleteTx(tx *sqlx.Tx, id string) error
+	DeleteTx(tx *pachsql.Tx, id string) error
 
-	// IterateDeletable calls cb with all the objects objects which are no longer referenced and have expired
+	// IterateDeletable calls cb with some top-level objects which are no longer referenced and have expired
+	// Even if it deletes all top-level objects, there may be more to delete after it runs
 	IterateDeletable(ctx context.Context, cb func(id string) error) error
 }
 
@@ -153,6 +150,9 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 				})
 				require.NoError(t, err)
 				require.ElementsEqual(t, []string{"expire"}, toExpire)
+
+				runGC(t, tracker)
+				shouldNotExist(t, tracker, "expire")
 			},
 		},
 		{
@@ -193,23 +193,6 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 				}
 			},
 		},
-		{
-			"SetTTLPrefix",
-			func(t *testing.T, tracker Tracker) {
-				// should not return error on empty prefix
-				_, _, err := tracker.SetTTLPrefix(ctx, "1", time.Hour)
-				require.NoError(t, err)
-
-				// should update the prefix
-				require.NoError(t, Create(ctx, tracker, "1", []string{}, time.Hour))
-				_, err = tracker.GetExpiresAt(ctx, "1")
-				require.NoError(t, err)
-				_, _, err = tracker.SetTTLPrefix(ctx, "1", -time.Hour)
-				require.NoError(t, err)
-				runGC(t, tracker)
-				shouldNotExist(t, tracker, "1")
-			},
-		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
@@ -237,7 +220,7 @@ func runGC(t *testing.T, tracker Tracker) int {
 }
 
 // NewTestTracker returns a tracker scoped to the lifetime of the test
-func NewTestTracker(t testing.TB, db *sqlx.DB) Tracker {
+func NewTestTracker(t testing.TB, db *pachsql.DB) Tracker {
 	db.MustExec("CREATE SCHEMA IF NOT EXISTS storage")
 	db.MustExec(schema)
 	return NewPostgresTracker(db)

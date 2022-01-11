@@ -168,16 +168,19 @@ func (pj *pendingJob) withParallelDatums(ctx context.Context, cb func(context.Co
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient = pachClient.WithCtx(ctx)
 		// Upload the datums from the current job into the datum file set format.
-		dit, err := datum.NewIterator(pachClient, pj.ji.Details.Input)
-		if err != nil {
-			return err
-		}
-		dit = datum.NewJobIterator(dit, pj.ji.Job, pj.hasher)
-		fileSetID, err := uploadDatumFileSet(pachClient, dit)
-		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, fileSetID); err != nil {
+		var fileSetID string
+		if err := pj.logger.LogStep("creating full job datum file set", func() error {
+			dit, err := datum.NewIterator(pachClient, pj.ji.Details.Input)
+			if err != nil {
+				return err
+			}
+			dit = datum.NewJobIterator(dit, pj.ji.Job, pj.hasher)
+			fileSetID, err = uploadDatumFileSet(pachClient, dit)
+			if err != nil {
+				return err
+			}
+			return renewer.Add(ctx, fileSetID)
+		}); err != nil {
 			return err
 		}
 		// Set up the datum iterators for merging.
@@ -185,30 +188,39 @@ func (pj *pendingJob) withParallelDatums(ctx context.Context, cb func(context.Co
 		var dits []datum.Iterator
 		if pj.parentMetaCommit != nil {
 			// Upload the datums from the parent job into the datum file set format.
-			parentFileSetID, err := uploadDatumFileSet(pachClient, pj.parentDit)
-			if err != nil {
+			if err := pj.logger.LogStep("creating full parent job datum file set", func() error {
+				parentFileSetID, err := uploadDatumFileSet(pachClient, pj.parentDit)
+				if err != nil {
+					return err
+				}
+				if err := renewer.Add(ctx, parentFileSetID); err != nil {
+					return err
+				}
+				dits = append(dits, datum.NewFileSetIterator(pachClient, parentFileSetID))
+				return nil
+			}); err != nil {
 				return err
 			}
-			if err := renewer.Add(ctx, parentFileSetID); err != nil {
-				return err
-			}
-			dits = append(dits, datum.NewFileSetIterator(pachClient, parentFileSetID))
 		}
 		dits = append(dits, datum.NewFileSetIterator(pachClient, fileSetID))
 		// Create the output datum file set for the new datums (datums that do not exist in the parent job).
-		outputFileSetID, err := withDatumFileSet(pachClient, func(outputSet *datum.Set) error {
-			return datum.Merge(dits, func(metas []*datum.Meta) error {
-				if len(metas) > 1 || !proto.Equal(metas[0].Job, pj.ji.Job) {
-					return nil
-				}
-				pj.logger.WithData(metas[0].Inputs).Logf("setting up datum for processing (parallel jobs)")
-				return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
+		var outputFileSetID string
+		if err := pj.logger.LogStep("creating job datum file set (parallel jobs)", func() error {
+			var err error
+			outputFileSetID, err = withDatumFileSet(pachClient, func(outputSet *datum.Set) error {
+				return datum.Merge(dits, func(metas []*datum.Meta) error {
+					if len(metas) > 1 || !proto.Equal(metas[0].Job, pj.ji.Job) {
+						return nil
+					}
+					pj.logger.WithData(metas[0].Inputs).Logf("setting up datum for processing (parallel jobs)")
+					return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
+				})
 			})
-		})
-		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, outputFileSetID); err != nil {
+			if err != nil {
+				return err
+			}
+			return renewer.Add(ctx, outputFileSetID)
+		}); err != nil {
 			return err
 		}
 		return cb(ctx, datum.NewFileSetIterator(pachClient, outputFileSetID))
@@ -236,16 +248,19 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, cb func(context.Cont
 		pachClient = pachClient.WithCtx(ctx)
 		// Upload the datums from the current job into the datum file set format.
 		// TODO: Cache this in the parallel step and reuse here.
-		dit, err := datum.NewIterator(pachClient, pj.ji.Details.Input)
-		if err != nil {
-			return err
-		}
-		dit = datum.NewJobIterator(dit, pj.ji.Job, pj.hasher)
-		fileSetID, err := uploadDatumFileSet(pachClient, dit)
-		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, fileSetID); err != nil {
+		var fileSetID string
+		if err := pj.logger.LogStep("creating full job datum file set", func() error {
+			dit, err := datum.NewIterator(pachClient, pj.ji.Details.Input)
+			if err != nil {
+				return err
+			}
+			dit = datum.NewJobIterator(dit, pj.ji.Job, pj.hasher)
+			fileSetID, err = uploadDatumFileSet(pachClient, dit)
+			if err != nil {
+				return err
+			}
+			return renewer.Add(ctx, fileSetID)
+		}); err != nil {
 			return err
 		}
 		// Setup an iterator using the parent meta commit.
@@ -254,34 +269,37 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, cb func(context.Cont
 		// Also create deletion operations appropriately.
 		fileSetIterator := datum.NewFileSetIterator(pachClient, fileSetID)
 		stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-		outputFileSetID, err := withDatumFileSet(pachClient, func(s *datum.Set) error {
-			return pj.withDeleter(pachClient, func(deleter datum.Deleter) error {
-				return datum.Merge([]datum.Iterator{parentDit, fileSetIterator}, func(metas []*datum.Meta) error {
-					if len(metas) == 1 {
-						// Datum was processed in the parallel step.
-						if proto.Equal(metas[0].Job, pj.ji.Job) {
+		var outputFileSetID string
+		if err := pj.logger.LogStep("creating job datum file set (serial jobs)", func() error {
+			var err error
+			if outputFileSetID, err = withDatumFileSet(pachClient, func(s *datum.Set) error {
+				return pj.withDeleter(pachClient, func(deleter datum.Deleter) error {
+					return datum.Merge([]datum.Iterator{parentDit, fileSetIterator}, func(metas []*datum.Meta) error {
+						if len(metas) == 1 {
+							// Datum was processed in the parallel step.
+							if proto.Equal(metas[0].Job, pj.ji.Job) {
+								return nil
+							}
+							// Datum only exists in the parent job.
+							return deleter(metas[0])
+						}
+						// Check if a skippable datum was successfully processed by the parent.
+						if pj.skippableDatum(metas[1], metas[0]) {
+							stats.Skipped++
 							return nil
 						}
-						// Datum only exists in the parent job.
-						return deleter(metas[0])
-					}
-					// Check if a skippable datum was successfully processed by the parent.
-					if pj.skippableDatum(metas[1], metas[0]) {
-						stats.Skipped++
-						return nil
-					}
-					if err := deleter(metas[0]); err != nil {
-						return err
-					}
-					pj.logger.WithData(metas[1].Inputs).Logf("setting up datum for processing (serial jobs)")
-					return s.UploadMeta(metas[1], datum.WithPrefixIndex())
+						if err := deleter(metas[0]); err != nil {
+							return err
+						}
+						pj.logger.WithData(metas[1].Inputs).Logf("setting up datum for processing (serial jobs)")
+						return s.UploadMeta(metas[1], datum.WithPrefixIndex())
+					})
 				})
-			})
-		})
-		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, outputFileSetID); err != nil {
+			}); err != nil {
+				return err
+			}
+			return renewer.Add(ctx, outputFileSetID)
+		}); err != nil {
 			return err
 		}
 		pj.saveJobStats(stats)

@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -28,12 +27,13 @@ import (
 // datum queuing (probably should be handled by datum package).
 // capture datum logs.
 // git inputs.
-func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, status *Status) (retErr error) {
-	datumSet, err := deserializeDatumSet(subtask.Data)
+func Worker(driver driver.Driver, logger logs.TaggedLogger, input *types.Any, status *Status) (*types.Any, error) {
+	datumSet, err := deserializeDatumSet(input)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return status.withJob(datumSet.JobID, func() error {
+	var output *types.Any
+	if err := status.withJob(datumSet.JobID, func() error {
 		logger = logger.WithJob(datumSet.JobID)
 		if err := logger.LogStep("datum task", func() error {
 			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Details.Input) || driver.PipelineInfo().Details.S3Out {
@@ -45,9 +45,12 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
-		subtask.Data, err = serializeDatumSet(datumSet)
+		output, err = serializeDatumSet(datumSet)
 		return err
-	})
+	}); err != nil {
+		return nil, err
+	}
+	return output, nil
 }
 
 func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {

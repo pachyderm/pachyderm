@@ -24,13 +24,13 @@ Just before you start creating your cluster, install the following
 clients on your machine. Use the
 latest available version of the components listed below.
 
-* [kubectl](https://docs.microsoft.com/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli): the cli to interact with your cluster.
+* [kubectl](https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli){target=_blank}: the cli to interact with your cluster.
 * [pachctl](../../../getting_started/local_installation#install-pachctl): the cli to interact with Pachyderm.
-* Install [`Helm`](https://helm.sh/docs/intro/install/) for your deployment. 
+* Install [`Helm`](https://helm.sh/docs/intro/install/){target=_blank} for your deployment. 
 
 
 !!! Warning "Optional - Quick deployment of Pachyderm with Console"
-    - The deployment of Console (Pachyderm UI) **requires a valid enterprise token**. To get your free-trial token, fill in [this form](https://www.pachyderm.com/trial), or get in touch with us at [sales@pachyderm.io](mailto:sales@pachyderm.io) or on our [Slack](http://slack.pachyderm.io/). 
+    - The deployment of Console (Pachyderm UI) **requires a valid enterprise token**. To get your free-trial token, fill in [this form](https://www.pachyderm.com/trial/){target=_blank}, or get in touch with us at [sales@pachyderm.io](mailto:sales@pachyderm.io) or on our [Slack](https://www.pachyderm.com/slack/){target=_blank}. 
     - When deploying with Console, we create a default mock user (username:`admin`, password: `password`) to authenticate to Console without the hassle of connecting your Identity Provider. 
 
     For a better understanding of the additional steps and helm values needed when deploying with Console in a production environment, read about the [deployment of Pachyderm with Console](../console/#deploy-in-the-cloud) page. 
@@ -42,7 +42,7 @@ Select your favorite cloud provider.
 ### AWS
 
 1. Additional client installation:
-Install [AWS CLI](https://aws.amazon.com/cli/)
+Install [AWS CLI](https://aws.amazon.com/cli/){target=_blank}
 
 1. [Create an EKS cluster](../aws-deploy-pachyderm/#2-deploy-kubernetes-by-using-eksctl) 
 
@@ -58,11 +58,11 @@ Install [AWS CLI](https://aws.amazon.com/cli/)
       storage:
         amazon:
           bucket: "bucket_name"      
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
-            id: "AKIAIOSFODNN7EXAMPLE"                
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
-            secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-            region: "us-east-2"
+          # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
+          id: "AKIAIOSFODNN7EXAMPLE"                
+          # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          region: "us-east-2"
       externalService:
         enabled: true
     ```
@@ -74,11 +74,11 @@ Install [AWS CLI](https://aws.amazon.com/cli/)
       storage:
         amazon:
           bucket: "bucket_name"                
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
-            id: "AKIAIOSFODNN7EXAMPLE"                
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
-            secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-            region: "us-east-2"
+          # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
+          id: "AKIAIOSFODNN7EXAMPLE"                
+          # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          region: "us-east-2"
       # pachyderm enterprise key 
       enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
     console:
@@ -90,7 +90,7 @@ Jump to [Helm install](#3-helm-install)
 
 ### Google
 1. Additional client installation:
-Install [Google Cloud SDK](https://cloud.google.com/sdk/) 
+Install [Google Cloud SDK](https://cloud.google.com/sdk/){target=_blank}
 
 1. [Create a GKE cluster](../google_cloud_platform/#2-deploy-kubernetes)
 Note: 
@@ -108,7 +108,8 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
       storage:
         google:
           bucket: "bucket_name"
-          cred: "INSERT JSON TO YOUR SERVICE ACCOUNT HERE"
+          cred: |
+            INSERT JSON CONTENT HERE
       externalService:
         enabled: true
     ```
@@ -120,7 +121,8 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
       storage:
         google:
           bucket: "bucket_name"
-          cred: "INSERT JSON TO YOUR SERVICE ACCOUNT HERE"
+          cred: |
+            INSERT JSON CONTENT HERE
       # pachyderm enterprise key
       enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
     console:
@@ -132,10 +134,10 @@ Jump to [Helm install](#3-helm-install)
 ### Azure
 
 !!! Note
-    - This section assumes that you have an [Azure Subsciption](https://docs.microsoft.com/en-us/azure/guides/developer/azure-developer-guide#understanding-accounts-subscriptions-and-billing).
+    - This section assumes that you have an [Azure Subsciption](https://docs.microsoft.com/en-us/azure/guides/developer/azure-developer-guide#understanding-accounts-subscriptions-and-billing){target=_blank}.
 
 1. Additional client installation:
-Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli).
+Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli){target=_blank}.
 
 1. [Create an AKS cluster](../azure/#2-deploy-kubernetes) 
 
@@ -150,12 +152,12 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
     pachd:
       storage:
         microsoft:
-        # storage container name
-        container: "blah"
-        # storage account name
-        id: "AKIAIOSFODNN7EXAMPLE"
-        # storage account key
-        secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          # storage container name
+          container: "blah"
+          # storage account name
+          id: "AKIAIOSFODNN7EXAMPLE"
+          # storage account key
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
       externalService:
         enabled: true
     ```
@@ -166,12 +168,12 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
     pachd:
       storage:
         microsoft:
-        # storage container name
-        container: "blah"
-        # storage account name
-        id: "AKIAIOSFODNN7EXAMPLE"
-        # storage account key
-        secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          # storage container name
+          container: "blah"
+          # storage account name
+          id: "AKIAIOSFODNN7EXAMPLE"
+          # storage account key
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
       # pachyderm enterprise key
       enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
     console:

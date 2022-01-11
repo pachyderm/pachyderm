@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
@@ -87,13 +86,13 @@ func (w *Worker) worker() {
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
 
-		// Run any worker tasks that the master creates
+		// Process any tasks that the master creates.
 		eg.Go(func() error {
-			return driver.NewTaskWorker().Run(
+			return driver.NewTaskSource().Iterate(
 				ctx,
-				func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
+				func(ctx context.Context, input *types.Any) (*types.Any, error) {
 					driver := w.driver.WithContext(ctx)
-					return nil, transform.Worker(driver, logger, subtask, w.status)
+					return transform.Worker(driver, logger, input, w.status)
 				},
 			)
 		})

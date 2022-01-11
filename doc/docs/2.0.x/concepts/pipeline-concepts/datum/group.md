@@ -17,7 +17,7 @@ or to control the granularity of your datums through file name-matching.
 When you configure a group input, you must specify a glob pattern that
 includes a capture group. The capture group defines the specific string in
 the file path that is used to match files in other joined repos.
-Capture groups work analogously to the [regex capture group](https://www.regular-expressions.info/refcapture.html).
+Capture groups work analogously to the [regex capture group](https://www.regular-expressions.info/refcapture.html){target=_blank}.
 You define the capture group inside parenthesis. Capture groups are numbered
 from left to right and can also be nested within each other. Numbering for
 nested capture groups is based on their opening parenthesis.
@@ -40,7 +40,7 @@ following capture groups:
 | `/*/(bar-(123))/*`  | Capture group 1: `bar-123`, capture group 2: `123`. |
 
 
-Also, groups require you to specify a [replacement group](https://www.regular-expressions.info/replacebackref.html)
+Also, groups require you to specify a [replacement group](https://www.regular-expressions.info/replacebackref.html){target=_blank}
 in the `group_by` parameter to define which capture groups you want to try
 to match.
 
@@ -117,5 +117,5 @@ ID FILES                                                                        
 -  labresults@722665ed49474db0aab5cbe4d8a20ff8:/LIPID-patientID3-labID3.txt
 ```
 
-To experiment further, see the full [group example](https://github.com/pachyderm/pachyderm/tree/master/examples/group).
+To experiment further, see the full [group example](https://github.com/pachyderm/pachyderm/tree/master/examples/group){target=_blank}.
 

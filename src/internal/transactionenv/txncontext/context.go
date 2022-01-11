@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -20,7 +20,7 @@ import (
 type TransactionContext struct {
 	username string
 	// SqlTx is the ongoing database transaction.
-	SqlTx *sqlx.Tx
+	SqlTx *pachsql.Tx
 	// CommitSetID is the ID of the CommitSet corresponding to PFS changes in this transaction.
 	CommitSetID string
 	// Timestamp is the canonical timestamp to be used for writes in this transaction.
@@ -38,7 +38,7 @@ type identifier interface {
 	WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 }
 
-func New(ctx context.Context, sqlTx *sqlx.Tx, authServer identifier) (*TransactionContext, error) {
+func New(ctx context.Context, sqlTx *pachsql.Tx, authServer identifier) (*TransactionContext, error) {
 	var username string
 	// check auth once now so that we can refer to it later
 	if authServer != nil {

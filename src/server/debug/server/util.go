@@ -54,7 +54,7 @@ func collectDebugFile(tw *tar.Writer, name, ext string, cb func(io.Writer) error
 }
 
 func writeErrorFile(tw *tar.Writer, err error, prefix ...string) error {
-	file := "error"
+	file := "error.txt"
 	if len(prefix) > 0 {
 		file = join(prefix[0], file)
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 )
 
@@ -43,11 +44,11 @@ type apiServer struct {
 	enterpriseTokenCol col.EtcdCollection
 
 	// configCol is a collection containing the license server configuration
-	configCol col.EtcdCollection
+	configCol col.PostgresCollection
 }
 
-func (a *apiServer) LogReq(request interface{}) {
-	a.pachLogger.Log(request, nil, nil, 0)
+func (a *apiServer) LogReq(ctx context.Context, request interface{}) {
+	a.pachLogger.Log(ctx, request, nil, nil, 0)
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
@@ -67,7 +68,7 @@ func NewEnterpriseServer(env Env, heartbeat bool) (ec.APIServer, error) {
 		env:                  env,
 		enterpriseTokenCache: keycache.NewCache(env.BackgroundContext, enterpriseTokenCol.ReadOnly(env.BackgroundContext), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
-		configCol:            col.NewEtcdCollection(env.EtcdClient, env.EtcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
+		configCol:            EnterpriseConfigCollection(env.DB, env.Listener),
 	}
 	go s.enterpriseTokenCache.Watch()
 
@@ -173,8 +174,8 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 
 // Heartbeat implements the Heartbeat RPC. It exists mostly to test the heartbeat logic
 func (a *apiServer) Heartbeat(ctx context.Context, req *ec.HeartbeatRequest) (resp *ec.HeartbeatResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.heartbeatIfConfigured(ctx); err != nil {
 		return nil, err
@@ -191,8 +192,8 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 		return copyReq
 	}
 
-	a.LogReq(removeSecret(req))
-	defer func(start time.Time) { a.pachLogger.Log(removeSecret(req), resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, removeSecret(req))
+	defer func(start time.Time) { a.pachLogger.Log(ctx, removeSecret(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	// Try to heartbeat before persisting the configuration
 	heartbeatResp, err := a.heartbeatToServer(ctx, req.LicenseServer, req.Id, req.Secret)
@@ -203,15 +204,20 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	record := &ec.EnterpriseRecord{License: heartbeatResp.License}
 
 	// If the test heartbeat succeeded, write the state and config to etcd
-	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
-		if err := a.configCol.ReadWrite(stm).Put(configKey, &ec.EnterpriseConfig{
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+		if err := a.configCol.ReadWrite(txCtx.SqlTx).Put(configKey, &ec.EnterpriseConfig{
 			LicenseServer: req.LicenseServer,
 			Id:            req.Id,
 			Secret:        req.Secret,
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 
+	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		return errors.EnsureStack(a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record))
 	}); err != nil {
 		return nil, err
@@ -274,8 +280,8 @@ func (a *apiServer) GetActivationCode(ctx context.Context, req *ec.GetActivation
 		return copyResp
 	}
 
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 	return a.getEnterpriseRecord()
 }
 
@@ -317,15 +323,21 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 // Deactivate deletes the current cluster's enterprise token, and puts the
 // cluster in the "NONE" enterprise state.
 func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (resp *ec.DeactivateResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(enterpriseTokenKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}
-		err = a.configCol.ReadWrite(stm).Delete(enterpriseTokenKey)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+		err := a.configCol.ReadWrite(txCtx.SqlTx).Delete(configKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}

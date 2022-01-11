@@ -10,7 +10,7 @@ import collections
 import http.client
 from pathlib import Path
 
-ETCD_IMAGE = "pachyderm/etcd:v3.3.5"
+ETCD_IMAGE = "pachyderm/etcd:v3.5.1"
 
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 
@@ -52,7 +52,7 @@ class BaseDriver:
 
         await asyncio.gather(*pull_images)
 
-        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local"]
+        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local", "pachyderm/testuser:local"]
 
         await asyncio.gather(*[self.push_image(i) for i in push_images])
         await run("kubectl", "apply", "-f", "etc/testing/minio.yaml", "--namespace=default")

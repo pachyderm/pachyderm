@@ -9,7 +9,7 @@ The S3 Gateway is designed to work with any S3 Client, among which:
 - AWS S3 cli
 - boto3
 
-The operations on the HTTP API exposed by the S3 Gateway largely mirror those documented in [S3’s official docs](https://docs.aws.amazon.com/cli/latest/reference/s3/). It is typically used when you wish to retrieve data from or expose data to object storage tooling (such as MinIO, boto3, and aws s3 cli). 
+The operations on the HTTP API exposed by the S3 Gateway largely mirror those documented in [S3’s official docs](https://docs.aws.amazon.com/cli/latest/reference/s3/){target=_blank}. It is typically used when you wish to retrieve data from or expose data to object storage tooling (such as MinIO, boto3, and aws s3 cli). 
 
 !!! Info
     `pachd` service exposes the S3 gateway (`s3gateway-port`) on port **30600**.
@@ -65,7 +65,7 @@ commits by using the commit ID as the S3 object version ID or use the new syntax
     To retrieve the file `file.txt` in the commit `a5984442ce6b4b998879513ff3da17da` on the master branch of the repo `arandomrepo`:
 
     ```shell
-    $ aws s3api get-object --bucket master.arandomrepo --profile gcp-pf --endpoint http://localhost:30600 --key file.txt --version-id a5984442ce6b4b998879513ff3da17da export.txt
+    aws s3api get-object --bucket master.arandomrepo --profile gcp-pf --endpoint http://localhost:30600 --key file.txt --version-id a5984442ce6b4b998879513ff3da17da export.txt
     ```
     ```shell
     {
@@ -81,6 +81,6 @@ commits by using the commit ID as the S3 object version ID or use the new syntax
     OR...
 
     ```shell
-    $ aws s3api get-object --bucket a5984442ce6b4b998879513ff3da17da.master.arandomrepo --profile gcp-pf --endpoint http://localhost:30600 --key file.txt export.txt
+    aws s3api get-object --bucket a5984442ce6b4b998879513ff3da17da.master.arandomrepo --profile gcp-pf --endpoint http://localhost:30600 --key file.txt export.txt
     ```
     

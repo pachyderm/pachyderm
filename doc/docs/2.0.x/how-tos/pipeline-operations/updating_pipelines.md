@@ -52,7 +52,7 @@ already follow, you might prefer to use Pachyderm's built-in functionality.
 To push a new image by using the Pachyderm commands, you need
 to use the `--push-images` flag with the `pachctl update pipeline`
 command. By default, if you do not specify a registry with the `--registry`
-flag, Pachyderm uses [DockerHub](https://hub.docker.com).
+flag, Pachyderm uses [DockerHub](https://hub.docker.com){target=_blank}.
 When you build your image with Pachyderm, it assigns a random
 tag to your new image.
 
@@ -131,7 +131,7 @@ To update the code in your pipeline, complete the following steps:
 
          1. Build, tag, and push a new image as described in the
           image registry documentation. For example, if you use
-          DockerHub, see [Docker Documentation](https://docs.docker.com/docker-hub/).
+          DockerHub, see [Docker Documentation](https://docs.docker.com/docker-hub/){target=_blank}.
 
             !!! Important
                 Make sure to update your tag every time you re-build. Our pull policy is `IfNotPresent` (Only pull the image if it does not already exist on the node.) . Failing to update your tag will result in your pipeline running on a previous version of your code.

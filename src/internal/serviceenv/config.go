@@ -69,6 +69,9 @@ type GlobalConfiguration struct {
 	// the target project.  If set on a pachd pod, propagates to workers and sidecars (which
 	// also need permission).
 	GoogleCloudProfilerProject string `env:"GOOGLE_CLOUD_PROFILER_PROJECT"`
+
+	// The number of concurrent requests that the PPS Master can make against kubernetes
+	PPSMaxConcurrentK8sRequests int `env:"PPS_MAX_CONCURRENT_K8S_REQUESTS,default=10"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.
@@ -93,7 +96,8 @@ type PachdSpecificConfiguration struct {
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=false"`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
-	PachdPodName string `env:"PACHD_POD_NAME,required"`
+	PachdPodName                 string `env:"PACHD_POD_NAME,required"`
+	EnableWorkerSecurityContexts bool   `env:"ENABLE_WORKER_SECURITY_CONTEXTS,default=true"`
 }
 
 // StorageConfiguration contains the storage configuration.

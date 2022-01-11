@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 )
@@ -20,14 +21,14 @@ import (
 var _ MetadataStore = &postgresStore{}
 
 type postgresStore struct {
-	db      *sqlx.DB
+	db      *pachsql.DB
 	cache   kv.GetPut
 	deduper *miscutil.WorkDeduper
 }
 
 // NewPostgresStore returns a Store backed by db
 // TODO: Expose configuration for cache size?
-func NewPostgresStore(db *sqlx.DB) MetadataStore {
+func NewPostgresStore(db *pachsql.DB) MetadataStore {
 	return &postgresStore{
 		db:      db,
 		cache:   kv.NewMemCache(100),
@@ -35,11 +36,11 @@ func NewPostgresStore(db *sqlx.DB) MetadataStore {
 	}
 }
 
-func (s *postgresStore) DB() *sqlx.DB {
+func (s *postgresStore) DB() *pachsql.DB {
 	return s.db
 }
 
-func (s *postgresStore) SetTx(tx *sqlx.Tx, id ID, md *Metadata) error {
+func (s *postgresStore) SetTx(tx *pachsql.Tx, id ID, md *Metadata) error {
 	if md == nil {
 		md = &Metadata{}
 	}
@@ -126,11 +127,11 @@ func (s *postgresStore) putInCache(ctx context.Context, id ID, md *Metadata) err
 	return errors.EnsureStack(s.cache.Put(ctx, id[:], mdData))
 }
 
-func (s *postgresStore) GetTx(tx *sqlx.Tx, id ID) (*Metadata, error) {
+func (s *postgresStore) GetTx(tx *pachsql.Tx, id ID) (*Metadata, error) {
 	return s.get(context.Background(), tx, id)
 }
 
-func (s *postgresStore) DeleteTx(tx *sqlx.Tx, id ID) error {
+func (s *postgresStore) DeleteTx(tx *pachsql.Tx, id ID) error {
 	_, err := tx.Exec(`DELETE FROM storage.filesets WHERE id = $1`, id)
 	return errors.EnsureStack(err)
 }
@@ -138,7 +139,7 @@ func (s *postgresStore) DeleteTx(tx *sqlx.Tx, id ID) error {
 // SetupPostgresStoreV0 sets up the tables for a Store
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
-func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
+func SetupPostgresStoreV0(ctx context.Context, tx *pachsql.Tx) error {
 	const schema = `
 	CREATE TABLE storage.filesets (
 		id UUID NOT NULL PRIMARY KEY,
@@ -151,7 +152,7 @@ func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
 }
 
 // NewTestStore returns a Store scoped to the lifetime of the test.
-func NewTestStore(t testing.TB, db *sqlx.DB) MetadataStore {
+func NewTestStore(t testing.TB, db *pachsql.DB) MetadataStore {
 	ctx := context.Background()
 	tx := db.MustBegin()
 	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)

@@ -6,12 +6,12 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -24,7 +24,7 @@ type driver struct {
 	// txnEnv stores references to other pachyderm APIServer instances so we can
 	// make calls within the same transaction without serializing through RPCs
 	txnEnv       *txnenv.TransactionEnv
-	db           *sqlx.DB
+	db           *pachsql.DB
 	transactions col.PostgresCollection
 }
 
@@ -80,7 +80,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 		Started:  now(),
 	}
 
-	if err := dbutil.WithTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, d.db, func(sqlTx *pachsql.Tx) error {
 		return errors.EnsureStack(d.transactions.ReadWrite(sqlTx).Put(
 			info.Transaction.ID,
 			info,
@@ -120,7 +120,7 @@ func (d *driver) listTransaction(ctx context.Context) ([]*transaction.Transactio
 
 // deleteAll deletes all transactions from etcd except the currently running
 // transaction (if any).
-func (d *driver) deleteAll(ctx context.Context, sqlTx *sqlx.Tx, running *transaction.Transaction) error {
+func (d *driver) deleteAll(ctx context.Context, sqlTx *pachsql.Tx, running *transaction.Transaction) error {
 	txns, err := d.listTransaction(ctx)
 	if err != nil {
 		return err
@@ -281,7 +281,7 @@ func (d *driver) updateTransaction(
 		if err == nil {
 			// only persist the transaction if we succeeded, otherwise just update localInfo
 			var storedInfo transaction.TransactionInfo
-			if err = dbutil.WithTx(ctx, d.db, func(sqlTx *sqlx.Tx) error {
+			if err = dbutil.WithTx(ctx, d.db, func(sqlTx *pachsql.Tx) error {
 				// Update the existing transaction with the new requests/responses
 				err := d.transactions.ReadWrite(sqlTx).Update(txn.ID, &storedInfo, func() error {
 					if storedInfo.Version != localInfo.Version {

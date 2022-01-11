@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -57,7 +57,7 @@ func ParsePipelineKey(key string) (string, string, error) {
 }
 
 // Pipelines returns a PostgresCollection of pipelines
-func Pipelines(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
+func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		pipelinesCollectionName,
 		db,
@@ -115,7 +115,7 @@ func JobKey(job *pps.Job) string {
 }
 
 // Jobs returns a PostgresCollection of Jobs
-func Jobs(db *sqlx.DB, listener col.PostgresListener) col.PostgresCollection {
+func Jobs(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		jobsCollectionName,
 		db,

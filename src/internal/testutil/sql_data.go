@@ -157,3 +157,19 @@ COPY public.cars (make, model, year, note) FROM stdin;
 -- PostgreSQL database dump complete
 --
 `
+
+const CreateCarsTable = `
+CREATE TABLE cars (
+    make VARCHAR(50),
+    model VARCHAR(50),
+    year SMALLINT,
+    note VARCHAR(100) DEFAULT 'literally a rocket'
+);
+`
+const SeedCarsTable = `INSERT INTO cars (make, model, year, note) VALUES
+('Tesla', 'Roadster', 2008, 'literally a rocket'),
+('Bugatti', 'Chiron', 2016, 'literally a rocket'),
+('Dodge', 'Viper', 2015, 'literally a rocket'),
+('Honda', 'Civic', 1998, 'only a rocket if it has a spoiler'),
+('Toyota', 'Corolla', 2005, 'greatest car ever made');
+`

@@ -38,6 +38,9 @@
 
 ## Filepath Formats
 
+!!! Important
+    Pachyderm uses `*?[]{}!()@+^` as reserved characters for [glob patterns](../../../concepts/pipeline-concepts/datum/glob-pattern/#glob-pattern). Because of this, you cannot use these characters in your filepath.
+
 In Pachyderm, you specify the path to file by using the `-f` option. A path
 to file can be a **local path or a URL to an external resource**. You can add
 multiple files or directories by using the `-i` option. To add contents
@@ -47,36 +50,36 @@ The following table provides examples of `pachctl put file` commands with
 various filepaths and data sources:
 
 * Put data from a URL:
-  ```
+  ```shell
   pachctl put file <repo>@<branch>:</path/to/file> -f http://url_path
   ```
 
 * Put data from an object store. You can use `s3://`, `gcs://`, or `as://`
 in your filepath:
 
-  ```
-  pachctl put file <repo>@<branch>:</path/to/file> -f s3://object_store_url
-  ```
+  	```shell
+	pachctl put file <repo>@<branch>:</path/to/file> -f s3://object_store_url
+  	```
 
 !!! note
     If you are configuring a local cluster to access an external bucket,
-    make sure that Pachyderm has been given the proper access [by configuring your storage credentials](../ingressing_from_diff_cloud)
+    make sure that Pachyderm has been given the proper access.
 
 * Add multiple files at once by using the `-i` option or multiple `-f` flags.
 In the case of `-i`, the target file must be a list of files, paths, or URLs
 that you want to input all at once:
 
-  ```shell
-  pachctl put file <repo>@<branch> -i <file containing list of files, paths, or URLs>
-  ```
+  	```shell
+	pachctl put file <repo>@<branch> -i <file containing list of files, paths, or URLs>
+  	```
 
 * Add an entire directory or all of the contents at a particular URL, either
 HTTP(S) or object store URL, `s3://`, `gcs://`, and `as://`, by using the
 recursive flag, `-r`:
 
-  ```shell
-  pachctl put file <repo>@<branch> -r -f <dir>
-  ```
+  	```shell
+  	pachctl put file <repo>@<branch> -r -f <dir>
+  	```
 
 ## Loading Your Data Partially
 

@@ -19,7 +19,7 @@ Here is a quick high-level view of the various components at play.
     for further installation details and any troubleshooting advice.
 
 ## Traefik installation and Ingress Ressource Definition
-1. Helm install [Traefik](https://github.com/traefik/traefik-helm-chart):
+1. Helm install [Traefik](https://github.com/traefik/traefik-helm-chart){target=_blank}:
 
     - Get Repo Info
     ```shell
@@ -29,7 +29,7 @@ Here is a quick high-level view of the various components at play.
     $ helm repo update
     ```
 
-    - Install the Traefik helm chart ([helm v3](https://helm.sh/docs/intro/))
+    - Install the Traefik helm chart ([helm v3](https://helm.sh/docs/intro/){target=_blank})
     ```shell
     $ helm install traefik traefik/traefik
     ```
@@ -58,12 +58,12 @@ Here is a quick high-level view of the various components at play.
          host: "<your_domain_name>"
        ```
 
-       For a list of all available annotations, read the [Traefik & Kubernetes documentation](https://doc.traefik.io/traefik/routing/providers/kubernetes-ingress/).
+       For a list of all available annotations, read the [Traefik & Kubernetes documentation](https://doc.traefik.io/traefik/routing/providers/kubernetes-ingress/){target=_blank}.
 
        At a minimum, you will need to specify the `host` field: match the hostname header of the http request (domain).  
 
 
-       Check the [list of all available helm values](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L143) at your disposal in our reference documentation.
+       Check the [list of all available helm values](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L143){target=_blank} at your disposal in our reference documentation.
 
 1. Install Pachyderm and Console using the Helm Chart
 
@@ -117,14 +117,14 @@ Here is a quick high-level view of the various components at play.
          Events:           <none>
          ```
        
-1. Check the Traefik Dashboard again (http://127.0.0.1:9000/dashboard/), your new set of rules should now be visible.
+1. Check the Traefik Dashboard again (http://127.0.0.1:9000/dashboard/){target=_blank}, your new set of rules should now be visible.
 
 
 ## Browse
 Connect to your Console (Pachyderm UI): `https://<external-IP-address-or-domain-name>:443/` (if TLS is enabled) or `http://<external-IP-address-or-domain-name>:80/`. You are all set!
 
 ## References
-* [Traefik](https://doc.traefik.io/traefik/v1.7/user-guide/kubernetes/) documentation.
+* [Traefik](https://doc.traefik.io/traefik/v1.7/user-guide/kubernetes/){target=_blank} documentation.
 
 
 

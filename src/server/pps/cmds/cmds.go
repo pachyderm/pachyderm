@@ -76,7 +76,9 @@ If the job fails, the output commit will not be populated with data.`,
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			job, err := cmdutil.ParseJob(args[0])
-			if err != nil {
+			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
+				return errors.New(`Use "list job <id>" to see jobs with a given ID across different pipelines`)
+			} else if err != nil {
 				return err
 			}
 			client, err := pachdclient.NewOnUserMachine("user")
@@ -679,7 +681,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var pipelinePath string
 	createPipeline := &cobra.Command{
 		Short: "Create a new pipeline.",
-		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
+		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(false, pushImages, registry, username, pipelinePath, false)
 		}),
@@ -693,7 +695,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var reprocess bool
 	updatePipeline := &cobra.Command{
 		Short: "Update an existing Pachyderm pipeline.",
-		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
+		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(reprocess, pushImages, registry, username, pipelinePath, true)
 		}),

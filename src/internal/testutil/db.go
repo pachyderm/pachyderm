@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -45,15 +45,15 @@ func NewTestDBOptions(t testing.TB, opts []dbutil.Option) []dbutil.Option {
 }
 
 // NewTestDB connects to postgres using opts, creates a database
-// with a unique name then returns a sqlx.DB configured to use the newly created database.
+// with a unique name then returns a pachsql.DB configured to use the newly created database.
 // After t finishes, the database is dropped.
-func NewTestDB(t testing.TB, opts []dbutil.Option) *sqlx.DB {
+func NewTestDB(t testing.TB, opts []dbutil.Option) *pachsql.DB {
 	return OpenDB(t, NewTestDBOptions(t, opts)...)
 }
 
 // OpenDB connects to a database using opts and returns it.
 // The database will be closed at the end of the test.
-func OpenDB(t testing.TB, opts ...dbutil.Option) *sqlx.DB {
+func OpenDB(t testing.TB, opts ...dbutil.Option) *pachsql.DB {
 	db, err := dbutil.NewDB(opts...)
 	require.NoError(t, err)
 	require.NoError(t, db.Ping())
@@ -61,15 +61,28 @@ func OpenDB(t testing.TB, opts ...dbutil.Option) *sqlx.DB {
 	return db
 }
 
+// OpenDBURL connects to a database using u and returns it.
+// The database will be closed at the end of the test.
+func OpenDBURL(t testing.TB, u pachsql.URL, password string) *pachsql.DB {
+	db, err := pachsql.OpenURL(u, password)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	return db
+}
+
 // CreateEphemeralDB creates a new database using db with a lifetime scoped to the test t
 // and returns its name
-func CreateEphemeralDB(t testing.TB, db *sqlx.DB) string {
+func CreateEphemeralDB(t testing.TB, db *pachsql.DB) string {
 	dbName := ephemeralDBName(t)
 	_, err := db.Exec(`CREATE DATABASE ` + dbName)
 	require.NoError(t, err)
 	if cleanup {
 		t.Cleanup(func() {
-			_, err := db.Exec(fmt.Sprintf(`DROP DATABASE %s WITH (FORCE)`, dbName))
+			q := fmt.Sprintf("DROP DATABASE %s", dbName)
+			if db.DriverName() == "pgx" || db.DriverName() == "postgres" {
+				q += " WITH (FORCE)"
+			}
+			_, err := db.Exec(q)
 			require.NoError(t, err)
 		})
 	}

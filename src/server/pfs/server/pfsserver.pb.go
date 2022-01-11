@@ -22,27 +22,25 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-type CompactionTask struct {
-	Index                int64      `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
-	Inputs               []string   `protobuf:"bytes,2,rep,name=inputs,proto3" json:"inputs,omitempty"`
-	Range                *PathRange `protobuf:"bytes,3,opt,name=range,proto3" json:"range,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
-	XXX_unrecognized     []byte     `json:"-"`
-	XXX_sizecache        int32      `json:"-"`
+type ShardTask struct {
+	Inputs               []string `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *CompactionTask) Reset()         { *m = CompactionTask{} }
-func (m *CompactionTask) String() string { return proto.CompactTextString(m) }
-func (*CompactionTask) ProtoMessage()    {}
-func (*CompactionTask) Descriptor() ([]byte, []int) {
+func (m *ShardTask) Reset()         { *m = ShardTask{} }
+func (m *ShardTask) String() string { return proto.CompactTextString(m) }
+func (*ShardTask) ProtoMessage()    {}
+func (*ShardTask) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a5a92e512e703e9c, []int{0}
 }
-func (m *CompactionTask) XXX_Unmarshal(b []byte) error {
+func (m *ShardTask) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *CompactionTask) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ShardTask) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_CompactionTask.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ShardTask.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -52,59 +50,44 @@ func (m *CompactionTask) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return b[:n], nil
 	}
 }
-func (m *CompactionTask) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CompactionTask.Merge(m, src)
+func (m *ShardTask) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardTask.Merge(m, src)
 }
-func (m *CompactionTask) XXX_Size() int {
+func (m *ShardTask) XXX_Size() int {
 	return m.Size()
 }
-func (m *CompactionTask) XXX_DiscardUnknown() {
-	xxx_messageInfo_CompactionTask.DiscardUnknown(m)
+func (m *ShardTask) XXX_DiscardUnknown() {
+	xxx_messageInfo_ShardTask.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_CompactionTask proto.InternalMessageInfo
+var xxx_messageInfo_ShardTask proto.InternalMessageInfo
 
-func (m *CompactionTask) GetIndex() int64 {
-	if m != nil {
-		return m.Index
-	}
-	return 0
-}
-
-func (m *CompactionTask) GetInputs() []string {
+func (m *ShardTask) GetInputs() []string {
 	if m != nil {
 		return m.Inputs
 	}
 	return nil
 }
 
-func (m *CompactionTask) GetRange() *PathRange {
-	if m != nil {
-		return m.Range
-	}
-	return nil
+type ShardTaskResult struct {
+	CompactTasks         []*CompactTask `protobuf:"bytes,1,rep,name=compact_tasks,json=compactTasks,proto3" json:"compact_tasks,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
-type CompactionTaskResult struct {
-	Index                int64    `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
-	Id                   string   `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *CompactionTaskResult) Reset()         { *m = CompactionTaskResult{} }
-func (m *CompactionTaskResult) String() string { return proto.CompactTextString(m) }
-func (*CompactionTaskResult) ProtoMessage()    {}
-func (*CompactionTaskResult) Descriptor() ([]byte, []int) {
+func (m *ShardTaskResult) Reset()         { *m = ShardTaskResult{} }
+func (m *ShardTaskResult) String() string { return proto.CompactTextString(m) }
+func (*ShardTaskResult) ProtoMessage()    {}
+func (*ShardTaskResult) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a5a92e512e703e9c, []int{1}
 }
-func (m *CompactionTaskResult) XXX_Unmarshal(b []byte) error {
+func (m *ShardTaskResult) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *CompactionTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ShardTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_CompactionTaskResult.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ShardTaskResult.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -114,30 +97,23 @@ func (m *CompactionTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return b[:n], nil
 	}
 }
-func (m *CompactionTaskResult) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CompactionTaskResult.Merge(m, src)
+func (m *ShardTaskResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardTaskResult.Merge(m, src)
 }
-func (m *CompactionTaskResult) XXX_Size() int {
+func (m *ShardTaskResult) XXX_Size() int {
 	return m.Size()
 }
-func (m *CompactionTaskResult) XXX_DiscardUnknown() {
-	xxx_messageInfo_CompactionTaskResult.DiscardUnknown(m)
+func (m *ShardTaskResult) XXX_DiscardUnknown() {
+	xxx_messageInfo_ShardTaskResult.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_CompactionTaskResult proto.InternalMessageInfo
+var xxx_messageInfo_ShardTaskResult proto.InternalMessageInfo
 
-func (m *CompactionTaskResult) GetIndex() int64 {
+func (m *ShardTaskResult) GetCompactTasks() []*CompactTask {
 	if m != nil {
-		return m.Index
+		return m.CompactTasks
 	}
-	return 0
-}
-
-func (m *CompactionTaskResult) GetId() string {
-	if m != nil {
-		return m.Id
-	}
-	return ""
+	return nil
 }
 
 type PathRange struct {
@@ -195,35 +171,238 @@ func (m *PathRange) GetUpper() string {
 	return ""
 }
 
+type CompactTask struct {
+	Inputs               []string   `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	PathRange            *PathRange `protobuf:"bytes,2,opt,name=path_range,json=pathRange,proto3" json:"path_range,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
+}
+
+func (m *CompactTask) Reset()         { *m = CompactTask{} }
+func (m *CompactTask) String() string { return proto.CompactTextString(m) }
+func (*CompactTask) ProtoMessage()    {}
+func (*CompactTask) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a5a92e512e703e9c, []int{3}
+}
+func (m *CompactTask) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CompactTask) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CompactTask.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *CompactTask) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CompactTask.Merge(m, src)
+}
+func (m *CompactTask) XXX_Size() int {
+	return m.Size()
+}
+func (m *CompactTask) XXX_DiscardUnknown() {
+	xxx_messageInfo_CompactTask.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CompactTask proto.InternalMessageInfo
+
+func (m *CompactTask) GetInputs() []string {
+	if m != nil {
+		return m.Inputs
+	}
+	return nil
+}
+
+func (m *CompactTask) GetPathRange() *PathRange {
+	if m != nil {
+		return m.PathRange
+	}
+	return nil
+}
+
+type CompactTaskResult struct {
+	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CompactTaskResult) Reset()         { *m = CompactTaskResult{} }
+func (m *CompactTaskResult) String() string { return proto.CompactTextString(m) }
+func (*CompactTaskResult) ProtoMessage()    {}
+func (*CompactTaskResult) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a5a92e512e703e9c, []int{4}
+}
+func (m *CompactTaskResult) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CompactTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CompactTaskResult.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *CompactTaskResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CompactTaskResult.Merge(m, src)
+}
+func (m *CompactTaskResult) XXX_Size() int {
+	return m.Size()
+}
+func (m *CompactTaskResult) XXX_DiscardUnknown() {
+	xxx_messageInfo_CompactTaskResult.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CompactTaskResult proto.InternalMessageInfo
+
+func (m *CompactTaskResult) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+type ConcatTask struct {
+	Inputs               []string `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConcatTask) Reset()         { *m = ConcatTask{} }
+func (m *ConcatTask) String() string { return proto.CompactTextString(m) }
+func (*ConcatTask) ProtoMessage()    {}
+func (*ConcatTask) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a5a92e512e703e9c, []int{5}
+}
+func (m *ConcatTask) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConcatTask) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConcatTask.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ConcatTask) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConcatTask.Merge(m, src)
+}
+func (m *ConcatTask) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConcatTask) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConcatTask.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConcatTask proto.InternalMessageInfo
+
+func (m *ConcatTask) GetInputs() []string {
+	if m != nil {
+		return m.Inputs
+	}
+	return nil
+}
+
+type ConcatTaskResult struct {
+	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConcatTaskResult) Reset()         { *m = ConcatTaskResult{} }
+func (m *ConcatTaskResult) String() string { return proto.CompactTextString(m) }
+func (*ConcatTaskResult) ProtoMessage()    {}
+func (*ConcatTaskResult) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a5a92e512e703e9c, []int{6}
+}
+func (m *ConcatTaskResult) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConcatTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConcatTaskResult.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ConcatTaskResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConcatTaskResult.Merge(m, src)
+}
+func (m *ConcatTaskResult) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConcatTaskResult) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConcatTaskResult.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConcatTaskResult proto.InternalMessageInfo
+
+func (m *ConcatTaskResult) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
 func init() {
-	proto.RegisterType((*CompactionTask)(nil), "pfsserver.CompactionTask")
-	proto.RegisterType((*CompactionTaskResult)(nil), "pfsserver.CompactionTaskResult")
+	proto.RegisterType((*ShardTask)(nil), "pfsserver.ShardTask")
+	proto.RegisterType((*ShardTaskResult)(nil), "pfsserver.ShardTaskResult")
 	proto.RegisterType((*PathRange)(nil), "pfsserver.PathRange")
+	proto.RegisterType((*CompactTask)(nil), "pfsserver.CompactTask")
+	proto.RegisterType((*CompactTaskResult)(nil), "pfsserver.CompactTaskResult")
+	proto.RegisterType((*ConcatTask)(nil), "pfsserver.ConcatTask")
+	proto.RegisterType((*ConcatTaskResult)(nil), "pfsserver.ConcatTaskResult")
 }
 
 func init() { proto.RegisterFile("server/pfs/server/pfsserver.proto", fileDescriptor_a5a92e512e703e9c) }
 
 var fileDescriptor_a5a92e512e703e9c = []byte{
-	// 247 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x2c, 0x4e, 0x2d, 0x2a,
-	0x4b, 0x2d, 0xd2, 0x2f, 0x48, 0x2b, 0xd6, 0x47, 0x30, 0x21, 0x2c, 0xbd, 0x82, 0xa2, 0xfc, 0x92,
-	0x7c, 0x21, 0x4e, 0xb8, 0x80, 0x52, 0x16, 0x17, 0x9f, 0x73, 0x7e, 0x6e, 0x41, 0x62, 0x72, 0x49,
-	0x66, 0x7e, 0x5e, 0x48, 0x62, 0x71, 0xb6, 0x90, 0x08, 0x17, 0x6b, 0x66, 0x5e, 0x4a, 0x6a, 0x85,
-	0x04, 0xa3, 0x02, 0xa3, 0x06, 0x73, 0x10, 0x84, 0x23, 0x24, 0xc6, 0xc5, 0x96, 0x99, 0x57, 0x50,
-	0x5a, 0x52, 0x2c, 0xc1, 0xa4, 0xc0, 0xac, 0xc1, 0x19, 0x04, 0xe5, 0x09, 0x69, 0x71, 0xb1, 0x16,
-	0x25, 0xe6, 0xa5, 0xa7, 0x4a, 0x30, 0x2b, 0x30, 0x6a, 0x70, 0x1b, 0x89, 0xe8, 0x21, 0xec, 0x0a,
-	0x48, 0x2c, 0xc9, 0x08, 0x02, 0xc9, 0x05, 0x41, 0x94, 0x28, 0xd9, 0x70, 0x89, 0xa0, 0xda, 0x15,
-	0x94, 0x5a, 0x5c, 0x9a, 0x53, 0x82, 0xc3, 0x46, 0x3e, 0x2e, 0xa6, 0xcc, 0x14, 0x09, 0x26, 0x05,
-	0x46, 0x0d, 0xce, 0x20, 0xa6, 0xcc, 0x14, 0x25, 0x73, 0x2e, 0x4e, 0xb8, 0x89, 0x20, 0x2d, 0x39,
-	0xf9, 0xe5, 0xa9, 0x45, 0x60, 0x2d, 0x9c, 0x41, 0x10, 0x0e, 0x48, 0xb4, 0xb4, 0xa0, 0x20, 0xb5,
-	0x08, 0xaa, 0x0b, 0xc2, 0x71, 0x72, 0x3d, 0xf1, 0x48, 0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07,
-	0x8f, 0xe4, 0x18, 0xa3, 0xcc, 0xd3, 0x33, 0x4b, 0x32, 0x4a, 0x93, 0xf4, 0x92, 0xf3, 0x73, 0xf5,
-	0x0b, 0x12, 0x93, 0x33, 0x2a, 0x53, 0x52, 0x8b, 0x90, 0x59, 0x65, 0x46, 0xfa, 0xc5, 0x45, 0xc9,
-	0xfa, 0x18, 0x81, 0x98, 0xc4, 0x06, 0x0e, 0x3b, 0x63, 0x40, 0x00, 0x00, 0x00, 0xff, 0xff, 0x2d,
-	0xaf, 0x30, 0x7a, 0x60, 0x01, 0x00, 0x00,
+	// 291 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x51, 0x3d, 0x4f, 0xc3, 0x30,
+	0x14, 0x94, 0x83, 0xa8, 0xe4, 0x17, 0x3e, 0xa3, 0xaa, 0xca, 0x14, 0x15, 0x97, 0xa1, 0x53, 0x22,
+	0xa5, 0x43, 0x07, 0x36, 0x2a, 0x56, 0x84, 0x02, 0x53, 0x97, 0xca, 0x75, 0x4c, 0x13, 0xb5, 0x8d,
+	0x2d, 0xdb, 0x29, 0xe2, 0x1f, 0x32, 0xf2, 0x13, 0x50, 0x7e, 0x09, 0x6a, 0x5c, 0x92, 0x48, 0x40,
+	0xb7, 0xbb, 0xf3, 0x7b, 0x77, 0x67, 0x3d, 0xb8, 0xd1, 0x5c, 0xed, 0xb8, 0x8a, 0xe4, 0xab, 0x8e,
+	0x5a, 0x68, 0x51, 0x28, 0x95, 0x30, 0xc2, 0xc3, 0x8d, 0x40, 0x46, 0x80, 0x9f, 0x33, 0xaa, 0xd2,
+	0x17, 0xaa, 0xd7, 0xde, 0x00, 0x7a, 0x79, 0x21, 0x4b, 0xa3, 0x7d, 0x34, 0x3c, 0x19, 0xe3, 0xe4,
+	0xc0, 0xc8, 0x23, 0x5c, 0x36, 0x43, 0x09, 0xd7, 0xe5, 0xc6, 0x78, 0x77, 0x70, 0xce, 0xc4, 0x56,
+	0x52, 0x66, 0x16, 0x86, 0xea, 0xb5, 0xdd, 0x70, 0xe3, 0x41, 0xd8, 0x66, 0xcd, 0xec, 0x7b, 0xbd,
+	0x74, 0xc6, 0x5a, 0xa2, 0xc9, 0x14, 0xf0, 0x13, 0x35, 0x59, 0x42, 0x8b, 0x15, 0xf7, 0xfa, 0x70,
+	0xba, 0x11, 0x6f, 0x5c, 0xf9, 0x68, 0x88, 0xc6, 0x38, 0xb1, 0x64, 0xaf, 0x96, 0x52, 0x72, 0xe5,
+	0x3b, 0x56, 0xad, 0x09, 0x99, 0x83, 0xdb, 0x71, 0xfd, 0xaf, 0xaf, 0x37, 0x01, 0x90, 0xd4, 0x64,
+	0x0b, 0xb5, 0x0f, 0xa8, 0x1d, 0xdc, 0xb8, 0xdf, 0x69, 0xd6, 0x84, 0x27, 0x58, 0xfe, 0x40, 0x32,
+	0x82, 0xeb, 0x6e, 0x63, 0xfb, 0xcd, 0x0b, 0x70, 0xf2, 0xf4, 0xd0, 0xcc, 0xc9, 0x53, 0x72, 0x0b,
+	0x30, 0x13, 0x05, 0xa3, 0x47, 0xf3, 0x09, 0x81, 0xab, 0x76, 0xea, 0x6f, 0xa7, 0xfb, 0x87, 0x8f,
+	0x2a, 0x40, 0x9f, 0x55, 0x80, 0xbe, 0xaa, 0x00, 0xcd, 0xa7, 0xab, 0xdc, 0x64, 0xe5, 0x32, 0x64,
+	0x62, 0x1b, 0x49, 0xca, 0xb2, 0xf7, 0x94, 0xab, 0x2e, 0xda, 0xc5, 0x91, 0x56, 0x2c, 0xfa, 0x75,
+	0xda, 0x65, 0xaf, 0xbe, 0xe8, 0xe4, 0x3b, 0x00, 0x00, 0xff, 0xff, 0xc9, 0x1e, 0x8f, 0x6c, 0xf6,
+	0x01, 0x00, 0x00,
 }
 
-func (m *CompactionTask) Marshal() (dAtA []byte, err error) {
+func (m *ShardTask) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -233,12 +412,12 @@ func (m *CompactionTask) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *CompactionTask) MarshalTo(dAtA []byte) (int, error) {
+func (m *ShardTask) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *CompactionTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ShardTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -246,18 +425,6 @@ func (m *CompactionTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if m.Range != nil {
-		{
-			size, err := m.Range.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintPfsserver(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x1a
 	}
 	if len(m.Inputs) > 0 {
 		for iNdEx := len(m.Inputs) - 1; iNdEx >= 0; iNdEx-- {
@@ -265,18 +432,13 @@ func (m *CompactionTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			copy(dAtA[i:], m.Inputs[iNdEx])
 			i = encodeVarintPfsserver(dAtA, i, uint64(len(m.Inputs[iNdEx])))
 			i--
-			dAtA[i] = 0x12
+			dAtA[i] = 0xa
 		}
-	}
-	if m.Index != 0 {
-		i = encodeVarintPfsserver(dAtA, i, uint64(m.Index))
-		i--
-		dAtA[i] = 0x8
 	}
 	return len(dAtA) - i, nil
 }
 
-func (m *CompactionTaskResult) Marshal() (dAtA []byte, err error) {
+func (m *ShardTaskResult) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -286,12 +448,12 @@ func (m *CompactionTaskResult) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *CompactionTaskResult) MarshalTo(dAtA []byte) (int, error) {
+func (m *ShardTaskResult) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *CompactionTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ShardTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -300,17 +462,19 @@ func (m *CompactionTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Id) > 0 {
-		i -= len(m.Id)
-		copy(dAtA[i:], m.Id)
-		i = encodeVarintPfsserver(dAtA, i, uint64(len(m.Id)))
-		i--
-		dAtA[i] = 0x12
-	}
-	if m.Index != 0 {
-		i = encodeVarintPfsserver(dAtA, i, uint64(m.Index))
-		i--
-		dAtA[i] = 0x8
+	if len(m.CompactTasks) > 0 {
+		for iNdEx := len(m.CompactTasks) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.CompactTasks[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPfsserver(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
 	}
 	return len(dAtA) - i, nil
 }
@@ -356,6 +520,158 @@ func (m *PathRange) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *CompactTask) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CompactTask) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CompactTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.PathRange != nil {
+		{
+			size, err := m.PathRange.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPfsserver(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Inputs) > 0 {
+		for iNdEx := len(m.Inputs) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Inputs[iNdEx])
+			copy(dAtA[i:], m.Inputs[iNdEx])
+			i = encodeVarintPfsserver(dAtA, i, uint64(len(m.Inputs[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *CompactTaskResult) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CompactTaskResult) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CompactTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Id) > 0 {
+		i -= len(m.Id)
+		copy(dAtA[i:], m.Id)
+		i = encodeVarintPfsserver(dAtA, i, uint64(len(m.Id)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ConcatTask) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConcatTask) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConcatTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Inputs) > 0 {
+		for iNdEx := len(m.Inputs) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Inputs[iNdEx])
+			copy(dAtA[i:], m.Inputs[iNdEx])
+			i = encodeVarintPfsserver(dAtA, i, uint64(len(m.Inputs[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ConcatTaskResult) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConcatTaskResult) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConcatTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Id) > 0 {
+		i -= len(m.Id)
+		copy(dAtA[i:], m.Id)
+		i = encodeVarintPfsserver(dAtA, i, uint64(len(m.Id)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintPfsserver(dAtA []byte, offset int, v uint64) int {
 	offset -= sovPfsserver(v)
 	base := offset
@@ -367,24 +683,17 @@ func encodeVarintPfsserver(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *CompactionTask) Size() (n int) {
+func (m *ShardTask) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Index != 0 {
-		n += 1 + sovPfsserver(uint64(m.Index))
-	}
 	if len(m.Inputs) > 0 {
 		for _, s := range m.Inputs {
 			l = len(s)
 			n += 1 + l + sovPfsserver(uint64(l))
 		}
-	}
-	if m.Range != nil {
-		l = m.Range.Size()
-		n += 1 + l + sovPfsserver(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -392,18 +701,17 @@ func (m *CompactionTask) Size() (n int) {
 	return n
 }
 
-func (m *CompactionTaskResult) Size() (n int) {
+func (m *ShardTaskResult) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Index != 0 {
-		n += 1 + sovPfsserver(uint64(m.Index))
-	}
-	l = len(m.Id)
-	if l > 0 {
-		n += 1 + l + sovPfsserver(uint64(l))
+	if len(m.CompactTasks) > 0 {
+		for _, e := range m.CompactTasks {
+			l = e.Size()
+			n += 1 + l + sovPfsserver(uint64(l))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -431,13 +739,85 @@ func (m *PathRange) Size() (n int) {
 	return n
 }
 
+func (m *CompactTask) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Inputs) > 0 {
+		for _, s := range m.Inputs {
+			l = len(s)
+			n += 1 + l + sovPfsserver(uint64(l))
+		}
+	}
+	if m.PathRange != nil {
+		l = m.PathRange.Size()
+		n += 1 + l + sovPfsserver(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *CompactTaskResult) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Id)
+	if l > 0 {
+		n += 1 + l + sovPfsserver(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ConcatTask) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Inputs) > 0 {
+		for _, s := range m.Inputs {
+			l = len(s)
+			n += 1 + l + sovPfsserver(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ConcatTaskResult) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Id)
+	if l > 0 {
+		n += 1 + l + sovPfsserver(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func sovPfsserver(x uint64) (n int) {
 	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozPfsserver(x uint64) (n int) {
 	return sovPfsserver(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *CompactionTask) Unmarshal(dAtA []byte) error {
+func (m *ShardTask) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -460,32 +840,13 @@ func (m *CompactionTask) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: CompactionTask: wiretype end group for non-group")
+			return fmt.Errorf("proto: ShardTask: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CompactionTask: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: ShardTask: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Index", wireType)
-			}
-			m.Index = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfsserver
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Index |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Inputs", wireType)
 			}
@@ -517,9 +878,60 @@ func (m *CompactionTask) Unmarshal(dAtA []byte) error {
 			}
 			m.Inputs = append(m.Inputs, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
-		case 3:
+		default:
+			iNdEx = preIndex
+			skippy, err := skipPfsserver(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ShardTaskResult) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowPfsserver
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ShardTaskResult: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ShardTaskResult: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Range", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field CompactTasks", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -546,114 +958,10 @@ func (m *CompactionTask) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Range == nil {
-				m.Range = &PathRange{}
-			}
-			if err := m.Range.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.CompactTasks = append(m.CompactTasks, &CompactTask{})
+			if err := m.CompactTasks[len(m.CompactTasks)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipPfsserver(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthPfsserver
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *CompactionTaskResult) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowPfsserver
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: CompactionTaskResult: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CompactionTaskResult: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Index", wireType)
-			}
-			m.Index = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfsserver
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Index |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfsserver
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthPfsserver
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfsserver
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Id = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -769,6 +1077,374 @@ func (m *PathRange) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Upper = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipPfsserver(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CompactTask) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowPfsserver
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CompactTask: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CompactTask: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Inputs", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfsserver
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Inputs = append(m.Inputs, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PathRange", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfsserver
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.PathRange == nil {
+				m.PathRange = &PathRange{}
+			}
+			if err := m.PathRange.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipPfsserver(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CompactTaskResult) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowPfsserver
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CompactTaskResult: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CompactTaskResult: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfsserver
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Id = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipPfsserver(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ConcatTask) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowPfsserver
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ConcatTask: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ConcatTask: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Inputs", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfsserver
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Inputs = append(m.Inputs, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipPfsserver(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ConcatTaskResult) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowPfsserver
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ConcatTaskResult: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ConcatTaskResult: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfsserver
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Id = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

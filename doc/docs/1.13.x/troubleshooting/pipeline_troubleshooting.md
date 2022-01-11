@@ -39,7 +39,7 @@ That scenario is quite easy to troubleshoot:
         Pachyderm offers readily available activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. Tell us about your project to get one.
 
         Get a key here:
-        → https://www.pachyderm.com/trial
+        → https://www.pachyderm.com/trial/
         ```
     - max number of workers exceeded:
         ```
@@ -48,11 +48,11 @@ That scenario is quite easy to troubleshoot:
         Pachyderm offers readily available activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. Tell us about your project to get one.
 
         Get a key here:
-        → https://www.pachyderm.com/trial
+        → https://www.pachyderm.com/trial/
         ```
 
 
-To lift those limitations, Request an [**Enterprise Edition trial token**](https://www.pachyderm.com/trial). 
+To lift those limitations, Request an [**Enterprise Edition trial token**](https://www.pachyderm.com/trial/). 
 Check out our [Enterprise features](https://docs.pachyderm.com/latest/enterprise/) for more details on our Enterprise Offer. 
 
 

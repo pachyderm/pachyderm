@@ -26,7 +26,8 @@ we recommend that you:
     see [Deploy Pachyderm with TLS](../deploy_w_tls/).
 
     !!! Note
-        Optionally, you can use a certificate manager such as [cert-manager](https://cert-manager.io/docs/) to refresh certificates and inject them as kubernetes secrets into your cluster for the ingress and load balancer to use.
+        Optionally, you can use a certificate manager such as [cert-manager](https://cert-manager.io/docs/){target=_blank} to refresh certificates and inject them as kubernetes secrets into your cluster for the ingress and load balancer to use.
+  
    
 * **Use Pachyderm authentication/authorization**
 
@@ -89,10 +90,15 @@ If your `ingress` is enabled:
             serviceName: "console"
             servicePort: "console-http"
 ```
-See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L143) for all available fields.
+
+See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L143){target=_blank} for all available fields.
 
 !!! Info
     You might choose to deploy your preferred Ingress Controller (Traefik, NGINX). Read about the installation and configuration of [Traefik](./pach-ui-ingress/) on a cluster.
+
+!!! Warning
+    To have the ingress routes use the https protocol without enabling the cert secret configuration, set `ingress.uriHttpsProtoOverride` to true in your values.yaml.
+
 
 === "Example on AWS EKS"
 
@@ -139,15 +145,18 @@ See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/4246
         annotations:
             kubernetes.io/ingress.class: "nginx"
         host: "your_domain_name" 
-  
+        tls:
+            enabled: true
+            secretName: "pach-tls" 
     ```
+    **ATTENTION: You must use TLS when deploying on Azure.**
 
 
 As of today, few Ingress Controller offer full support of the gRPC protocol. To access `pachd` over gRPC (for example, when using `pachctl` or the s3Gateway, we recommend using a Load Balancer instead.
 
 !!! See "See Also" 
-     * Kubernetes [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
-     * Kubernetes [Ingress Controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
+     * Kubernetes [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/){target=_blank}.
+     * Kubernetes [Ingress Controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/){target=_blank}.
 
 ### `LoadBalancer`
 You should load balance **all gRPC and S3 incoming traffic** to a TCP LB (load balanced at L4 of the OSI model) deployed in front of the `pachd` service. To automatically provision an external load balancer in your current cloud (if supported), enable the `externalService` field of the `pachd` service in your values.yaml as follow:
@@ -164,7 +173,7 @@ pachd:
     annotations: {see example below}
 ```
 
-See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L197) for all available fields.
+See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L197){target=_blank} for all available fields.
 
 !!! Note
         When externalService is enabled, Pachyderm creates a corresponding `pachd-lb` service of `type:LoadBalancer` allowing your cloud platform (AWS, GKE...) to provision a TCP Load Balancer automatically.

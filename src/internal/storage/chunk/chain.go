@@ -2,9 +2,12 @@ package chunk
 
 import (
 	"context"
+	"math"
+	"sync"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 // TaskChain manages a chain of tasks that have a parallel and serial part.
@@ -15,29 +18,35 @@ type TaskChain struct {
 	eg       *errgroup.Group
 	ctx      context.Context
 	prevChan chan struct{}
+	sem      *semaphore.Weighted
 }
 
 // NewTaskChain creates a new task chain.
-func NewTaskChain(ctx context.Context) *TaskChain {
+func NewTaskChain(ctx context.Context, parallelism int64) *TaskChain {
 	eg, errCtx := errgroup.WithContext(ctx)
 	prevChan := make(chan struct{})
 	close(prevChan)
+	sem := semaphore.NewWeighted(math.MaxInt64)
+	if parallelism > 0 {
+		sem = semaphore.NewWeighted(parallelism)
+	}
 	return &TaskChain{
 		eg:       eg,
 		ctx:      errCtx,
 		prevChan: prevChan,
+		sem:      sem,
 	}
 }
 
 // CreateTask creates a new task in the task chain.
 func (c *TaskChain) CreateTask(cb func(context.Context, func(func() error) error) error) error {
-	select {
-	case <-c.ctx.Done():
-		return errors.EnsureStack(c.eg.Wait())
-	default:
+	if err := c.sem.Acquire(c.ctx, 1); err != nil {
+		return err
 	}
 	scb := c.serialCallback()
 	c.eg.Go(func() error {
+		defer c.sem.Release(1)
+		defer scb(func() error { return nil })
 		return cb(c.ctx, scb)
 	})
 	return nil
@@ -57,8 +66,9 @@ func (c *TaskChain) serialCallback() func(func() error) error {
 	prevChan := c.prevChan
 	nextChan := make(chan struct{})
 	c.prevChan = nextChan
+	var once sync.Once
 	return func(cb func() error) error {
-		defer close(nextChan)
+		defer once.Do(func() { close(nextChan) })
 		select {
 		case <-prevChan:
 			return cb()

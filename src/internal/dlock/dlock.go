@@ -4,8 +4,8 @@ package dlock
 import (
 	"context"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/clientv3/concurrency"
+	etcd "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )

@@ -6,28 +6,27 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 var _ Tracker = &postgresTracker{}
 
 type postgresTracker struct {
-	db *sqlx.DB
+	db *pachsql.DB
 }
 
 // NewPostgresTracker returns a
-func NewPostgresTracker(db *sqlx.DB) Tracker {
+func NewPostgresTracker(db *pachsql.DB) Tracker {
 	return &postgresTracker{db: db}
 }
 
-func (t *postgresTracker) DB() *sqlx.DB {
+func (t *postgresTracker) DB() *pachsql.DB {
 	return t.db
 }
 
-func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, ttl time.Duration) error {
+func (t *postgresTracker) CreateTx(tx *pachsql.Tx, id string, pointsTo []string, ttl time.Duration) error {
 	for _, dwn := range pointsTo {
 		if dwn == id {
 			return ErrSelfReference
@@ -54,7 +53,7 @@ func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, tt
 
 // putObject creates or updates the object at id, to have the max of the current and new ttl.
 // If ttl == NoTTL, then the ttl is removed.
-func (t *postgresTracker) putObject(tx *sqlx.Tx, id string, ttl time.Duration) (int, bool, error) {
+func (t *postgresTracker) putObject(tx *pachsql.Tx, id string, ttl time.Duration) (int, bool, error) {
 	// About xmax https://stackoverflow.com/a/39204667
 	res := struct {
 		IntID int `db:"int_id"`
@@ -90,7 +89,7 @@ func (t *postgresTracker) putObject(tx *sqlx.Tx, id string, ttl time.Duration) (
 	return res.IntID, inserted, nil
 }
 
-func (t *postgresTracker) addReferences(tx *sqlx.Tx, intID int, pointsTo []string) error {
+func (t *postgresTracker) addReferences(tx *pachsql.Tx, intID int, pointsTo []string) error {
 	if len(pointsTo) == 0 {
 		return nil
 	}
@@ -191,7 +190,7 @@ func (t *postgresTracker) GetExpiresAt(ctx context.Context, id string) (time.Tim
 	return expiresAt, nil
 }
 
-func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
+func (t *postgresTracker) DeleteTx(tx *pachsql.Tx, id string) error {
 	var count int
 	if err := tx.Get(&count, `
 		WITH target AS (
@@ -218,31 +217,26 @@ func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
 }
 
 func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id string) error) (retErr error) {
-	rows, err := t.db.QueryxContext(ctx,
-		`SELECT str_id FROM storage.tracker_objects
-		WHERE int_id NOT IN (SELECT to_id FROM storage.tracker_refs)
-		AND expires_at <= CURRENT_TIMESTAMP`)
+	var toDelete []string
+	// select 1 in inner query as we don't actually care about the results, just existence
+	// set arbitrary limit to guarantee we can iterate, doesn't matter for GC as we run this repeatedly
+	err := t.db.SelectContext(ctx, &toDelete,
+		`SELECT str_id FROM storage.tracker_objects as objs
+		WHERE NOT EXISTS (SELECT 1 FROM storage.tracker_refs as refs where objs.int_id = refs.to_id)
+		AND expires_at <= CURRENT_TIMESTAMP LIMIT 10000`)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer func() {
-		if err := rows.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return errors.EnsureStack(err)
-		}
+
+	for _, id := range toDelete {
 		if err := cb(id); err != nil {
 			return err
 		}
 	}
-	return errors.EnsureStack(rows.Err())
+	return nil
 }
 
-func (t *postgresTracker) getDownstream(tx *sqlx.Tx, intID int) ([]string, error) {
+func (t *postgresTracker) getDownstream(tx *pachsql.Tx, intID int) ([]string, error) {
 	dwn := []string{}
 	if err := tx.Select(&dwn, `
 		SELECT str_id FROM storage.tracker_objects
@@ -289,7 +283,7 @@ func removeDuplicates(xs []string) []string {
 // SetupPostgresTrackerV0 sets up the table for the postgres tracker
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
-func SetupPostgresTrackerV0(ctx context.Context, tx *sqlx.Tx) error {
+func SetupPostgresTrackerV0(ctx context.Context, tx *pachsql.Tx) error {
 	_, err := tx.ExecContext(ctx, schema)
 	return errors.EnsureStack(err)
 }

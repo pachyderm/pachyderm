@@ -25,9 +25,9 @@
         <small>Does this page need fixing? 
           <i class="fa fa-github">
           {% if page %}  
-            <a href="{{ config.repo_url }}/blob/{{ config.repo_branch }}/{{ config.repo_docs_dir }}/{{ page.file.src_path }}"> Edit me on GitHub</a>
+            <a href="{{ config.repo_url }}/blob/{{ config.repo_branch }}/{{ config.repo_docs_dir }}/{{ page.file.src_path }}" target="_blank"> Edit me on GitHub</a>
           {% else %}
-            <a href="{{ config.repo_url }}"> Edit me on GitHub</a>
+            <a href="{{ config.repo_url }}" target="_blank"> Edit me on GitHub</a>
           {% endif %}
           </i>
         </small>

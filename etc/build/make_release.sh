@@ -7,7 +7,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 source "${SCRIPT_DIR}/../govars.sh"
 
 INSTALLED_GOVER="$(go version | cut -d ' ' -f 3)"
-EXPECTED_GOVER=go1.16.4
+EXPECTED_GOVER=go1.17.3
 if [ "${INSTALLED_GOVER}" != "${EXPECTED_GOVER}" ]
 then
     echo "Current go version ${INSTALLED_GOVER}"

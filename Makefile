@@ -125,7 +125,7 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
 
 docker-push-release: docker-push
-	$(SKIP) docker push pachyderm/etcd:v3.3.5
+	$(SKIP) docker push pachyderm/etcd:v3.5.1
 
 check-kubectl:
 	@# check that kubectl is installed
@@ -194,6 +194,13 @@ launch-enterprise: check-kubectl check-kubectl-connection
 	helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml
 	# wait for the pachyderm to come up
 	kubectl wait --for=condition=ready pod -l app=pach-enterprise --namespace enterprise --timeout=5m
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+
+launch-enterprise-member: check-kubectl check-kubectl-connection
+	$(eval STARTTIME := $(shell date +%s))
+	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/enterprise-member-dev.yaml
+	# wait for the pachyderm to come up
+	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl
@@ -322,10 +329,10 @@ launch-stats:
 	kubectl apply --filename etc/kubernetes-prometheus -R
 
 launch-loki:
-	helm repo remove loki || true
-	helm repo add loki https://grafana.github.io/loki/charts
+	helm repo remove grafana || true
+	helm repo add grafana https://grafana.github.io/helm-charts
 	helm repo update
-	helm upgrade --install loki loki/loki-stack
+	helm upgrade --install loki grafana/loki-stack
 	kubectl wait --for=condition=ready pod -l release=loki --timeout=5m
 
 clean-launch-loki:

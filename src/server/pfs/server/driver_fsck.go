@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/jmoiron/sqlx"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -288,7 +288,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	// TODO(global ids): is there any verification we can do for commitsets?
 
 	if fix {
-		return dbutil.WithTx(ctx, d.env.DB, func(sqlTx *sqlx.Tx) error {
+		return dbutil.WithTx(ctx, d.env.DB, func(sqlTx *pachsql.Tx) error {
 			for _, ci := range newCommitInfos {
 				// We've observed users getting ErrExists from this create,
 				// which doesn't make a lot of sense, but we insulate against

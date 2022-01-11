@@ -8,9 +8,9 @@ import (
 	"context"
 	"reflect"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	etcd "go.etcd.io/etcd/client/v3"
 )
 
 // EventType is the type of event
@@ -137,6 +137,14 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 			if !ok {
 				if err := internalWatcher.Close(); err != nil {
 					return errors.EnsureStack(err)
+				}
+				// We interpret a response with nil Error and 0 events as a server side cancellation
+				// as described in https://github.com/etcd-io/etcd/blob/client/v3.5.1/client/v3/watch.go#L53
+				//
+				// "If the context "ctx" is canceled or timed out, returned "WatchChan" is closed,
+				// and "WatchResponse" from this closed channel has zero events and nil "Err()"."
+				if resp.Err() == nil && len(resp.Events) == 0 {
+					return context.Canceled
 				}
 				// use new "nextRevision"
 				internalWatcher = etcd.NewWatcher(client)

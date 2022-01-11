@@ -159,6 +159,16 @@ jobs:
       - checkout
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/rootless_test.sh
+  upgrade:
+    resource_class: large
+    machine:
+      image: ubuntu-2004:202101-01
+    steps:
+      - checkout
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-minikube.sh
+      - run: etc/testing/circle/launch-loki.sh
+      - run: etc/testing/circle/upgrade_test.sh
 
 workflows:
   circleci:
@@ -205,7 +215,9 @@ workflows:
           cron: "0 6 * * *"
           filters:
             branches:
-              only: master
+              only:
+                - master
+                - 2.0.x
     jobs:
       - load:
           matrix:
@@ -221,6 +233,6 @@ workflows:
                 - LOAD8
                 - LOAD9
                 - LOAD10
-  rootless:
+  upgrade:
     jobs:
-    - rootless
+    - upgrade

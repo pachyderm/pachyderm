@@ -83,12 +83,12 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	})
 
 	// database migrations
-	err = migrations.ApplyMigrations(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState)
+	err = migrations.ApplyMigrations(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), migrations.Env{EtcdClient: realEnv.EtcdClient}, clusterstate.DesiredClusterState)
 	require.NoError(t, err)
 	err = migrations.BlockUntil(realEnv.ServiceEnv.Context(), realEnv.ServiceEnv.GetDBClient(), clusterstate.DesiredClusterState)
 	require.NoError(t, err)
 
-	txnEnv := &txnenv.TransactionEnv{}
+	txnEnv := txnenv.New()
 	// AUTH
 	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
 	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetAuthServer(realEnv.AuthServer)

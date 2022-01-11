@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -30,11 +31,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
 )
 
 const (
@@ -122,8 +122,9 @@ func newDriver(env Env) (*driver, error) {
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.DB, tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
-	// Setup compaction queue and worker.
-	go compactionWorker(env.BackgroundContext, d.storage, env.EtcdClient, env.EtcdPrefix)
+	// Set up compaction worker.
+	taskSource := env.TaskService.NewSource(storageTaskNamespace)
+	go compactionWorker(env.BackgroundContext, taskSource, d.storage)
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
 	return d, nil
 }
@@ -956,7 +957,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 // be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
 // ID. It accepts a postgres transaction so that it can be used in a transaction
 // and avoids an inconsistent call to d.inspectCommit()
-func (d *driver) resolveCommit(sqlTx *sqlx.Tx, userCommit *pfs.Commit) (*pfs.CommitInfo, error) {
+func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if userCommit == nil {
 		return nil, errors.Errorf("cannot resolve nil commit")
 	}
@@ -1628,7 +1629,7 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 	if err != nil {
 		return err
 	}
-	if commitInfo.Finished != nil {
+	if commitInfo.Finishing != nil {
 		return errors.Errorf("cannot clear finished commit")
 	}
 	return errors.EnsureStack(d.commitStore.DropFileSets(ctx, commit))

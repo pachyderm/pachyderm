@@ -12,7 +12,7 @@ Before you can deploy Pachyderm on Amazon AWS with
 `kops`, you must have the following components configured:
 
 - Install [AWS CLI](https://aws.amazon.com/cli/)
-- Install [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+- Install [kubectl](https://kubernetes.io/docs/tasks/tools/)
 - Install [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
 - Install [pachctl](../../../../getting_started/local_installation/#install-pachctl)
 - Install [jq](https://stedolan.github.io/jq/download/)

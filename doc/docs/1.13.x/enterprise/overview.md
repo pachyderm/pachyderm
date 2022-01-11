@@ -6,7 +6,7 @@ Pachyderm Enterprise Edition includes everything you need to scale and manage Pa
 - [**Administrative and security features**](#access-control) needed for enterprise-scale implementations of Pachyderm  
 - [**Detailed job and data statistics**](#advanced-statistics) for faster development and data insight
 
-Pachyderm Enterprise Edition can be deployed easily on top of an existing or new deployment of Pachyderm, and we have engineers available to help enterprise customers get up and running very quickly.  To get more information about Pachyderm Enterprise Edition, to ask questions, or to get access for evaluation, please contact us at [sales@pachyderm.io](mailto:sales@pachyderm.io) or on our [Slack](http://slack.pachyderm.io/). 
+Pachyderm Enterprise Edition can be deployed easily on top of an existing or new deployment of Pachyderm, and we have engineers available to help enterprise customers get up and running very quickly.  To get more information about Pachyderm Enterprise Edition, to ask questions, or to get access for evaluation, please contact us at [sales@pachyderm.io](mailto:sales@pachyderm.io) or on our [Slack](https://www.pachyderm.com/slack/). 
 
 !!! Warning "THE ENTERPRISE EDITION LIFTS **ALL SCALING LIMITATIONS**"
      Note that the activation of the Enterprise Edition [**lifts all scaling limits of the Community Edition**](../../reference/scaling_limits/). You can run as many pipelines as you need and parallelize your jobs without constraints.

@@ -11,3 +11,4 @@ mkdocs-macros-plugin>=0.5
 mkdocs-exclude>=1.0.2
 jinja2==2.11.3
 pyyaml==5.4
+mkdocs-git-snippet>=0.1.1

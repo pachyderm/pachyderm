@@ -8,14 +8,13 @@ import (
 	"os"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	dex_storage "github.com/dexidp/dex/storage"
 	"github.com/dlmiddlecote/sqlstats"
-	loki "github.com/grafana/loki/pkg/logcli/client"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/jmoiron/sqlx"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -27,7 +26,9 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -54,10 +55,11 @@ type ServiceEnv interface {
 	Config() *Configuration
 	GetPachClient(ctx context.Context) *client.APIClient
 	GetEtcdClient() *etcd.Client
+	GetTaskService(string) task.Service
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
-	GetDBClient() *sqlx.DB
-	GetDirectDBClient() *sqlx.DB
+	GetDBClient() *pachsql.DB
+	GetDirectDBClient() *pachsql.DB
 	GetPostgresListener() col.PostgresListener
 	GetDexDB() dex_storage.Storage
 	ClusterID() string
@@ -112,7 +114,7 @@ type NonblockingServiceEnv struct {
 	dexDBEg errgroup.Group
 
 	// dbClient and directDBClient are database clients.
-	dbClient, directDBClient *sqlx.DB
+	dbClient, directDBClient *pachsql.DB
 	// dbEg coordinates the initialization of dbClient (see pachdEg)
 	dbEg errgroup.Group
 
@@ -403,6 +405,10 @@ func (env *NonblockingServiceEnv) GetEtcdClient() *etcd.Client {
 	return env.etcdClient
 }
 
+func (env *NonblockingServiceEnv) GetTaskService(prefix string) task.Service {
+	return task.NewEtcdService(env.etcdClient, prefix)
+}
+
 // GetKubeClient returns the already connected Kubernetes API client without
 // modification.
 func (env *NonblockingServiceEnv) GetKubeClient() *kube.Clientset {
@@ -425,7 +431,7 @@ func (env *NonblockingServiceEnv) GetLokiClient() (*loki.Client, error) {
 }
 
 // GetDBClient returns the already connected database client without modification.
-func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
+func (env *NonblockingServiceEnv) GetDBClient() *pachsql.DB {
 	if err := env.dbEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover
 	}
@@ -435,7 +441,7 @@ func (env *NonblockingServiceEnv) GetDBClient() *sqlx.DB {
 	return env.dbClient
 }
 
-func (env *NonblockingServiceEnv) GetDirectDBClient() *sqlx.DB {
+func (env *NonblockingServiceEnv) GetDirectDBClient() *pachsql.DB {
 	if env.isWorker() {
 		panic("worker cannot get direct db client")
 	}

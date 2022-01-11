@@ -11,9 +11,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
-	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -29,10 +27,21 @@ import (
 )
 
 const (
-	pipelineNameLabel         = "pipelineName"
-	pachVersionAnnotation     = "pachVersion"
-	pipelineVersionAnnotation = "pipelineVersion"
-	hashedAuthTokenAnnotation = "authTokenHash"
+	pipelineNameLabel            = "pipelineName"
+	pachVersionAnnotation        = "pachVersion"
+	pipelineVersionAnnotation    = "pipelineVersion"
+	pipelineSpecCommitAnnotation = "specCommit"
+	hashedAuthTokenAnnotation    = "authTokenHash"
+	// WorkerServiceAccountEnvVar is the name of the environment variable used to tell pachd
+	// what service account to assign to new worker RCs, for the purpose of
+	// creating S3 gateway services.
+	WorkerServiceAccountEnvVar = "WORKER_SERVICE_ACCOUNT"
+	// DefaultWorkerServiceAccountName is the default value to use if WorkerServiceAccountEnvVar is
+	// undefined (for compatibility purposes)
+	DefaultWorkerServiceAccountName = "pachyderm-worker"
+	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
+	// EnvVar defined in src/internal/serviceenv/config.go
+	UploadConcurrencyLimitEnvVar = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -42,17 +51,18 @@ type workerOptions struct {
 	specCommit    string // Pipeline spec commit ID (needed for s3 inputs)
 	s3GatewayPort int32  // s3 gateway port (if any s3 pipeline inputs)
 
-	userImage             string              // The user's pipeline/job image
-	labels                map[string]string   // k8s labels attached to the RC and workers
-	annotations           map[string]string   // k8s annotations attached to the RC and workers
-	parallelism           int32               // Number of replicas the RC maintains
-	resourceRequests      *v1.ResourceList    // Resources requested by pipeline/job pods
-	resourceLimits        *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the user and init containers
-	sidecarResourceLimits *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the sidecar container
-	workerEnv             []v1.EnvVar         // Environment vars set in the user container
-	volumes               []v1.Volume         // Volumes that we expose to the user container
-	volumeMounts          []v1.VolumeMount    // Paths where we mount each volume in 'volumes'
-	schedulingSpec        *pps.SchedulingSpec // the SchedulingSpec for the pipeline
+	userImage             string                // The user's pipeline/job image
+	labels                map[string]string     // k8s labels attached to the RC and workers
+	annotations           map[string]string     // k8s annotations attached to the RC and workers
+	parallelism           int32                 // Number of replicas the RC maintains
+	resourceRequests      *v1.ResourceList      // Resources requested by pipeline/job pods
+	resourceLimits        *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the user and init containers
+	sidecarResourceLimits *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the sidecar container
+	workerEnv             []v1.EnvVar           // Environment vars set in the user container
+	volumes               []v1.Volume           // Volumes that we expose to the user container
+	volumeMounts          []v1.VolumeMount      // Paths where we mount each volume in 'volumes'
+	postgresSecret        *v1.SecretKeySelector // the reference to the postgres password
+	schedulingSpec        *pps.SchedulingSpec   // the SchedulingSpec for the pipeline
 	podSpec               string
 	podPatch              string
 
@@ -100,12 +110,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	}, {
 		Name: "POSTGRES_PASSWORD",
 		ValueFrom: &v1.EnvVarSource{
-			SecretKeyRef: &v1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: client.PostgresSecretName,
-				},
-				Key: "postgresql-password",
-			},
+			SecretKeyRef: options.postgresSecret,
 		},
 	}, {
 		Name:  "POSTGRES_DATABASE",
@@ -258,7 +263,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
 		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount)
 	}
-	secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(pc.env.Config.StorageBackend)
+	secretVolume, secretMount := GetBackendSecretVolumeAndMount()
 	options.volumes = append(options.volumes, secretVolume)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
@@ -279,9 +284,9 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	memSidecarQuantity := resource.MustParse("64M")
 
 	// Get service account name for worker from env or use default
-	workerServiceAccountName, ok := os.LookupEnv(assets.WorkerServiceAccountEnvVar)
+	workerServiceAccountName, ok := os.LookupEnv(WorkerServiceAccountEnvVar)
 	if !ok {
-		workerServiceAccountName = assets.DefaultWorkerServiceAccountName
+		workerServiceAccountName = DefaultWorkerServiceAccountName
 	}
 
 	// possibly expose s3 gateway port in the sidecar container
@@ -299,7 +304,9 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	}
 	var userSecurityCtx *v1.SecurityContext
 	userStr := pipelineInfo.Details.Transform.User
-	if pc.env.Config.WorkerUsesRoot {
+	if !pc.env.Config.EnableWorkerSecurityContexts {
+		pachSecurityCtx = nil
+	} else if pc.env.Config.WorkerUsesRoot {
 		pachSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
 		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
 	} else if userStr != "" {
@@ -312,13 +319,6 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 				RunAsGroup: int64Ptr(i),
 			}
 		}
-	}
-	resp, err := pc.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
-	if err != nil {
-		return v1.PodSpec{}, errors.EnsureStack(err)
-	}
-	if resp.State != enterprise.State_ACTIVE {
-		workerImage = assets.AddRegistry("", workerImage)
 	}
 	envFrom := []v1.EnvFromSource{
 		{
@@ -458,7 +458,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 
 func (pc *pipelineController) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
-		{Name: assets.UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(pc.env.Config.StorageUploadConcurrencyLimit)},
+		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(pc.env.Config.StorageUploadConcurrencyLimit)},
 		{Name: client.PPSPipelineNameEnv, Value: pipelineInfo.Pipeline.Name},
 	}
 	return vars
@@ -475,7 +475,7 @@ func hashAuthToken(token string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-func (pc *pipelineController) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+func (pc *pipelineController) getWorkerOptions(ctx context.Context, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
 	pipelineName := pipelineInfo.Pipeline.Name
 	pipelineVersion := pipelineInfo.Version
 	var resourceRequests *v1.ResourceList
@@ -591,10 +591,11 @@ func (pc *pipelineController) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (
 	}
 
 	annotations := map[string]string{
-		pipelineNameLabel:         pipelineName,
-		pachVersionAnnotation:     version.PrettyVersion(),
-		pipelineVersionAnnotation: strconv.FormatUint(pipelineInfo.Version, 10),
-		hashedAuthTokenAnnotation: hashAuthToken(pipelineInfo.AuthToken),
+		pipelineNameLabel:            pipelineName,
+		pachVersionAnnotation:        version.PrettyVersion(),
+		pipelineVersionAnnotation:    strconv.FormatUint(pipelineInfo.Version, 10),
+		pipelineSpecCommitAnnotation: pipelineInfo.SpecCommit.ID,
+		hashedAuthTokenAnnotation:    hashAuthToken(pipelineInfo.AuthToken),
 	}
 
 	// add the user's custom metadata (annotations and labels).
@@ -628,6 +629,24 @@ func (pc *pipelineController) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (
 		s3GatewayPort = int32(pc.env.Config.S3GatewayPort)
 	}
 
+	// Get the reference to the postgres secret used by the current pod
+	podName := pc.env.Config.PachdPodName
+	selfPodInfo, err := pc.env.KubeClient.CoreV1().Pods(pc.namespace).Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	var postgresSecretRef *v1.SecretKeySelector
+	for _, container := range selfPodInfo.Spec.Containers {
+		for _, envVar := range container.Env {
+			if envVar.Name == "POSTGRES_PASSWORD" && envVar.ValueFrom != nil && envVar.ValueFrom.SecretKeyRef != nil {
+				postgresSecretRef = envVar.ValueFrom.SecretKeyRef
+			}
+		}
+	}
+	if postgresSecretRef == nil {
+		return nil, errors.New("could not load the existing postgres secret reference from kubernetes")
+	}
+
 	// Generate options for new RC
 	return &workerOptions{
 		rcName:                rcName,
@@ -643,6 +662,7 @@ func (pc *pipelineController) getWorkerOptions(pipelineInfo *pps.PipelineInfo) (
 		workerEnv:             workerEnv,
 		volumes:               volumes,
 		volumeMounts:          volumeMounts,
+		postgresSecret:        postgresSecretRef,
 		imagePullSecrets:      imagePullSecrets,
 		service:               service,
 		schedulingSpec:        pipelineInfo.Details.SchedulingSpec,
@@ -686,7 +706,7 @@ func (pc *pipelineController) createWorkerPachctlSecret(ctx context.Context, pip
 	s.SetLabels(labels)
 
 	// send RPC to k8s to create the secret there
-	if _, err := pc.env.KubeClient.CoreV1().Secrets(pc.namespace).Create(&s); err != nil {
+	if _, err := pc.env.KubeClient.CoreV1().Secrets(pc.namespace).Create(ctx, &s, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return errors.EnsureStack(err)
 		}
@@ -718,7 +738,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 		}
 	}
 
-	options, err := pc.getWorkerOptions(pipelineInfo)
+	options, err := pc.getWorkerOptions(ctx, pipelineInfo)
 	if err != nil {
 		return noValidOptionsErr{err}
 	}
@@ -749,7 +769,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 			},
 		},
 	}
-	if _, err := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace).Create(rc); err != nil {
+	if _, err := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return errors.EnsureStack(err)
 		}
@@ -783,7 +803,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 			},
 		},
 	}
-	if _, err := pc.env.KubeClient.CoreV1().Services(pc.namespace).Create(service); err != nil {
+	if _, err := pc.env.KubeClient.CoreV1().Services(pc.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return errors.EnsureStack(err)
 		}
@@ -817,7 +837,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 				Ports:    servicePort,
 			},
 		}
-		if _, err := pc.env.KubeClient.CoreV1().Services(pc.namespace).Create(service); err != nil {
+		if _, err := pc.env.KubeClient.CoreV1().Services(pc.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 			if !errutil.IsAlreadyExistError(err) {
 				return errors.EnsureStack(err)
 			}
@@ -825,6 +845,22 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 	}
 
 	return nil
+}
+
+// GetBackendSecretVolumeAndMount returns a properly configured Volume and
+// VolumeMount object
+func GetBackendSecretVolumeAndMount() (v1.Volume, v1.VolumeMount) {
+	return v1.Volume{
+			Name: client.StorageSecretName,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: client.StorageSecretName,
+				},
+			},
+		}, v1.VolumeMount{
+			Name:      client.StorageSecretName,
+			MountPath: "/" + client.StorageSecretName,
+		}
 }
 
 func int64Ptr(x int64) *int64 {

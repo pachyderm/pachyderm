@@ -14,8 +14,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
 )
 
@@ -31,20 +31,19 @@ const (
 // ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
 // clients for all workers.
 func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) ([]*pps.WorkerStatus, error) {
-	workerClients, err := Clients(ctx, pipelineRcName, etcdClient, etcdPrefix, workerGrpcPort)
-	if err != nil {
-		return nil, err
-	}
 	var result []*pps.WorkerStatus
-	for _, workerClient := range workerClients {
+	if err := ForEachWorker(ctx, pipelineRcName, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
 		ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 		defer cancel()
-		status, err := workerClient.Status(ctx, &types.Empty{})
+		status, err := c.Status(ctx, &types.Empty{})
 		if err != nil {
 			log.Warnf("error getting worker status: %v", err)
-			continue
+			return nil
 		}
 		result = append(result, status)
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -53,14 +52,10 @@ func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 // pipelineRcName is the name of the pipeline's RC and can be gotten with
 // ppsutil.PipelineRcName.
 func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
-	etcdPrefix string, workerGrpcPort uint16, jobID string, dataFilter []string) error {
-	workerClients, err := Clients(ctx, pipelineRcName, etcdClient, etcdPrefix, workerGrpcPort)
-	if err != nil {
-		return err
-	}
+	etcdPrefix string, workerGrpcPort uint16, jobID string, dataFilter []string) (retErr error) {
 	success := false
-	for _, workerClient := range workerClients {
-		resp, err := workerClient.Cancel(ctx, &CancelRequest{
+	if err := ForEachWorker(ctx, pipelineRcName, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
+		resp, err := c.Cancel(ctx, &CancelRequest{
 			JobID:       jobID,
 			DataFilters: dataFilter,
 		})
@@ -70,6 +65,9 @@ func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 		if resp.Success {
 			success = true
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	if !success {
 		return errors.Errorf("datum matching filter %+v could not be found for job ID %s", dataFilter, jobID)
@@ -77,60 +75,23 @@ func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 	return nil
 }
 
-// Conns returns a slice of connections to worker servers.
-// pipelineRcName is the name of the pipeline's RC and can be gotten with
-// ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
-// clients for all workers.
-func Conns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, workerIP ...string) ([]*grpc.ClientConn, error) {
-	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, WorkerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	var result []*grpc.ClientConn
-	for _, kv := range resp.Kvs {
-		wIP := path.Base(string(kv.Key))
-		if len(workerIP) > 0 && wIP != workerIP[0] {
-			continue
-		}
-		ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
-		defer cancel()
-		conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", wIP, workerGrpcPort),
-			append(client.DefaultDialOptions(), grpc.WithInsecure())...)
-		if err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		result = append(result, conn)
-	}
-	return result, nil
-}
-
 // Client combines the WorkerAPI and the DebugAPI into a single client.
 type Client struct {
 	WorkerClient
 	debug.DebugClient
+	clientConn *grpc.ClientConn
 }
 
 func newClient(conn *grpc.ClientConn) Client {
 	return Client{
 		NewWorkerClient(conn),
 		debug.NewDebugClient(conn),
+		conn,
 	}
 }
 
-// Clients returns a slice of worker clients for a pipeline.
-// pipelineRcName is the name of the pipeline's RC and can be gotten with
-// ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
-// clients for all workers.
-func Clients(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, workerIP ...string) ([]Client, error) {
-	conns, err := Conns(ctx, pipelineRcName, etcdClient, etcdPrefix, workerGrpcPort, workerIP...)
-	if err != nil {
-		return nil, err
-	}
-	var result []Client
-	for _, conn := range conns {
-		result = append(result, newClient(conn))
-	}
-	return result, nil
+func (c *Client) Close() error {
+	return c.clientConn.Close()
 }
 
 // NewClient returns a worker client for the worker at the IP address passed in.
@@ -147,4 +108,36 @@ func NewClient(address string) (Client, error) {
 		return Client{}, errors.EnsureStack(err)
 	}
 	return newClient(conn), nil
+}
+
+// TODO: It may make sense to parallelize this, but we have to consider that this operation can have multiple instances running in parallel.
+func ForEachWorker(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, cb func(Client) error) error {
+	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, WorkerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
+	if err != nil {
+		return err
+	}
+	for _, kv := range resp.Kvs {
+		workerIP := path.Base(string(kv.Key))
+		if err := WithClient(ctx, workerIP, workerGrpcPort, cb); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func WithClient(ctx context.Context, address string, port uint16, cb func(Client) error) (retErr error) {
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", address, port),
+		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
+	if err != nil {
+		return err
+	}
+	c := newClient(conn)
+	defer func() {
+		if err := c.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	return cb(c)
 }

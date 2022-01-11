@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -14,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -91,10 +91,8 @@ type ppsMaster struct {
 // pipelines are created/removed.
 func (a *apiServer) master() {
 	m := &ppsMaster{
-		a: a,
-		pcMgr: &pcManager{
-			pcs: make(map[string]*pipelineController),
-		},
+		a:     a,
+		pcMgr: newPcManager(a.env.Config.PPSMaxConcurrentK8sRequests),
 	}
 
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
@@ -161,7 +159,7 @@ eventLoop:
 				m.pcMgr.Lock()
 				defer m.pcMgr.Unlock()
 				if pc, ok := m.pcMgr.pcs[e.pipeline]; ok {
-					pc.Bump() // raises flag in pipelineController to run again whenever it finishes
+					pc.Bump(e.timestamp) // raises flag in pipelineController to run again whenever it finishes
 				} else {
 					// pc's ctx is cancelled in pipelineController.tryFinish(), to avoid leaking resources
 					pcCtx, pcCancel := context.WithCancel(m.masterCtx)
@@ -178,7 +176,7 @@ eventLoop:
 
 // setPipelineState is a PPS-master-specific helper that wraps
 // ppsutil.SetPipelineState in a trace
-func setPipelineState(ctx context.Context, db *sqlx.DB, pipelines collection.PostgresCollection, specCommit *pfs.Commit, state pps.PipelineState, reason string) (retErr error) {
+func setPipelineState(ctx context.Context, db *pachsql.DB, pipelines collection.PostgresCollection, specCommit *pfs.Commit, state pps.PipelineState, reason string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/SetPipelineState", "pipeline", specCommit.Branch.Repo.Name, "new-state", state)
 	defer func() {

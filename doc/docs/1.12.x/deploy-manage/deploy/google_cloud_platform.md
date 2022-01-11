@@ -7,7 +7,7 @@ The following section walks you through deploying a Pachyderm cluster on GKE.
 ## Prerequisites
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/) >= 124.0.0
-- [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
 - [pachctl](#install-pachctl)
 
 If this is the first time you use the SDK, follow

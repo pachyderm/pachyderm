@@ -6,15 +6,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -73,12 +72,11 @@ func (td *testDriver) Jobs() col.PostgresCollection {
 func (td *testDriver) Pipelines() col.PostgresCollection {
 	return td.inner.Pipelines()
 }
-func (td *testDriver) NewTaskWorker() *work.Worker {
-	return td.inner.NewTaskWorker()
+func (td *testDriver) NewTaskSource() task.Source {
+	return td.inner.NewTaskSource()
 }
-func (td *testDriver) NewTaskQueue() (*work.TaskQueue, error) {
-	res, err := td.inner.NewTaskQueue()
-	return res, errors.EnsureStack(err)
+func (td *testDriver) NewTaskDoer(groupID string) task.Doer {
+	return td.inner.NewTaskDoer(groupID)
 }
 func (td *testDriver) PipelineInfo() *pps.PipelineInfo {
 	return td.inner.PipelineInfo()
@@ -111,13 +109,13 @@ func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger,
 func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return errors.EnsureStack(td.inner.RunUserErrorHandlingCode(ctx, logger, env))
 }
-func (td *testDriver) DeleteJob(sqlTx *sqlx.Tx, ji *pps.JobInfo) error {
+func (td *testDriver) DeleteJob(sqlTx *pachsql.Tx, ji *pps.JobInfo) error {
 	return errors.EnsureStack(td.inner.DeleteJob(sqlTx, ji))
 }
 func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return errors.EnsureStack(td.inner.UpdateJobState(job, state, reason))
 }
-func (td *testDriver) NewSQLTx(cb func(*sqlx.Tx) error) error {
+func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
 	return errors.EnsureStack(td.inner.NewSQLTx(cb))
 }
 

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -19,7 +19,7 @@ import (
 )
 
 // NewTestStorage constructs a local storage instance scoped to the lifetime of the test
-func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker) *Storage {
+func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker) *Storage {
 	_, chunks := chunk.NewTestStorage(t, db, tr)
 	store := NewTestStore(t, db)
 	return NewStorage(store, tr, chunks)

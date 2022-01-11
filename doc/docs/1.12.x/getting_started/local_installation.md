@@ -27,7 +27,7 @@ We offer two ways to deploy Pachyderm on a local Kubernetes cluster.
       New Kubernetes nodes cannot be added to this single-node cluster.
       - Pachyderm supports the **Docker runtime only**. If you want to
       deploy Pachyderm on a system that uses another container runtime,
-      ask for advice in our [Slack channel](http://slack.pachyderm.io/).
+      ask for advice in our [Slack channel](https://www.pachyderm.com/slack/).
 
 
 ## Prerequisites
@@ -52,8 +52,8 @@ the Beginner Tutorial.
 To configure Minikube, follow these steps:
 
 1. Install minikube and VirtualBox in your operating system as described in
-the [Kubernetes documentation](http://kubernetes.io/docs/getting-started-guides/minikube).
-1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
+the [Kubernetes documentation](https://kubernetes.io/docs/setup/).
+1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/).
 1. Start `minikube`:
 
       ```shell

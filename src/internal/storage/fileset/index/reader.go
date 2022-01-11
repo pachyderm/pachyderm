@@ -7,9 +7,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
-	"modernc.org/mathutil"
 )
 
 // Reader is used for reading a multilevel index.
@@ -117,7 +117,7 @@ func (r *Reader) atEnd(name string) bool {
 	// A simple greater than check would not suffice here for the prefix filter functionality
 	// (for example, if the index consisted of the paths "a", "ab", "abc", and "b", then a
 	// reader with the prefix filter set to "a" would end at the "ab" path rather than the "b" path).
-	cmpSize := mathutil.Min(len(name), len(r.filter.prefix))
+	cmpSize := miscutil.Min(len(name), len(r.filter.prefix))
 	return name[:cmpSize] > r.filter.prefix[:cmpSize]
 }
 

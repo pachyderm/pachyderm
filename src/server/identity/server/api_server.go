@@ -29,19 +29,19 @@ type apiServer struct {
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
 // the top level of a GRPC method implementation, and correspondingly extracts
 // the method name from the parent stack frame
-func (a *apiServer) LogReq(request interface{}) {
-	a.pachLogger.Log(request, nil, nil, 0)
+func (a *apiServer) LogReq(ctx context.Context, request interface{}) {
+	a.pachLogger.Log(ctx, request, nil, nil, 0)
 }
 
 // LogResp is like log.Logger.Log(). However,
 // 1) It assumes that it's being called from a defer() statement in a GRPC
 //    method , and correspondingly extracts the method name from the grandparent
 //    stack frame
-func (a *apiServer) LogResp(request interface{}, response interface{}, err error, duration time.Duration) {
+func (a *apiServer) LogResp(ctx context.Context, request interface{}, response interface{}, err error, duration time.Duration) {
 	if err == nil {
-		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
+		a.pachLogger.LogAtLevelFromDepth(ctx, request, response, err, duration, logrus.InfoLevel, 4)
 	} else {
-		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.ErrorLevel, 4)
+		a.pachLogger.LogAtLevelFromDepth(ctx, request, response, err, duration, logrus.ErrorLevel, 4)
 	}
 }
 
@@ -66,8 +66,8 @@ func NewIdentityServer(env Env, public bool) identity.APIServer {
 }
 
 func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if _, err := a.env.DB.ExecContext(ctx, `INSERT INTO identity.config (id, issuer, id_token_expiry, rotation_token_expiry) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET issuer=$2, id_token_expiry=$3, rotation_token_expiry=$4`, configKey, req.Config.Issuer, req.Config.IdTokenExpiry, req.Config.RotationTokenExpiry); err != nil {
 		return nil, errors.EnsureStack(err)
@@ -77,8 +77,8 @@ func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.S
 }
 
 func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.GetIdentityServerConfigRequest) (resp *identity.GetIdentityServerConfigResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var config []*identity.IdentityServerConfig
 	err := a.env.DB.SelectContext(ctx, &config, "SELECT issuer, id_token_expiry, rotation_token_expiry FROM identity.config WHERE id=$1;", configKey)
@@ -99,8 +99,8 @@ func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.Create
 		return copyReq
 	}
 
-	a.LogReq(removeJSONConfig(req))
-	defer func(start time.Time) { a.LogResp(removeJSONConfig(req), resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, removeJSONConfig(req))
+	defer func(start time.Time) { a.LogResp(ctx, removeJSONConfig(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.api.createConnector(req); err != nil {
 		return nil, err
@@ -115,8 +115,8 @@ func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPCon
 		return copyResp
 	}
 
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, removeJSONConfig(resp), retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, removeJSONConfig(resp), retErr, time.Since(start)) }(time.Now())
 
 	c, err := a.api.getConnector(req.Id)
 	if err != nil {
@@ -135,8 +135,8 @@ func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.Update
 		return copyReq
 	}
 
-	a.LogReq(removeJSONConfig(req))
-	defer func(start time.Time) { a.LogResp(removeJSONConfig(req), resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, removeJSONConfig(req))
+	defer func(start time.Time) { a.LogResp(ctx, removeJSONConfig(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.api.updateConnector(req); err != nil {
 		return nil, err
@@ -154,8 +154,8 @@ func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDP
 		return copyResp
 	}
 
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, removeJSONConfig(resp), retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, removeJSONConfig(resp), retErr, time.Since(start)) }(time.Now())
 
 	connectors, err := a.api.listConnectors()
 	if err != nil {
@@ -166,8 +166,8 @@ func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDP
 }
 
 func (a *apiServer) DeleteIDPConnector(ctx context.Context, req *identity.DeleteIDPConnectorRequest) (resp *identity.DeleteIDPConnectorResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.api.deleteConnector(req.Id); err != nil {
 		return nil, err
@@ -183,8 +183,8 @@ func (a *apiServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOI
 		return copyReq
 	}
 
-	a.LogReq(removeSecret(req))
-	defer func(start time.Time) { a.LogResp(removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, removeSecret(req))
+	defer func(start time.Time) { a.LogResp(ctx, removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
 
 	client, err := a.api.createClient(ctx, req)
 	if err != nil {
@@ -202,8 +202,8 @@ func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOI
 		copyReq.Client.Secret = ""
 		return copyReq
 	}
-	a.LogReq(removeSecret(req))
-	defer func(start time.Time) { a.LogResp(removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, removeSecret(req))
+	defer func(start time.Time) { a.LogResp(ctx, removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.api.updateClient(ctx, req); err != nil {
 		return nil, err
@@ -218,8 +218,8 @@ func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClie
 		copyResp.Client.Secret = ""
 		return copyResp
 	}
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
 	client, err := a.api.getClient(req.Id)
 	if err != nil {
@@ -237,8 +237,8 @@ func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCC
 		}
 		return copyResp
 	}
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
 	clients, err := a.api.listClients()
 	if err != nil {
@@ -249,8 +249,8 @@ func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCC
 }
 
 func (a *apiServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOIDCClientRequest) (resp *identity.DeleteOIDCClientResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.api.deleteClient(ctx, req.Id); err != nil {
 		return nil, err
@@ -260,8 +260,8 @@ func (a *apiServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOI
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllRequest) (resp *identity.DeleteAllResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	clients, err := a.api.listClients()
 	if err != nil {

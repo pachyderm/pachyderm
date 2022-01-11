@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/sirupsen/logrus"
 )
 
@@ -98,7 +99,7 @@ func GetDSN(opts ...Option) string {
 }
 
 // NewDB creates a new DB.
-func NewDB(opts ...Option) (*sqlx.DB, error) {
+func NewDB(opts ...Option) (*pachsql.DB, error) {
 	dbc := newConfig(opts...)
 	if dbc.name == "" {
 		panic("must specify database name")
@@ -126,7 +127,7 @@ func NewDB(opts ...Option) (*sqlx.DB, error) {
 
 // WaitUntilReady attempts to ping the database until the context is cancelled.
 // Progress information is written to log
-func WaitUntilReady(ctx context.Context, log *logrus.Logger, db *sqlx.DB) error {
+func WaitUntilReady(ctx context.Context, log *logrus.Logger, db *pachsql.DB) error {
 	const period = time.Second
 	const timeout = time.Second
 	log.Infof("waiting for db to be ready...")
