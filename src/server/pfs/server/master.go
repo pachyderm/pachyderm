@@ -96,7 +96,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 }
 
 func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, repoKey string) error {
-	return d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, repoKey, func(ev *watch.Event) error {
+	err := d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, repoKey, func(ev *watch.Event) error {
 		if ev.Type == watch.EventError {
 			return ev.Err
 		}

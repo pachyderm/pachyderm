@@ -390,7 +390,6 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 					},
 				)
 			})
-			return errors.EnsureStack(err)
 		})
 		return errors.EnsureStack(eg.Wait())
 	}); err != nil {
