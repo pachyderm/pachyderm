@@ -47,8 +47,8 @@ type apiServer struct {
 	configCol col.EtcdCollection
 }
 
-func (a *apiServer) LogReq(request interface{}) {
-	a.pachLogger.Log(request, nil, nil, 0)
+func (a *apiServer) LogReq(ctx context.Context, request interface{}) {
+	a.pachLogger.Log(ctx, request, nil, nil, 0)
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
@@ -171,8 +171,8 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 
 // Heartbeat implements the Heartbeat RPC. It exists mostly to test the heartbeat logic
 func (a *apiServer) Heartbeat(ctx context.Context, req *ec.HeartbeatRequest) (resp *ec.HeartbeatResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.heartbeatIfConfigured(ctx); err != nil {
 		return nil, err
@@ -189,8 +189,8 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 		return copyReq
 	}
 
-	a.LogReq(removeSecret(req))
-	defer func(start time.Time) { a.pachLogger.Log(removeSecret(req), resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, removeSecret(req))
+	defer func(start time.Time) { a.pachLogger.Log(ctx, removeSecret(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	// Try to heartbeat before persisting the configuration
 	heartbeatResp, err := a.heartbeatToServer(ctx, req.LicenseServer, req.Id, req.Secret)
@@ -272,8 +272,8 @@ func (a *apiServer) GetActivationCode(ctx context.Context, req *ec.GetActivation
 		return copyResp
 	}
 
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 	return a.getEnterpriseRecord()
 }
 
@@ -315,8 +315,8 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 // Deactivate deletes the current cluster's enterprise token, and puts the
 // cluster in the "NONE" enterprise state.
 func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (resp *ec.DeactivateResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(enterpriseTokenKey)

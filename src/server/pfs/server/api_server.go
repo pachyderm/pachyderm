@@ -66,8 +66,8 @@ func newAPIServer(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 
 // ActivateAuth implements the protobuf pfs.ActivateAuth RPC
 func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	var repoInfo pfs.RepoInfo
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.repos.ReadOnly(ctx).List(&repoInfo, col.DefaultOptions(), func(string) error {
@@ -97,8 +97,8 @@ func (a *apiServer) CreateRepoInTransaction(txnCtx *txncontext.TransactionContex
 
 // CreateRepo implements the protobuf pfs.CreateRepo RPC
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.CreateRepo(request)
 	}, nil); err != nil {
@@ -116,8 +116,8 @@ func (a *apiServer) InspectRepoInTransaction(txnCtx *txncontext.TransactionConte
 
 // InspectRepo implements the protobuf pfs.InspectRepo RPC
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	var repoInfo *pfs.RepoInfo
 	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
@@ -140,8 +140,9 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	ctx := srv.Context()
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, nil, retErr, time.Since(start)) }(time.Now())
 	return a.driver.listRepo(srv.Context(), true, request.Type, srv.Send)
 }
 
@@ -153,8 +154,8 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContex
 
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.DeleteRepo(request)
 	}, nil); err != nil {
@@ -171,8 +172,8 @@ func (a *apiServer) StartCommitInTransaction(txnCtx *txncontext.TransactionConte
 
 // StartCommit implements the protobuf pfs.StartCommit RPC
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	var err error
 	commit := &pfs.Commit{}
 	if err = a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
@@ -194,8 +195,8 @@ func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionCont
 
 // FinishCommit implements the protobuf pfs.FinishCommit RPC
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.FinishCommit(request)
 	}, nil); err != nil {
@@ -213,17 +214,18 @@ func (a *apiServer) InspectCommitInTransaction(txnCtx *txncontext.TransactionCon
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	return a.driver.inspectCommit(ctx, request.Commit, request.Wait)
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
 func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.API_ListCommitServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
+	ctx := respServer.Context()
+	func() { a.Log(ctx, request, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
-		a.Log(request, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
+		a.Log(ctx, request, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
 	}(time.Now())
 	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.Number, request.Reverse, request.All, request.OriginKind, func(ci *pfs.CommitInfo) error {
 		sent++
@@ -240,17 +242,19 @@ func (a *apiServer) InspectCommitSetInTransaction(txnCtx *txncontext.Transaction
 
 // InspectCommitSet implements the protobuf pfs.InspectCommitSet RPC
 func (a *apiServer) InspectCommitSet(request *pfs.InspectCommitSetRequest, server pfs.API_InspectCommitSetServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.inspectCommitSet(server.Context(), request.CommitSet, request.Wait, server.Send)
+	ctx := server.Context()
+	func() { a.Log(server.Context(), request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, nil, retErr, time.Since(start)) }(time.Now())
+	return a.driver.inspectCommitSet(ctx, request.CommitSet, request.Wait, server.Send)
 }
 
 // ListCommitSet implements the protobuf pfs.ListCommitSet RPC
 func (a *apiServer) ListCommitSet(request *pfs.ListCommitSetRequest, serv pfs.API_ListCommitSetServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
+	ctx := serv.Context()
+	func() { a.Log(ctx, request, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
-		a.Log(request, fmt.Sprintf("stream containing %d CommitSetInfos", sent), retErr, time.Since(start))
+		a.Log(ctx, request, fmt.Sprintf("stream containing %d CommitSetInfos", sent), retErr, time.Since(start))
 	}(time.Now())
 	return a.driver.listCommitSet(serv.Context(), func(commitSetInfo *pfs.CommitSetInfo) error {
 		sent++
@@ -266,8 +270,8 @@ func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionC
 
 // SquashCommitSet implements the protobuf pfs.SquashCommitSet RPC
 func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.SquashCommitSet(request)
 	}, nil); err != nil {
@@ -278,8 +282,8 @@ func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashComm
 
 // DropCommitSet implements the protobuf pfs.DropCommitSet RPC
 func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSetRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.dropCommitSet(txnCtx, request.CommitSet)
 	}); err != nil {
@@ -290,15 +294,15 @@ func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSe
 
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(stream.Context(), request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(stream.Context(), request, nil, retErr, time.Since(start)) }(time.Now())
 	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.From, request.State, request.All, request.OriginKind, stream.Send)
 }
 
 // ClearCommit deletes all data in the commit.
 func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitRequest) (_ *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, nil, retErr, time.Since(start)) }(time.Now())
 	return &types.Empty{}, a.driver.clearCommit(ctx, request.Commit)
 }
 
@@ -310,8 +314,8 @@ func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionCont
 
 // CreateBranch implements the protobuf pfs.CreateBranch RPC
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.CreateBranch(request)
 	}, func(txnCtx *txncontext.TransactionContext) (string, error) {
@@ -341,8 +345,8 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 
 // InspectBranch implements the protobuf pfs.InspectBranch RPC
 func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	branchInfo := &pfs.BranchInfo{}
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
@@ -360,8 +364,9 @@ func (a *apiServer) InspectBranchInTransaction(txnCtx *txncontext.TransactionCon
 
 // ListBranch implements the protobuf pfs.ListBranch RPC
 func (a *apiServer) ListBranch(request *pfs.ListBranchRequest, srv pfs.API_ListBranchServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	ctx := srv.Context()
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, nil, retErr, time.Since(start)) }(time.Now())
 	if request.Repo == nil {
 		return a.driver.listBranch(srv.Context(), request.Reverse, srv.Send)
 	}
@@ -378,8 +383,8 @@ func (a *apiServer) DeleteBranchInTransaction(txnCtx *txncontext.TransactionCont
 
 // DeleteBranch implements the protobuf pfs.DeleteBranch RPC
 func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return txn.DeleteBranch(request)
 	}, nil); err != nil {
@@ -393,8 +398,9 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 	if err != nil {
 		return err
 	}
-	func() { a.Log(commit, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(commit, nil, retErr, time.Since(start)) }(time.Now())
+	ctx := server.Context()
+	func() { a.Log(ctx, commit, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, commit, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		var bytesRead int64
 		if err := a.driver.modifyFile(server.Context(), commit, func(uw *fileset.UnorderedWriter) error {
@@ -453,8 +459,8 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 		case *pfs.ModifyFileRequest_CopyFile:
 			cf := mod.CopyFile
 			if err := func() (retErr error) {
-				func() { a.Log(cf, nil, nil, 0) }()
-				defer func(start time.Time) { a.Log(cf, nil, retErr, time.Since(start)) }(time.Now())
+				func() { a.Log(ctx, cf, nil, nil, 0) }()
+				defer func(start time.Time) { a.Log(ctx, cf, nil, retErr, time.Since(start)) }(time.Now())
 				return a.driver.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Datum)
 			}(); err != nil {
 				return bytesRead, err
@@ -530,8 +536,9 @@ func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
 
 // GetFileTAR implements the protobuf pfs.GetFileTAR RPC
 func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	ctx := server.Context()
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
 		src, err := a.driver.getFile(ctx, request.File)
@@ -555,8 +562,9 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 
 // GetFile implements the protobuf pfs.GetFile RPC
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	ctx := server.Context()
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
 		src, err := a.driver.getFile(ctx, request.File)
@@ -646,17 +654,18 @@ func getFileTar(ctx context.Context, w io.Writer, src Source) error {
 
 // InspectFile implements the protobuf pfs.InspectFile RPC
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	return a.driver.inspectFile(ctx, request.File)
 }
 
 // ListFile implements the protobuf pfs.ListFile RPC
 func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFileServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
+	ctx := server.Context()
+	func() { a.Log(ctx, request, nil, nil, 0) }()
 	var sent int
 	defer func(start time.Time) {
-		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
+		a.Log(ctx, request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
 	return a.driver.listFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
 		sent++
@@ -666,10 +675,11 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 
 // WalkFile implements the protobuf pfs.WalkFile RPC
 func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
+	ctx := server.Context()
+	func() { a.Log(ctx, request, nil, nil, 0) }()
 	var sent int
 	defer func(start time.Time) {
-		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
+		a.Log(ctx, request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
 	return a.driver.walkFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
 		sent++
@@ -679,10 +689,11 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 
 // GlobFile implements the protobuf pfs.GlobFile RPC
 func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
+	ctx := respServer.Context()
+	func() { a.Log(ctx, request, nil, nil, 0) }()
 	var sent int
 	defer func(start time.Time) {
-		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
+		a.Log(ctx, request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
 	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
 		sent++
@@ -692,10 +703,11 @@ func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_Gl
 
 // DiffFile implements the protobuf pfs.DiffFile RPC
 func (a *apiServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFileServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
+	ctx := server.Context()
+	func() { a.Log(server.Context(), request, nil, nil, 0) }()
 	var sent int
 	defer func(start time.Time) {
-		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
+		a.Log(ctx, request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
 	return a.driver.diffFile(server.Context(), request.OldFile, request.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
 		sent++
@@ -708,8 +720,8 @@ func (a *apiServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFi
 
 // DeleteAll implements the protobuf pfs.DeleteAll RPC
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.driver.deleteAll(ctx); err != nil {
 		return nil, err
 	}
@@ -718,10 +730,11 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 
 // Fsckimplements the protobuf pfs.Fsck RPC
 func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
+	ctx := fsckServer.Context()
+	func() { a.Log(ctx, request, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
-		a.Log(request, fmt.Sprintf("stream containing %d messages", sent), retErr, time.Since(start))
+		a.Log(ctx, request, fmt.Sprintf("stream containing %d messages", sent), retErr, time.Since(start))
 	}(time.Now())
 	if err := a.driver.fsck(fsckServer.Context(), request.Fix, func(resp *pfs.FsckResponse) error {
 		sent++
@@ -734,8 +747,9 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 
 // CreateFileSet implements the pfs.CreateFileset RPC
 func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr error) {
-	func() { a.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	ctx := server.Context()
+	func() { a.Log(ctx, nil, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, nil, nil, retErr, time.Since(start)) }(time.Now())
 	fsID, err := a.driver.createFileSet(server.Context(), func(uw *fileset.UnorderedWriter) error {
 		_, err := a.modifyFile(server.Context(), uw, server)
 		return err
@@ -749,8 +763,8 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 }
 
 func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 	filesetID, err := a.driver.getFileSet(ctx, req.Commit)
 	if err != nil {
 		return nil, err
@@ -761,8 +775,8 @@ func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) 
 }
 
 func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *types.Empty, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, req, nil, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.AddFileSetInTransaction(txnCtx, req)
 	}); err != nil {
@@ -784,8 +798,8 @@ func (a *apiServer) AddFileSetInTransaction(txnCtx *txncontext.TransactionContex
 
 // RenewFileSet implements the pfs.RenewFileSet RPC
 func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest) (_ *types.Empty, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, req, nil, retErr, time.Since(start)) }(time.Now())
 	fsid, err := fileset.ParseID(req.FileSetId)
 	if err != nil {
 		return nil, err
@@ -798,8 +812,8 @@ func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetReque
 
 // ComposeFileSet implements the pfs.ComposeFileSet RPC
 func (a *apiServer) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 	var fsids []fileset.ID
 	for _, id := range req.FileSetIds {
 		fsid, err := fileset.ParseID(id)
@@ -830,8 +844,8 @@ func (a *apiServer) CheckStorage(ctx context.Context, req *pfs.CheckStorageReque
 
 // RunLoadTest implements the pfs.RunLoadTest RPC
 func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
-	func() { a.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, nil, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, nil, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
 	repo := "load_test"
 	if req.Branch != nil {
@@ -875,8 +889,8 @@ func (a *apiServer) runLoadTest(pachClient *client.APIClient, branch *pfs.Branch
 }
 
 func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (resp *pfs.RunLoadTestResponse, retErr error) {
-	func() { a.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, nil, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, nil, nil, retErr, time.Since(start)) }(time.Now())
 	for _, spec := range defaultLoadSpecs {
 		var err error
 		resp, err = a.RunLoadTest(ctx, &pfs.RunLoadTestRequest{
