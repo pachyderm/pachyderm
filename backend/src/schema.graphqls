@@ -401,6 +401,7 @@ input CreatePipelineArgs {
 
 input CommitInput {
   id: ID!
+  branch: BranchInput
 }
 
 input BranchInput {

@@ -61,6 +61,16 @@ describe('Image Processing', () => {
       click(nextStoryButton);
     };
 
+    const addTheseImages = async () => {
+      const imageUploadButton = await findByRole('button', {
+        name: 'Add these images',
+      });
+
+      click(imageUploadButton);
+
+      return waitFor(() => expect(imageUploadButton).not.toBeInTheDocument());
+    };
+
     expect(mockServer.getState().repos['6']).toHaveLength(0);
     expect(mockServer.getState().pipelines['6']).toHaveLength(0);
 
@@ -100,11 +110,8 @@ describe('Image Processing', () => {
     const checkbox1 = await findByLabelText('birthday-cake.jpg');
     click(checkbox1);
 
-    const imageUploadButton1 = await findByRole('button', {
-      name: 'Add these images',
-    });
+    await addTheseImages();
 
-    click(imageUploadButton1);
     expect(await findByText('Task Completed!')).toBeInTheDocument();
     expect(mockServer.getState().files['6']['/']).toHaveLength(1);
 
@@ -144,20 +151,53 @@ describe('Image Processing', () => {
     await nextStory();
 
     expect(
+      await findByText('Basic reproducibility concepts'),
+    ).toBeInTheDocument();
+
+    await minimize();
+    await maximize();
+
+    const kitten = await findByLabelText('kitten.jpg');
+    click(kitten);
+
+    await addTheseImages();
+
+    expect(mockServer.getState().files['6']['/']).toHaveLength(2);
+
+    await minimize();
+    await maximize();
+
+    const moveBranchButton = await findByRole('button', {
+      name: 'Move images branch',
+    });
+
+    click(moveBranchButton);
+
+    await waitFor(() => expect(moveBranchButton).not.toBeInTheDocument());
+
+    expect(
+      await findByText(
+        "Confirm that the montage's original version is restored",
+      ),
+    ).toBeInTheDocument();
+
+    await minimize();
+    await maximize();
+
+    await nextStory();
+
+    expect(
       await findByText('About Incremental Scalability'),
     ).toBeInTheDocument();
 
     const checkbox2 = await findByLabelText('pooh.jpg');
     click(checkbox2);
 
-    const imageUploadButton2 = await findByRole('button', {
-      name: 'Add these images',
-    });
+    await addTheseImages();
 
-    click(imageUploadButton2);
     expect(await findByText('Task Completed!')).toBeInTheDocument();
 
-    expect(mockServer.getState().files['6']['/']).toHaveLength(2);
+    expect(mockServer.getState().files['6']['/']).toHaveLength(3);
 
     await minimize();
     await maximize();

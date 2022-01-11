@@ -46,8 +46,20 @@ const branchResolver: BranchResolver = {
             }) ||
             undefined,
         );
+        const headObject = head
+          ? {
+              id: head?.id,
+              branch: head?.branch
+                ? {
+                    name: head.branch.name,
+                    repo: head.branch.repo,
+                  }
+                : undefined,
+            }
+          : undefined;
+
         await pachClient.pfs().createBranch({
-          head: head || undefined,
+          head: headObject,
           branch: branchObject || undefined,
           provenance: provenanceList,
           newCommitSet: newCommitSet || false,

@@ -1,5 +1,6 @@
 import {Story} from '@pachyderm/components';
 
+import DataLineageReproducibility from './DataLineageReproducibility';
 import EasyToUnderstandDataLineage from './EasyToUnderstandDataLineage';
 import EasyToUseDAGs from './EasyToUseDAGs';
 import EasyToUsePipelines from './EasyToUsePipelines';
@@ -11,6 +12,7 @@ const stories: Story[] = [
   EasyToUseVersionedData,
   EasyToUseDAGs,
   EasyToUnderstandDataLineage,
+  DataLineageReproducibility,
   IncrementalScalability,
 ];
 

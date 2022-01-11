@@ -58,6 +58,6 @@ describe('createBranch', () => {
         args: {repoName: 'cron', projectId},
       },
     );
-    expect(response2?.commits.length).toBe(3);
+    expect(response2?.commits.length).toBe(2);
   });
 });

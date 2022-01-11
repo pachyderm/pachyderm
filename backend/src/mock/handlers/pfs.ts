@@ -301,13 +301,15 @@ const pfs = () => {
               const branches = repo?.getBranchesList();
 
               if (call.request.getHead()) {
-                const commitIndex = MockState.state.commits[
-                  projectId.toString()
-                ].findIndex(
-                  (commit) =>
-                    commit.getCommit()?.getId() ===
-                    call.request.getHead()?.getId(),
-                );
+                const commitId = call.request.getHead()?.getId();
+                const commitIndex =
+                  commitId === '^'
+                    ? 0
+                    : MockState.state.commits[projectId.toString()].findIndex(
+                        (commit) =>
+                          commit.getCommit()?.getId() ===
+                          call.request.getHead()?.getId(),
+                      );
                 if (commitIndex === -1) {
                   callback({
                     code: Status.NOT_FOUND,
@@ -321,8 +323,8 @@ const pfs = () => {
                   MockState.state.commits[projectId.toString()].filter(
                     (commit, index) => {
                       return (
-                        commit.getCommit()?.getBranch()?.getName() !==
-                          branchName || index >= commitIndex
+                        commit.getCommit()?.getBranch()?.getName() ===
+                          branchName && index <= commitIndex
                       );
                     },
                   );

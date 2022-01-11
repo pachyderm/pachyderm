@@ -78,6 +78,7 @@ export type Commit = {
 
 export type CommitInput = {
   id: Scalars['ID'];
+  branch?: Maybe<BranchInput>;
 };
 
 export type CommitsQueryArgs = {
