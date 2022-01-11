@@ -501,9 +501,6 @@ func (c *ppsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Em
 func (c *ppsBuilderClient) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest, opts ...grpc.CallOption) (*pps.RenderTemplateResponse, error) {
 	return nil, unsupportedError("RenderTemplate")
 }
-func (c *ppsBuilderClient) ApplyTemplate(ctx context.Context, req *pps.ApplyTemplateRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("ApplyTemplate")
-}
 
 func (c *authBuilderClient) Activate(ctx context.Context, req *auth.ActivateRequest, opts ...grpc.CallOption) (*auth.ActivateResponse, error) {
 	return nil, unsupportedError("Activate")

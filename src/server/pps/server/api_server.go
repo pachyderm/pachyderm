@@ -3127,24 +3127,3 @@ func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateR
 		Specs: specs,
 	}, nil
 }
-
-func (a *apiServer) ApplyTemplate(ctx context.Context, req *pps.ApplyTemplateRequest) (*types.Empty, error) {
-	renderRes, err := a.RenderTemplate(ctx, &pps.RenderTemplateRequest{
-		Template: req.Template,
-		Args:     req.Args,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		for _, spec := range renderRes.Specs {
-			if err := txn.CreatePipeline(spec); err != nil {
-				return err
-			}
-		}
-		return nil
-	}, nil); err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
-}

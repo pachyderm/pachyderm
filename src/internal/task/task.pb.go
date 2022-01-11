@@ -94,6 +94,7 @@ func (m *Group) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Group proto.InternalMessageInfo
 
+// TODO: Consider splitting this up into separate structures for each state in a oneof.
 type Task struct {
 	ID                   string     `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	State                State      `protobuf:"varint,2,opt,name=state,proto3,enum=task.State" json:"state,omitempty"`
