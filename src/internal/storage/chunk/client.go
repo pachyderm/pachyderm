@@ -143,7 +143,7 @@ func (c *trackedClient) Get(ctx context.Context, chunkID ID, cb kv.ValueCallback
 	LIMIT 1
 	`, chunkID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			err = errors.Errorf("no objects for chunk %v", chunkID)
 		}
 		return err
@@ -225,14 +225,12 @@ func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit in
 func (c *trackedClient) entryExists(ctx context.Context, chunkID ID, gen uint64) (bool, error) {
 	var x int
 	err := c.db.GetContext(ctx, &x, `SELECT FROM storage.chunk_objects WHERE chunk_id = $1 AND gen = $2`, chunkID, gen)
-	switch err {
-	case sql.ErrNoRows:
+	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
-	case nil:
-		return true, nil
-	default:
+	} else if err != nil {
 		return false, errors.EnsureStack(err)
 	}
+	return true, nil
 }
 
 func chunkPath(chunkID ID, gen uint64) string {

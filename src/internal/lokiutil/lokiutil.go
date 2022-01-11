@@ -37,7 +37,7 @@ func forEachLine(resp loki.QueryResponse, f func(t time.Time, line string) error
 
 	for _, e := range allEntries {
 		if err := f(e.entry.Timestamp, e.entry.Line); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err

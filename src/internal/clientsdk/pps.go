@@ -18,7 +18,7 @@ func ForEachPipelineInfo(client pps.API_ListPipelineClient, cb func(*pps.Pipelin
 			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
-			if err == pacherr.ErrBreak {
+			if errors.Is(err, pacherr.ErrBreak) {
 				err = nil
 			}
 			return err
@@ -48,7 +48,7 @@ func ForEachJobSet(client pps.API_ListJobSetClient, cb func(*pps.JobSetInfo) err
 			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
-			if err == pacherr.ErrBreak {
+			if errors.Is(err, pacherr.ErrBreak) {
 				err = nil
 			}
 			return err

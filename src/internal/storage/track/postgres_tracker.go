@@ -116,7 +116,7 @@ func (t *postgresTracker) SetTTL(ctx context.Context, id string, ttl time.Durati
 		RETURNING expires_at
 	`, id, ttl.Microseconds())
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			err = pacherr.NewNotExist("tracker", id)
 		}
 		return time.Time{}, err
@@ -182,7 +182,7 @@ func (t *postgresTracker) GetExpiresAt(ctx context.Context, id string) (time.Tim
 	if err := t.db.GetContext(ctx, &expiresAt,
 		`SELECT expires_at FROM storage.tracker_objects WHERE str_id = $1
 	`, id); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return time.Time{}, pacherr.NewNotExist("tracker", id)
 		}
 		return time.Time{}, errors.EnsureStack(err)

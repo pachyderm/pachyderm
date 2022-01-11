@@ -137,12 +137,15 @@ func (c *postgresCollection) ReadWrite(tx *pachsql.Tx) PostgresReadWriteCollecti
 // transaction instead of committing it.
 func NewDryrunSQLTx(ctx context.Context, db *pachsql.DB, apply func(*pachsql.Tx) error) error {
 	err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
+		fmt.Printf("NewDryrunSQLTx running callback\n")
 		if err := apply(tx); err != nil {
+			fmt.Printf("NewDryrunSQLTx error: %v\n", err)
 			return err
 		}
+		fmt.Printf("NewDryrunSQLTx callback success, rolling back\n")
 		return errors.EnsureStack(tx.Rollback())
 	})
-	if err == sql.ErrTxDone {
+	if errors.Is(err, sql.ErrTxDone) {
 		err = nil
 	}
 	return err

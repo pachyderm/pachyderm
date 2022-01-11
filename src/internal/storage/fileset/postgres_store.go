@@ -69,7 +69,7 @@ func (s *postgresStore) SetTx(tx *pachsql.Tx, id ID, md *Metadata) error {
 func (s *postgresStore) get(ctx context.Context, q sqlx.QueryerContext, id ID) (*Metadata, error) {
 	var mdData []byte
 	if err := sqlx.GetContext(ctx, q, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE id = $1`, id); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.WithStack(ErrFileSetNotExists)
 		}
 		return nil, errors.EnsureStack(err)

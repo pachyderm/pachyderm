@@ -98,7 +98,7 @@ func compress(algo CompressionAlgo, dst, src []byte) (CompressionAlgo, int, erro
 			}
 			return errors.EnsureStack(gw.Close())
 		}()
-		if err == io.ErrShortWrite {
+		if errors.Is(err, io.ErrShortWrite) {
 			return compress(CompressionAlgo_NONE, dst, src)
 		}
 		return CompressionAlgo_GZIP_BEST_SPEED, lw.pos, err

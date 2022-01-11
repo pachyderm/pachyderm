@@ -3,6 +3,7 @@ package dbutil
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -135,6 +136,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, 
 
 	txStartedMetric.Inc()
 	err := backoff.RetryUntilCancel(ctx, func() error {
+		fmt.Printf("WithTx backoff loop start\n")
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
 		underlyingTxStartedMetric.Inc()
@@ -146,6 +148,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, 
 		}
 		return tryTxFunc(tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
+		fmt.Printf("WithTx backoff loop handle: %v\n", err)
 		if isTransactionError(err) {
 			return nil
 		}
@@ -166,6 +169,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, 
 
 func tryTxFunc(tx *pachsql.Tx, cb func(tx *pachsql.Tx) error) error {
 	if err := cb(tx); err != nil {
+		fmt.Printf("tryTxFunc callback failed, rolling back: %v\n", err)
 		if rbErr := tx.Rollback(); rbErr != nil {
 			underlyingTxFinishMetric.WithLabelValues("rollback_failed").Inc()
 			logrus.Error(rbErr)
@@ -174,6 +178,7 @@ func tryTxFunc(tx *pachsql.Tx, cb func(tx *pachsql.Tx) error) error {
 		underlyingTxFinishMetric.WithLabelValues("rollback_ok").Inc()
 		return err
 	}
+	fmt.Printf("tryTxFunc callback succeeded, commiting\n")
 	if err := tx.Commit(); err != nil {
 		underlyingTxFinishMetric.WithLabelValues("commit_failed").Inc()
 		return errors.EnsureStack(err)
@@ -182,7 +187,8 @@ func tryTxFunc(tx *pachsql.Tx, cb func(tx *pachsql.Tx) error) error {
 	return nil
 }
 
-func isTransactionError(err error) bool {
+func isTransactionError(err error) (res bool) {
 	pgxErr := &pgconn.PgError{}
+	defer func() { fmt.Printf("isTransactionError(%v): %v\n", err, res) }()
 	return errors.As(err, &pgxErr) && strings.HasPrefix(pgxErr.Code, "40")
 }

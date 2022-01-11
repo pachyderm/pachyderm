@@ -18,7 +18,7 @@ func ForEachBranchInfo(client pfs.API_ListBranchClient, cb func(*pfs.BranchInfo)
 			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
-			if err == pacherr.ErrBreak {
+			if errors.Is(err, pacherr.ErrBreak) {
 				err = nil
 			}
 			return err
@@ -48,7 +48,7 @@ func ForEachRepoInfo(client pfs.API_ListRepoClient, cb func(*pfs.RepoInfo) error
 			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
-			if err == pacherr.ErrBreak {
+			if errors.Is(err, pacherr.ErrBreak) {
 				err = nil
 			}
 			return err
@@ -78,7 +78,7 @@ func ForEachCommitSet(client pfs.API_ListCommitSetClient, cb func(*pfs.CommitSet
 			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
-			if err == pacherr.ErrBreak {
+			if errors.Is(err, pacherr.ErrBreak) {
 				err = nil
 			}
 			return err
@@ -97,7 +97,7 @@ func ForEachCommit(client pfs.API_ListCommitClient, cb func(*pfs.CommitInfo) err
 			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
-			if err == pacherr.ErrBreak {
+			if errors.Is(err, pacherr.ErrBreak) {
 				err = nil
 			}
 			return err
@@ -127,7 +127,7 @@ func ForEachSubscribeCommit(client pfs.API_SubscribeCommitClient, cb func(*pfs.C
 			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
-			if err == pacherr.ErrBreak {
+			if errors.Is(err, pacherr.ErrBreak) {
 				err = nil
 			}
 			return err

@@ -192,7 +192,7 @@ func getTotal(tx *pachsql.Tx, commit *pfs.Commit) (*fileset.ID, error) {
 func dropTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit) error {
 	id, err := getTotal(tx, commit)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 		return err
