@@ -40,8 +40,7 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
         You have the option to: 
 
         1. [Create those secrets](../../../how-tos/advanced-data-operations/secrets/#create-a-secret) ahead of time then supply their names in the `secretName` field of your values.yaml (Recommended option). 
-        OR 
-        1. For a quick installation, put the secrets' values in the dedicated fields of your values.yaml. In such case, those will populate Pachyderm's default `pachyderm-bootstrap-config` secret. 
+        1. For a quick installation, put the secrets' values in the dedicated fields of your values.yaml. In such cases, those will populate Pachyderm's default `pachyderm-bootstrap-config` secret. 
 
         Find the complete list of helm values that can control secret values here: 
         ``` 
@@ -55,7 +54,7 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
         oidc.upstreamIDPsSecretName 
         ``` 
         
-        It is important to note that if no secret name is provided for the fields mentioned above, Pachyderm will populate a default auto-generated secret at the time of the installation ('pachyderm-bootstrap-config'). In such cases, **helm upgrade will fail unless you retrieve those values (`kubectl get secrets`), create a dedicated secret, then manually set its name back into their corresponding secret name field above.**
+        It is important to note that if no secret name is provided for the fields mentioned above, Pachyderm will populate a default, auto-generated secret at the installation time (`pachyderm-bootstrap-config`). In such cases, **helm upgrade will fail unless you retrieve those values (for example: `{{"kubectl get secret pachyderm-bootstrap-config -o go-template='{{.data.rootToken | base64decode }}'"}}`), create a dedicated secret, then manually set its name back into the corresponding secret name field above.**
        
 ###  Install Pachyderm's Helm Chart
 1. Get your Helm Repo Info
