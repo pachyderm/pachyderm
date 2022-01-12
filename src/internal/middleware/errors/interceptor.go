@@ -25,7 +25,7 @@ func unwrapGRPC(err error) error {
 	for cursor != nil {
 		cursor = errors.Unwrap(cursor)
 		if res, ok := status.FromError(cursor); ok && res != nil {
-			return cursor
+			return cursor //nolint:wrapcheck
 		}
 	}
 	return err

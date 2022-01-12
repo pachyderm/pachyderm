@@ -597,7 +597,7 @@ $ {{alias}} foo@master --from XXX`,
 				if raw {
 					encoder := cmdutil.Encoder(output, os.Stdout)
 					return clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
-						return encoder.EncodeProto(ci)
+						return errors.EnsureStack(encoder.EncodeProto(ci))
 					})
 				}
 				writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
@@ -647,7 +647,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 			}
 
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -719,7 +719,7 @@ $ {{alias}} test@master --new`,
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
 				return clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
-					return encoder.EncodeProto(ci)
+					return errors.EnsureStack(encoder.EncodeProto(ci))
 				})
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
