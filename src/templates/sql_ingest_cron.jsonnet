@@ -5,10 +5,20 @@ local newPipeline(name, input, transform) = {
 	transform: transform,
 	input: input,	
 };
-local pachtf(args, env={}) = {
+local pachtf(args, secretName="") = {
 	image: "pachyderm/pachtf:latest",
-	env: env,
 	cmd: ["/app/pachtf"] + args,
+	secrets: if secretName != "" then
+		[
+			{
+				name: secretName,
+				env_var: "PACHYDERM_SQL_PASSWORD",
+				key: "PACHYDERM_SQL_PASSWORD",
+			}
+		]
+	else
+		null
+	,
 };
 
 function (name, url, query, format, cronSpec, secretName)
@@ -34,8 +44,7 @@ function (name, url, query, format, cronSpec, secretName)
 				glob: "/*",
 			},
 		},
-		transform=pachtf(["sql-ingest", url, format], {
-			"PACHYDERM_SQL_PASSWORD": "root",
-	  	}),
+		transform=pachtf(["sql-ingest", url, format], secretName),
 	)
 	]
+

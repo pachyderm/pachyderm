@@ -200,6 +200,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/InspectSecret":      authDisabledOr(clusterPermissions(auth.Permission_SECRET_INSPECT)),
 	"/pps_v2.API/RunLoadTest":        authDisabledOr(authenticated),
 	"/pps_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
+	"/pps_v2.API/RenderTemplate":     authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI
