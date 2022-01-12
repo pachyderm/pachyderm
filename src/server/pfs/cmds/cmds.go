@@ -86,7 +86,7 @@ or type (e.g. csv, binary, images, etc).`,
 						Description: description,
 					},
 				)
-				return err
+				return errors.EnsureStack(err)
 			})
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -114,7 +114,7 @@ or type (e.g. csv, binary, images, etc).`,
 						Update:      true,
 					},
 				)
-				return err
+				return errors.EnsureStack(err)
 			})
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -135,13 +135,13 @@ or type (e.g. csv, binary, images, etc).`,
 			defer c.Close()
 			repoInfo, err := c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{Repo: cmdutil.ParseRepo(args[0])})
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if repoInfo == nil {
 				return errors.Errorf("repo %s not found", args[0])
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(repoInfo)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(repoInfo))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -183,7 +183,7 @@ or type (e.g. csv, binary, images, etc).`,
 				encoder := cmdutil.Encoder(output, os.Stdout)
 				for _, repoInfo := range repoInfos {
 					if err := encoder.EncodeProto(repoInfo); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				return nil
@@ -238,7 +238,7 @@ or type (e.g. csv, binary, images, etc).`,
 				} else {
 					_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
 				}
-				return err
+				return errors.EnsureStack(err)
 			})
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -310,7 +310,7 @@ $ {{alias}} test@fork -p XXX`,
 						Description: description,
 					},
 				)
-				return err
+				return errors.EnsureStack(err)
 			})
 			if err == nil {
 				fmt.Println(commit.ID)
@@ -349,7 +349,7 @@ $ {{alias}} test@fork -p XXX`,
 						Force:       force,
 					},
 				)
-				return err
+				return errors.EnsureStack(err)
 			})
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -390,7 +390,7 @@ $ {{alias}} test@fork -p XXX`,
 				return errors.Errorf("commit %s not found", commit)
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(commitInfo))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -737,7 +737,7 @@ $ {{alias}} test@master --new`,
 			}); err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			return err
+			return errors.EnsureStack(err)
 		}),
 	}
 	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
@@ -964,7 +964,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{Branch: branch, Force: force})
-				return err
+				return errors.EnsureStack(err)
 			})
 		}),
 	}
@@ -1058,7 +1058,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 				} else if url, err := url.Parse(inputFile); err == nil && url.Scheme != "" {
 					resp, err := http.Get(url.String())
 					if err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 					defer func() {
 						if err := resp.Body.Close(); err != nil && retErr == nil {
@@ -1069,7 +1069,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 				} else {
 					inputFile, err := os.Open(inputFile)
 					if err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 					defer func() {
 						if err := inputFile.Close(); err != nil && retErr == nil {
@@ -1509,7 +1509,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 					// Diff returns exit code 1 when it finds differences
 					// between the files, so we catch it.
 					if err := cmd.Run(); err != nil && cmd.ProcessState.ExitCode() != 1 {
-						return err
+						return errors.EnsureStack(err)
 					}
 					return nil
 				})
@@ -1610,7 +1610,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 			if len(args) == 0 {
 				resp, err := c.PfsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println(resp.Spec)
 				resp.Spec = ""
@@ -1620,7 +1620,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				fmt.Println()
 				return nil
 			}
-			return filepath.Walk(args[0], func(file string, fi os.FileInfo, err error) error {
+			err = filepath.Walk(args[0], func(file string, fi os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
@@ -1629,7 +1629,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				}
 				spec, err := ioutil.ReadFile(file)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				var branch *pfs.Branch
 				if branchStr != "" {
@@ -1644,7 +1644,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 					Seed:   seed,
 				})
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println(resp.Spec)
 				resp.Spec = ""
@@ -1654,6 +1654,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				fmt.Println()
 				return nil
 			})
+			return errors.EnsureStack(err)
 		}),
 	}
 	runLoadTest.Flags().StringVarP(&branchStr, "branch", "b", "", "The branch to use for generating the load.")
@@ -1676,7 +1677,7 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
-		return mf.PutFileURL(path, url.String(), recursive, opts...)
+		return errors.EnsureStack(mf.PutFileURL(path, url.String(), recursive, opts...))
 	}
 	if source == "-" {
 		if recursive {
@@ -1684,12 +1685,12 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 		}
 		stdin := progress.Stdin()
 		defer stdin.Finish()
-		return mf.PutFile(path, stdin, opts...)
+		return errors.EnsureStack(mf.PutFile(path, stdin, opts...))
 	}
 	// Resolve the source and convert to unix path in case we're on windows.
 	source = filepath.ToSlash(filepath.Clean(source))
 	if recursive {
-		return filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
+		err := filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
 			// file doesn't exist
 			if info == nil {
 				return errors.Errorf("%s doesn't exist", filePath)
@@ -1703,6 +1704,7 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 			// next one
 			return putFileHelper(mf, childDest, filePath, false, appendFile)
 		})
+		return errors.EnsureStack(err)
 	}
 	f, err := progress.Open(source)
 	if err != nil {
@@ -1713,7 +1715,7 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 			retErr = err
 		}
 	}()
-	return mf.PutFile(path, f, opts...)
+	return errors.EnsureStack(mf.PutFile(path, f, opts...))
 }
 
 func joinPaths(prefix, filePath string) string {
@@ -1735,11 +1737,11 @@ func joinPaths(prefix, filePath string) string {
 func dlFile(pachClient *client.APIClient, f *pfs.File) (_ string, retErr error) {
 	tempDir := filepath.Join(os.TempDir(), filepath.Dir(f.Path))
 	if err := os.MkdirAll(tempDir, 0777); err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	file, err := ioutil.TempFile(tempDir, filepath.Base(f.Path+"_"))
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := file.Close(); err != nil && retErr == nil {

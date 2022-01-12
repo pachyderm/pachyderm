@@ -79,7 +79,7 @@ func NewEtcdCollection(etcdClient *etcd.Client, prefix string, indexes []*Index,
 func (c *etcdCollection) ReadWrite(stm STM) EtcdReadWriteCollection {
 	return &etcdReadWriteCollection{
 		etcdCollection: c,
-		stm:            stm.(STM),
+		stm:            stm,
 	}
 }
 
@@ -136,7 +136,7 @@ func (r *Renewer) Put(ctx context.Context, key string, val proto.Message) error 
 		// TODO: This is a bit messy, but I don't want put lease to be a part of the exported interface.
 		col := &etcdReadWriteCollection{
 			etcdCollection: r.collection,
-			stm:            stm.(STM),
+			stm:            stm,
 		}
 		return col.putLease(key, val, r.lease)
 	})
@@ -388,7 +388,7 @@ func (c *etcdReadWriteCollection) Delete(maybeKey interface{}) error {
 	if c.indexes != nil && c.template != nil {
 		val := proto.Clone(c.template)
 		for _, index := range c.indexes {
-			if err := c.Get(key, val.(proto.Message)); err == nil {
+			if err := c.Get(key, val); err == nil {
 				indexPath := c.getIndexPath(val, index, key)
 				c.stm.Del(indexPath)
 			}

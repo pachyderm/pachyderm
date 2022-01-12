@@ -222,11 +222,11 @@ func (a *dexAPI) validateConnector(id, connType string, jsonConfig []byte) error
 
 	conf := typeConf()
 	if err := json.Unmarshal(jsonConfig, conf); err != nil {
-		return errors.Errorf("unable to deserialize JSON: %w", err)
+		return errors.Errorf("unable to deserialize JSON: %v", err)
 	}
 
 	if _, err := conf.Open(id, a.logger); err != nil {
-		return errors.Errorf("unable to open connector: %w", err)
+		return errors.Errorf("unable to open connector: %v", err)
 	}
 
 	return nil

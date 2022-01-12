@@ -29,51 +29,51 @@ func TestAuthNotActivated(t *testing.T) {
 
 	_, err = client.GetIdentityServerConfig(client.Ctx(), &identity.GetIdentityServerConfigRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
 	_, err = client.CreateIDPConnector(client.Ctx(), &identity.CreateIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
 	_, err = client.GetIDPConnector(client.Ctx(), &identity.GetIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
 	_, err = client.UpdateIDPConnector(client.Ctx(), &identity.UpdateIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
 	_, err = client.ListIDPConnectors(client.Ctx(), &identity.ListIDPConnectorsRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
 	_, err = client.DeleteIDPConnector(client.Ctx(), &identity.DeleteIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
 	_, err = client.CreateOIDCClient(client.Ctx(), &identity.CreateOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
 	_, err = client.GetOIDCClient(client.Ctx(), &identity.GetOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
 	_, err = client.UpdateOIDCClient(client.Ctx(), &identity.UpdateOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
 	_, err = client.ListOIDCClients(client.Ctx(), &identity.ListOIDCClientsRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
 	_, err = client.DeleteOIDCClient(client.Ctx(), &identity.DeleteOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
 	_, err = client.IdentityAPIClient.DeleteAll(client.Ctx(), &identity.DeleteAllRequest{})
 	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
+	require.Equal(t, "rpc error: code = Unknown desc = rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 }
 
 // TestUserNotAdmin checks that no RPCs can be made by non-admin users

@@ -35,9 +35,9 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 			if err != nil {
 				return err
 			}
-			return os.Chown(name, int(*d.uid), int(*d.gid))
+			return errors.EnsureStack(os.Chown(name, int(*d.uid), int(*d.gid)))
 		}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	if err := d.linkData(inputs, dir); err != nil {
