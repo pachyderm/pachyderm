@@ -464,7 +464,7 @@ $ {{alias}} foo@master --from XXX`,
 						e := cmdutil.Encoder(output, os.Stdout)
 						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							if err := e.EncodeProto(commitSetInfo); err != nil {
-								return err
+								return errors.EnsureStack(err)
 							}
 							count++
 							if number != 0 && count >= int(number) {
@@ -494,7 +494,7 @@ $ {{alias}} foo@master --from XXX`,
 						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							for _, commitInfo := range commitSetInfo.Commits {
 								if err := e.EncodeProto(commitInfo); err != nil {
-									return err
+									return errors.EnsureStack(err)
 								}
 								count++
 								if number != 0 && count >= int(number) {
@@ -545,7 +545,7 @@ $ {{alias}} foo@master --from XXX`,
 					encoder := cmdutil.Encoder(output, os.Stdout)
 					for _, commitInfo := range commitInfos {
 						if err := encoder.EncodeProto(commitInfo); err != nil {
-							return err
+							return errors.EnsureStack(err)
 						}
 					}
 					return nil
