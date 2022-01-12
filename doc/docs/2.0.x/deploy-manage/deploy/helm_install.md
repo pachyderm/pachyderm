@@ -25,7 +25,7 @@ This page gives a high level view of the steps to follow to install Pachyderm us
 
     * Additionally, those instructions will also help you configure the various elements (object store, credentials...) that relate to your deployment needs. Those parameters values will **be specified in a YAML configuration file** as follows.
 
-### Edit A Values.yaml File
+### Edit a Values.yaml File
 Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/examples){target=_blank}. Pick the example that fits your target deployment and update the relevant values according to the parameters gathered in the previous step.   
 
 See the reference [values.yaml](../../../reference/helm_values/) for the list of all available helm values at your disposal.
@@ -41,7 +41,7 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
 
         1. [Create those secrets](../../../how-tos/advanced-data-operations/secrets/#create-a-secret) ahead of time then supply their names in the `secretName` field of your values.yaml (Recommended option). 
         OR 
-        1. Put the secrets' values in the dedicated fields of your values.yaml, set their `newSecret.create` value to `true`, then let helm create them for you under the name you have provided in the `secretName` field.
+        1. For a quick installation, put the secrets' values in the dedicated fields of your values.yaml. In such case, those will populate Pachyderm's default `pachyderm-bootstrap-config` secret. 
 
         Find the complete list of helm values that can control secret values here: 
         ``` 
@@ -55,7 +55,7 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
         oidc.upstreamIDPsSecretName 
         ``` 
         
-        It is important to note that if no secret name is provided for the fields mentioned above, Pachyderm will auto-generate those secrets at the time of the installation. In such cases, **helm upgrade will fail unless you retrieve those secrets (`kubectl get secrets`), then manually set their name back into their corresponding secret name field above.**
+        It is important to note that if no secret name is provided for the fields mentioned above, Pachyderm will populate a default auto-generated secret at the time of the installation ('pachyderm-bootstrap-config'). In such cases, **helm upgrade will fail unless you retrieve those values (`kubectl get secrets`), create a dedicated secret, then manually set its name back into their corresponding secret name field above.**
        
 ###  Install Pachyderm's Helm Chart
 1. Get your Helm Repo Info
