@@ -895,7 +895,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 				return errors.Errorf("branch %s not found", args[0])
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(branchInfo)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(branchInfo))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -926,7 +926,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
 				err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
-					return encoder.EncodeProto(branch)
+					return errors.EnsureStack(encoder.EncodeProto(branch))
 				})
 				return grpcutil.ScrubGRPC(err)
 			} else if output != "" {
@@ -1304,7 +1304,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				return errors.Errorf("file %s not found", file.Path)
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(fileInfo)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(fileInfo))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -1350,7 +1350,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
 				return c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
-					return encoder.EncodeProto(fi)
+					return errors.EnsureStack(encoder.EncodeProto(fi))
 				})
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
@@ -1401,7 +1401,7 @@ $ {{alias}} "foo@master:data/*"`,
 				encoder := cmdutil.Encoder(output, os.Stdout)
 				for _, fileInfo := range fileInfos {
 					if err := encoder.EncodeProto(fileInfo); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				return nil
@@ -1615,7 +1615,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println()
 				return nil
@@ -1649,7 +1649,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println()
 				return nil
