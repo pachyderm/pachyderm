@@ -1,3 +1,4 @@
+//nolint:wrapcheck
 package client
 
 import (
@@ -71,12 +72,12 @@ func (ppl *proxyPostgresListener) listen(notifier col.Notifier) {
 				Channel: channel,
 			})
 			if err != nil {
-				return errors.EnsureStack(err)
+				return err
 			}
 			for {
 				resp, err := listenClient.Recv()
 				if err != nil {
-					return errors.EnsureStack(err)
+					return err
 				}
 				ppl.mu.Lock()
 				if ci, ok := ppl.channelInfos[channel]; ok {

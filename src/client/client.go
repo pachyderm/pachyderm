@@ -1,3 +1,4 @@
+//nolint:wrapcheck
 package client
 
 import (
@@ -368,7 +369,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 				options = append(options, WithAdditionalRootCAs(pemBytes))
 				return nil
 			}); err != nil {
-				return nil, errors.EnsureStack(err)
+				return nil, err
 			}
 		}
 	}
@@ -670,7 +671,7 @@ func NewInWorker(options ...Option) (*APIClient, error) {
 // Close the connection to gRPC
 func (c *APIClient) Close() error {
 	if err := c.clientConn.Close(); err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 
 	if c.portForwarder != nil {
@@ -795,7 +796,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 
 	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)

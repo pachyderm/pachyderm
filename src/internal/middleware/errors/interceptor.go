@@ -8,13 +8,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// InterceptUnary translates errors for unary RPCs
+// UnaryServerInterceptor translates errors for unary RPCs
 func UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	res, err := handler(ctx, req)
 	return res, unwrapGRPC(err)
 }
 
-// InterceptStream translates errors for streaming RPCs
+// StreamServerInterceptor translates errors for streaming RPCs
 func StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	err := handler(srv, stream)
 	return unwrapGRPC(err)

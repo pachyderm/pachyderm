@@ -24,7 +24,7 @@ import (
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
-	errormw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/error"
+	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
@@ -153,13 +153,13 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			return errors.Errorf("unknown service %v", method)
 		}),
 		grpc.ChainUnaryInterceptor(
-			errormw.UnaryServerInterceptor,
+			errorsmw.UnaryServerInterceptor,
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
 		),
 		grpc.ChainStreamInterceptor(
-			errormw.StreamServerInterceptor,
+			errorsmw.StreamServerInterceptor,
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
@@ -400,12 +400,12 @@ func doSidecarMode(config interface{}) (retErr error) {
 		context.Background(),
 		false,
 		grpc.ChainUnaryInterceptor(
-			errormw.UnaryServerInterceptor,
+			errorsmw.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
 		),
 		grpc.ChainStreamInterceptor(
-			errormw.StreamServerInterceptor,
+			errorsmw.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
 		),
@@ -578,13 +578,13 @@ func doFullMode(config interface{}) (retErr error) {
 			return errors.Errorf("unknown service %v", method)
 		}),
 		grpc.ChainUnaryInterceptor(
-			errormw.UnaryServerInterceptor,
+			errorsmw.UnaryServerInterceptor,
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
 		),
 		grpc.ChainStreamInterceptor(
-			errormw.StreamServerInterceptor,
+			errorsmw.StreamServerInterceptor,
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,

@@ -1,3 +1,4 @@
+//nolint:wrapcheck
 package client
 
 import (
@@ -19,14 +20,14 @@ import (
 // PutFile puts a file into PFS from a reader.
 func (c APIClient) PutFile(commit *pfs.Commit, path string, r io.Reader, opts ...PutFileOption) error {
 	return c.WithModifyFileClient(commit, func(mf ModifyFile) error {
-		return errors.EnsureStack(mf.PutFile(path, r, opts...))
+		return mf.PutFile(path, r, opts...)
 	})
 }
 
 // PutFileTAR puts a set of files into PFS from a tar stream.
 func (c APIClient) PutFileTAR(commit *pfs.Commit, r io.Reader, opts ...PutFileOption) error {
 	return c.WithModifyFileClient(commit, func(mf ModifyFile) error {
-		return errors.EnsureStack(mf.PutFileTAR(r, opts...))
+		return mf.PutFileTAR(r, opts...)
 	})
 }
 
@@ -35,14 +36,14 @@ func (c APIClient) PutFileTAR(commit *pfs.Commit, r io.Reader, opts ...PutFileOp
 // recursive allow for recursive scraping of some types of URLs for example on s3:// urls.
 func (c APIClient) PutFileURL(commit *pfs.Commit, path, url string, recursive bool, opts ...PutFileOption) error {
 	return c.WithModifyFileClient(commit, func(mf ModifyFile) error {
-		return errors.EnsureStack(mf.PutFileURL(path, url, recursive, opts...))
+		return mf.PutFileURL(path, url, recursive, opts...)
 	})
 }
 
 // DeleteFile deletes a file from PFS.
 func (c APIClient) DeleteFile(commit *pfs.Commit, path string, opts ...DeleteFileOption) error {
 	return c.WithModifyFileClient(commit, func(mf ModifyFile) error {
-		return errors.EnsureStack(mf.DeleteFile(path, opts...))
+		return mf.DeleteFile(path, opts...)
 	})
 }
 
@@ -50,7 +51,7 @@ func (c APIClient) DeleteFile(commit *pfs.Commit, path string, opts ...DeleteFil
 // It can be used on directories or regular files.
 func (c APIClient) CopyFile(dstCommit *pfs.Commit, dstPath string, srcCommit *pfs.Commit, srcPath string, opts ...CopyFileOption) error {
 	return c.WithModifyFileClient(dstCommit, func(mf ModifyFile) error {
-		return errors.EnsureStack(mf.CopyFile(dstPath, srcCommit.NewFile(srcPath), opts...))
+		return mf.CopyFile(dstPath, srcCommit.NewFile(srcPath), opts...)
 	})
 }
 
@@ -96,12 +97,12 @@ func (c APIClient) NewModifyFileClient(commit *pfs.Commit) (_ *ModifyFileClient,
 	}()
 	client, err := c.PfsAPIClient.ModifyFile(c.Ctx())
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	if err := client.Send(&pfs.ModifyFileRequest{
 		Body: &pfs.ModifyFileRequest_SetCommit{SetCommit: commit},
 	}); err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	return &ModifyFileClient{
 		client: client,
@@ -174,11 +175,11 @@ func (mfc *modifyFileCore) maybeError(f func() error) (retErr error) {
 }
 
 func (mfc *modifyFileCore) sendPutFile(req *pfs.AddFile) error {
-	return errors.EnsureStack(mfc.client.Send(&pfs.ModifyFileRequest{
+	return mfc.client.Send(&pfs.ModifyFileRequest{
 		Body: &pfs.ModifyFileRequest_AddFile{
 			AddFile: req,
 		},
-	}))
+	})
 }
 
 func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error {
@@ -190,7 +191,7 @@ func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error 
 		tr := tar.NewReader(r)
 		for hdr, err := tr.Next(); err != io.EOF; hdr, err = tr.Next() {
 			if err != nil {
-				return errors.EnsureStack(err)
+				return err
 			}
 			if hdr.Typeflag == tar.TypeDir {
 				continue
@@ -275,11 +276,11 @@ func (mfc *modifyFileCore) DeleteFile(path string, opts ...DeleteFileOption) err
 }
 
 func (mfc *modifyFileCore) sendDeleteFile(req *pfs.DeleteFile) error {
-	return errors.EnsureStack(mfc.client.Send(&pfs.ModifyFileRequest{
+	return mfc.client.Send(&pfs.ModifyFileRequest{
 		Body: &pfs.ModifyFileRequest_DeleteFile{
 			DeleteFile: req,
 		},
-	}))
+	})
 }
 
 func (mfc *modifyFileCore) CopyFile(dst string, src *pfs.File, opts ...CopyFileOption) error {
@@ -296,18 +297,18 @@ func (mfc *modifyFileCore) CopyFile(dst string, src *pfs.File, opts ...CopyFileO
 }
 
 func (mfc *modifyFileCore) sendCopyFile(req *pfs.CopyFile) error {
-	return errors.EnsureStack(mfc.client.Send(&pfs.ModifyFileRequest{
+	return mfc.client.Send(&pfs.ModifyFileRequest{
 		Body: &pfs.ModifyFileRequest_CopyFile{
 			CopyFile: req,
 		},
-	}))
+	})
 }
 
 // Close closes the ModifyFileClient.
 func (mfc *ModifyFileClient) Close() error {
 	return mfc.maybeError(func() error {
 		_, err := mfc.client.CloseAndRecv()
-		return errors.EnsureStack(err)
+		return err
 	})
 }
 
@@ -357,7 +358,7 @@ func (c APIClient) NewCreateFileSetClient() (_ *CreateFileSetClient, retErr erro
 	}()
 	client, err := c.PfsAPIClient.CreateFileSet(c.Ctx())
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	return &CreateFileSetClient{
 		client: client,
@@ -373,7 +374,7 @@ func (ctfsc *CreateFileSetClient) Close() (*pfs.CreateFileSetResponse, error) {
 	if err := ctfsc.maybeError(func() error {
 		resp, err := ctfsc.client.CloseAndRecv()
 		if err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		ret = resp
 		return nil
@@ -395,7 +396,7 @@ func (c APIClient) GetFileSet(repo, branch, commit string) (_ string, retErr err
 		},
 	)
 	if err != nil {
-		return "", errors.EnsureStack(err)
+		return "", err
 	}
 	return resp.FileSetId, nil
 }
@@ -412,7 +413,7 @@ func (c APIClient) AddFileSet(repo, branch, commit, ID string) (retErr error) {
 			FileSetId: ID,
 		},
 	)
-	return errors.EnsureStack(err)
+	return err
 }
 
 // RenewFileSet renews a fileset.
@@ -427,7 +428,7 @@ func (c APIClient) RenewFileSet(ID string, ttl time.Duration) (retErr error) {
 			TtlSeconds: int64(ttl.Seconds()),
 		},
 	)
-	return errors.EnsureStack(err)
+	return err
 }
 
 // ComposeFileSet composes a file set from a list of file sets.
@@ -443,7 +444,7 @@ func (c APIClient) ComposeFileSet(IDs []string, ttl time.Duration) (_ string, re
 		},
 	)
 	if err != nil {
-		return "", errors.EnsureStack(err)
+		return "", err
 	}
 	return resp.FileSetId, nil
 }
@@ -471,14 +472,14 @@ func (c APIClient) GetFile(commit *pfs.Commit, path string, w io.Writer, opts ..
 
 	gfc, err := c.PfsAPIClient.GetFile(ctx, gf)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	for m, err := gfc.Recv(); err != io.EOF; m, err = gfc.Recv() {
 		if err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		if _, err := w.Write(m.Value); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 	}
 	return nil
@@ -500,7 +501,7 @@ func (c APIClient) getFileTar(commit *pfs.Commit, path string) (_ io.ReadCloser,
 	client, err := c.PfsAPIClient.GetFileTAR(ctx, req)
 	if err != nil {
 		cf()
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	return grpcutil.NewStreamingBytesReader(client, cf), nil
 }
@@ -514,7 +515,7 @@ func (c APIClient) GetFileReader(commit *pfs.Commit, path string) (io.Reader, er
 	}
 	tr := tar.NewReader(r)
 	if _, err := tr.Next(); err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	return tr, nil
 }
@@ -554,7 +555,7 @@ func (gfrs *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
 		}
 		// TODO: Replace with file range request when implemented in PFS.
 		if _, err := io.CopyN(ioutil.Discard, r, offset); err != nil {
-			return nil, errors.EnsureStack(err)
+			return nil, err
 		}
 		return r, nil
 	}
@@ -595,10 +596,10 @@ func (c APIClient) GetFileURL(commit *pfs.Commit, path, URL string) (retErr erro
 	}
 	client, err := c.PfsAPIClient.GetFileTAR(c.Ctx(), req)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	_, err = io.Copy(ioutil.Discard, grpcutil.NewStreamingBytesReader(client, nil))
-	return errors.EnsureStack(err)
+	return err
 }
 
 // InspectFile returns metadata about the specified file
@@ -612,7 +613,7 @@ func (c APIClient) InspectFile(commit *pfs.Commit, path string) (_ *pfs.FileInfo
 			File: commit.NewFile(path),
 		},
 	)
-	return fi, errors.EnsureStack(err)
+	return fi, err
 }
 
 // ListFile returns info about all files in a Commit under path, calling cb with each FileInfo.
@@ -627,7 +628,7 @@ func (c APIClient) ListFile(commit *pfs.Commit, path string, cb func(fi *pfs.Fil
 		},
 	)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	for {
 		fi, err := client.Recv()
@@ -635,7 +636,7 @@ func (c APIClient) ListFile(commit *pfs.Commit, path string, cb func(fi *pfs.Fil
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return errors.EnsureStack(err)
+			return err
 		}
 		if err := cb(fi); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -676,7 +677,7 @@ func (c APIClient) GlobFile(commit *pfs.Commit, pattern string, cb func(fi *pfs.
 		},
 	)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	for {
 		fi, err := client.Recv()
@@ -684,7 +685,7 @@ func (c APIClient) GlobFile(commit *pfs.Commit, pattern string, cb func(fi *pfs.
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return errors.EnsureStack(err)
+			return err
 		}
 		if err := cb(fi); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -730,7 +731,7 @@ func (c APIClient) DiffFile(newCommit *pfs.Commit, newPath string, oldCommit *pf
 	}
 	client, err := c.PfsAPIClient.DiffFile(ctx, req)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	for {
 		resp, err := client.Recv()
@@ -738,7 +739,7 @@ func (c APIClient) DiffFile(newCommit *pfs.Commit, newPath string, oldCommit *pf
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return errors.EnsureStack(err)
+			return err
 		}
 		if err := cb(resp.NewFile, resp.OldFile); err != nil {
 			return err
@@ -774,7 +775,7 @@ func (c APIClient) WalkFile(commit *pfs.Commit, path string, cb func(*pfs.FileIn
 			File: commit.NewFile(path),
 		})
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	for {
 		fi, err := client.Recv()
@@ -782,7 +783,7 @@ func (c APIClient) WalkFile(commit *pfs.Commit, path string, cb func(*pfs.FileIn
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return errors.EnsureStack(err)
+			return err
 		}
 		if err := cb(fi); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
