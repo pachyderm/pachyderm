@@ -11,7 +11,7 @@ To use a Secret in Pachyderm, you need to:
 1. Create it.
 1. Reference it in your pipeline's specification file.
 
-## Create a Secret
+## Create A Secret
 The creation of a Secret in Pachyderm *requires a JSON configuration file*.
 
 A good way to create this file is:
@@ -22,7 +22,7 @@ A good way to create this file is:
 !!! Info "Reminder"
       Kubernetes Secrets are, by default, stored as *unencrypted base64-encoded* strings (i.e., the values for all keys in the data field have to be base64-encoded strings). When using the `kubectl create secret` command, the encoding is done for you. If you choose to manually create your JSON file, make sure to use your own base 64 encoder.
 
-### Generate your secret configuration file
+### Generate Your Secret Configuration File
 Let's first generate your secret configuration file using the `kubectl` command. For example:
 
 - for a generic authentication secret:

@@ -25,7 +25,7 @@ This page gives a high level view of the steps to follow to install Pachyderm us
 
     * Additionally, those instructions will also help you configure the various elements (object store, credentials...) that relate to your deployment needs. Those parameters values will **be specified in a YAML configuration file** as follows.
 
-### Edit a values.yaml file
+### Edit a Values.yaml File
 Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/examples){target=_blank}. Pick the example that fits your target deployment and update the relevant values according to the parameters gathered in the previous step.   
 
 See the reference [values.yaml](../../../reference/helm_values/) for the list of all available helm values at your disposal.
@@ -35,18 +35,39 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
     
     For Production deployments, Pachyderm strongly recommends that you **[create your values.yaml file with CPU and memory requests and limits for both pachd and etcd](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}** set to values appropriate to your specific environment. For reference, 1 CPU and 2 GB memory for each is a sensible default. 
 
-###  Install the Pachyderm Helm Chart
+!!! Note "**Platform Secrets: READ BEFORE ANY INSTALL OR UPGRADE**" 
+        Pachyderm recommends using **"platform secrets"** to hold the values needed by a cluster at the time of the deployment (such as Postgresql admin login username and password, OAuth information to set up your IdP, or your enterprise license key). 
+        You have the option to: 
+
+        1. [Create those secrets](../../../how-tos/advanced-data-operations/secrets/#create-a-secret) ahead of time then supply their names in the `secretName` field of your values.yaml (Recommended option). 
+        1. For a quick installation, put the secrets' values in the dedicated fields of your values.yaml. In such cases, those will populate Pachyderm's default `pachyderm-bootstrap-config` secret. 
+
+        Find the complete list of helm values that can control secret values here: 
+        ``` 
+        global.postgresqlExistingSecretName 
+        console.config.oauthClientSecretSecretName 
+        pachd.enterpriseLicenseKeySecretName 
+        pachd.rootTokenSecretName 
+        pachd.enterpriseSecretSecretName 
+        pachd.oauthClientSecretSecretName 
+        pachd.enterpriseRootTokenSecretName 
+        oidc.upstreamIDPsSecretName 
+        ``` 
+        
+        It is important to note that if no secret name is provided for the fields mentioned above, Pachyderm will populate a default, auto-generated secret at the installation time (`pachyderm-bootstrap-config`). In such cases, **helm upgrade will fail unless you retrieve those values (for example: `{{"kubectl get secret pachyderm-bootstrap-config -o go-template='{{.data.rootToken | base64decode }}'"}}`), create a dedicated secret, then manually set its name back into the corresponding secret name field above.**
+       
+###  Install Pachyderm's Helm Chart
 1. Get your Helm Repo Info
     ```shell
-    $ helm repo add pach https://helm.pachyderm.com
-    $ helm repo update
+    helm repo add pach https://helm.pachyderm.com
+    helm repo update
     ```
 
 1. Install Pachyderm
 
     You are ready to deploy Pachyderm on the environment of your choice.
     ```shell
-    $ helm install pachd -f my_pachyderm_values.yaml pach/pachyderm --version <your_chart_version>
+    helm install pachd -f my_pachyderm_values.yaml pach/pachyderm --version <your_chart_version>
     ```
     !!! Info "To choose a specific helm chart version"
         **Each chart version is associated with a given version of Pachyderm**. You will find the list of all available chart versions and their associated version of Pachyderm on  [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm){target=_blank}.
@@ -63,7 +84,7 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
 
 1. Check your deployment
     ```shell
-    $ kubectl get pods
+    kubectl get pods
     ```
 
     Once the pods are up, you should see a pod for `pachd` running 
@@ -84,12 +105,19 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
-If you are exposing your cluster publicly, retrieve the external IP address of your TCP load balancer or your domain name and:
+If you are exposing your cluster publicly:
+  1. Retrieve the external IP address of your TCP load balancer or your domain name:
+    ```shell
+    kubectl get services | grep pachd-lb | awk '{print $4}'
+    ```
 
   1. Update the context of your cluster with their direct url, using the external IP address/domain name above:
 
       ```shell
-      echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set context "<your-cluster-context-name>" --overwrite
+      echo '{"pachd_address": "grpc://<external-IP-address-or-domain-name>:30650"}' | pachctl config set 
+      ```
+      ```shell
+      context "<your-cluster-context-name>" --overwrite
       ```
 
   1. Check that your are using the right context: 
@@ -110,7 +138,7 @@ $ pachctl port-forward
 Verify that `pachctl` and your cluster are connected:
 
 ```shell
-$ pachctl version
+pachctl version
 ```
 
 **System Response:**
@@ -121,10 +149,10 @@ pachctl             {{ config.pach_latest_version }}
 pachd               {{ config.pach_latest_version }}
 ```
 
-## Uninstall the Pachyderm Helm Chart
+## Uninstall Pachyderm's Helm Chart
 [Helm uninstall](https://helm.sh/docs/helm/helm_uninstall/){target=_blank} a release as easily as you installed it.
 ```shell
-$ helm uninstall pachd 
+helm uninstall pachd 
 ```
 
 We recommend making sure that everything is properly removed following a helm uninstall:
@@ -138,3 +166,13 @@ We recommend making sure that everything is properly removed following a helm un
 
 - If your uninstall failed, there might be config jobs still running. Run `kubectl get jobs.batch | grep pachyderm` and delete any remaining job.
 
+## Upgrade Pachyderm's Helm Chart
+When a new version of Pachyderm's chart is released, or when you want to change the configuration of your release, use the [helm upgrade](https://helm.sh/docs/helm/helm_upgrade/){target=_blank} command:
+
+```shell
+     helm upgrade pachd -f my_new_pachyderm_values.yaml pach/pachyderm --version <your_chart_version>        
+```
+
+!!! Warning
+
+        Make sure that your platform's secret names have been set properly. Refer to this [section](#edit-a-valuesyaml-file) for the list of secrets we recommend creating prior to installing the product, and what to do if you have not. **Failing to provide those values might cause your upgrade to fail.**
