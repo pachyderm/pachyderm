@@ -68,6 +68,7 @@ const useAuthenticatedRoute = () => {
           'openid',
           'email',
           'profile',
+          'groups',
           `audience:server:client_id:${authConfig.pachdClientId}`,
         ].join('+'),
         openWindow: false,

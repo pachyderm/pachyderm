@@ -132,7 +132,7 @@ describe('AuthenticatedRoute', () => {
             `?client_id=${process.env.OAUTH_CLIENT_ID}`,
             '&redirect_uri=http://localhost/oauth/callback/?inline=true',
             '&response_type=code',
-            `&scope=openid+email+profile+audience:server:client_id:${process.env.OAUTH_PACHD_CLIENT_ID}`,
+            `&scope=openid+email+profile+groups+audience:server:client_id:${process.env.OAUTH_PACHD_CLIENT_ID}`,
             '&state=AAAAAAAAAAAAAAAAAAAA',
             '&connection=github',
             '&login_hint=test@pachyderm.com',
