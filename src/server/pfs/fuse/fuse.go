@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -53,7 +54,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		}
 		server.Unmount()
 	}()
-	server.Serve()
+	server.Wait()
 	pfcs := make(map[string]client.PutFileClient)
 	pfc := func(repo string) (client.PutFileClient, error) {
 		if pfc, ok := pfcs[repo]; ok {
@@ -73,6 +74,8 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			}
 		}
 	}()
+	fmt.Printf("Uploading files to Pachyderm...\n")
+	progress.Disable()
 	for path, state := range root.files {
 		if state != dirty {
 			continue
@@ -104,5 +107,6 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			return err
 		}
 	}
+	fmt.Println("Done!")
 	return nil
 }
