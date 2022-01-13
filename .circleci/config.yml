@@ -61,50 +61,7 @@ jobs:
       image: ubuntu-2004:202107-02
     steps:
       - checkout
-
-      - run: sudo apt-get update && sudo apt-get install fuse
-      - run:
-          name: "Install kind"
-          command: |
-            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
-            && chmod +x ./kind-linux-amd64 \
-            && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
-      - run: 
-          name: Install helm
-          command: |
-            wget https://get.helm.sh/helm-v3.7.1-linux-amd64.tar.gz && \
-            tar -zxvf helm-v3.7.1-linux-amd64.tar.gz && \
-            chmod +x linux-amd64/helm && \
-            sudo mv linux-amd64/helm /usr/local/bin/helm
-      - run:
-          name: install kubectl
-          command: |
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
-            chmod +x kubectl && \
-            sudo mv kubectl /usr/local/bin/kubectl
-      - run:
-          name: install pachctl
-          command: curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v2.0.2/pachctl_2.0.2_amd64.deb && sudo dpkg -i /tmp/pachctl.deb  
-      - run:
-          name: Setup helm
-          command: helm repo add pach https://helm.pachyderm.com && helm repo update
-      - run:
-          name: Start kind
-          command: kind create cluster && kubectl config set current-context kind-kind
-      - run:
-          name: Install pach
-          command: helm install pachd pach/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort
-      - run:
-          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
-          command: |
-            sleep 20
-            kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
-            pachctl version
-      - run: 
-          name: Login to pach # Get Kind node IP and pass that to pachctl
-          command: |-
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
-            pachctl config set active-context local
+      - install-test-deps
       - run:
           name: 'Integration tests'
           command: |
@@ -122,6 +79,33 @@ jobs:
             # Run integration tests
             PFS_MOUNT_DIR=$(pwd)/pfs pytest -v jupyterlab_pachyderm/tests/test_integrations.py
 
+  e2e-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202111-01
+    steps:
+      - checkout
+      - install-test-deps
+      - run:
+          name: 'e2e tests'
+          command: |
+            set -eux
+
+            python3 -m venv venv
+            . venv/bin/activate
+            python -m pip install -r ci-requirements.txt
+            python -m pip install .
+            jupyter labextension develop . --overwrite
+            jupyter server extension enable jupyterlab_pachyderm
+            npm ci
+            npm run build
+
+            pachctl create repo images
+            pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
+            pachctl list repo
+
+            PFS_MOUNT_DIR=$(pwd)/pfs CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
+
   frontend-test:
     resource_class: xlarge
     docker:
@@ -130,25 +114,6 @@ jobs:
       - checkout
       - run: npm ci
       - run: npm run test
-
-  mock-e2e:
-    docker:
-      - image: cimg/python:3.7-browsers
-    steps: 
-      - browser-tools/install-chrome
-      - browser-tools/install-chromedriver
-      - checkout
-      - run:
-          name: 'Build and test the extension'
-          command: |
-            set -eux
-
-            npm ci
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install -r ci-requirements.txt
-            python -m pip install .
-            CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
 
   build:
     executor: python
@@ -272,10 +237,6 @@ workflows:
           filters:
             tags:
               only: /.*/
-      - mock-e2e:
-          filters:
-            tags:
-              only: /.*/
       - frontend-test:
           filters:
             tags:
@@ -284,10 +245,13 @@ workflows:
           filters:
             tags:
               only: /.*/
+      - e2e-test:
+          filters:
+            tags:
+              only: /.*/
       - build:
           requires:
             - test
-            - mock-e2e
             - frontend-test
             - integration-test
           filters:
@@ -323,3 +287,50 @@ executors:
   python:
     docker:
       - image: cimg/python:3.9-node
+
+commands:
+  install-test-deps:
+    steps:
+      - run: sudo apt-get update && sudo apt-get install fuse libgbm-dev
+      - run:
+            name: Install kind
+            command: |
+              curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
+              && chmod +x ./kind-linux-amd64 \
+              && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
+      - run:
+          name: Install helm
+          command: |
+            wget https://get.helm.sh/helm-v3.7.1-linux-amd64.tar.gz && \
+            tar -zxvf helm-v3.7.1-linux-amd64.tar.gz && \
+            chmod +x linux-amd64/helm && \
+            sudo mv linux-amd64/helm /usr/local/bin/helm
+      - run:
+          name: Install kubectl
+          command: |
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+            chmod +x kubectl && \
+            sudo mv kubectl /usr/local/bin/kubectl
+      - run:
+          name: Install pachctl
+          command: curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v2.0.2/pachctl_2.0.2_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+      - run:
+          name: Setup helm
+          command: helm repo add pach https://helm.pachyderm.com && helm repo update
+      - run:
+          name: Start kind
+          command: kind create cluster && kubectl config set current-context kind-kind
+      - run:
+          name: Install pach
+          command: helm install pachd pach/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort
+      - run:
+          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          command: |
+            sleep 20
+            kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+            pachctl version
+      - run:
+          name: Setup pach # Get Kind node IP and pass that to pachctl
+          command: |-
+            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
+            pachctl config set active-context local

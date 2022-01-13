@@ -1,5 +1,4 @@
 import '@testing-library/cypress/add-commands';
-import {wait} from '@testing-library/dom';
 
 // ***********************************************
 // This example commands.js shows you how to
