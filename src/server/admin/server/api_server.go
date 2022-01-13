@@ -3,7 +3,6 @@ package server
 import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/sirupsen/logrus"
 
@@ -33,7 +32,6 @@ type APIServer interface {
 // NewAPIServer returns a new admin.APIServer
 func NewAPIServer(env Env) APIServer {
 	return &apiServer{
-		Logger: log.NewLogger("admin.API", env.Logger),
 		clusterInfo: &admin.ClusterInfo{
 			ID:           env.ClusterID,
 			DeploymentID: env.Config.DeploymentID,
@@ -42,7 +40,6 @@ func NewAPIServer(env Env) APIServer {
 }
 
 type apiServer struct {
-	log.Logger
 	clusterInfo *admin.ClusterInfo
 }
 

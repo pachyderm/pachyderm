@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/auth"
-	logrus "github.com/sirupsen/logrus"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -26,7 +25,6 @@ type Env struct {
 	AuthServer    auth.APIServer
 	GetPachClient func(context.Context) *client.APIClient
 
-	Logger            *logrus.Logger
 	BackgroundContext context.Context
 }
 
@@ -42,7 +40,6 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txn
 		AuthServer:    senv.AuthServer(),
 		GetPachClient: senv.GetPachClient,
 
-		Logger:            senv.Logger(),
 		BackgroundContext: senv.Context(),
 	}
 }

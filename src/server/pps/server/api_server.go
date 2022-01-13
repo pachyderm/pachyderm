@@ -33,7 +33,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
@@ -80,7 +79,6 @@ var (
 // apiServer implements the public interface of the Pachyderm Pipeline System,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
-	log.Logger
 	etcdPrefix            string
 	env                   Env
 	txnEnv                *txnenv.TransactionEnv
@@ -428,9 +426,6 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 }
 
 func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobStateRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
-
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.UpdateJobState(request))
 	}, nil); err != nil {
@@ -463,8 +458,6 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txncontext.TransactionCo
 
 // InspectJob implements the protobuf pps.InspectJob RPC
 func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if request.Job == nil {
 		return nil, errors.Errorf("must specify a job")
 	}
@@ -517,8 +510,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 // InspectJobSet implements the protobuf pps.InspectJobSet RPC
 func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.API_InspectJobSetServer) (retErr error) {
 	ctx := server.Context()
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
 
 	cb := func(pipeline string) error {
@@ -587,12 +578,6 @@ func forEachCommitInJob(pachClient *client.APIClient, jobID string, wait bool, c
 
 // ListJobSet implements the protobuf pps.ListJobSet RPC
 func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_ListJobSetServer) (retErr error) {
-	func() { a.Log(serv.Context(), request, nil, nil, 0) }()
-	sent := 0
-	defer func(start time.Time) {
-		a.Log(serv.Context(), request, fmt.Sprintf("stream containing %d JobSetInfos", sent), retErr, time.Since(start))
-	}(time.Now())
-
 	pachClient := a.env.GetPachClient(serv.Context())
 
 	// Track the jobsets we've already processed
@@ -612,7 +597,6 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 			return err
 		}
 
-		sent++
 		return errors.EnsureStack(serv.Send(&pps.JobSetInfo{
 			JobSet: client.NewJobSet(jobInfo.Job.ID),
 			Jobs:   jobInfos,
@@ -854,24 +838,13 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
-	func() { a.Log(resp.Context(), request, nil, nil, 0) }()
-	sent := 0
-	defer func(start time.Time) {
-		a.Log(resp.Context(), request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
-	}(time.Now())
 	return a.listJob(resp.Context(), request.Pipeline, request.InputCommit, request.History, request.Details, request.JqFilter, func(ji *pps.JobInfo) error {
-		if err := resp.Send(ji); err != nil {
-			return errors.EnsureStack(err)
-		}
-		sent++
-		return nil
+		return errors.EnsureStack(resp.Send(ji))
 	})
 }
 
 // SubscribeJob implements the protobuf pps.SubscribeJob RPC
 func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.API_SubscribeJobServer) (retErr error) {
-	func() { a.Log(stream.Context(), request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(stream.Context(), request, nil, retErr, time.Since(start)) }(time.Now())
 	ctx := stream.Context()
 
 	// Validate arguments
@@ -910,8 +883,6 @@ func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.AP
 
 // DeleteJob implements the protobuf pps.DeleteJob RPC
 func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if request.Job == nil {
 		return nil, errors.New("job cannot be nil")
 	}
@@ -925,15 +896,13 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 
 func (a *apiServer) deleteJobInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeleteJobRequest) error {
 	if err := a.stopJob(txnCtx, request.Job, "job deleted"); err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	return errors.EnsureStack(a.jobs.ReadWrite(txnCtx.SqlTx).Delete(ppsdb.JobKey(request.Job)))
 }
 
 // StopJob implements the protobuf pps.StopJob RPC
 func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.StopJob(request))
 	}, nil); err != nil {
@@ -1000,8 +969,6 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 
 // RestartDatum implements the protobuf pps.RestartDatum RPC
 func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: request.Job,
 	})
@@ -1016,8 +983,6 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 }
 
 func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if request.Datum == nil || request.Datum.ID == "" {
 		return nil, errors.New("must specify a datum")
 	}
@@ -1041,9 +1006,6 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 }
 
 func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_ListDatumServer) (retErr error) {
-	ctx := server.Context()
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, nil, retErr, time.Since(start)) }(time.Now())
 	// TODO: Auth?
 	if request.Input != nil {
 		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
@@ -1155,9 +1117,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		return errors.Errorf("%s requires an activation key to use Loki for logs. %s\n\n%s",
 			enterprisetext.OpenSourceProduct, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
 	}
-	ctx := apiGetLogsServer.Context()
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, nil, retErr, time.Since(start)) }(time.Now())
 
 	// Authorize request and get list of pods containing logs we're interested in
 	// (based on pipeline and job filters)
@@ -1323,10 +1282,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 }
 
 func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
-	ctx := apiGetLogsServer.Context()
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, nil, retErr, time.Since(start)) }(time.Now())
-
 	// Authorize request and get list of pods containing logs we're interested in
 	// (based on pipeline and job filters)
 	loki, err := a.env.GetLokiClient()
@@ -1738,8 +1693,6 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 // - Rather than try to enumerate every case where we can't create a spec
 //   commit without stopping the pipeline, we just always stop the pipeline
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -2166,8 +2119,6 @@ func (a *apiServer) updatePipeline(
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
 func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	return a.inspectPipeline(ctx, request.Pipeline.Name, request.Details)
 }
 
@@ -2261,11 +2212,6 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 
 // ListPipeline implements the protobuf pps.ListPipeline RPC
 func (a *apiServer) ListPipeline(request *pps.ListPipelineRequest, srv pps.API_ListPipelineServer) (retErr error) {
-	ctx := srv.Context()
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) {
-		a.Log(ctx, request, nil, retErr, time.Since(start))
-	}(time.Now())
 	return a.listPipeline(srv.Context(), request, srv.Send)
 }
 
@@ -2389,9 +2335,6 @@ func (a *apiServer) listPipelineInfo(ctx context.Context,
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
 func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
-
 	if request.All {
 		request.Pipeline = &pps.Pipeline{}
 		pipelineInfo := &pps.PipelineInfo{}
@@ -2587,8 +2530,6 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 
 // StartPipeline implements the protobuf pps.StartPipeline RPC
 func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelineRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
@@ -2634,8 +2575,6 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 
 // StopPipeline implements the protobuf pps.StopPipeline RPC
 func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
@@ -2688,16 +2627,10 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 }
 
 func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
-
 	return nil, errors.New("unimplemented")
 }
 
 func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
-
 	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline.Name, true)
 	if err != nil {
 		return nil, err
@@ -2791,8 +2724,6 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 
 // CreateSecret implements the protobuf pps.CreateSecret RPC
 func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -2820,8 +2751,6 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 
 // DeleteSecret implements the protobuf pps.DeleteSecret RPC
 func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -2833,8 +2762,6 @@ func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretR
 
 // InspectSecret implements the protobuf pps.InspectSecret RPC
 func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecretRequest) (response *pps.SecretInfo, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -2857,8 +2784,6 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 
 // ListSecret implements the protobuf pps.ListSecret RPC
 func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *pps.SecretInfos, retErr error) {
-	func() { a.Log(ctx, nil, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, nil, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -2891,9 +2816,6 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 
 // DeleteAll implements the protobuf pps.DeleteAll RPC
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
-	func() { a.Log(ctx, request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
-
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
 		return nil, err
 	}
@@ -2908,8 +2830,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 
 // ActivateAuth implements the protobuf pps.ActivateAuth RPC
 func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
-	func() { a.Log(ctx, req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
 
 	// Unauthenticated users can't create new pipelines or repos, and users can't
@@ -2957,8 +2877,6 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 // RunLoadTest implements the pps.RunLoadTest RPC
 // TODO: It could be useful to make the glob and number of pipelines configurable.
 func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
-	func() { a.Log(ctx, nil, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, nil, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
 	repo := "load_test"
 	if err := pachClient.CreateRepo(repo); err != nil && !pfsServer.IsRepoExistsErr(err) {
@@ -2999,8 +2917,6 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 // RunLoadTestDefault implements the pps.RunLoadTestDefault RPC
 // TODO: It could be useful to make the glob and number of pipelines configurable.
 func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *pfs.RunLoadTestResponse, retErr error) {
-	func() { a.Log(ctx, nil, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(ctx, nil, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
 	repo := "load_test"
 	if err := pachClient.CreateRepo(repo); err != nil && !pfsServer.IsRepoExistsErr(err) {
