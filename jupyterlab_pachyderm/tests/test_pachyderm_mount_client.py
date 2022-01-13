@@ -2,7 +2,12 @@ import pytest
 
 from jupyterlab_pachyderm.handlers import _parse_pfs_path
 from jupyterlab_pachyderm.pachyderm import PythonPachydermMountClient
-from jupyterlab_pachyderm.mock_pachyderm import MockPachydermClient
+from jupyterlab_pachyderm.mock_pachyderm import (
+    MockPachydermClient,
+    reset_repos,
+    add_repos,
+    delete_repo,
+)
 
 MOUNT_DIR = "/pfs"
 
@@ -16,7 +21,7 @@ def test_parse_pfs_path():
 class TestPachydermMountClient:
     @pytest.fixture()
     def client(self) -> PythonPachydermMountClient:
-        c = PythonPachydermMountClient(MockPachydermClient(), MOUNT_DIR)
+        c = PythonPachydermMountClient(lambda: MockPachydermClient(), MOUNT_DIR)
         return c
 
     async def test_list(self, client: PythonPachydermMountClient):
@@ -66,7 +71,7 @@ class TestPachydermMountClient:
         repos = await client.list()
         assert repos.keys() == {"edges", "images", "montage"}
 
-        client.client._create_repos([{"repo": "new_repo", "branches": ["master"]}])
+        add_repos([{"repo": "new_repo", "branches": ["master"]}])
         repos = await client.list()
         assert repos.keys() == {
             "edges",
@@ -74,13 +79,15 @@ class TestPachydermMountClient:
             "montage",
             "new_repo",
         }
+        reset_repos()
 
     async def test_list_when_repo_is_removed(self, client: PythonPachydermMountClient):
         repos = await client.list()
         assert repos.keys() == {"edges", "images", "montage"}
-        client.client._delete_repo("images")
+        delete_repo("images")
         repos = await client.list()
         assert repos.keys() == {"edges", "montage"}
+        reset_repos()
 
     async def test_current_mount_strings(self, client: PythonPachydermMountClient):
         assert client._current_mount_strings() == []

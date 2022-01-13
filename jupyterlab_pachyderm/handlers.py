@@ -107,9 +107,7 @@ class RepoHandler(BaseHandler):
                     "repo": repo,
                     "branches": [
                         {"branch": branch_name, "mount": mount_state["mount"]}
-                        for branch_name, mount_state in repos[repo][
-                            "branches"
-                        ].items()
+                        for branch_name, mount_state in repos[repo]["branches"].items()
                     ],
                 }
             )
@@ -145,9 +143,7 @@ class RepoUnmountHandler(BaseHandler):
         name = self.get_required_query_param_name()
         repo, branch, _ = _parse_pfs_path(path)
         result = await self.mount_client.unmount(repo, branch, name)
-        response = json.dumps(
-            {"repo": repo, "branch": branch, "mount": result}
-        )
+        response = json.dumps({"repo": repo, "branch": branch, "mount": result})
         get_logger().debug(f"RepoUnmount: {response}")
         self.finish(response)
 
@@ -207,15 +203,13 @@ def setup_handlers(web_app):
             f"MOCK_PACHYDERM_SERVICE=true -- using the MockPachydermClient"
         )
         web_app.settings["pachyderm_mount_client"] = PythonPachydermMountClient(
-            MockPachydermClient(), PFS_MOUNT_DIR
+            lambda: MockPachydermClient(), PFS_MOUNT_DIR
         )
     elif MOUNT_SERVER_ENABLED:
-        web_app.settings["pachyderm_mount_client"] = MountServerClient(
-            PFS_MOUNT_DIR
-        )
+        web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR)
     else:
         web_app.settings["pachyderm_mount_client"] = PythonPachydermMountClient(
-            PythonPachydermClient(
+            lambda: PythonPachydermClient(
                 python_pachyderm.Client(), python_pachyderm.ExperimentalClient()
             ),
             PFS_MOUNT_DIR,

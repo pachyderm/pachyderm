@@ -1,4 +1,5 @@
 import os
+from typing import Callable
 
 import python_pachyderm
 from .log import get_logger
@@ -52,10 +53,10 @@ class PythonPachydermMountClient(MountInterface):
 
     def __init__(
         self,
-        client: PythonPachydermClient,
+        create_client: Callable[[], PythonPachydermClient],
         mount_dir: str,
     ):
-        self.client = client
+        self.create_client = create_client
         self.mount_dir = mount_dir
         """[mount_states schema]
         {
@@ -68,6 +69,10 @@ class PythonPachydermMountClient(MountInterface):
         }
         """
         self.mount_states = {}
+
+    @property
+    def client(self):
+        return self.create_client()
 
     def _mount_string(self, repo, branch, mode):
         if mode == READ_ONLY:
