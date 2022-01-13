@@ -21,12 +21,12 @@ import (
 
 type logConfig struct {
 	// interfaces here are the request and response protobufs, respectively
-	level             func(interface{}, interface{}, error) logrus.Level
+	level             func(error) logrus.Level
 	transformRequest  func(interface{}) interface{}
 	transformResponse func(interface{}) interface{}
 }
 
-func defaultLevel(req interface{}, res interface{}, err error) logrus.Level {
+func defaultLevel(err error) logrus.Level {
 	if err == nil {
 		return logrus.InfoLevel
 	}
@@ -38,7 +38,7 @@ var defaultConfig = logConfig{level: defaultLevel}
 // The config used for auth endpoints suppresses 'not activated' errors to the
 // debug level
 var authConfig = logConfig{
-	level: func(req interface{}, resp interface{}, err error) logrus.Level {
+	level: func(err error) logrus.Level {
 		if err == nil {
 			return logrus.InfoLevel
 		} else if auth.IsErrNotActivated(err) {
@@ -195,11 +195,11 @@ var endpoints = map[string]logConfig{
 	"/auth_v2.API/RevokeAuthTokensForUser":    authConfig,
 
 	"/auth_v2.API/WhoAmI": {
-		level: func(req interface{}, resp interface{}, err error) logrus.Level {
+		level: func(err error) logrus.Level {
 			if err == nil {
 				return logrus.DebugLevel
 			}
-			return authConfig.level(req, resp, err)
+			return authConfig.level(err)
 		},
 	},
 
@@ -340,9 +340,9 @@ func isNilInterface(x interface{}) bool {
 func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
 	start := time.Now()
 	config := getConfig(info.FullMethod)
-	level := defaultLevel(req, nil, nil)
+	level := defaultLevel(nil)
 	if config.level != nil {
-		level = config.level(req, nil, nil)
+		level = config.level(nil)
 	}
 
 	logReq := req
@@ -352,9 +352,9 @@ func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req in
 
 	li.logUnaryBefore(ctx, level, logReq, info.FullMethod, start)
 	defer func() {
-		level := defaultLevel(req, resp, retErr)
+		level := defaultLevel(retErr)
 		if config.level != nil {
-			level = config.level(req, resp, retErr)
+			level = config.level(retErr)
 		}
 
 		logResp := resp
@@ -377,9 +377,9 @@ func (li *LoggingInterceptor) StreamServerInterceptor(srv interface{}, stream gr
 	var logReq interface{}
 	wrapper.onFirstRecv = func(m interface{}) {
 		req = m
-		level := defaultLevel(req, nil, nil)
+		level := defaultLevel(nil)
 		if config.level != nil {
-			level = config.level(req, nil, nil)
+			level = config.level(nil)
 		}
 
 		logReq = req
@@ -398,9 +398,9 @@ func (li *LoggingInterceptor) StreamServerInterceptor(srv interface{}, stream gr
 	}
 
 	defer func() {
-		level := defaultLevel(req, resp, retErr)
+		level := defaultLevel(retErr)
 		if config.level != nil {
-			level = config.level(req, resp, retErr)
+			level = config.level(retErr)
 		}
 
 		logResp := resp
