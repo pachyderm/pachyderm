@@ -578,7 +578,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	}
 	if err := n.c().ListFile(client.NewCommit(parts[0], branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
 		if fi.FileType == pfs.FileType_DIR {
-			return os.MkdirAll(n.filePath(fi), 0777)
+			return errors.EnsureStack(os.MkdirAll(n.filePath(fi), 0777))
 		}
 		p := n.filePath(fi)
 		// Make sure the directory exists
@@ -598,7 +598,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 			}
 		}()
 		if state < full {
-			return f.Truncate(int64(fi.SizeBytes))
+			return errors.EnsureStack(f.Truncate(int64(fi.SizeBytes)))
 		}
 		if err := n.c().GetFile(fi.File.Commit, fi.File.Path, f); err != nil {
 			return err

@@ -116,13 +116,13 @@ func TestStorage(ctx context.Context, c Client) error {
 	testObj := "test/" + uuid.NewWithoutDashes()
 	if err := func() (retErr error) {
 		data := []byte("test")
-		return c.Put(ctx, testObj, bytes.NewReader(data))
+		return errors.EnsureStack(c.Put(ctx, testObj, bytes.NewReader(data)))
 	}(); err != nil {
 		return errors.Wrapf(err, "unable to write to object storage")
 	}
 	if err := func() (retErr error) {
 		buf := bytes.NewBuffer(nil)
-		return c.Get(ctx, testObj, buf)
+		return errors.EnsureStack(c.Get(ctx, testObj, buf))
 	}(); err != nil {
 		return errors.Wrapf(err, "unable to read from object storage")
 	}

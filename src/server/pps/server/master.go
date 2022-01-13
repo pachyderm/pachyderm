@@ -103,7 +103,7 @@ func (a *apiServer) master() {
 		defer cancel()
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		defer masterLock.Unlock(ctx)
 

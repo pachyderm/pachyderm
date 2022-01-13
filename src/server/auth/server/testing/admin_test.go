@@ -576,7 +576,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		resp, err := rootClient.Enterprise.GetState(rootClient.Ctx(),
 			&enterprise.GetStateRequest{})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if resp.State == enterprise.State_ACTIVE {
 			return errors.New("Pachyderm Enterprise is still active")

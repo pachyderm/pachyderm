@@ -74,7 +74,7 @@ func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp
 	}
 
 	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
-		return a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord)
+		return errors.EnsureStack(a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord))
 	}); err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (a *apiServer) getLicenseRecord(ctx context.Context) (*lc.GetActivationCode
 		if col.IsErrNotFound(err) {
 			return &lc.GetActivationCodeResponse{State: ec.State_NONE}, nil
 		}
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	expiration, err := types.TimestampFromProto(record.Expires)
@@ -134,7 +134,7 @@ func (a *apiServer) checkLicenseState(ctx context.Context) error {
 		return err
 	}
 	if record.State != ec.State_ACTIVE {
-		return fmt.Errorf("enterprise license is not valid - %v", record.State)
+		return errors.Errorf("enterprise license is not valid - %v", record.State)
 	}
 	return nil
 }
@@ -232,7 +232,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 
 	var record ec.LicenseRecord
 	if err := a.license.ReadOnly(ctx).Get(licenseRecordKey, &record); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	return &lc.HeartbeatResponse{
@@ -253,7 +253,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
 		err := a.license.ReadWrite(sqlTx).Delete(licenseRecordKey)
 		if err != nil && !col.IsErrNotFound(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {
@@ -270,7 +270,7 @@ func (a *apiServer) ListClusters(ctx context.Context, req *lc.ListClustersReques
 	clusters := make([]*lc.ClusterStatus, 0)
 	err := a.env.DB.SelectContext(ctx, &clusters, "SELECT id, address, version, auth_enabled, last_heartbeat FROM license.clusters;")
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	return &lc.ListClustersResponse{
@@ -286,7 +286,7 @@ func (a *apiServer) DeleteCluster(ctx context.Context, req *lc.DeleteClusterRequ
 
 	_, err := a.env.DB.ExecContext(ctx, "DELETE FROM license.clusters WHERE id=$1", req.Id)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &lc.DeleteClusterResponse{}, nil
 }
@@ -322,7 +322,7 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 
 	_, err := a.env.DB.ExecContext(ctx, "UPDATE license.clusters SET "+setFields+"  WHERE id=$1", req.Id)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &lc.UpdateClusterResponse{}, nil
 }
@@ -332,7 +332,7 @@ func (a *apiServer) ListUserClusters(ctx context.Context, req *lc.ListUserCluste
 	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 	clusters := make([]*lc.UserClusterInfo, 0)
 	if err := a.env.DB.SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id, user_address, is_enterprise_server FROM license.clusters WHERE is_enterprise_server = false`); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &lc.ListUserClustersResponse{
 		Clusters: clusters,

@@ -2,10 +2,11 @@ package renew
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // Func is a function called to renew something for ttl time.
@@ -74,7 +75,7 @@ func (r *Renewer) renewLoop(ctx context.Context) (retErr error) {
 		select {
 		case <-ticker.C:
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		}
 	}
 }

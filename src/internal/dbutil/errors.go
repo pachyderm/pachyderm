@@ -1,10 +1,10 @@
 package dbutil
 
 import (
-	"errors"
-
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // IsUniqueViolation returns true if the error is a UniqueContraintViolation

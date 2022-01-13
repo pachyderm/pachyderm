@@ -5,6 +5,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -73,9 +74,9 @@ func (s *Storage) NewWriter(ctx context.Context, name string, cb WriterCallback,
 
 // List lists all of the chunks in object storage.
 func (s *Storage) List(ctx context.Context, cb func(id ID) error) error {
-	return s.store.Walk(ctx, nil, func(key []byte) error {
+	return errors.EnsureStack(s.store.Walk(ctx, nil, func(key []byte) error {
 		return cb(ID(key))
-	})
+	}))
 }
 
 // NewDeleter creates a deleter for use with a tracker.GC

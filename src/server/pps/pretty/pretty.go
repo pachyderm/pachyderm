@@ -233,9 +233,9 @@ Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Details.Egress }}
 Egress: {{.Details.Egress.URL}} {{end}}
 `)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return template.Execute(w, jobInfo)
+	return errors.EnsureStack(template.Execute(w, jobInfo))
 }
 
 // PrintablePipelineInfo is a wrapper around PipelinInfo containing any formatting options
@@ -284,13 +284,9 @@ Transform:
 {{if .Details.RecentError}} Recent Error: {{.Details.RecentError}} {{end}}
 `)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	err = template.Execute(w, pipelineInfo)
-	if err != nil {
-		return err
-	}
-	return nil
+	return errors.EnsureStack(template.Execute(w, pipelineInfo))
 }
 
 // PrintDatumInfo pretty-prints file info.
@@ -489,7 +485,7 @@ func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
 func prettyTransform(transform *ppsclient.Transform) (string, error) {
 	result, err := json.MarshalIndent(transform, "", "  ")
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	return pretty.UnescapeHTML(string(result)), nil
 }

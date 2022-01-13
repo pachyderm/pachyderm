@@ -2,12 +2,12 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 
 	"github.com/dexidp/dex/connector"
 	"github.com/dexidp/dex/pkg/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 var (
@@ -30,10 +30,10 @@ func (*placeholder) LoginURL(s connector.Scopes, callbackURL, state string, _ ur
 
 // HandleCallback parses the request and returns the user's identity
 func (*placeholder) HandleCallback(s connector.Scopes, r *http.Request) (connector.Identity, error) {
-	return connector.Identity{}, fmt.Errorf("no connectors configured")
+	return connector.Identity{}, errors.Errorf("no connectors configured")
 }
 
 // Refresh updates the identity during a refresh token request.
 func (*placeholder) Refresh(ctx context.Context, s connector.Scopes, identity connector.Identity) (connector.Identity, error) {
-	return connector.Identity{}, fmt.Errorf("no connectors configured")
+	return connector.Identity{}, errors.Errorf("no connectors configured")
 }

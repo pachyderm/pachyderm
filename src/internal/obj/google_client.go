@@ -1,7 +1,6 @@
 package obj
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -33,14 +32,14 @@ func newGoogleClient(bucket string, opts []option.ClientOption) (*googleClient, 
 	// WithHTTPClient, the client won't have any credentials and won't be able to make requests.
 	tr, err := ghttp.NewTransport(ctx, promutil.InstrumentRoundTripper("google_cloud_storage", http.DefaultTransport), opts...)
 	if err != nil {
-		return nil, fmt.Errorf("init google transport: %w", err)
+		return nil, errors.Errorf("init google transport: %w", err)
 	}
 	opts = append(opts, option.WithHTTPClient(&http.Client{
 		Transport: tr,
 	}))
 	client, err := storage.NewClient(context.Background(), opts...)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &googleClient{bucketName: bucket, bucket: client.Bucket(bucket)}, nil
 }
@@ -64,9 +63,9 @@ func (c *googleClient) Put(ctx context.Context, name string, r io.Reader) (retEr
 	defer cf() // this aborts the write if the writer is not already closed
 	wc := c.bucket.Object(name).NewWriter(ctx)
 	if _, err := io.Copy(wc, r); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return wc.Close()
+	return errors.EnsureStack(wc.Close())
 }
 
 func (c *googleClient) Walk(ctx context.Context, name string, fn func(name string) error) (retErr error) {
@@ -78,7 +77,7 @@ func (c *googleClient) Walk(ctx context.Context, name string, fn func(name strin
 			if errors.Is(err, iterator.Done) {
 				break
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := fn(objectAttrs.Name); err != nil {
 			return err
@@ -91,7 +90,7 @@ func (c *googleClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 	defer func() { retErr = c.transformError(retErr, name) }()
 	reader, err := c.bucket.Object(name).NewReader(ctx)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := reader.Close(); retErr == nil {
@@ -99,12 +98,12 @@ func (c *googleClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 		}
 	}()
 	_, err = io.Copy(w, reader)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (c *googleClient) Delete(ctx context.Context, name string) (retErr error) {
 	defer func() { retErr = c.transformError(retErr, name) }()
-	return c.bucket.Object(name).Delete(ctx)
+	return errors.EnsureStack(c.bucket.Object(name).Delete(ctx))
 }
 
 func (c *googleClient) BucketURL() ObjectStoreURL {

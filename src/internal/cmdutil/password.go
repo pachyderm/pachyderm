@@ -7,6 +7,8 @@ import (
 	"syscall"
 
 	"golang.org/x/term"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // ReadPassword reads a password from stdin. If stdin is a TTY, a password
@@ -19,7 +21,7 @@ func ReadPassword(prompt string) (string, error) {
 	if term.IsTerminal(int(syscall.Stdin)) {
 		pass, err := term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
-			return "", err
+			return "", errors.EnsureStack(err)
 		}
 		// print a newline, since `ReadPassword` gobbles the user-inputted one
 		fmt.Fprintln(os.Stderr)
@@ -27,5 +29,6 @@ func ReadPassword(prompt string) (string, error) {
 	}
 
 	// If stdin is being piped in, just read it until newline
-	return bufio.NewReader(os.Stdin).ReadString('\n')
+	result, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	return result, errors.EnsureStack(err)
 }

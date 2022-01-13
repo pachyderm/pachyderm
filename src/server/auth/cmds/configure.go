@@ -56,7 +56,7 @@ func GetConfigCmd() *cobra.Command {
 			// strings rather than ints, which would break existing auth configs. Go's
 			// built-in json serializer marshals int64 fields to JSON numbers
 			if err := e.Encode(resp.Configuration); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			fmt.Println(buf.String())
 			return nil

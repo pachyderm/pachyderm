@@ -49,7 +49,7 @@ func ChunkReader(r io.Reader, f func([]byte) error) (int, error) {
 			if errors.Is(err, io.EOF) {
 				return total, nil
 			}
-			return total, err
+			return total, errors.EnsureStack(err)
 		}
 		if err := f(buf[:n]); err != nil {
 			return total, err
@@ -134,14 +134,15 @@ func (s *streamingBytesReader) Read(p []byte) (int, error) {
 	if s.buffer.Len() == 0 {
 		value, err := s.streamingBytesClient.Recv()
 		if err != nil {
-			return 0, err
+			return 0, errors.EnsureStack(err)
 		}
 		s.buffer.Reset()
 		if _, err := s.buffer.Write(value.Value); err != nil {
-			return 0, err
+			return 0, errors.EnsureStack(err)
 		}
 	}
-	return s.buffer.Read(p)
+	res, err := s.buffer.Read(p)
+	return res, errors.EnsureStack(err)
 }
 
 func (s *streamingBytesReader) Close() error {
@@ -172,7 +173,7 @@ func (s *streamingBytesWriter) Write(data []byte) (int, error) {
 	var bytesWritten int
 	for _, val := range Chunk(data) {
 		if err := s.streamingBytesServer.Send(&types.BytesValue{Value: val}); err != nil {
-			return bytesWritten, err
+			return bytesWritten, errors.EnsureStack(err)
 		}
 		bytesWritten += len(val)
 	}
@@ -190,7 +191,8 @@ type ReaderWrapper struct {
 }
 
 func (r ReaderWrapper) Read(p []byte) (int, error) {
-	return r.Reader.Read(p)
+	res, err := r.Reader.Read(p)
+	return res, errors.EnsureStack(err)
 }
 
 // WriteToStreamingBytesServer writes the data from the io.Reader to the StreamingBytesServer.
@@ -199,7 +201,7 @@ func WriteToStreamingBytesServer(reader io.Reader, server StreamingBytesServer) 
 		buf := GetBuffer()
 		defer PutBuffer(buf)
 		_, err := io.CopyBuffer(w, ReaderWrapper{reader}, buf)
-		return err
+		return errors.EnsureStack(err)
 	})
 }
 
@@ -207,10 +209,10 @@ func WriteToStreamingBytesServer(reader io.Reader, server StreamingBytesServer) 
 func WriteFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, writer io.Writer) error {
 	for bytesValue, err := streamingBytesClient.Recv(); !errors.Is(err, io.EOF); bytesValue, err = streamingBytesClient.Recv() {
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if _, err = writer.Write(bytesValue.Value); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil

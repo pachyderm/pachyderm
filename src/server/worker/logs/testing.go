@@ -35,7 +35,8 @@ func NewMockLogger() *MockLogger {
 // write to the configured ml.Writer, otherwise it pretends that it succeeded.
 func (ml *MockLogger) Write(p []byte) (_ int, retErr error) {
 	if ml.Writer != nil {
-		return ml.Writer.Write(p)
+		res, err := ml.Writer.Write(p)
+		return res, errors.EnsureStack(err)
 	}
 	return len(p), nil
 }

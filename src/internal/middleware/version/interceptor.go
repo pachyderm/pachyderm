@@ -2,9 +2,9 @@ package version
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	"google.golang.org/grpc"
@@ -27,10 +27,10 @@ var packages = map[string]struct{}{
 func errOnOldPackage(fullMethod string) error {
 	parts := strings.Split(fullMethod, "/")
 	if len(parts) != 3 {
-		return fmt.Errorf("unexpected method name %q", fullMethod)
+		return errors.Errorf("unexpected method name %q", fullMethod)
 	}
 	if _, ok := packages[parts[1]]; ok {
-		return fmt.Errorf("this server is running pachyderm %v.x, but your client appears to be an older version - please upgrade", version.MajorVersion)
+		return errors.Errorf("this server is running pachyderm %v.x, but your client appears to be an older version - please upgrade", version.MajorVersion)
 	}
 	return nil
 }

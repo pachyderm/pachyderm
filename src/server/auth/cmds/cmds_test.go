@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -252,10 +253,10 @@ func TestAdmins(t *testing.T) {
 		pachctl auth set cluster none robot:admin2
 	`).Run())
 	require.NoError(t, backoff.Retry(func() error {
-		return tu.BashCmd(`pachctl auth get cluster \
+		return errors.EnsureStack(tu.BashCmd(`pachctl auth get cluster \
 			| match -v "robot:admin2" \
 			| match "robot:admin"
-		`).Run()
+		`).Run())
 	}, backoff.NewTestingBackOff()))
 }
 

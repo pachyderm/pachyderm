@@ -24,6 +24,7 @@ import (
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
@@ -149,14 +150,16 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			method, _ := grpc.MethodFromServerStream(stream)
-			return fmt.Errorf("unknown service %v", method)
+			return errors.Errorf("unknown service %v", method)
 		}),
 		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
 		),
 		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
@@ -397,10 +400,12 @@ func doSidecarMode(config interface{}) (retErr error) {
 		context.Background(),
 		false,
 		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
 		),
 		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
 		),
@@ -570,14 +575,16 @@ func doFullMode(config interface{}) (retErr error) {
 		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			method, _ := grpc.MethodFromServerStream(stream)
-			return fmt.Errorf("unknown service %v", method)
+			return errors.Errorf("unknown service %v", method)
 		}),
 		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
 		),
 		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
@@ -885,7 +892,7 @@ func doFullMode(config interface{}) (retErr error) {
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
 			log.Warnf("s3gateway TLS disabled: %v", err)
-			return server.ListenAndServe()
+			return errors.EnsureStack(server.ListenAndServe())
 		}
 		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
 		// Read TLS cert and key
@@ -894,11 +901,11 @@ func doFullMode(config interface{}) (retErr error) {
 			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
 		}
 		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return server.ListenAndServeTLS(certPath, keyPath)
+		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
 	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		http.Handle("/metrics", promhttp.Handler())
-		return http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil)
+		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil))
 	})
 	return <-errChan
 }

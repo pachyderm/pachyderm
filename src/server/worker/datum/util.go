@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -46,13 +47,13 @@ func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error)
 	if x != nil {
 		xd, err = types.DurationFromProto(x)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	}
 	if y != nil {
 		yd, err = types.DurationFromProto(y)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	}
 	return types.DurationProto(xd + yd), nil

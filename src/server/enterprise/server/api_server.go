@@ -102,7 +102,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 		if col.IsErrNotFound(err) {
 			return lc.ErrNotActivated
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	// If we can't reach the license server, we assume our license is still valid.
@@ -114,10 +114,11 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 			logrus.WithError(err).Error("enterprise license heartbeat had invalid id or secret, disabling enterprise")
 			_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 				e := a.enterpriseTokenCol.ReadWrite(stm)
-				return e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
+				err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
 					LastHeartbeat:   types.TimestampNow(),
 					HeartbeatFailed: true,
 				})
+				return errors.EnsureStack(err)
 			})
 			return err
 		}
@@ -126,11 +127,12 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 
 	_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		e := a.enterpriseTokenCol.ReadWrite(stm)
-		return e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
+		err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
 			LastHeartbeat:   types.TimestampNow(),
 			License:         resp.License,
 			HeartbeatFailed: false,
 		})
+		return errors.EnsureStack(err)
 	})
 	return err
 }
@@ -150,7 +152,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 	if err != nil && auth.IsErrNotActivated(err) {
 		authEnabled = false
 	} else if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	} else {
 		clientID = config.Configuration.ClientID
 	}
@@ -160,13 +162,14 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		return nil, err
 	}
 
-	return pachClient.License.Heartbeat(ctx, &lc.HeartbeatRequest{
+	res, err := pachClient.License.Heartbeat(ctx, &lc.HeartbeatRequest{
 		Id:          id,
 		Secret:      secret,
 		Version:     versionResp,
 		AuthEnabled: authEnabled,
 		ClientId:    clientID,
 	})
+	return res, errors.EnsureStack(err)
 }
 
 // Heartbeat implements the Heartbeat RPC. It exists mostly to test the heartbeat logic
@@ -207,7 +210,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 			Id:            req.Id,
 			Secret:        req.Secret,
 		}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {
@@ -215,7 +218,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	}
 
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
-		return a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record)
+		return errors.EnsureStack(a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record))
 	}); err != nil {
 		return nil, err
 	}
@@ -259,7 +262,7 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 		activationCode.Signature = ""
 		activationCodeStr, err := json.Marshal(activationCode)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 
 		resp.ActivationCode = base64.StdEncoding.EncodeToString(activationCodeStr)
@@ -326,7 +329,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(enterpriseTokenKey)
 		if err != nil && !col.IsErrNotFound(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {
@@ -336,7 +339,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
 		err := a.configCol.ReadWrite(txCtx.SqlTx).Delete(configKey)
 		if err != nil && !col.IsErrNotFound(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {

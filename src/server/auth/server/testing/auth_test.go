@@ -2499,7 +2499,7 @@ func TestExtractAuthToken(t *testing.T) {
 				return nil
 			}
 		}
-		return fmt.Errorf("didn't find a token with hash %q", hash)
+		return errors.Errorf("didn't find a token with hash %q", hash)
 	}
 
 	require.NoError(t, containsToken(tokenResp.Token, "robot:other", true))

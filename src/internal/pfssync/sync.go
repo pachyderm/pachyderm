@@ -62,7 +62,7 @@ func (d *downloader) closePipes() (retErr error) {
 		}
 		pipes[path] = f
 	}
-	return d.eg.Wait()
+	return errors.EnsureStack(d.eg.Wait())
 }
 
 type downloadConfig struct {
@@ -111,13 +111,13 @@ func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *do
 					if config.headerCallback != nil {
 						hdr, err := f.Header()
 						if err != nil {
-							return err
+							return errors.EnsureStack(err)
 						}
 						if err := config.headerCallback(hdr); err != nil {
 							return err
 						}
 					}
-					return f.Content(w)
+					return errors.EnsureStack(f.Content(w))
 				}, true)
 			})
 		}

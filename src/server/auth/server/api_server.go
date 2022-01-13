@@ -180,7 +180,7 @@ func (a *apiServer) getClusterRoleBinding(ctx context.Context) (*auth.RoleBindin
 		if col.IsErrNotFound(err) {
 			return nil, auth.ErrNotActivated
 		}
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &binding, nil
 }
@@ -216,7 +216,7 @@ func (a *apiServer) getClusterRoleBindingInTransaction(txnCtx *txncontext.Transa
 		if col.IsErrNotFound(err) {
 			return nil, auth.ErrNotActivated
 		}
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &binding, nil
 }
@@ -320,7 +320,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 				auth.RootUser: &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}},
 			},
 		}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
@@ -688,13 +688,13 @@ func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txncontext.Transactio
 	}
 
 	if resource.Type == auth.ResourceType_CLUSTER {
-		return fmt.Errorf("cannot delete cluster role binding")
+		return errors.Errorf("cannot delete cluster role binding")
 	}
 
 	key := resourceKey(resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
 	if err := roleBindings.Delete(key); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	return nil
@@ -746,7 +746,7 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txncontext.Transactio
 	key := resourceKey(resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
 	if err := roleBindings.Create(key, bindings); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	return nil
@@ -807,7 +807,7 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	}
 
 	if strings.HasPrefix(req.Principal, auth.PachPrefix) && req.Resource.Type == auth.ResourceType_CLUSTER {
-		return nil, fmt.Errorf("cannot modify cluster role bindings for pach: users")
+		return nil, errors.Errorf("cannot modify cluster role bindings for pach: users")
 	}
 
 	// ModifyRoleBinding can be called for any type of resource,
@@ -822,7 +822,7 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("unknown resource type %v", req.Resource.Type)
+		return nil, errors.Errorf("unknown resource type %v", req.Resource.Type)
 	}
 
 	if err := a.setUserRoleBindingInTransaction(txnCtx, req.Resource, req.Principal, req.Roles); err != nil {
@@ -847,7 +847,7 @@ func (a *apiServer) setUserRoleBindingInTransaction(txnCtx *txncontext.Transacti
 				Resource: *resource,
 			}
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	if bindings.Entries == nil {
@@ -859,7 +859,7 @@ func (a *apiServer) setUserRoleBindingInTransaction(txnCtx *txncontext.Transacti
 	} else {
 		bindings.Entries[principal] = roles
 	}
-	return roleBindings.Put(key, &bindings)
+	return errors.EnsureStack(roleBindings.Put(key, &bindings))
 }
 
 // ModifyRoleBinding implements the protobuf auth.ModifyRoleBinding RPC
@@ -871,7 +871,7 @@ func (a *apiServer) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleB
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		var err error
 		response, err = txn.ModifyRoleBinding(req)
-		return err
+		return errors.EnsureStack(err)
 	}, nil); err != nil {
 		return nil, err
 	}
@@ -911,7 +911,7 @@ func (a *apiServer) GetRoleBindingInTransaction(
 
 	var roleBindings auth.RoleBinding
 	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(resourceKey(req.Resource), &roleBindings); err != nil && !col.IsErrNotFound(err) {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	if roleBindings.Entries == nil {
@@ -1045,7 +1045,7 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 		if err := members.Put(subject, &auth.Groups{
 			Groups: addToSet(nil, groups...),
 		}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		// Remove user from previous groups
@@ -1056,7 +1056,7 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 				membersProto.Usernames = removeFromSet(membersProto.Usernames, subject)
 				return nil
 			}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 
@@ -1066,7 +1066,7 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 				membersProto.Usernames = addToSet(membersProto.Usernames, subject)
 				return nil
 			}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 
@@ -1110,7 +1110,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 				groupsProto.Groups = addToSet(groupsProto.Groups, req.Group)
 				return nil
 			}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 		for _, username := range req.Remove {
@@ -1118,7 +1118,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 				groupsProto.Groups = removeFromSet(groupsProto.Groups, req.Group)
 				return nil
 			}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 
@@ -1129,7 +1129,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 			membersProto.Usernames = removeFromSet(membersProto.Usernames, req.Remove...)
 			return nil
 		}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		return nil
@@ -1170,7 +1170,7 @@ func (a *apiServer) getGroups(ctx context.Context, subject string) ([]string, er
 		if col.IsErrNotFound(err) {
 			return []string{}, nil
 		}
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return setToList(groupsProto.Groups), nil
 }
@@ -1184,7 +1184,7 @@ func (a *apiServer) getGroupsInTransaction(txnCtx *txncontext.TransactionContext
 		if col.IsErrNotFound(err) {
 			return []string{}, nil
 		}
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return setToList(groupsProto.Groups), nil
 }
@@ -1229,7 +1229,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 		if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
 			groups := a.groups.ReadWrite(sqlTx)
 			if err := groups.Get(req.Group, &membersProto); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			return nil
 		}); err != nil {
@@ -1246,7 +1246,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 		users = append(users, user)
 		return nil
 	}); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &auth.GetUsersResponse{Usernames: users}, nil
 }
@@ -1403,7 +1403,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 
 	// set the new config
 	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
-		return a.authConfig.ReadWrite(sqlTx).Put(configKey, configToStore)
+		return errors.EnsureStack(a.authConfig.ReadWrite(sqlTx).Put(configKey, configToStore))
 	}); err != nil {
 		return nil, err
 	}

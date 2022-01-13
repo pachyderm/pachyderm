@@ -3,6 +3,7 @@ package version
 import (
 	"fmt"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	"github.com/gogo/protobuf/types"
@@ -35,10 +36,11 @@ func NewAPIServer(version *pb.Version, options APIServerOptions) pb.APIServer {
 
 // GetServerVersion gets the server *Version given the *grpc.ClientConn.
 func GetServerVersion(clientConn *grpc.ClientConn) (*pb.Version, error) {
-	return pb.NewAPIClient(clientConn).GetVersion(
+	res, err := pb.NewAPIClient(clientConn).GetVersion(
 		context.Background(),
 		&types.Empty{},
 	)
+	return res, errors.EnsureStack(err)
 }
 
 // String returns a string representation of the Version.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -87,7 +88,7 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 		return err
 	}
 	_, err := l.pbw.Write(idx)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (w *Writer) callback(level int) chunk.WriterCallback {
