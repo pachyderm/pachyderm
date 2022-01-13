@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"path"
 	"strings"
 	"text/template"
@@ -33,11 +32,13 @@ var funcs = map[string]interface{}{
 		return false
 	},
 	"isAPI": func(proto *descriptor.ServiceDescriptorProto) bool {
-		fmt.Fprintf(os.Stderr, "isAPI(%s): %v\n", *proto.Name, *proto.Name == "API")
 		return *proto.Name == "API"
 	},
-	"isStreaming": func(proto *descriptor.MethodDescriptorProto) bool {
+	"isClientStreaming": func(proto *descriptor.MethodDescriptorProto) bool {
 		return proto.ClientStreaming != nil && *proto.ClientStreaming
+	},
+	"isServerStreaming": func(proto *descriptor.MethodDescriptorProto) bool {
+		return proto.ServerStreaming != nil && *proto.ServerStreaming
 	},
 	"pkgName": func(proto *descriptor.FileDescriptorProto) string {
 		return path.Base(*proto.Options.GoPackage)
@@ -76,15 +77,11 @@ func unsupportedError(name string) error {
 }
 {{range .Protos}}{{$pkg := pkgName .}}{{$client := clientName $pkg}}{{range .Service}}{{if isAPI .}}
 type {{$client}} struct {}
-{{range .Method}}{{if isStreaming .}}
-func (c *{{$client}}) {{.Name}}(_ context.Context, _ *{{typeName .InputType}}, opts ...grpc.CallOption) ({{$pkg}}.API_{{.Name}}Client, error) {
+{{range .Method}}
+func (c *{{$client}}) {{.Name}}(_ context.Context,{{if not (isClientStreaming .)}} _ *{{typeName .InputType}},{{end}} opts ...grpc.CallOption) ({{if or (isServerStreaming .) (isClientStreaming .)}}{{$pkg}}.API_{{.Name}}Client{{else}}*{{typeName .OutputType}}{{end}}, error) {
 	return nil, unsupportedError("{{.Name}}")
 }
-{{else}}
-func (c *{{$client}}) {{.Name}}(_ context.Context, _ *{{typeName .InputType}}, opts ...grpc.CallOption) (*{{typeName .OutputType}}, error) {
-	return nil, unsupportedError("{{.Name}}")
-}
-{{end}}{{end}}{{end}}{{end}}{{end}}
+{{end}}{{end}}{{end}}{{end}}
 `))
 
 func (gen *TransactionClientGenerator) AddProto(proto *descriptor.FileDescriptorProto) error {
