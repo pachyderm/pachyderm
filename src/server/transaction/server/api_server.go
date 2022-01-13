@@ -35,29 +35,29 @@ func newAPIServer(
 }
 
 func (a *apiServer) BatchTransaction(ctx context.Context, request *transaction.BatchTransactionRequest) (response *transaction.TransactionInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 
 	return a.driver.batchTransaction(ctx, request.Requests)
 }
 
 func (a *apiServer) StartTransaction(ctx context.Context, request *transaction.StartTransactionRequest) (response *transaction.Transaction, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 
 	return a.driver.startTransaction(ctx)
 }
 
 func (a *apiServer) InspectTransaction(ctx context.Context, request *transaction.InspectTransactionRequest) (response *transaction.TransactionInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 
 	return a.driver.inspectTransaction(ctx, request.Transaction)
 }
 
 func (a *apiServer) DeleteTransaction(ctx context.Context, request *transaction.DeleteTransactionRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 
 	err := a.driver.deleteTransaction(ctx, request.Transaction)
 	if err != nil {
@@ -68,8 +68,8 @@ func (a *apiServer) DeleteTransaction(ctx context.Context, request *transaction.
 }
 
 func (a *apiServer) ListTransaction(ctx context.Context, request *transaction.ListTransactionRequest) (response *transaction.TransactionInfos, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 
 	transactions, err := a.driver.listTransaction(ctx)
 	if err != nil {
@@ -79,15 +79,15 @@ func (a *apiServer) ListTransaction(ctx context.Context, request *transaction.Li
 }
 
 func (a *apiServer) FinishTransaction(ctx context.Context, request *transaction.FinishTransactionRequest) (response *transaction.TransactionInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 
 	return a.driver.finishTransaction(ctx, request.Transaction)
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAllRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 
 	if err := dbutil.WithTx(ctx, a.driver.db, func(sqlTx *sqlx.Tx) error {
 		return a.driver.deleteAll(ctx, sqlTx, nil)
@@ -101,8 +101,8 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAl
 // AppendRequest is not an RPC, but is called from other systems in pachd to
 // add an operation to an existing transaction.
 func (a *apiServer) AppendRequest(ctx context.Context, txn *transaction.Transaction, request *transaction.TransactionRequest) (response *transaction.TransactionResponse, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(ctx, request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, request, response, retErr, time.Since(start)) }(time.Now())
 
 	items := []*transaction.TransactionRequest{request}
 	info, err := a.driver.appendTransaction(ctx, txn, items)

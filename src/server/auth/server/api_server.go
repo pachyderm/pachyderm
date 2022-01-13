@@ -92,8 +92,8 @@ type apiServer struct {
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
 // the top level of a GRPC method implementation, and correspondingly extracts
 // the method name from the parent stack frame
-func (a *apiServer) LogReq(request interface{}) {
-	a.pachLogger.Log(request, nil, nil, 0)
+func (a *apiServer) LogReq(ctx context.Context, request interface{}) {
+	a.pachLogger.Log(ctx, request, nil, nil, 0)
 }
 
 // LogResp is like log.Logger.Log(). However,
@@ -102,13 +102,13 @@ func (a *apiServer) LogReq(request interface{}) {
 //    stack frame
 // 2) It logs NotActivatedError at DebugLevel instead of ErrorLevel, as, in most
 //    cases, this error is expected, and logging it frequently may confuse users
-func (a *apiServer) LogResp(request interface{}, response interface{}, err error, duration time.Duration) {
+func (a *apiServer) LogResp(ctx context.Context, request interface{}, response interface{}, err error, duration time.Duration) {
 	if err == nil {
-		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
+		a.pachLogger.LogAtLevelFromDepth(ctx, request, response, err, duration, logrus.InfoLevel, 4)
 	} else if auth.IsErrNotActivated(err) {
-		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.DebugLevel, 4)
+		a.pachLogger.LogAtLevelFromDepth(ctx, request, response, err, duration, logrus.DebugLevel, 4)
 	} else {
-		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.ErrorLevel, 4)
+		a.pachLogger.LogAtLevelFromDepth(ctx, request, response, err, duration, logrus.ErrorLevel, 4)
 	}
 }
 
@@ -298,7 +298,7 @@ func (a *apiServer) hasClusterRole(ctx context.Context, username string, role st
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
-	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(ctx, nil, nil, retErr, time.Since(start)) }(time.Now())
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
 	state, err := a.getEnterpriseTokenState(ctx)
@@ -357,7 +357,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 // RotateRootToken implements the protobuf auth.RotateRootToken RPC
 func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTokenRequest) (resp *auth.RotateRootTokenResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain credentials.
-	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(ctx, nil, nil, retErr, time.Since(start)) }(time.Now())
 
 	// TODO(acohen4): Merge with postgres-integration library changes
 	var rootToken string
@@ -385,8 +385,8 @@ func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTok
 
 // Deactivate implements the protobuf auth.Deactivate RPC
 func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest) (resp *auth.DeactivateResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := dbutil.WithTx(ctx, a.env.GetDBClient(), func(sqlTx *sqlx.Tx) error {
 		a.roleBindings.ReadWrite(sqlTx).DeleteAll()
@@ -421,7 +421,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 
 	// We don't want to actually log the request/response since they contain
 	// credentials.
-	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(ctx, nil, nil, retErr, time.Since(start)) }(time.Now())
 
 	// verify whatever credential the user has presented, and write a new
 	// Pachyderm token for the user that their credential belongs to
@@ -592,8 +592,8 @@ func (a *apiServer) Authorize(
 	ctx context.Context,
 	req *auth.AuthorizeRequest,
 ) (resp *auth.AuthorizeResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.AuthorizeResponse
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -607,8 +607,8 @@ func (a *apiServer) Authorize(
 }
 
 func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.GetPermissionsForPrincipalRequest) (resp *auth.GetPermissionsResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	permissions := make(map[auth.Permission]bool)
 	for p := range auth.Permission_name {
@@ -633,8 +633,8 @@ func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.Ge
 
 // GetPermissions implements the protobuf auth.GetPermissions RPC
 func (a *apiServer) GetPermissions(ctx context.Context, req *auth.GetPermissionsRequest) (resp *auth.GetPermissionsResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
@@ -674,8 +674,8 @@ func (a *apiServer) getPermissionsForPrincipalInTransaction(txnCtx *txncontext.T
 
 // WhoAmI implements the protobuf auth.WhoAmI RPC
 func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *auth.WhoAmIResponse, retErr error) {
-	a.pachLogger.LogAtLevelFromDepth(req, nil, nil, 0, logrus.DebugLevel, 2)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.pachLogger.LogAtLevelFromDepth(ctx, req, nil, nil, 0, logrus.DebugLevel, 2)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.isActive(ctx); err != nil {
 		return nil, err
@@ -877,8 +877,8 @@ func (a *apiServer) setUserRoleBindingInTransaction(txnCtx *txncontext.Transacti
 
 // ModifyRoleBinding implements the protobuf auth.ModifyRoleBinding RPC
 func (a *apiServer) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleBindingRequest) (resp *auth.ModifyRoleBindingResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.ModifyRoleBindingResponse
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
@@ -937,8 +937,8 @@ func (a *apiServer) GetRoleBindingInTransaction(
 
 // GetRoleBinding implements the protobuf auth.GetRoleBinding RPC
 func (a *apiServer) GetRoleBinding(ctx context.Context, req *auth.GetRoleBindingRequest) (resp *auth.GetRoleBindingResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *auth.GetRoleBindingResponse
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -953,8 +953,8 @@ func (a *apiServer) GetRoleBinding(ctx context.Context, req *auth.GetRoleBinding
 
 // GetRobotToken implements the protobuf auth.GetRobotToken RPC
 func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRequest) (resp *auth.GetRobotTokenResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	// If the user specified a redundant robot: prefix, strip it. Colons are not permitted in robot names.
 	subject := strings.TrimPrefix(req.Robot, auth.RobotPrefix)
@@ -997,9 +997,9 @@ func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txncontext.Transac
 
 // GetOIDCLogin implements the protobuf auth.GetOIDCLogin RPC
 func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest) (resp *auth.GetOIDCLoginResponse, retErr error) {
-	a.LogReq(req)
+	a.LogReq(ctx, req)
 	// Don't log response to avoid logging OIDC state token
-	defer func(start time.Time) { a.LogResp(req, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(ctx, req, nil, retErr, time.Since(start)) }(time.Now())
 	var err error
 
 	authURL, state, err := a.GetOIDCLoginURL(ctx)
@@ -1014,8 +1014,8 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 
 // RevokeAuthToken implements the protobuf auth.RevokeAuthToken RPC
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		resp, retErr = a.RevokeAuthTokenInTransaction(txnCtx, req)
 		return retErr
@@ -1089,8 +1089,8 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 
 // SetGroupsForUser implements the protobuf auth.SetGroupsForUser RPC
 func (a *apiServer) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsForUserRequest) (resp *auth.SetGroupsForUserResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.checkCanonicalSubject(req.Username); err != nil {
 		return nil, err
@@ -1104,8 +1104,8 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsFor
 
 // ModifyMembers implements the protobuf auth.ModifyMembers RPC
 func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRequest) (resp *auth.ModifyMembersResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.checkCanonicalSubjects(req.Add); err != nil {
 		return nil, err
@@ -1204,8 +1204,8 @@ func (a *apiServer) getGroupsInTransaction(txnCtx *txncontext.TransactionContext
 
 // GetGroups implements the protobuf auth.GetGroups RPC
 func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (resp *auth.GetGroupsResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
@@ -1221,8 +1221,8 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 
 // GetGroupsForPrincipal implements the protobuf auth.GetGroupsForPrincipal RPC
 func (a *apiServer) GetGroupsForPrincipal(ctx context.Context, req *auth.GetGroupsForPrincipalRequest) (resp *auth.GetGroupsResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	groups, err := a.getGroups(ctx, req.Principal)
 	if err != nil {
@@ -1233,8 +1233,8 @@ func (a *apiServer) GetGroupsForPrincipal(ctx context.Context, req *auth.GetGrou
 
 // GetUsers implements the protobuf auth.GetUsers RPC
 func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (resp *auth.GetUsersResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	// Filter by group
 	if req.Group != "" {
@@ -1266,8 +1266,8 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 
 // GetRolesForPermission implements the protobuf auth.GetRolesForPermission RPC
 func (a *apiServer) GetRolesForPermission(ctx context.Context, req *auth.GetRolesForPermissionRequest) (resp *auth.GetRolesForPermissionResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	return &auth.GetRolesForPermissionResponse{Roles: rolesForPermission(req.Permission)}, nil
 }
@@ -1365,8 +1365,8 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 		copyResp.Configuration.ClientSecret = ""
 		return copyResp
 	}
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 
 	if err := a.isActive(ctx); err != nil {
 		return nil, err
@@ -1396,8 +1396,8 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 		copyReq.Configuration.ClientSecret = ""
 		return copyReq
 	}
-	a.LogReq(removeSecret(req))
-	defer func(start time.Time) { a.LogResp(removeSecret(req), resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, removeSecret(req))
+	defer func(start time.Time) { a.LogResp(ctx, removeSecret(req), resp, retErr, time.Since(start)) }(time.Now())
 
 	if !a.watchesEnabled {
 		return nil, errors.New("watches are not enabled, unable to set config")
@@ -1441,8 +1441,8 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 func (a *apiServer) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuthTokensRequest) (resp *auth.ExtractAuthTokensResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(ctx, req)
+	defer func(start time.Time) { a.LogResp(ctx, nil, nil, retErr, time.Since(start)) }(time.Now())
 	if err := a.isActive(ctx); err != nil {
 		return nil, err
 	}
@@ -1457,7 +1457,7 @@ func (a *apiServer) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuth
 func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthTokenRequest) (resp *auth.RestoreAuthTokenResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
-	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(ctx, nil, nil, retErr, time.Since(start)) }(time.Now())
 
 	var ttl int64
 	if req.Token.Expiration != nil {
@@ -1490,7 +1490,7 @@ func (a *apiServer) DeleteExpiredAuthTokens(ctx context.Context, req *auth.Delet
 }
 
 func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.RevokeAuthTokensForUserRequest) (resp *auth.RevokeAuthTokensForUserResponse, retErr error) {
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
 
 	// Allow revoking auth tokens for pipelines, robots and IDP users,
 	// but not the root token or PPS user
