@@ -227,6 +227,26 @@ jobs:
             . venv/bin/activate
             twine upload dist/*
 
+  docker-build:
+    executor: python
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - setup_remote_docker:
+          version: 19.03.13
+      - run:
+          name: docker login
+          command:  echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Build Docker image
+          command: docker build --build-arg PACHCTL_VERSION=2.0.0 -t pachyderm/notebooks-user:$CIRCLE_SHA1 .
+      - run:
+          name: Docker push
+          command: docker push pachyderm/notebooks-user:$CIRCLE_SHA1
+
 workflows:
   build-workflow:
     jobs:
@@ -254,6 +274,12 @@ workflows:
             - test
             - frontend-test
             - integration-test
+          filters:
+            tags:
+              only: /.*/
+      - docker-build:
+          requires:
+            - build
           filters:
             tags:
               only: /.*/
