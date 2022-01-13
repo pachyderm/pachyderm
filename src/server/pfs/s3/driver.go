@@ -1,3 +1,6 @@
+//nolint:wrapcheck
+// TODO: the s2 library checks the type of the error to decide how to handle it,
+// which doesn't work properly with wrapped errors
 package s3
 
 import (
@@ -61,7 +64,7 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 		}
 		t, err := types.TimestampFromProto(repo.Created)
 		if err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		for _, branch := range repo.Branches {
 			var name string
@@ -164,7 +167,7 @@ func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 	for _, repo := range repos {
 		timestamp, err := types.TimestampFromProto(repo.Created)
 		if err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		timestamps[pfsdb.RepoKey(repo.Repo)] = timestamp
 	}

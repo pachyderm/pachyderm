@@ -4523,7 +4523,6 @@ func TestPFS(suite *testing.T) {
 				err := env.PachClient.WalkFile(latestCommit, path, cb)
 				require.YesError(t, err)
 				s := status.Convert(err)
-				fmt.Printf("err: %v\n", err)
 				require.Equal(t, codes.NotFound, s.Code())
 			}
 			require.NoError(t, env.PachClient.WalkFile(latestCommit, "", cb))

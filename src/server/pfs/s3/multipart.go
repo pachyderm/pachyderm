@@ -1,3 +1,6 @@
+//nolint:wrapcheck
+// TODO: the s2 library checks the type of the error to decide how to handle it,
+// which doesn't work properly with wrapped errors
 package s3
 
 import (
@@ -106,7 +109,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 
 	result := s2.ListMultipartResult{
@@ -133,7 +136,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 
 		timestamp, err := types.TimestampFromProto(fileInfo.Committed)
 		if err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 
 		result.Uploads = append(result.Uploads, &s2.Upload{
@@ -164,11 +167,11 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return "", errors.EnsureStack(err)
+		return "", err
 	}
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
-		return "", errors.EnsureStack(err)
+		return "", err
 	}
 	if !bucketCaps.writable {
 		return "", s2.NotImplementedError(r)
@@ -199,7 +202,7 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 
 	_, err = pc.InspectFile(client.NewCommit(c.repo, "master", ""), keepPath(bucket, key, uploadID))
@@ -231,11 +234,11 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	if !bucketCaps.writable {
 		return nil, s2.NotImplementedError(r)
@@ -327,7 +330,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 
 	result := s2.ListMultipartChunksResult{
@@ -380,7 +383,7 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
-		return "", errors.EnsureStack(err)
+		return "", err
 	}
 
 	_, err = pc.InspectFile(client.NewCommit(c.repo, "master", ""), keepPath(bucket, key, uploadID))
