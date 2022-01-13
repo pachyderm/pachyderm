@@ -25,14 +25,14 @@ var funcs = map[string]interface{}{
 	},
 	"hasAPI": func(proto *descriptor.FileDescriptorProto) bool {
 		for _, service := range proto.Service {
-			if *service.Name == "API" {
+			if *service.Name == "API" || *service.Name == "Debug" {
 				return true
 			}
 		}
 		return false
 	},
 	"isAPI": func(proto *descriptor.ServiceDescriptorProto) bool {
-		return *proto.Name == "API"
+		return *proto.Name == "API" || *proto.Name == "Debug"
 	},
 	"isClientStreaming": func(proto *descriptor.MethodDescriptorProto) bool {
 		return proto.ClientStreaming != nil && *proto.ClientStreaming
@@ -75,10 +75,10 @@ import (
 func unsupportedError(name string) error {
 	return errors.Errorf("the '%s' API call is not supported in transactions", name)
 }
-{{range .Protos}}{{$pkg := pkgName .}}{{$client := clientName $pkg}}{{range .Service}}{{if isAPI .}}
+{{range .Protos}}{{$pkg := pkgName .}}{{$client := clientName $pkg}}{{range .Service}}{{$service := .}}{{if isAPI .}}
 type {{$client}} struct {}
 {{range .Method}}
-func (c *{{$client}}) {{.Name}}(_ context.Context,{{if not (isClientStreaming .)}} _ *{{typeName .InputType}},{{end}} opts ...grpc.CallOption) ({{if or (isServerStreaming .) (isClientStreaming .)}}{{$pkg}}.API_{{.Name}}Client{{else}}*{{typeName .OutputType}}{{end}}, error) {
+func (c *{{$client}}) {{.Name}}(_ context.Context,{{if not (isClientStreaming .)}} _ *{{typeName .InputType}},{{end}} opts ...grpc.CallOption) ({{if or (isServerStreaming .) (isClientStreaming .)}}{{$pkg}}.{{$service.Name}}_{{.Name}}Client{{else}}*{{typeName .OutputType}}{{end}}, error) {
 	return nil, unsupportedError("{{.Name}}")
 }
 {{end}}{{end}}{{end}}{{end}}

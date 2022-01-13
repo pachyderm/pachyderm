@@ -10,6 +10,7 @@ import (
   "github.com/pachyderm/pachyderm/v2/src/pfs"
   "github.com/pachyderm/pachyderm/v2/src/pps"
   "github.com/pachyderm/pachyderm/v2/src/admin"
+  "github.com/pachyderm/pachyderm/v2/src/debug"
   "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
   "github.com/pachyderm/pachyderm/v2/src/enterprise"
   "github.com/pachyderm/pachyderm/v2/src/license"
@@ -401,6 +402,20 @@ type unsupportedAdminBuilderClient struct {}
 
 func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*admin.ClusterInfo, error) {
 	return nil, unsupportedError("InspectCluster")
+}
+
+type unsupportedDebugBuilderClient struct {}
+
+func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug.ProfileRequest, opts ...grpc.CallOption) (debug.Debug_ProfileClient, error) {
+	return nil, unsupportedError("Profile")
+}
+
+func (c *unsupportedDebugBuilderClient) Binary(_ context.Context, _ *debug.BinaryRequest, opts ...grpc.CallOption) (debug.Debug_BinaryClient, error) {
+	return nil, unsupportedError("Binary")
+}
+
+func (c *unsupportedDebugBuilderClient) Dump(_ context.Context, _ *debug.DumpRequest, opts ...grpc.CallOption) (debug.Debug_DumpClient, error) {
+	return nil, unsupportedError("Dump")
 }
 
 type unsupportedVersionpbBuilderClient struct {}

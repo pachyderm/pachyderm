@@ -196,8 +196,8 @@ type authBuilderClient struct {
 	tb *TransactionBuilder
 }
 
-type versionBuilderClient struct {
-	unsupportedVersionBuilderClient
+type versionpbBuilderClient struct {
+	unsupportedVersionpbBuilderClient
 	tb *TransactionBuilder
 }
 
@@ -237,8 +237,8 @@ func newEnterpriseBuilderClient(tb *TransactionBuilder) enterprise.APIClient {
 	return &enterpriseBuilderClient{tb: tb}
 }
 
-func newVersionBuilderClient(tb *TransactionBuilder) versionpb.APIClient {
-	return &versionBuilderClient{tb: tb}
+func newVersionpbBuilderClient(tb *TransactionBuilder) versionpb.APIClient {
+	return &versionpbBuilderClient{tb: tb}
 }
 
 func newAdminBuilderClient(tb *TransactionBuilder) admin.APIClient {
@@ -259,7 +259,7 @@ func newTransactionBuilder(parent *APIClient) *TransactionBuilder {
 	tb.PpsAPIClient = newPpsBuilderClient(tb)
 	tb.AuthAPIClient = newAuthBuilderClient(tb)
 	tb.Enterprise = newEnterpriseBuilderClient(tb)
-	tb.VersionAPIClient = newVersionBuilderClient(tb)
+	tb.VersionAPIClient = newVersionpbBuilderClient(tb)
 	tb.AdminAPIClient = newAdminBuilderClient(tb)
 	tb.TransactionAPIClient = newTransactionBuilderClient(tb)
 	tb.DebugClient = newDebugBuilderClient(tb)
