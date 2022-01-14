@@ -145,23 +145,19 @@ class PythonPachydermMountClient(MountInterface):
             mount_strings = self._current_mount_strings()
             mount_strings.append(self._mount_string(repo, branch, mode))
 
-            try:
-                self.client.mount(self.mount_dir, mount_strings)
-            except Exception:
-                return {}
-            else:
-                # update mount_state after mount is successful
-                mount_state["state"] = "mounted"
-                mount_state["name"] = name
-                mount_state["mode"] = mode
-                mount_state["mountpoint"] = os.path.join(self.mount_dir, name)
-                self.mount_states[mount_key] = mount_state
+            self.client.mount(self.mount_dir, mount_strings)
+            # update mount_state after mount is successful
+            mount_state["state"] = "mounted"
+            mount_state["name"] = name
+            mount_state["mode"] = mode
+            mount_state["mountpoint"] = os.path.join(self.mount_dir, name)
+            self.mount_states[mount_key] = mount_state
 
-                return {
-                    "repo": repo,
-                    "branch": branch,
-                    "mount": self.mount_states.get(mount_key),
-                }
+            return {
+                "repo": repo,
+                "branch": branch,
+                "mount": self.mount_states.get(mount_key),
+            }
 
     async def unmount(self, repo, branch, name=None):
         """Unmounts all, update mount_state, and remounts what's left"""
@@ -169,14 +165,10 @@ class PythonPachydermMountClient(MountInterface):
         if self.mount_states.get(mount_key, {}).get("state") == "mounted":
             # need to explicitly unmount for the case when there is only one repo left to unmount
             # _prepare_repos_for_pachctl_mount would return empty, and no mount call would be made
-            try:
-                self.client.unmount(self.mount_dir)
-                del self.mount_states[mount_key]
-                self.client.mount(self.mount_dir, self._current_mount_strings())
-            except Exception:
-                return {}
-            else:
-                return {"repo": repo, "branch": branch, "mount": {"state": "unmounted"}}
+            self.client.unmount(self.mount_dir)
+            del self.mount_states[mount_key]
+            self.client.mount(self.mount_dir, self._current_mount_strings())
+            return {"repo": repo, "branch": branch, "mount": {"state": "unmounted"}}
 
     async def unmount_all(self):
         result = []

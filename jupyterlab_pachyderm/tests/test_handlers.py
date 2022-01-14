@@ -85,6 +85,18 @@ async def test_list_repos(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch("jupyterlab_pachyderm.handlers.ReposHandler.mount_client", spec=MountInterface)
+async def test_list_repos_error(mock_client, jp_fetch):
+    mock_client.list.side_effect = Exception
+    with pytest.raises(tornado.httpclient.HTTPClientError) as e:
+        await jp_fetch(f"/{NAMESPACE}/{VERSION}/repos")
+        # note must exit context to capture response
+
+    assert e.value.code == 500
+    assert e.value.response.reason == "Error listing repos: ."
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch("jupyterlab_pachyderm.handlers.RepoHandler.mount_client", spec=MountInterface)
 async def test_get_repo(mock_client, jp_fetch):
     mock_client.list.return_value = {
@@ -134,6 +146,21 @@ async def test_get_repo(mock_client, jp_fetch):
             }
         ],
     }
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch("jupyterlab_pachyderm.handlers.RepoHandler.mount_client", spec=MountInterface)
+async def test_get_repo_not_exist_error(mock_client, jp_fetch):
+    mock_client.list.return_value = {}
+
+    repo = "somerepo"
+    with pytest.raises(tornado.httpclient.HTTPClientError) as e:
+        await jp_fetch(
+            f"/{NAMESPACE}/{VERSION}/repos/{repo}",
+        )
+
+    assert e.value.code == 400
+    assert e.value.response.reason == f"Error repo {repo} not found."
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
@@ -234,6 +261,27 @@ async def test_mount_with_branch_and_mode(mock_client, jp_fetch):
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch(
+    "jupyterlab_pachyderm.handlers.RepoMountHandler.mount_client", spec=MountInterface
+)
+async def test_mount_with_error(mock_client, jp_fetch):
+    mock_client.mount.side_effect = Exception
+
+    repo, branch, name = "somerepo", "master", "somename"
+    with pytest.raises(tornado.httpclient.HTTPClientError) as e:
+        await jp_fetch(
+            f"/{NAMESPACE}/{VERSION}/repos/{repo}/{branch}/_mount",
+            method="PUT",
+            params={"name": "{name}", "mode": "ro"},
+            body="{}",
+        )
+        # note must exit context to capture response
+
+    assert e.value.code == 500
+    assert e.value.response.reason == f"Error mounting repo {repo}: ."
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
     "jupyterlab_pachyderm.handlers.RepoUnmountHandler.mount_client",
     spec=MountInterface,
 )
@@ -272,6 +320,27 @@ async def test_unmount_with_branch(mock_client, jp_fetch):
             }
         },
     }
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.RepoUnmountHandler.mount_client", spec=MountInterface
+)
+async def test_unmount_with_error(mock_client, jp_fetch):
+    mock_client.unmount.side_effect = Exception
+
+    repo, branch, name = "somerepo", "master", "somename"
+    with pytest.raises(tornado.httpclient.HTTPClientError) as e:
+        await jp_fetch(
+            f"/{NAMESPACE}/{VERSION}/repos/{repo}/{branch}/_unmount",
+            method="PUT",
+            params={"name": "{name}"},
+            body="{}",
+        )
+        # note must exit context to capture response
+
+    assert e.value.code == 500
+    assert e.value.response.reason == f"Error unmounting repo {repo}: ."
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")

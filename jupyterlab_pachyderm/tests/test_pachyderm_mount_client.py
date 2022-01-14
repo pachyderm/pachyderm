@@ -131,7 +131,8 @@ class TestPachydermMountClient:
         }
 
     async def test_mount_repo_noexist(self, client: PythonPachydermMountClient):
-        assert await client.mount("noe_repo", "master", "r") == {}
+        with pytest.raises(ValueError):
+            await client.mount("noe_repo", "master", "r") == {}
 
     async def test_unmount(self, client: PythonPachydermMountClient):
         await client.mount("images", "master", "r")
