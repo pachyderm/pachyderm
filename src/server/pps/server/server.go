@@ -6,7 +6,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -74,7 +73,6 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 	config := env.Config
 	apiServer := &apiServer{
-		Logger:                log.NewLogger("pps.API", env.Logger),
 		env:                   env,
 		txnEnv:                env.TxnEnv,
 		etcdPrefix:            env.EtcdPrefix,
@@ -110,7 +108,6 @@ func NewSidecarAPIServer(
 	peerPort uint16,
 ) (*apiServer, error) {
 	apiServer := &apiServer{
-		Logger:         log.NewLogger("pps.API", env.Logger),
 		env:            env,
 		txnEnv:         env.TxnEnv,
 		etcdPrefix:     env.EtcdPrefix,
