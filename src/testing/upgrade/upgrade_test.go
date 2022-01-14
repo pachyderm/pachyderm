@@ -32,11 +32,11 @@ var (
 func upgradeTest(t *testing.T, ctx context.Context, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
 	k := testutil.GetKubeClient(t)
 	for _, from := range fromVersions {
-		DeleteRelease(t, ctx, k) // cleanup cluster
+		testutil.DeleteRelease(t, ctx, k) // cleanup cluster
 
-		preUpgrade(t, InstallPublishedRelease(t, ctx, k, from, upgradeSubject))
+		preUpgrade(t, testutil.InstallPublishedRelease(t, ctx, k, from, upgradeSubject))
 
-		postUpgrade(t, UpgradeRelease(t, ctx, k, upgradeSubject))
+		postUpgrade(t, testutil.UpgradeRelease(t, ctx, k, upgradeSubject))
 	}
 }
 

@@ -1,4 +1,4 @@
-package main
+package testutil
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
@@ -25,8 +24,6 @@ const (
 	ns                     = "default"
 	localImage             = "local"
 )
-
-type deployTest func(*testing.T, *client.APIClient)
 
 func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	return &helm.Options{
@@ -71,13 +68,13 @@ func waitForPachd(t *testing.T, ctx context.Context, kubeClient *kube.Clientset,
 func InstallPublishedRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, version, user string) *client.APIClient {
 	require.NoError(t, helm.InstallE(t, localDeploymentWithMinioOptions(ns, version), helmChartPublishedPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, version)
-	return tu.GetAuthenticatedPachClient(t, user)
+	return GetAuthenticatedPachClient(t, user)
 }
 
 func UpgradeRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, user string) *client.APIClient {
 	require.NoError(t, helm.UpgradeE(t, localDeploymentWithMinioOptions(ns, localImage), helmChartLocalPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, localImage)
-	return tu.GetAuthenticatedPachClient(t, user)
+	return GetAuthenticatedPachClient(t, user)
 }
 
 func DeleteRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset) {
