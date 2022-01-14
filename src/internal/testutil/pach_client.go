@@ -20,13 +20,11 @@ var (
 // running both inside and outside the cluster. Note that multiple calls to
 // GetPachClient will return the same instance.
 func GetPachClient(t testing.TB) *client.APIClient {
-	clientOnce.Do(func() {
-		if _, ok := os.LookupEnv("PACHD_PORT_1650_TCP_ADDR"); ok {
-			pachClient, pachErr = client.NewInCluster()
-		} else {
-			pachClient, pachErr = client.NewForTest()
-		}
-	})
+	if _, ok := os.LookupEnv("PACHD_PORT_1650_TCP_ADDR"); ok {
+		pachClient, pachErr = client.NewInCluster()
+	} else {
+		pachClient, pachErr = client.NewForTest()
+	}
 	if pachErr != nil {
 		t.Fatalf("error getting Pachyderm client: %s", pachErr.Error())
 	}

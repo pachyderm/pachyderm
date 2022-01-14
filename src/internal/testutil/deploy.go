@@ -53,7 +53,7 @@ func waitForPachd(t *testing.T, ctx context.Context, kubeClient *kube.Clientset,
 	require.NoError(t, backoff.Retry(func() error {
 		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pachd"})
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error on pod list")
 		}
 		for _, p := range pachds.Items {
 			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready && len(pachds.Items) == 1 {
@@ -87,7 +87,7 @@ func DeleteRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset
 	require.NoError(t, backoff.Retry(func() error {
 		pvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(ns).List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"})
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error on pod list")
 		}
 		if len(pvcs.Items) == 0 {
 			return nil
