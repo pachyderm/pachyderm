@@ -5,11 +5,7 @@ set -ex;
 # shellcheck disable=SC1090
 source "$(dirname "$0")/env.sh";
 
-# pachctl config update context "$(pachctl config get active-context)" --pachd-address="0.0.0.0:30650";
-
 pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
-
-# pachctl config import-kube local --overwrite
 
 # deploy object storage
 kubectl apply -f etc/testing/minio.yaml

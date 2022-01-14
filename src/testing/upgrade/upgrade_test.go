@@ -33,8 +33,10 @@ func upgradeTest(t *testing.T, ctx context.Context, preUpgrade func(*testing.T, 
 	k := testutil.GetKubeClient(t)
 	for _, from := range fromVersions {
 		DeleteRelease(t, ctx, k) // cleanup cluster
-		WithInstallPublishedRelease(t, ctx, k, from, upgradeSubject, preUpgrade)
-		WithUpgradeRelease(t, ctx, k, upgradeSubject, postUpgrade)
+
+		preUpgrade(t, InstallPublishedRelease(t, ctx, k, from, upgradeSubject))
+
+		postUpgrade(t, UpgradeRelease(t, ctx, k, upgradeSubject))
 	}
 }
 

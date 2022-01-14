@@ -65,50 +65,19 @@ func waitForPachd(t *testing.T, ctx context.Context, kubeClient *kube.Clientset,
 		}
 		return errors.Errorf("deployment in progress")
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
-	//time.Sleep(10 * time.Second)
 }
-
-// func runPortForward(t *testing.T, namespace string) *client.PortForwarder {
-// 	cfg, err := config.Read(false, true)
-// 	require.NoError(t, err)
-
-// 	_, context, err := cfg.ActiveContext(true)
-// 	require.NoError(t, err)
-
-// 	pf, err := client.NewPortForwarder(context, namespace)
-// 	require.NoError(t, err)
-
-// 	_, err = pf.RunForPachd(30650, 1650)
-// 	require.NoError(t, err)
-
-// 	// for now this timeout allows the port-forwarder to
-// 	// work following a previously closed forwarder.
-// 	// It appears that the Accept() system call does not receive connections
-// 	// until a sufficient period has passed in the case that a port-forwarder
-// 	// was previously used, such as in the upgrade case.
-// 	time.Sleep(30 * time.Second)
-// 	return pf
-// }
 
 // Deploy pachyderm using a `helm install ...`, then run a test with an API Client corresponding to the deployment
-func WithInstallPublishedRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, version, user string, test deployTest) {
+func InstallPublishedRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, version, user string) *client.APIClient {
 	require.NoError(t, helm.InstallE(t, localDeploymentWithMinioOptions(ns, version), helmChartPublishedPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, version)
-
-	// pf := runPortForward(t, ns)
-	// defer pf.Close()
-
-	test(t, tu.GetAuthenticatedPachClient(t, user))
+	return tu.GetAuthenticatedPachClient(t, user)
 }
 
-func WithUpgradeRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, user string, test deployTest) {
+func UpgradeRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, user string) *client.APIClient {
 	require.NoError(t, helm.UpgradeE(t, localDeploymentWithMinioOptions(ns, localImage), helmChartLocalPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, localImage)
-
-	// pf := runPortForward(t, ns)
-	// defer pf.Close()
-
-	test(t, tu.GetAuthenticatedPachClient(t, user))
+	return tu.GetAuthenticatedPachClient(t, user)
 }
 
 func DeleteRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset) {
