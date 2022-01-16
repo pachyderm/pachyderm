@@ -15,6 +15,7 @@ Major and minor version releases are published off of the `main` branch.
     - Also ensure that `CHANGELOG.md` is up-to-date.
     - Update `"version"` and `CHANGELOG.md` in a new PR if necessary.
     - Jot down the `version` and `commit_sha` that you want to release.
+    - Make sure the version in `Dockerfile` is up to date
 1. Create tag and push to GitHub.
    ```
    git tag -a v<version> <commit_sha> -m "Release version <version>"
