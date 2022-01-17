@@ -562,9 +562,9 @@ func (step *pcStep) scaleUpPipeline(ctx context.Context) (retErr error) {
 	}
 
 	// update pipeline RC
-	return step.updateRC(ctx, func(rc *v1.ReplicationController) {
+	return step.updateRC(ctx, func(rc *v1.ReplicationController) bool {
 		if rc.Spec.Replicas != nil && *step.rc.Spec.Replicas > 0 {
-			return // prior attempt succeeded
+			return false // prior attempt succeeded
 		}
 		rc.Spec.Replicas = new(int32)
 		if step.pipelineInfo.Details.Autoscaling {
@@ -572,6 +572,7 @@ func (step *pcStep) scaleUpPipeline(ctx context.Context) (retErr error) {
 		} else {
 			*rc.Spec.Replicas = int32(parallelism)
 		}
+		return true
 	})
 }
 
@@ -589,11 +590,12 @@ func (step *pcStep) scaleDownPipeline(ctx context.Context) (retErr error) {
 		tracing.FinishAnySpan(span)
 	}()
 
-	return step.updateRC(ctx, func(rc *v1.ReplicationController) {
-		if rc.Spec.Replicas != nil && *step.rc.Spec.Replicas == 0 {
-			return // prior attempt succeeded
+	return step.updateRC(ctx, func(rc *v1.ReplicationController) bool {
+		if rc.Spec.Replicas != nil && *rc.Spec.Replicas == 0 {
+			return false // prior attempt succeeded
 		}
 		rc.Spec.Replicas = &zero
+		return true
 	})
 }
 
@@ -748,19 +750,20 @@ func (step *pcStep) getRC(ctx context.Context, expectation rcExpectation) (retEr
 // updated is already available to the caller in pc.rc, but update() may be
 // called muliple times if the k8s write fails. It may be helpful to think of
 // the rc passed to update() as mutable, while pc.rc is immutable.
-func (step *pcStep) updateRC(ctx context.Context, update func(rc *v1.ReplicationController)) error {
+func (step *pcStep) updateRC(ctx context.Context, update func(rc *v1.ReplicationController) bool) error {
+	rc := step.pc.env.KubeClient.CoreV1().ReplicationControllers(step.pc.namespace)
 
 	step.pc.pcMgr.limiter.Acquire()
 	defer step.pc.pcMgr.limiter.Release()
 
-	rc := step.pc.env.KubeClient.CoreV1().ReplicationControllers(step.pc.namespace)
-
-	newRC := *step.rc
 	// Apply op's update to rc
-	update(&newRC)
-	// write updated RC to k8s
-	if _, err := rc.Update(ctx, &newRC, metav1.UpdateOptions{}); err != nil {
-		return newRetriableError(err, "error updating RC")
+	newRC := *step.rc
+	if update(&newRC) {
+		// write updated RC to k8s
+		if _, err := rc.Update(ctx, &newRC, metav1.UpdateOptions{}); err != nil {
+			return newRetriableError(err, "error updating RC")
+		}
+		*step.rc = newRC
 	}
 	return nil
 }
