@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	opentracing "github.com/opentracing/opentracing-go"
@@ -186,7 +187,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	if !timestamp.IsZero() {
 		tracing.TagAnySpan(span, "update-time", timestamp)
 	} else {
-		tracing.TagAnySpan(span, "pollpipelines-event", "true")
+		tracing.TagAnySpan(span, "pollpipelines-or-autoscaling-event", "true")
 	}
 	defer tracing.FinishAnySpan(span, "err", retErr)
 
@@ -555,23 +556,68 @@ func (step *pcStep) scaleUpPipeline(ctx context.Context) (retErr error) {
 		tracing.FinishAnySpan(span)
 	}()
 
-	// compute target pipeline parallelism
-	parallelism := uint64(1)
-	if step.pipelineInfo.Details.ParallelismSpec != nil {
-		parallelism = step.pipelineInfo.Details.ParallelismSpec.Constant
+	// Compute maximum parallelism
+	maxScale := int32(1)
+	if step.pipelineInfo.Details.ParallelismSpec != nil && step.pipelineInfo.Details.ParallelismSpec.Constant > 0 {
+		maxScale = int32(step.pipelineInfo.Details.ParallelismSpec.Constant)
 	}
 
 	// update pipeline RC
 	return step.updateRC(ctx, func(rc *v1.ReplicationController) bool {
-		if rc.Spec.Replicas != nil && *step.rc.Spec.Replicas > 0 {
-			return false // prior attempt succeeded
+		var curScale int32
+		if rc.Spec.Replicas != nil && *rc.Spec.Replicas > 0 {
+			curScale = *rc.Spec.Replicas
 		}
-		rc.Spec.Replicas = new(int32)
-		if step.pipelineInfo.Details.Autoscaling {
-			*rc.Spec.Replicas = 1
-		} else {
-			*rc.Spec.Replicas = int32(parallelism)
+		targetScale := func() int32 {
+			if !step.pipelineInfo.Details.Autoscaling {
+				return maxScale // don't bother if Autoscaling is off
+			}
+			if curScale == 0 {
+				return 1 // make one pod to be the worker master & calculate tasks
+			}
+
+			// Master is scheduled; see if tasks have been calculated
+			taskService := step.pc.env.TaskService
+			nTasks64, _, err := taskService.TaskCount(ctx, driver.TaskNamespace(step.pipelineInfo))
+			nTasks := int32(nTasks64) // for cmp. with curScale, if err != nil
+
+			// Set parallelism
+			log.Debugf("Beginning scale-up check for %q, which has %d tasks",
+				step.pipelineInfo.Pipeline.Name, nTasks)
+			switch {
+			case err != nil || nTasks == 0:
+				log.Errorf("tasks remaining for %q not known (possibly still being calculated): %v",
+					step.pipelineInfo.Pipeline.Name, err)
+				// schedule another step in scaleUpInterval, to check the tasks again
+				go func() {
+					time.Sleep(scaleUpInterval)
+					// Normally, it's necessary to acquire the mutex in step.pc.pcMgr and
+					// then read the latest pipelineController from pcMgr before calling
+					// Bump(), in order to avoid Bumping a dead pipelineController and
+					// dropping a Bump event. But in this case, we'd rather drop the Bump
+					// event. If this pipeline was recently updated, the new pipeline may
+					// not have autoscaling, or it may simply not make sense to trigger an
+					// update anymore.
+					if step.pc.ctx.Err() == nil {
+						step.pc.Bump(time.Time{}) // no ts, as it's not a new event
+					}
+				}()
+				return curScale // leave pipeline alone until until nTasks is available
+			case nTasks <= curScale:
+				return curScale // can't scale down w/o dropping work
+			case nTasks <= maxScale:
+				return nTasks
+			default:
+				return maxScale
+			}
+		}()
+
+		if curScale == targetScale {
+			return false // no changes necessary
 		}
+
+		// Update the # of replicas
+		rc.Spec.Replicas = &targetScale
 		return true
 	})
 }
