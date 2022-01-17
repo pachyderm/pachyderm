@@ -85,8 +85,6 @@ case "${BUCKET}" in
     ;;
   PFS)
     make test-pfs-server
-    ;;
-  FUSE)
     make test-fuse
     ;;
   PPS?)

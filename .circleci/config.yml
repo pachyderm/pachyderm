@@ -183,7 +183,6 @@ workflows:
               - AUTH
               - ENTERPRISE
               - PFS
-              - FUSE
               - PPS1
               - PPS2
               - PPS3
