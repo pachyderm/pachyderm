@@ -6,7 +6,6 @@ package fuse
 
 import (
 	"context"
-	"fmt"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -569,8 +568,6 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	if commit == "" {
 		return nil
 	}
-	// XXX translate name -> repo
-	fmt.Printf("*** COMMIT repoOpts: %+v\n", n.root().repoOpts)
 	ro, ok := n.root().repoOpts[name]
 	if !ok {
 		// not ready or something?
@@ -640,7 +637,6 @@ func (n *loopbackNode) commit(name string) (string, error) {
 	}(); ok {
 		return commit, nil
 	}
-	fmt.Printf("*** COMMIT repoOpts: %+v\n", n.root().repoOpts)
 	ro, ok := n.root().repoOpts[name]
 	if !ok {
 		// not ready or something?
@@ -663,7 +659,6 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		return "", nil
 	}
 	n.root().commits[name] = bi.Head.ID
-	fmt.Printf("*** COMMIT END commits: %+v\n", n.root().commits)
 	return bi.Head.ID, nil
 }
 
