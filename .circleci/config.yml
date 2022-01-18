@@ -184,6 +184,7 @@ jobs:
     executor: redhat-openshift/machine-for-local-cluster
     steps:
       - checkout
+      - run: ./etc/testing/circle/install.sh
       - run: ./etc/testing/circle/build-openshift.sh
       - redhat-openshift/create-local-cluster-with-oc:
           skip-registry-check: true
