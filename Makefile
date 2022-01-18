@@ -118,11 +118,13 @@ docker-tag:
 	docker tag pachyderm/pachd pachyderm/pachd:$(VERSION)
 	docker tag pachyderm/worker pachyderm/worker:$(VERSION)
 	docker tag pachyderm/pachctl pachyderm/pachctl:$(VERSION)
+	docker tag pachyderm/pachtf pachyderm/pachtf:$(VERSION)
 
 docker-push: docker-tag
 	$(SKIP) docker push pachyderm/pachd:$(VERSION)
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
+	$(SKIP) docker push pachyderm/pachtf:$(VERSION)
 
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.5.1
