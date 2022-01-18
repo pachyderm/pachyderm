@@ -91,9 +91,9 @@ will still be in the `HEAD` of the branch.
 
 
 ## Creating a Pipeline using a Template
-[Pipeline templates](../pipeline-template/) let you create a pipeline while passing a set of parameters dynamically. With pipeline templates, you can. for example,create multiple pipelines out of the same template while pointing to different input repositories, or parameterize the command line used to trensform your input data, or dynamically pass a different image to train various models on the same dataset. 
+[Pipeline templates](../pipeline-template/) let you create a pipeline while passing a set of parameters dynamically. With pipeline templates, you can. For example, create multiple pipelines out of the same template while pointing to different input repositories, parameterize the command line to transform your input data, or dynamically pass another image to train various models on the same dataset. 
 
-For ilustration purposes, in the following example, we are creating a pipeline named `edges-1` and point its input repository to the repo 'images':
+For illustration purposes, in the following example, we are creating a pipeline named `edges-1` and pointing its input repository to the repo 'images':
 ```shell
 pachctl create pipeline --jsonnet templates/edges.jsonnet --arg suffix=1 --arg src=images
 ```
