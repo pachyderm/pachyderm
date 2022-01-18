@@ -186,9 +186,9 @@ jobs:
     machine:
       image: ubuntu-2004:202101-01
     steps:
-      - checkout
-      - run: ./etc/testing/circle/install.sh
-      - run: ./etc/testing/circle/build-openshift.sh
+      # - checkout
+      # - run: ./etc/testing/circle/install.sh
+      # - run: ./etc/testing/circle/build-openshift.sh
       - redhat-openshift/create-local-cluster-with-oc:
           skip-registry-check: true
       - redhat-openshift/login-and-update-kubeconfig:
@@ -202,8 +202,8 @@ jobs:
             oc new-project pach-test
           name: Create OS Project
       - run: kubectl config set-context $(kubectl config current-context) --namespace=pach-test
-      - run: ./etc/testing/circle/push-openshift.sh
-      - run: ./etc/testing/circle/launch-openshift.sh
+      # - run: ./etc/testing/circle/push-openshift.sh
+      # - run: ./etc/testing/circle/launch-openshift.sh
 
 workflows:
   # circleci:
