@@ -134,7 +134,7 @@ To update the code in your pipeline, complete the following steps:
           DockerHub, see [Docker Documentation](https://docs.docker.com/docker-hub/){target=_blank}.
 
             !!! Important
-                Make sure to update your tag every time you re-build. Our pull policy is `IfNotPresent` (Only pull the image if it does not already exist on the node.) . Failing to update your tag will result in your pipeline running on a previous version of your code.
+                Make sure to update your tag every time you re-build. Our pull policy is `IfNotPresent` (Only pull the image if it does not already exist on the node.). Failing to update your tag will result in your pipeline running on a previous version of your code.
 
          1. Update the `transform.image` field of your pipeline spec with your new tag.
 
@@ -143,3 +143,33 @@ To update the code in your pipeline, complete the following steps:
             ```shell
             pachctl update pipeline -f <pipeline.json>
             ```
+      * If you choose to use a [templated version of your pipeline](./pipeline-template.md):
+
+         1. Pass the tag of your image to your function: in your template:
+
+         As an example, see the `tag` parameter in the templated version of the edges pipeline (`edges.jsonnet`):
+         
+         ```shell
+         function(suffix, tag)
+            {
+            pipeline: { name: "edges-"+suffix },
+            description: "OpenCV edge detection on "+src,
+            input: {
+               pfs: {
+                  name: "images",
+                  glob: "/*",
+                  repo: "images",
+               }
+            },
+            transform: {
+               cmd: [ "python3", "/edges.py" ],
+               image: "pachyderm/opencv:"+tag
+            }
+            }
+         ```
+
+         1. Once your pipeline code is updated and your image is built, tagged and pushed, update your pipeline using this command line. In this case, there is no need to edit the pipeline specification file to add  the value of your new tag. The command will take care of it.
+
+         ```shell
+         pachctl update pipeline --jsonnet templates/edges.jsonnet --arg suffix=1 --arg tag=1.0.2
+         ```
