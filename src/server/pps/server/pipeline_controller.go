@@ -803,13 +803,13 @@ func (step *pcStep) updateRC(ctx context.Context, update func(rc *v1.Replication
 	defer step.pc.pcMgr.limiter.Release()
 
 	// Apply op's update to rc
-	newRC := *step.rc
-	if update(&newRC) {
+	newRC := step.rc.DeepCopy()
+	if update(newRC) {
 		// write updated RC to k8s
-		if _, err := rc.Update(ctx, &newRC, metav1.UpdateOptions{}); err != nil {
+		if _, err := rc.Update(ctx, newRC, metav1.UpdateOptions{}); err != nil {
 			return newRetriableError(err, "error updating RC")
 		}
-		*step.rc = newRC
+		step.rc = newRC
 	}
 	return nil
 }
