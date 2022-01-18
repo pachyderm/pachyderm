@@ -182,6 +182,9 @@ jobs:
           fi;
   openshift:
     executor: redhat-openshift/machine-for-local-cluster
+    resource_class: large
+    machine:
+      image: ubuntu-2004:202101-01
     steps:
       - checkout
       - run: ./etc/testing/circle/install.sh
