@@ -7,6 +7,7 @@ import {
 import React, {useCallback} from 'react';
 
 import {usePutFilesFromUrLsMutation} from '@dash-frontend/generated/hooks';
+import useAccount from '@dash-frontend/hooks/useAccount';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const files = {
@@ -36,6 +37,7 @@ const AddImagesTask: React.FC<TaskComponentProps> = ({
 }) => {
   const {register, setDisabled, setUploaded} = useMultiSelectModule({files});
   const {projectId} = useUrlState();
+  const {tutorialId, loading: accountLoading} = useAccount();
 
   const [putFilesFromURLsMutation, {loading}] = usePutFilesFromUrLsMutation({
     onCompleted: () => {
@@ -52,9 +54,16 @@ const AddImagesTask: React.FC<TaskComponentProps> = ({
       )
       .map((file) => ({url: file, path: register.files[file].path}));
     putFilesFromURLsMutation({
-      variables: {args: {files, branch: 'master', repo: 'images', projectId}},
+      variables: {
+        args: {
+          files,
+          branch: 'master',
+          repo: `images_${tutorialId}`,
+          projectId,
+        },
+      },
     });
-  }, [register.files, putFilesFromURLsMutation, projectId]);
+  }, [register.files, putFilesFromURLsMutation, projectId, tutorialId]);
 
   const action = useCallback(() => {
     if (!loading) {
@@ -74,8 +83,13 @@ const AddImagesTask: React.FC<TaskComponentProps> = ({
         'Select one or more images and click "add" to get them added to the images input repo. Since we already added the edges pipeline, you\'ll see them get processed automatically.'
       }
       action={action}
+      disabled={accountLoading}
     >
-      <MultiSelectModule type="image" repo="images" {...register} />
+      <MultiSelectModule
+        type="image"
+        repo={`images_${tutorialId}`}
+        {...register}
+      />
     </TaskCard>
   );
 };

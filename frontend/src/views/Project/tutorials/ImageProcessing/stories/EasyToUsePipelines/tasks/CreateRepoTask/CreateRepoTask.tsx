@@ -7,6 +7,7 @@ import {
 import React from 'react';
 
 import {useCreateRepoMutation} from '@dash-frontend/generated/hooks';
+import useAccount from '@dash-frontend/hooks/useAccount';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const CreateRepoTask: React.FC<TaskComponentProps> = ({
@@ -16,10 +17,11 @@ const CreateRepoTask: React.FC<TaskComponentProps> = ({
   name,
 }) => {
   const {projectId} = useUrlState();
+  const {tutorialId, loading: accountLoading} = useAccount();
   const [createRepo, {loading}] = useCreateRepoMutation({
     variables: {
       args: {
-        name: 'images',
+        name: `images_${tutorialId}`,
         projectId,
       },
     },
@@ -37,9 +39,10 @@ const CreateRepoTask: React.FC<TaskComponentProps> = ({
       taskInfo={
         'You must create the images repo before you create the "edges" pipeline that uses it'
       }
+      disabled={accountLoading}
     >
       {loading && <LoadingDots />}
-      <Terminal>pachctl create repo images</Terminal>
+      <Terminal>{`pachctl create repo images_${tutorialId}`}</Terminal>
     </TaskCard>
   );
 };

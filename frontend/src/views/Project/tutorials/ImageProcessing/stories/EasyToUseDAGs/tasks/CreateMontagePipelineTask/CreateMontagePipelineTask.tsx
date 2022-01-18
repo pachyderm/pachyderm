@@ -6,6 +6,7 @@ import {
 } from '@pachyderm/components';
 import React from 'react';
 
+import useAccount from '@dash-frontend/hooks/useAccount';
 import useCreatePipeline from '@dash-frontend/hooks/useCreatePipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
@@ -39,10 +40,11 @@ const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
   name,
 }) => {
   const {projectId} = useUrlState();
+  const {tutorialId, loading: accountLoading} = useAccount();
 
   const {createPipeline, status} = useCreatePipeline(
     {
-      name: 'montage',
+      name: `montage_${tutorialId}`,
       description:
         'A pipeline that combines images from the `images` and `edges` repositories into a montage.',
       transform: {
@@ -53,8 +55,16 @@ const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
         ],
       },
       crossList: [
-        {name: 'images', repo: {name: 'images'}, glob: '/'},
-        {name: 'edges', repo: {name: 'edges'}, glob: '/'},
+        {
+          name: `images_montage_${tutorialId}`,
+          repo: {name: `images_${tutorialId}`},
+          glob: '/',
+        },
+        {
+          name: `edges_${tutorialId}`,
+          repo: {name: `edges_${tutorialId}`},
+          glob: '/',
+        },
       ],
       projectId: projectId,
     },
@@ -81,6 +91,7 @@ const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
           pipeline as its input.
         </p>
       }
+      disabled={accountLoading}
     >
       {status.loading ? <LoadingDots /> : null}
       <ConfigurationUploadModule file={file} />

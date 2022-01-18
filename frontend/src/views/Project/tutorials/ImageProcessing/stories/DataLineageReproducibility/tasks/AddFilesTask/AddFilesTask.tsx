@@ -7,6 +7,7 @@ import {
 import React, {useCallback} from 'react';
 
 import {usePutFilesFromUrLsMutation} from '@dash-frontend/generated/hooks';
+import useAccount from '@dash-frontend/hooks/useAccount';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const files = {
@@ -36,6 +37,7 @@ const AddFilesTask: React.FC<TaskComponentProps> = ({
 }) => {
   const {projectId} = useUrlState();
 
+  const {tutorialId, loading: accountLoading} = useAccount();
   const {register, setDisabled, setUploaded} = useMultiSelectModule({files});
 
   const [putFilesFromURLsMutation, {loading}] = usePutFilesFromUrLsMutation({
@@ -56,13 +58,14 @@ const AddFilesTask: React.FC<TaskComponentProps> = ({
               .filter((url) => register.files[url].selected)
               .map((url) => ({url, path: register.files[url].path})),
             branch: 'master',
-            repo: 'images',
+            repo: `images_${tutorialId}`,
             projectId,
           },
         },
       });
     }
   }, [
+    tutorialId,
     setDisabled,
     putFilesFromURLsMutation,
     projectId,
@@ -75,6 +78,7 @@ const AddFilesTask: React.FC<TaskComponentProps> = ({
       task={name}
       index={index}
       action={action}
+      disabled={accountLoading}
       currentTask={currentTask}
       actionText="Add these images"
       taskInfoTitle="Adding images to see the montage change"
@@ -87,7 +91,11 @@ const AddFilesTask: React.FC<TaskComponentProps> = ({
         </p>
       }
     >
-      <MultiSelectModule repo="images" type="image" {...register} />
+      <MultiSelectModule
+        repo={`images_${tutorialId}`}
+        type="image"
+        {...register}
+      />
     </TaskCard>
   );
 };

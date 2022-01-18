@@ -1,6 +1,7 @@
 import {TaskComponentProps, TaskCard, Terminal} from '@pachyderm/components';
 import React, {useCallback} from 'react';
 
+import useAccount from '@dash-frontend/hooks/useAccount';
 import useCreateBranch from '@dash-frontend/hooks/useCreateBranch';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
@@ -11,17 +12,21 @@ const MoveBranchTask: React.FC<TaskComponentProps> = ({
   name,
 }) => {
   const {projectId} = useUrlState();
+  const {tutorialId, loading: accountLoading} = useAccount();
   const onCreateBranch = useCallback(() => {
     onCompleted();
   }, [onCompleted]);
   const {createBranch} = useCreateBranch(onCreateBranch);
   const action = useCallback(() => {
     createBranch({
-      head: {id: '^', branch: {name: 'master', repo: {name: 'images'}}},
-      branch: {name: 'master', repo: {name: 'images'}},
+      head: {
+        id: '^',
+        branch: {name: 'master', repo: {name: `images_${tutorialId}`}},
+      },
+      branch: {name: 'master', repo: {name: `images_${tutorialId}`}},
       projectId,
     });
-  }, [createBranch, projectId]);
+  }, [createBranch, projectId, tutorialId]);
 
   return (
     <TaskCard
@@ -38,9 +43,10 @@ const MoveBranchTask: React.FC<TaskComponentProps> = ({
           to its former state.
         </p>
       }
+      disabled={accountLoading}
     >
       <Terminal>
-        pachctl create branch images@master --head images@master^
+        {`pachctl create branch images_${tutorialId}@master --head images@master^`}
       </Terminal>
     </TaskCard>
   );

@@ -78,6 +78,7 @@ describe('Image Processing', () => {
       name: 'Create the images repo',
     });
 
+    await waitFor(() => expect(repoCreationButton).not.toBeDisabled());
     click(repoCreationButton);
 
     expect(await findByText('Task Completed!')).toBeInTheDocument();

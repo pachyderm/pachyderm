@@ -6,6 +6,7 @@ import {
 } from '@pachyderm/components';
 import React from 'react';
 
+import useAccount from '@dash-frontend/hooks/useAccount';
 import useCreatePipeline from '@dash-frontend/hooks/useCreatePipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
@@ -31,15 +32,20 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
   name,
 }) => {
   const {projectId} = useUrlState();
+  const {tutorialId, loading: accountLoading} = useAccount();
 
   const {createPipeline, status} = useCreatePipeline(
     {
-      name: 'edges',
+      name: `edges_${tutorialId}`,
       transform: {
-        image: 'pachyderm/opencv',
-        cmdList: ['python3', '/edges.py'],
+        image: 'pachyderm/console-opencv:latest',
+        cmdList: ['python3', '/edges.py', tutorialId],
       },
-      pfs: {name: 'images', repo: {name: 'images'}, glob: '/*'},
+      pfs: {
+        name: `images_${tutorialId}`,
+        repo: {name: `images_${tutorialId}`},
+        glob: '/*',
+      },
       projectId: projectId,
     },
     onCompleted,
@@ -70,6 +76,7 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
           <p>The definition of this pipeline looks like this, in YAML</p>
         </>
       }
+      disabled={accountLoading}
     >
       {status.loading ? <LoadingDots /> : null}
       <ConfigurationUploadModule file={file} />
