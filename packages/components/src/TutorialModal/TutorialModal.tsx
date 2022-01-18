@@ -9,6 +9,7 @@ type TutorialModalProps = {
   stories: Story[];
   initialStep?: number;
   iniitalTask?: number;
+  onTutorialComplete?: () => void;
 };
 
 const TutorialModal: React.FC<TutorialModalProps> = (props) => {

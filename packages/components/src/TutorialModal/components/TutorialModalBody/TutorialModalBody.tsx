@@ -1,4 +1,5 @@
 import classNames from 'classnames';
+import noop from 'lodash/noop';
 import React, {ReactNode} from 'react';
 
 import {Button} from 'Button';
@@ -17,6 +18,7 @@ type TutorialModalBodyProps = {
   stories: Story[];
   initialStory?: number;
   iniitalTask?: number;
+  onTutorialComplete?: () => void;
 };
 
 const NextTaskInstance: React.FC<{
@@ -50,6 +52,7 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
   stories,
   initialStory = 0,
   iniitalTask = 0,
+  onTutorialComplete = noop,
 }) => {
   const {
     currentStory,
@@ -173,23 +176,33 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
                 </div>
               );
             })}
-            <TaskCard
-              index={taskSections.length}
-              currentTask={currentTask}
-              task={
-                <div>
-                  <MinimizeSVG className={styles.minimizeSVG} /> Contine to the
-                  next story
-                </div>
-              }
-              action={handleNextStory}
-              actionText={
-                <>
-                  Next Story
-                  <ArrowRightSVG className={styles.rightArrow} />
-                </>
-              }
-            />
+            {currentStory < stories.length - 1 ? (
+              <TaskCard
+                index={taskSections.length}
+                currentTask={currentTask}
+                task={
+                  <div>
+                    <MinimizeSVG className={styles.minimizeSVG} /> Contine to
+                    the next story
+                  </div>
+                }
+                action={handleNextStory}
+                actionText={
+                  <>
+                    Next Story
+                    <ArrowRightSVG className={styles.rightArrow} />
+                  </>
+                }
+              />
+            ) : (
+              <TaskCard
+                index={taskSections.length}
+                currentTask={currentTask}
+                task={<div>Tutorial Complete!</div>}
+                action={onTutorialComplete}
+                actionText={<>Close Tutorial</>}
+              />
+            )}
           </div>
         </div>
       </div>
