@@ -562,7 +562,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 			Template: c.template,
 			Rev:      m.UpdatedAt.Unix(),
 		})
-	}); err != nil && err != errutil.ErrBreak {
+	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
 		// Ignore any additional error here - we're already attempting to send an error to the user
 		watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
 		watcher.listener.Unregister(watcher)
