@@ -68,13 +68,13 @@ func waitForPachd(t *testing.T, ctx context.Context, kubeClient *kube.Clientset,
 func InstallPublishedRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, version, user string) *client.APIClient {
 	require.NoError(t, helm.InstallE(t, localDeploymentWithMinioOptions(ns, version), helmChartPublishedPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, version)
-	return GetAuthenticatedPachClient(t, user)
+	return GetNewAuthenticatedPachClient(t, user)
 }
 
 func UpgradeRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, user string) *client.APIClient {
 	require.NoError(t, helm.UpgradeE(t, localDeploymentWithMinioOptions(ns, localImage), helmChartLocalPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, localImage)
-	return GetAuthenticatedPachClient(t, user)
+	return GetNewAuthenticatedPachClient(t, user)
 }
 
 func DeleteRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset) {
