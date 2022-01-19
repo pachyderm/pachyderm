@@ -37,6 +37,7 @@ Tests to write:
 	- there is no cache interference between them
 - listing repos works and shows status
 - when a repo is deleted in pachyderm it shows up as missing
+- cp works (ff16dadac35bfd3f459d537fe68b788c8568db8a fixed it)
 
 */
 
