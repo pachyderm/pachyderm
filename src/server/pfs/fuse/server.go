@@ -342,7 +342,7 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		Write: true,
 		Fuse: &fs.Options{
 			MountOptions: gofuse.MountOptions{
-				Debug:  false,
+				Debug:  true,
 				FsName: "pfs",
 				Name:   "pfs",
 			},

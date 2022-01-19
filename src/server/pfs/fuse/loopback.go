@@ -6,6 +6,7 @@ package fuse
 
 import (
 	"context"
+	"fmt"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -80,6 +81,7 @@ func (n *loopbackNode) Statfs(ctx context.Context, out *fuse.StatfsOut) syscall.
 	s := syscall.Statfs_t{}
 	err := syscall.Statfs(n.path(), &s)
 	if err != nil {
+		fmt.Printf("Statfs returning %s\n", err)
 		return fs.ToErrno(err)
 	}
 	out.FromStatfsT(&s)
@@ -91,6 +93,7 @@ func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 	st := syscall.Stat_t{}
 	err := syscall.Stat(r.rootPath, &st)
 	if err != nil {
+		fmt.Printf("Getattr returning %s\n", err)
 		return fs.ToErrno(err)
 	}
 	out.FromStat(&st)
@@ -111,35 +114,42 @@ func (n *loopbackNode) path() string {
 }
 
 func (n *loopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+	fmt.Printf("Lookup called with %s\n", name)
 	p := filepath.Join(n.path(), name)
 	if err := n.download(p, meta); err != nil {
+		fmt.Printf("Lookup #1 returning %s\n", err)
 		return nil, fs.ToErrno(err)
 	}
 
 	st := syscall.Stat_t{}
 	err := syscall.Lstat(p, &st)
 	if err != nil {
+		fmt.Printf("Lookup #2 returning %s calling Lstat on %+v ('%s')\n", err, p, p)
 		return nil, fs.ToErrno(err)
 	}
 
 	out.Attr.FromStat(&st)
 	node := &loopbackNode{}
 	ch := n.NewInode(ctx, node, n.root().idFromStat(&st))
+	fmt.Printf("Lookup %s -> %+v\n", name, st)
 	return ch, 0
 }
 
 func (n *loopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	p := filepath.Join(n.path(), name)
 	if errno := n.checkWrite(p); errno != 0 {
+		fmt.Printf("Mknod #1 returning %s\n", errno)
 		return nil, errno
 	}
 	err := syscall.Mknod(p, mode, int(rdev))
 	if err != nil {
+		fmt.Printf("Mknod #2 returning %s\n", err)
 		return nil, fs.ToErrno(err)
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
 		syscall.Rmdir(p)
+		fmt.Printf("Mknod #3 returning %s\n", err)
 		return nil, fs.ToErrno(err)
 	}
 
@@ -154,18 +164,22 @@ func (n *loopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32
 func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	p := filepath.Join(n.path(), name)
 	if errno := n.checkWrite(p); errno != 0 {
+		fmt.Printf("Mkdir #1 returning %s\n", errno)
 		return nil, errno
 	}
 	if err := n.download(p, meta); err != nil {
+		fmt.Printf("Mkdir #2 returning %s\n", err)
 		return nil, fs.ToErrno(err)
 	}
 	err := os.Mkdir(p, os.FileMode(mode))
 	if err != nil {
+		fmt.Printf("Mkdir #3 returning %s\n", err)
 		return nil, fs.ToErrno(err)
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
 		syscall.Rmdir(p)
+		fmt.Printf("Mkdir #4 returning %s\n", err)
 		return nil, fs.ToErrno(err)
 	}
 
@@ -236,7 +250,10 @@ func (r *loopbackRoot) idFromStat(st *syscall.Stat_t) fs.StableAttr {
 	return fs.StableAttr{
 		Mode: uint32(st.Mode),
 		Gen:  1,
-		Ino:  0, // let fuse generate this automatically
+		// From https://github.com/hanwen/go-fuse/blob/master/fs/loopback.go:
+		// "a loopback FS that does not encompass multiple mounts will reflect
+		// the inode numbers of the underlying filesystem"
+		Ino: st.Ino,
 	}
 }
 
@@ -386,10 +403,12 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 
 func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
 	if err := n.download(n.path(), meta); err != nil {
+		fmt.Printf("Opendir #1 returning %s\n", err)
 		return fs.ToErrno(err)
 	}
 	fd, err := syscall.Open(n.path(), syscall.O_DIRECTORY, 0755)
 	if err != nil {
+		fmt.Printf("Opendir #2 returning %s\n", err)
 		return fs.ToErrno(err)
 	}
 	syscall.Close(fd)
@@ -398,6 +417,7 @@ func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
 
 func (n *loopbackNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 	if err := n.download(n.path(), meta); err != nil {
+		fmt.Printf("Readdir #1 returning %s\n", err)
 		return nil, fs.ToErrno(err)
 	}
 	return fs.NewLoopbackDirStream(n.path())
@@ -405,10 +425,14 @@ func (n *loopbackNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno
 
 func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
 	if f != nil {
-		return f.(fs.FileGetattrer).Getattr(ctx, out)
+		// XXX possible error here?
+		r := f.(fs.FileGetattrer).Getattr(ctx, out)
+		fmt.Printf("Getattr happy path from --> %+v", r)
+		return r
 	}
 	p := n.path()
 	if err := n.download(p, meta); err != nil {
+		fmt.Printf("Getattr #1 returning %s\n", err)
 		return fs.ToErrno(err)
 	}
 
@@ -419,6 +443,7 @@ func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 		return fs.ToErrno(err)
 	}
 	out.FromStat(&st)
+	fmt.Printf("Getattr from %s --> %+v", p, st)
 	return fs.OK
 }
 
