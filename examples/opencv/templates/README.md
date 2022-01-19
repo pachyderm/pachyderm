@@ -2,15 +2,11 @@
 
 >![pach_logo](../../img/pach_logo.svg) COMING SOON! This example will require to run Pachyderm 2.1 or later versions.
 
-
-We adapted our opencv tutorial to use pipeline templates.
-In this adapted version, we use 2 templates (`edges.jsonnet` and `montage.jsonnet`) to generate our opencv pipelines.
-
-We then extend the use case and go on to appy the montage template another time, creating another pipeline, identical to the first montage-1.json but different in name montage-2.json and input repositories (now montages and images), thus outputing a montage of a montage.
-
+We adapted our opencv tutorial to use pipeline templates. In this adapted version, we use 2 templates (`edges.jsonnet` and `montage.jsonnet`) to generate our opencv pipelines.
+We then extend the use case and re-apply the montage template a second time, creating another pipeline, identical to the first montage-1.json but different in name montage-2.json and input repositories.
 ## Prerequisites
 
-We are assuming that you have a running version of Pachyderm 2.1 or later, its associalted pachctl CLI and are familiar with the original opencv tutorial.
+We assume that you have a running version of Pachyderm 2.1 or later, its associated pachctl CLI, and are familiar with the original opencv tutorial.
 
 ```shell
 pachctl version
@@ -53,7 +49,7 @@ NAME    CREATED            SIZE (MASTER) DESCRIPTION
 edges-1 35 seconds ago     ≤ 133.6KiB    Output repo for pipeline edges-1.
 images  About a minute ago ≤ 238.3KiB
 ```
-To look at one of its files run:
+To look at one of its files, run:
 
 - On macOS, run:
   ```shell
@@ -66,7 +62,7 @@ To look at one of its files run:
 
 ## Create The Montage Pipeline
 
-Let's add a montage pipeline that take our original and edge detected images and arranges them into a single montage. The pipeline takes 2 input data repositories (`images` and `edges`) which we will pass as arguments to the second template `montage.jsonnet` along with the suffix `1`.
+Let's add a montage pipeline that arranges our images and their edge detected version into a single montage. The pipeline takes 2 input data repositories (`images` and `edges-1`) which we will pass as arguments to the second template `montage.jsonnet` along with the suffix `1`.
 
 ```shell
 pachctl create pipeline --jsonnet montage.jsonnet  --arg suffix=1 --arg left=images --arg right=edges-1
@@ -74,7 +70,7 @@ pachctl create pipeline --jsonnet montage.jsonnet  --arg suffix=1 --arg left=ima
 
 Note that you can pass the full url of your template location.
 
-Again, ceck the state of your pipeline by running `pachctl list pipeline`.
+Again, check the state of your pipeline by running `pachctl list pipeline`.
 ```
 NAME    VERSION INPUT     CREATED       STATE / LAST JOB  DESCRIPTION
 NAME      VERSION INPUT                  CREATED        STATE / LAST JOB  DESCRIPTION

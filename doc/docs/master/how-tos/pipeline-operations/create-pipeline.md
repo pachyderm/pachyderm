@@ -50,6 +50,16 @@ To create a pipeline, complete the following steps:
     ```shell
     pachctl create pipeline -f <pipeline_spec>
     ```
+    !!! Note
+         `pachctl create pipeline -f` also accepts an URL.
+         
+         For example, in our opencv beginner tutorial:
+
+         ```shell
+         pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
+         ```
+
+       
 
 1. Verify that the Kubernetes pod has been created for the pipeline:
 
@@ -82,6 +92,15 @@ To create a pipeline, complete the following steps:
     You should see a pod named after your pipeline in the list of pods.
     In this case, it is `pipeline-edges-v1-qhd4f`.
 
+## Creating a Pipeline using a Template
+
+[Pipeline templates](../pipeline-template/) let you create pipelines while passing a set of parameters dynamically, allowing you to reuse the baseline of a given pipeline while applying variants to chosen fields.
+You can, for example, create multiple pipelines out of the same template while pointing each of them at different input repositories, parameterize a command line in the transform field of your pipelines, or dynamically pass various docker images to train different models on the same dataset. 
+
+For illustration purposes, in the following example, we are creating a pipeline named `edges-1` and pointing its input repository at the repo 'images':
+```shell
+pachctl create pipeline --jsonnet templates/edges.jsonnet --arg suffix=1 --arg src=images
+```
 ## Creating a Pipeline When an Output Repository Already Exists
 
 When you create a pipeline, Pachyderm automatically creates an eponymous output
@@ -89,21 +108,8 @@ repository. However, if such a repo already exists, your pipeline will take
 over the master branch. The files that were stored in the repo before
 will still be in the `HEAD` of the branch.
 
-
-## Creating a Pipeline using a Template
-[Pipeline templates](../pipeline-template/) let you create a pipeline while passing a set of parameters dynamically. With pipeline templates, you can. For example, create multiple pipelines out of the same template while pointing to different input repositories, parameterize the command line to transform your input data, or dynamically pass another image to train various models on the same dataset. 
-
-For illustration purposes, in the following example, we are creating a pipeline named `edges-1` and pointing its input repository to the repo 'images':
-```shell
-pachctl create pipeline --jsonnet templates/edges.jsonnet --arg suffix=1 --arg src=images
-```
-
-
-
-
 !!! note "See Also:"
     - [Pipelines](../../../concepts/pipeline-concepts/pipeline/)
     - [Pipeline Specification](../../../reference/pipeline_spec/)
     - [Update a Pipeline](../updating_pipelines/)
     - [Delete a Pipeline](../delete-pipeline/)
-    - [Pipeline template](../pipeline-template/)

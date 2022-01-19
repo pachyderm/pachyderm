@@ -170,7 +170,7 @@ nav:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
             - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
-            - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.m
+            - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
             - Use Pipeline Templates: how-tos/pipeline-operations/pipeline-templates.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
