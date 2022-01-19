@@ -353,7 +353,6 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 				Command:         []string{"/pach-bin/worker"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             workerEnv,
-				EnvFrom:         envFrom,
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceCPU:    cpuZeroQuantity,
