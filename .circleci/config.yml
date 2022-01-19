@@ -69,7 +69,9 @@ jobs:
                 paths:
                   - /home/circleci/.gocache
       - run: etc/testing/circle/launch.sh
-      - run: etc/testing/circle/run_tests.sh
+      - run: 
+          command: etc/testing/circle/run_tests.sh
+          no_output_timeout: 12m
       - run: etc/testing/circle/upload_stats.sh
       - run:
           name: Dump debugging info in case of failure
