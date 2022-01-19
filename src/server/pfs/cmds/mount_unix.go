@@ -65,6 +65,7 @@ func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 		}
 		// NB: `pachctl mount` always mounts a repo at its own name, but that
 		// key can be something else
+		opts.Name = repo
 		result[repo] = opts
 	}
 	return result, nil

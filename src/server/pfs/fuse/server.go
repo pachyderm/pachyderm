@@ -141,6 +141,7 @@ type MountManager struct {
 	// only put a value into the States map when we have a goroutine running for
 	// it. i.e. when we try to mount it for the first time.
 	States map[MountKey]*MountStateMachine
+	// map from mount name onto mfc for that mount
 	mfcs   map[string]*client.ModifyFileClient
 	root   *loopbackRoot
 	opts   *Options
@@ -160,7 +161,6 @@ func (mm *MountManager) List() (ListResponse, error) {
 	if err != nil {
 		return lr, err
 	}
-	fmt.Printf("repos: %+v\n", repos)
 	for _, repo := range repos {
 		rr := RepoResponse{Name: repo.Repo.Name, Branches: map[string]BranchResponse{}}
 		bs, err := mm.Client.ListBranch(repo.Repo.Name)
@@ -228,7 +228,6 @@ func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, 
 	// name: an optional name for the mount, corresponds to where on the
 	// filesystem the repo actually gets mounted. e.g. /pfs/{name}
 	mm.MaybeStartFsm(key)
-	fmt.Println("Sending mount request...")
 	mm.States[key].requests <- Request{
 		Mount:  true,
 		Repo:   key.Repo,
@@ -237,16 +236,12 @@ func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, 
 		Name:   name,
 		Mode:   mode,
 	}
-	fmt.Println("sent mount request!")
-	fmt.Println("reading mount response...")
 	response := <-mm.States[key].responses
-	fmt.Println("read mount response!")
 	return response, response.Error
 }
 
 func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, error) {
 	mm.MaybeStartFsm(key)
-	fmt.Println("Sending unmount request...")
 	mm.States[key].requests <- Request{
 		Mount:  false,
 		Repo:   key.Repo,
@@ -255,10 +250,7 @@ func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, erro
 		Name:   name,
 		Mode:   "",
 	}
-	fmt.Println("sent unmount request!")
-	fmt.Println("reading unmount response...")
 	response := <-mm.States[key].responses
-	fmt.Println("read unmount response!")
 	return response, response.Error
 }
 
@@ -287,7 +279,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	fmt.Printf("Loopback root at %s\n", rootDir)
 	return &MountManager{
 		Client: c,
-		States: map[MountKey]*MountStateMachine{},
+		States: map[MountKey]*MountStateMachine{}, // TODO: shouldn't this be indexed by mount name, not key?
 		mfcs:   map[string]*client.ModifyFileClient{},
 		root:   root,
 		opts:   opts,
@@ -303,7 +295,6 @@ func (mm *MountManager) Cleanup() error {
 
 func (mm *MountManager) Start() error {
 	fuse := mm.opts.getFuse()
-	fmt.Printf("Starting mount to %s, fuse=%+v\n", mm.target, fuse)
 	server, err := fs.Mount(mm.target, mm.root, fuse)
 	if err != nil {
 		return errors.WithStack(err)
@@ -351,7 +342,6 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		// thread this through for the tests
 		Unmount: sopts.Unmount,
 	}
-	fmt.Printf("mountOpts: %+v\n", mountOpts)
 
 	mm, err := NewMountManager(c, sopts.MountDir, mountOpts)
 	if err != nil {
@@ -603,12 +593,12 @@ func mountingState(m *MountStateMachine) StateFn {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.MountState.Name] = &RepoOptions{
+			Name:   m.Name,
 			Repo:   m.MountKey.Repo,
 			Branch: m.MountKey.Branch,
 			Write:  m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.MountKey.Branch
-		fmt.Printf("*** MOUNTINGSTATE repoOpts: %+v\n", m.manager.root.repoOpts)
 	}()
 	// re-downloading the repos with an updated RepoOptions set will have the
 	// effect of causing it to pop into existence

@@ -38,7 +38,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			// by the repo name. This is different to `pachctl mount-server`
 			// which supports mounting different versions of the same repo at
 			// different named paths.
-			branch := "master" // XXX is the old implementation always defaulting to master?
+			branch := "master"
 			bi, err := c.InspectBranch(ri.Repo.Name, branch)
 			if err != nil && !errutil.IsNotFoundError(err) {
 				return err
@@ -49,6 +49,9 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 				write = false
 			}
 			opts.RepoOptions[ri.Repo.Name] = &RepoOptions{
+				// mount name is same as repo name, i.e. mount it at a directory
+				// named the same as the repo itself
+				Name:   ri.Repo.Name,
 				Repo:   ri.Repo.Name,
 				Branch: branch,
 				Write:  write,

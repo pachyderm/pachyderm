@@ -6,6 +6,7 @@ package fuse
 
 import (
 	"context"
+	"fmt"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -573,9 +574,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	}
 	ro, ok := n.root().repoOpts[name]
 	if !ok {
-		// not ready or something?
-		// XXX should this be an error?
-		return nil
+		return fmt.Errorf("[download] can't find mount named %s", name)
 	}
 	repoName := ro.Repo
 	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
@@ -642,8 +641,9 @@ func (n *loopbackNode) commit(name string) (string, error) {
 	}
 	ro, ok := n.root().repoOpts[name]
 	if !ok {
-		// not ready or something?
-		// XXX should this be an error?
+		// often happens that something tries to access e.g.
+		// /pfs/.python_version or some file that can't exist at that level. not
+		// worth spamming the logs with this
 		return "", nil
 	}
 	repoName := ro.Repo
