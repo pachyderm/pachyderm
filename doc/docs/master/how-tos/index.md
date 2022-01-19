@@ -86,6 +86,10 @@ data operations in Pachyderm.
            Delete a Pipeline
            </a>
            </li>
+           <li><a href="pipeline-operations/pipeline-templates/" class="md-typeset md-link">
+           Use Pipeline Templates
+           </a>
+           </li>
         </ul>
       </div>
     </div>
