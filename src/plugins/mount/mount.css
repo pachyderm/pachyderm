@@ -22,15 +22,23 @@
   margin-top: 5px;
 }
 
+.pachyderm-mount-list-item-name-branch-wrapper {
+  display: flex;
+  width: 100%;
+}
+
 .pachyderm-mount-list-item-name {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  width: 50%;
+  width: 60%;
 }
 
 .pachyderm-mount-list-item-branch {
-  width: 25%;
+  width: 40%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .pachyderm-mount-list-item-branch-select {

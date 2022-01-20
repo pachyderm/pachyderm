@@ -40,9 +40,7 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
     }
   };
 
-  const onClickHandler = (
-    e: React.MouseEvent<HTMLAnchorElement, MouseEvent>,
-  ) => {
+  const onClickHandler = () => {
     mount();
   };
 
@@ -74,28 +72,33 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
     );
   }
   return (
-    <li className="pachyderm-mount-sortableList-item" onClick={openFolder}>
-      <span className="pachyderm-mount-list-item-name">{repo.repo}</span>
-      <span className="pachyderm-mount-list-item-branch">
-        {mountedBanch ? (
-          <>{mountedBanch}</>
-        ) : (
-          <select
-            name="branch"
-            value={selectedBranch}
-            className="pachyderm-mount-list-item-branch-select"
-            onChange={onChange}
-            data-testid="ListItem__select"
-          >
-            {repo.branches.map((branch) => {
-              return (
-                <option key={branch.branch} value={branch.branch}>
-                  {branch.branch}
-                </option>
-              );
-            })}
-          </select>
-        )}
+    <li className="pachyderm-mount-sortableList-item">
+      <span
+        className="pachyderm-mount-list-item-name-branch-wrapper"
+        onClick={openFolder}
+      >
+        <span className="pachyderm-mount-list-item-name">{repo.repo}</span>
+        <span className="pachyderm-mount-list-item-branch">
+          {mountedBanch ? (
+            <>{mountedBanch}</>
+          ) : (
+            <select
+              name="branch"
+              value={selectedBranch}
+              className="pachyderm-mount-list-item-branch-select"
+              onChange={onChange}
+              data-testid="ListItem__select"
+            >
+              {repo.branches.map((branch) => {
+                return (
+                  <option key={branch.branch} value={branch.branch}>
+                    {branch.branch}
+                  </option>
+                );
+              })}
+            </select>
+          )}
+        </span>
       </span>
       <span className="pachyderm-mount-list-item-action">
         <span
