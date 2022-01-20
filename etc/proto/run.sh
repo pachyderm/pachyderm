@@ -49,13 +49,13 @@ Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
 done
 
 pushd src > /dev/stderr
-
+read -ra proto_files < <(find . -name "*.proto" -print0 | xargs -0)
 protoc \
     --proto_path . \
     --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
     "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
     --pach_out="../v2/src" \
-    $(find . -name "*.proto") > /dev/stderr
+    "${proto_files[@]}" > /dev/stderr
 
 popd > /dev/stderr
 
