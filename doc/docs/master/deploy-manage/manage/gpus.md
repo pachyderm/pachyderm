@@ -1,6 +1,6 @@
 # Use GPUs
 
-Pachyderm currently supports GPUs through Kubernetes device plugins. If you
+Pachyderm currently supports GPUs through [Kubernetes device plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/). If you
 already have a GPU enabled Kubernetes cluster through device plugins,
 skip to [Configure GPUs in Pipelines](#configure-gpus-in-pipelines).
 
@@ -31,36 +31,21 @@ passing environment variables through the pipeline spec.
 
 ## Configure GPUs in Pipelines
 
-If you already have a GPU-enabled Kubernetes cluster through device plugins,
-then using GPUs in your pipelines is as simple as setting up a GPU resource
-limit with the type and number of GPUs. The following text is an example
-of a pipeline spec for a GPU-enabled pipeline:
+Once your GPU-enabled Kubernetes cluster is set, 
+you can request a GPU tier in your pipeline speifications
+by [setting up GPU resource limits](../../../reference/pipeline_spec/#resource-requests-optional), along with its type and number of GPUs. 
 
-!!! example
-    ```json hl_lines="12 13 14 15 16"
-    {
-      "pipeline": {
-        "name": "train"
-      },
-      "transform": {
-        "image": "acme/your-gpu-image",
-        "cmd": [
-          "python",
-          "train.py"
-        ],
-      },
-      "resource_limits": {
-        "memory": "1024M",
-        "gpu": {
-          "type": "nvidia.com/gpu",
-          "number": 1
-        }
-      },
-      "inputs": {
-        "pfs": {
-          "repo": "data",
-          "glob": "/*"
-        }
-      ]
-    }
-    ```
+!!! Important
+      By default, Pachyderm workers are spun up and wait for new input. That works great for pipelines that are processing a lot of new incoming commits. However, for lower volume of input commits, you could have your pipeline workers 'taking' the GPU resource as far as k8s is concerned, but 'idling' as far as you are concerned. 
+
+        - Make sure to set the `autoscaling` field to `true` so that if your pipeline is not getting used, the worker pods get spun down and you free the GPU resource.
+        - Additionally, specify how much of GPU your pipeline worker will need via the `resource_requests` fields in your [pipeline specification](../../../reference/pipeline_spec/#resource-requests-optional) with `ressource_requests` <= `resource_limits`.
+
+
+Below is an example of a pipeline spec for a GPU-enabled pipeline from our [market sentiment analysis example](https://github.com/pachyderm/examples/tree/master/market-sentiment){target=_blank}:
+
+```yaml
+{{ gitsnippet('pachyderm/examples', 'market-sentiment/pachyderm/train_model.json', '2.0.x') }}
+```
+
+
