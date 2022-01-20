@@ -1,6 +1,14 @@
 
 # Changelog
 
+2.0.6
+- Stream lists from batched queries - #7243
+- Pass postgres secret reference from pachd to workers - #7235
+- Include usernames in gRPC logs - #7239
+- Stop pachctl mount panicking on unmount - #7098
+- Add loki log collection to debug dump - #7234
+- Collect alias commits in debug dump - #7232
+
 2.0.5
 - Make ingress work for enterprise server - #7224
 - Unset Worker SecurityContexts when pachd.securityContext.enabled=false - #7223
