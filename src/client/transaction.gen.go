@@ -5,18 +5,18 @@ package client
 import (
 	"context"
 
-  "github.com/pachyderm/pachyderm/v2/src/proxy"
-  "github.com/pachyderm/pachyderm/v2/src/auth"
-  "github.com/pachyderm/pachyderm/v2/src/pfs"
-  "github.com/pachyderm/pachyderm/v2/src/pps"
-  "github.com/pachyderm/pachyderm/v2/src/admin"
-  "github.com/pachyderm/pachyderm/v2/src/debug"
-  "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-  "github.com/pachyderm/pachyderm/v2/src/enterprise"
-  "github.com/pachyderm/pachyderm/v2/src/license"
-  "github.com/pachyderm/pachyderm/v2/src/identity"
-  "github.com/pachyderm/pachyderm/v2/src/transaction"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	types "github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
@@ -26,13 +26,61 @@ func unsupportedError(name string) error {
 	return errors.Errorf("the '%s' API call is not supported in transactions", name)
 }
 
-type unsupportedProxyBuilderClient struct {}
+type unsupportedIdentityBuilderClient struct{}
 
-func (c *unsupportedProxyBuilderClient) Listen(_ context.Context, _ *proxy.ListenRequest, opts ...grpc.CallOption) (proxy.API_ListenClient, error) {
-	return nil, unsupportedError("Listen")
+func (c *unsupportedIdentityBuilderClient) SetIdentityServerConfig(_ context.Context, _ *identity.SetIdentityServerConfigRequest, opts ...grpc.CallOption) (*identity.SetIdentityServerConfigResponse, error) {
+	return nil, unsupportedError("SetIdentityServerConfig")
 }
 
-type unsupportedAuthBuilderClient struct {}
+func (c *unsupportedIdentityBuilderClient) GetIdentityServerConfig(_ context.Context, _ *identity.GetIdentityServerConfigRequest, opts ...grpc.CallOption) (*identity.GetIdentityServerConfigResponse, error) {
+	return nil, unsupportedError("GetIdentityServerConfig")
+}
+
+func (c *unsupportedIdentityBuilderClient) CreateIDPConnector(_ context.Context, _ *identity.CreateIDPConnectorRequest, opts ...grpc.CallOption) (*identity.CreateIDPConnectorResponse, error) {
+	return nil, unsupportedError("CreateIDPConnector")
+}
+
+func (c *unsupportedIdentityBuilderClient) UpdateIDPConnector(_ context.Context, _ *identity.UpdateIDPConnectorRequest, opts ...grpc.CallOption) (*identity.UpdateIDPConnectorResponse, error) {
+	return nil, unsupportedError("UpdateIDPConnector")
+}
+
+func (c *unsupportedIdentityBuilderClient) ListIDPConnectors(_ context.Context, _ *identity.ListIDPConnectorsRequest, opts ...grpc.CallOption) (*identity.ListIDPConnectorsResponse, error) {
+	return nil, unsupportedError("ListIDPConnectors")
+}
+
+func (c *unsupportedIdentityBuilderClient) GetIDPConnector(_ context.Context, _ *identity.GetIDPConnectorRequest, opts ...grpc.CallOption) (*identity.GetIDPConnectorResponse, error) {
+	return nil, unsupportedError("GetIDPConnector")
+}
+
+func (c *unsupportedIdentityBuilderClient) DeleteIDPConnector(_ context.Context, _ *identity.DeleteIDPConnectorRequest, opts ...grpc.CallOption) (*identity.DeleteIDPConnectorResponse, error) {
+	return nil, unsupportedError("DeleteIDPConnector")
+}
+
+func (c *unsupportedIdentityBuilderClient) CreateOIDCClient(_ context.Context, _ *identity.CreateOIDCClientRequest, opts ...grpc.CallOption) (*identity.CreateOIDCClientResponse, error) {
+	return nil, unsupportedError("CreateOIDCClient")
+}
+
+func (c *unsupportedIdentityBuilderClient) UpdateOIDCClient(_ context.Context, _ *identity.UpdateOIDCClientRequest, opts ...grpc.CallOption) (*identity.UpdateOIDCClientResponse, error) {
+	return nil, unsupportedError("UpdateOIDCClient")
+}
+
+func (c *unsupportedIdentityBuilderClient) GetOIDCClient(_ context.Context, _ *identity.GetOIDCClientRequest, opts ...grpc.CallOption) (*identity.GetOIDCClientResponse, error) {
+	return nil, unsupportedError("GetOIDCClient")
+}
+
+func (c *unsupportedIdentityBuilderClient) ListOIDCClients(_ context.Context, _ *identity.ListOIDCClientsRequest, opts ...grpc.CallOption) (*identity.ListOIDCClientsResponse, error) {
+	return nil, unsupportedError("ListOIDCClients")
+}
+
+func (c *unsupportedIdentityBuilderClient) DeleteOIDCClient(_ context.Context, _ *identity.DeleteOIDCClientRequest, opts ...grpc.CallOption) (*identity.DeleteOIDCClientResponse, error) {
+	return nil, unsupportedError("DeleteOIDCClient")
+}
+
+func (c *unsupportedIdentityBuilderClient) DeleteAll(_ context.Context, _ *identity.DeleteAllRequest, opts ...grpc.CallOption) (*identity.DeleteAllResponse, error) {
+	return nil, unsupportedError("DeleteAll")
+}
+
+type unsupportedAuthBuilderClient struct{}
 
 func (c *unsupportedAuthBuilderClient) Activate(_ context.Context, _ *auth.ActivateRequest, opts ...grpc.CallOption) (*auth.ActivateResponse, error) {
 	return nil, unsupportedError("Activate")
@@ -134,7 +182,7 @@ func (c *unsupportedAuthBuilderClient) RotateRootToken(_ context.Context, _ *aut
 	return nil, unsupportedError("RotateRootToken")
 }
 
-type unsupportedPfsBuilderClient struct {}
+type unsupportedPfsBuilderClient struct{}
 
 func (c *unsupportedPfsBuilderClient) CreateRepo(_ context.Context, _ *pfs.CreateRepoRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("CreateRepo")
@@ -284,7 +332,7 @@ func (c *unsupportedPfsBuilderClient) RunLoadTestDefault(_ context.Context, _ *t
 	return nil, unsupportedError("RunLoadTestDefault")
 }
 
-type unsupportedPpsBuilderClient struct {}
+type unsupportedPpsBuilderClient struct{}
 
 func (c *unsupportedPpsBuilderClient) InspectJob(_ context.Context, _ *pps.InspectJobRequest, opts ...grpc.CallOption) (*pps.JobInfo, error) {
 	return nil, unsupportedError("InspectJob")
@@ -398,33 +446,7 @@ func (c *unsupportedPpsBuilderClient) RunLoadTestDefault(_ context.Context, _ *t
 	return nil, unsupportedError("RunLoadTestDefault")
 }
 
-type unsupportedAdminBuilderClient struct {}
-
-func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*admin.ClusterInfo, error) {
-	return nil, unsupportedError("InspectCluster")
-}
-
-type unsupportedDebugBuilderClient struct {}
-
-func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug.ProfileRequest, opts ...grpc.CallOption) (debug.Debug_ProfileClient, error) {
-	return nil, unsupportedError("Profile")
-}
-
-func (c *unsupportedDebugBuilderClient) Binary(_ context.Context, _ *debug.BinaryRequest, opts ...grpc.CallOption) (debug.Debug_BinaryClient, error) {
-	return nil, unsupportedError("Binary")
-}
-
-func (c *unsupportedDebugBuilderClient) Dump(_ context.Context, _ *debug.DumpRequest, opts ...grpc.CallOption) (debug.Debug_DumpClient, error) {
-	return nil, unsupportedError("Dump")
-}
-
-type unsupportedVersionpbBuilderClient struct {}
-
-func (c *unsupportedVersionpbBuilderClient) GetVersion(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*versionpb.Version, error) {
-	return nil, unsupportedError("GetVersion")
-}
-
-type unsupportedEnterpriseBuilderClient struct {}
+type unsupportedEnterpriseBuilderClient struct{}
 
 func (c *unsupportedEnterpriseBuilderClient) Activate(_ context.Context, _ *enterprise.ActivateRequest, opts ...grpc.CallOption) (*enterprise.ActivateResponse, error) {
 	return nil, unsupportedError("Activate")
@@ -446,7 +468,7 @@ func (c *unsupportedEnterpriseBuilderClient) Deactivate(_ context.Context, _ *en
 	return nil, unsupportedError("Deactivate")
 }
 
-type unsupportedLicenseBuilderClient struct {}
+type unsupportedLicenseBuilderClient struct{}
 
 func (c *unsupportedLicenseBuilderClient) Activate(_ context.Context, _ *license.ActivateRequest, opts ...grpc.CallOption) (*license.ActivateResponse, error) {
 	return nil, unsupportedError("Activate")
@@ -484,61 +506,39 @@ func (c *unsupportedLicenseBuilderClient) ListUserClusters(_ context.Context, _ 
 	return nil, unsupportedError("ListUserClusters")
 }
 
-type unsupportedIdentityBuilderClient struct {}
+type unsupportedAdminBuilderClient struct{}
 
-func (c *unsupportedIdentityBuilderClient) SetIdentityServerConfig(_ context.Context, _ *identity.SetIdentityServerConfigRequest, opts ...grpc.CallOption) (*identity.SetIdentityServerConfigResponse, error) {
-	return nil, unsupportedError("SetIdentityServerConfig")
+func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*admin.ClusterInfo, error) {
+	return nil, unsupportedError("InspectCluster")
 }
 
-func (c *unsupportedIdentityBuilderClient) GetIdentityServerConfig(_ context.Context, _ *identity.GetIdentityServerConfigRequest, opts ...grpc.CallOption) (*identity.GetIdentityServerConfigResponse, error) {
-	return nil, unsupportedError("GetIdentityServerConfig")
+type unsupportedVersionpbBuilderClient struct{}
+
+func (c *unsupportedVersionpbBuilderClient) GetVersion(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*versionpb.Version, error) {
+	return nil, unsupportedError("GetVersion")
 }
 
-func (c *unsupportedIdentityBuilderClient) CreateIDPConnector(_ context.Context, _ *identity.CreateIDPConnectorRequest, opts ...grpc.CallOption) (*identity.CreateIDPConnectorResponse, error) {
-	return nil, unsupportedError("CreateIDPConnector")
+type unsupportedDebugBuilderClient struct{}
+
+func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug.ProfileRequest, opts ...grpc.CallOption) (debug.Debug_ProfileClient, error) {
+	return nil, unsupportedError("Profile")
 }
 
-func (c *unsupportedIdentityBuilderClient) UpdateIDPConnector(_ context.Context, _ *identity.UpdateIDPConnectorRequest, opts ...grpc.CallOption) (*identity.UpdateIDPConnectorResponse, error) {
-	return nil, unsupportedError("UpdateIDPConnector")
+func (c *unsupportedDebugBuilderClient) Binary(_ context.Context, _ *debug.BinaryRequest, opts ...grpc.CallOption) (debug.Debug_BinaryClient, error) {
+	return nil, unsupportedError("Binary")
 }
 
-func (c *unsupportedIdentityBuilderClient) ListIDPConnectors(_ context.Context, _ *identity.ListIDPConnectorsRequest, opts ...grpc.CallOption) (*identity.ListIDPConnectorsResponse, error) {
-	return nil, unsupportedError("ListIDPConnectors")
+func (c *unsupportedDebugBuilderClient) Dump(_ context.Context, _ *debug.DumpRequest, opts ...grpc.CallOption) (debug.Debug_DumpClient, error) {
+	return nil, unsupportedError("Dump")
 }
 
-func (c *unsupportedIdentityBuilderClient) GetIDPConnector(_ context.Context, _ *identity.GetIDPConnectorRequest, opts ...grpc.CallOption) (*identity.GetIDPConnectorResponse, error) {
-	return nil, unsupportedError("GetIDPConnector")
+type unsupportedProxyBuilderClient struct{}
+
+func (c *unsupportedProxyBuilderClient) Listen(_ context.Context, _ *proxy.ListenRequest, opts ...grpc.CallOption) (proxy.API_ListenClient, error) {
+	return nil, unsupportedError("Listen")
 }
 
-func (c *unsupportedIdentityBuilderClient) DeleteIDPConnector(_ context.Context, _ *identity.DeleteIDPConnectorRequest, opts ...grpc.CallOption) (*identity.DeleteIDPConnectorResponse, error) {
-	return nil, unsupportedError("DeleteIDPConnector")
-}
-
-func (c *unsupportedIdentityBuilderClient) CreateOIDCClient(_ context.Context, _ *identity.CreateOIDCClientRequest, opts ...grpc.CallOption) (*identity.CreateOIDCClientResponse, error) {
-	return nil, unsupportedError("CreateOIDCClient")
-}
-
-func (c *unsupportedIdentityBuilderClient) UpdateOIDCClient(_ context.Context, _ *identity.UpdateOIDCClientRequest, opts ...grpc.CallOption) (*identity.UpdateOIDCClientResponse, error) {
-	return nil, unsupportedError("UpdateOIDCClient")
-}
-
-func (c *unsupportedIdentityBuilderClient) GetOIDCClient(_ context.Context, _ *identity.GetOIDCClientRequest, opts ...grpc.CallOption) (*identity.GetOIDCClientResponse, error) {
-	return nil, unsupportedError("GetOIDCClient")
-}
-
-func (c *unsupportedIdentityBuilderClient) ListOIDCClients(_ context.Context, _ *identity.ListOIDCClientsRequest, opts ...grpc.CallOption) (*identity.ListOIDCClientsResponse, error) {
-	return nil, unsupportedError("ListOIDCClients")
-}
-
-func (c *unsupportedIdentityBuilderClient) DeleteOIDCClient(_ context.Context, _ *identity.DeleteOIDCClientRequest, opts ...grpc.CallOption) (*identity.DeleteOIDCClientResponse, error) {
-	return nil, unsupportedError("DeleteOIDCClient")
-}
-
-func (c *unsupportedIdentityBuilderClient) DeleteAll(_ context.Context, _ *identity.DeleteAllRequest, opts ...grpc.CallOption) (*identity.DeleteAllResponse, error) {
-	return nil, unsupportedError("DeleteAll")
-}
-
-type unsupportedTransactionBuilderClient struct {}
+type unsupportedTransactionBuilderClient struct{}
 
 func (c *unsupportedTransactionBuilderClient) BatchTransaction(_ context.Context, _ *transaction.BatchTransactionRequest, opts ...grpc.CallOption) (*transaction.TransactionInfo, error) {
 	return nil, unsupportedError("BatchTransaction")
@@ -567,4 +567,3 @@ func (c *unsupportedTransactionBuilderClient) FinishTransaction(_ context.Contex
 func (c *unsupportedTransactionBuilderClient) DeleteAll(_ context.Context, _ *transaction.DeleteAllRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteAll")
 }
-

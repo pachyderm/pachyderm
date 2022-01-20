@@ -18,8 +18,6 @@ if [[ "${max_age}" -gt "$(cat /last_run_time)" ]]; then
     exit 1
 fi
 
-go get github.com/gogo/protobuf/protoc-gen-gogofast > /dev/stderr
-
 cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
 
 # Build then run the bespoke pachyderm codegen plugin
@@ -64,4 +62,5 @@ popd > /dev/stderr
 
 # TODO (brendon): figure out how to configure protoc
 pushd v2 > /dev/stderr
+gofmt -w . > /dev/stderr
 find src -regex ".*\.go" -print0 | xargs -0 tar cf -

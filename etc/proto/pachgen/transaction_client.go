@@ -65,8 +65,8 @@ package client
 
 import (
 	"context"
-{{range .Protos}}{{if hasAPI .}}
-  "{{importPath .}}"{{end}}{{end}}
+	{{range .Protos}}{{if hasAPI .}}
+	"{{importPath .}}"{{end}}{{end}}
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	types "github.com/gogo/protobuf/types"
@@ -77,7 +77,7 @@ func unsupportedError(name string) error {
 	return errors.Errorf("the '%s' API call is not supported in transactions", name)
 }
 {{range .Protos}}{{$pkg := pkgName .}}{{$client := clientName $pkg}}{{range .Service}}{{$service := .}}{{if isAPI .}}
-type {{$client}} struct {}
+type {{$client}} struct{}
 {{range .Method}}
 func (c *{{$client}}) {{.Name}}(_ context.Context,{{if not (isClientStreaming .)}} _ *{{typeName .InputType}},{{end}} opts ...grpc.CallOption) ({{if or (isServerStreaming .) (isClientStreaming .)}}{{$pkg}}.{{$service.Name}}_{{.Name}}Client{{else}}*{{typeName .OutputType}}{{end}}, error) {
 	return nil, unsupportedError("{{.Name}}")
