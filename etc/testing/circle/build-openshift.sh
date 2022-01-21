@@ -7,12 +7,14 @@ source "$(dirname "$0")/env.sh"
 
 go version
 
-make install
+#make install
 VERSION=$(pachctl version --client-only)
 git config user.email "donotreply@pachyderm.com"
 git config user.name "anonymous"
 git tag -f -am "Circle CI test v$VERSION" v"$VERSION"
-make docker-build
+#make docker-build
+
+oc login -u system:admin
 
 REGISTRY="$(oc get route -n openshift-image-registry | awk 'FNR == 2 {print $2}')" &&
 docker login -u unused -p "$(oc whoami -t)" "${REGISTRY}";
