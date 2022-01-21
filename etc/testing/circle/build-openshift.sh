@@ -7,7 +7,7 @@ source "$(dirname "$0")/env.sh"
 
 go version
 
-#make install
+make install
 VERSION=$(pachctl version --client-only)
 git config user.email "donotreply@pachyderm.com"
 git config user.name "anonymous"
