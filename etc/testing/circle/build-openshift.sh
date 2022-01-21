@@ -34,7 +34,7 @@ kubectl apply -f etc/testing/minio-openshift.yaml
 # WORKER_REPO="${PROJECT}/worker"
 
 helm install pachyderm etc/helm/pachyderm -f etc/testing/circle/helm-values.yaml \
--f etc/testing/circle/helm-values-openshift.yaml \
+-f etc/testing/helm-values-openshift.yaml \
 --set pachd.image.tag="2.0.5" --set pachd.worker.image.tag="2.0.5";
 
 kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
