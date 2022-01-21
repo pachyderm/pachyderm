@@ -41,7 +41,7 @@ Now that the DGX is added to your API server, you can then proceed to:
  
 1. Enable the GPU worker node in the Kubernetes cluster by installing [NVIDIA's dependencies](https://docs.nvidia.com/datacenter/cloud-native/kubernetes/install-k8s.html#install-nvidia-dependencies){target=_blank}:
 
-    This is an indicative list: Dependencies packages and deployment methods may vary.
+    Dependencies packages and deployment methods may vary. The following list is not exhaustive and is intended to serve as a general guideline.
 
     - **NVIDIA drivers**
 
