@@ -22,7 +22,7 @@ In particular, you will:
 
 !!! Warning "TL;DR - Give me the script"
 
-    [This script](https://github.com/pachyderm/pachyderm/blob/master/etc/deploy/gcp/gcp-doco-script.sh) will create the following: a new GCP project with required APIs, a GKE cluster, the workload identity service accounts and permissions you need, a static IP, the cloud SQL instance and databases, and a cloud storage bucket. It will also install Pachyderm into the cluster and set up your context for pachctl to connect to your cluster. 
+    [This script](https://github.com/pachyderm/pachyderm/blob/master/etc/deploy/gcp/gcp-doco-script.sh){target=_blank} will create the following: a new GCP project with required APIs, a GKE cluster, the workload identity service accounts and permissions you need, a static IP, the cloud SQL instance and databases, and a cloud storage bucket. It will also install Pachyderm into the cluster and set up your context for pachctl to connect to your cluster. 
 
       - Before running it, update the global variables at the top of the script and make sure to install the clients found in the [prerequisites](#1-prerequisites). If you have not already initialized the Google SDK, follow the QuickStart Guide found in the prerequisites.
 
