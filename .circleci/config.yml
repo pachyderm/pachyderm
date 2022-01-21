@@ -187,7 +187,7 @@ jobs:
       image: ubuntu-2004:202101-01
     steps:
       - checkout
-      - run: mkdir openshift-ci && cd openshift-ci
+      # - run: mkdir openshift-ci && cd openshift-ci
       # - run: ./etc/testing/circle/install.sh
       # - run: ./etc/testing/circle/build-openshift.sh
       - redhat-openshift/create-local-cluster-with-oc:
