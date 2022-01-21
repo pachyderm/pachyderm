@@ -3,7 +3,7 @@ pachd:
     enabled: false
   storage:
     minio:
-      endpoint: "minio.default.svc.cluster.local:9000"
+      endpoint: "minio.pach-test.svc.cluster.local:9000"
 
 etcd:
   resources:
