@@ -30,7 +30,7 @@ version: 2.0.0-beta.8
 # using.
 appVersion: 2.0.0-beta.8
 
-kubeVersion: ">= 1.16.0-0"
+kubeVersion: ">= 1.11.0-0"
 
 icon: https://www.pachyderm.com/favicons/favicon-32x32.png
 
