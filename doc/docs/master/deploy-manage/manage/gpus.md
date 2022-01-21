@@ -11,7 +11,7 @@ ignore_macros: true
 - If you already have a GPU enabled Kubernetes cluster,
 skip to [Configure GPUs in Pipelines](#configure-gpus-in-pipelines).
 - Otherwise, read the following section.
-## Set up a GPU-enabled Kubernetes Cluster
+## Set up a GPU enabled Kubernetes Cluster
 
 Pachyderm leverages [Kubernetes Device Plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/) to let Kubernetes Pods access specialized hardware such as GPUs.
 For instructions on how to set up a GPU-enabled Kubernetes cluster
@@ -37,7 +37,7 @@ As a prerequisite:
 - Install the DGX system in a hosting environment with network access to your cluster.
 - Add the DGX to your K8s API server as a worker node with the proper node label.
 
-Now that the DGX is added to your API server (and labeled properly), you can then proceed to:
+Now that the DGX is added to your API server (and appropriately labeled), you can then proceed to:
  
 1. Enable the GPU worker node in the Kubernetes cluster by installing the following components:
 
@@ -84,7 +84,7 @@ Now that the DGX is added to your API server (and labeled properly), you can the
     kubectl get pods gpu-test
     ```
 
-1. If the container is successfully being scheduled, you are ready to start leveraging GPUs in your Pachyderm pipelines.
+1. If the container is scheduled successfully, you are ready to start leveraging GPUs in your Pachyderm pipelines.
 
 !!! Important "Note"
     Note that you have the option to use GPUs for compute-intensive workloads on:

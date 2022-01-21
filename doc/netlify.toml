@@ -184,11 +184,11 @@
   status = 301
   force = true
 
-#[[redirects]]
-# from = "/latest/deploy-manage/manage/sharing_gpu_resources/"
-# to = "/latest/deploy-manage/manage/gpus/"
-# status = 301
-# force = true
+[[redirects]]
+  from = "/latest/deploy-manage/manage/sharing_gpu_resources/"
+  to = "/latest/deploy-manage/manage/gpus/"
+  status = 301
+  force = true
 
 [[redirects]]
   from = "/latest/how-tos/use-jupyterhub/"
