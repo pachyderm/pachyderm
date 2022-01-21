@@ -100,10 +100,10 @@ you can request a GPU tier in your pipeline specifications
 by [setting up GPU resource limits](../../../reference/pipeline_spec/#resource-requests-optional), along with its type and number of GPUs. 
 
 !!! Important
-      By default, Pachyderm workers are spun up and wait for new input. That works great for pipelines that are processing a lot of new incoming commits. However, for lower volume of input commits, you could have your pipeline workers 'taking' the GPU resource as far as k8s is concerned, but 'idling' as far as you are concerned. 
+    By default, Pachyderm workers are spun up and wait for new input. That works great for pipelines that are processing a lot of new incoming commits. However, for lower volume of input commits, you could have your pipeline workers 'taking' the GPU resource as far as k8s is concerned, but 'idling' as far as you are concerned. 
 
-        - Make sure to set the `autoscaling` field to `true` so that if your pipeline is not getting used, the worker pods get spun down and the GPU resource freed.
-        - Additionally, specify how much of GPU your pipeline worker will need via the `resource_requests` fields in your [pipeline specification](../../../reference/pipeline_spec/#resource-requests-optional) with `ressource_requests` <= `resource_limits`.
+      - Make sure to set the `autoscaling` field to `true` so that if your pipeline is not getting used, the worker pods get spun down and the GPU resource freed.
+      - Additionally, specify how much of GPU your pipeline worker will need via the `resource_requests` fields in your [pipeline specification](../../../reference/pipeline_spec/#resource-requests-optional) with `ressource_requests` <= `resource_limits`.
 
 
 Below is an example of a pipeline spec for a GPU-enabled pipeline from our [market sentiment analysis example](https://github.com/pachyderm/examples/tree/master/market-sentiment){target=_blank}:
