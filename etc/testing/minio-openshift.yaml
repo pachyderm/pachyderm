@@ -37,7 +37,7 @@ spec:
         image: docker.io/minio/minio:latest
         command: ["/bin/bash"]
         # this will create a bucket called "pachyderm-test" and then launch minio
-        args: ["-c", "mkdir -p /data/pachyderm-test && minio server /data --console-address=0.0.0.0:9001" ]
+        args: ["-c", "mkdir -p /data/pachyderm-test && chmod -R 777 /data && minio server /data --console-address=0.0.0.0:9001" ]
         ports:
         - containerPort: 9000
           name: s3
