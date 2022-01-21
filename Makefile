@@ -315,6 +315,9 @@ test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS)
 
+test-task-api:
+	go test -v -count 1 ./src/server/task/server -timeout $(TIMEOUT) $(TESTFLAGS)
+
 clean: clean-launch clean-launch-kube
 
 clean-launch-kafka:
@@ -457,6 +460,7 @@ check-buckets:
 	test-tls \
 	test-worker \
 	test-worker-helper \
+	test-task-api \
 	clean \
 	clean-launch-kafka \
 	launch-kafka \

@@ -63,7 +63,7 @@ func (a *apiServer) ListTask(req *taskapi.ListTaskRequest, server taskapi.API_Li
 			Reason:    taskData.Reason,
 			InputType: taskData.Input.TypeUrl,
 		}
-		return server.Send(&taskInfo)
+		return errors.EnsureStack(server.Send(&taskInfo))
 	})
 	return nil
 }

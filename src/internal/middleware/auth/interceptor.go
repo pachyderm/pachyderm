@@ -225,6 +225,12 @@ var authHandlers = map[string]authHandler{
 
 	// TODO: Only the pachd sidecar instances should be able to use this endpoint.
 	"/proxy.API/Listen": unauthenticated,
+
+	//
+	// Task API
+	//
+
+	"/taskapi.API/ListTask": authDisabledOr(authenticated),
 }
 
 // NewInterceptor instantiates a new Interceptor

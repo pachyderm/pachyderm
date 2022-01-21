@@ -7,14 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
-
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/taskapi"
 
 	"github.com/gogo/protobuf/proto"
@@ -43,15 +40,6 @@ func deserializeTestTask(any *types.Any) (*task.TestTask, error) {
 		return nil, errors.EnsureStack(err)
 	}
 	return testTask, nil
-}
-
-func computeTaskID(input *types.Any) (string, error) {
-	val, err := proto.Marshal(input)
-	if err != nil {
-		return "", errors.EnsureStack(err)
-	}
-	sum := pachhash.Sum(val)
-	return pachhash.EncodeHash(sum[:]), nil
 }
 
 func TestListTask(t *testing.T) {

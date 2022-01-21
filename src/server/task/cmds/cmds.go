@@ -19,6 +19,9 @@ func Cmds() []*cobra.Command {
 
 	listTask := &cobra.Command{
 		Hidden: true, // don't show in the list of commands
+		Use:    "{{alias}} <task/name/space>",
+		Short:  "Return info about tasks in a namespace.",
+		Long:   "Return info about tasks in a namespace.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
