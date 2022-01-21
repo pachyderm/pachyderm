@@ -69,7 +69,7 @@ func TestDryrun(t *testing.T) {
 		Job: client.NewJob("p1", "j1"),
 	}
 	err := col.NewDryrunSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		return jobInfos.ReadWrite(stm).Put(ppsdb.JobKey(job.Job), job)
+		return errors.EnsureStack(jobInfos.ReadWrite(stm).Put(ppsdb.JobKey(job.Job), job))
 	})
 	require.NoError(t, err)
 
@@ -119,10 +119,10 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
 		}
 		if err := rw.Get(ppsdb.JobKey(j3.Job), job); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := rw.Get(ppsdb.JobKey(j4.Job), job); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		rw.DeleteAllPrefix("p@prefix")
@@ -136,12 +136,12 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j3.Job.ID)
 		}
 		if err := rw.Get(ppsdb.JobKey(j4.Job), job); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		rw.Put(ppsdb.JobKey(j1.Job), j1)
 		if err := rw.Get(ppsdb.JobKey(j1.Job), job); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		rw.DeleteAllPrefix("p@prefix/suffix")
@@ -151,7 +151,7 @@ func TestDeletePrefix(t *testing.T) {
 
 		rw.Put(ppsdb.JobKey(j2.Job), j2)
 		if err := rw.Get(ppsdb.JobKey(j2.Job), job); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		return nil
@@ -272,7 +272,7 @@ func TestTTL(t *testing.T) {
 	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
+		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL))
 	})
 	require.NoError(t, err)
 
@@ -280,7 +280,7 @@ func TestTTL(t *testing.T) {
 	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		var err error
 		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
-		return err
+		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
 	require.True(t, actualTTL > 0 && actualTTL < TTL, "actualTTL was %v", actualTTL)
@@ -294,7 +294,7 @@ func TestTTLExpire(t *testing.T) {
 	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
+		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL))
 	})
 	require.NoError(t, err)
 
@@ -314,7 +314,7 @@ func TestTTLExtend(t *testing.T) {
 	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
+		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL))
 	})
 	require.NoError(t, err)
 
@@ -322,7 +322,7 @@ func TestTTLExtend(t *testing.T) {
 	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		var err error
 		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
-		return err
+		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
 	require.True(t, actualTTL > 0 && actualTTL < TTL, "actualTTL was %v", actualTTL)
@@ -330,14 +330,14 @@ func TestTTLExtend(t *testing.T) {
 	// Put value with new, longer TLL and check that it was set
 	const LongerTTL = 15
 	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		return clxn.ReadWrite(stm).PutTTL("key", epsilon, LongerTTL)
+		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL("key", epsilon, LongerTTL))
 	})
 	require.NoError(t, err)
 
 	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		var err error
 		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
-		return err
+		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
 	require.True(t, actualTTL > TTL && actualTTL < LongerTTL, "actualTTL was %v", actualTTL)
@@ -353,7 +353,7 @@ func TestIteration(t *testing.T) {
 		for i := 0; i < numVals; i++ {
 			_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 				testProto := makeProto(makeID(i))
-				return c.ReadWrite(stm).Put(testProto.ID, testProto)
+				return errors.EnsureStack(c.ReadWrite(stm).Put(testProto.ID, testProto))
 			})
 			require.NoError(t, err)
 		}
@@ -376,7 +376,7 @@ func TestIteration(t *testing.T) {
 				for j := 0; j < valsPerBatch; j++ {
 					testProto := makeProto(makeID(i*valsPerBatch + j))
 					if err := c.ReadWrite(stm).Put(testProto.ID, testProto); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				return nil
@@ -401,7 +401,7 @@ func TestIteration(t *testing.T) {
 		for i := 0; i < numVals; i++ {
 			_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 				id := fmt.Sprintf("%d", i)
-				return c.ReadWrite(stm).Put(id, &col.TestItem{ID: id, Value: longString})
+				return errors.EnsureStack(c.ReadWrite(stm).Put(id, &col.TestItem{ID: id, Value: longString}))
 			})
 			require.NoError(t, err)
 		}

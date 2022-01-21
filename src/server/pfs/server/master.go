@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	_ "github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
@@ -36,7 +37,7 @@ func (d *driver) master(ctx context.Context) {
 	backoff.RetryUntilCancel(ctx, func() error {
 		masterCtx, err := masterLock.Lock(ctx)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		defer masterLock.Unlock(masterCtx)
 		eg, ctx := errgroup.WithContext(masterCtx)
@@ -50,7 +51,7 @@ func (d *driver) master(ctx context.Context) {
 		eg.Go(func() error {
 			return d.finishCommits(ctx)
 		})
-		return eg.Wait()
+		return errors.EnsureStack(eg.Wait())
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Errorf("error in pfs master: %v", err)
 		return nil
@@ -64,11 +65,8 @@ func (d *driver) finishCommits(ctx context.Context) error {
 			cancel()
 		}
 	}()
-	compactor, err := newCompactor(ctx, d.storage, d.etcdClient, d.prefix, d.env.StorageConfig.StorageCompactionMaxFanIn)
-	if err != nil {
-		return err
-	}
-	return d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
+	compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
+	err := d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
 		if ev.Type == watch.EventError {
 			return ev.Err
 		}
@@ -95,10 +93,11 @@ func (d *driver) finishCommits(ctx context.Context) error {
 		}()
 		return nil
 	})
+	return errors.EnsureStack(err)
 }
 
 func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, repoKey string) error {
-	return d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, repoKey, func(ev *watch.Event) error {
+	err := d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, repoKey, func(ev *watch.Event) error {
 		if ev.Type == watch.EventError {
 			return ev.Err
 		}
@@ -122,15 +121,16 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 					return err
 				}
 				// Compact the commit.
+				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID)
 				var totalId *fileset.ID
 				start := time.Now()
 				if err := miscutil.LogStep(fmt.Sprintf("compacting commit %v", commit), func() error {
 					var err error
-					totalId, err = compactor.Compact(ctx, []fileset.ID{*id}, defaultTTL)
+					totalId, err = compactor.Compact(ctx, taskDoer, []fileset.ID{*id}, defaultTTL)
 					if err != nil {
 						return err
 					}
-					return d.commitStore.SetTotalFileSet(ctx, commit, *totalId)
+					return errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commit, *totalId))
 				}); err != nil {
 					return err
 				}
@@ -165,7 +165,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 							commitInfo.Details.ValidatingTime = types.DurationProto(validatingDuration)
 							return nil
 						}); err != nil {
-							return err
+							return errors.EnsureStack(err)
 						}
 						if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
 							txnCtx.FinishJob(commitInfo)
@@ -186,6 +186,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 			})
 		})
 	}, watch.IgnoreDelete)
+	return errors.EnsureStack(err)
 }
 
 // TODO(2.0 optional): Improve the performance of this by doing a logarithmic lookup per new file,
@@ -211,7 +212,7 @@ func (d *driver) validate(ctx context.Context, id *fileset.ID) (int64, string, e
 		size += index.SizeBytes(idx)
 		return nil
 	}); err != nil {
-		return 0, "", err
+		return 0, "", errors.EnsureStack(err)
 	}
 	return size, validationError, nil
 }
@@ -228,7 +229,7 @@ func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, p
 		descendents = descendents[1:]
 		commitInfo := &pfs.CommitInfo{}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
@@ -239,10 +240,10 @@ func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, p
 			commitInfo.Details = parentCommitInfo.Details
 			commitInfo.Error = parentCommitInfo.Error
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if err := d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commitInfo.Commit, id); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 
 			descendents = append(descendents, commitInfo.ChildCommits...)

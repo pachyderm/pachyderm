@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	authiface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 )
 
@@ -42,7 +43,7 @@ func authenticated(ctx context.Context, authApi authiface.APIServer, fullMethod 
 	if err == nil {
 		username = r.Username
 	}
-	return username, err
+	return username, errors.EnsureStack(err)
 }
 
 // clusterPermissions permits an RPC if the user is authorized with the given permissions on the cluster
@@ -53,7 +54,7 @@ func clusterPermissions(permissions ...auth.Permission) authHandler {
 			Permissions: permissions,
 		})
 		if err != nil {
-			return "", err
+			return "", errors.EnsureStack(err)
 		}
 
 		if resp.Authorized {

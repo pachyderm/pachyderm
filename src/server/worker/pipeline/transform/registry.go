@@ -21,8 +21,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -47,7 +47,6 @@ func (h *hasher) Hash(inputs []*common.Input) string {
 type registry struct {
 	driver      driver.Driver
 	logger      logs.TaggedLogger
-	taskQueue   *work.TaskQueue
 	concurrency int64
 	limiter     limit.ConcurrencyLimiter
 }
@@ -59,16 +58,11 @@ func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, err
 	// Determine the maximum number of concurrent tasks we will allow
 	concurrency, err := driver.ExpectedNumWorkers()
 	if err != nil {
-		return nil, err
-	}
-	taskQueue, err := driver.NewTaskQueue()
-	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &registry{
 		driver:      driver,
 		logger:      logger,
-		taskQueue:   taskQueue,
 		concurrency: concurrency,
 		limiter:     limit.New(int(concurrency)),
 	}, nil
@@ -96,7 +90,7 @@ func (reg *registry) killJob(pj *pendingJob, reason string) error {
 			Reason: reason,
 		},
 	)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
@@ -129,7 +123,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 	if err := pj.logger.LogStep("waiting for job inputs", func() error {
 		return reg.processJobStarting(pj)
 	}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if err := pj.load(); err != nil {
 		return err
@@ -139,11 +133,11 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 	if pj.ji.Details.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(pj.ji.Started)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		timeout, err := types.DurationFromProto(pj.ji.Details.JobTimeout)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		afterTime = time.Until(startTime.Add(timeout))
 	}
@@ -175,7 +169,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 				}
 				return err
 			})
-			return eg.Wait()
+			return errors.EnsureStack(eg.Wait())
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			pj.logger.Logf("error processing job: %v, retrying in %v", err, d)
 			for err != nil {
@@ -225,15 +219,15 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 				// Delete the job if no other worker has deleted it yet
 				jobInfo := &pps.JobInfo{}
 				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobInfo); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
-				return pj.driver.DeleteJob(sqlTx, jobInfo)
+				return errors.EnsureStack(pj.driver.DeleteJob(sqlTx, jobInfo))
 			}); err != nil && !col.IsErrNotFound(err) {
-				return err
+				return errors.EnsureStack(err)
 			}
 			return nil
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 	return nil
 
@@ -248,13 +242,13 @@ func (reg *registry) processJob(pj *pendingJob) error {
 	case pps.JobState_JOB_STARTING:
 		return errors.New("job should have been moved out of the STARTING state before processJob")
 	case pps.JobState_JOB_RUNNING:
-		return pj.logger.LogStep("processing job running", func() error {
+		return errors.EnsureStack(pj.logger.LogStep("processing job running", func() error {
 			return reg.processJobRunning(pj)
-		})
+		}))
 	case pps.JobState_JOB_EGRESSING:
-		return pj.logger.LogStep("processing job egressing", func() error {
+		return errors.EnsureStack(pj.logger.LogStep("processing job egressing", func() error {
 			return reg.processJobEgressing(pj)
-		})
+		}))
 	}
 	panic(fmt.Sprintf("unrecognized job state: %s", state))
 }
@@ -283,16 +277,18 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return err
 		}
 	}
-	if err := reg.taskQueue.RunTaskBlock(pachClient.Ctx(), func(master *work.Master) error {
-		if err := pj.withParallelDatums(master.Ctx(), func(ctx context.Context, dit datum.Iterator) error {
-			return reg.processDatums(ctx, pj, master, dit)
+	ctx := pachClient.Ctx()
+	taskDoer := reg.driver.NewTaskDoer(pj.ji.Job.ID)
+	if err := func() error {
+		if err := pj.withParallelDatums(ctx, func(ctx context.Context, dit datum.Iterator) error {
+			return reg.processDatums(ctx, pj, taskDoer, dit)
 		}); err != nil {
 			return err
 		}
-		return pj.withSerialDatums(master.Ctx(), func(ctx context.Context, dit datum.Iterator) error {
-			return reg.processDatums(ctx, pj, master, dit)
+		return pj.withSerialDatums(ctx, func(ctx context.Context, dit datum.Iterator) error {
+			return reg.processDatums(ctx, pj, taskDoer, dit)
 		})
-	}); err != nil {
+	}(); err != nil {
 		if errors.Is(err, errutil.ErrBreak) {
 			return nil
 		}
@@ -305,13 +301,13 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	return reg.succeedJob(pj)
 }
 
-func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, master *work.Master, dit datum.Iterator) error {
+func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer task.Doer, dit datum.Iterator) error {
 	var numDatums int64
 	if err := dit.Iterate(func(_ *datum.Meta) error {
 		numDatums++
 		return nil
 	}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	// Set up the datum set spec for the job.
 	// When the datum set spec is not set, evenly distribute the datums.
@@ -331,39 +327,40 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, master *
 		}
 	}
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
-	subtasks := make(chan *work.Task)
+	inputChan := make(chan *types.Any)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		eg, ctx := errgroup.WithContext(ctx)
 		pachClient = pachClient.WithCtx(ctx)
 		// Setup goroutine for creating datum set subtasks.
 		eg.Go(func() error {
-			defer close(subtasks)
+			defer close(inputChan)
 			storageRoot := filepath.Join(pj.driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 			// TODO: The dit needs to iterate with the inner context.
 			return datum.CreateSets(dit, storageRoot, setSpec, func(upload func(client.ModifyFile) error) error {
-				subtask, err := createDatumSetSubtask(pachClient, pj, upload, renewer)
+				input, err := createDatumSetTask(pachClient, pj, upload, renewer)
 				if err != nil {
 					return err
 				}
 				select {
-				case subtasks <- subtask:
+				case inputChan <- input:
 				case <-ctx.Done():
-					return ctx.Err()
+					return errors.EnsureStack(ctx.Err())
 				}
 				return nil
 			})
 		})
 		// Setup goroutine for running and collecting datum set subtasks.
 		eg.Go(func() error {
-			return pj.logger.LogStep("running and collecting datum set subtasks", func() error {
-				return master.RunSubtasksChan(
-					subtasks,
-					func(ctx context.Context, taskInfo *work.TaskInfo) error {
-						if taskInfo.State == work.State_FAILURE {
-							return errors.Errorf("datum set subtask failed: %s", taskInfo.Reason)
+			err := pj.logger.LogStep("running and collecting datum set subtasks", func() error {
+				err := taskDoer.Do(
+					ctx,
+					inputChan,
+					func(_ int64, output *types.Any, err error) error {
+						if err != nil {
+							return err
 						}
-						data, err := deserializeDatumSet(taskInfo.Task.Data)
+						data, err := deserializeDatumSet(output)
 						if err != nil {
 							return err
 						}
@@ -392,9 +389,11 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, master *
 						return pj.writeJobInfo()
 					},
 				)
+				return errors.EnsureStack(err)
 			})
+			return errors.EnsureStack(err)
 		})
-		return eg.Wait()
+		return errors.EnsureStack(eg.Wait())
 	}); err != nil {
 		return err
 	}
@@ -407,7 +406,7 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, master *
 	return nil
 }
 
-func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(client.ModifyFile) error, renewer *renew.StringSet) (*work.Task, error) {
+func createDatumSetTask(pachClient *client.APIClient, pj *pendingJob, upload func(client.ModifyFile) error, renewer *renew.StringSet) (*types.Any, error) {
 	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 		return upload(mf)
 	})
@@ -417,27 +416,19 @@ func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload 
 	if err := renewer.Add(pachClient.Ctx(), resp.FileSetId); err != nil {
 		return nil, err
 	}
-	data, err := serializeDatumSet(&DatumSet{
+	return serializeDatumSet(&DatumSet{
 		JobID:        pj.ji.Job.ID,
 		OutputCommit: pj.commitInfo.Commit,
 		// TODO: It might make sense for this to be a hash of the constituent datums?
 		// That could make it possible to recover from a master restart.
 		FileSetId: resp.FileSetId,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &work.Task{
-		// TODO: Should this just be a uuid?
-		ID:   uuid.NewWithoutDashes(),
-		Data: data,
-	}, nil
 }
 
 func serializeDatumSet(data *DatumSet) (*types.Any, error) {
 	serialized, err := types.MarshalAny(data)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return serialized, nil
 }
@@ -445,7 +436,7 @@ func serializeDatumSet(data *DatumSet) (*types.Any, error) {
 func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
 	data := &DatumSet{}
 	if err := types.UnmarshalAny(any, data); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return data, nil
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
@@ -20,11 +21,11 @@ func TestMigration(t *testing.T) {
 		}).
 		Apply("test 2", func(ctx context.Context, env Env) error {
 			_, err := env.Tx.ExecContext(ctx, `CREATE TABLE test_table1 (id BIGSERIAL PRIMARY KEY, field1 TEXT, field2 TEXT);`)
-			return err
+			return errors.EnsureStack(err)
 		}).
 		Apply("test 3", func(ctx context.Context, env Env) error {
 			_, err := env.Tx.ExecContext(ctx, `CREATE TABLE test_table2 (id BIGSERIAL PRIMARY KEY, field1 TEXT, field2 TEXT);`)
-			return err
+			return errors.EnsureStack(err)
 		})
 	ctx := context.Background()
 	func() {

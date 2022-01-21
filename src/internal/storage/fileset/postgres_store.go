@@ -46,7 +46,7 @@ func (s *postgresStore) SetTx(tx *pachsql.Tx, id ID, md *Metadata) error {
 	}
 	data, err := proto.Marshal(md)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	res, err := tx.Exec(
 		`INSERT INTO storage.filesets (id, metadata_pb)
@@ -54,11 +54,11 @@ func (s *postgresStore) SetTx(tx *pachsql.Tx, id ID, md *Metadata) error {
 		ON CONFLICT (id) DO NOTHING
 		`, id, data)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if n == 0 {
 		return errors.WithStack(ErrFileSetExists)
@@ -69,14 +69,14 @@ func (s *postgresStore) SetTx(tx *pachsql.Tx, id ID, md *Metadata) error {
 func (s *postgresStore) get(ctx context.Context, q sqlx.QueryerContext, id ID) (*Metadata, error) {
 	var mdData []byte
 	if err := sqlx.GetContext(ctx, q, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE id = $1`, id); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.WithStack(ErrFileSetNotExists)
 		}
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	md := &Metadata{}
 	if err := proto.Unmarshal(mdData, md); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return md, nil
 }
@@ -112,9 +112,9 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 func (s *postgresStore) getFromCache(ctx context.Context, id ID) (*Metadata, error) {
 	md := &Metadata{}
 	if err := s.cache.Get(ctx, id[:], func(data []byte) error {
-		return proto.Unmarshal(data, md)
+		return errors.EnsureStack(proto.Unmarshal(data, md))
 	}); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return md, nil
 }
@@ -122,9 +122,9 @@ func (s *postgresStore) getFromCache(ctx context.Context, id ID) (*Metadata, err
 func (s *postgresStore) putInCache(ctx context.Context, id ID, md *Metadata) error {
 	mdData, err := proto.Marshal(md)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return s.cache.Put(ctx, id[:], mdData)
+	return errors.EnsureStack(s.cache.Put(ctx, id[:], mdData))
 }
 
 func (s *postgresStore) GetTx(tx *pachsql.Tx, id ID) (*Metadata, error) {
@@ -133,7 +133,7 @@ func (s *postgresStore) GetTx(tx *pachsql.Tx, id ID) (*Metadata, error) {
 
 func (s *postgresStore) DeleteTx(tx *pachsql.Tx, id ID) error {
 	_, err := tx.Exec(`DELETE FROM storage.filesets WHERE id = $1`, id)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // SetupPostgresStoreV0 sets up the tables for a Store

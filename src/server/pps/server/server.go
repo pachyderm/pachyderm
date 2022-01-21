@@ -6,12 +6,12 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -23,11 +23,13 @@ import (
 
 // Env contains the dependencies needed to create an API Server
 type Env struct {
-	DB         *pachsql.DB
-	TxnEnv     *txnenv.TransactionEnv
-	Listener   collection.PostgresListener
-	KubeClient *kubernetes.Clientset
-	EtcdClient *etcd.Client
+	DB          *pachsql.DB
+	TxnEnv      *txnenv.TransactionEnv
+	Listener    collection.PostgresListener
+	KubeClient  *kubernetes.Clientset
+	EtcdClient  *etcd.Client
+	EtcdPrefix  string
+	TaskService task.Service
 	// TODO: make this just a *loki.Client
 	// This is not a circular dependency
 	GetLokiClient func() (*loki.Client, error)
@@ -45,12 +47,15 @@ type Env struct {
 }
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) Env {
+	etcdPrefix := path.Join(senv.Config().EtcdPrefix, senv.Config().PPSEtcdPrefix)
 	return Env{
 		DB:            senv.GetDBClient(),
 		TxnEnv:        txnEnv,
 		Listener:      senv.GetPostgresListener(),
 		KubeClient:    senv.GetKubeClient(),
 		EtcdClient:    senv.GetEtcdClient(),
+		EtcdPrefix:    etcdPrefix,
+		TaskService:   senv.GetTaskService(etcdPrefix),
 		GetLokiClient: senv.GetLokiClient,
 
 		PFSServer:     senv.PfsServer(),
@@ -67,12 +72,10 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 // NewAPIServer creates an APIServer.
 func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 	config := env.Config
-	etcdPrefix := path.Join(config.EtcdPrefix, config.PPSEtcdPrefix)
 	apiServer := &apiServer{
-		Logger:                log.NewLogger("pps.API", env.Logger),
 		env:                   env,
 		txnEnv:                env.TxnEnv,
-		etcdPrefix:            etcdPrefix,
+		etcdPrefix:            env.EtcdPrefix,
 		namespace:             config.Namespace,
 		workerImage:           config.WorkerImage,
 		workerSidecarImage:    config.WorkerSidecarImage,
@@ -100,16 +103,14 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 // create pipelines.
 func NewSidecarAPIServer(
 	env Env,
-	etcdPrefix string,
 	namespace string,
 	workerGrpcPort uint16,
 	peerPort uint16,
 ) (*apiServer, error) {
 	apiServer := &apiServer{
-		Logger:         log.NewLogger("pps.API", env.Logger),
 		env:            env,
 		txnEnv:         env.TxnEnv,
-		etcdPrefix:     etcdPrefix,
+		etcdPrefix:     env.EtcdPrefix,
 		reporter:       env.Reporter,
 		namespace:      namespace,
 		workerUsesRoot: true,

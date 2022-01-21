@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
@@ -96,7 +97,7 @@ func RunLocal() (retErr error) {
 	}
 
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
-	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
+	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
@@ -115,10 +116,12 @@ func RunLocal() (retErr error) {
 		context.Background(),
 		true,
 		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
 		),
 		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
 		),
@@ -198,7 +201,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)), true)
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv), true)
 			if err != nil {
 				return err
 			}
@@ -329,7 +332,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)), false)
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv), false)
 			if err != nil {
 				return err
 			}
@@ -390,7 +393,7 @@ func RunLocal() (retErr error) {
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
 			log.Warnf("s3gateway TLS disabled: %v", err)
-			return server.ListenAndServe()
+			return errors.EnsureStack(server.ListenAndServe())
 		}
 		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
 		// Read TLS cert and key
@@ -399,11 +402,11 @@ func RunLocal() (retErr error) {
 			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
 		}
 		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return server.ListenAndServeTLS(certPath, keyPath)
+		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
 	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		http.Handle("/metrics", promhttp.Handler())
-		return http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil)
+		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil))
 	})
 	return <-errChan
 }

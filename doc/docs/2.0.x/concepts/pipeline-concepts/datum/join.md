@@ -24,7 +24,7 @@ The `outer-join` behavior can be set on any repository in your join.
 When you configure a join input (inner or outer), you must specify a glob pattern that
 includes a capture group. The capture group defines the specific string in
 the file path that is used to match files in other joined repos.
-Capture groups work analogously to the [regex capture group](https://www.regular-expressions.info/refcapture.html).
+Capture groups work analogously to the [regex capture group](https://www.regular-expressions.info/refcapture.html){target=_blank}.
 You define the capture group inside parenthesis. Capture groups are numbered
 from left to right and can also be nested within each other. Numbering for
 nested capture groups is based on their opening parenthesis.
@@ -47,7 +47,7 @@ following capture groups:
 | `/*/(bar-(123))/*`  | Capture group 1: `bar-123`, capture group 2: `123`. |
 
 
-Also, joins require you to specify a [replacement group](https://www.regular-expressions.info/replacebackref.html)
+Also, joins require you to specify a [replacement group](https://www.regular-expressions.info/replacebackref.html){target=_blank}
 in the `join_on` parameter to define which capture groups you want to try
 to match.
 
@@ -140,7 +140,7 @@ All files with indices from `1` to `5` match. The files
 with indices from `6` to `8` do not match. Therefore, you only get five
 datums for this job.
 
-To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins).
+To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}.
 
 ## Outer Join
 
@@ -196,4 +196,4 @@ those five datums your code will also see three new ones, one for each of the
 parameter files which didn't have a match. Note that this means your code needs
 to not crash when only some of the inputs are represented under `/pfs`.
 
-To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins).
+To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}.

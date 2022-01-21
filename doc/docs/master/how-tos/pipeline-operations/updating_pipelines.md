@@ -1,76 +1,88 @@
 # Update a Pipeline
 
 While working with your data, you often need to modify an existing
-pipeline with new transformation code or pipeline
-parameters.
-For example, when you develop a machine learning model, you might need
-to try different versions of your model while your training data
-stays relatively constant. To make changes to a pipeline, you need to use
-the `pachctl update pipeline` command.
+pipeline with new transformation code or pipeline parameters.
+For example, you might want to try different model versions
+while your training data stays constant. 
+
+You need to use the `pachctl update pipeline` command to make changes to a pipeline,
+whether you have re-built a docker image after a code change and/or
+need to update pipeline parameters in the pipeline specification file. 
+
+Alternatively, you can update a pipeline using [pipeline templates](#using-pipeline-templates).
 
 ## Update Your Pipeline Specification
 
-If you need to update your
-[pipeline specification](../../reference/pipeline_spec.md), such as change the
-parallelism settings, add an input repository, or other, you need to update your
-JSON file and then run the `pachctl update pipeline`command.
-By default, when you update your code, the new pipeline specification
-does not reprocess the data that has already been processed. Instead,
-it processes only the new data that you submit to the input repo.
+### After You Changed Your Specification File
+
+Run the `pachctl update pipeline` command to apply any change to your
+[pipeline specification](../../reference/pipeline_spec) JSON file, such as change to the
+parallelism settings, change of an image tag, change of an input repository, etc...
+
+By default, a pipeline update does not trigger the reprocessing of the data
+that has already been processed. Instead,
+it processes only the new data you submit to the input repo.
 If you want to run the changes in your pipeline against the data in
-the `HEAD` commit of your input repo, use the `--reprocess` flag.
-After that, the updated pipeline continues to process new input data.
+your input repo's `HEAD` commit, use the `--reprocess` flag.
+The updated pipeline will then continue to process new input data only.
 Previous results remain accessible through the corresponding commit IDs.
 
-To update a pipeline specification, complete the following steps:
+To update a pipeline specification, run the following command after
+you have updated your pipeline specification JSON file.
 
-1. Make the changes in your pipeline specification JSON file.
+```shell
+pachctl update pipeline -f pipeline.json
+```
 
-1. Update the pipeline with the new configuration:
+!!! Note
+    Similar to `create pipeline`, `update pipeline` with the `-f` flag can also
+    take a URL if your JSON manifest is hosted on GitHub or other remote location.
 
-   ```shell
-   pachctl update pipeline -f pipeline.json
-   ```
+### Using Pipeline Templates
+[Pipeline templates](../pipeline-template) allow you to bypass the "update you specification file" step and 
+apply your changes at once by running:
 
-Similar to `create pipeline`, `update pipeline` with the `-f` flag can also
-take a URL if your JSON manifest is hosted on GitHub or other
-remote location.
+```shell
+pachctl update pipeline --jsonnet <your template path or URL> --arg <param 1>=<value 1> --arg <param 2>=<value 2>
+```
+!!! Example
+      ```shell
+      pachctl update pipeline --jsonnet templates/edges.jsonnet --arg suffix=1 --arg tag=1.0.2
+      ```
 
 ## Update the Code in a Pipeline
 
-The `pachctl update pipeline` updates the code that you use in one or
-more of your pipelines. To apply your code changes, you need to
+To apply your code changes, you need to
 build a new Docker image and push it to your Docker image registry.
 
 You can either use your registry instructions to build and push your
 new image or push the new image by using the flags built into
 the `pachctl update pipeline` command. Both procedures achieve the same goal,
 and it is entirely a matter of a personal preference which one of them
-to follow. If you do not have a build-push process that you
-already follow, you might prefer to use Pachyderm's built-in functionality.
+to follow. 
 
-To push a new image by using the Pachyderm commands, you need
-to use the `--push-images` flag with the `pachctl update pipeline`
-command. By default, if you do not specify a registry with the `--registry`
-flag, Pachyderm uses [DockerHub](https://hub.docker.com).
+To push a new image by using the Pachyderm commands, use the `--push-images` flag
+with the `pachctl update pipeline` command. 
+By default, if you do not specify a registry with the `--registry`
+flag, Pachyderm uses [DockerHub](https://hub.docker.com){target=_blank}.
 When you build your image with Pachyderm, it assigns a random
 tag to your new image.
 
 If you use a private registry or any other registry that is different
 from the default value, use the `--registry` flag to specify it.
-Make sure that you specify the private registry in the [pipeline
-specification](../../reference/pipeline_spec.md).
+Check the required fields in the [pipeline
+specification file](../../../reference/pipeline_spec/#transform-required).
 
 For example, if you want to push a `pachyderm/opencv` image to a
-registry located at `localhost:5000`, you need to add this in
+registry located at `localhost:5000`, add this in
 your pipeline spec:
 
  ```shell
  "image": "localhost:5000/pachyderm/opencv"
  ```
 
-Also, to be able to build and push images, you need to make sure that
-the Docker daemon is running. Depending on your operating system and
+Make sure that the Docker daemon is running. 
+Depending on your operating system and
 the Docker distribution that you use, steps for enabling it might
 vary.
 
@@ -79,16 +91,14 @@ To update the code in your pipeline, complete the following steps:
 1. Make the code changes.
 1. Verify that the Docker daemon is running:
 
-      ```shell
-      docker ps
-      ```
-
-    * If you get an error message similar to the following:
+     ```shell
+     docker ps
+     ```
+     If you get an error message similar to the following:
 
      ```shell
      Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
      ```
-
      enable the Docker daemon. To enable the Docker daemon,
      see the Docker documentation for your operating system and platform.
      For example, if you use `minikube` on  macOS, run the following
@@ -100,7 +110,7 @@ To update the code in your pipeline, complete the following steps:
 
 1. Build, tag, and push the new image to your image registry:
 
-      * If you prefer to use Pachyderm commands:
+      * **If you use Pachyderm commands**
 
          1. [Build your new image](../../developer-workflow/working-with-pipelines/#step-2-build-your-docker-image) using `docker build` (for example, in a makefile: `@docker build --platform linux/amd64 -t $(DOCKER_ACCOUNT)/$(CONTAINER_NAME) .`). No tag needed, the folllowing [`--push-images` flag](../../developer-workflow/push-images-flag/) flag will take care of it.
 
@@ -127,19 +137,51 @@ To update the code in your pipeline, complete the following steps:
             Password for docker.io/testuser: Building pachyderm/opencv:f1e0239fce5441c483b09de425f06b40, this may take a while.
             ```
 
-      * If you prefer to use instructions for your image registry:
+      * **If you prefer to use instructions for your image registry**
 
-         1. Build, tag, and push a new image as described in the
+         1. Build, tag, and push a new image as described in your
           image registry documentation. For example, if you use
-          DockerHub, see [Docker Documentation](https://docs.docker.com/docker-hub/).
-
-            !!! Important
-                Make sure to update your tag every time you re-build. Our pull policy is `IfNotPresent` (Only pull the image if it does not already exist on the node.) . Failing to update your tag will result in your pipeline running on a previous version of your code.
+          DockerHub, see [Docker Documentation](https://docs.docker.com/docker-hub/){target=_blank}.
 
          1. Update the `transform.image` field of your pipeline spec with your new tag.
+         
+            !!! Important
+                  Make sure to update your tag every time you re-build. Our pull policy is `IfNotPresent` (Only pull the image if it does not already exist on the node.). Failing to update your tag will result in your pipeline running on a previous version of your code.
 
          1. Update the pipeline:
 
             ```shell
             pachctl update pipeline -f <pipeline.json>
             ```
+
+      * **If you choose to use a [templated version of your pipeline](./pipeline-template.md)**
+
+         1. Pass the tag of your image to your template.
+
+            As an example, see the `tag` parameter in this templated version of opencv's edges pipeline (`edges.jsonnet`):
+            
+            ```shell
+            function(suffix, tag)
+               {
+               pipeline: { name: "edges-"+suffix },
+               description: "OpenCV edge detection on "+src,
+               input: {
+                  pfs: {
+                     name: "images",
+                     glob: "/*",
+                     repo: "images",
+                  }
+               },
+               transform: {
+                  cmd: [ "python3", "/edges.py" ],
+                  image: "pachyderm/opencv:"+tag
+               }
+               }
+            ```
+
+         1. Once your pipeline code is updated and your image is built, tagged, and pushed, update your pipeline using this command line. In this case, there is no need to edit the pipeline specification file to update the value of your new tag. This command will take care of it:
+
+            ```shell
+            pachctl update pipeline --jsonnet templates/edges.jsonnet --arg suffix=1 --arg tag=1.0.2
+            ```
+

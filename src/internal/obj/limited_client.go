@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/sync/semaphore"
@@ -61,20 +62,20 @@ func (loc *limitedClient) Put(ctx context.Context, name string, r io.Reader) err
 	blockStartedMetric.WithLabelValues("put").Inc()
 	t := time.Now()
 	if err := loc.writersSem.Acquire(ctx, limitClientSemCost); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	blockedSecondsMetric.WithLabelValues("put").Observe(time.Since(t).Seconds())
 	defer loc.writersSem.Release(limitClientSemCost)
-	return loc.Client.Put(ctx, name, r)
+	return errors.EnsureStack(loc.Client.Put(ctx, name, r))
 }
 
 func (loc *limitedClient) Get(ctx context.Context, name string, w io.Writer) error {
 	blockStartedMetric.WithLabelValues("get").Inc()
 	t := time.Now()
 	if err := loc.readersSem.Acquire(ctx, limitClientSemCost); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	blockedSecondsMetric.WithLabelValues("get").Observe(time.Since(t).Seconds())
 	defer loc.readersSem.Release(limitClientSemCost)
-	return loc.Client.Get(ctx, name, w)
+	return errors.EnsureStack(loc.Client.Get(ctx, name, w))
 }

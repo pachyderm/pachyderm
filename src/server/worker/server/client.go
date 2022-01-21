@@ -91,21 +91,21 @@ func newClient(conn *grpc.ClientConn) Client {
 }
 
 func (c *Client) Close() error {
-	return c.clientConn.Close()
+	return errors.EnsureStack(c.clientConn.Close())
 }
 
 // NewClient returns a worker client for the worker at the IP address passed in.
 func NewClient(address string) (Client, error) {
 	port, err := strconv.Atoi(os.Getenv(client.PPSWorkerPortEnv))
 	if err != nil {
-		return Client{}, err
+		return Client{}, errors.EnsureStack(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", address, port),
 		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 	if err != nil {
-		return Client{}, err
+		return Client{}, errors.EnsureStack(err)
 	}
 	return newClient(conn), nil
 }
@@ -114,7 +114,7 @@ func NewClient(address string) (Client, error) {
 func ForEachWorker(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, cb func(Client) error) error {
 	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, WorkerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	for _, kv := range resp.Kvs {
 		workerIP := path.Base(string(kv.Key))
@@ -131,7 +131,7 @@ func WithClient(ctx context.Context, address string, port uint16, cb func(Client
 	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", address, port),
 		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	c := newClient(conn)
 	defer func() {

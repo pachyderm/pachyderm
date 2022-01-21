@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -21,13 +22,13 @@ func run(t *testing.T, cmd string) error {
 	// remove the config file when done
 	defer os.Remove(tmpfile.Name())
 
-	return tu.BashCmd(`
+	return errors.EnsureStack(tu.BashCmd(`
 		export PACH_CONFIG={{.config}}
 		{{.cmd}}
 		`,
 		"config", tmpfile.Name(),
 		"cmd", cmd,
-	).Run()
+	).Run())
 }
 
 func TestInvalidEnvValue(t *testing.T) {

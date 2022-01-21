@@ -1,7 +1,7 @@
 site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
 site_author: Pachyderm
-site_url: https://docs.pachyderm.com/2.0.x-rc/
+site_url: https://docs.pachyderm.com/2.0.x/
 docs_dir: docs/master/
 site_dir: site/master/
 
@@ -13,8 +13,8 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '2.0.2'
-pach_latest_version: '2.0.2'
+pach_featured_version: '2.0.6'
+pach_latest_version: '2.0.6'
 pach_major_minor_version: '2.0'
 search_index_version: '2.0.x'
 
@@ -46,6 +46,8 @@ plugins:
       minify_html: true
   - git-revision-date-localized
   - macros
+  - git-snippet:
+      all_pages: false
 
 # Customization
 extra:
@@ -66,6 +68,7 @@ extra_css:
 
 # Extensions
 markdown_extensions:
+  - markdown.extensions.attr_list
   - markdown.extensions.admonition
   - markdown.extensions.codehilite:
       guess_lang: false
@@ -93,6 +96,7 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
+  
 
 # Page tree
 nav:
@@ -167,6 +171,7 @@ nav:
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
             - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
+            - Use Pipeline Templates: how-tos/pipeline-operations/pipeline-templates.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
             - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md

@@ -8,6 +8,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -33,7 +34,7 @@ func TestPreUpgrade(t *testing.T) {
 			false,
 		))
 	require.NoError(t, c.WithModifyFileClient(client.NewCommit(inputRepo, "master", ""), func(mf client.ModifyFile) error {
-		return mf.PutFile("foo", strings.NewReader("foo"))
+		return errors.EnsureStack(mf.PutFile("foo", strings.NewReader("foo")))
 	}))
 
 	commitInfo, err := c.InspectCommit(outputRepo, "master", "")
@@ -58,7 +59,7 @@ func TestPostUpgrade(t *testing.T) {
 	require.Equal(t, enterprise.State_ACTIVE, state.State)
 
 	require.NoError(t, c.WithModifyFileClient(client.NewCommit(inputRepo, "master", ""), func(mf client.ModifyFile) error {
-		return mf.PutFile("bar", strings.NewReader("bar"))
+		return errors.EnsureStack(mf.PutFile("bar", strings.NewReader("bar")))
 	}))
 
 	commitInfo, err := c.InspectCommit(outputRepo, "master", "")

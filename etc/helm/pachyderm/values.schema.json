@@ -59,6 +59,9 @@
                 "config": {
                     "type": "object",
                     "properties": {
+                        "disableTelemetry": {
+                            "type": "boolean"
+                        },
                         "graphqlPort": {
                             "type": "integer"
                         },
@@ -66,6 +69,9 @@
                             "type": "string"
                         },
                         "oauthClientSecret": {
+                            "type": "string"
+                        },
+                        "oauthClientSecretSecretName": {
                             "type": "string"
                         },
                         "oauthRedirectURI": {
@@ -255,7 +261,7 @@
                     "type": "string"
                 },
                 "tolerations": {
-                    "type": "object"
+                    "type": "array"
                 }
             }
         },
@@ -267,6 +273,9 @@
                 },
                 "imagePullSecrets": {
                     "type": "array"
+                },
+                "noProxy": {
+                    "type": "string"
                 },
                 "postgresql": {
                     "type": "object",
@@ -296,6 +305,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "proxy": {
+                    "type": "string"
                 }
             }
         },
@@ -362,6 +374,9 @@
                 "upstreamIDPs": {
                     "type": "array"
                 },
+                "upstreamIDPsSecretName": {
+                    "type": "string"
+                },
                 "userAccessibleOauthIssuerHost": {
                     "type": "string"
                 }
@@ -405,10 +420,19 @@
                 "enterpriseLicenseKey": {
                     "type": "string"
                 },
+                "enterpriseLicenseKeySecretName": {
+                    "type": "string"
+                },
                 "enterpriseRootToken": {
                     "type": "string"
                 },
+                "enterpriseRootTokenSecretName": {
+                    "type": "string"
+                },
                 "enterpriseSecret": {
+                    "type": "string"
+                },
+                "enterpriseSecretSecretName": {
                     "type": "string"
                 },
                 "enterpriseServerAddress": {
@@ -480,6 +504,9 @@
                 "oauthClientSecret": {
                     "type": "string"
                 },
+                "oauthClientSecretSecretName": {
+                    "type": "string"
+                },
                 "oauthRedirectURI": {
                     "type": "string"
                 },
@@ -510,6 +537,9 @@
                     "type": "object"
                 },
                 "rootToken": {
+                    "type": "string"
+                },
+                "rootTokenSecretName": {
                     "type": "string"
                 },
                 "securityContext": {
@@ -697,7 +727,7 @@
                     }
                 },
                 "tolerations": {
-                    "type": "object"
+                    "type": "array"
                 },
                 "worker": {
                     "type": "object",

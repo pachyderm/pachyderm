@@ -1,6 +1,32 @@
 
 # Changelog
 
+## 2.0.6
+- Stream lists from batched queries - #7243
+- Pass postgres secret reference from pachd to workers - #7235
+- Include usernames in gRPC logs - #7239
+- Stop pachctl mount panicking on unmount - #7098
+- Add loki log collection to debug dump - #7234
+- Collect alias commits in debug dump - #7232
+## 2.0.5
+- Make ingress work for enterprise server - #7224
+- Unset Worker SecurityContexts when pachd.securityContext.enabled=false - #7223
+- Add http/s proxy settings for pachd - #7222
+- CheckStorage rpc and chunk layer integrity checking - #7208
+- Do not fail pipeline for transient database issues - #7206
+## 2.0.4
+- Fix access to console over port-forward. Gate setting of REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX by ingress.enabled=false - #7170
+- Make Sensitive Helm values injectable via k8s secrets - #7193 #7194 #7188
+- Add a helm value - “global.customCaCerts” to load the certs provided in pachd.tls as the root certs for pachd, console, and enterprise-server - #7160
+- Support setting pachyderm auth’s cluster role bindings using the helm value: pachd.pachAuthClusterRoleBindings - #7175
+- Fix memory leak in s3 gateway due to un-closed connections - #7161
+- Fix an issue where deleting a spout would leave behind some data - #7162
+- Pipeline specs and job infos from prior versions of a pipeline are now collected in a debug dump - #7169
+- Allows the configuration of the Postgresql password via an existing secret - #7176
+- Can now configure kubernetes annotations on Deployments, Statefulsets, and ConfigJobs  - #7174 #7189 #7196
+- Upgrade Ingress spec from v1beta to v1. Requires Kubernetes v1.19 or higher - #7178
+- pachctl list job now shows the reason for killed jobs - #7164
+- Config-pod should bootstrap enterprise with communicating with the appropriate port - #7191
 ## 2.0.3
 - Add helm value ingress.uriHttpsProtoOverride to set ingress endpoints with “https” protocol backed by TLS upstream, as opposed to the default TLS configuration using ingress.tls helm values - #7134
 - Fix use of passed in helm value: “pachd.oauthRedirectURI“ - #7133

@@ -73,7 +73,7 @@ func parseID(x []byte) (ID, error) {
 	}
 	_, err := hex.Decode(id[:], x)
 	if err != nil {
-		return ID{}, err
+		return ID{}, errors.EnsureStack(err)
 	}
 	return id, nil
 }

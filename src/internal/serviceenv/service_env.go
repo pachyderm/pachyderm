@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -54,6 +55,7 @@ type ServiceEnv interface {
 	Config() *Configuration
 	GetPachClient(ctx context.Context) *client.APIClient
 	GetEtcdClient() *etcd.Client
+	GetTaskService(string) task.Service
 	GetKubeClient() *kube.Clientset
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *pachsql.DB
@@ -196,7 +198,7 @@ func (env *NonblockingServiceEnv) initClusterID() error {
 			// cluster id so we ignore the error.
 			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes())
 		} else if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		} else {
 			// We expect there to only be one value for this key
 			env.clusterId = string(resp.Kvs[0].Value)
@@ -403,6 +405,10 @@ func (env *NonblockingServiceEnv) GetEtcdClient() *etcd.Client {
 	return env.etcdClient
 }
 
+func (env *NonblockingServiceEnv) GetTaskService(prefix string) task.Service {
+	return task.NewEtcdService(env.etcdClient, prefix)
+}
+
 // GetKubeClient returns the already connected Kubernetes API client without
 // modification.
 func (env *NonblockingServiceEnv) GetKubeClient() *kube.Clientset {
@@ -495,7 +501,7 @@ func (env *NonblockingServiceEnv) Close() error {
 	eg.Go(env.GetEtcdClient().Close)
 	eg.Go(env.GetDBClient().Close)
 	eg.Go(env.GetPostgresListener().Close)
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }
 
 // AuthServer returns the registered Auth APIServer

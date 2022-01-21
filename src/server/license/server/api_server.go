@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
@@ -25,32 +23,23 @@ const (
 )
 
 type apiServer struct {
-	pachLogger log.Logger
-	env        Env
+	env Env
 
 	// license is the database record where we store the active enterprise license
 	license col.PostgresCollection
 }
 
-func (a *apiServer) LogReq(request interface{}) {
-	a.pachLogger.Log(request, nil, nil, 0)
-}
-
 // New returns an implementation of license.APIServer.
 func New(env Env) (lc.APIServer, error) {
 	s := &apiServer{
-		pachLogger: log.NewLogger("license.API", env.Logger),
-		env:        env,
-		license:    licenseCollection(env.DB, env.Listener),
+		env:     env,
+		license: licenseCollection(env.DB, env.Listener),
 	}
 	return s, nil
 }
 
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp *lc.ActivateResponse, retErr error) {
-	a.LogReq(nil)
-	defer func(start time.Time) { a.pachLogger.Log(nil, resp, retErr, time.Since(start)) }(time.Now())
-
 	// Validate the activation code
 	expiration, err := license.Validate(req.ActivationCode)
 	if err != nil {
@@ -74,7 +63,7 @@ func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp
 	}
 
 	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
-		return a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord)
+		return errors.EnsureStack(a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord))
 	}); err != nil {
 		return nil, err
 	}
@@ -88,16 +77,6 @@ func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp
 
 // GetActivationCode returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), including the enterprise activation code
 func (a *apiServer) GetActivationCode(ctx context.Context, req *lc.GetActivationCodeRequest) (resp *lc.GetActivationCodeResponse, retErr error) {
-	// Redact the activation code from the response
-	removeSecret := func(r *lc.GetActivationCodeResponse) *lc.GetActivationCodeResponse {
-		copyResp := proto.Clone(r).(*lc.GetActivationCodeResponse)
-		copyResp.ActivationCode = ""
-		return copyResp
-	}
-
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
-
 	return a.getLicenseRecord(ctx)
 }
 
@@ -107,7 +86,7 @@ func (a *apiServer) getLicenseRecord(ctx context.Context) (*lc.GetActivationCode
 		if col.IsErrNotFound(err) {
 			return &lc.GetActivationCodeResponse{State: ec.State_NONE}, nil
 		}
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	expiration, err := types.TimestampFromProto(record.Expires)
@@ -134,7 +113,7 @@ func (a *apiServer) checkLicenseState(ctx context.Context) error {
 		return err
 	}
 	if record.State != ec.State_ACTIVE {
-		return fmt.Errorf("enterprise license is not valid - %v", record.State)
+		return errors.Errorf("enterprise license is not valid - %v", record.State)
 	}
 	return nil
 }
@@ -161,15 +140,6 @@ func (a *apiServer) validateClusterConfig(ctx context.Context, address string) e
 // AddCluster registers a new pachd with this license server. Each pachd is configured with a shared secret
 // which is used to authenticate to the license server when heartbeating.
 func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (resp *lc.AddClusterResponse, retErr error) {
-	// Redact the secret from the request
-	removeSecret := func(r *lc.AddClusterRequest) *lc.AddClusterRequest {
-		copyReq := proto.Clone(r).(*lc.AddClusterRequest)
-		copyReq.Secret = ""
-		return copyReq
-	}
-	a.LogReq(removeSecret(req))
-	defer func(start time.Time) { a.pachLogger.Log(removeSecret(req), nil, retErr, time.Since(start)) }(time.Now())
-
 	// Make sure we have an active license
 	if err := a.checkLicenseState(ctx); err != nil {
 		return nil, err
@@ -206,17 +176,7 @@ func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (
 	}, nil
 }
 
-func stripSecretFromRequest(req *lc.HeartbeatRequest) *lc.HeartbeatRequest {
-	r := *req
-	r.Secret = ""
-	return &r
-}
-
 func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (resp *lc.HeartbeatResponse, retErr error) {
-	redactedRequest := stripSecretFromRequest(req)
-	a.LogReq(redactedRequest)
-	defer func(start time.Time) { a.pachLogger.Log(redactedRequest, nil, retErr, time.Since(start)) }(time.Now())
-
 	var count int
 	if err := a.env.DB.GetContext(ctx, &count, `SELECT COUNT(*) FROM license.clusters WHERE id=$1 and secret=$2`, req.Id, req.Secret); err != nil {
 		return nil, errors.Wrapf(err, "unable to look up cluster in database")
@@ -232,7 +192,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 
 	var record ec.LicenseRecord
 	if err := a.license.ReadOnly(ctx).Get(licenseRecordKey, &record); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	return &lc.HeartbeatResponse{
@@ -241,9 +201,6 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (resp *lc.DeleteAllResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-
 	// TODO: attempt to synchronously deactivate enterprise licensing on every registered cluster
 
 	if _, err := a.env.DB.ExecContext(ctx, `DELETE FROM license.clusters`); err != nil {
@@ -253,7 +210,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
 		err := a.license.ReadWrite(sqlTx).Delete(licenseRecordKey)
 		if err != nil && !col.IsErrNotFound(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {
@@ -264,13 +221,10 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 }
 
 func (a *apiServer) ListClusters(ctx context.Context, req *lc.ListClustersRequest) (resp *lc.ListClustersResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-
 	clusters := make([]*lc.ClusterStatus, 0)
 	err := a.env.DB.SelectContext(ctx, &clusters, "SELECT id, address, version, auth_enabled, last_heartbeat FROM license.clusters;")
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	return &lc.ListClustersResponse{
@@ -279,22 +233,16 @@ func (a *apiServer) ListClusters(ctx context.Context, req *lc.ListClustersReques
 }
 
 func (a *apiServer) DeleteCluster(ctx context.Context, req *lc.DeleteClusterRequest) (resp *lc.DeleteClusterResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-
 	// TODO: attempt to synchronously deactivate enterprise licensing on the specified cluster
 
 	_, err := a.env.DB.ExecContext(ctx, "DELETE FROM license.clusters WHERE id=$1", req.Id)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &lc.DeleteClusterResponse{}, nil
 }
 
 func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequest) (resp *lc.UpdateClusterResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-
 	if req.Address != "" {
 		if err := a.validateClusterConfig(ctx, req.Address); err != nil {
 			return nil, err
@@ -322,17 +270,15 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 
 	_, err := a.env.DB.ExecContext(ctx, "UPDATE license.clusters SET "+setFields+"  WHERE id=$1", req.Id)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &lc.UpdateClusterResponse{}, nil
 }
 
 func (a *apiServer) ListUserClusters(ctx context.Context, req *lc.ListUserClustersRequest) (resp *lc.ListUserClustersResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	clusters := make([]*lc.UserClusterInfo, 0)
 	if err := a.env.DB.SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id, user_address, is_enterprise_server FROM license.clusters WHERE is_enterprise_server = false`); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &lc.ListUserClustersResponse{
 		Clusters: clusters,

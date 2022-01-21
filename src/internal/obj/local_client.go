@@ -49,28 +49,28 @@ func (c *fsClient) Put(ctx context.Context, name string, r io.Reader) (retErr er
 	final := c.finalPathFor(name)
 	f, err := os.Create(staging)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer c.closeFile(&retErr, f)
 	defer c.removeFile(&retErr, staging)
 	if _, err := io.Copy(f, r); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if err := f.Close(); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return os.Rename(staging, final)
+	return errors.EnsureStack(os.Rename(staging, final))
 }
 
 func (c *fsClient) Get(ctx context.Context, name string, w io.Writer) (retErr error) {
 	defer func() { retErr = c.transformError(retErr, name) }()
 	f, err := os.Open(c.finalPathFor(name))
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer c.closeFile(&retErr, f)
 	_, err = io.Copy(w, f)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (c *fsClient) Delete(ctx context.Context, name string) error {
@@ -87,7 +87,7 @@ func (c *fsClient) Exists(ctx context.Context, name string) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, err
+		return false, errors.EnsureStack(err)
 	}
 	return true, nil
 }
@@ -95,7 +95,7 @@ func (c *fsClient) Exists(ctx context.Context, name string) (bool, error) {
 func (c *fsClient) Walk(ctx context.Context, prefix string, cb func(string) error) error {
 	dirEnts, err := os.ReadDir(filepath.Join(c.rootDir, "objects"))
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	enc := base64.URLEncoding
 	for _, dirEnt := range dirEnts {
@@ -133,13 +133,13 @@ func (c *fsClient) finalPathFor(name string) string {
 
 func (c *fsClient) init() error {
 	if err := os.RemoveAll(filepath.Join(c.rootDir, "staging")); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if err := os.MkdirAll(filepath.Join(c.rootDir, "staging"), 0755); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if err := os.MkdirAll(filepath.Join(c.rootDir, "objects"), 0755); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	logrus.Infof("successfully initialized fs-backed object store at %s", c.rootDir)
 	return nil
@@ -150,7 +150,7 @@ func (c *fsClient) transformError(err error, name string) error {
 		return nil
 	}
 	if os.IsNotExist(err) || strings.HasSuffix(err.Error(), ": no such file or directory") {
-		return pacherr.NewNotExist(c.rootDir, name)
+		return pacherr.NewNotExist(c.BucketURL().String(), name)
 	}
 	return err
 }

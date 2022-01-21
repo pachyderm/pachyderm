@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // URL contains the information needed to connect to a SQL database, except for the password.
@@ -20,11 +22,11 @@ type URL struct {
 func ParseURL(x string) (*URL, error) {
 	u, err := url.Parse(x)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	port, err := strconv.Atoi(u.Port())
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	params := make(map[string]string)
 	for k, v := range u.Query() {

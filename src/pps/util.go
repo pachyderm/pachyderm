@@ -148,7 +148,7 @@ func JobStateFromName(name string) (JobState, error) {
 	if value, ok := JobState_value[canonical]; ok {
 		return JobState(value), nil
 	}
-	return 0, fmt.Errorf(errInvalidJobStateName, name)
+	return 0, errors.Errorf(errInvalidJobStateName, name)
 }
 
 // PipelineStateFromName attempts to interpret a string as a PipelineState,
@@ -158,7 +158,7 @@ func PipelineStateFromName(name string) (PipelineState, error) {
 	if value, ok := PipelineState_value[canonical]; ok {
 		return PipelineState(value), nil
 	}
-	return 0, fmt.Errorf(errInvalidPipelineStateName, name)
+	return 0, errors.Errorf(errInvalidPipelineStateName, name)
 }
 
 // IsTerminal returns 'true' if 'state' indicates that the job is done (i.e.

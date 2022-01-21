@@ -24,6 +24,8 @@ import (
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
+	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
@@ -127,7 +129,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
 		return err
 	}
-	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
+	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
@@ -141,6 +143,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
@@ -149,17 +152,21 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			method, _ := grpc.MethodFromServerStream(stream)
-			return fmt.Errorf("unknown service %v", method)
+			return errors.Errorf("unknown service %v", method)
 		}),
 		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
+			loggingInterceptor.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
+			loggingInterceptor.StreamServerInterceptor,
 		),
 	)
 	if err != nil {
@@ -198,7 +205,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
 				true,
 			)
 			if err != nil {
@@ -255,7 +262,21 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}
 
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
+	internalServer, err := grpcutil.NewServer(
+		context.Background(),
+		false,
+		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
+			tracing.UnaryServerInterceptor(),
+			authInterceptor.InterceptUnary,
+			loggingInterceptor.UnaryServerInterceptor,
+		),
+		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
+			authInterceptor.InterceptStream,
+			loggingInterceptor.StreamServerInterceptor,
+		),
+	)
 	if err != nil {
 		return err
 	}
@@ -301,7 +322,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
 				false,
 			)
 			if err != nil {
@@ -393,16 +414,21 @@ func doSidecarMode(config interface{}) (retErr error) {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
 	server, err := grpcutil.NewServer(
 		context.Background(),
 		false,
 		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
+			loggingInterceptor.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
+			loggingInterceptor.StreamServerInterceptor,
 		),
 	)
 	if err != nil {
@@ -443,7 +469,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err := logGRPCServerSetup("PPS API", func() error {
 		ppsAPIServer, err := pps_server.NewSidecarAPIServer(
 			pps_server.EnvFromServiceEnv(env, txnEnv, nil),
-			path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix),
 			env.Config().Namespace,
 			env.Config().PPSWorkerPort,
 			env.Config().PeerPort,
@@ -459,7 +484,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	if err := logGRPCServerSetup("Enterprise API", func() error {
 		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-			eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+			eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
 			false,
 		)
 		if err != nil {
@@ -547,7 +572,7 @@ func doFullMode(config interface{}) (retErr error) {
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
 		return err
 	}
-	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
+	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
@@ -563,6 +588,7 @@ func doFullMode(config interface{}) (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
@@ -571,17 +597,21 @@ func doFullMode(config interface{}) (retErr error) {
 		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			method, _ := grpc.MethodFromServerStream(stream)
-			return fmt.Errorf("unknown service %v", method)
+			return errors.Errorf("unknown service %v", method)
 		}),
 		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			authInterceptor.InterceptUnary,
+			loggingInterceptor.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			authInterceptor.InterceptStream,
+			loggingInterceptor.StreamServerInterceptor,
 		),
 	)
 
@@ -659,7 +689,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
 				true,
 			)
 			if err != nil {
@@ -729,7 +759,21 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
+	internalServer, err := grpcutil.NewServer(
+		context.Background(),
+		false,
+		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
+			tracing.UnaryServerInterceptor(),
+			authInterceptor.InterceptUnary,
+			loggingInterceptor.UnaryServerInterceptor,
+		),
+		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
+			authInterceptor.InterceptStream,
+			loggingInterceptor.StreamServerInterceptor,
+		),
+	)
 	if err != nil {
 		return err
 	}
@@ -819,7 +863,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
 				false,
 			)
 			if err != nil {
@@ -886,7 +930,7 @@ func doFullMode(config interface{}) (retErr error) {
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
 			log.Warnf("s3gateway TLS disabled: %v", err)
-			return server.ListenAndServe()
+			return errors.EnsureStack(server.ListenAndServe())
 		}
 		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
 		// Read TLS cert and key
@@ -895,11 +939,11 @@ func doFullMode(config interface{}) (retErr error) {
 			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
 		}
 		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return server.ListenAndServeTLS(certPath, keyPath)
+		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
 	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		http.Handle("/metrics", promhttp.Handler())
-		return http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil)
+		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil))
 	})
 	return <-errChan
 }

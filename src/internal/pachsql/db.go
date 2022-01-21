@@ -38,7 +38,8 @@ func OpenURL(u URL, password string) (*DB, error) {
 	default:
 		return nil, errors.Errorf("database protocol %q not supported", u.Protocol)
 	}
-	return sqlx.Open(driver, dsn)
+	res, err := sqlx.Open(driver, dsn)
+	return res, errors.EnsureStack(err)
 }
 
 func postgresDSN(u URL, password string) string {

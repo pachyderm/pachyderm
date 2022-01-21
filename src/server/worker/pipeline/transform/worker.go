@@ -11,11 +11,11 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -27,12 +27,13 @@ import (
 // datum queuing (probably should be handled by datum package).
 // capture datum logs.
 // git inputs.
-func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, status *Status) (retErr error) {
-	datumSet, err := deserializeDatumSet(subtask.Data)
+func Worker(driver driver.Driver, logger logs.TaggedLogger, input *types.Any, status *Status) (*types.Any, error) {
+	datumSet, err := deserializeDatumSet(input)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return status.withJob(datumSet.JobID, func() error {
+	var output *types.Any
+	if err := status.withJob(datumSet.JobID, func() error {
 		logger = logger.WithJob(datumSet.JobID)
 		if err := logger.LogStep("datum task", func() error {
 			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Details.Input) || driver.PipelineInfo().Details.S3Out {
@@ -42,11 +43,14 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 			}
 			return handleDatumSet(driver, logger, datumSet, status)
 		}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
-		subtask.Data, err = serializeDatumSet(datumSet)
+		output, err = serializeDatumSet(datumSet)
 		return err
-	})
+	}); err != nil {
+		return nil, err
+	}
+	return output, nil
 }
 
 func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
@@ -55,7 +59,7 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 		endpoint := fmt.Sprintf("http://%s:%s/", jobDomain, os.Getenv("S3GATEWAY_PORT"))
 		_, err := (&http.Client{Timeout: 5 * time.Second}).Get(endpoint)
 		logger.Logf("checking s3 gateway service for job %q: %v", logger.JobID(), err)
-		return err
+		return errors.EnsureStack(err)
 	}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("worker could not connect to s3 gateway for %q: %v", logger.JobID(), err)
 		return nil
@@ -93,7 +97,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 				return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
 					di := datum.NewFileSetIterator(pachClient, datumSet.FileSetId)
 					// Process each datum in the assigned datum set.
-					return di.Iterate(func(meta *datum.Meta) error {
+					err := di.Iterate(func(meta *datum.Meta) error {
 						ctx := pachClient.Ctx()
 						inputs := meta.Inputs
 						logger = logger.WithData(inputs)
@@ -102,7 +106,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 						if driver.PipelineInfo().Details.DatumTimeout != nil {
 							timeout, err := types.DurationFromProto(driver.PipelineInfo().Details.DatumTimeout)
 							if err != nil {
-								return err
+								return errors.EnsureStack(err)
 							}
 							opts = append(opts, datum.WithTimeout(timeout))
 						}
@@ -111,21 +115,25 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 						}
 						if driver.PipelineInfo().Details.Transform.ErrCmd != nil {
 							opts = append(opts, datum.WithRecoveryCallback(func(runCtx context.Context) error {
-								return driver.RunUserErrorHandlingCode(runCtx, logger, env)
+								return errors.EnsureStack(driver.RunUserErrorHandlingCode(runCtx, logger, env))
 							}))
 						}
 						return s.WithDatum(meta, func(d *datum.Datum) error {
 							cancelCtx, cancel := context.WithCancel(ctx)
 							defer cancel()
-							return status.withDatum(inputs, cancel, func() error {
-								return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
-									return d.Run(cancelCtx, func(runCtx context.Context) error {
-										return driver.RunUserCode(runCtx, logger, env)
+							err := status.withDatum(inputs, cancel, func() error {
+								err := driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
+									err := d.Run(cancelCtx, func(runCtx context.Context) error {
+										return errors.EnsureStack(driver.RunUserCode(runCtx, logger, env))
 									})
+									return errors.EnsureStack(err)
 								})
+								return errors.EnsureStack(err)
 							})
+							return errors.EnsureStack(err)
 						}, opts...)
 					})
+					return errors.EnsureStack(err)
 				}, opts...)
 			})
 		})

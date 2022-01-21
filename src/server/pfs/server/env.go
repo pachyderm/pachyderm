@@ -8,10 +8,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
-	"github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/net/context"
 )
@@ -22,6 +22,7 @@ type Env struct {
 	DB           *pachsql.DB
 	EtcdPrefix   string
 	EtcdClient   *etcd.Client
+	TaskService  task.Service
 	TxnEnv       *txnenv.TransactionEnv
 	Listener     col.PostgresListener
 
@@ -33,7 +34,6 @@ type Env struct {
 	GetPachClient func(ctx context.Context) *client.APIClient
 
 	BackgroundContext context.Context
-	Logger            *logrus.Logger
 	StorageConfig     serviceenv.StorageConfiguration
 }
 
@@ -54,6 +54,7 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		Listener:     env.GetPostgresListener(),
 		EtcdPrefix:   etcdPrefix,
 		EtcdClient:   env.GetEtcdClient(),
+		TaskService:  env.GetTaskService(etcdPrefix),
 
 		AuthServer:    env.AuthServer(),
 		GetPPSServer:  env.PpsServer,
@@ -61,6 +62,5 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 
 		BackgroundContext: env.Context(),
 		StorageConfig:     env.Config().StorageConfiguration,
-		Logger:            env.Logger(),
 	}, nil
 }

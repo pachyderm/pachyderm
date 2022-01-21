@@ -82,14 +82,14 @@ func (tester *ChannelWatchTester) Write(item *col.TestItem) {
 
 func (tester *ChannelWatchTester) Delete(id string) {
 	err := tester.writer(context.Background(), func(rw col.ReadWriteCollection) error {
-		return rw.Delete(id)
+		return errors.EnsureStack(rw.Delete(id))
 	})
 	require.NoError(tester.t, err)
 }
 
 func (tester *ChannelWatchTester) DeleteAll() {
 	err := tester.writer(context.Background(), func(rw col.ReadWriteCollection) error {
-		return rw.DeleteAll()
+		return errors.EnsureStack(rw.DeleteAll())
 	})
 	require.NoError(tester.t, err)
 }
@@ -308,7 +308,10 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			watchRead := reader(canceledContext())
 			writer(context.Background(), putItem(makeProto(makeID(3))))
-			testInterruptionPreemptive(t, func() (watch.Watcher, error) { return watchRead.Watch() })
+			testInterruptionPreemptive(t, func() (watch.Watcher, error) {
+				res, err := watchRead.Watch()
+				return res, errors.EnsureStack(err)
+			})
 		})
 
 		watchAllTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback) watch.Watcher {
@@ -358,7 +361,7 @@ func watchTests(
 
 		watchAllTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback) watch.Watcher {
 			return NewWatchShim(ctx, t, func(ctx context.Context, cb func(*watch.Event) error) error {
-				return reader(ctx).WatchF(cb)
+				return errors.EnsureStack(reader(ctx).WatchF(cb))
 			})
 		})
 	})
@@ -484,7 +487,10 @@ func watchTests(
 			watchRead := reader(canceledContext())
 			row := makeProto(makeID(1))
 			writer(context.Background(), putItem(row))
-			testInterruptionPreemptive(t, func() (watch.Watcher, error) { return watchRead.WatchOne(row.ID) })
+			testInterruptionPreemptive(t, func() (watch.Watcher, error) {
+				res, err := watchRead.WatchOne(row.ID)
+				return res, errors.EnsureStack(err)
+			})
 		})
 
 		watchOneTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, key string) watch.Watcher {
@@ -534,7 +540,7 @@ func watchTests(
 
 		watchOneTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, key string) watch.Watcher {
 			return NewWatchShim(ctx, t, func(ctx context.Context, cb func(ev *watch.Event) error) error {
-				return reader(ctx).WatchOneF(key, cb)
+				return errors.EnsureStack(reader(ctx).WatchOneF(key, cb))
 			})
 		})
 	})
@@ -670,7 +676,10 @@ func watchTests(
 			watchRead := reader(canceledContext())
 			row := makeProto(makeID(1), originalValue)
 			writer(context.Background(), putItem(row))
-			testInterruptionPreemptive(t, func() (watch.Watcher, error) { return watchRead.WatchByIndex(TestSecondaryIndex, originalValue) })
+			testInterruptionPreemptive(t, func() (watch.Watcher, error) {
+				res, err := watchRead.WatchByIndex(TestSecondaryIndex, originalValue)
+				return res, errors.EnsureStack(err)
+			})
 		})
 
 		watchByIndexTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, value string) watch.Watcher {

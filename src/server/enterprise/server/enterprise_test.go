@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -8,9 +9,14 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 )
@@ -213,7 +219,7 @@ func TestHeartbeatDeleted(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if resp.State != enterprise.State_HEARTBEAT_FAILED {
 			return errors.Errorf("expected enterprise state to be HEARTBEAT_FAILED but was %v", resp.State)
@@ -236,7 +242,7 @@ func TestHeartbeatDeleted(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if resp.State != enterprise.State_ACTIVE {
 			return errors.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
@@ -244,4 +250,55 @@ func TestHeartbeatDeleted(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
+}
+
+func TestEnterpriseConfigMigration(t *testing.T) {
+	db := dockertestenv.NewTestDB(t)
+	etcd := testetcd.NewEnv(t).EtcdClient
+
+	config := &enterprise.EnterpriseConfig{
+		Id:            "id",
+		LicenseServer: "server",
+		Secret:        "secret",
+	}
+
+	etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &enterprise.EnterpriseConfig{}, nil, nil)
+	_, err := col.NewSTM(context.Background(), etcd, func(stm col.STM) error {
+		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Put("config", config))
+	})
+	require.NoError(t, err)
+
+	env := migrations.Env{EtcdClient: etcd}
+	// create enterprise config record in etcd
+	state := migrations.InitialState().
+		// the following two state changes were shipped in v2.0.0
+		Apply("create collections schema", func(ctx context.Context, env migrations.Env) error {
+			return collection.CreatePostgresSchema(ctx, env.Tx)
+		}).
+		Apply("create collections trigger functions", func(ctx context.Context, env migrations.Env) error {
+			return collection.SetupPostgresV0(ctx, env.Tx)
+		}).
+		// the following two state changes are shipped in v2.1.0 to migrate EnterpriseConfig from etcd -> postgres
+		Apply("Move EnterpriseConfig from etcd -> postgres", func(ctx context.Context, env migrations.Env) error {
+			return EnterpriseConfigPostgresMigration(ctx, env.Tx, env.EtcdClient)
+		}).
+		Apply("Remove old EnterpriseConfig record from etcd", func(ctx context.Context, env migrations.Env) error {
+			return DeleteEnterpriseConfigFromEtcd(ctx, env.EtcdClient)
+		})
+	// run the migration
+	err = migrations.ApplyMigrations(context.Background(), db, env, state)
+	require.NoError(t, err)
+	err = migrations.BlockUntil(context.Background(), db, state)
+	require.NoError(t, err)
+
+	pgCol := EnterpriseConfigCollection(db, nil)
+	result := &enterprise.EnterpriseConfig{}
+	require.NoError(t, pgCol.ReadOnly(context.Background()).Get("config", result))
+	require.Equal(t, config.Id, result.Id)
+	require.Equal(t, config.LicenseServer, result.LicenseServer)
+	require.Equal(t, config.Secret, result.Secret)
+
+	err = etcdConfigCol.ReadOnly(context.Background()).Get("config", &enterprise.EnterpriseConfig{})
+	require.YesError(t, err)
+	require.True(t, collection.IsErrNotFound(err))
 }

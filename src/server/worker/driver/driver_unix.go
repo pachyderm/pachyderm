@@ -35,9 +35,9 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 			if err != nil {
 				return err
 			}
-			return os.Chown(name, int(*d.uid), int(*d.gid))
+			return errors.EnsureStack(os.Chown(name, int(*d.uid), int(*d.gid)))
 		}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	if err := d.linkData(inputs, dir); err != nil {
@@ -64,7 +64,7 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 	outputDir := filepath.Join(scratchSubdir, "out")
 	inputDirFields := strings.Split(filepath.Clean(d.InputDir()), string(filepath.Separator))
-	return filepath.Walk(outputDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(outputDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -105,6 +105,7 @@ func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 		// Always overwrite the symlink at this point, in case it's relative
 		return errors.EnsureStack(os.Symlink(filepath.Join(target), filepath.Join(path)))
 	})
+	return errors.EnsureStack(err)
 }
 
 func (d *driver) linkData(inputs []*common.Input, dir string) error {

@@ -6,12 +6,16 @@ import (
 	"reflect"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
+	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -442,6 +446,7 @@ type renewFileSetFunc func(context.Context, *pfs.RenewFileSetRequest) (*types.Em
 type composeFileSetFunc func(context.Context, *pfs.ComposeFileSetRequest) (*pfs.CreateFileSetResponse, error)
 type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 type runLoadTestDefaultFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
+type checkStorageFunc func(context.Context, *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error)
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -479,6 +484,7 @@ type mockRenewFileSet struct{ handler renewFileSetFunc }
 type mockComposeFileSet struct{ handler composeFileSetFunc }
 type mockRunLoadTest struct{ handler runLoadTestFunc }
 type mockRunLoadTestDefault struct{ handler runLoadTestDefaultFunc }
+type mockCheckStorage struct{ handler checkStorageFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)       { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                 { mock.handler = cb }
@@ -516,6 +522,7 @@ func (mock *mockRenewFileSet) Use(cb renewFileSetFunc)             { mock.handle
 func (mock *mockComposeFileSet) Use(cb composeFileSetFunc)         { mock.handler = cb }
 func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefault) Use(cb runLoadTestDefaultFunc) { mock.handler = cb }
+func (mock *mockCheckStorage) Use(cb checkStorageFunc)             { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -559,6 +566,7 @@ type mockPFSServer struct {
 	ComposeFileSet     mockComposeFileSet
 	RunLoadTest        mockRunLoadTest
 	RunLoadTestDefault mockRunLoadTestDefault
+	CheckStorage       mockCheckStorage
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -776,6 +784,12 @@ func (api *pfsServerAPI) RunLoadTestDefault(ctx context.Context, req *types.Empt
 		return api.mock.RunLoadTestDefault.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.RunLoadTestDefault")
+}
+func (api *pfsServerAPI) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error) {
+	if api.mock.CheckStorage.handler != nil {
+		return api.mock.CheckStorage.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock CheckStorage")
 }
 
 /* PPS Server Mocks */
@@ -1243,7 +1257,17 @@ func NewMockPachd(ctx context.Context) (*MockPachd, error) {
 	mock.Admin.api.mock = &mock.Admin
 	mock.Proxy.api.mock = &mock.Proxy
 
-	server, err := grpcutil.NewServer(ctx, false)
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(logrus.StandardLogger())
+	server, err := grpcutil.NewServer(ctx, false,
+		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
+			loggingInterceptor.UnaryServerInterceptor,
+		),
+		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
+			loggingInterceptor.StreamServerInterceptor,
+		),
+	)
 	if err != nil {
 		return nil, err
 	}

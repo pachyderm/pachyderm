@@ -90,7 +90,7 @@ func newPostgresWatcher(
 		value:    value,
 	}
 	if err := listener.Register(pw); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return pw, nil
 }
@@ -348,12 +348,12 @@ func (l *postgresListener) Close() error {
 
 	if l.pql != nil {
 		if err := l.pql.Close(); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 
 	if err := l.eg.Wait(); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	l.reset(errors.New("postgres listener has been closed"))

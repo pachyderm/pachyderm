@@ -24,15 +24,35 @@ This chapter will detail how to:
         If additional users need access to the output repository,
         the initial `repoOwner` of a pipeline's output repo, or a `clusterAdmin`,
         needs to grant that user access to the repo.
-      
-      
+    
 ## Set Roles to Users
 
-- A **clusterAdmin** can grant admin privileges on a cluster or any lower level ressources to other users.
+- A **clusterAdmin** can grant admin privileges on a cluster or any lower level ressources to other users.     
+  
 - A **repoOwner** of a given repository (or a **clusterAdmin** as mentioned above) can set any level of access to "their" repo to users by running the command:
 
     ```shell
     pachctl auth set <ressource> <ressource name> [role1,role2 | none ] <prefix:subject>
+    ```
+!!! Note
+
+    Alternatively, [you have the **option to set your cluster roles directly through Helm using the helm value: pachd.pachAuthClusterRoleBindings**](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L290){target=_blank}. 
+
+    For example, grant reader access to all repos to a specific group:
+    ```yaml
+     pachd:
+        pachAuthClusterRoleBindings: |
+            group:data-scientists:
+            - repoReader
+    ```
+    Or, give the user `paul@company.com` the clusterAdmin role, and the robot user `wallie` logReader rights on the cluster. 
+    ```yaml
+     pachd:
+        pachAuthClusterRoleBindings: |
+            user: paul@company.com:
+            - clusterAdmin
+            robot:wallie:
+            - logReader
     ```
 
 To keep using our Auth0 example and illustrate the attribution of a given Role to a User,
@@ -138,7 +158,7 @@ Let's keep using our Auth0 example as an illustration, and:
 1. Grant the group an owner access to a specific repo in Pachyderm.
 
 !!! Info
-    To enable the Group creation in Auth0, you will need to install an [`Authorization Extension`](https://auth0.com/docs/extensions/authorization-extension) to Auth0:
+    To enable the Group creation in Auth0, you will need to install an [`Authorization Extension`](https://auth0.com/docs/extensions/authorization-extension){target=_blank} to Auth0:
 
     - Go to **Auth0 Dashboard > Extensions**.
     - Select **Auth0 Authorization** and answer the prompt to install.

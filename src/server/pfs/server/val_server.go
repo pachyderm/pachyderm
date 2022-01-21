@@ -48,7 +48,7 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.Transa
 		return errors.New("commit repo cannot be nil")
 	}
 	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo, auth.Permission_REPO_WRITE); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
 }
@@ -59,7 +59,7 @@ func (a *validatedAPIServer) InspectFile(ctx context.Context, request *pfs.Inspe
 		return nil, err
 	}
 	if err := a.auth.CheckRepoIsAuthorized(ctx, request.File.Commit.Branch.Repo, auth.Permission_REPO_INSPECT_FILE); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return a.apiServer.InspectFile(ctx, request)
 }
@@ -70,7 +70,7 @@ func (a *validatedAPIServer) ListFile(request *pfs.ListFileRequest, server pfs.A
 		return err
 	}
 	if err := a.auth.CheckRepoIsAuthorized(server.Context(), request.File.Commit.Branch.Repo, auth.Permission_REPO_LIST_FILE); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return a.apiServer.ListFile(request, server)
 }
@@ -92,7 +92,7 @@ func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.A
 		return errors.New("file commit repo cannot be nil")
 	}
 	if err := a.auth.CheckRepoIsAuthorized(server.Context(), file.Commit.Branch.Repo, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return a.apiServer.WalkFile(request, server)
 }
@@ -111,7 +111,7 @@ func (a *validatedAPIServer) GlobFile(request *pfs.GlobFileRequest, server pfs.A
 		return errors.New("commit repo cannot be nil")
 	}
 	if err := a.auth.CheckRepoIsAuthorized(server.Context(), commit.Branch.Repo, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return a.apiServer.GlobFile(request, server)
 }
@@ -121,7 +121,7 @@ func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearComm
 		return nil, errors.Errorf("commit cannot be nil")
 	}
 	if err := a.auth.CheckRepoIsAuthorized(ctx, req.Commit.Branch.Repo, auth.Permission_REPO_WRITE); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return a.apiServer.ClearCommit(ctx, req)
 }

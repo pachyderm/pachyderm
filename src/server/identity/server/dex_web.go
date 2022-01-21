@@ -147,7 +147,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 	if config.IdTokenExpiry != "" {
 		idTokenExpiry, err = time.ParseDuration(config.IdTokenExpiry)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	}
 
@@ -155,7 +155,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 	if config.RotationTokenExpiry != "" {
 		refreshTokenPolicy, err = dex_server.NewRefreshTokenPolicy(w.logger, false, "", config.RotationTokenExpiry, "")
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	}
 	serverConfig := dex_server.Config{
@@ -177,7 +177,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 	ctx, w.serverCancel = context.WithCancel(context.Background())
 	w.server, err = dex_server.NewServer(ctx, serverConfig)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	w.currentConfig = config
 	w.currentConnectors = connectors
@@ -191,11 +191,11 @@ func (w *dexWeb) getServer(ctx context.Context) (*dex_server.Server, error) {
 	var server *dex_server.Server
 	config, err := w.apiServer.GetIdentityServerConfig(ctx, &identity.GetIdentityServerConfigRequest{})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	connectors, err := w.apiServer.ListIDPConnectors(ctx, &identity.ListIDPConnectorsRequest{})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	// Get a read lock to check if the server needs a restart
 	w.RLock()

@@ -18,7 +18,7 @@ To see how to use a helm values files to customize your deployment, refer to our
     Take a look at our deployment instructions [locally](../../getting_started/local_installation/) or [in the cloud](../../deploy-manage/deploy/quickstart/) to identify which of those are required for your deployment target.
 
 ## Values.yaml
-The following section displays the complete list of fields available in the [values.yaml](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/pachyderm/values.yaml). 
+The following section displays the complete list of fields available in the [values.yaml](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/pachyderm/values.yaml){target=_blank}. 
 Each section is further detailed in its own sub-chapter. 
 
 
@@ -89,6 +89,8 @@ This is where the primary configuration settings for the console are configured,
 - `config.oauthClientSecret` the secret configured for the client with pachd
 
 - `config.graphqlPort` the http port that the console service will be accessible on.
+
+- `config.disableTelemetry` this can be set to true to opt out of console's analytics and error data collection.
 
 ### etcd
 
@@ -306,7 +308,7 @@ If you're using Microsoft Blob Storage as your storage backend, configure it her
 
 ##### pachd.storage.minio
 
-If you're using [MinIO](https://min.io/) as your storage backend, configure it here.
+If you're using [MinIO](https://min.io/){target=_blank} as your storage backend, configure it here.
 
 - `storage.minio.bucket` sets the bucket to use.
 

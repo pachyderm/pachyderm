@@ -97,7 +97,7 @@ func newUnionIterator(pachClient *client.APIClient, inputs []*pps.Input) (Iterat
 func (ui *unionIterator) Iterate(cb func(*Meta) error) error {
 	for _, iterator := range ui.iterators {
 		if err := iterator.Iterate(cb); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil
@@ -131,9 +131,10 @@ func iterate(crossInputs []*common.Input, iterators []Iterator, cb func(*Meta) e
 		return cb(&Meta{Inputs: crossInputs})
 	}
 	// TODO: Might want to exit fast for the zero datums case.
-	return iterators[0].Iterate(func(meta *Meta) error {
+	err := iterators[0].Iterate(func(meta *Meta) error {
 		return iterate(append(crossInputs, meta.Inputs...), iterators[1:], cb)
 	})
+	return errors.EnsureStack(err)
 }
 
 func newCronIterator(pachClient *client.APIClient, input *pps.CronInput) Iterator {
@@ -168,11 +169,12 @@ func NewJobIterator(iterator Iterator, job *pps.Job, hasher Hasher) Iterator {
 }
 
 func (ji *jobIterator) Iterate(cb func(*Meta) error) error {
-	return ji.iterator.Iterate(func(meta *Meta) error {
+	err := ji.iterator.Iterate(func(meta *Meta) error {
 		meta.Job = ji.job
 		meta.Hash = ji.hasher.Hash(meta.Inputs)
 		return cb(meta)
 	})
+	return errors.EnsureStack(err)
 }
 
 type fileSetIterator struct {
@@ -215,11 +217,11 @@ func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
 			if pfsserver.IsFileNotFoundErr(err) || errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		meta := &Meta{}
 		if err := jsonpb.Unmarshal(tr, meta); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(meta); err != nil {
 			return err
@@ -244,7 +246,7 @@ func (mi *fileSetMultiIterator) Iterate(cb func(*Meta) error) error {
 			if pfsserver.IsFileNotFoundErr(err) || errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		var meta Meta
 		// kind of an abuse of the field, just stick this to key off of
@@ -304,7 +306,7 @@ func (ji *joinIterator) Iterate(cb func(*Meta) error) error {
 			for _, m := range metas {
 				crossInputs = append(crossInputs, m.Inputs)
 			}
-			return newCrossListIterator(crossInputs).Iterate(func(meta *Meta) error {
+			err := newCrossListIterator(crossInputs).Iterate(func(meta *Meta) error {
 				if len(meta.Inputs) == len(ji.iterators) {
 					// all inputs represented, include all inputs
 					return cb(meta)
@@ -320,6 +322,7 @@ func (ji *joinIterator) Iterate(cb func(*Meta) error) error {
 				}
 				return nil
 			})
+			return errors.EnsureStack(err)
 		})
 	})
 }
@@ -335,7 +338,7 @@ func computeDatumKeyFilesets(pachClient *client.APIClient, renewer *renew.String
 		marshaller := new(jsonpb.Marshaler)
 		eg.Go(func() error {
 			resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
-				return di.Iterate(func(meta *Meta) error {
+				err := di.Iterate(func(meta *Meta) error {
 					for _, input := range meta.Inputs {
 						// hash input keys to ensure consistently-shaped filepaths
 						keyHasher.Reset()
@@ -350,11 +353,12 @@ func computeDatumKeyFilesets(pachClient *client.APIClient, renewer *renew.String
 							return errors.Wrap(err, "marshalling input for key aggregation")
 						}
 						if err := mf.PutFile(key, strings.NewReader(out), client.WithAppendPutFile()); err != nil {
-							return err
+							return errors.EnsureStack(err)
 						}
 					}
 					return nil
 				})
+				return errors.EnsureStack(err)
 			})
 			if err != nil {
 				return err
@@ -365,7 +369,7 @@ func computeDatumKeyFilesets(pachClient *client.APIClient, renewer *renew.String
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return filesets, nil
 }
@@ -559,9 +563,10 @@ func newIndexIterator(iterator Iterator) Iterator {
 
 func (ii *indexIterator) Iterate(cb func(*Meta) error) error {
 	index := int64(0)
-	return ii.iterator.Iterate(func(meta *Meta) error {
+	err := ii.iterator.Iterate(func(meta *Meta) error {
 		meta.Index = index
 		index++
 		return cb(meta)
 	})
+	return errors.EnsureStack(err)
 }

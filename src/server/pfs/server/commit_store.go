@@ -75,14 +75,14 @@ func (cs *postgresCommitStore) AddFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, 
 		`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
 	VALUES ($1, $2)
 `, pfsdb.CommitKey(commit), id); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if _, err := tx.Exec(
 		`DELETE FROM pfs.commit_totals WHERE commit_id = $1
 		`, pfsdb.CommitKey(commit)); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return cs.tr.CreateTx(tx, oid, pointsTo, track.NoTTL)
+	return errors.EnsureStack(cs.tr.CreateTx(tx, oid, pointsTo, track.NoTTL))
 }
 
 func (cs *postgresCommitStore) GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
@@ -144,7 +144,7 @@ func (cs *postgresCommitStore) DropFileSets(ctx context.Context, commit *pfs.Com
 
 func (cs *postgresCommitStore) DropFileSetsTx(tx *pachsql.Tx, commit *pfs.Commit) error {
 	if err := dropTotal(tx, cs.tr, commit); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return cs.dropDiff(tx, commit)
 }
@@ -157,11 +157,11 @@ func (cs *postgresCommitStore) dropDiff(tx *pachsql.Tx, commit *pfs.Commit) erro
 	for _, diffID := range diffIDs {
 		trackID := commitDiffTrackerID(commit, diffID)
 		if err := cs.tr.DeleteTx(tx, trackID); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	if _, err := tx.Exec(`DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, pfsdb.CommitKey(commit)); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return nil
 }
@@ -173,7 +173,7 @@ func getDiff(tx *pachsql.Tx, commit *pfs.Commit) ([]fileset.ID, error) {
 		WHERE commit_id = $1
 		ORDER BY num
 		`, pfsdb.CommitKey(commit)); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return ids, nil
 }
@@ -184,7 +184,7 @@ func getTotal(tx *pachsql.Tx, commit *pfs.Commit) (*fileset.ID, error) {
 		`SELECT fileset_id FROM pfs.commit_totals
 		WHERE commit_id = $1
 	`, pfsdb.CommitKey(commit)); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &id, nil
 }
@@ -192,24 +192,24 @@ func getTotal(tx *pachsql.Tx, commit *pfs.Commit) (*fileset.ID, error) {
 func dropTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit) error {
 	id, err := getTotal(tx, commit)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 		return err
 	}
 	trackID := commitTotalTrackerID(commit, *id)
 	if err := tr.DeleteTx(tx, trackID); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	_, err = tx.Exec(`DELETE FROM pfs.commit_totals WHERE commit_id = $1`, pfsdb.CommitKey(commit))
-	return err
+	return errors.EnsureStack(err)
 }
 
 func setTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.ID) error {
 	oid := commitTotalTrackerID(commit, id)
 	pointsTo := []string{id.TrackerID()}
 	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	_, err := tx.Exec(`INSERT INTO pfs.commit_totals (commit_id, fileset_id)
 	VALUES ($1, $2)
@@ -217,7 +217,7 @@ func setTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.I
 	SET fileset_id = $2
 	WHERE commit_totals.commit_id = $1
 	`, pfsdb.CommitKey(commit), id)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func commitDiffTrackerID(commit *pfs.Commit, fs fileset.ID) string {

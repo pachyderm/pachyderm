@@ -61,7 +61,7 @@ func (w *Writer) Add(path, datum string, r io.Reader) error {
 	}
 	n, err := io.Copy(w.cw, r)
 	w.sizeBytes += n
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (w *Writer) nextIdx(idx *index.Index) error {

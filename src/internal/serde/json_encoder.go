@@ -64,7 +64,7 @@ func NewJSONEncoder(w io.Writer, options ...EncoderOption) *JSONEncoder {
 // Encode implements the corresponding method of serde.Encoder
 func (e *JSONEncoder) Encode(v interface{}) error {
 	// shortcut encoding
-	return e.e.Encode(v)
+	return errors.EnsureStack(e.e.Encode(v))
 }
 
 // EncodeTransform implements the corresponding method of serde.Encoder
@@ -86,7 +86,7 @@ func (e *JSONEncoder) EncodeProto(v proto.Message) error {
 		OrigName: e.origName,
 		Indent:   strings.Repeat(" ", e.indentSpaces),
 	}
-	return m.Marshal(e.w, v)
+	return errors.EnsureStack(m.Marshal(e.w, v))
 }
 
 // EncodeProtoTransform implements the corresponding method of serde.Encoder

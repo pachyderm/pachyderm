@@ -142,7 +142,7 @@ func (s *sidecarS3G) createK8sServices() {
 		// Retry the unlock inside the larger retry as other sidecars may not be
 		// able to obtain mastership until the key expires if unlock is unsuccessful
 		if err := backoff.RetryNotify(func() error {
-			return masterLock.Unlock(ctx)
+			return errors.EnsureStack(masterLock.Unlock(ctx))
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			logrus.Errorf("Error releasing sidecar s3 gateway master lock: %v; retrying in %v", err, d)
 			return nil // always retry
@@ -249,7 +249,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		if err != nil && strings.Contains(err.Error(), "already exists") {
 			return nil // service already created
 		}
-		return err
+		return errors.EnsureStack(err)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		logrus.Errorf("error creating kubernetes service for s3 gateway sidecar: %v; retrying in %v", err, d)
 		return nil
@@ -271,7 +271,7 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(ctx context.Context, job *pps
 		if err != nil && errutil.IsNotFoundError(err) {
 			return nil // service already deleted
 		}
-		return err
+		return errors.EnsureStack(err)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		logrus.Errorf("error deleting kubernetes service for s3 %q gateway sidecar: %v; retrying in %v", job, err, d)
 		return nil

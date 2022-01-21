@@ -91,7 +91,7 @@ If the job fails, the output commit will not be populated with data.`,
 				return errors.Wrap(err, "error from InspectJob")
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(jobInfo)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(jobInfo))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -112,7 +112,7 @@ If the job fails, the output commit will not be populated with data.`,
 			e := cmdutil.Encoder(output, out)
 			for _, jobInfo := range jobInfos {
 				if err := e.EncodeProto(jobInfo); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 			}
 			return nil
@@ -242,7 +242,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
 						return clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
-							return e.EncodeProto(jobSetInfo)
+							return errors.EnsureStack(e.EncodeProto(jobSetInfo))
 						})
 					}
 
@@ -261,7 +261,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
 						return client.ListJobFilterF(pipelineName, commits, historyCount, true, filter, func(ji *ppsclient.JobInfo) error {
-							return e.EncodeProto(ji)
+							return errors.EnsureStack(e.EncodeProto(ji))
 						})
 					}
 
@@ -455,7 +455,7 @@ each datum.`,
 			} else {
 				e := cmdutil.Encoder(output, os.Stdout)
 				printF = func(di *ppsclient.DatumInfo) error {
-					return e.EncodeProto(di)
+					return errors.EnsureStack(e.EncodeProto(di))
 				}
 			}
 			if pipelineInputPath != "" && len(args) == 1 {
@@ -509,7 +509,7 @@ each datum.`,
 				return err
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(datumInfo)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(datumInfo))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -681,7 +681,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var pipelinePath string
 	createPipeline := &cobra.Command{
 		Short: "Create a new pipeline.",
-		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
+		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(false, pushImages, registry, username, pipelinePath, false)
 		}),
@@ -695,7 +695,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var reprocess bool
 	updatePipeline := &cobra.Command{
 		Short: "Update an existing Pachyderm pipeline.",
-		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
+		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(reprocess, pushImages, registry, username, pipelinePath, true)
 		}),
@@ -744,7 +744,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(pipelineInfo)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(pipelineInfo))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -780,10 +780,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			createPipelineRequest := ppsutil.PipelineReqFromInfo(pipelineInfo)
 			f, err := ioutil.TempFile("", args[0])
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if err := cmdutil.Encoder(output, f).EncodeProto(createPipelineRequest); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			defer func() {
 				if err := f.Close(); err != nil && retErr == nil {
@@ -886,7 +886,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				e := cmdutil.Encoder(output, os.Stdout)
 				for _, pipelineInfo := range pipelineInfos {
 					if err := e.EncodeProto(pipelineInfo); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				return nil
@@ -894,7 +894,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				e := cmdutil.Encoder(output, os.Stdout)
 				for _, pipelineInfo := range pipelineInfos {
 					if err := e.EncodeProto(ppsutil.PipelineReqFromInfo(pipelineInfo)); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				return nil
@@ -1007,7 +1007,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			defer client.Close()
 			fileBytes, err := ioutil.ReadFile(file)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 
 			_, err = client.PpsAPIClient.CreateSecret(
@@ -1124,17 +1124,17 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) == 0 {
 				resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println()
 				return nil
 			}
-			return filepath.Walk(args[0], func(file string, fi os.FileInfo, err error) error {
+			err = filepath.Walk(args[0], func(file string, fi os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
@@ -1143,23 +1143,24 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				}
 				spec, err := ioutil.ReadFile(file)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
 					Spec: string(spec),
 					Seed: seed,
 				})
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println()
 				return nil
 			})
+			return errors.EnsureStack(err)
 		}),
 	}
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
@@ -1181,12 +1182,12 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 		var err error
 		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	} else if url, err := url.Parse(pipelinePath); err == nil && url.Scheme != "" {
 		resp, err := http.Get(url.String())
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		defer func() {
 			if err := resp.Body.Close(); err != nil && retErr == nil {
@@ -1195,13 +1196,13 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 		}()
 		pipelineBytes, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	} else {
 		var err error
 		pipelineBytes, err = ioutil.ReadFile(pipelinePath)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	}
 	return pipelineBytes, nil
@@ -1391,11 +1392,11 @@ func (arr ByCreationTime) Less(i, j int) bool {
 func validateJQConditionString(filter string) (string, error) {
 	q, err := gojq.Parse(filter)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	_, err = gojq.Compile(q)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	return filter, nil
 }

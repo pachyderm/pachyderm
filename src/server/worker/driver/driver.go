@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -24,7 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/work"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -37,9 +38,9 @@ import (
 // In general, need to spend some time walking through the old driver
 // tests to see what can be reused.
 
-// WorkNamespace returns the namespace used by the work package for this
+// TaskNamespace returns the namespace used by the task package for this
 // pipeline.
-func WorkNamespace(pipelineInfo *pps.PipelineInfo) string {
+func TaskNamespace(pipelineInfo *pps.PipelineInfo) string {
 	return fmt.Sprintf("/pipeline-%s/v%d", pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 }
 
@@ -52,8 +53,8 @@ type Driver interface {
 	Jobs() col.PostgresCollection
 	Pipelines() col.PostgresCollection
 
-	NewTaskWorker() *work.Worker
-	NewTaskQueue() (*work.TaskQueue, error)
+	NewTaskSource() task.Source
+	NewTaskDoer(string) task.Doer
 
 	// Returns the PipelineInfo for the pipeline that this worker belongs to
 	PipelineInfo() *pps.PipelineInfo
@@ -264,12 +265,16 @@ func (d *driver) Pipelines() col.PostgresCollection {
 	return d.pipelines
 }
 
-func (d *driver) NewTaskWorker() *work.Worker {
-	return work.NewWorker(d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, WorkNamespace(d.pipelineInfo))
+func (d *driver) NewTaskSource() task.Source {
+	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
+	taskService := d.env.GetTaskService(etcdPrefix)
+	return taskService.NewSource(TaskNamespace(d.pipelineInfo))
 }
 
-func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
-	return work.NewTaskQueue(d.ctx, d.env.GetEtcdClient(), d.env.Config().PPSEtcdPrefix, WorkNamespace(d.pipelineInfo))
+func (d *driver) NewTaskDoer(groupID string) task.Doer {
+	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
+	taskService := d.env.GetTaskService(etcdPrefix)
+	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID)
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {
@@ -452,7 +457,7 @@ func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string)
 	return d.NewSQLTx(func(sqlTx *pachsql.Tx) error {
 		jobInfo := &pps.JobInfo{}
 		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))
 	})
@@ -462,7 +467,7 @@ func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string)
 // that should be deleted rather than marked failed.  Jobs may be deleted if
 // their output commit is deleted.
 func (d *driver) DeleteJob(sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
-	return d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job))
+	return errors.EnsureStack(d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job)))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {

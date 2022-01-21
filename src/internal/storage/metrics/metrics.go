@@ -9,6 +9,8 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // TODO The metrics code should probably be reorganized at some point.
@@ -129,7 +131,7 @@ func register(subsystem string) error {
 		ms.requestSummaryThroughput,
 	} {
 		if err := prometheus.Register(m); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	subsystems[subsystem] = ms

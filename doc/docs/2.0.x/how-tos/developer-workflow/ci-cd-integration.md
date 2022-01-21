@@ -43,7 +43,7 @@ The CI workflow includes the following steps:
       * A `pipeline.json` specification file that you can use in a `Makefile` to create local builds, as well as in the CI/CD workflows.
       * The code that performs data transformations.
 
-      A [commit hook in Git](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks)
+      A [commit hook in Git](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks){target=_blank}
       for your repository triggers the CI/CD process. It uses the
       information in your pipeline specification for subsequent steps.
 
@@ -73,11 +73,11 @@ The CI workflow includes the following steps:
 
 
 ## GitHub Actions
-[GitHub actions](https://github.com/features/actions) are a convenient way to kick off workflows and perform integration. These can be used to:
+[GitHub actions](https://github.com/features/actions){target=_blank} are a convenient way to kick off workflows and perform integration. These can be used to:
 
 * Manually trigger a pipeline build, or
 * Automatically build a pipeline from a commit or pull request.
 
-In our [example](https://github.com/pachyderm/pachyderm/tree/workflows/examples/workflows/github-actions), we show how to use the Pachyderm GitHub Action to incorporate Pachyderm functions to run on a Pull Request or at other points during development.
+In our [example](https://github.com/pachyderm/pachyderm/tree/workflows/examples/workflows/github-actions){target=_blank}, we show how to use the Pachyderm GitHub Action to incorporate Pachyderm functions to run on a Pull Request or at other points during development.
 
 

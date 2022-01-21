@@ -1,3 +1,4 @@
+//nolint:wrapcheck
 package client
 
 import (
@@ -418,6 +419,9 @@ func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTest
 }
 func (c *pfsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTestDefault")
+}
+func (c *pfsBuilderClient) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest, opts ...grpc.CallOption) (*pfs.CheckStorageResponse, error) {
+	return nil, unsupportedError("CheckStorage")
 }
 
 func (c *ppsBuilderClient) InspectJobSet(ctx context.Context, req *pps.InspectJobSetRequest, opts ...grpc.CallOption) (pps.API_InspectJobSetClient, error) {
