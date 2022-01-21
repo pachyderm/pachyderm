@@ -126,6 +126,12 @@ export type DagQueryArgs = {
   jobSetId?: Maybe<Scalars['ID']>;
 };
 
+export type DeleteRepoArgs = {
+  repo: RepoInput;
+  force?: Maybe<Scalars['Boolean']>;
+  projectId: Scalars['String'];
+};
+
 export type File = {
   __typename?: 'File';
   committed?: Maybe<Timestamp>;
@@ -270,6 +276,7 @@ export type Mutation = {
   __typename?: 'Mutation';
   exchangeCode: Tokens;
   createRepo: Repo;
+  deleteRepo?: Maybe<Scalars['Boolean']>;
   createPipeline: Pipeline;
   createBranch: Branch;
   putFilesFromURLs: Array<Scalars['String']>;
@@ -281,6 +288,10 @@ export type MutationExchangeCodeArgs = {
 
 export type MutationCreateRepoArgs = {
   args: CreateRepoArgs;
+};
+
+export type MutationDeleteRepoArgs = {
+  args: DeleteRepoArgs;
 };
 
 export type MutationCreatePipelineArgs = {
@@ -753,6 +764,7 @@ export type ResolversTypes = ResolversObject<{
   CreateRepoArgs: CreateRepoArgs;
   CronInput: ResolverTypeWrapper<CronInput>;
   DagQueryArgs: DagQueryArgs;
+  DeleteRepoArgs: DeleteRepoArgs;
   File: ResolverTypeWrapper<File>;
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
@@ -825,6 +837,7 @@ export type ResolversParentTypes = ResolversObject<{
   CreateRepoArgs: CreateRepoArgs;
   CronInput: CronInput;
   DagQueryArgs: DagQueryArgs;
+  DeleteRepoArgs: DeleteRepoArgs;
   File: File;
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
@@ -1105,6 +1118,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationCreateRepoArgs, 'args'>
+  >;
+  deleteRepo?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
+    ParentType,
+    ContextType,
+    RequireFields<MutationDeleteRepoArgs, 'args'>
   >;
   createPipeline?: Resolver<
     ResolversTypes['Pipeline'],
@@ -1587,6 +1606,15 @@ export type CreateRepoMutation = {__typename?: 'Mutation'} & {
     'createdAt' | 'description' | 'id' | 'name' | 'sizeDisplay'
   >;
 };
+
+export type DeleteRepoMutationVariables = Exact<{
+  args: DeleteRepoArgs;
+}>;
+
+export type DeleteRepoMutation = {__typename?: 'Mutation'} & Pick<
+  Mutation,
+  'deleteRepo'
+>;
 
 export type ExchangeCodeMutationVariables = Exact<{
   code: Scalars['String'];

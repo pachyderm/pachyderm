@@ -9,6 +9,7 @@ interface RepoResolver {
   Repo: RepoResolvers;
   Mutation: {
     createRepo: MutationResolvers['createRepo'];
+    deleteRepo: MutationResolvers['deleteRepo'];
   };
 }
 
@@ -43,6 +44,14 @@ const repoResolver: RepoResolver = {
       const repo = await pachClient.pfs().inspectRepo(name);
 
       return repoInfoToGQLRepo(repo);
+    },
+    deleteRepo: async (_parent, {args: {repo, force}}, {pachClient}) => {
+      await pachClient.pfs().deleteRepo({
+        repo: {name: repo.name},
+        force: force || undefined,
+      });
+
+      return true;
     },
   },
 };

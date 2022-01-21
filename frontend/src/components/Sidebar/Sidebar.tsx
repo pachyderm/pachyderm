@@ -1,8 +1,11 @@
 import {ButtonLink, CloseSVG} from '@pachyderm/components';
 import classnames from 'classnames';
 import React, {HTMLAttributes} from 'react';
+import {Route} from 'react-router';
 
 import {SidebarSize} from '@dash-frontend/lib/types';
+import DeleteRepoButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeleteRepoButton';
+import {REPO_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 
 import useSidebar from './hooks/useSidebar';
 import styles from './Sidebar.module.css';
@@ -72,7 +75,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           />
         )}
         {onClose && (
-          <div className={styles.closeContainer}>
+          <div className={styles.sideBarToolbar}>
+            <Route path={REPO_PATH}>
+              <DeleteRepoButton />
+            </Route>
             <ButtonLink className={styles.closeButton} onClick={onClose}>
               <CloseSVG aria-label="Close" className={styles.closeSvg} />
             </ButtonLink>

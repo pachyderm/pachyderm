@@ -52,21 +52,23 @@
   opacity: 0.3;
 }
 
-.closeContainer {
-  position: absolute;
-  right: 0;
-  top: 0;
-  z-index: 2;
+.sideBarToolbar {
+  display: flex;
   padding: 1rem 1.375rem;
+  border-bottom: solid 1px var(--line-grey);
+  justify-content: flex-end;
 }
 
 .closeButton {
   display: block;
-  margin-left: auto;
 }
 
 .closeSvg {
   color: var(--placeholder-grey);
+}
+
+.trashSvg {
+  color: var(--plum);
 }
 
 .dragBar {

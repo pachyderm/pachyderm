@@ -68,6 +68,7 @@ const pfs = () => {
       | 'modifyFile'
       | 'startCommit'
       | 'finishCommit'
+      | 'deleteRepo'
     > => {
       return {
         listRepo: (call) => {
@@ -226,6 +227,26 @@ const pfs = () => {
               projectRepos.push(newRepo);
             }
           }
+          callback(null, new Empty());
+        },
+        deleteRepo: (call, callback) => {
+          const [projectId] = call.metadata.get('project-id');
+          const request = call.request;
+          const projectRepos = MockState.state.repos[projectId.toString()];
+          if (!projectRepos) {
+            callback({
+              code: Status.NOT_FOUND,
+              details: `project ${projectId.toString()} does not exist`,
+            });
+            return;
+          }
+          const deleteRepo = request.getRepo();
+          MockState.state.repos[projectId.toString()] = projectRepos.filter(
+            (repo) => {
+              return deleteRepo?.getName() !== repo.getRepo()?.getName();
+            },
+          );
+
           callback(null, new Empty());
         },
         inspectBranch: (call, callback) => {

@@ -378,6 +378,12 @@ input CreateRepoArgs {
   projectId: String!
 }
 
+input DeleteRepoArgs {
+  repo: RepoInput!
+  force: Boolean
+  projectId: String!
+}
+
 input RepoInput {
   name: ID!
 }
@@ -465,6 +471,7 @@ type Subscription {
 type Mutation {
   exchangeCode(code: String!): Tokens!
   createRepo(args: CreateRepoArgs!): Repo!
+  deleteRepo(args: DeleteRepoArgs!): Boolean
   createPipeline(args: CreatePipelineArgs!): Pipeline!
   createBranch(args: CreateBranchArgs!): Branch!
   putFilesFromURLs(args: PutFilesFromURLsArgs!): [String!]!

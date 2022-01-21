@@ -2,7 +2,11 @@ import {render, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
-import {withContextProviders} from '@dash-frontend/testHelpers';
+import {
+  withContextProviders,
+  click,
+  mockServer,
+} from '@dash-frontend/testHelpers';
 
 import ProjectSidebar from '../ProjectSidebar';
 
@@ -155,6 +159,34 @@ describe('ProjectSidebar', () => {
 
       const {queryByText} = render(<Project />);
       expect(queryByText('Read Logs')).toBeNull();
+    });
+
+    it('should disable the delete button when there are associated pipelines', async () => {
+      window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
+
+      const {findByTestId} = render(<Project />);
+      const deleteButton = await findByTestId('DeleteRepoButton__link');
+      expect(deleteButton).toBeDisabled();
+    });
+
+    it('should allow repos to be deleted', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/8/repo/montage/branch/master',
+      );
+
+      const {findByTestId} = render(<Project />);
+      expect(mockServer.getState().repos['8']).toHaveLength(3);
+      const deleteButton = await findByTestId('DeleteRepoButton__link');
+      await waitFor(() => expect(deleteButton).not.toBeDisabled());
+      click(deleteButton);
+      const confirmButton = await findByTestId('ModalFooter__confirm');
+      click(confirmButton);
+
+      await waitFor(() =>
+        expect(mockServer.getState().repos['8']).toHaveLength(2),
+      );
     });
   });
 

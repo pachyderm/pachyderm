@@ -216,6 +216,54 @@ export type CreateRepoMutationOptions = Apollo.BaseMutationOptions<
   Types.CreateRepoMutation,
   Types.CreateRepoMutationVariables
 >;
+export const DeleteRepoDocument = gql`
+  mutation deleteRepo($args: DeleteRepoArgs!) {
+    deleteRepo(args: $args)
+  }
+`;
+export type DeleteRepoMutationFn = Apollo.MutationFunction<
+  Types.DeleteRepoMutation,
+  Types.DeleteRepoMutationVariables
+>;
+
+/**
+ * __useDeleteRepoMutation__
+ *
+ * To run a mutation, you first call `useDeleteRepoMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeleteRepoMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [deleteRepoMutation, { data, loading, error }] = useDeleteRepoMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useDeleteRepoMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.DeleteRepoMutation,
+    Types.DeleteRepoMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.DeleteRepoMutation,
+    Types.DeleteRepoMutationVariables
+  >(DeleteRepoDocument, options);
+}
+export type DeleteRepoMutationHookResult = ReturnType<
+  typeof useDeleteRepoMutation
+>;
+export type DeleteRepoMutationResult =
+  Apollo.MutationResult<Types.DeleteRepoMutation>;
+export type DeleteRepoMutationOptions = Apollo.BaseMutationOptions<
+  Types.DeleteRepoMutation,
+  Types.DeleteRepoMutationVariables
+>;
 export const ExchangeCodeDocument = gql`
   mutation exchangeCode($code: String!) {
     exchangeCode(code: $code) {
