@@ -6,7 +6,6 @@ ignore_macros: true
 <!-- git-snippet: enable -->
 # Use GPUs
 
-Pachyderm leverages [Kubernetes Device Plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/) to let Kubernetes Pods access specialized hardware such as GPUs.
 
 - To install Pachyderm on an **NVIDIA DGX A100** box, skip to [Pachyderm on NVIDIA DGX A100](#pachyderm-on-nvidia-dgx-a100).
 - If you already have a GPU enabled Kubernetes cluster,
@@ -14,31 +13,19 @@ skip to [Configure GPUs in Pipelines](#configure-gpus-in-pipelines).
 - Otherwise, read the following section.
 ## Set up a GPU-enabled Kubernetes Cluster
 
+Pachyderm leverages [Kubernetes Device Plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/) to let Kubernetes Pods access specialized hardware such as GPUs.
 For instructions on how to set up a GPU-enabled Kubernetes cluster
 through device plugins, see the [Kubernetes documentation](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/){target=_blank}.
 
-
-Depending your hardware, setting up a GPU-enabled
-Kubernetes cluster might require significant effort. If you run
-into issues, check that the following points are addressed:
-
-1. The correct software is installed on the GPU machines so
-that applications that run in Docker containers can use the GPUs. This is
-highly dependent on the manufacturer of the GPUs and how you use them.
-
-1. Kubernetes exposes the GPU resources. You can check this by
-describing the GPU nodes with `kubectl describe node`. If the GPU resources
-available configured correctly, you should see them as available for scheduling.
-
-1. Your application can access and use the GPUs. This may be as simple as making
-shared libraries accessible by the application that runs in your container. You
-can  configure this by injecting environment variables into the Docker image or
-passing environment variables through the pipeline spec.
-
 ## Pachyderm on NVIDIA DGX A100
 
+Let’s walk through the main steps allowing Pachyderm to leverage the AI performance of your [DGX A100](https://www.nvidia.com/en-in/data-center/dgx-a100/){target=_blank} GPUs.
 
-Let’s walk through the steps allowing Pachyderm to leverage the AI performance of your [DGX A100](https://www.nvidia.com/en-in/data-center/dgx-a100/){target=_blank} GPUs.
+!!! Important
+    Support for scheduling GPU workloads in Kubernetes requires a fair amount of trial and effort. To ease the process:
+
+    - This [page](https://docs.nvidia.com/datacenter/cloud-native/kubernetes/install-k8s.html){target=_blank} will walk you through very detailed installation steps.
+    - Take advantage of a user past experience in [this blog](https://discuss.kubernetes.io/t/my-adventures-with-microk8s-to-enable-gpu-and-use-mig-on-a-dgx-a100/15366){target=_blank}.
 
 !!! Info
     Read about NVIDIA DGX A100's full [userguide](https://docs.nvidia.com/dgx/pdf/dgxa100-user-guide.pdf){target=_blank}.
@@ -96,12 +83,6 @@ Now that the DGX is added to your API server (and labeled properly), you can the
     ```shell
     kubectl get pods gpu-test
     ```
-    !!! Note "More"
-        Support for scheduling GPU workloads in Kubernetes requires a fair amount of trial and effort. To ease the process:
-
-        - This [page](https://docs.nvidia.com/datacenter/cloud-native/kubernetes/install-k8s.html){target=_blank} will walk you through a very details step-by-step installation.
-        - Take advantage of a user past experience in [this blog](https://discuss.kubernetes.io/t/my-adventures-with-microk8s-to-enable-gpu-and-use-mig-on-a-dgx-a100/15366){target=_blank}.
-
 
 1. If the container is successfully being scheduled, you are ready to start leveraging GPUs in your Pachyderm pipelines.
 
