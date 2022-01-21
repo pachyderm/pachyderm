@@ -21,25 +21,27 @@ through device plugins, see the [Kubernetes documentation](https://kubernetes.io
 
 Let’s walk through the main steps allowing Pachyderm to leverage the AI performance of your [DGX A100](https://www.nvidia.com/en-in/data-center/dgx-a100/){target=_blank} GPUs.
 
-!!! Important
-    Support for scheduling GPU workloads in Kubernetes requires a fair amount of trial and effort. To ease the process:
-
-    - This [page](https://docs.nvidia.com/datacenter/cloud-native/kubernetes/install-k8s.html){target=_blank} will walk you through very detailed installation steps.
-    - Take advantage of a user past experience in [this blog](https://discuss.kubernetes.io/t/my-adventures-with-microk8s-to-enable-gpu-and-use-mig-on-a-dgx-a100/15366){target=_blank}.
-
 !!! Info
     Read about NVIDIA DGX A100's full [userguide](https://docs.nvidia.com/dgx/pdf/dgxa100-user-guide.pdf){target=_blank}.
 
 
-As a prerequisite:
+!!! Important "TL;DR"
+    Support for scheduling GPU workloads in Kubernetes requires a fair amount of trial and effort. To ease the process:
+
+    - This [setup page](https://docs.nvidia.com/datacenter/cloud-native/kubernetes/install-k8s.html){target=_blank} will **walk you through very detailed installation steps** to prepare your Kubernetes cluster.
+    - Take advantage of a user's past experience in [this blog](https://discuss.kubernetes.io/t/my-adventures-with-microk8s-to-enable-gpu-and-use-mig-on-a-dgx-a100/15366){target=_blank}.
+
+Here is a quick recap of what will be needed:
 
 - Have a working Kubernetes control plane and worker nodes attached to your cluster. 
-- Install the DGX system in a hosting environment with network access to your cluster.
-- Add the DGX to your K8s API server as a worker node with the proper node label.
+- Install the DGX system in a hosting environment.
+- Add the DGX to your K8s API server as a worker node.
 
-Now that the DGX is added to your API server (and appropriately labeled), you can then proceed to:
+Now that the DGX is added to your API server, you can then proceed to:
  
-1. Enable the GPU worker node in the Kubernetes cluster by installing the following components:
+1. Enable the GPU worker node in the Kubernetes cluster by installing [NVIDIA's dependencies](https://docs.nvidia.com/datacenter/cloud-native/kubernetes/install-k8s.html#install-nvidia-dependencies){target=_blank}:
+
+    This is an indicative list: Dependencies packages and deployment methods may vary.
 
     - **NVIDIA drivers**
 
@@ -48,7 +50,7 @@ Now that the DGX is added to your API server (and appropriately labeled), you ca
     - **NVIDIA [Container Toolkit (nvidia-docker2)](https://docs.nvidia.com/datacenter/cloud-native/kubernetes/install-k8s.html#install-nvidia-container-toolkit-nvidia-docker2){target=_blank}**
 
         You may need to use different packages depending on your container engine.
-     
+      
     - **NVIDIA Kubernetes Device Plugin**
 
         To use GPUs in Kubernetes, the [NVIDIA Device Plugin](https://github.com/NVIDIA/k8s-device-plugin/){target=_blank} is required. The NVIDIA Device Plugin is a daemonset that enumerates the number of GPUs on each node of the cluster and allows pods to be run on GPUs. Follow those [steps](https://docs.nvidia.com/datacenter/cloud-native/kubernetes/install-k8s.html#install-nvidia-device-plugin){target=_blank} to deploy the device plugin as a daemonset using helm. 
@@ -84,7 +86,7 @@ Now that the DGX is added to your API server (and appropriately labeled), you ca
     kubectl get pods gpu-test
     ```
 
-1. If the container is scheduled successfully, you are ready to start leveraging GPUs in your Pachyderm pipelines.
+1. If the container is scheduled successfully, intall Pachyderm. You are ready to [start leveraging NVIDIA's GPUs in your Pachyderm pipelines](#configure-gpus-in-pipelines).
 
 !!! Important "Note"
     Note that you have the option to use GPUs for compute-intensive workloads on:
