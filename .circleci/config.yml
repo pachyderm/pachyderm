@@ -192,12 +192,15 @@ jobs:
       # - run: ./etc/testing/circle/build-openshift.sh
       - redhat-openshift/create-local-cluster-with-oc:
           skip-registry-check: true
-      - redhat-openshift/login-and-update-kubeconfig:
-          insecure-skip-tls-verify: true
-          openshift-platform-version: 3.x
-          password: password
-          server-address: 'https://127.0.0.1:8443'
-          username: dev1
+      # - redhat-openshift/login-and-update-kubeconfig:
+      #     insecure-skip-tls-verify: true
+      #     openshift-platform-version: 3.x
+      #     password: password
+      #     server-address: 'https://127.0.0.1:8443'
+      #     username: dev1
+      - run:
+          command: oc login -u system:admin
+          name: admin login
       - run:
           command: >
             oc new-project pach-test
