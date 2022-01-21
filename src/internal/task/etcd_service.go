@@ -41,22 +41,22 @@ func (es *etcdService) NewDoer(namespace, group string) Doer {
 	if group == "" {
 		group = uuid.NewWithoutDashes()
 	}
-	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
+	namespaceEtcd := NewNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
 	return newEtcdDoer(namespaceEtcd, group)
 }
 
 func (es *etcdService) NewSource(namespace string) Source {
-	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
+	namespaceEtcd := NewNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
 	return newEtcdSource(namespaceEtcd)
 }
 
 func (es *etcdService) TaskCount(ctx context.Context, namespace string) (tasks int64, claims int64, _ error) {
-	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	nTasks, rev, err := namespaceEtcd.taskCol.ReadOnly(ctx).CountRev(0)
+	namespaceEtcd := NewNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
+	nTasks, rev, err := namespaceEtcd.TaskCol.ReadOnly(ctx).CountRev(0)
 	if err != nil {
 		return 0, 0, errors.EnsureStack(err)
 	}
-	nClaims, _, err := namespaceEtcd.claimCol.ReadOnly(ctx).CountRev(rev)
+	nClaims, _, err := namespaceEtcd.ClaimCol.ReadOnly(ctx).CountRev(rev)
 	if err != nil {
 		return 0, 0, errors.EnsureStack(err)
 	}
@@ -65,15 +65,15 @@ func (es *etcdService) TaskCount(ctx context.Context, namespace string) (tasks i
 
 type namespaceEtcd struct {
 	etcdClient                  *etcd.Client
-	groupCol, taskCol, claimCol col.EtcdCollection
+	GroupCol, TaskCol, ClaimCol col.EtcdCollection
 }
 
-func newNamespaceEtcd(etcdClient *etcd.Client, etcdPrefix, namespace string) *namespaceEtcd {
+func NewNamespaceEtcd(etcdClient *etcd.Client, etcdPrefix, namespace string) *namespaceEtcd {
 	return &namespaceEtcd{
 		etcdClient: etcdClient,
-		groupCol:   newCollection(etcdClient, path.Join(etcdPrefix, groupPrefix, namespace), &Group{}),
-		taskCol:    newCollection(etcdClient, path.Join(etcdPrefix, taskPrefix, namespace), &Task{}),
-		claimCol:   newCollection(etcdClient, path.Join(etcdPrefix, claimPrefix, namespace), &Claim{}),
+		GroupCol:   newCollection(etcdClient, path.Join(etcdPrefix, groupPrefix, namespace), &Group{}),
+		TaskCol:    newCollection(etcdClient, path.Join(etcdPrefix, taskPrefix, namespace), &Task{}),
+		ClaimCol:   newCollection(etcdClient, path.Join(etcdPrefix, claimPrefix, namespace), &Claim{}),
 	}
 }
 
@@ -112,7 +112,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 			eg.Wait()
 		}()
 		eg.Go(func() error {
-			err := ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
+			err := ed.TaskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
 				if e.Type == watch.EventDelete {
 					return errors.New("task was deleted while waiting for results")
 				}
@@ -145,10 +145,10 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 		})
 		defer func() {
 			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
-				if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
+				if err := ed.TaskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
 					return errors.EnsureStack(err)
 				}
-				return errors.EnsureStack(ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix))
+				return errors.EnsureStack(ed.ClaimCol.ReadWrite(stm).DeleteAllPrefix(prefix))
 			}); err != nil {
 				fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
 			}
@@ -189,11 +189,11 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 }
 
 func (ed *etcdDoer) withGroup(ctx context.Context, cb func(ctx context.Context, renewer *col.Renewer) error) error {
-	err := ed.groupCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
+	err := ed.GroupCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
 		if err := renewer.Put(ctx, path.Join(ed.group, uuid.NewWithoutDashes()), &Group{}); err != nil {
 			return err
 		}
-		err := ed.taskCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
+		err := ed.TaskCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
 			return cb(ctx, renewer)
 		})
 		return errors.EnsureStack(err)
@@ -223,7 +223,7 @@ func newEtcdSource(namespaceEtcd *namespaceEtcd) Source {
 func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 	groups := make(map[string]map[string]struct{})
 	tq := newTaskQueue(ctx)
-	err := es.groupCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
+	err := es.GroupCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
 		group, uuid := path.Split(string(e.Key))
 		group = strings.TrimRight(group, "/")
 		groupMap, ok := groups[group]
@@ -262,12 +262,12 @@ func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 }
 
 func (es *etcdSource) forEachTask(ctx context.Context, group string, cb func(string) error) error {
-	claimWatch, err := es.claimCol.ReadOnly(ctx).WatchOne(group, watch.IgnorePut)
+	claimWatch, err := es.ClaimCol.ReadOnly(ctx).WatchOne(group, watch.IgnorePut)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	defer claimWatch.Close()
-	taskWatch, err := es.taskCol.ReadOnly(ctx).WatchOne(group, watch.IgnoreDelete)
+	taskWatch, err := es.TaskCol.ReadOnly(ctx).WatchOne(group, watch.IgnoreDelete)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -301,14 +301,14 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 		if err := func() error {
 			task := &Task{}
 			if _, err := col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
-				return errors.EnsureStack(es.taskCol.ReadWrite(stm).Get(taskKey, task))
+				return errors.EnsureStack(es.TaskCol.ReadWrite(stm).Get(taskKey, task))
 			}); err != nil {
 				return err
 			}
 			if task.State != State_RUNNING {
 				return nil
 			}
-			err := es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
+			err := es.ClaimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
 				taskOutput, taskErr := cb(ctx, task.Input)
 				// If the task context was canceled or the claim was lost, just return with no error.
 				if errors.Is(ctx.Err(), context.Canceled) {
@@ -316,7 +316,7 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 				}
 				task := &Task{}
 				_, err := col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
-					err := es.taskCol.ReadWrite(stm).Update(taskKey, task, func() error {
+					err := es.TaskCol.ReadWrite(stm).Update(taskKey, task, func() error {
 						if task.State != State_RUNNING {
 							return nil
 						}

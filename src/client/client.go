@@ -40,6 +40,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	"github.com/pachyderm/pachyderm/v2/src/taskapi"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
@@ -84,6 +85,8 @@ type DebugClient debug.DebugClient
 // ProxyClient is an alias of proxy.APIClient
 type ProxyClient proxy.APIClient
 
+type TaskClient taskapi.APIClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
@@ -95,6 +98,7 @@ type APIClient struct {
 	TransactionAPIClient
 	DebugClient
 	ProxyClient
+	TaskClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 	License    license.APIClient
 
@@ -811,6 +815,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	c.ProxyClient = proxy.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = grpc_health_v1.NewHealthClient(clientConn)
+	c.TaskClient = taskapi.NewAPIClient(clientConn)
 	return nil
 }
 
