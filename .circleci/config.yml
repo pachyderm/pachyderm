@@ -191,7 +191,7 @@ jobs:
       # - run: ./etc/testing/circle/install.sh
       # - run: ./etc/testing/circle/build-openshift.sh
       - redhat-openshift/create-local-cluster-with-oc:
-          skip-registry-check: true
+          skip-registry-check: false
       # - redhat-openshift/login-and-update-kubeconfig:
       #     insecure-skip-tls-verify: true
       #     openshift-platform-version: 3.x
