@@ -60,7 +60,7 @@ Now that the DGX is added to your API server, you can then proceed to:
 1. Test a sample container with GPU:
 
     To test whether CUDA jobs can be deployed, run a sample CUDA (vectorAdd) application.
-    
+
     For reference, find the pod spec below:
 
     ```yaml
@@ -87,7 +87,7 @@ Now that the DGX is added to your API server, you can then proceed to:
     kubectl get pods gpu-test
     ```
 
-1. If the container is scheduled successfully, intall Pachyderm. You are ready to [start leveraging NVIDIA's GPUs in your Pachyderm pipelines](#configure-gpus-in-pipelines).
+1. If the container above is scheduled successfully: install Pachyderm. You are ready to [start leveraging NVIDIA's GPUs in your Pachyderm pipelines](#configure-gpus-in-pipelines).
 
 !!! Important "Note"
     Note that you have the option to use GPUs for compute-intensive workloads on:
