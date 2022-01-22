@@ -130,7 +130,6 @@
   status = 301
   force = true 
 
-
 [[redirects]]
   from = "/latest/how-tos/developer-workflow/build-flag/"
   to = "/latest/how-tos/developer-workflow/push-images-flag/"
@@ -182,6 +181,12 @@
 [[redirects]]
   from = "/latest/deploy-manage/deploy/amazon_web_services/*"
   to = "/latest/deploy-manage/deploy/aws-deploy-pachyderm/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/deploy-manage/manage/sharing_gpu_resources/"
+  to = "/latest/deploy-manage/manage/gpus/"
   status = 301
   force = true
 
