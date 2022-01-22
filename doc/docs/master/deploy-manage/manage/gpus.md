@@ -59,7 +59,8 @@ Now that the DGX is added to your API server, you can then proceed to:
 
 1. Test a sample container with GPU:
 
-    To test whether CUDA jobs can be deployed, run a sample CUDA (vectorAdd) application:
+    To test whether CUDA jobs can be deployed, run a sample CUDA (vectorAdd) application.
+    
     For reference, find the pod spec below:
 
     ```yaml
