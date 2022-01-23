@@ -194,7 +194,7 @@ jobs:
           skip-registry-check: false
       - redhat-openshift/login-and-update-kubeconfig:
           insecure-skip-tls-verify: true
-          openshift-platform-version: 4.8
+          openshift-platform-version: 4.x
           password: password
           server-address: 'https://127.0.0.1:8443'
           username: dev1
