@@ -26,7 +26,7 @@ git tag -f -am "Circle CI test v$VERSION" v"$VERSION"
 # docker push "${REGISTRY}"/pach-test/worker:local 
 
 
-kubectl apply -f etc/testing/minio.yaml
+kubectl apply -f etc/testing/minio-openshift.yaml
 
 # REGISTRY=$(oc get route -n openshift-image-registry | awk 'FNR == 2 {print $2}') &&
 # PROJECT="pach-test"
