@@ -75,10 +75,6 @@ throughout the lifetime of your cluster.
            Use GPUs
           </a>
           </li>
-          <li><a href="sharing_gpu_resources/" class="md-typeset md-link">
-            Share GPU resources
-          </a>
-          </li>
         </ul>
        </div>
      </div>
