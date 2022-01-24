@@ -6,6 +6,8 @@ pachd:
       endpoint: "minio.pach-test.svc.cluster.local:9000"
 
 etcd:
+  securityContext:
+    enabled: false
   resources:
     requests:
       cpu: 250m
