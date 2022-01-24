@@ -31,9 +31,7 @@ func (a *APIServer) Listen(request *proxy.ListenRequest, server proxy.API_Listen
 	}
 
 	// send initial empty event to indicate to client that the listener has been registered
-	if err := server.Send(&proxy.ListenResponse{
-		Extra: "",
-	}); err != nil {
+	if err := server.Send(&proxy.ListenResponse{}); err != nil {
 		return errors.EnsureStack(err)
 	}
 

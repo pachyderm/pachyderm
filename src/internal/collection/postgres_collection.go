@@ -545,7 +545,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
-		lastTs := lastTimestamp(m, options.SortTarget)
+		lastTs = lastTimestamp(m, options.SortTarget)
 
 		if bufEvent == nil {
 			select {
@@ -559,6 +559,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 			if err := watcher.sendInitial(bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
 				return err
 			}
+			lastTs = bufEvent.time
 			bufEvent = nil
 			return errutil.ErrBreak
 		}
