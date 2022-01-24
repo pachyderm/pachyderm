@@ -2,6 +2,7 @@ import classnames from 'classnames';
 import React from 'react';
 
 import {Button, ButtonProps} from '../../../Button';
+import {Group} from '../../../Group';
 import {Icon} from '../../../Icon';
 import {Tooltip} from '../../../Tooltip';
 import useSideNav from '../../hooks/useSideNav';
@@ -45,10 +46,12 @@ const SideNavButton: React.FC<SideNavButtonProps> = ({
         data-testid={dataTestId}
         {...rest}
       >
-        <Icon className={styles.icon}>
-          <IconSVG />
-        </Icon>
-        {!minimized && children}
+        <Group spacing={8}>
+          <Icon className={styles.icon}>
+            <IconSVG />
+          </Icon>
+          {!minimized && children}
+        </Group>
       </Button>
     </Tooltip>
   );

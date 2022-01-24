@@ -13,7 +13,8 @@
 }
 
 .base {
-  display: block;
+  display: inline-flex;
+  white-space: nowrap;
   color: var(--base-color);
   padding: 0.25rem 1rem;
   transition: color .2s;
@@ -41,11 +42,6 @@
 
 .base.light[aria-current] {
   color: var(--secondary-active-color);
-}
-
-.base.showIconWhenExpanded .icon {
-  margin-right: 0.5rem;
-  vertical-align: top;
 }
 
 .icon svg {

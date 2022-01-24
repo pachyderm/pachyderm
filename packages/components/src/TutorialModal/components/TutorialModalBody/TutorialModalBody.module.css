@@ -18,6 +18,7 @@
 
 .overlay {
   position: absolute;
+  z-index: var(--z-index-modal-overlay);
   background: var(--pachyderm-black);
   opacity: 0.5;
   top: 0px;

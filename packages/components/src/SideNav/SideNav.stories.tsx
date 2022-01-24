@@ -87,6 +87,7 @@ export const LightMode = () => (
       <SideNav.SideNavList>
         <SideNav.SideNavButton
           IconSVG={DirectionsSVG}
+          to="/"
           tooltipContent="Switch View"
           autoWidth
         >

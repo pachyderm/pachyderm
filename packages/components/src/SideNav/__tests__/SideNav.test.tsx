@@ -44,9 +44,7 @@ describe('SideNav', () => {
     userEvent.click(members);
 
     expect(window.location.pathname).toBe('/members');
-
-    expect(window.location.pathname).toBe('/members');
-    expect(members).toHaveAttribute('aria-current', 'page');
+    expect(members.closest('a')).toHaveAttribute('aria-current', 'page');
   });
 
   it('should be able to be minimized and expanded', async () => {

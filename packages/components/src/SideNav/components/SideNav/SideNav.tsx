@@ -52,19 +52,21 @@ const SideNav: React.FC<Props> = ({
       <nav data-testid="SideNav__nav" className={className}>
         {children}
 
-        <button
-          className={styles.collapse}
-          onClick={toggleMinimized}
-          data-testid="SideNav__toggle"
-          aria-label={`${minimized ? 'Open' : 'Close'} navigation`}
-        >
-          {!minimized && 'Collapse'}
-          <div aria-hidden={true} className={styles.collapseIcon}>
-            <ChevronDoubleRightSVG
-              className={!minimized ? styles.flipSVG : ''}
-            />
-          </div>
-        </button>
+        {!isMobile && (
+          <button
+            className={styles.collapse}
+            onClick={toggleMinimized}
+            data-testid="SideNav__toggle"
+            aria-label={`${minimized ? 'Open' : 'Close'} navigation`}
+          >
+            {!minimized && 'Collapse'}
+            <div aria-hidden={true} className={styles.collapseIcon}>
+              <ChevronDoubleRightSVG
+                className={!minimized ? styles.flipSVG : ''}
+              />
+            </div>
+          </button>
+        )}
       </nav>
     </SideNavContext.Provider>
   );

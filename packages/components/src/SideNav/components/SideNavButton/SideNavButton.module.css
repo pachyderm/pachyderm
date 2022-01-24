@@ -1,5 +1,6 @@
 .base {
   margin: 0.25rem 1rem;
+  white-space: nowrap;
 }
 
 .base.minimized {
@@ -12,10 +13,6 @@
   overflow-x: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.base:not(.minimized) .icon {
-  margin-right: 0.5rem;
 }
 
 .icon svg {
