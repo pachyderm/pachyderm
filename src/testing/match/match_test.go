@@ -11,8 +11,8 @@ import (
 
 func TestMatchBasic(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
-    echo "This is a test" \
-      | match "test" \
+		echo "This is a test" \
+		  | match "test" \
 			| match "This is a test"
 	  `).Run())
 }
@@ -49,6 +49,7 @@ func TestMatchInvertedFail(t *testing.T) {
 	buf := &bytes.Buffer{}
 	c.Stderr = buf
 	require.YesError(t, c.Run())
-	require.True(t, bytes.Contains(buf.Bytes(), []byte("did not expect to find")))
+	t.Logf("buffer: %s", buf.Bytes())
+	require.True(t, bytes.Contains(buf.Bytes(), []byte("match for forbidden regex")))
 	require.True(t, bytes.Contains(buf.Bytes(), []byte("test")))
 }
