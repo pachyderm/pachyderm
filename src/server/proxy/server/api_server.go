@@ -29,6 +29,17 @@ func (a *APIServer) Listen(request *proxy.ListenRequest, server proxy.API_Listen
 	if err := listener.Register(notifier); err != nil {
 		return errors.EnsureStack(err)
 	}
+
+	// send initial empty event to indicate to client that the listener has been registered
+	if err := server.Send(&proxy.ListenResponse{
+		Extra: "",
+	}); err != nil {
+		notifier.sendError(err)
+		return
+	}
+
+	go notifier.send()
+
 	defer func() {
 		if err := listener.Unregister(notifier); err != nil {
 			logrus.Errorf("errored while unregistering notifier: %v", err)
@@ -46,15 +57,13 @@ type notifier struct {
 }
 
 func newNotifier(server proxy.API_ListenServer, channel string) *notifier {
-	n := &notifier{
+	return &notifier{
 		server:  server,
 		id:      uuid.NewWithoutDashes(),
 		channel: channel,
 		bufChan: make(chan *collection.Notification, collection.ChannelBufferSize),
 		errChan: make(chan error, 1),
 	}
-	go n.send()
-	return n
 }
 
 func (n *notifier) ID() string {

@@ -66,10 +66,20 @@ func (ppl *proxyPostgresListener) listen(notifier col.Notifier) {
 	channel := notifier.Channel()
 	ctx, cancel := context.WithCancel(context.Background())
 	ppl.channelInfos[channel] = newChannelInfo(cancel, notifier)
-	listenClient, err := ppl.client.Listen(ctx, &proxy.ListenRequest{
-		Channel: channel,
-	})
-	if err != nil {
+
+	var listenClient proxy.API_ListenClient
+	if err := func() error {
+		var err error
+		listenClient, err = ppl.client.Listen(ctx, &proxy.ListenRequest{
+			Channel: channel,
+		})
+		if err != nil {
+			return err
+		}
+		// wait for the first init event to be returned by the server
+		_, err = listenClient.Recv()
+		return err
+	}(); err != nil {
 		notifier.Error(err)
 		cancel()
 		delete(ppl.channelInfos, channel)
