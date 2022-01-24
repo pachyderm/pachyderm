@@ -9801,6 +9801,71 @@ func TestStandbyTransitions(t *testing.T) {
 	flushEventsAndCheckRC(initialRC.ResourceVersion)
 }
 
+func TestDatumSetCache(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	c = c.WithDefaultTransformUser("1000")
+	require.NoError(t, c.DeleteAll())
+	dataRepo := tu.UniqueString("TestDatumSetCache_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	masterCommit := client.NewCommit(dataRepo, "master", "")
+	require.NoError(t, c.WithModifyFileClient(masterCommit, func(mfc client.ModifyFile) error {
+		for i := 0; i < 60; i++ {
+			require.NoError(t, mfc.PutFile(strconv.Itoa(i), strings.NewReader("")))
+		}
+		return nil
+	}))
+	pipeline := tu.UniqueString("TestDatumSetCache")
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+					"sleep 1",
+				},
+			},
+			Input:        client.NewPFSInput(dataRepo, "/*"),
+			DatumSetSpec: &pps.DatumSetSpec{Number: 1},
+		})
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				var eg errgroup.Group
+				eg.Go(func() error {
+					tu.DeletePod(t, "etcd")
+					return nil
+				})
+				eg.Go(func() error {
+					// TODO: This seems to be causing issues unrelated to the caching.
+					//tu.DeletePod(t, "pg-bouncer")
+					return nil
+				})
+				eg.Wait()
+			}
+		}
+	}()
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	for i := 0; i < 5; i++ {
+		_, err := c.InspectFile(commitInfo.Commit, strconv.Itoa(i))
+		require.NoError(t, err)
+	}
+}
+
 func monitorReplicas(t testing.TB, pipeline string, n int) {
 	c := tu.GetPachClient(t)
 	kc := tu.GetKubeClient(t)

@@ -6,6 +6,7 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/pipelin
 import "gogoproto/gogo.proto";
 
 import "pfs/pfs.proto";
+import "pps/pps.proto";
 import "server/worker/datum/datum.proto";
 
 message DatumSet {
@@ -19,3 +20,44 @@ message DatumSet {
   string meta_file_set_id = 5;
   datum.Stats stats = 6;
 }
+
+message UploadDatumsTask {
+  pps_v2.Job job = 1;
+} 
+
+message UploadDatumsTaskResult {
+  string file_set_id = 1;
+} 
+
+message ComputeParallelDatumsTask {
+  pps_v2.Job job = 1;
+  string file_set_id = 2;
+  string base_file_set_id = 3;
+} 
+
+message ComputeParallelDatumsTaskResult {
+  string file_set_id = 1;
+}
+
+message ComputeSerialDatumsTask {
+  pps_v2.Job job = 1;
+  string file_set_id = 2;
+  pfs_v2.Commit base_meta_commit = 3;
+  bool no_skip = 4;
+}
+
+message ComputeSerialDatumsTaskResult {
+  string file_set_id = 1;
+  string delete_file_set_id = 2;
+  int64 skipped = 3;
+} 
+
+message CreateDatumSetsTask {
+  pps_v2.Job job = 1;
+  pfs_v2.Commit output_commit = 2;
+  string file_set_id = 3;
+} 
+
+message CreateDatumSetsTaskResult {
+  string file_set_id = 1;
+} 

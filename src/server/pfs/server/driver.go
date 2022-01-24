@@ -80,6 +80,8 @@ type driver struct {
 
 	storage     *fileset.Storage
 	commitStore commitStore
+
+	cache *fileset.Cache
 }
 
 func newDriver(env Env) (*driver, error) {
@@ -99,13 +101,13 @@ func newDriver(env Env) (*driver, error) {
 
 	// Setup driver struct.
 	d := &driver{
-		txnEnv:     env.TxnEnv,
+		env:        env,
 		etcdClient: env.EtcdClient,
+		txnEnv:     env.TxnEnv,
 		prefix:     env.EtcdPrefix,
 		repos:      repos,
 		commits:    commits,
 		branches:   branches,
-		env:        env,
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.DB)
@@ -126,6 +128,8 @@ func newDriver(env Env) (*driver, error) {
 	taskSource := env.TaskService.NewSource(storageTaskNamespace)
 	go compactionWorker(env.BackgroundContext, taskSource, d.storage)
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
+	// TODO: Make the cache max size configurable.
+	d.cache = fileset.NewCache(env.DB, tracker, 1000)
 	return d, nil
 }
 
@@ -2051,6 +2055,14 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchIn
 		return nil, err
 	}
 	return commit, nil
+}
+
+func (d *driver) putCache(ctx context.Context, key string, value *types.Any, fileSetIds []fileset.ID) error {
+	return d.cache.Put(ctx, key, value, fileSetIds)
+}
+
+func (d *driver) getCache(ctx context.Context, key string) (*types.Any, error) {
+	return d.cache.Get(ctx, key)
 }
 
 // TODO: Is this really necessary?

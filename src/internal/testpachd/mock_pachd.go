@@ -440,9 +440,11 @@ type addFileSetFunc func(context.Context, *pfs.AddFileSetRequest) (*types.Empty,
 type getFileSetFunc func(context.Context, *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error)
 type renewFileSetFunc func(context.Context, *pfs.RenewFileSetRequest) (*types.Empty, error)
 type composeFileSetFunc func(context.Context, *pfs.ComposeFileSetRequest) (*pfs.CreateFileSetResponse, error)
+type checkStorageFunc func(context.Context, *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error)
+type putCacheFunc func(context.Context, *pfs.PutCacheRequest) (*types.Empty, error)
+type getCacheFunc func(context.Context, *pfs.GetCacheRequest) (*pfs.GetCacheResponse, error)
 type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 type runLoadTestDefaultFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
-type checkStorageFunc func(context.Context, *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error)
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -478,9 +480,11 @@ type mockAddFileSet struct{ handler addFileSetFunc }
 type mockGetFileSet struct{ handler getFileSetFunc }
 type mockRenewFileSet struct{ handler renewFileSetFunc }
 type mockComposeFileSet struct{ handler composeFileSetFunc }
+type mockCheckStorage struct{ handler checkStorageFunc }
+type mockPutCache struct{ handler putCacheFunc }
+type mockGetCache struct{ handler getCacheFunc }
 type mockRunLoadTest struct{ handler runLoadTestFunc }
 type mockRunLoadTestDefault struct{ handler runLoadTestDefaultFunc }
-type mockCheckStorage struct{ handler checkStorageFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)       { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                 { mock.handler = cb }
@@ -516,9 +520,11 @@ func (mock *mockAddFileSet) Use(cb addFileSetFunc)                 { mock.handle
 func (mock *mockGetFileSet) Use(cb getFileSetFunc)                 { mock.handler = cb }
 func (mock *mockRenewFileSet) Use(cb renewFileSetFunc)             { mock.handler = cb }
 func (mock *mockComposeFileSet) Use(cb composeFileSetFunc)         { mock.handler = cb }
+func (mock *mockCheckStorage) Use(cb checkStorageFunc)             { mock.handler = cb }
+func (mock *mockPutCache) Use(cb putCacheFunc)                     { mock.handler = cb }
+func (mock *mockGetCache) Use(cb getCacheFunc)                     { mock.handler = cb }
 func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefault) Use(cb runLoadTestDefaultFunc) { mock.handler = cb }
-func (mock *mockCheckStorage) Use(cb checkStorageFunc)             { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -560,9 +566,11 @@ type mockPFSServer struct {
 	GetFileSet         mockGetFileSet
 	RenewFileSet       mockRenewFileSet
 	ComposeFileSet     mockComposeFileSet
+	CheckStorage       mockCheckStorage
+	PutCache           mockPutCache
+	GetCache           mockGetCache
 	RunLoadTest        mockRunLoadTest
 	RunLoadTestDefault mockRunLoadTestDefault
-	CheckStorage       mockCheckStorage
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -769,6 +777,24 @@ func (api *pfsServerAPI) ComposeFileSet(ctx context.Context, req *pfs.ComposeFil
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.ComposeFileSet")
 }
+func (api *pfsServerAPI) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error) {
+	if api.mock.CheckStorage.handler != nil {
+		return api.mock.CheckStorage.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock CheckStorage")
+}
+func (api *pfsServerAPI) PutCache(ctx context.Context, req *pfs.PutCacheRequest) (*types.Empty, error) {
+	if api.mock.PutCache.handler != nil {
+		return api.mock.PutCache.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock PutCache")
+}
+func (api *pfsServerAPI) GetCache(ctx context.Context, req *pfs.GetCacheRequest) (*pfs.GetCacheResponse, error) {
+	if api.mock.GetCache.handler != nil {
+		return api.mock.GetCache.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock GetCache")
+}
 func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error) {
 	if api.mock.RunLoadTest.handler != nil {
 		return api.mock.RunLoadTest.handler(ctx, req)
@@ -780,12 +806,6 @@ func (api *pfsServerAPI) RunLoadTestDefault(ctx context.Context, req *types.Empt
 		return api.mock.RunLoadTestDefault.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.RunLoadTestDefault")
-}
-func (api *pfsServerAPI) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error) {
-	if api.mock.CheckStorage.handler != nil {
-		return api.mock.CheckStorage.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock CheckStorage")
 }
 
 /* PPS Server Mocks */

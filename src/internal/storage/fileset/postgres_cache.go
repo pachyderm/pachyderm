@@ -1,0 +1,122 @@
+package fileset
+
+import (
+	"context"
+
+	proto "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+)
+
+// CreatePostgresCacheV1 creates the table for a cache.
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func CreatePostgresCacheV1(ctx context.Context, tx *pachsql.Tx) error {
+	const schema = `
+	CREATE TABLE storage.cache (
+		key text NOT NULL PRIMARY KEY,
+		value_pb BYTEA NOT NULL,
+		ids UUID[] NOT NULL,
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+`
+	_, err := tx.ExecContext(ctx, schema)
+	return errors.EnsureStack(err)
+}
+
+const CacheTrackerPrefix = "cache/"
+
+func cacheTrackerKey(key string) string {
+	return CacheTrackerPrefix + key
+}
+
+type Cache struct {
+	db      *pachsql.DB
+	tracker track.Tracker
+	maxSize int
+}
+
+func NewCache(db *pachsql.DB, tracker track.Tracker, maxSize int) *Cache {
+	return &Cache{
+		db:      db,
+		tracker: tracker,
+		maxSize: maxSize,
+	}
+}
+
+func (c *Cache) Put(ctx context.Context, key string, value *types.Any, ids []ID) error {
+	data, err := proto.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) error {
+		if err := c.put(tx, key, data, ids); err != nil {
+			return err
+		}
+		return c.applyEvictionPolicy(tx)
+	})
+}
+
+func (c *Cache) put(tx *pachsql.Tx, key string, value []byte, ids []ID) error {
+	// TODO: How to handle conflict?
+	_, err := tx.Exec(`
+		INSERT INTO storage.cache (key, value_pb, ids) 
+		VALUES ($1, $2, $3)
+		ON CONFLICT (key) DO NOTHING
+	`, key, value, ids)
+	if err != nil {
+		return err
+	}
+	var pointsTo []string
+	for _, id := range ids {
+		pointsTo = append(pointsTo, id.TrackerID())
+	}
+	return c.tracker.CreateTx(tx, cacheTrackerKey(key), pointsTo, track.NoTTL)
+}
+
+func (c *Cache) applyEvictionPolicy(tx *pachsql.Tx) error {
+	var size int
+	if err := tx.Get(&size, `
+		SELECT COUNT(key)
+		FROM storage.cache 
+	`); err != nil {
+		return err
+	}
+	if size <= c.maxSize {
+		return nil
+	}
+	var key string
+	if err := tx.Get(&key, `
+		DELETE FROM storage.cache 
+		WHERE key IN (
+			SELECT key 
+			FROM storage.cache 
+			ORDER BY created_at
+			LIMIT 1
+		)
+		RETURNING key
+	`); err != nil {
+		return err
+	}
+	return c.tracker.DeleteTx(tx, cacheTrackerKey(key))
+}
+
+func (c *Cache) Get(ctx context.Context, key string) (*types.Any, error) {
+	data := []byte{}
+	if err := sqlx.GetContext(ctx, c.db, &data, `
+		SELECT value_pb 
+		FROM storage.cache 
+		WHERE key = $1
+	`, key); err != nil {
+		return nil, err
+	}
+	value := &types.Any{}
+	if err := proto.Unmarshal(data, value); err != nil {
+		return nil, err
+	}
+	return value, nil
+}

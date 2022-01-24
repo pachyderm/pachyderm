@@ -37,12 +37,12 @@ func NewEtcdService(etcdClient *etcd.Client, etcdPrefix string) Service {
 	}
 }
 
-func (es *etcdService) NewDoer(namespace, group string) Doer {
+func (es *etcdService) NewDoer(namespace, group string, cache Cache) Doer {
 	if group == "" {
 		group = uuid.NewWithoutDashes()
 	}
 	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	return newEtcdDoer(namespaceEtcd, group)
+	return newEtcdDoer(namespaceEtcd, group, cache)
 }
 
 func (es *etcdService) NewSource(namespace string) Source {
@@ -91,12 +91,14 @@ func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Me
 type etcdDoer struct {
 	*namespaceEtcd
 	group string
+	cache Cache
 }
 
-func newEtcdDoer(namespaceEtcd *namespaceEtcd, group string) Doer {
+func newEtcdDoer(namespaceEtcd *namespaceEtcd, group string, cache Cache) Doer {
 	return &etcdDoer{
 		namespaceEtcd: namespaceEtcd,
 		group:         group,
+		cache:         cache,
 	}
 }
 
@@ -127,6 +129,11 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				var err error
 				if task.State == State_FAILURE {
 					err = errors.New(task.Reason)
+				}
+				if ed.cache != nil && err == nil {
+					if err := ed.cache.Put(ctx, task.ID, task.Output); err != nil {
+						fmt.Printf("errored putting task %v in cache: %v\n", key, err)
+					}
 				}
 				if err := cb(task.Index, task.Output, err); err != nil {
 					return err
@@ -167,6 +174,16 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				taskID, err := computeTaskID(input)
 				if err != nil {
 					return err
+				}
+				if ed.cache != nil {
+					output, err := ed.cache.Get(ctx, taskID)
+					if err == nil {
+						if err := cb(index, output, nil); err != nil {
+							return err
+						}
+						index++
+						continue
+					}
 				}
 				taskKey := path.Join(prefix, taskID)
 				task := &Task{

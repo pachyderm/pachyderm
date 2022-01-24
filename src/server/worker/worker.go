@@ -6,7 +6,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -88,13 +87,7 @@ func (w *Worker) worker() {
 
 		// Process any tasks that the master creates.
 		eg.Go(func() error {
-			return driver.NewTaskSource().Iterate(
-				ctx,
-				func(ctx context.Context, input *types.Any) (*types.Any, error) {
-					driver := w.driver.WithContext(ctx)
-					return transform.Worker(driver, logger, input, w.status)
-				},
-			)
+			return transform.Worker(ctx, driver, logger, w.status)
 		})
 
 		return eg.Wait()

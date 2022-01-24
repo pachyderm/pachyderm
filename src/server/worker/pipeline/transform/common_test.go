@@ -74,8 +74,8 @@ func (td *testDriver) Pipelines() col.PostgresCollection {
 func (td *testDriver) NewTaskSource() task.Source {
 	return td.inner.NewTaskSource()
 }
-func (td *testDriver) NewTaskDoer(groupID string) task.Doer {
-	return td.inner.NewTaskDoer(groupID)
+func (td *testDriver) NewTaskDoer(groupID string, cache task.Cache) task.Doer {
+	return td.inner.NewTaskDoer(groupID, cache)
 }
 func (td *testDriver) PipelineInfo() *pps.PipelineInfo {
 	return td.inner.PipelineInfo()

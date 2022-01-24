@@ -136,6 +136,17 @@ func (s *postgresStore) DeleteTx(tx *pachsql.Tx, id ID) error {
 	return err
 }
 
+func (s *postgresStore) Exists(ctx context.Context, id ID) (bool, error) {
+	_, err := s.get(ctx, s.db, id)
+	if err != nil {
+		if errors.Is(err, ErrFileSetNotExists) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // SetupPostgresStoreV0 sets up the tables for a Store
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION

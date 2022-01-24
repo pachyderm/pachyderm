@@ -44,15 +44,13 @@ func GetKubeClient(t testing.TB) *kube.Clientset {
 	return k
 }
 
-// DeletePachdPod deletes the pachd pod in a test cluster (restarting it, e.g.
-// to retart the PPS master)
-func DeletePachdPod(t testing.TB) {
+func DeletePod(t testing.TB, app string) {
 	kubeClient := GetKubeClient(t)
 	podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
 		context.Background(),
 		metav1.ListOptions{
 			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-				map[string]string{"app": "pachd", "suite": "pachyderm"},
+				map[string]string{"app": app, "suite": "pachyderm"},
 			)),
 		})
 	require.NoError(t, err)
@@ -61,14 +59,14 @@ func DeletePachdPod(t testing.TB) {
 		context.Background(),
 		podList.Items[0].ObjectMeta.Name, metav1.DeleteOptions{}))
 
-	// Make sure pachd goes down
+	// Make sure the pod goes down
 	startTime := time.Now()
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": "pachd", "suite": "pachyderm"},
+					map[string]string{"app": app, "suite": "pachyderm"},
 				)),
 			})
 		if err != nil {
@@ -80,23 +78,23 @@ func DeletePachdPod(t testing.TB) {
 		if time.Since(startTime) > 10*time.Second {
 			return nil
 		}
-		return errors.Errorf("waiting for old pachd pod to be killed")
+		return errors.Errorf("waiting for old %v pod to be killed", app)
 	}, backoff.NewTestingBackOff()))
 
-	// Make sure pachd comes back up
+	// Make sure the pod comes back up
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": "pachd", "suite": "pachyderm"},
+					map[string]string{"app": app, "suite": "pachyderm"},
 				)),
 			})
 		if err != nil {
 			return err
 		}
 		if len(podList.Items) == 0 {
-			return errors.Errorf("no pachd pod up yet")
+			return errors.Errorf("no %v pod up yet", app)
 		}
 		return nil
 	})
@@ -106,17 +104,17 @@ func DeletePachdPod(t testing.TB) {
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": "pachd", "suite": "pachyderm"},
+					map[string]string{"app": app, "suite": "pachyderm"},
 				)),
 			})
 		if err != nil {
 			return err
 		}
 		if len(podList.Items) == 0 {
-			return errors.Errorf("no pachd pod up yet")
+			return errors.Errorf("no %v pod up yet", app)
 		}
 		if podList.Items[0].Status.Phase != v1.PodRunning {
-			return errors.Errorf("pachd not running yet")
+			return errors.Errorf("%v not running yet", app)
 		}
 		return err
 	})

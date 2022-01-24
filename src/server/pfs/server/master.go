@@ -119,7 +119,8 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 					return err
 				}
 				// Compact the commit.
-				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID)
+				// TODO: Implement task service cache for compaction.
+				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID, nil)
 				var totalId *fileset.ID
 				start := time.Now()
 				if err := miscutil.LogStep(fmt.Sprintf("compacting commit %v", commit), func() error {

@@ -7,6 +7,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/any.proto";
 
 import "gogoproto/gogo.proto";
 
@@ -413,6 +414,30 @@ message ComposeFileSetRequest {
   int64 ttl_seconds = 2;
 }
 
+message CheckStorageRequest {
+  bool read_chunk_data = 1;
+  bytes chunk_begin = 2;
+  bytes chunk_end = 3;
+}
+
+message CheckStorageResponse {
+  int64 chunk_object_count = 1;
+}
+
+message PutCacheRequest {
+  string key = 1;
+  google.protobuf.Any value = 2;
+  repeated string file_set_ids = 3;
+}
+
+message GetCacheRequest {
+  string key = 1;
+}
+
+message GetCacheResponse {
+  google.protobuf.Any value = 1;
+}
+
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
@@ -428,16 +453,6 @@ message RunLoadTestResponse {
   int64 seed = 3;
   string error = 4;
   google.protobuf.Duration duration = 5;
-}
-
-message CheckStorageRequest {
-  bool read_chunk_data = 1;
-  bytes chunk_begin = 2;
-  bytes chunk_end = 3;
-}
-
-message CheckStorageResponse {
-  int64 chunk_object_count = 1;
 }
 
 service API {
@@ -519,6 +534,8 @@ service API {
   rpc ComposeFileSet(ComposeFileSetRequest) returns (CreateFileSetResponse) {}
   // CheckStorage runs integrity checks for the storage layer.
   rpc CheckStorage(CheckStorageRequest) returns (CheckStorageResponse) {}
+  rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}
+  rpc GetCache(GetCacheRequest) returns (GetCacheResponse) {}
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}

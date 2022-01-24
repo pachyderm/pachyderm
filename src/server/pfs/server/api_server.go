@@ -835,6 +835,33 @@ func (a *apiServer) CheckStorage(ctx context.Context, req *pfs.CheckStorageReque
 	}, nil
 }
 
+func (a *apiServer) PutCache(ctx context.Context, req *pfs.PutCacheRequest) (resp *types.Empty, retErr error) {
+	func() { a.Log(ctx, req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
+	var fsids []fileset.ID
+	for _, id := range req.FileSetIds {
+		fsid, err := fileset.ParseID(id)
+		if err != nil {
+			return nil, err
+		}
+		fsids = append(fsids, *fsid)
+	}
+	if err := a.driver.putCache(ctx, req.Key, req.Value, fsids); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) GetCache(ctx context.Context, req *pfs.GetCacheRequest) (resp *pfs.GetCacheResponse, retErr error) {
+	func() { a.Log(ctx, req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
+	value, err := a.driver.getCache(ctx, req.Key)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.GetCacheResponse{Value: value}, nil
+}
+
 // RunLoadTest implements the pfs.RunLoadTest RPC
 func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
 	func() { a.Log(ctx, nil, nil, nil, 0) }()
