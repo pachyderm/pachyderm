@@ -34,8 +34,7 @@ func (a *APIServer) Listen(request *proxy.ListenRequest, server proxy.API_Listen
 	if err := server.Send(&proxy.ListenResponse{
 		Extra: "",
 	}); err != nil {
-		notifier.sendError(err)
-		return
+		return errors.EnsureStack(err)
 	}
 
 	go notifier.send()

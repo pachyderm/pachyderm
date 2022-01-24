@@ -48,6 +48,10 @@ func (ppl *proxyPostgresListener) setup() error {
 	return err
 }
 
+// TODO: for now, calls to Register() will block on the Listener being established
+// on the main pachd instance. This could become a bottleneck if many Watchers are
+// instantiated at once. Consider finer grained locking at the channel level using
+// a mechanism such as the "WorkDeduper" (src/internal/miscutil/work_deduper.go).
 func (ppl *proxyPostgresListener) Register(notifier col.Notifier) error {
 	ppl.mu.Lock()
 	defer ppl.mu.Unlock()
@@ -83,6 +87,7 @@ func (ppl *proxyPostgresListener) listen(notifier col.Notifier) {
 		notifier.Error(err)
 		cancel()
 		delete(ppl.channelInfos, channel)
+		return
 	}
 
 	go func() {
