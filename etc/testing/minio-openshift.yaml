@@ -1,4 +1,4 @@
-0apiVersion: v1
+apiVersion: v1
 kind: Service
 metadata:
   name: minio
@@ -37,20 +37,22 @@ spec:
         image: docker.io/minio/minio:latest
         command: ["/bin/bash"]
         # this will create a bucket called "pachyderm-test" and then launch minio
-        args: ["-c", "echo $(pwd); mkdir -p data/pachyderm-test && chmod -R 777 data && minio server data --console-address=0.0.0.0:9001" ]
+        args: ["-c", "echo $(id); echo $(ls -l | grep data); mkdir -p /data/pachyderm-test && minio server /data --console-address=0.0.0.0:9001" ]
         ports:
         - containerPort: 9000
           name: s3
         - containerPort: 9001
           name: console
-  #       volumeMounts:
-  #       - name: minio-data
-  #         mountPath: /data
-  # volumeClaimTemplates:
-  # - metadata:
-  #     name: minio-data
-  #     labels:
-  #       app: minio
+        volumeMounts:
+        - name: minio-data
+          mountPath: /data
+      securityContext:
+        fsGroup: 0
+  volumeClaimTemplates:
+  - metadata:
+      name: minio-data
+      labels:
+        app: minio
     spec:
       accessModes: [ "ReadWriteOnce"]
       resources:
