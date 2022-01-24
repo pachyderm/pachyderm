@@ -66,14 +66,17 @@ func (ppl *proxyPostgresListener) listen(notifier col.Notifier) {
 	channel := notifier.Channel()
 	ctx, cancel := context.WithCancel(context.Background())
 	ppl.channelInfos[channel] = newChannelInfo(cancel, notifier)
+	listenClient, err := ppl.client.Listen(ctx, &proxy.ListenRequest{
+		Channel: channel,
+	})
+	if err != nil {
+		notifier.Error(err)
+		cancel()
+		delete(ppl.channelInfos, channel)
+	}
+
 	go func() {
 		if err := func() error {
-			listenClient, err := ppl.client.Listen(ctx, &proxy.ListenRequest{
-				Channel: channel,
-			})
-			if err != nil {
-				return err
-			}
 			for {
 				resp, err := listenClient.Recv()
 				if err != nil {
