@@ -168,6 +168,7 @@ jobs:
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/start-minikube.sh
       - run: etc/testing/circle/launch-loki.sh
+      - run: etc/testing/circle/build.sh
       - run: etc/testing/circle/upgrade_test.sh
 
 workflows:
