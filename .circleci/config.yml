@@ -32,7 +32,7 @@ jobs:
       # TODO(jonathan): Enable the race detector (many tests currently fail with it enabled).
       # TODO(jonathan): Run the database tests (skipped by NO_DOCKER=1).
       - run: |-
-          GOMAXPROCS=8 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null NO_DOCKER=1 \
+          GOMAXPROCS=8 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
           gotestsum \
           --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
           --rerun-fails \
