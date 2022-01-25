@@ -15,8 +15,6 @@ parameters:
 
 jobs:
   test-go:
-    # docker:
-    #   - image: circleci/golang:1.17
     resource_class: xlarge
     machine:
       image: ubuntu
@@ -31,8 +29,6 @@ jobs:
       # - restore_cache:
       #     keys:
       #       - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-      - setup_remote_docker:
-          version: 20.10.11
       # TODO(jonathan): Enable the race detector (many tests currently fail with it enabled).
       - run: |-
           GOMAXPROCS=8 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
