@@ -37,6 +37,7 @@ jobs:
           --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
           --rerun-fails \
           --packages="./..." \
+          -- \
           -count=1 \
           -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
       - store_artifacts: # upload test summary for display in Artifacts
