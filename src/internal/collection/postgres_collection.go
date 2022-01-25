@@ -580,7 +580,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 	}
 
 	// Forward all buffered notifications until the watcher is closed
-	watcher.forwardNotifications(c.ctx, time.Time{})
+	watcher.forwardNotifications(c.ctx)
 }
 
 // NOTE: Internally, Watch scans the collection's initial state over multiple transactions,
@@ -631,32 +631,9 @@ func (c *postgresReadOnlyCollection) watchOne(key string, opts ...watch.Option) 
 		return nil, err
 	}
 
-	go func() {
-		// Load the initial state of the row
-		lastUpdated := time.Time{}
-		if m, err := c.get(c.ctx, key, c.db); err != nil {
-			if !errors.Is(err, ErrNotFound{}) {
-				watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
-				watcher.listener.Unregister(watcher)
-				return
-			}
-		} else {
-			lastUpdated = m.UpdatedAt
-			if err := watcher.sendInitial(&watch.Event{
-				Key:      []byte(key),
-				Value:    m.Proto,
-				Type:     watch.EventPut,
-				Template: c.template,
-				Rev:      m.UpdatedAt.Unix(),
-			}); err != nil {
-				watcher.listener.Unregister(watcher)
-				return
-			}
-		}
+	withFields := map[string]string{"key": key}
+	go c.watchRoutine(watcher, options, withFields)
 
-		// Forward all buffered notifications until the watcher is closed
-		watcher.forwardNotifications(c.ctx, lastUpdated)
-	}()
 	return watcher, nil
 }
 
