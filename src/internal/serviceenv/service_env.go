@@ -191,14 +191,15 @@ func (env *NonblockingServiceEnv) initClusterID() error {
 	client := env.GetEtcdClient()
 	for {
 		resp, err := client.Get(context.Background(), clusterIDKey)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
 
 		// if it's a key not found error then we create the key
 		if resp.Count == 0 {
 			// This might error if it races with another pachd trying to set the
 			// cluster id so we ignore the error.
 			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes())
-		} else if err != nil {
-			return errors.EnsureStack(err)
 		} else {
 			// We expect there to only be one value for this key
 			env.clusterId = string(resp.Kvs[0].Value)
