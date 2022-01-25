@@ -47,6 +47,10 @@ the [Kubernetes documentation](https://kubernetes.io/docs/setup/){target=_blank}
       ```shell  
       minikube start  
       ```  
+      Linux users, add this `--driver` flag:
+      ```shell
+      minikube start --driver=kvm2
+      ```
   
 !!! Note  
     Any time you want to stop and restart Pachyderm, run `minikube delete`  
