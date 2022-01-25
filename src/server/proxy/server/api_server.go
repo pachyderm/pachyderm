@@ -23,6 +23,8 @@ func NewAPIServer(env Env) *APIServer {
 	}
 }
 
+// Listen streams database events.
+// It signals that it is internally set up by sending an initial empty ListenResponse.
 func (a *APIServer) Listen(request *proxy.ListenRequest, server proxy.API_ListenServer) (retErr error) {
 	listener := a.env.Listener
 	notifier := newNotifier(server, request.Channel)
