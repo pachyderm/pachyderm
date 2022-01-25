@@ -527,7 +527,6 @@ func (c *postgresReadOnlyCollection) Count() (int64, error) {
 // in the collection, followed by new events.
 func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, options watch.WatchOptions, withFields map[string]string) {
 	// Do a list of the collection to get the initial state
-	lastTs := time.Time{}
 	val := cloneProtoMsg(c.template)
 
 	lastTimestamp := func(m *model, target etcd.SortTarget) time.Time {
@@ -545,7 +544,6 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
-		lastTs = lastTimestamp(m, options.SortTarget)
 
 		if bufEvent == nil {
 			select {
@@ -555,12 +553,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 			}
 		}
 
-		if bufEvent != nil && bufEvent.time.Unix() <= lastTs.Unix() {
-			if err := watcher.sendInitial(bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
-				return err
-			}
-			lastTs = bufEvent.time
-			bufEvent = nil
+		if bufEvent != nil && bufEvent.time.Unix() <= lastTimestamp(m, options.SortTarget).Unix() {
 			return errutil.ErrBreak
 		}
 
@@ -571,14 +564,13 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 			Template: c.template,
 			Rev:      m.UpdatedAt.Unix(),
 		})
-	}); err != nil && err != errutil.ErrBreak {
+	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
 		// Ignore any additional error here - we're already attempting to send an error to the user
 		watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
 		watcher.listener.Unregister(watcher)
 		return
 	}
 
-	// if a watch event was dequeued and not sent, send it
 	if bufEvent != nil {
 		if err := watcher.sendInitial(bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
 			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
@@ -588,7 +580,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 	}
 
 	// Forward all buffered notifications until the watcher is closed
-	watcher.forwardNotifications(c.ctx, lastTs)
+	watcher.forwardNotifications(c.ctx, time.Time{})
 }
 
 // NOTE: Internally, Watch scans the collection's initial state over multiple transactions,
