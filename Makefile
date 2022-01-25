@@ -8,7 +8,6 @@ include etc/govars.mk
 
 SHELL=/bin/bash -o pipefail
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
-LIVETESTFLAGS=-tags=livek8s # used by go tests that run against a real k8s cluster
 export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 export GC_FLAGS = "all=-trimpath=${PWD}"
 
@@ -245,24 +244,24 @@ test-pfs-server:
 test-pps: launch-stats docker-build-spout-test
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS) $(LIVETESTFLAG)
+	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-cmds:
 	go install -v ./src/testing/match
-	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd $(LIVETESTFLAG)
-	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
-	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
-	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
+	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
+	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
-	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
-	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
-	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
+	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-transaction:
-	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
+	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-client:
-	go test -count=1 -cover $$(go list ./src/client/...) $(TESTFLAGS) $(LIVETESTFLAG)
+	go test -count=1 -cover $$(go list ./src/client/...) $(TESTFLAGS)
 
 test-s3gateway-conformance:
 	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
@@ -279,33 +278,33 @@ test-s3gateway-integration:
 	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
 
 test-s3gateway-unit:
-	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
+	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-fuse:
-	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') $(TESTFLAGS) $(LIVETESTFLAG)
+	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') $(TESTFLAGS)
 
 test-local:
-	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
+	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-auth:
-	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS) $(LIVETESTFLAG)
+	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-identity:
 	etc/testing/forward-postgres.sh
-	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS) $(LIVETESTFLAG)
+	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-license:
-	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS) $(LIVETESTFLAG)
+	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-admin:
-	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS) $(LIVETESTFLAG)
+	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-enterprise:
-	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
+	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-enterprise-integration:
 	go install ./src/testing/match
-	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
+	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-tls:
 	./etc/testing/test_tls.sh
@@ -314,7 +313,7 @@ test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS) $(LIVETESTFLAG)
+	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS)
 
 clean: clean-launch clean-launch-kube
 

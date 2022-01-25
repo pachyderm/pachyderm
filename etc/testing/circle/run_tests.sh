@@ -14,7 +14,7 @@ export PACH_PORT
 ENTERPRISE_PORT="31650"
 export ENTEPRRISE_PORT
 
-TESTFLAGS="-v | stdbuf -i0 tee -a /tmp/results"
+TESTFLAGS="-v -tags=livek8s | stdbuf -i0 tee -a /tmp/results"
 export TESTFLAGS
 
 # make launch-kube connects with kubernetes, so it should just be available
@@ -39,7 +39,7 @@ function test_bucket {
 
     echo "Running bucket $bucket_num of $num_buckets"
     # shellcheck disable=SC2207
-    tests=( $(go test -v  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+    tests=( $(go test -tags=livek8s -v  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
     # Add anchors for the regex so we don't run collateral tests
     tests=( "${tests[@]/#/^}" )
     tests=( "${tests[@]/%/\$\$}" )
@@ -92,7 +92,7 @@ case "${BUCKET}" in
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
       export PACH_TEST_WITH_AUTH=1
-      go test -v -count=1 ./src/server/pps/server -timeout 420s
+      go test -v -count=1 ./src/server/pps/server -timeout 420s -tags=livek8s
     fi
     ;;
   AUTH)
