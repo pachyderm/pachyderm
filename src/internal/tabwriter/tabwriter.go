@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/juju/ansiterm"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 const (
@@ -45,16 +46,17 @@ func (w *Writer) Write(buf []byte) (int, error) {
 			return 0, err
 		}
 		if _, err := w.w.Write(w.header); err != nil {
-			return 0, err
+			return 0, errors.EnsureStack(err)
 		}
 		w.lines++
 	}
 	w.lines += bytes.Count(buf, []byte{'\n'})
-	return w.w.Write(buf)
+	res, err := w.w.Write(buf)
+	return res, errors.EnsureStack(err)
 }
 
 // Flush flushes the underlying tab writer.
 func (w *Writer) Flush() error {
 	w.lines = 0
-	return w.w.Flush()
+	return errors.EnsureStack(w.w.Flush())
 }

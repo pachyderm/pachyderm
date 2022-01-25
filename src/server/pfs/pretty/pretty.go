@@ -10,6 +10,7 @@ import (
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -78,13 +79,9 @@ Size of HEAD on master: {{prettySize .Details.SizeBytes}}{{end}}{{if .AuthInfo}}
 Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 `)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	err = template.Execute(os.Stdout, repoInfo)
-	if err != nil {
-		return err
-	}
-	return nil
+	return errors.EnsureStack(template.Execute(os.Stdout, repoInfo))
 }
 
 func printTrigger(trigger *pfs.Trigger) string {
@@ -132,13 +129,9 @@ Provenance: {{range .Provenance}} {{.Repo.Name}}@{{.Name}} {{end}} {{end}}{{if .
 Trigger: {{printTrigger .Trigger}} {{end}}
 `)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	err = template.Execute(os.Stdout, branchInfo)
-	if err != nil {
-		return err
-	}
-	return nil
+	return errors.EnsureStack(template.Execute(os.Stdout, branchInfo))
 }
 
 // PrintCommitInfo pretty-prints commit info.
@@ -246,9 +239,9 @@ Finished: {{prettyAgo .Finished}}{{end}}{{end}}{{if .Details}}
 Size: {{prettySize .Details.SizeBytes}}{{end}}
 `)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return template.Execute(w, commitInfo)
+	return errors.EnsureStack(template.Execute(w, commitInfo))
 }
 
 // PrintFileInfo pretty-prints file info.
@@ -296,9 +289,9 @@ Type: {{fileType .FileType}}
 Size: {{prettySize .SizeBytes}}
 `)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return template.Execute(os.Stdout, fileInfo)
+	return errors.EnsureStack(template.Execute(os.Stdout, fileInfo))
 }
 
 func fileType(fileType pfs.FileType) string {

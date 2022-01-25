@@ -1,10 +1,8 @@
 package server
 
 import (
-	"errors"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/sirupsen/logrus"
@@ -29,7 +27,7 @@ func (a *APIServer) Listen(request *proxy.ListenRequest, server proxy.API_Listen
 	listener := a.env.Listener
 	notifier := newNotifier(server, request.Channel)
 	if err := listener.Register(notifier); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := listener.Unregister(notifier); err != nil {
@@ -52,7 +50,7 @@ func newNotifier(server proxy.API_ListenServer, channel string) *notifier {
 		server:  server,
 		id:      uuid.NewWithoutDashes(),
 		channel: channel,
-		bufChan: make(chan *collection.Notification, col.ChannelBufferSize),
+		bufChan: make(chan *collection.Notification, collection.ChannelBufferSize),
 		errChan: make(chan error, 1),
 	}
 	go n.send()

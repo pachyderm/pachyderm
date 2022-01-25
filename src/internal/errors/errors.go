@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"io"
 	"runtime"
 
 	"github.com/pkg/errors"
@@ -41,6 +42,10 @@ type StackTrace = errors.StackTrace
 func EnsureStack(err error) error {
 	if err == nil {
 		return nil
+	} else if err == io.EOF {
+		// io.EOF is considered a sentinel value and should not be wrapped due to dumb
+		// language design: https://github.com/golang/go/issues/39155
+		return err
 	}
 
 	if _, ok := err.(StackTracer); ok {

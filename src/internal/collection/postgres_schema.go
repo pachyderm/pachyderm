@@ -11,7 +11,7 @@ import (
 
 func CreatePostgresSchema(ctx context.Context, sqlTx *pachsql.Tx) error {
 	_, err := sqlTx.ExecContext(ctx, `CREATE SCHEMA collections`)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // DO NOT MODIFY THIS FUNCTION

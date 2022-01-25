@@ -34,7 +34,7 @@ func ParseHex(x []byte) (*Output, error) {
 	o := Output{}
 	n, err := hex.Decode(o[:], x)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if n < OutputSize {
 		return nil, errors.Errorf("hex string too short to be Output")

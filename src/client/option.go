@@ -1,3 +1,4 @@
+//nolint:wrapcheck
 package client
 
 import "github.com/pachyderm/pachyderm/v2/src/pfs"

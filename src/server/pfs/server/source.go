@@ -47,7 +47,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	defer cf()
 	iter := fileset.NewIterator(ctx, s.fileSet)
 	cache := make(map[string]*pfs.FileInfo)
-	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
+	err := s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
 		file := s.commitInfo.Commit.NewFile(idx.Path)
 		file.Datum = idx.File.Datum
@@ -77,6 +77,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 		// TODO: Figure out how to remove directory infos from cache when they are no longer needed.
 		return cb(fi, f)
 	})
+	return errors.EnsureStack(err)
 }
 
 func (s *source) checkFileInfoCache(ctx context.Context, cache map[string]*pfs.FileInfo, f fileset.File) (*pfs.FileInfo, bool, error) {
@@ -151,7 +152,7 @@ func (s *source) computeRegularFileInfo(ctx context.Context, f fileset.File) (*p
 	var err error
 	fi.Hash, err = f.Hash(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return fi, nil
 }
@@ -174,7 +175,7 @@ func (s *errOnEmpty) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset
 		empty = false
 		return cb(fi, f)
 	}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if empty {
 		return s.err
@@ -194,7 +195,7 @@ func (emptySource) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.F
 // the not exist error should be provided by the Source
 func checkSingleFile(ctx context.Context, src Source) error {
 	var count int
-	return src.Iterate(ctx, func(finfo *pfs.FileInfo, fsFile fileset.File) error {
+	err := src.Iterate(ctx, func(finfo *pfs.FileInfo, fsFile fileset.File) error {
 		if finfo.FileType != pfs.FileType_FILE {
 			return errors.Errorf("cannot get non-regular file. Try GetFileTAR for directories")
 		}
@@ -204,4 +205,5 @@ func checkSingleFile(ctx context.Context, src Source) error {
 		}
 		return errors.Errorf("matched multiple files. Try GetFileTAR")
 	})
+	return errors.EnsureStack(err)
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -115,7 +116,7 @@ func (s *TestServiceEnv) Close() error {
 	if listener := s.GetPostgresListener(); listener != nil {
 		eg.Go(listener.Close)
 	}
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }
 
 // AuthServer returns the registered PFS APIServer

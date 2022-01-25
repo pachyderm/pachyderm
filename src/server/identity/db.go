@@ -34,7 +34,7 @@ CREATE TABLE identity.config (
 	issuer VARCHAR(4096)
 );
 `)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // AddTokenExpiryConfig adds expiry fields for token lifespan to the server config
@@ -44,7 +44,7 @@ func AddTokenExpiryConfig(ctx context.Context, tx *pachsql.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 ALTER TABLE identity.config ADD COLUMN
 	id_token_expiry VARCHAR(4096)`)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // AddRotationTokenExpiryConfig adds expiry fields for the rotation token lifespan to the server config
@@ -54,5 +54,5 @@ func AddRotationTokenExpiryConfig(ctx context.Context, tx *pachsql.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 ALTER TABLE identity.config ADD COLUMN
 	rotation_token_expiry VARCHAR(4096)`)
-	return err
+	return errors.EnsureStack(err)
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/cmd"
 
 	"github.com/spf13/cobra/doc"
@@ -26,5 +27,5 @@ func do(appEnvObj interface{}) error {
 
 	rootCmd := cmd.PachctlCmd()
 	rootCmd.DisableAutoGenTag = true
-	return doc.GenMarkdownTree(rootCmd, path)
+	return errors.EnsureStack(doc.GenMarkdownTree(rootCmd, path))
 }

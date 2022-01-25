@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
 
@@ -38,12 +39,12 @@ func NewCache(ctx context.Context, readOnly col.ReadOnlyCollection, key string, 
 // Watch should be called in a goroutine to start the watcher
 func (c *Cache) Watch() {
 	backoff.RetryNotify(func() error {
-		return c.readOnly.WatchOneF(c.key, func(ev *watch.Event) error {
+		err := c.readOnly.WatchOneF(c.key, func(ev *watch.Event) error {
 			switch ev.Type {
 			case watch.EventPut:
 				val := proto.Clone(c.defaultValue)
 				if err := proto.Unmarshal(ev.Value, val); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				c.value.Store(val)
 			case watch.EventDelete:
@@ -51,6 +52,7 @@ func (c *Cache) Watch() {
 			}
 			return nil
 		})
+		return errors.EnsureStack(err)
 	}, backoff.NewInfiniteBackOff(), backoff.NotifyCtx(c.ctx, fmt.Sprintf("watcher for %v", c.key)))
 }
 

@@ -3,16 +3,15 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strconv"
 
 	dex_api "github.com/dexidp/dex/api/v2"
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
-	"github.com/pkg/errors"
 	logrus "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // dexAPI wraps an api.DexServer and extends it with CRUD operations
@@ -54,7 +53,7 @@ func (a *dexAPI) createClient(ctx context.Context, in *identity.CreateOIDCClient
 
 	resp, err := a.api.CreateClient(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	if resp.AlreadyExists {
@@ -74,11 +73,11 @@ func (a *dexAPI) updateClient(ctx context.Context, in *identity.UpdateOIDCClient
 
 	resp, err := a.api.UpdateClient(ctx, req)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	if resp.NotFound {
-		return fmt.Errorf("unable to find OIDC client with id %q", req.Id)
+		return errors.Errorf("unable to find OIDC client with id %q", req.Id)
 	}
 
 	return nil
@@ -87,11 +86,11 @@ func (a *dexAPI) updateClient(ctx context.Context, in *identity.UpdateOIDCClient
 func (a *dexAPI) deleteClient(ctx context.Context, id string) error {
 	resp, err := a.api.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: id})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	if resp.NotFound {
-		return fmt.Errorf("unable to find OIDC client with id %q", id)
+		return errors.Errorf("unable to find OIDC client with id %q", id)
 	}
 
 	return nil
@@ -126,7 +125,7 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 		if errors.Is(err, dex_storage.ErrAlreadyExists) {
 			return identity.ErrAlreadyExists
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	return nil
@@ -138,17 +137,17 @@ func (a *dexAPI) getConnector(id string) (*identity.IDPConnector, error) {
 		if errors.Is(err, dex_storage.ErrNotFound) {
 			return nil, identity.ErrInvalidID
 		}
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	return dexConnectorToPach(conn), nil
 }
 
 func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
-	return a.storage.UpdateConnector(in.Connector.Id, func(c dex_storage.Connector) (dex_storage.Connector, error) {
+	err := a.storage.UpdateConnector(in.Connector.Id, func(c dex_storage.Connector) (dex_storage.Connector, error) {
 		oldVersion, _ := strconv.Atoi(c.ResourceVersion)
 		if oldVersion+1 != int(in.Connector.ConfigVersion) {
-			return dex_storage.Connector{}, fmt.Errorf("new config version is %v, expected %v", in.Connector.ConfigVersion, oldVersion+1)
+			return dex_storage.Connector{}, errors.Errorf("new config version is %v, expected %v", in.Connector.ConfigVersion, oldVersion+1)
 		}
 
 		c.ResourceVersion = strconv.Itoa(int(in.Connector.ConfigVersion))
@@ -171,16 +170,17 @@ func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
 
 		return c, nil
 	})
+	return errors.EnsureStack(err)
 }
 
 func (a *dexAPI) deleteConnector(id string) error {
-	return a.storage.DeleteConnector(id)
+	return errors.EnsureStack(a.storage.DeleteConnector(id))
 }
 
 func (a *dexAPI) listConnectors() ([]*identity.IDPConnector, error) {
 	dexConnectors, err := a.storage.ListConnectors()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	connectors := make([]*identity.IDPConnector, len(dexConnectors))
@@ -193,7 +193,7 @@ func (a *dexAPI) listConnectors() ([]*identity.IDPConnector, error) {
 func (a *dexAPI) listClients() ([]*identity.OIDCClient, error) {
 	storageClients, err := a.storage.ListClients()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	clients := make([]*identity.OIDCClient, len(storageClients))
@@ -209,7 +209,7 @@ func (a *dexAPI) getClient(id string) (*identity.OIDCClient, error) {
 		if errors.Is(err, dex_storage.ErrNotFound) {
 			return nil, identity.ErrInvalidID
 		}
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return storageClientToPach(client), nil
 }
@@ -217,16 +217,16 @@ func (a *dexAPI) getClient(id string) (*identity.OIDCClient, error) {
 func (a *dexAPI) validateConnector(id, connType string, jsonConfig []byte) error {
 	typeConf, ok := dex_server.ConnectorsConfig[connType]
 	if !ok {
-		return fmt.Errorf("unknown connector type %q", connType)
+		return errors.Errorf("unknown connector type %q", connType)
 	}
 
 	conf := typeConf()
 	if err := json.Unmarshal(jsonConfig, conf); err != nil {
-		return fmt.Errorf("unable to deserialize JSON: %w", err)
+		return errors.Errorf("unable to deserialize JSON: %v", err)
 	}
 
 	if _, err := conf.Open(id, a.logger); err != nil {
-		return fmt.Errorf("unable to open connector: %w", err)
+		return errors.Errorf("unable to open connector: %v", err)
 	}
 
 	return nil

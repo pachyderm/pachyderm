@@ -136,7 +136,7 @@ func createFilter(pachd bool, pipeline, worker string) (*debug.Filter, error) {
 func withFile(file string, cb func(*os.File) error) (retErr error) {
 	f, err := os.Create(file)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := f.Close(); retErr == nil {

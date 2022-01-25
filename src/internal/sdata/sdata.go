@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"reflect"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // MaterializationResult is returned by MaterializeSQL
@@ -18,11 +20,11 @@ type MaterializationResult struct {
 func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, error) {
 	colNames, err := rows.Columns()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	cTypes, err := rows.ColumnTypes()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	var dbTypes []string
 	for _, cType := range cTypes {
@@ -32,18 +34,18 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 	row := newTupleFromSQL(cTypes)
 	for rows.Next() {
 		if err := rows.Scan(row...); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		if err := tw.WriteTuple(row); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		count++
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if err := tw.Flush(); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &MaterializationResult{
 		ColumnNames:   colNames,

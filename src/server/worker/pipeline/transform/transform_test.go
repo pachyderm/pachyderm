@@ -96,7 +96,8 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 			SpecCommit:  specCommit,
 			Parallelism: 1,
 		}
-		return env.driver.Pipelines().ReadWrite(sqlTx).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+		err := env.driver.Pipelines().ReadWrite(sqlTx).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
 
@@ -109,13 +110,14 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 
 	eg.Go(func() error {
 		err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
-			return env.driver.NewTaskSource().Iterate(
+			err := env.driver.NewTaskSource().Iterate(
 				env.driver.PachClient().Ctx(),
 				func(ctx context.Context, input *types.Any) (*types.Any, error) {
 					status := &Status{}
 					return Worker(env.driver, env.logger, input, status)
 				},
 			)
+			return errors.EnsureStack(err)
 		}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 			env.logger.Logf("worker failed, retrying immediately, err: %v", err)
 			return nil
