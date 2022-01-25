@@ -1,0 +1,5 @@
+# Config for prettier: https://prettier.io/
+# Just for this CircleCI directory.
+tabWidth: 2
+poseWrap: always
+printWidth: 100
