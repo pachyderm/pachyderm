@@ -40,12 +40,6 @@ func activateAuthHelper(tb testing.TB, client *client.APIClient) {
 	require.NoError(tb, err)
 }
 
-func ActivateAuthNewClient(tb testing.TB) {
-	tb.Helper()
-	client := GetNewPachClient(tb)
-	activateAuthHelper(tb, client)
-}
-
 // ActivateAuth activates the auth service in the test cluster, if it isn't already enabled
 func ActivateAuth(tb testing.TB) {
 	tb.Helper()
@@ -53,17 +47,18 @@ func ActivateAuth(tb testing.TB) {
 	activateAuthHelper(tb, client)
 }
 
-func GetNewAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient {
+func AuthenticatedPachClient(tb testing.TB, c *client.APIClient, subject string) *client.APIClient {
 	tb.Helper()
-	ActivateAuthNewClient(tb)
-	rootClient := GetNewUnauthenticatedPachClient(tb)
+	rootClient := UnauthenticatedPachClient(tb, c)
+	activateAuthHelper(tb, c)
+
 	rootClient.SetAuthToken(RootToken)
 	if subject == auth.RootUser {
 		return rootClient
 	}
 	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: subject})
 	require.NoError(tb, err)
-	client := GetNewUnauthenticatedPachClient(tb)
+	client := UnauthenticatedPachClient(tb, c)
 	client.SetAuthToken(token.Token)
 	return client
 }
@@ -86,10 +81,9 @@ func GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient
 }
 
 // GetUnauthenticatedPachClient returns a copy of the testing pach client with no auth token
-func GetNewUnauthenticatedPachClient(tb testing.TB) *client.APIClient {
+func UnauthenticatedPachClient(tb testing.TB, c *client.APIClient) *client.APIClient {
 	tb.Helper()
-	client := GetNewPachClient(tb)
-	client = client.WithCtx(context.Background())
+	client := c.WithCtx(context.Background())
 	client.SetAuthToken("")
 	return client
 }

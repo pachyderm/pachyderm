@@ -33,17 +33,20 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	return pachClient
 }
 
-// GetPachClient gets a pachyderm client for use in tests. It works for tests
+// NewPachClient gets a pachyderm client for use in tests. It works for tests
 // running both inside and outside the cluster. Unlike GetPachClient,
 // multiple calls will return new pach client instances
-func GetNewPachClient(t testing.TB) *client.APIClient {
+func NewPachClient(t testing.TB) *client.APIClient {
+	var c *client.APIClient
 	if _, ok := os.LookupEnv("PACHD_PORT_1650_TCP_ADDR"); ok {
-		pachClient, pachErr = client.NewInCluster()
+		t.Log("creating pach client using cluster config")
+		c, pachErr = client.NewInCluster()
 	} else {
-		pachClient, pachErr = client.NewForTest()
+		t.Log("creating pach client using NewForTest")
+		c, pachErr = client.NewForTest()
 	}
 	if pachErr != nil {
 		t.Fatalf("error getting Pachyderm client: %s", pachErr.Error())
 	}
-	return pachClient
+	return c
 }

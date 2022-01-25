@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -32,11 +33,11 @@ var (
 func upgradeTest(t *testing.T, ctx context.Context, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
 	k := testutil.GetKubeClient(t)
 	for _, from := range fromVersions {
-		testutil.DeleteRelease(t, ctx, k) // cleanup cluster
+		minikubetestenv.DeleteRelease(t, ctx, k) // cleanup cluster
 
-		preUpgrade(t, testutil.InstallPublishedRelease(t, ctx, k, from, upgradeSubject))
+		preUpgrade(t, minikubetestenv.InstallPublishedRelease(t, ctx, k, from, upgradeSubject))
 
-		postUpgrade(t, testutil.UpgradeRelease(t, ctx, k, upgradeSubject))
+		postUpgrade(t, minikubetestenv.UpgradeRelease(t, ctx, k, upgradeSubject))
 	}
 }
 
