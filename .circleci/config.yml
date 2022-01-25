@@ -15,9 +15,11 @@ parameters:
 
 jobs:
   test-go:
-    docker:
-      - image: circleci/golang:1.17
+    # docker:
+    #   - image: circleci/golang:1.17
     resource_class: xlarge
+    machine:
+      image: ubuntu
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
