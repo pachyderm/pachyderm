@@ -552,6 +552,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 			if err := watcher.sendInitial(bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
 				return err
 			}
+			bufEvent = nil
 			return errutil.ErrBreak
 		}
 
@@ -567,6 +568,15 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 		watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
 		watcher.listener.Unregister(watcher)
 		return
+	}
+
+	// if a watch event was dequeued and not sent, send it
+	if bufEvent != nil {
+		if err := watcher.sendInitial(bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
+			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
+			watcher.listener.Unregister(watcher)
+			return
+		}
 	}
 
 	// Forward all buffered notifications until the watcher is closed
