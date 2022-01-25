@@ -51,13 +51,12 @@ func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 		if err != nil {
 			return err
 		}
-		fileSetIds = append(fileSetIds, cdst.FileSetId)
+		fileSetIds = append(fileSetIds, cdst.FileSetId, cdst.InputFileSetsId)
 	case types.Is(output, &DatumSet{}):
 		ds, err := deserializeDatumSet(output)
 		if err != nil {
 			return err
 		}
-		// TODO: The input file set probably doesn't need to be cached.
 		fileSetIds = append(fileSetIds, ds.FileSetId, ds.OutputFileSetId, ds.MetaFileSetId)
 	default:
 		return errors.Errorf("unrecognized any type (%v) in transform cache", output.TypeUrl)

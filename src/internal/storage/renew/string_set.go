@@ -71,6 +71,17 @@ func (ss *StringSet) Add(ctx context.Context, x string) error {
 	return nil
 }
 
+// Compose returns the result of a compose call on all of the strings being renewed.
+func (ss *StringSet) Compose(ctx context.Context) (string, error) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	var allStrings []string
+	for _, strings := range ss.strings {
+		allStrings = append(allStrings, strings...)
+	}
+	return ss.composeFunc(ctx, allStrings, ss.ttl)
+}
+
 // WithStringSet creates a StringSet using ttl and rf. It calls cb with the StringSets context and the new StringSet.
 // If ctx is cancelled, the StringSet will be Closed, and the cancellation will propagate down to the context passed to cb.
 func WithStringSet(ctx context.Context, ttl time.Duration, rf RenewFunc, cf ComposeFunc, cb func(ctx context.Context, ss *StringSet) error) (retErr error) {

@@ -177,13 +177,14 @@ func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask)
 		return nil, err
 	}
 	pachClient := driver.PachClient()
+	var inputFileSetsId string
 	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 			pachClient := pachClient.WithCtx(ctx)
 			dit := datum.NewFileSetIterator(pachClient, task.FileSetId)
 			storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 			var count int64
-			return datum.CreateSets(dit, storageRoot, setSpec, func(upload func(client.ModifyFile) error) error {
+			if err := datum.CreateSets(dit, storageRoot, setSpec, func(upload func(client.ModifyFile) error) error {
 				resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 					return upload(mf)
 				})
@@ -208,13 +209,21 @@ func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask)
 					return err
 				}
 				return mf.PutFile(name, bytes.NewReader(data))
-			})
+			}); err != nil {
+				return err
+			}
+			var err error
+			inputFileSetsId, err = renewer.Compose(ctx)
+			return err
 		})
 	})
 	if err != nil {
 		return nil, err
 	}
-	return serializeCreateDatumSetsTaskResult(&CreateDatumSetsTaskResult{FileSetId: resp.FileSetId})
+	return serializeCreateDatumSetsTaskResult(&CreateDatumSetsTaskResult{
+		FileSetId:       resp.FileSetId,
+		InputFileSetsId: inputFileSetsId,
+	})
 }
 
 func createSetSpec(driver driver.Driver, fileSetID string) (*datum.SetSpec, error) {

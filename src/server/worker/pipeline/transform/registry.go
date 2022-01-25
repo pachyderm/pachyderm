@@ -295,7 +295,7 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		datumSetsFileSetID, err := createDatumSets(ctx, pj, taskDoer, fileSetID)
+		datumSetsFileSetID, err := createDatumSets(ctx, pj, renewer, taskDoer, fileSetID)
 		if err != nil {
 			return err
 		}
@@ -312,7 +312,7 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 	return nil
 }
 
-func createDatumSets(ctx context.Context, pj *pendingJob, taskDoer task.Doer, fileSetID string) (string, error) {
+func createDatumSets(ctx context.Context, pj *pendingJob, renewer *renew.StringSet, taskDoer task.Doer, fileSetID string) (string, error) {
 	var datumSetsFileSetID string
 	if err := pj.logger.LogStep("creating datum sets", func() error {
 		input, err := serializeCreateDatumSetsTask(&CreateDatumSetsTask{
@@ -329,6 +329,12 @@ func createDatumSets(ctx context.Context, pj *pendingJob, taskDoer task.Doer, fi
 		}
 		result, err := deserializeCreateDatumSetsTaskResult(output)
 		if err != nil {
+			return err
+		}
+		if err := renewer.Add(ctx, result.FileSetId); err != nil {
+			return err
+		}
+		if err := renewer.Add(ctx, result.InputFileSetsId); err != nil {
 			return err
 		}
 		datumSetsFileSetID = result.FileSetId

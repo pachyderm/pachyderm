@@ -60,4 +60,5 @@ message CreateDatumSetsTask {
 
 message CreateDatumSetsTaskResult {
   string file_set_id = 1;
+  string input_file_sets_id = 2;
 } 
