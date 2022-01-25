@@ -28,7 +28,7 @@ jobs:
       - run: CGO_ENALBED=0 go install ./src/testing/match
       - restore_cache:
           keys:
-            - pach-go-unittest-mod-cache-v1-{{ checksum "go.sum" }}
+            - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
       # TODO(jonathan): Enable the race detector (many tests currently fail with it enabled).
       # TODO(jonathan): Run the database tests (skipped by NO_DOCKER=1).
       - run: |-
@@ -45,7 +45,7 @@ jobs:
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
       - save_cache:
-          key: pach-go-unittest-mod-cache-v1-{{ checksum "go.sum" }}
+          key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
             - /go/pkg/mod
   circleci:
