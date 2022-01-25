@@ -16,6 +16,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -261,7 +262,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	fmt.Printf("Creating %s\n", rootDir)
+	logrus.Infof("Creating %s", rootDir)
 	if err := os.MkdirAll(rootDir, 0777); err != nil {
 		return nil, err
 	}
@@ -269,7 +270,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Loopback root at %s\n", rootDir)
+	logrus.Infof("Loopback root at %s", rootDir)
 	return &MountManager{
 		Client: c,
 		States: map[MountKey]*MountStateMachine{}, // TODO: shouldn't this be indexed by mount name, not key?
@@ -320,7 +321,7 @@ func (mm *MountManager) FinishAll() (retErr error) {
 }
 
 func Server(c *client.APIClient, sopts *ServerOptions) error {
-	fmt.Printf("Dynamically mounting pfs to %s\n", sopts.MountDir)
+	logrus.Infof("Dynamically mounting pfs to %s", sopts.MountDir)
 
 	mountOpts := &Options{
 		Write: true,
@@ -432,18 +433,19 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 	go func() {
 		err := mm.Start()
 		if err != nil {
-			fmt.Printf("Error running mount manager: %s\n", err)
+			logrus.Infof("Error running mount manager: %s", err)
 			os.Exit(1)
 		}
 		err = mm.Cleanup()
 		if err != nil {
-			fmt.Printf("Error cleaning up mount manager: %s\n", err)
+			logrus.Infof("Error cleaning up mount manager: %s", err)
 			os.Exit(1)
 		}
 		srv.Shutdown(context.Background())
 	}()
 
-	return srv.ListenAndServe()
+	logrus.Info(srv.ListenAndServe())
+	return nil
 }
 
 type MountState struct {
@@ -524,7 +526,7 @@ type StateFn func(*MountStateMachine) StateFn
 func (m *MountStateMachine) transitionedTo(state, status string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	fmt.Printf("[%s] %s -> %s\n", m.MountKey, m.State, state)
+	logrus.Infof("[%s] %s -> %s", m.MountKey, m.State, state)
 	m.State = state
 	m.Status = status
 }
@@ -550,7 +552,6 @@ func unmountedState(m *MountStateMachine) StateFn {
 	// TODO: listen on our request chan, mount filesystems, and respond
 	for {
 		req := <-m.requests
-		fmt.Printf("Read req: %+v\n", req)
 
 		if req.Mount {
 			// copy data from request into fields that are documented as being
@@ -667,7 +668,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 	// upload any files whose paths start with where we're mounted
 	err := m.manager.uploadFiles(m.Name)
 	if err != nil {
-		fmt.Printf("Error while uploading! %s", err)
+		logrus.Infof("Error while uploading! %s", err)
 		m.transitionedTo("error", err.Error())
 		m.responses <- Response{
 			Repo:       m.MountKey.Repo,
@@ -683,7 +684,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 	// close the mfc, uploading files, then delete it
 	mfc, err := m.manager.mfc(m.Name)
 	if err != nil {
-		fmt.Printf("Error while getting mfc! %s", err)
+		logrus.Infof("Error while getting mfc! %s", err)
 		m.transitionedTo("error", err.Error())
 		m.responses <- Response{
 			Repo:       m.MountKey.Repo,
@@ -697,7 +698,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 	}
 	err = mfc.Close()
 	if err != nil {
-		fmt.Printf("Error while closing mfc! %s", err)
+		logrus.Infof("Error while closing mfc! %s", err)
 		m.transitionedTo("error", err.Error())
 		m.responses <- Response{
 			Repo:       m.MountKey.Repo,
@@ -728,7 +729,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 
 	// remove from loopback filesystem so that it actually disappears for the user
 	cleanPath := m.manager.root.rootPath + "/" + m.Name
-	fmt.Printf("Path is %s\n", cleanPath)
+	logrus.Infof("Path is %s", cleanPath)
 
 	err = os.RemoveAll(cleanPath)
 	m.responses <- Response{
@@ -740,7 +741,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 		Error:      err,
 	}
 	if err != nil {
-		fmt.Printf("Error while cleaning! %s", err)
+		logrus.Infof("Error while cleaning! %s", err)
 		m.transitionedTo("error", err.Error())
 		return errorState
 	}
@@ -790,19 +791,16 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 }
 
 func (mm *MountManager) uploadFiles(prefixFilter string) error {
-	fmt.Println("Uploading files to Pachyderm...")
+	logrus.Info("Uploading files to Pachyderm...")
 	// Rendering progress bars for thousands of files significantly slows down
 	// throughput. Disabling progress bars takes throughput from 1MB/sec to
 	// 200MB/sec on my system, when uploading 18K small files.
 	progress.Disable()
 	for path, state := range mm.root.files {
-		fmt.Printf("Considering file %s\n", path)
 		if !strings.HasPrefix(path, prefixFilter) {
-			fmt.Printf("skip hasprefix\n")
 			continue
 		}
 		if state != dirty {
-			fmt.Printf("skip not dirty\n")
 			continue
 		}
 		parts := strings.Split(path, "/")
@@ -828,6 +826,6 @@ func (mm *MountManager) uploadFiles(prefixFilter string) error {
 			return err
 		}
 	}
-	fmt.Println("Done!")
+	logrus.Info("Done!")
 	return nil
 }
