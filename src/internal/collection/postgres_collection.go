@@ -140,9 +140,9 @@ func NewDryrunSQLTx(ctx context.Context, db *pachsql.DB, apply func(*pachsql.Tx)
 		if err := apply(tx); err != nil {
 			return err
 		}
-		return tx.Rollback()
+		return errors.EnsureStack(tx.Rollback())
 	})
-	if err == sql.ErrTxDone {
+	if errors.Is(err, sql.ErrTxDone) {
 		err = nil
 	}
 	return err

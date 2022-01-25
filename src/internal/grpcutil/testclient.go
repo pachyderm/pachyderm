@@ -19,10 +19,11 @@ func NewTestClient(t testing.TB, regFunc func(*grpc.Server)) *grpc.ClientConn {
 	listener := bufconn.Listen(1 << 20)
 	regFunc(gserv)
 	eg.Go(func() error {
-		return gserv.Serve(listener)
+		return errors.EnsureStack(gserv.Serve(listener))
 	})
 	gconn, err := grpc.DialContext(ctx, "", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return listener.Dial()
+		res, err := listener.Dial()
+		return res, errors.EnsureStack(err)
 	}), grpc.WithInsecure())
 	require.NoError(t, err)
 	t.Cleanup(func() {

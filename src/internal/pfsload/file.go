@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"path"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 )
 
@@ -28,7 +29,8 @@ func (f *RandomFile) Path() string {
 }
 
 func (f *RandomFile) Read(data []byte) (int, error) {
-	return f.r.Read(data)
+	res, err := f.r.Read(data)
+	return res, errors.EnsureStack(err)
 }
 
 type FileSourceSpec struct {
@@ -155,7 +157,8 @@ type FileSpec struct {
 }
 
 func File(env *Env, spec *FileSpec) (*RandomFile, error) {
-	return env.FileSource(spec.Source).Next()
+	res, err := env.FileSource(spec.Source).Next()
+	return res, errors.EnsureStack(err)
 }
 
 type SizeSpec struct {

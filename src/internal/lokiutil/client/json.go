@@ -1,13 +1,14 @@
 package client
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 	"unsafe"
 
 	json "github.com/json-iterator/go"
 	"github.com/modern-go/reflect2"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // From: https://github.com/grafana/loki/blob/d9380eaac950c669864c0af60fd99eae281d2438/pkg/loghttp/entry.go
@@ -81,7 +82,7 @@ func (q *QueryResponseData) UnmarshalJSON(data []byte) error {
 
 	err := json.Unmarshal(data, &unmarshal)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	var value ResultValue
@@ -105,11 +106,11 @@ func (q *QueryResponseData) UnmarshalJSON(data []byte) error {
 		err = json.Unmarshal(unmarshal.Result, &v)
 		value = v*/
 	default:
-		return fmt.Errorf("unknown type: %s", unmarshal.Type)
+		return errors.Errorf("unknown type: %s", unmarshal.Type)
 	}
 
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	q.ResultType = unmarshal.Type

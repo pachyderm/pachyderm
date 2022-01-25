@@ -18,7 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 )
@@ -35,8 +34,7 @@ const (
 )
 
 type apiServer struct {
-	pachLogger log.Logger
-	env        Env
+	env Env
 
 	enterpriseTokenCache *keycache.Cache
 
@@ -45,10 +43,6 @@ type apiServer struct {
 
 	// configCol is a collection containing the license server configuration
 	configCol col.PostgresCollection
-}
-
-func (a *apiServer) LogReq(ctx context.Context, request interface{}) {
-	a.pachLogger.Log(ctx, request, nil, nil, 0)
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
@@ -64,7 +58,6 @@ func NewEnterpriseServer(env Env, heartbeat bool) (ec.APIServer, error) {
 	)
 
 	s := &apiServer{
-		pachLogger:           log.NewLogger("enterprise.API", env.Logger),
 		env:                  env,
 		enterpriseTokenCache: keycache.NewCache(env.BackgroundContext, enterpriseTokenCol.ReadOnly(env.BackgroundContext), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
@@ -102,7 +95,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 		if col.IsErrNotFound(err) {
 			return lc.ErrNotActivated
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	// If we can't reach the license server, we assume our license is still valid.
@@ -114,10 +107,11 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 			logrus.WithError(err).Error("enterprise license heartbeat had invalid id or secret, disabling enterprise")
 			_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 				e := a.enterpriseTokenCol.ReadWrite(stm)
-				return e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
+				err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
 					LastHeartbeat:   types.TimestampNow(),
 					HeartbeatFailed: true,
 				})
+				return errors.EnsureStack(err)
 			})
 			return err
 		}
@@ -126,11 +120,12 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 
 	_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		e := a.enterpriseTokenCol.ReadWrite(stm)
-		return e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
+		err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
 			LastHeartbeat:   types.TimestampNow(),
 			License:         resp.License,
 			HeartbeatFailed: false,
 		})
+		return errors.EnsureStack(err)
 	})
 	return err
 }
@@ -150,7 +145,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 	if err != nil && auth.IsErrNotActivated(err) {
 		authEnabled = false
 	} else if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	} else {
 		clientID = config.Configuration.ClientID
 	}
@@ -160,20 +155,18 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		return nil, err
 	}
 
-	return pachClient.License.Heartbeat(ctx, &lc.HeartbeatRequest{
+	res, err := pachClient.License.Heartbeat(ctx, &lc.HeartbeatRequest{
 		Id:          id,
 		Secret:      secret,
 		Version:     versionResp,
 		AuthEnabled: authEnabled,
 		ClientId:    clientID,
 	})
+	return res, errors.EnsureStack(err)
 }
 
 // Heartbeat implements the Heartbeat RPC. It exists mostly to test the heartbeat logic
 func (a *apiServer) Heartbeat(ctx context.Context, req *ec.HeartbeatRequest) (resp *ec.HeartbeatResponse, retErr error) {
-	a.LogReq(ctx, req)
-	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
-
 	if err := a.heartbeatIfConfigured(ctx); err != nil {
 		return nil, err
 	}
@@ -182,16 +175,6 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *ec.HeartbeatRequest) (re
 
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp *ec.ActivateResponse, retErr error) {
-	// Redact the secret from the request when logging
-	removeSecret := func(r *ec.ActivateRequest) *ec.ActivateRequest {
-		copyReq := proto.Clone(r).(*ec.ActivateRequest)
-		copyReq.Secret = ""
-		return copyReq
-	}
-
-	a.LogReq(ctx, removeSecret(req))
-	defer func(start time.Time) { a.pachLogger.Log(ctx, removeSecret(req), resp, retErr, time.Since(start)) }(time.Now())
-
 	// Try to heartbeat before persisting the configuration
 	heartbeatResp, err := a.heartbeatToServer(ctx, req.LicenseServer, req.Id, req.Secret)
 	if err != nil {
@@ -207,7 +190,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 			Id:            req.Id,
 			Secret:        req.Secret,
 		}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {
@@ -215,7 +198,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	}
 
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
-		return a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record)
+		return errors.EnsureStack(a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record))
 	}); err != nil {
 		return nil, err
 	}
@@ -259,7 +242,7 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 		activationCode.Signature = ""
 		activationCodeStr, err := json.Marshal(activationCode)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 
 		resp.ActivationCode = base64.StdEncoding.EncodeToString(activationCodeStr)
@@ -270,15 +253,6 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 
 // GetActivationCode returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), including the enterprise activation code
 func (a *apiServer) GetActivationCode(ctx context.Context, req *ec.GetActivationCodeRequest) (resp *ec.GetActivationCodeResponse, retErr error) {
-	// Redact the activation code from the response
-	removeSecret := func(r *ec.GetActivationCodeResponse) *ec.GetActivationCodeResponse {
-		copyResp := proto.Clone(r).(*ec.GetActivationCodeResponse)
-		copyResp.ActivationCode = ""
-		return copyResp
-	}
-
-	a.LogReq(ctx, req)
-	defer func(start time.Time) { a.pachLogger.Log(ctx, req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
 	return a.getEnterpriseRecord()
 }
 
@@ -320,13 +294,10 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 // Deactivate deletes the current cluster's enterprise token, and puts the
 // cluster in the "NONE" enterprise state.
 func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (resp *ec.DeactivateResponse, retErr error) {
-	a.LogReq(ctx, req)
-	defer func(start time.Time) { a.pachLogger.Log(ctx, req, resp, retErr, time.Since(start)) }(time.Now())
-
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(enterpriseTokenKey)
 		if err != nil && !col.IsErrNotFound(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {
@@ -336,7 +307,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
 		err := a.configCol.ReadWrite(txCtx.SqlTx).Delete(configKey)
 		if err != nil && !col.IsErrNotFound(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {

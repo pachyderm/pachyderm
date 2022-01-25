@@ -24,7 +24,7 @@ type minioClient struct {
 func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioClient, error) {
 	mclient, err := minio.New(endpoint, id, secret, secure)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	mclient.SetCustomTransport(promutil.InstrumentRoundTripper("minio", http.DefaultTransport))
 	return &minioClient{
@@ -37,7 +37,7 @@ func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioCli
 func newMinioClientV2(endpoint, bucket, id, secret string, secure bool) (*minioClient, error) {
 	mclient, err := minio.NewV2(endpoint, id, secret, secure)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &minioClient{
 		bucket: bucket,
@@ -52,7 +52,7 @@ func (c *minioClient) Put(ctx context.Context, name string, r io.Reader) (retErr
 		PartSize:    uint64(8 * 1024 * 1024),
 	}
 	_, err := c.Client.PutObjectWithContext(ctx, c.bucket, name, r, -1, opts)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // TODO: this should respect the context
@@ -77,7 +77,7 @@ func (c *minioClient) Get(ctx context.Context, name string, w io.Writer) (retErr
 	defer func() { retErr = c.transformError(retErr, name) }()
 	rc, err := c.GetObjectWithContext(ctx, c.bucket, name, minio.GetObjectOptions{})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := rc.Close(); retErr == nil {
@@ -85,13 +85,13 @@ func (c *minioClient) Get(ctx context.Context, name string, w io.Writer) (retErr
 		}
 	}()
 	_, err = io.Copy(w, rc)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // TODO: should respect context
 func (c *minioClient) Delete(_ context.Context, name string) (retErr error) {
 	defer func() { retErr = c.transformError(retErr, name) }()
-	return c.RemoveObject(c.bucket, name)
+	return errors.EnsureStack(c.RemoveObject(c.bucket, name))
 }
 
 func (c *minioClient) Exists(ctx context.Context, name string) (bool, error) {

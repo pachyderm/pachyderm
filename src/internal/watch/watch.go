@@ -79,7 +79,7 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 	getOptions := []etcd.OpOption{etcd.WithPrefix(), etcd.WithSort(options.SortTarget, options.SortOrder)}
 	resp, err := client.Get(ctx, prefix, getOptions...)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	nextRevision := resp.Header.Revision + 1
@@ -136,7 +136,7 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 			}
 			if !ok {
 				if err := internalWatcher.Close(); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				// We interpret a response with nil Error and 0 events as a server side cancellation
 				// as described in https://github.com/etcd-io/etcd/blob/client/v3.5.1/client/v3/watch.go#L53
@@ -152,7 +152,7 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 				continue
 			}
 			if err := resp.Err(); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			for _, etcdEv := range resp.Events {
 				ev := &Event{

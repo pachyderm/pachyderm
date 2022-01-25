@@ -30,6 +30,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -595,7 +596,7 @@ func runPipelineWithImageGetStderr(t *testing.T, image string) (string, error) {
 	cmd.Env = os.Environ()
 	err := cmd.Run()
 	stderr := buf.String()
-	return stderr, err
+	return stderr, errors.EnsureStack(err)
 }
 
 func TestWarningLatestTag(t *testing.T) {
@@ -659,11 +660,11 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 		`).Run())
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		return tu.BashCmd(`
+		return errors.EnsureStack(tu.BashCmd(`
 		pachctl list pipeline \
 		| match my-pipeline \
 		| match crashing
-		`).Run()
+		`).Run())
 	})
 
 	// allow new pods to be scheduled
@@ -672,10 +673,10 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 	`).Run())
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		return tu.BashCmd(`
+		return errors.EnsureStack(tu.BashCmd(`
 		pachctl list pipeline \
 		| match my-pipeline \
 		| match running
-		`).Run()
+		`).Run())
 	})
 }

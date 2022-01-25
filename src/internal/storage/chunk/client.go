@@ -64,7 +64,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	}
 	key := chunkKey(chunkID, gen)
 	if err := c.store.Put(ctx, key, chunkData); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if err := c.afterUpload(ctx, chunkID, gen); err != nil {
 		return nil, err
@@ -82,14 +82,14 @@ func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadat
 	if err := dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) (retErr error) {
 		needUpload, gen = false, 0
 		if err := c.tracker.CreateTx(tx, chunkTID, pointsTo, c.ttl); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		var ents []Entry
 		if err := tx.Select(&ents, `
 		SELECT chunk_id, gen
 		FROM storage.chunk_objects
 		WHERE uploaded = TRUE AND tombstone = FALSE AND chunk_id = $1`, chunkID); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if len(ents) > 0 {
 			needUpload = false
@@ -100,7 +100,7 @@ func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadat
 		VALUES ($1, $2)
 		RETURNING gen
 		`, chunkID, md.Size); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		needUpload = true
 		return nil
@@ -118,11 +118,11 @@ func (c *trackedClient) afterUpload(ctx context.Context, chunkID ID, gen uint64)
 	WHERE chunk_id = $1 AND gen = $2
 	`, chunkID, gen)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if affected < 1 {
 		return errors.Errorf("no chunk entry for object post upload: chunk=%v gen=%v", chunkID, gen)
@@ -143,13 +143,13 @@ func (c *trackedClient) Get(ctx context.Context, chunkID ID, cb kv.ValueCallback
 	LIMIT 1
 	`, chunkID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			err = errors.Errorf("no objects for chunk %v", chunkID)
 		}
 		return err
 	}
 	key := chunkKey(chunkID, gen)
-	return c.store.Get(ctx, key, cb)
+	return errors.EnsureStack(c.store.Get(ctx, key, cb))
 }
 
 // Close closes the client, stopping the background renewal of created objects
@@ -185,7 +185,7 @@ func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit in
 		ORDER BY chunk_id
 		LIMIT $2
 	`, first, limit); err != nil {
-		return 0, nil, err
+		return 0, nil, errors.EnsureStack(err)
 	}
 	for _, ent := range ents {
 		if readChunks {
@@ -203,7 +203,7 @@ func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit in
 		} else {
 			exists, err := c.store.Exists(ctx, chunkKey(ent.ChunkID, ent.Gen))
 			if err != nil {
-				return n, nil, err
+				return n, nil, errors.EnsureStack(err)
 			}
 			if !exists {
 				if exists2, err := c.entryExists(ctx, ent.ChunkID, ent.Gen); err != nil {
@@ -225,14 +225,12 @@ func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit in
 func (c *trackedClient) entryExists(ctx context.Context, chunkID ID, gen uint64) (bool, error) {
 	var x int
 	err := c.db.GetContext(ctx, &x, `SELECT FROM storage.chunk_objects WHERE chunk_id = $1 AND gen = $2`, chunkID, gen)
-	switch err {
-	case sql.ErrNoRows:
+	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
-	case nil:
-		return true, nil
-	default:
-		return false, err
+	} else if err != nil {
+		return false, errors.EnsureStack(err)
 	}
+	return true, nil
 }
 
 func chunkPath(chunkID ID, gen uint64) string {
@@ -264,5 +262,5 @@ func (d *deleter) DeleteTx(tx *pachsql.Tx, id string) error {
 		SET tombstone = TRUE
 		WHERE chunk_id = $1
 	`, chunkID)
-	return err
+	return errors.EnsureStack(err)
 }

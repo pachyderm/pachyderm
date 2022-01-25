@@ -115,7 +115,7 @@ func mountCmds() []*cobra.Command {
 		Long:  "Unmount pfs.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			if len(args) == 1 {
-				return syscall.Unmount(args[0], 0)
+				return errors.EnsureStack(syscall.Unmount(args[0], 0))
 			}
 			if all {
 				stdin := strings.NewReader(fmt.Sprintf(`
@@ -151,7 +151,7 @@ func mountCmds() []*cobra.Command {
 
 				for _, mount := range mounts {
 					if err := syscall.Unmount(mount, 0); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 			} else {

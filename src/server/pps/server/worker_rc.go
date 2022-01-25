@@ -426,7 +426,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	if options.podSpec != "" || options.podPatch != "" {
 		jsonPodSpec, err := json.Marshal(&podSpec)
 		if err != nil {
-			return v1.PodSpec{}, err
+			return v1.PodSpec{}, errors.EnsureStack(err)
 		}
 
 		// the json now contained in jsonPodSpec is the authoritative copy
@@ -436,21 +436,21 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		if options.podSpec != "" {
 			jsonPodSpec, err = jsonpatch.MergePatch(jsonPodSpec, []byte(options.podSpec))
 			if err != nil {
-				return v1.PodSpec{}, err
+				return v1.PodSpec{}, errors.EnsureStack(err)
 			}
 		}
 		if options.podPatch != "" {
 			patch, err := jsonpatch.DecodePatch([]byte(options.podPatch))
 			if err != nil {
-				return v1.PodSpec{}, err
+				return v1.PodSpec{}, errors.EnsureStack(err)
 			}
 			jsonPodSpec, err = patch.Apply(jsonPodSpec)
 			if err != nil {
-				return v1.PodSpec{}, err
+				return v1.PodSpec{}, errors.EnsureStack(err)
 			}
 		}
 		if err := json.Unmarshal(jsonPodSpec, &podSpec); err != nil {
-			return v1.PodSpec{}, err
+			return v1.PodSpec{}, errors.EnsureStack(err)
 		}
 	}
 	return podSpec, nil
@@ -633,7 +633,7 @@ func (pc *pipelineController) getWorkerOptions(ctx context.Context, pipelineInfo
 	podName := pc.env.Config.PachdPodName
 	selfPodInfo, err := pc.env.KubeClient.CoreV1().Pods(pc.namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	var postgresSecretRef *v1.SecretKeySelector
 	for _, container := range selfPodInfo.Spec.Containers {
@@ -708,7 +708,7 @@ func (pc *pipelineController) createWorkerPachctlSecret(ctx context.Context, pip
 	// send RPC to k8s to create the secret there
 	if _, err := pc.env.KubeClient.CoreV1().Secrets(pc.namespace).Create(ctx, &s, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil
@@ -771,7 +771,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 	}
 	if _, err := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	serviceAnnotations := map[string]string{
@@ -805,7 +805,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 	}
 	if _, err := pc.env.KubeClient.CoreV1().Services(pc.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 
@@ -839,7 +839,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 		}
 		if _, err := pc.env.KubeClient.CoreV1().Services(pc.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 			if !errutil.IsAlreadyExistError(err) {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 	}

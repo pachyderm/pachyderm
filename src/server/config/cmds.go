@@ -45,7 +45,7 @@ func deduceActiveEnterpriseContext(cfg *config.Config) (string, error) {
 		defer cancel()
 		state, err := c.Enterprise.GetState(ctx, &enterprise.GetStateRequest{})
 		if err != nil {
-			return "", err
+			return "", errors.EnsureStack(err)
 		}
 		if state.State == enterprise.State_ACTIVE {
 			activeEnterpriseContext = c.ClientContextName()
@@ -193,7 +193,7 @@ func Cmds() []*cobra.Command {
 			}
 
 			if err = cmdutil.Encoder("json", os.Stdout).EncodeProto(context); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 
 			fmt.Println()

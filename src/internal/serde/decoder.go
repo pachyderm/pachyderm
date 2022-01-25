@@ -35,7 +35,7 @@ func Decode(yamlData []byte, v interface{}) error {
 	var holder interface{}
 	err := yaml.Unmarshal(yamlData, &holder)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return RoundTrip(holder, v)
 }

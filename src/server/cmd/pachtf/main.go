@@ -67,11 +67,11 @@ func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 	log.Infof("DB protocol=%v host=%v port=%v database=%v\n", u.Protocol, u.Host, u.Port, u.Database)
 	inputDir, err := filepath.EvalSymlinks(filepath.FromSlash(pfs + "/in"))
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	outputDir, err := filepath.EvalSymlinks(filepath.FromSlash(pfsOut))
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return transforms.SQLIngest(ctx, transforms.SQLIngestParams{
 		Logger: log,
@@ -92,11 +92,11 @@ func sqlGenQueries(ctx context.Context, log *logrus.Logger, args []string) error
 	query := args[0]
 	inputDir, err := filepath.EvalSymlinks(filepath.FromSlash(pfs + "/in"))
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	outputDir, err := filepath.EvalSymlinks(filepath.FromSlash(pfsOut))
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return transforms.SQLQueryGeneration(ctx, transforms.SQLQueryGenerationParams{
 		Logger:    log,

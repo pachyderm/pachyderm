@@ -23,7 +23,7 @@ var (
 func serializeTestTask(testTask *TestTask) (*types.Any, error) {
 	serializedTestTask, err := proto.Marshal(testTask)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + string(proto.MessageName(testTask)),
@@ -34,7 +34,7 @@ func serializeTestTask(testTask *TestTask) (*types.Any, error) {
 func deserializeTestTask(any *types.Any) (*TestTask, error) {
 	testTask := &TestTask{}
 	if err := types.UnmarshalAny(any, testTask); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return testTask, nil
 }
@@ -82,7 +82,7 @@ func test(t *testing.T, s Service, workerFailProb, groupCancelProb, taskFailProb
 					if errors.Is(ctx.Err(), context.Canceled) {
 						return nil
 					}
-					return err
+					return errors.EnsureStack(err)
 				}(); err != nil {
 					return err
 				}

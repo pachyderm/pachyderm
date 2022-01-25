@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -31,12 +32,12 @@ func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) err
 			idx := f.Index()
 			return w.Delete(idx.Path, idx.File.Datum)
 		}, deletive...); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
-	return fs.Iterate(ctx, func(f File) error {
+	return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
 		return w.Copy(f, f.Index().File.Datum)
-	})
+	}))
 }
 
 // WriteTarEntry writes an tar entry for f to w
@@ -44,12 +45,12 @@ func WriteTarEntry(ctx context.Context, w io.Writer, f File) error {
 	idx := f.Index()
 	tw := tar.NewWriter(w)
 	if err := tw.WriteHeader(tarutil.NewHeader(idx.Path, index.SizeBytes(idx))); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if err := f.Content(ctx, tw); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return tw.Flush()
+	return errors.EnsureStack(tw.Flush())
 }
 
 // WriteTarStream writes an entire tar stream to w
@@ -58,9 +59,9 @@ func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 	if err := fs.Iterate(ctx, func(f File) error {
 		return WriteTarEntry(ctx, w, f)
 	}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return tar.NewWriter(w).Close()
+	return errors.EnsureStack(tar.NewWriter(w).Close())
 }
 
 // Clean cleans a file path.
@@ -151,7 +152,7 @@ func hashDataRefs(dataRefs []*chunk.DataRef) ([]byte, error) {
 	for _, dataRef := range dataRefs {
 		_, err := h.Write(dataRef.Hash)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	}
 	return h.Sum(nil), nil

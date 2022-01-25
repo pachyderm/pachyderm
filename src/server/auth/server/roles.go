@@ -1,9 +1,8 @@
 package server
 
 import (
-	"fmt"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 type internalRole struct {
@@ -30,7 +29,7 @@ func registerRole(r *auth.Role) *auth.Role {
 func getRole(name string) (*internalRole, error) {
 	r, ok := roles[name]
 	if !ok {
-		return nil, fmt.Errorf("unknown role %q", name)
+		return nil, errors.Errorf("unknown role %q", name)
 	}
 	return r, nil
 }

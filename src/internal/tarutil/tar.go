@@ -45,7 +45,7 @@ func (mf *memFile) Header() (*tar.Header, error) {
 
 func (mf *memFile) Content(w io.Writer) error {
 	_, err := w.Write(mf.data)
-	return err
+	return errors.EnsureStack(err)
 }
 
 type streamFile struct {
@@ -70,28 +70,28 @@ func (sf *streamFile) Header() (*tar.Header, error) {
 
 func (sf *streamFile) Content(w io.Writer) error {
 	_, err := io.Copy(w, sf.r)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func WriteFile(tw *tar.Writer, file File) error {
 	hdr, err := file.Header()
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if err := tw.WriteHeader(hdr); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if err := file.Content(tw); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return tw.Flush()
+	return errors.EnsureStack(tw.Flush())
 }
 
 func WithWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	tw := tar.NewWriter(w)
 	defer func() {
 		if retErr == nil {
-			retErr = tw.Close()
+			retErr = errors.EnsureStack(tw.Close())
 		}
 	}()
 	return cb(tw)
@@ -105,7 +105,7 @@ func Iterate(r io.Reader, cb func(File) error, stream ...bool) error {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if len(stream) > 0 && stream[0] {
 			if err := cb(newStreamFile(hdr, tr)); err != nil {
@@ -116,7 +116,7 @@ func Iterate(r io.Reader, cb func(File) error, stream ...bool) error {
 		buf := &bytes.Buffer{}
 		_, err = io.Copy(buf, tr)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(newMemFile(hdr, buf.Bytes())); err != nil {
 			return err
@@ -140,20 +140,20 @@ func Equal(file1, file2 File, full ...bool) (bool, error) {
 	// Check the header name and content.
 	hdr1, err := file1.Header()
 	if err != nil {
-		return false, err
+		return false, errors.EnsureStack(err)
 	}
 	hdr2, err := file2.Header()
 	if err != nil {
-		return false, err
+		return false, errors.EnsureStack(err)
 	}
 	if hdr1.Name != hdr2.Name {
 		return false, nil
 	}
 	if err := file1.Content(buf1); err != nil {
-		return false, err
+		return false, errors.EnsureStack(err)
 	}
 	if err := file2.Content(buf2); err != nil {
-		return false, err
+		return false, errors.EnsureStack(err)
 	}
 	return bytes.Equal(buf1.Bytes(), buf2.Bytes()), nil
 }
@@ -166,7 +166,7 @@ func Import(storageRoot string, r io.Reader, cb ...func(*tar.Header) error) erro
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if len(cb) > 0 {
 			if err := cb[0](hdr); err != nil {
@@ -177,7 +177,7 @@ func Import(storageRoot string, r io.Reader, cb ...func(*tar.Header) error) erro
 		fullPath := path.Join(storageRoot, hdr.Name)
 		if hdr.Typeflag == tar.TypeDir {
 			if err := os.MkdirAll(fullPath, 0777); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			continue
 		}
@@ -189,11 +189,11 @@ func Import(storageRoot string, r io.Reader, cb ...func(*tar.Header) error) erro
 
 func writeFile(filePath string, r io.Reader) (retErr error) {
 	if err := os.MkdirAll(path.Dir(filePath), 0777); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	f, err := os.Create(filePath)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := f.Close(); retErr == nil {
@@ -201,7 +201,7 @@ func writeFile(filePath string, r io.Reader) (retErr error) {
 		}
 	}()
 	_, err = io.Copy(f, r)
-	return err
+	return errors.EnsureStack(err)
 }
 
 type exportConfig struct {
@@ -214,7 +214,7 @@ func Export(storageRoot string, w io.Writer, opts ...ExportOption) (retErr error
 		opt(ec)
 	}
 	return WithWriter(w, func(tw *tar.Writer) error {
-		return filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) error {
+		err := filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -230,11 +230,11 @@ func Export(storageRoot string, w io.Writer, opts ...ExportOption) (retErr error
 			// TODO: link name?
 			hdr, err := tar.FileInfoHeader(fi, "")
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			hdr.Name, err = filepath.Rel(storageRoot, file)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if ec.headerCallback != nil {
 				if err := ec.headerCallback(hdr); err != nil {
@@ -242,11 +242,11 @@ func Export(storageRoot string, w io.Writer, opts ...ExportOption) (retErr error
 				}
 			}
 			if err := tw.WriteHeader(hdr); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			f, err := os.Open(file)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			defer func() {
 				if err := f.Close(); retErr == nil {
@@ -254,8 +254,9 @@ func Export(storageRoot string, w io.Writer, opts ...ExportOption) (retErr error
 				}
 			}()
 			_, err = io.Copy(tw, f)
-			return err
+			return errors.EnsureStack(err)
 		})
+		return errors.EnsureStack(err)
 	})
 }
 
@@ -267,13 +268,13 @@ func NewReader(files []File) (io.Reader, error) {
 		for _, file := range files {
 			hdr, err := file.Header()
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if err := tw.WriteHeader(hdr); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if err := file.Content(tw); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 		return nil
@@ -294,7 +295,7 @@ func ConcatFileContent(dst io.Writer, src io.Reader) error {
 	for _, err := tr.Next(); err != io.EOF; _, err = tr.Next() {
 		_, err := io.Copy(dst, tr)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil

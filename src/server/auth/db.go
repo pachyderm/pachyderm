@@ -3,6 +3,8 @@ package auth
 import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"golang.org/x/net/context"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // CreateTokensTable sets up the postgres table which tracks active clusters
@@ -18,5 +20,5 @@ CREATE TABLE IF NOT EXISTS auth.auth_tokens (
 CREATE INDEX subject_index
 ON auth.auth_tokens (subject);
 `)
-	return err
+	return errors.EnsureStack(err)
 }

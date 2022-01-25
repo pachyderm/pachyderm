@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -90,31 +91,32 @@ func (td *testDriver) PachClient() *client.APIClient {
 	return td.inner.PachClient()
 }
 func (td *testDriver) ExpectedNumWorkers() (int64, error) {
-	return td.inner.ExpectedNumWorkers()
+	res, err := td.inner.ExpectedNumWorkers()
+	return res, errors.EnsureStack(err)
 }
 func (td *testDriver) WithContext(ctx context.Context) driver.Driver {
 	return &testDriver{td.inner.WithContext(ctx)}
 }
 func (td *testDriver) WithActiveData(inputs []*common.Input, dir string, cb func() error) error {
-	return td.inner.WithActiveData(inputs, dir, cb)
+	return errors.EnsureStack(td.inner.WithActiveData(inputs, dir, cb))
 }
 func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input) []string {
 	return td.inner.UserCodeEnv(jobID, commit, inputs)
 }
 func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
-	return td.inner.RunUserCode(ctx, logger, env)
+	return errors.EnsureStack(td.inner.RunUserCode(ctx, logger, env))
 }
 func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
-	return td.inner.RunUserErrorHandlingCode(ctx, logger, env)
+	return errors.EnsureStack(td.inner.RunUserErrorHandlingCode(ctx, logger, env))
 }
 func (td *testDriver) DeleteJob(sqlTx *pachsql.Tx, ji *pps.JobInfo) error {
-	return td.inner.DeleteJob(sqlTx, ji)
+	return errors.EnsureStack(td.inner.DeleteJob(sqlTx, ji))
 }
 func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
-	return td.inner.UpdateJobState(job, state, reason)
+	return errors.EnsureStack(td.inner.UpdateJobState(job, state, reason))
 }
 func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
-	return td.inner.NewSQLTx(cb)
+	return errors.EnsureStack(td.inner.NewSQLTx(cb))
 }
 
 // newTestEnv provides a test env with etcd and pachd instances and connected

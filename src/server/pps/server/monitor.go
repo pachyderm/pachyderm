@@ -243,7 +243,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							return err
 						}
 					case <-ctx.Done():
-						return ctx.Err()
+						return errors.EnsureStack(ctx.Err())
 					}
 				}
 			}, backoff.NewInfiniteBackOff(),
@@ -257,7 +257,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					for {
 						nTasks, nClaims, err := taskService.TaskCount(pachClient.Ctx(), driver.TaskNamespace(pipelineInfo))
 						if err != nil {
-							return err
+							return errors.EnsureStack(err)
 						}
 						if nClaims < nTasks {
 							kubeClient := pc.env.KubeClient
@@ -269,12 +269,12 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 								n = int64(pipelineInfo.Details.ParallelismSpec.Constant)
 							}
 							if err != nil {
-								return err
+								return errors.EnsureStack(err)
 							}
 							if int64(scale.Spec.Replicas) < n {
 								scale.Spec.Replicas = int32(n)
 								if _, err := rc.UpdateScale(ctx, pipelineInfo.Details.WorkerRc, scale, metav1.UpdateOptions{}); err != nil {
-									return err
+									return errors.EnsureStack(err)
 								}
 							}
 							// We've already attained max scale, no reason to keep polling.
@@ -285,7 +285,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 						select {
 						case <-time.After(scaleUpInterval):
 						case <-pachClient.Ctx().Done():
-							return pachClient.Ctx().Err()
+							return errors.EnsureStack(pachClient.Ctx().Err())
 						}
 					}
 				}, backoff.NewInfiniteBackOff(),
@@ -337,10 +337,10 @@ func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) 
 		func(m client.ModifyFile) error {
 			if cron.Overwrite {
 				if err := m.DeleteFile("/"); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 			}
-			return m.PutFile(now.Format(time.RFC3339), bytes.NewReader(nil))
+			return errors.EnsureStack(m.PutFile(now.Format(time.RFC3339), bytes.NewReader(nil)))
 		})
 }
 
@@ -349,7 +349,7 @@ func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) 
 func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 	schedule, err := cron.ParseStandard(in.Cron.Spec)
 	if err != nil {
-		return err // Shouldn't happen, as the input is validated in CreatePipeline
+		return errors.EnsureStack(err) // Shouldn't happen, as the input is validated in CreatePipeline
 	}
 	pachClient := env.GetPachClient(ctx)
 	latestTime, err := getLatestCronTime(ctx, env, in)
@@ -364,7 +364,7 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 		select {
 		case <-time.After(time.Until(next)):
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		}
 		if err := cronTick(pachClient, next, in.Cron); err != nil {
 			return err
@@ -388,7 +388,7 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (time.Time, 
 		// File not found, this happens the first time the pipeline is run
 		latestTime, err = types.TimestampFromProto(in.Cron.Start)
 		if err != nil {
-			return latestTime, err
+			return latestTime, errors.EnsureStack(err)
 		}
 	} else {
 		// Take the name of the most recent file as the latest timestamp
@@ -396,7 +396,7 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (time.Time, 
 		// from largest unit of time to smallest, so the most recent file will be the last one
 		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
 		if err != nil {
-			return latestTime, err
+			return latestTime, errors.EnsureStack(err)
 		}
 	}
 	return latestTime, nil

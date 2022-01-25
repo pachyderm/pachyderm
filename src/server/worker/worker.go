@@ -90,7 +90,7 @@ func (w *Worker) worker() {
 			return transform.Worker(ctx, driver, logger, w.status)
 		})
 
-		return eg.Wait()
+		return errors.EnsureStack(eg.Wait())
 	}, backoff.NewConstantBackOff(200*time.Millisecond), func(err error, d time.Duration) error {
 		if st, ok := err.(errors.StackTracer); ok {
 			logger.Logf("worker failed, retrying in %v:\n%s\n%+v", d, err, st.StackTrace())
@@ -162,7 +162,8 @@ func runSpawner(driver driver.Driver, logger logs.TaggedLogger) error {
 		}
 	}()
 
-	return logger.LogStep(fmt.Sprintf("%v spawner process", pipelineType), func() error {
+	err := logger.LogStep(fmt.Sprintf("%v spawner process", pipelineType), func() error {
 		return runFn(driver, logger)
 	})
+	return errors.EnsureStack(err)
 }

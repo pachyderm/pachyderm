@@ -190,7 +190,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
 		pipelineInfo := &pps.PipelineInfo{}
 		if err := pipelines.Get(specCommit, pipelineInfo); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		tracing.TagAnySpan(ctx, "old-state", pipelineInfo.State)
 		// Only UpdatePipeline can bring a pipeline out of failure
@@ -235,7 +235,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 		resultMessage = fmt.Sprintf("SetPipelineState moved pipeline %s from %s to %s", pipeline, pipelineInfo.State, to)
 		pipelineInfo.State = to
 		pipelineInfo.Reason = reason
-		return pipelines.Put(specCommit, pipelineInfo)
+		return errors.EnsureStack(pipelines.Put(specCommit, pipelineInfo))
 	})
 	if resultMessage != "" {
 		if warn {
@@ -307,23 +307,23 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 	if jobInfo.State == pps.JobState_JOB_STARTING && state == pps.JobState_JOB_RUNNING {
 		jobInfo.Started, err = types.TimestampProto(time.Now())
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	} else if pps.IsTerminal(state) {
 		if jobInfo.Started == nil {
 			jobInfo.Started, err = types.TimestampProto(time.Now())
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 		jobInfo.Finished, err = types.TimestampProto(time.Now())
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	jobInfo.State = state
 	jobInfo.Reason = reason
-	return jobs.Put(ppsdb.JobKey(jobInfo.Job), jobInfo)
+	return errors.EnsureStack(jobs.Put(ppsdb.JobKey(jobInfo.Job), jobInfo))
 }
 
 func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
@@ -337,14 +337,14 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 			Error:  reason,
 			Force:  true,
 		}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,
 			Error:  reason,
 			Force:  true,
 		}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return WriteJobInfo(&builder.APIClient, jobInfo)
 	})
@@ -364,7 +364,7 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 		DataRecovered: jobInfo.DataRecovered,
 		Stats:         jobInfo.Stats,
 	})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func MetaCommit(commit *pfs.Commit) *pfs.Commit {
@@ -423,7 +423,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l colle
 	specCommit := client.NewSystemRepo(pipelineName, pfs.SpecRepoType).
 		NewCommit("master", specCommitID)
 	if err := pipelines.ReadOnly(ctx).Get(specCommit, pipelineInfo); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	pachClient.SetAuthToken(pipelineInfo.AuthToken)
 
@@ -448,7 +448,7 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 	commitInfo, err := pfsServer.InspectCommitInTransaction(txnCtx,
 		&pfs.InspectCommitRequest{Commit: curr})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	for commitInfo.Origin.Kind != pfs.OriginKind_USER {
 		curr = commitInfo.ParentCommit
@@ -457,7 +457,7 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 		}
 		if commitInfo, err = pfsServer.InspectCommitInTransaction(txnCtx,
 			&pfs.InspectCommitRequest{Commit: curr}); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	}
 
