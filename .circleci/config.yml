@@ -29,8 +29,9 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+      - setup_remote_docker:
+          version: 20.10.11
       # TODO(jonathan): Enable the race detector (many tests currently fail with it enabled).
-      # TODO(jonathan): Run the database tests (skipped by NO_DOCKER=1).
       - run: |-
           GOMAXPROCS=8 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
           gotestsum \
