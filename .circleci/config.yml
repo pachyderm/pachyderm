@@ -17,7 +17,7 @@ jobs:
   test-go:
     resource_class: xlarge
     machine:
-      image: ubuntu
+      image: ubuntu-2004:202111-01
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
