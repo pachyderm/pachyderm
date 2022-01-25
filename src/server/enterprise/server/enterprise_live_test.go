@@ -24,6 +24,8 @@ import (
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 )
 
+const year = 365 * 24 * time.Hour
+
 func TestGetState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
