@@ -1,3 +1,6 @@
+//go:build livek8s
+// +build livek8s
+
 package cmds
 
 import (
@@ -210,9 +213,9 @@ func TestCheckGetSet(t *testing.T) {
 	loginAsUser(t, auth.RootUser)
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth check repo {{.repo}} {{.alice}} \
-			| match "Roles: \[repoOwner\]" 
+			| match "Roles: \[repoOwner\]"
                 pachctl auth check repo {{.repo}} {{.bob}} \
-			| match "Roles: \[repoReader\]" 
+			| match "Roles: \[repoReader\]"
 		`,
 		"alice", alice,
 		"bob", bob,
@@ -235,7 +238,7 @@ func TestAdmins(t *testing.T) {
 		pachctl auth set cluster clusterAdmin robot:admin2
 		pachctl auth get cluster \
 			| match "^robot:admin2: \[clusterAdmin\]$" \
-			| match "^robot:admin: \[clusterAdmin\]$" 
+			| match "^robot:admin: \[clusterAdmin\]$"
 		pachctl auth set cluster none robot:admin
 
 		# as 'admin' is a substr of 'admin2', use '^admin$' regex...
@@ -249,7 +252,7 @@ func TestAdmins(t *testing.T) {
 	// works for non-admins)
 	loginAsUser(t, "robot:admin2")
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth set cluster clusterAdmin robot:admin 
+		pachctl auth set cluster clusterAdmin robot:admin
 		pachctl auth set cluster none robot:admin2
 	`).Run())
 	require.NoError(t, backoff.Retry(func() error {

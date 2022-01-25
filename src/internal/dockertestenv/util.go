@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"testing"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -17,7 +18,16 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-func newDockerClient() docker.APIClient {
+func skipIfNoDocker(t testing.TB) {
+	t.Helper()
+	if val := os.Getenv("NO_DOCKER"); val != "" {
+		t.Log("skipping docker tests because $NO_DOCKER is set")
+		t.SkipNow()
+	}
+}
+
+func newDockerClient(t testing.TB) docker.APIClient {
+	skipIfNoDocker(t)
 	dclient, err := docker.NewClientWithOpts(docker.FromEnv)
 	if err != nil {
 		panic(err)
@@ -25,8 +35,8 @@ func newDockerClient() docker.APIClient {
 	return dclient
 }
 
-func getDockerHost() string {
-	client := newDockerClient()
+func getDockerHost(t testing.TB) string {
+	client := newDockerClient(t)
 	defer client.Close()
 	host := client.DaemonHost()
 	u, err := url.Parse(host)

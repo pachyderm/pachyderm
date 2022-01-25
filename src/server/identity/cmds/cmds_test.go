@@ -1,3 +1,6 @@
+//go:build livek8s
+// +build livek8s
+
 package cmds
 
 import (
@@ -14,14 +17,14 @@ func TestConnectorCRUD(t *testing.T) {
 	tu.ActivateAuth(t)
 	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
-		echo '{"id": "{{.id}}", "name": "testconn", "type": "github", "config": {"id": 1234}}' | pachctl idp create-connector 
+		echo '{"id": "{{.id}}", "name": "testconn", "type": "github", "config": {"id": 1234}}' | pachctl idp create-connector
 		pachctl idp list-connector | match '{{.id}}'
 		pachctl idp get-connector {{.id}} \
 		  | match 'Name: testconn' \
 		  | match 'Type: github' \
 		  | match 'Version: 0' \
-                  | match '    id: 1234' 
-		echo '{"id": "{{.id}}", "version": 1, "config": {"client_id": "a"}}' | pachctl idp update-connector 
+                  | match '    id: 1234'
+		echo '{"id": "{{.id}}", "version": 1, "config": {"client_id": "a"}}' | pachctl idp update-connector
 		pachctl idp get-connector {{.id}} \
 		  | match 'Name: testconn' \
 		  | match 'Type: github' \
@@ -61,7 +64,7 @@ func TestClientCRUD(t *testing.T) {
                   | match '  - https://localhost:5678' \
 		  | match '  - x' \
 		  | match '  - "?y"?' \
-		  | match '  - z' 
+		  | match '  - z'
 		pachctl idp delete-client {{.id}}
 		`,
 		"id", tu.UniqueString("client"),
@@ -75,8 +78,8 @@ func TestGetSetConfig(t *testing.T) {
 	tu.ActivateAuth(t)
 	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
-		echo '{"issuer": "http://example.com:1234"}' | pachctl idp set-config 
-		pachctl idp get-config | match 'issuer: http://example.com:1234' 
+		echo '{"issuer": "http://example.com:1234"}' | pachctl idp set-config
+		pachctl idp get-config | match 'issuer: http://example.com:1234'
 		`,
 		"id", tu.UniqueString("connector"),
 	).Run())

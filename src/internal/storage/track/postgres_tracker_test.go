@@ -16,7 +16,7 @@ import (
 
 func TestPostgresTracker(t *testing.T) {
 	t.Parallel()
-	track.TestTracker(t, func(testing.TB) track.Tracker {
+	track.TestTracker(t, func(t testing.TB) track.Tracker {
 		db := dockertestenv.NewTestDB(t)
 		ctx := context.Background()
 		err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {

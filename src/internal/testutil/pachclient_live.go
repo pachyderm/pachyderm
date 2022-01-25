@@ -1,3 +1,6 @@
+//go:build livek8s
+// +build livek8s
+
 package testutil
 
 import (
@@ -7,8 +10,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 )
-
-const DefaultTransformImage = "pachyderm/testuser:local"
 
 var (
 	pachClient *client.APIClient

@@ -20,11 +20,11 @@ const (
 )
 
 func NewTestObjClient(t testing.TB) obj.Client {
-	dclient := newDockerClient()
+	dclient := newDockerClient(t)
 	defer dclient.Close()
 	err := ensureMinio(context.Background(), dclient)
 	require.NoError(t, err)
-	endpoint := getMinioEndpoint()
+	endpoint := getMinioEndpoint(t)
 	id := "minioadmin"
 	secret := "minioadmin"
 	client, err := minio.New(endpoint, &minio.Options{
@@ -52,8 +52,8 @@ func newTestMinioBucket(t testing.TB, client *minio.Client) string {
 	return bucketName
 }
 
-func getMinioEndpoint() string {
-	host := getDockerHost()
+func getMinioEndpoint(t testing.TB) string {
+	host := getDockerHost(t)
 	return fmt.Sprintf("%s:%d", host, minioPort)
 }
 

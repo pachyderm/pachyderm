@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -14,35 +13,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
-	kube "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
 	zero int64
 )
-
-// GetKubeClient connects to the Kubernetes API server either from inside the
-// cluster or from a test binary running on a machine with kubectl (it will
-// connect to the same cluster as kubectl)
-func GetKubeClient(t testing.TB) *kube.Clientset {
-	var config *rest.Config
-	var err error
-	host := os.Getenv("KUBERNETES_SERVICE_HOST")
-	if host != "" {
-		config, err = rest.InClusterConfig()
-	} else {
-		rules := clientcmd.NewDefaultClientConfigLoadingRules()
-		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules,
-			&clientcmd.ConfigOverrides{})
-		config, err = kubeConfig.ClientConfig()
-	}
-	require.NoError(t, err)
-	k, err := kube.NewForConfig(config)
-	require.NoError(t, err)
-	return k
-}
 
 // DeletePachdPod deletes the pachd pod in a test cluster (restarting it, e.g.
 // to retart the PPS master)

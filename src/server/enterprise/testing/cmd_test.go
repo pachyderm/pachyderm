@@ -1,3 +1,6 @@
+//go:build livek8s
+// +build livek8s
+
 // testing contains integration tests which run against two servers: a pachd, and an enterprise server.
 // By contrast, the tests in the server package run against a single pachd.
 package testing
@@ -255,7 +258,7 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:1658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650 --pachd-user-address grpc://pachd.default:1655 --cluster-deployment-id {{.clusterId}} 
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:1650 --pachd-address grpc://pachd.default:1650 --pachd-user-address grpc://pachd.default:1655 --cluster-deployment-id {{.clusterId}}
 		`,
 		"id", id,
 		"token", tu.RootToken,
@@ -275,7 +278,7 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl enterprise sync-contexts
 		pachctl config list context | match {{.id}}
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://pachd.default:1655\"" 
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://pachd.default:1655\""
 		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
 		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
 		`,
@@ -288,7 +291,7 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl license update-cluster --id {{.id}} --user-address {{.userAddress}}
 		pachctl enterprise sync-contexts
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\"" 
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\""
 		`,
 		"id", id,
 		"license", tu.GetTestEnterpriseCode(t),
@@ -303,8 +306,8 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl license update-cluster --id {{.id}} --cluster-deployment-id {{.clusterId}}
 		pachctl enterprise sync-contexts
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\"" 
-		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\"" 
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\""
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
 		`,
 		"id", id,
 		"license", tu.GetTestEnterpriseCode(t),

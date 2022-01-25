@@ -3,8 +3,6 @@ package integrationtests
 import (
 	"os"
 	"testing"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 // The Load.*Parameters functions in this file are where we get the credentials
@@ -25,11 +23,10 @@ func LoadAmazonParameters(t *testing.T) (string, string, string, string) {
 	secret := os.Getenv("AMAZON_CLIENT_SECRET")
 	bucket := os.Getenv("AMAZON_CLIENT_BUCKET")
 	region := os.Getenv("AMAZON_CLIENT_REGION")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", region)
-
+	if id == "" || secret == "" || bucket == "" || region == "" {
+		t.Log("skipping amazon object storage test; environment not configured")
+		t.SkipNow()
+	}
 	return id, secret, bucket, region
 }
 
@@ -45,11 +42,10 @@ func LoadECSParameters(t *testing.T) (string, string, string, string, string) {
 	secret := os.Getenv("ECS_CLIENT_SECRET")
 	bucket := os.Getenv("ECS_CLIENT_BUCKET")
 	endpoint := os.Getenv("ECS_CLIENT_CUSTOM_ENDPOINT")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", endpoint)
-
+	if id == "" || secret == "" || bucket == "" || endpoint == "" {
+		t.Log("skipping ECS object storage test; environment not configured")
+		t.SkipNow()
+	}
 	return id, secret, bucket, "dummy-region", endpoint
 }
 
@@ -59,9 +55,10 @@ func LoadECSParameters(t *testing.T) (string, string, string, string, string) {
 func LoadGoogleParameters(t *testing.T) (string, string) {
 	bucket := os.Getenv("GOOGLE_CLIENT_BUCKET")
 	creds := os.Getenv("GOOGLE_CLIENT_CREDS")
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", creds)
-
+	if bucket == "" || creds == "" {
+		t.Log("skipping Google object storage test; environment not configured")
+		t.SkipNow()
+	}
 	return bucket, creds
 }
 
@@ -77,11 +74,10 @@ func LoadGoogleHMACParameters(t *testing.T) (string, string, string, string, str
 	secret := os.Getenv("GOOGLE_CLIENT_HMAC_SECRET")
 	bucket := os.Getenv("GOOGLE_CLIENT_BUCKET")
 	region := os.Getenv("GOOGLE_CLIENT_REGION")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", region)
-
+	if id == "" || bucket == "" || secret == "" || region == "" {
+		t.Log("skipping Google object storage test; environment not configured")
+		t.SkipNow()
+	}
 	return id, secret, bucket, region, "storage.googleapis.com"
 }
 
@@ -93,9 +89,9 @@ func LoadMicrosoftParameters(t *testing.T) (string, string, string) {
 	id := os.Getenv("MICROSOFT_CLIENT_ID")
 	secret := os.Getenv("MICROSOFT_CLIENT_SECRET")
 	container := os.Getenv("MICROSOFT_CLIENT_CONTAINER")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", container)
-
+	if id == "" || secret == "" || container == "" {
+		t.Log("skipping Microsoft object storage test; environment not configured")
+		t.SkipNow()
+	}
 	return id, secret, container
 }

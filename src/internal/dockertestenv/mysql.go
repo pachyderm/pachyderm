@@ -30,8 +30,7 @@ func NewMySQL(t testing.TB) *pachsql.DB {
 func NewMySQLURL(t testing.TB) pachsql.URL {
 	ctx := context.Background()
 	log := logrus.StandardLogger()
-
-	dclient := newDockerClient()
+	dclient := newDockerClient(t)
 	err := ensureContainer(ctx, dclient, "pach_test_mysql", containerSpec{
 		Image: "mysql:latest",
 		PortMap: map[uint16]uint16{
@@ -45,7 +44,7 @@ func NewMySQLURL(t testing.TB) pachsql.URL {
 	u := pachsql.URL{
 		Protocol: pachsql.ProtocolMySQL,
 		User:     mysqlUser,
-		Host:     getDockerHost(),
+		Host:     getDockerHost(t),
 		Port:     mysqlPort,
 		Database: "",
 	}

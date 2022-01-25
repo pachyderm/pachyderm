@@ -1,3 +1,6 @@
+//go:build livek8s
+// +build livek8s
+
 // TODO(msteffen) Add tests for:
 //
 // - restart datum

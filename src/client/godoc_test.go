@@ -1,3 +1,6 @@
+//go:build livek8s
+// +build livek8s
+
 //nolint:wrapcheck
 package client
 

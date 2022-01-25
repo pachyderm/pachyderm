@@ -25,12 +25,12 @@ const (
 	maxOpenConns  = 10
 )
 
-func postgresHost() string {
-	return getDockerHost()
+func postgresHost(t testing.TB) string {
+	return getDockerHost(t)
 }
 
-func pgBouncerHost() string {
-	return postgresHost()
+func pgBouncerHost(t testing.TB) string {
+	return postgresHost(t)
 }
 
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
@@ -39,7 +39,7 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
+		dbutil.WithHostPort(pgBouncerHost(t), pgBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
 	dbName := testutil.CreateEphemeralDB(t, db)
@@ -48,10 +48,10 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		c.PostgresDBName = dbName
 
 		// direct
-		c.PostgresHost = postgresHost()
+		c.PostgresHost = postgresHost(t)
 		c.PostgresPort = postgresPort
 		// pg_bouncer
-		c.PGBouncerHost = pgBouncerHost()
+		c.PGBouncerHost = pgBouncerHost(t)
 		c.PGBouncerPort = pgBouncerPort
 
 		c.PostgresUser = testutil.DefaultPostgresUser
@@ -73,7 +73,7 @@ func NewTestDBOptions(t testing.TB) []dbutil.Option {
 	require.NoError(t, ensureDBEnv(t, ctx))
 	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
+		dbutil.WithHostPort(pgBouncerHost(t), pgBouncerPort),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		dbutil.WithMaxOpenConns(maxOpenConns),
 	})
@@ -84,7 +84,7 @@ func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
 	require.NoError(t, ensureDBEnv(t, ctx))
 	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-		dbutil.WithHostPort(postgresHost(), postgresPort),
+		dbutil.WithHostPort(postgresHost(t), postgresPort),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		dbutil.WithMaxOpenConns(maxOpenConns),
 	})
@@ -96,6 +96,7 @@ var spawnLock sync.Mutex
 // TODO: use the bitnami pg_bouncer image
 // TODO: look into https://github.com/ory/dockertest
 func ensureDBEnv(t testing.TB, ctx context.Context) error {
+	skipIfNoDocker(t)
 	spawnLock.Lock()
 	defer spawnLock.Unlock()
 	cmd := exec.CommandContext(ctx, "bash", "-c", `
@@ -142,7 +143,7 @@ fi
 	return backoff.RetryUntilCancel(ctx, func() error {
 		db, err := dbutil.NewDB(
 			dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-			dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
+			dbutil.WithHostPort(pgBouncerHost(t), pgBouncerPort),
 			dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		)
 		if err != nil {

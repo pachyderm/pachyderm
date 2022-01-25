@@ -780,7 +780,7 @@ func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (res
 }
 
 var defaultLoadSpecs = []string{`
-count: 3 
+count: 3
 operations:
   - count: 5
     operation:
@@ -790,41 +790,41 @@ operations:
             file:
               - source: "random"
                 prob: 100
-        prob: 70 
+        prob: 70
       - deleteFile:
           count: 5
-          directoryProb: 20 
-        prob: 30 
+          directoryProb: 20
+        prob: 30
 validator: {}
 fileSources:
   - name: "random"
     random:
       directory:
-        depth: 
+        depth:
           min: 0
           max: 3
         run: 3
       size:
         - min: 1000
           max: 10000
-          prob: 30 
+          prob: 30
         - min: 10000
           max: 100000
-          prob: 30 
+          prob: 30
         - min: 1000000
           max: 10000000
-          prob: 30 
+          prob: 30
         - min: 10000000
           max: 100000000
-          prob: 10 
+          prob: 10
 `, `
-count: 3 
+count: 3
 operations:
   - count: 5
     operation:
       - putFile:
           files:
-            count: 10000 
+            count: 10000
             file:
               - source: "random"
                 prob: 100
@@ -838,7 +838,7 @@ fileSources:
           max: 1000
           prob: 100
 `, `
-count: 3 
+count: 3
 operations:
   - count: 5
     operation:
@@ -856,7 +856,7 @@ fileSources:
       size:
         - min: 10000000
           max: 100000000
-          prob: 100 
+          prob: 100
 `}
 
 func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
