@@ -20,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // TODO: split out into multiple files
@@ -257,12 +256,6 @@ func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, erro
 func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *MountManager, retErr error) {
 	if err := opts.validate(c); err != nil {
 		return nil, err
-	}
-	commits := make(map[string]string)
-	for repo, branch := range opts.getBranches() {
-		if uuid.IsUUIDWithoutDashes(branch) {
-			commits[repo] = branch
-		}
 	}
 	rootDir, err := ioutil.TempDir("", "pfs")
 	if err != nil {
