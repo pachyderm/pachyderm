@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 )
@@ -21,7 +22,8 @@ func put(path string) (*http.Response, error) {
 	if err != nil {
 		panic(err)
 	}
-	return client.Do(req)
+	x, err := client.Do(req)
+	return x, errors.EnsureStack(err)
 }
 
 /*

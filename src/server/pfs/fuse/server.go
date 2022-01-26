@@ -264,11 +264,11 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	}
 	logrus.Infof("Creating %s", rootDir)
 	if err := os.MkdirAll(rootDir, 0777); err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	root, err := newLoopbackRoot(rootDir, target, c, opts)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	logrus.Infof("Loopback root at %s", rootDir)
 	return &MountManager{
@@ -284,7 +284,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 }
 
 func (mm *MountManager) Cleanup() error {
-	return os.RemoveAll(mm.tmpDir)
+	return errors.EnsureStack(os.RemoveAll(mm.tmpDir))
 }
 
 func (mm *MountManager) Start() error {
@@ -510,9 +510,9 @@ func mountKeyFromString(key string) (MountKey, error) {
 			Branch: shrapnel[1],
 		}, nil
 	} else {
-		return MountKey{}, fmt.Errorf(
+		return MountKey{}, errors.WithStack(fmt.Errorf(
 			"wrong number of '/'s in key %+v, got %d expected 2 or 3", key, len(shrapnel),
-		)
+		))
 	}
 }
 
