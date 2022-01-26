@@ -553,7 +553,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 			}
 		}
 
-		if bufEvent != nil && bufEvent.time.Unix() <= lastTimestamp(m, options.SortTarget).Unix() {
+		if bufEvent != nil && bufEvent.time.Before(lastTimestamp(m, options.SortTarget)) {
 			return errutil.ErrBreak
 		}
 
