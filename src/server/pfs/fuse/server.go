@@ -444,8 +444,7 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		srv.Shutdown(context.Background())
 	}()
 
-	logrus.Info(srv.ListenAndServe())
-	return nil
+	return srv.ListenAndServe()
 }
 
 type MountState struct {
