@@ -11,6 +11,7 @@ import {
   Trigger,
   OriginKind,
   CommitOrigin,
+  DeleteFile,
 } from '../proto/pfs/pfs_pb';
 
 export type FileObject = {
@@ -58,6 +59,10 @@ export type CommitInfoObject = {
   finished?: TimestampObject;
   sizeBytesUpperBound?: CommitInfo.AsObject['sizeBytesUpperBound'];
   originKind?: OriginKind;
+};
+
+export type DeleteFileObject = {
+  path: string;
 };
 
 export type CommitSetObject = {
@@ -191,4 +196,9 @@ export const commitSetFromObject = ({id}: CommitSetObject) => {
   commitSet.setId(id);
 
   return commitSet;
+};
+
+export const deleteFileFromObject = ({path}: DeleteFileObject) => {
+  const deleteFile = new DeleteFile().setPath(path);
+  return deleteFile;
 };

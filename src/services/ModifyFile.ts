@@ -3,7 +3,7 @@ import fs from 'fs';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 
-import {commitFromObject} from '../builders/pfs';
+import {commitFromObject, deleteFileFromObject} from '../builders/pfs';
 import {GRPCPlugin, ServiceArgs} from '../lib/types';
 import {APIClient} from '../proto/pfs/pfs_grpc_pb';
 import {AddFile, Commit, ModifyFileRequest} from '../proto/pfs/pfs_pb';
@@ -91,6 +91,13 @@ export class ModifyFile {
   putFileFromFilepath(sourcePath: string, destPath: string) {
     const data = fs.readFileSync(sourcePath, {});
     return this.putFileFromBytes(destPath, data);
+  }
+
+  deleteFile(path: string) {
+    this.stream.write(
+      new ModifyFileRequest().setDeleteFile(deleteFileFromObject({path})),
+    );
+    return this;
   }
 
   end() {

@@ -107,4 +107,45 @@ describe('ModifyFile', () => {
       expect(files).toHaveLength(1);
     });
   });
+
+  describe('deleteFile', () => {
+    it('should delete a file by path', async () => {
+      const client = await createSandbox('deleteFile');
+      const commit = await client.pfs().startCommit({
+        branch: {name: 'master', repo: {name: 'deleteFile'}},
+      });
+
+      await client
+        .modifyFile()
+        .setCommit(commit)
+        .putFileFromBytes('test.dat', Buffer.from('data'))
+        .end();
+
+      await client.pfs().finishCommit({commit});
+
+      const files = await client.pfs().listFile({
+        commitId: commit.id,
+        branch: {name: 'master', repo: {name: 'deleteFile'}},
+      });
+      expect(files).toHaveLength(1);
+
+      const deleteCommit = await client.pfs().startCommit({
+        branch: {name: 'master', repo: {name: 'deleteFile'}},
+      });
+
+      await client
+        .modifyFile()
+        .setCommit(deleteCommit)
+        .deleteFile('test.dat')
+        .end();
+
+      await client.pfs().finishCommit({commit: deleteCommit});
+
+      const postDeleteFiles = await client.pfs().listFile({
+        commitId: deleteCommit.id,
+        branch: {name: 'master', repo: {name: 'deleteFile'}},
+      });
+      expect(postDeleteFiles).toHaveLength(0);
+    });
+  });
 });
