@@ -444,7 +444,7 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		srv.Shutdown(context.Background())
 	}()
 
-	return srv.ListenAndServe()
+	return errors.EnsureStack(srv.ListenAndServe())
 }
 
 type MountState struct {
