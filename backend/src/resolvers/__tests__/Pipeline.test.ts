@@ -1,16 +1,21 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import {CREATE_PIPELINE_MUTATION} from '@dash-frontend/mutations/CreatePipeline';
 import {GET_PIPELINE_QUERY} from '@dash-frontend/queries/GetPipelineQuery';
+import {GET_PIPELINES_QUERY} from '@dash-frontend/queries/GetPipelinesQuery';
 import {Status} from '@grpc/grpc-js/build/src/constants';
 
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
-import {CreatePipelineMutation, PipelineQuery} from '@graphqlTypes';
+import {
+  CreatePipelineMutation,
+  PipelineQuery,
+  PipelinesQuery,
+} from '@graphqlTypes';
 
 describe('Pipeline resolver', () => {
-  describe('pipeline', () => {
-    const id = 'montage';
-    const projectId = '1';
+  const id = 'montage';
+  const projectId = '1';
 
+  describe('pipeline', () => {
     it('should return a pipeline for a given id and projectId', async () => {
       const {data, errors = []} = await executeQuery<PipelineQuery>(
         GET_PIPELINE_QUERY,
@@ -42,6 +47,19 @@ describe('Pipeline resolver', () => {
       expect(errors[0].extensions.code).toBe('NOT_FOUND');
     });
   });
+
+  describe('pipelines', () => {
+    it('should return pipeline list', async () => {
+      const {data} = await executeQuery<PipelinesQuery>(GET_PIPELINES_QUERY, {
+        args: {projectId},
+      });
+
+      expect(data?.pipelines.length).toBe(2);
+      expect(data?.pipelines[0]?.id).toBe('montage');
+      expect(data?.pipelines[1]?.id).toBe('edges');
+    });
+  });
+
   describe('createPipeline', () => {
     const projectId = '3';
     it('should create a pipeline', async () => {

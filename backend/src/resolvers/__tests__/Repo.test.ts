@@ -1,9 +1,10 @@
 import {CREATE_REPO_MUTATION} from '@dash-frontend/mutations/CreateRepo';
 import {GET_REPO_QUERY} from '@dash-frontend/queries/GetRepoQuery';
+import {GET_REPOS_QUERY} from '@dash-frontend/queries/GetReposQuery';
 import {Status} from '@grpc/grpc-js/build/src/constants';
 
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
-import {CreateRepoMutation, RepoQuery} from '@graphqlTypes';
+import {CreateRepoMutation, RepoQuery, ReposQuery} from '@graphqlTypes';
 
 describe('resolvers/Repo', () => {
   const id = 'cron';
@@ -37,6 +38,18 @@ describe('resolvers/Repo', () => {
       expect(errors.length).toBe(1);
       expect(data).toBeNull();
       expect(errors[0].extensions.code).toBe('NOT_FOUND');
+    });
+  });
+
+  describe('repos', () => {
+    it('should return repo list', async () => {
+      const {data} = await executeQuery<ReposQuery>(GET_REPOS_QUERY, {
+        args: {projectId},
+      });
+
+      expect(data?.repos.length).toBe(2);
+      expect(data?.repos[0]?.id).toBe('cron');
+      expect(data?.repos[1]?.id).toBe('processor');
     });
   });
 

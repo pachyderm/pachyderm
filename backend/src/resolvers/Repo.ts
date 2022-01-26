@@ -5,6 +5,7 @@ import {pipelineInfoToGQLPipeline, repoInfoToGQLRepo} from './builders/pps';
 interface RepoResolver {
   Query: {
     repo: QueryResolvers['repo'];
+    repos: QueryResolvers['repos'];
   };
   Repo: RepoResolvers;
   Mutation: {
@@ -17,6 +18,11 @@ const repoResolver: RepoResolver = {
   Query: {
     repo: async (_parent, {args: {id}}, {pachClient}) => {
       return repoInfoToGQLRepo(await pachClient.pfs().inspectRepo(id));
+    },
+    repos: async (_parent, _args, {pachClient}) => {
+      return (await pachClient.pfs().listRepo()).map((repo) =>
+        repoInfoToGQLRepo(repo),
+      );
     },
   },
   Repo: {

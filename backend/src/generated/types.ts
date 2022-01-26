@@ -404,6 +404,10 @@ export enum PipelineType {
   SERVICE = 'SERVICE',
 }
 
+export type PipelinesQueryArgs = {
+  projectId: Scalars['String'];
+};
+
 export type Project = {
   __typename?: 'Project';
   id: Scalars['ID'];
@@ -454,10 +458,12 @@ export type Query = {
   loggedIn: Scalars['Boolean'];
   logs: Array<Maybe<Log>>;
   pipeline: Pipeline;
+  pipelines: Array<Maybe<Pipeline>>;
   project: Project;
   projectDetails: ProjectDetails;
   projects: Array<Project>;
   repo: Repo;
+  repos: Array<Maybe<Repo>>;
   searchResults: SearchResults;
   workspaceLogs: Array<Maybe<Log>>;
 };
@@ -502,6 +508,10 @@ export type QueryPipelineArgs = {
   args: PipelineQueryArgs;
 };
 
+export type QueryPipelinesArgs = {
+  args: PipelinesQueryArgs;
+};
+
 export type QueryProjectArgs = {
   id: Scalars['ID'];
 };
@@ -512,6 +522,10 @@ export type QueryProjectDetailsArgs = {
 
 export type QueryRepoArgs = {
   args: RepoQueryArgs;
+};
+
+export type QueryReposArgs = {
+  args: ReposQueryArgs;
 };
 
 export type QuerySearchResultsArgs = {
@@ -547,6 +561,10 @@ export type RepoInput = {
 export type RepoQueryArgs = {
   projectId: Scalars['String'];
   id: Scalars['ID'];
+};
+
+export type ReposQueryArgs = {
+  projectId: Scalars['String'];
 };
 
 export type SchedulingSpec = {
@@ -794,6 +812,7 @@ export type ResolversTypes = ResolversObject<{
   PipelineQueryArgs: PipelineQueryArgs;
   PipelineState: PipelineState;
   PipelineType: PipelineType;
+  PipelinesQueryArgs: PipelinesQueryArgs;
   Project: ResolverTypeWrapper<Project>;
   ProjectDetails: ResolverTypeWrapper<ProjectDetails>;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
@@ -804,6 +823,7 @@ export type ResolversTypes = ResolversObject<{
   RepoInfo: ResolverTypeWrapper<RepoInfo>;
   RepoInput: RepoInput;
   RepoQueryArgs: RepoQueryArgs;
+  ReposQueryArgs: ReposQueryArgs;
   SchedulingSpec: ResolverTypeWrapper<SchedulingSpec>;
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: ResolverTypeWrapper<SearchResults>;
@@ -859,6 +879,7 @@ export type ResolversParentTypes = ResolversObject<{
   Pach: Pach;
   Pipeline: Pipeline;
   PipelineQueryArgs: PipelineQueryArgs;
+  PipelinesQueryArgs: PipelinesQueryArgs;
   Project: Project;
   ProjectDetails: ProjectDetails;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
@@ -868,6 +889,7 @@ export type ResolversParentTypes = ResolversObject<{
   RepoInfo: RepoInfo;
   RepoInput: RepoInput;
   RepoQueryArgs: RepoQueryArgs;
+  ReposQueryArgs: ReposQueryArgs;
   SchedulingSpec: SchedulingSpec;
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: SearchResults;
@@ -1318,6 +1340,12 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryPipelineArgs, 'args'>
   >;
+  pipelines?: Resolver<
+    Array<Maybe<ResolversTypes['Pipeline']>>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryPipelinesArgs, 'args'>
+  >;
   project?: Resolver<
     ResolversTypes['Project'],
     ParentType,
@@ -1340,6 +1368,12 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryRepoArgs, 'args'>
+  >;
+  repos?: Resolver<
+    Array<Maybe<ResolversTypes['Repo']>>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryReposArgs, 'args'>
   >;
   searchResults?: Resolver<
     ResolversTypes['SearchResults'],
@@ -1832,6 +1866,33 @@ export type PipelineQuery = {__typename?: 'Query'} & {
   >;
 };
 
+export type PipelinesQueryVariables = Exact<{
+  args: PipelinesQueryArgs;
+}>;
+
+export type PipelinesQuery = {__typename?: 'Query'} & {
+  pipelines: Array<
+    Maybe<
+      {__typename?: 'Pipeline'} & Pick<
+        Pipeline,
+        | 'id'
+        | 'name'
+        | 'state'
+        | 'type'
+        | 'description'
+        | 'datumTimeoutS'
+        | 'datumTries'
+        | 'jobTimeoutS'
+        | 'outputBranch'
+        | 's3OutputRepo'
+        | 'egress'
+        | 'jsonSpec'
+        | 'reason'
+      >
+    >
+  >;
+};
+
 export type ProjectDetailsQueryVariables = Exact<{
   args: ProjectDetailsQueryArgs;
 }>;
@@ -1879,6 +1940,26 @@ export type RepoQuery = {__typename?: 'Query'} & {
         {__typename?: 'Pipeline'} & Pick<Pipeline, 'id' | 'name'>
       >;
     };
+};
+
+export type ReposQueryVariables = Exact<{
+  args: ReposQueryArgs;
+}>;
+
+export type ReposQuery = {__typename?: 'Query'} & {
+  repos: Array<
+    Maybe<
+      {__typename?: 'Repo'} & Pick<
+        Repo,
+        'createdAt' | 'description' | 'id' | 'name' | 'sizeDisplay'
+      > & {
+          branches: Array<{__typename?: 'Branch'} & Pick<Branch, 'name'>>;
+          linkedPipeline?: Maybe<
+            {__typename?: 'Pipeline'} & Pick<Pipeline, 'id' | 'name'>
+          >;
+        }
+    >
+  >;
 };
 
 export type SearchResultsQueryVariables = Exact<{

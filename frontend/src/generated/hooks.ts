@@ -1217,6 +1217,74 @@ export type PipelineQueryResult = Apollo.QueryResult<
   Types.PipelineQuery,
   Types.PipelineQueryVariables
 >;
+export const PipelinesDocument = gql`
+  query pipelines($args: PipelinesQueryArgs!) {
+    pipelines(args: $args) {
+      id
+      name
+      state
+      type
+      description
+      datumTimeoutS
+      datumTries
+      jobTimeoutS
+      outputBranch
+      s3OutputRepo
+      egress
+      jsonSpec
+      reason
+    }
+  }
+`;
+
+/**
+ * __usePipelinesQuery__
+ *
+ * To run a query within a React component, call `usePipelinesQuery` and pass it any options that fit your needs.
+ * When your component renders, `usePipelinesQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = usePipelinesQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function usePipelinesQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.PipelinesQuery,
+    Types.PipelinesQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.PipelinesQuery, Types.PipelinesQueryVariables>(
+    PipelinesDocument,
+    options,
+  );
+}
+export function usePipelinesLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.PipelinesQuery,
+    Types.PipelinesQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.PipelinesQuery,
+    Types.PipelinesQueryVariables
+  >(PipelinesDocument, options);
+}
+export type PipelinesQueryHookResult = ReturnType<typeof usePipelinesQuery>;
+export type PipelinesLazyQueryHookResult = ReturnType<
+  typeof usePipelinesLazyQuery
+>;
+export type PipelinesQueryResult = Apollo.QueryResult<
+  Types.PipelinesQuery,
+  Types.PipelinesQueryVariables
+>;
 export const ProjectDetailsDocument = gql`
   query projectDetails($args: ProjectDetailsQueryArgs!) {
     projectDetails(args: $args) {
@@ -1462,6 +1530,71 @@ export type RepoLazyQueryHookResult = ReturnType<typeof useRepoLazyQuery>;
 export type RepoQueryResult = Apollo.QueryResult<
   Types.RepoQuery,
   Types.RepoQueryVariables
+>;
+export const ReposDocument = gql`
+  query repos($args: ReposQueryArgs!) {
+    repos(args: $args) {
+      branches {
+        name
+      }
+      createdAt
+      description
+      id
+      linkedPipeline {
+        id
+        name
+      }
+      name
+      sizeDisplay
+    }
+  }
+`;
+
+/**
+ * __useReposQuery__
+ *
+ * To run a query within a React component, call `useReposQuery` and pass it any options that fit your needs.
+ * When your component renders, `useReposQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useReposQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useReposQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.ReposQuery,
+    Types.ReposQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.ReposQuery, Types.ReposQueryVariables>(
+    ReposDocument,
+    options,
+  );
+}
+export function useReposLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.ReposQuery,
+    Types.ReposQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<Types.ReposQuery, Types.ReposQueryVariables>(
+    ReposDocument,
+    options,
+  );
+}
+export type ReposQueryHookResult = ReturnType<typeof useReposQuery>;
+export type ReposLazyQueryHookResult = ReturnType<typeof useReposLazyQuery>;
+export type ReposQueryResult = Apollo.QueryResult<
+  Types.ReposQuery,
+  Types.ReposQueryVariables
 >;
 export const SearchResultsDocument = gql`
   query searchResults($args: SearchResultQueryArgs!) {

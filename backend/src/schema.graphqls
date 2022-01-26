@@ -319,6 +319,10 @@ input PipelineQueryArgs {
   id: ID!
 }
 
+input PipelinesQueryArgs {
+  projectId: String!
+}
+
 input BranchQueryArgs {
   projectId: String!
   branch: BranchInput!
@@ -327,6 +331,10 @@ input BranchQueryArgs {
 input RepoQueryArgs {
   projectId: String!
   id: ID!
+}
+
+input ReposQueryArgs {
+  projectId: String!
 }
 
 input CommitsQueryArgs {
@@ -446,6 +454,8 @@ type Query {
   projects: [Project!]!
   pipeline(args: PipelineQueryArgs!): Pipeline!
   repo(args: RepoQueryArgs!): Repo!
+  pipelines(args: PipelinesQueryArgs!): [Pipeline]!
+  repos(args: ReposQueryArgs!): [Repo]!
   projectDetails(args: ProjectDetailsQueryArgs!): ProjectDetails!
   jobs(args: JobsQueryArgs!): [Job!]!
   job(args: JobQueryArgs!): Job!

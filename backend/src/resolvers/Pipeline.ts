@@ -5,6 +5,7 @@ import {pipelineInfoToGQLPipeline} from './builders/pps';
 interface PipelineResolver {
   Query: {
     pipeline: QueryResolvers['pipeline'];
+    pipelines: QueryResolvers['pipelines'];
   };
   Mutation: {
     createPipeline: MutationResolvers['createPipeline'];
@@ -17,6 +18,11 @@ const pipelineResolver: PipelineResolver = {
       const pipeline = await pachClient.pps().inspectPipeline(id);
 
       return pipelineInfoToGQLPipeline(pipeline);
+    },
+    pipelines: async (_parent, _args, {pachClient}) => {
+      return (await pachClient.pps().listPipeline()).map((pipeline) =>
+        pipelineInfoToGQLPipeline(pipeline),
+      );
     },
   },
   Mutation: {
