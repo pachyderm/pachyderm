@@ -17,7 +17,7 @@ func newTestCache(t *testing.T, db *pachsql.DB, tr track.Tracker, maxSize int) *
 	ctx := context.Background()
 	tx := db.MustBegin()
 	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
-	require.NoError(t, SetupPostgresCacheV1(ctx, tx))
+	require.NoError(t, CreatePostgresCacheV1(ctx, tx))
 	require.NoError(t, tx.Commit())
 	return NewCache(db, tr, maxSize)
 }

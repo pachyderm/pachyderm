@@ -21,7 +21,7 @@ func CreatePostgresCacheV1(ctx context.Context, tx *pachsql.Tx) error {
 		key text NOT NULL PRIMARY KEY,
 		value_pb BYTEA NOT NULL,
 		ids UUID[] NOT NULL,
-		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		accessed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 `
 	_, err := tx.ExecContext(ctx, schema)
@@ -95,7 +95,7 @@ func (c *Cache) applyEvictionPolicy(tx *pachsql.Tx) error {
 		WHERE key IN (
 			SELECT key 
 			FROM storage.cache 
-			ORDER BY created_at
+			ORDER BY accessed_at
 			LIMIT 1
 		)
 		RETURNING key
@@ -108,9 +108,10 @@ func (c *Cache) applyEvictionPolicy(tx *pachsql.Tx) error {
 func (c *Cache) Get(ctx context.Context, key string) (*types.Any, error) {
 	data := []byte{}
 	if err := sqlx.GetContext(ctx, c.db, &data, `
-		SELECT value_pb 
-		FROM storage.cache 
+		UPDATE storage.cache
+		SET accessed_at = CURRENT_TIMESTAMP
 		WHERE key = $1
+		RETURNING value_pb
 	`, key); err != nil {
 		return nil, err
 	}

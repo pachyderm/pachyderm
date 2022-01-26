@@ -28,7 +28,6 @@ type pendingJob struct {
 	ji                         *pps.JobInfo
 	commitInfo, metaCommitInfo *pfs.CommitInfo
 	baseMetaCommit             *pfs.Commit
-	hasher                     datum.Hasher
 	noSkip                     bool
 }
 
@@ -155,38 +154,29 @@ func (pj *pendingJob) withParallelDatums(ctx context.Context, taskDoer task.Doer
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Upload the datums from the current job into the datum file set format.
-		fileSetID, err := pj.createFullJobDatumFileSet(ctx, taskDoer)
+		fileSetID, err := pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
 		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, fileSetID); err != nil {
 			return err
 		}
 		var baseFileSetID string
 		if pj.baseMetaCommit != nil {
 			// Upload the datums from the base job into the datum file set format.
 			var err error
-			baseFileSetID, err = pj.createFullBaseJobDatumFileSet(ctx, taskDoer)
+			baseFileSetID, err = pj.createFullBaseJobDatumFileSet(ctx, taskDoer, renewer)
 			if err != nil {
-				return err
-			}
-			if err := renewer.Add(ctx, baseFileSetID); err != nil {
 				return err
 			}
 		}
 		// Create the output datum file set for the new datums (datums that do not exist in the base job).
-		outputFileSetID, err := pj.createJobDatumFileSetParallel(ctx, taskDoer, fileSetID, baseFileSetID)
+		outputFileSetID, err := pj.createJobDatumFileSetParallel(ctx, taskDoer, renewer, fileSetID, baseFileSetID)
 		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, outputFileSetID); err != nil {
 			return err
 		}
 		return cb(ctx, outputFileSetID)
 	})
 }
 
-func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer task.Doer) (string, error) {
+func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet) (string, error) {
 	var fileSetID string
 	if err := pj.logger.LogStep("creating full job datum file set", func() error {
 		input, err := serializeUploadDatumsTask(&UploadDatumsTask{Job: pj.ji.Job})
@@ -201,6 +191,9 @@ func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer ta
 		if err != nil {
 			return err
 		}
+		if err := renewer.Add(ctx, result.FileSetId); err != nil {
+			return err
+		}
 		fileSetID = result.FileSetId
 		return nil
 	}); err != nil {
@@ -209,7 +202,7 @@ func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer ta
 	return fileSetID, nil
 }
 
-func (pj *pendingJob) createFullBaseJobDatumFileSet(ctx context.Context, taskDoer task.Doer) (string, error) {
+func (pj *pendingJob) createFullBaseJobDatumFileSet(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet) (string, error) {
 	var baseFileSetID string
 	if err := pj.logger.LogStep("creating full base job datum file set", func() error {
 		input, err := serializeUploadDatumsTask(&UploadDatumsTask{Job: client.NewJob(pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID)})
@@ -224,6 +217,9 @@ func (pj *pendingJob) createFullBaseJobDatumFileSet(ctx context.Context, taskDoe
 		if err != nil {
 			return err
 		}
+		if err := renewer.Add(ctx, result.FileSetId); err != nil {
+			return err
+		}
 		baseFileSetID = result.FileSetId
 		return nil
 	}); err != nil {
@@ -232,7 +228,7 @@ func (pj *pendingJob) createFullBaseJobDatumFileSet(ctx context.Context, taskDoe
 	return baseFileSetID, nil
 }
 
-func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoer task.Doer, fileSetID, baseFileSetID string) (string, error) {
+func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet, fileSetID, baseFileSetID string) (string, error) {
 	var outputFileSetID string
 	if err := pj.logger.LogStep("creating job datum file set (parallel jobs)", func() error {
 		input, err := serializeComputeParallelDatumsTask(&ComputeParallelDatumsTask{
@@ -249,6 +245,9 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 		}
 		result, err := deserializeComputeParallelDatumsTaskResult(output)
 		if err != nil {
+			return err
+		}
+		if err := renewer.Add(ctx, result.FileSetId); err != nil {
 			return err
 		}
 		outputFileSetID = result.FileSetId
@@ -278,19 +277,13 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, taskDoer task.Doer, 
 	}
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Upload the datums from the current job into the datum file set format.
-		fileSetID, err := pj.createFullJobDatumFileSet(ctx, taskDoer)
+		fileSetID, err := pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
 		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, fileSetID); err != nil {
 			return err
 		}
 		// Create the output datum file set for the datums that were not processed by the base (failed, recovered, etc.).
-		outputFileSetID, deleteFileSetID, skipped, err := pj.createJobDatumFileSetSerial(ctx, taskDoer, fileSetID, pj.baseMetaCommit)
+		outputFileSetID, deleteFileSetID, skipped, err := pj.createJobDatumFileSetSerial(ctx, taskDoer, renewer, fileSetID, pj.baseMetaCommit)
 		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, outputFileSetID); err != nil {
 			return err
 		}
 		// Delete the appropriate files.
@@ -314,7 +307,7 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, taskDoer task.Doer, 
 	})
 }
 
-func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer task.Doer, fileSetID string, baseMetaCommit *pfs.Commit) (string, string, int64, error) {
+func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet, fileSetID string, baseMetaCommit *pfs.Commit) (string, string, int64, error) {
 	var outputFileSetID, deleteFileSetID string
 	var skipped int64
 	if err := pj.logger.LogStep("creating job datum file set (serial jobs)", func() error {
@@ -333,6 +326,12 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 		}
 		result, err := deserializeComputeSerialDatumsTaskResult(output)
 		if err != nil {
+			return err
+		}
+		if err := renewer.Add(ctx, result.FileSetId); err != nil {
+			return err
+		}
+		if err := renewer.Add(ctx, result.DeleteFileSetId); err != nil {
 			return err
 		}
 		outputFileSetID = result.FileSetId

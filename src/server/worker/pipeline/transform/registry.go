@@ -98,9 +98,6 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 		driver: reg.driver,
 		logger: reg.logger.WithJob(jobInfo.Job.ID),
 		ji:     jobInfo,
-		hasher: &hasher{
-			salt: pi.Details.Salt,
-		},
 		noSkip: pi.Details.ReprocessSpec == client.ReprocessSpecEveryJob || pi.Details.S3Out,
 	}
 	if pj.ji.State == pps.JobState_JOB_CREATED {
@@ -295,7 +292,7 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		datumSetsFileSetID, err := createDatumSets(ctx, pj, renewer, taskDoer, fileSetID)
+		datumSetsFileSetID, err := createDatumSets(ctx, pj, taskDoer, renewer, fileSetID)
 		if err != nil {
 			return err
 		}
@@ -312,7 +309,7 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 	return nil
 }
 
-func createDatumSets(ctx context.Context, pj *pendingJob, renewer *renew.StringSet, taskDoer task.Doer, fileSetID string) (string, error) {
+func createDatumSets(ctx context.Context, pj *pendingJob, taskDoer task.Doer, renewer *renew.StringSet, fileSetID string) (string, error) {
 	var datumSetsFileSetID string
 	if err := pj.logger.LogStep("creating datum sets", func() error {
 		input, err := serializeCreateDatumSetsTask(&CreateDatumSetsTask{
