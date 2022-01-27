@@ -2,6 +2,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './index.module.css';
 
 export {default as generatePathWithSearch} from './lib/generatePathWithSearch';
+export {default as getRandomName} from './lib/getRandomName';
 export {default as sentryLink} from './lib/sentryLink';
 export * from './lib/analytics';
 export {default as useLoginWindow} from './hooks/useLoginWindow';
