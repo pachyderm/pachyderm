@@ -7,16 +7,17 @@ import (
 	"strings"
 	"sync/atomic"
 
-	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
-
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
+
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/sync/errgroup"
 )
@@ -92,12 +93,21 @@ func translateTaskState(state State) taskapi.State {
 }
 
 func HandleList(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send func(info *taskapi.TaskInfo) error) error {
-	return svc.ListTaskF(ctx, req.Namespace, func(key string, data *Task, claimed bool) error {
+	var marshaler jsonpb.Marshaler
+	return errors.EnsureStack(svc.ListTaskF(ctx, req.Namespace, func(key string, data *Task, claimed bool) error {
 		var state taskapi.State
 		if claimed {
 			state = taskapi.State_CLAIMED
 		} else {
 			state = translateTaskState(data.State)
+		}
+		var input types.DynamicAny
+		if err := types.UnmarshalAny(data.Input, &input); err != nil {
+			return errors.EnsureStack(err)
+		}
+		inputJSON, err := marshaler.MarshalToString(input.Message)
+		if err != nil {
+			return errors.EnsureStack(err)
 		}
 		info := &taskapi.TaskInfo{
 			ID:        data.ID,
@@ -105,9 +115,10 @@ func HandleList(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, 
 			State:     state,
 			Reason:    data.Reason,
 			InputType: data.Input.TypeUrl,
+			InputData: inputJSON,
 		}
-		return send(info)
-	})
+		return errors.EnsureStack(send(info))
+	}))
 }
 
 type namespaceEtcd struct {

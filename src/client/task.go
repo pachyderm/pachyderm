@@ -22,12 +22,10 @@ func (c APIClient) ListTask(service string, namespace string) (infos []*task.Tas
 	req := &task.ListTaskRequest{
 		Namespace: namespace,
 	}
-
 	var stream interface {
 		Recv() (*task.TaskInfo, error)
 	}
 	var err error
-
 	switch service {
 	case "pps":
 		stream, err = c.PpsAPIClient.ListTask(ctx, req)
@@ -37,7 +35,7 @@ func (c APIClient) ListTask(service string, namespace string) (infos []*task.Tas
 		return nil, errors.Errorf("%s is not a valid task service", service)
 	}
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	var out []*task.TaskInfo
 	for {
@@ -46,9 +44,9 @@ func (c APIClient) ListTask(service string, namespace string) (infos []*task.Tas
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		out = append(out, ti)
 	}
-	return out, err
+	return out, nil
 }

@@ -19,6 +19,7 @@ message TaskInfo {
   string input_type = 4;
   State state = 5;
   string reason = 6;
+  string input_data = 7;
 }
 
 message ListTaskRequest {
