@@ -62,7 +62,6 @@ func (c *Cache) Put(ctx context.Context, key string, value *types.Any, ids []ID)
 }
 
 func (c *Cache) put(tx *pachsql.Tx, key string, value []byte, ids []ID) error {
-	// TODO: How to handle conflict?
 	_, err := tx.Exec(`
 		INSERT INTO storage.cache (key, value_pb, ids) 
 		VALUES ($1, $2, $3)

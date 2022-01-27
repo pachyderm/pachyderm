@@ -26,8 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
 
-// TODO: Double check the shuffling of this hasher around to ensure we aren't
-// screwing up the hash for migration purposes.
 type hasher struct {
 	salt string
 }
