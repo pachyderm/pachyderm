@@ -40,7 +40,6 @@ jobs:
          paths:
          - cached-deps/
       - run: etc/testing/circle/start-minikube.sh
-      - run: etc/testing/circle/launch-loki.sh
 
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
@@ -167,7 +166,6 @@ jobs:
       - checkout
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/start-minikube.sh
-      - run: etc/testing/circle/launch-loki.sh
       - run: etc/testing/circle/build.sh
       - run: etc/testing/circle/upgrade_test.sh
 

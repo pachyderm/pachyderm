@@ -199,7 +199,7 @@ pachd:
     tag: ""
   logLevel: "info"
   # lokiLogging enables Loki logging if set.
-  lokiLogging: false
+  lokiLogging: true
   metrics:
     # enabled sets the METRICS environment variable if set.
     enabled: true
