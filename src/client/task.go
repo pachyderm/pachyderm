@@ -6,32 +6,49 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/taskapi"
+	"github.com/pachyderm/pachyderm/v2/src/task"
 )
 
 // ListTask lists tasks in the given namespace and group
-func (c APIClient) ListTask(namespace string) ([]*taskapi.TaskInfo, error) {
+func (c APIClient) ListTask(service string, namespace string) (infos []*task.TaskInfo, retErr error) {
 	ctx, cancel := context.WithCancel(c.Ctx())
 	defer cancel()
+	defer func() {
+		if retErr != nil {
+			retErr = grpcutil.ScrubGRPC(retErr)
+		}
+	}()
 
-	stream, err := c.TaskClient.ListTask(
-		ctx,
-		&taskapi.ListTaskRequest{
-			Namespace: namespace,
-		},
-	)
-	var out []*taskapi.TaskInfo
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+	req := &task.ListTaskRequest{
+		Namespace: namespace,
 	}
+
+	var stream interface {
+		Recv() (*task.TaskInfo, error)
+	}
+	var err error
+
+	switch service {
+	case "pps":
+		stream, err = c.PpsAPIClient.ListTask(ctx, req)
+	case "pfs":
+		stream, err = c.PfsAPIClient.ListTask(ctx, req)
+	default:
+		return nil, errors.Errorf("%s is not a valid task service", service)
+	}
+	if err != nil {
+		return nil, err
+	}
+	var out []*task.TaskInfo
 	for {
 		ti, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return nil, grpcutil.ScrubGRPC(err)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
 		}
 		out = append(out, ti)
 	}
-	return out, grpcutil.ScrubGRPC(err)
+	return out, err
 }

@@ -41,26 +41,25 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
+	"google.golang.org/grpc/health"
+
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
-	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
-	taskserver "github.com/pachyderm/pachyderm/v2/src/server/task/server"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
-	"github.com/pachyderm/pachyderm/v2/src/taskapi"
 	transactionclient "github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
-	"go.uber.org/automaxprocs/maxprocs"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -755,13 +754,6 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		healthServer.Resume()
-		if err := logGRPCServerSetup("Task API", func() error {
-			taskapi.RegisterAPIServer(externalServer.Server, taskserver.NewAPIServer(
-				env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix, env.Config().PFSEtcdPrefix, env.GetEtcdClient()))
-			return nil
-		}); err != nil {
-			return err
-		}
 		return nil
 	}); err != nil {
 		return err
@@ -916,13 +908,6 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		healthServer.Resume()
-		if err := logGRPCServerSetup("Task API", func() error {
-			taskapi.RegisterAPIServer(internalServer.Server, taskserver.NewAPIServer(
-				env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix, env.Config().PFSEtcdPrefix, env.GetEtcdClient()))
-			return nil
-		}); err != nil {
-			return err
-		}
 		return nil
 	}); err != nil {
 		return err

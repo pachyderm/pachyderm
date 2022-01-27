@@ -70,7 +70,6 @@ case "${BUCKET}" in
     make test-transaction
     make test-s3gateway-unit
     make test-worker
-    make test-task-api
     # these tests require secure env vars to run, which aren't available
     # when the PR is coming from an outside contributor - so we just
     # disable them

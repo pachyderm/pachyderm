@@ -160,6 +160,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/RunLoadTest":        authDisabledOr(authenticated),
 	"/pfs_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
 	"/pfs_v2.API/CheckStorage":       authDisabledOr(authenticated),
+	"/pfs_v2.API/ListTask":           authDisabledOr(authenticated),
 
 	//
 	// PPS API
@@ -200,6 +201,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/RunLoadTest":        authDisabledOr(authenticated),
 	"/pps_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
 	"/pps_v2.API/RenderTemplate":     authDisabledOr(authenticated),
+	"/pps_v2.API/ListTask":           authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI
@@ -225,12 +227,6 @@ var authHandlers = map[string]authHandler{
 
 	// TODO: Only the pachd sidecar instances should be able to use this endpoint.
 	"/proxy.API/Listen": unauthenticated,
-
-	//
-	// Task API
-	//
-
-	"/taskapi.API/ListTask": authDisabledOr(authenticated),
 }
 
 // NewInterceptor instantiates a new Interceptor

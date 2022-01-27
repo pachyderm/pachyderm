@@ -11,6 +11,8 @@ import "gogoproto/gogo.proto";
 
 import "pfs/pfs.proto";
 
+import "task/task.proto";
+
 message SecretMount {
   // Name must be the name of the secret in kubernetes.
   string name = 1;
@@ -772,5 +774,8 @@ service API {
 
   // RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
   rpc RenderTemplate(RenderTemplateRequest) returns (RenderTemplateResponse) {}
+
+  // ListTask lists pipeline tasks under the given etcd prefix
+  rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 }
 

@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
-	"github.com/pachyderm/pachyderm/v2/src/taskapi"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
@@ -1230,30 +1229,6 @@ func (api *proxyServerAPI) Listen(req *proxy.ListenRequest, srv proxy.API_Listen
 	return errors.Errorf("unhandled pachd mock proxy.Listen")
 }
 
-/* Task Server Mocks */
-
-type listTaskFunc func(*taskapi.ListTaskRequest, taskapi.API_ListTaskServer) error
-
-type mockListTask struct{ handler listTaskFunc }
-
-func (mock *mockListTask) Use(cb listTaskFunc) { mock.handler = cb }
-
-type taskServerAPI struct {
-	mock *mockTaskServer
-}
-
-type mockTaskServer struct {
-	api      taskServerAPI
-	ListTask mockListTask
-}
-
-func (api *taskServerAPI) ListTask(req *taskapi.ListTaskRequest, srv taskapi.API_ListTaskServer) error {
-	if api.mock.ListTask.handler != nil {
-		return api.mock.ListTask.handler(req, srv)
-	}
-	return errors.Errorf("unhandled pachd mock taskapi.ListTask")
-}
-
 // MockPachd provides an interface for running the interface for a Pachd API
 // server locally without any of its dependencies. Tests may mock out specific
 // API calls by providing a handler function, and later check information about
@@ -1272,7 +1247,6 @@ type MockPachd struct {
 	Version     mockVersionServer
 	Admin       mockAdminServer
 	Proxy       mockProxyServer
-	Task        mockTaskServer
 }
 
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
@@ -1293,7 +1267,6 @@ func NewMockPachd(ctx context.Context) (*MockPachd, error) {
 	mock.Version.api.mock = &mock.Version
 	mock.Admin.api.mock = &mock.Admin
 	mock.Proxy.api.mock = &mock.Proxy
-	mock.Task.api.mock = &mock.Task
 
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(logrus.StandardLogger())
 	server, err := grpcutil.NewServer(ctx, false,
@@ -1318,7 +1291,6 @@ func NewMockPachd(ctx context.Context) (*MockPachd, error) {
 	transaction.RegisterAPIServer(server.Server, &mock.Transaction.api)
 	version.RegisterAPIServer(server.Server, &mock.Version.api)
 	proxy.RegisterAPIServer(server.Server, &mock.Proxy.api)
-	taskapi.RegisterAPIServer(server.Server, &mock.Task.api)
 
 	listener, err := server.ListenTCP("localhost", 0)
 	if err != nil {

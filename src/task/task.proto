@@ -1,12 +1,12 @@
 syntax = "proto3";
 
 package taskapi;
-option go_package = "github.com/pachyderm/pachyderm/v2/src/taskapi";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/task";
 
 import "gogoproto/gogo.proto";
 
 enum State {
-  STATE_UNKNOWN = 0;
+  UNKNOWN = 0;
   RUNNING = 1;
   SUCCESS = 2;
   FAILURE = 3;
@@ -23,9 +23,5 @@ message TaskInfo {
 
 message ListTaskRequest {
   string namespace = 1;
-}
-
-service API {
-  rpc ListTask(ListTaskRequest) returns (stream TaskInfo) {}
 }
 
