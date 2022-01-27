@@ -265,8 +265,8 @@ Configure your DB instance as follows.
 !!! Warning "One last step"
       Once your instance is created:
 
-      - You will need to create a second database named "dex" for Pachyderm's authentication service. Note that the database must be named `dex`. Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
-      - Additionally, create a new user account and **grant it full CRUD permissions to both `pachyderm` and `dex` databases**. Pachyderm will use the same username to connect to `pachyderm` as well as to `dex`. 
+      - You will need to create a second database named "dex" in your RDS instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
+      - Additionally, create a new user account and **grant it full CRUD permissions to both `pachyderm` and `dex` databases**. Read about managing PostgreSQL users and roles in this [blog](https://aws.amazon.com/blogs/database/managing-postgresql-users-and-roles/). Pachyderm will use the same username to connect to `pachyderm` as well as to `dex`. 
 
 ### Update your values.yaml 
 Once your databases have been created, add the following fields to your Helm values:
