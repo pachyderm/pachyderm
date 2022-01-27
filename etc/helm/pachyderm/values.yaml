@@ -180,7 +180,8 @@ ingress:
       create: false
       crt: ""
       key: ""
-
+loki:
+  enabled: true
 pachd:
   enabled: true
   affinity: {}
@@ -199,7 +200,7 @@ pachd:
     tag: ""
   logLevel: "info"
   # lokiLogging enables Loki logging if set.
-  lokiLogging: true
+  lokiLogging: false
   metrics:
     # enabled sets the METRICS environment variable if set.
     enabled: true

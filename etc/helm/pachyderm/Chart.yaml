@@ -63,4 +63,4 @@ dependencies:
 - name: loki-stack
   version: "2.5.1"
   repository: "https://grafana.github.io/helm-charts"
-  condition: pachd.lokiLogging
+  condition: loki.enabled
