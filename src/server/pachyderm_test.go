@@ -9812,7 +9812,7 @@ func TestDatumSetCache(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	masterCommit := client.NewCommit(dataRepo, "master", "")
 	require.NoError(t, c.WithModifyFileClient(masterCommit, func(mfc client.ModifyFile) error {
-		for i := 0; i < 60; i++ {
+		for i := 0; i < 90; i++ {
 			require.NoError(t, mfc.PutFile(strconv.Itoa(i), strings.NewReader("")))
 		}
 		return nil
@@ -9835,24 +9835,14 @@ func TestDatumSetCache(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		ticker := time.NewTicker(10 * time.Second)
+		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				var eg errgroup.Group
-				eg.Go(func() error {
-					tu.DeletePod(t, "etcd")
-					return nil
-				})
-				eg.Go(func() error {
-					// TODO: This seems to be causing issues unrelated to the caching.
-					//tu.DeletePod(t, "pg-bouncer")
-					return nil
-				})
-				eg.Wait()
+				tu.DeletePod(t, "etcd")
 			}
 		}
 	}()
