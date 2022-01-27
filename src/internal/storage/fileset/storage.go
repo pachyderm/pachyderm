@@ -320,7 +320,8 @@ func (s *Storage) newGC() *track.GarbageCollector {
 }
 
 func (s *Storage) exists(ctx context.Context, id ID) (bool, error) {
-	return s.store.Exists(ctx, id)
+	exists, err := s.store.Exists(ctx, id)
+	return exists, errors.EnsureStack(err)
 }
 
 func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Duration) (*ID, error) {

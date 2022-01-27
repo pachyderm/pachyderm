@@ -337,13 +337,13 @@ func createDatumSets(ctx context.Context, pj *pendingJob, taskDoer task.Doer, re
 		datumSetsFileSetID = result.FileSetId
 		return nil
 	}); err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	return datumSetsFileSetID, nil
 }
 
 func processDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer task.Doer, fileSetID string, stats *datum.Stats) error {
-	return pj.logger.LogStep("processing datum sets", func() error {
+	return errors.EnsureStack(pj.logger.LogStep("processing datum sets", func() error {
 		eg, ctx := errgroup.WithContext(pachClient.Ctx())
 		pachClient := pachClient.WithCtx(ctx)
 		inputChan := make(chan *types.Any)
@@ -357,11 +357,11 @@ func processDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer tas
 			if err := tarutil.Iterate(r, func(f tarutil.File) error {
 				buf := &bytes.Buffer{}
 				if err := f.Content(buf); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				input := &types.Any{}
 				if err := proto.Unmarshal(buf.Bytes(), input); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				select {
 				case inputChan <- input:
@@ -375,7 +375,7 @@ func processDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer tas
 			return nil
 		})
 		eg.Go(func() error {
-			return taskDoer.Do(
+			return errors.EnsureStack(taskDoer.Do(
 				ctx,
 				inputChan,
 				func(_ int64, output *types.Any, err error) error {
@@ -410,16 +410,16 @@ func processDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer tas
 					pj.saveJobStats(data.Stats)
 					return pj.writeJobInfo()
 				},
-			)
+			))
 		})
-		return eg.Wait()
-	})
+		return errors.EnsureStack(eg.Wait())
+	}))
 }
 
 func serializeCreateDatumSetsTask(task *CreateDatumSetsTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -430,7 +430,7 @@ func serializeCreateDatumSetsTask(task *CreateDatumSetsTask) (*types.Any, error)
 func deserializeCreateDatumSetsTaskResult(taskAny *types.Any) (*CreateDatumSetsTaskResult, error) {
 	task := &CreateDatumSetsTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }

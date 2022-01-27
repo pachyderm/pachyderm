@@ -20,7 +20,7 @@ func newCache(pachClient *client.APIClient) *cache {
 func (c *cache) Get(ctx context.Context, key string) (*types.Any, error) {
 	resp, err := c.pachClient.PfsAPIClient.GetCache(ctx, &pfs.GetCacheRequest{Key: key})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return resp.Value, nil
 }
@@ -66,5 +66,5 @@ func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 		Value:      output,
 		FileSetIds: fileSetIds,
 	})
-	return err
+	return errors.EnsureStack(err)
 }

@@ -51,7 +51,7 @@ func NewCache(db *pachsql.DB, tracker track.Tracker, maxSize int) *Cache {
 func (c *Cache) Put(ctx context.Context, key string, value *types.Any, ids []ID) error {
 	data, err := proto.Marshal(value)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) error {
 		if err := c.put(tx, key, data, ids); err != nil {
@@ -69,13 +69,13 @@ func (c *Cache) put(tx *pachsql.Tx, key string, value []byte, ids []ID) error {
 		ON CONFLICT (key) DO NOTHING
 	`, key, value, ids)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	var pointsTo []string
 	for _, id := range ids {
 		pointsTo = append(pointsTo, id.TrackerID())
 	}
-	return c.tracker.CreateTx(tx, cacheTrackerKey(key), pointsTo, track.NoTTL)
+	return errors.EnsureStack(c.tracker.CreateTx(tx, cacheTrackerKey(key), pointsTo, track.NoTTL))
 }
 
 func (c *Cache) applyEvictionPolicy(tx *pachsql.Tx) error {
@@ -84,7 +84,7 @@ func (c *Cache) applyEvictionPolicy(tx *pachsql.Tx) error {
 		SELECT COUNT(key)
 		FROM storage.cache 
 	`); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if size <= c.maxSize {
 		return nil
@@ -100,9 +100,9 @@ func (c *Cache) applyEvictionPolicy(tx *pachsql.Tx) error {
 		)
 		RETURNING key
 	`); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return c.tracker.DeleteTx(tx, cacheTrackerKey(key))
+	return errors.EnsureStack(c.tracker.DeleteTx(tx, cacheTrackerKey(key)))
 }
 
 func (c *Cache) Get(ctx context.Context, key string) (*types.Any, error) {
@@ -113,11 +113,11 @@ func (c *Cache) Get(ctx context.Context, key string) (*types.Any, error) {
 		WHERE key = $1
 		RETURNING value_pb
 	`, key); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	value := &types.Any{}
 	if err := proto.Unmarshal(data, value); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return value, nil
 }

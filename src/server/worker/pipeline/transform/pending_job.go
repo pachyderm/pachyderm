@@ -197,7 +197,7 @@ func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer ta
 		fileSetID = result.FileSetId
 		return nil
 	}); err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	return fileSetID, nil
 }
@@ -223,7 +223,7 @@ func (pj *pendingJob) createFullBaseJobDatumFileSet(ctx context.Context, taskDoe
 		baseFileSetID = result.FileSetId
 		return nil
 	}); err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	return baseFileSetID, nil
 }
@@ -253,7 +253,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 		outputFileSetID = result.FileSetId
 		return nil
 	}); err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	return outputFileSetID, nil
 }
@@ -290,9 +290,9 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, taskDoer task.Doer, 
 		pachClient := pachClient.WithCtx(ctx)
 		if err := pj.withDeleter(pachClient, func(deleter datum.Deleter) error {
 			dit := datum.NewFileSetIterator(pachClient, deleteFileSetID)
-			return dit.Iterate(func(meta *datum.Meta) error {
+			return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
 				return deleter(meta)
-			})
+			}))
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -339,7 +339,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 		skipped = result.Skipped
 		return nil
 	}); err != nil {
-		return "", "", 0, err
+		return "", "", 0, errors.EnsureStack(err)
 	}
 	return outputFileSetID, deleteFileSetID, skipped, nil
 }
@@ -371,7 +371,7 @@ func skippableDatum(meta1, meta2 *datum.Meta) bool {
 func serializeUploadDatumsTask(task *UploadDatumsTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -382,7 +382,7 @@ func serializeUploadDatumsTask(task *UploadDatumsTask) (*types.Any, error) {
 func deserializeUploadDatumsTaskResult(taskAny *types.Any) (*UploadDatumsTaskResult, error) {
 	task := &UploadDatumsTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
@@ -390,7 +390,7 @@ func deserializeUploadDatumsTaskResult(taskAny *types.Any) (*UploadDatumsTaskRes
 func serializeComputeParallelDatumsTask(task *ComputeParallelDatumsTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -401,7 +401,7 @@ func serializeComputeParallelDatumsTask(task *ComputeParallelDatumsTask) (*types
 func deserializeComputeParallelDatumsTaskResult(taskAny *types.Any) (*ComputeParallelDatumsTaskResult, error) {
 	task := &ComputeParallelDatumsTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
@@ -409,7 +409,7 @@ func deserializeComputeParallelDatumsTaskResult(taskAny *types.Any) (*ComputePar
 func serializeComputeSerialDatumsTask(task *ComputeSerialDatumsTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -420,7 +420,7 @@ func serializeComputeSerialDatumsTask(task *ComputeSerialDatumsTask) (*types.Any
 func deserializeComputeSerialDatumsTaskResult(taskAny *types.Any) (*ComputeSerialDatumsTaskResult, error) {
 	task := &ComputeSerialDatumsTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }

@@ -37,7 +37,7 @@ func (h *hasher) Hash(inputs []*common.Input) string {
 }
 
 func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, status *Status) error {
-	return driver.NewTaskSource().Iterate(
+	return errors.EnsureStack(driver.NewTaskSource().Iterate(
 		ctx,
 		func(ctx context.Context, input *types.Any) (*types.Any, error) {
 			switch {
@@ -76,7 +76,7 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 				return nil, errors.Errorf("unrecognized any type (%v) in transform worker", input.TypeUrl)
 			}
 		},
-	)
+	))
 }
 
 func processUploadDatumsTask(pachClient *client.APIClient, task *UploadDatumsTask) (*types.Any, error) {
@@ -90,7 +90,7 @@ func processUploadDatumsTask(pachClient *client.APIClient, task *UploadDatumsTas
 			Commit: ppsutil.MetaCommit(jobInfo.OutputCommit),
 		})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	var dit datum.Iterator
 	if metaCommitInfo.Finishing != nil {
@@ -206,9 +206,9 @@ func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask)
 				}
 				data, err := proto.Marshal(input)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
-				return mf.PutFile(name, bytes.NewReader(data))
+				return errors.EnsureStack(mf.PutFile(name, bytes.NewReader(data)))
 			}); err != nil {
 				return err
 			}
@@ -234,7 +234,7 @@ func createSetSpec(driver driver.Driver, fileSetID string) (*datum.SetSpec, erro
 		numDatums++
 		return nil
 	}); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	// When the datum set spec is not set, evenly distribute the datums.
 	var setSpec *datum.SetSpec
@@ -249,7 +249,7 @@ func createSetSpec(driver driver.Driver, fileSetID string) (*datum.SetSpec, erro
 	if setSpec == nil || (setSpec.Number == 0 && setSpec.SizeBytes == 0) {
 		concurrency, err := driver.ExpectedNumWorkers()
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		setSpec = &datum.SetSpec{Number: numDatums / (int64(concurrency) * datumSetsPerWorker)}
 		if setSpec.Number == 0 {
@@ -390,7 +390,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 func deserializeUploadDatumsTask(taskAny *types.Any) (*UploadDatumsTask, error) {
 	task := &UploadDatumsTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
@@ -398,7 +398,7 @@ func deserializeUploadDatumsTask(taskAny *types.Any) (*UploadDatumsTask, error) 
 func serializeUploadDatumsTaskResult(task *UploadDatumsTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -409,7 +409,7 @@ func serializeUploadDatumsTaskResult(task *UploadDatumsTaskResult) (*types.Any, 
 func deserializeComputeParallelDatumsTask(taskAny *types.Any) (*ComputeParallelDatumsTask, error) {
 	task := &ComputeParallelDatumsTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
@@ -417,7 +417,7 @@ func deserializeComputeParallelDatumsTask(taskAny *types.Any) (*ComputeParallelD
 func serializeComputeParallelDatumsTaskResult(task *ComputeParallelDatumsTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -428,7 +428,7 @@ func serializeComputeParallelDatumsTaskResult(task *ComputeParallelDatumsTaskRes
 func deserializeComputeSerialDatumsTask(taskAny *types.Any) (*ComputeSerialDatumsTask, error) {
 	task := &ComputeSerialDatumsTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
@@ -436,7 +436,7 @@ func deserializeComputeSerialDatumsTask(taskAny *types.Any) (*ComputeSerialDatum
 func serializeComputeSerialDatumsTaskResult(task *ComputeSerialDatumsTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -447,7 +447,7 @@ func serializeComputeSerialDatumsTaskResult(task *ComputeSerialDatumsTaskResult)
 func deserializeCreateDatumSetsTask(taskAny *types.Any) (*CreateDatumSetsTask, error) {
 	task := &CreateDatumSetsTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
@@ -455,7 +455,7 @@ func deserializeCreateDatumSetsTask(taskAny *types.Any) (*CreateDatumSetsTask, e
 func serializeCreateDatumSetsTaskResult(task *CreateDatumSetsTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
