@@ -33,9 +33,9 @@ func defaultLevel(err error) logrus.Level {
 	case codes.OK:
 		// status.Code(nil) returns OK
 		return logrus.InfoLevel
-	case codes.InvalidArgument, codes.NotFound, codes.AlreadyExists, codes.OutOfRange:
+	case codes.InvalidArgument, codes.OutOfRange:
 		return logrus.InfoLevel
-	case codes.Unauthenticated:
+	case codes.NotFound, codes.AlreadyExists, codes.Unauthenticated:
 		return logrus.WarnLevel
 	default:
 		return logrus.ErrorLevel
