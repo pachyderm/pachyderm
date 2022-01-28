@@ -29,9 +29,14 @@ describe('Image Processing', () => {
   });
 
   it('should allow the user to complete the tutorial', async () => {
-    const {findByRole, findByText, findAllByRole, findByLabelText} = render(
-      <Tutorial />,
-    );
+    const {
+      findByRole,
+      findByText,
+      findAllByRole,
+      findByLabelText,
+      findByTestId,
+      baseElement,
+    } = render(<Tutorial />);
 
     const minimize = async () => {
       const minimizeButton = (
@@ -203,6 +208,16 @@ describe('Image Processing', () => {
     await minimize();
     await maximize();
 
-    await nextStory();
+    const completeStoryButton = await findByRole('button', {
+      name: 'Close Tutorial',
+    });
+
+    click(completeStoryButton);
+
+    const surveyCloseButton = await findByTestId('ModalFooter__cancel');
+    expect(surveyCloseButton).toBeInTheDocument();
+    click(surveyCloseButton);
+
+    waitFor(() => expect(baseElement).not.toBeInTheDocument());
   });
 });

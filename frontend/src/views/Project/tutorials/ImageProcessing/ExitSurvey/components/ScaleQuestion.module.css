@@ -1,0 +1,27 @@
+
+.questionHeader {
+  font-weight: 700;
+  font-size: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.radios {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.radio {
+  width: 5rem;
+}
+
+.radio div:first-child {
+  align-self: start;
+  padding-top: 0.5rem;
+}
+
+.radioLabel {
+  font-size: 0.75rem;
+  line-height: 1.5rem;
+  align-self: start;
+}

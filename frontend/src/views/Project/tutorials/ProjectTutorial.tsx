@@ -6,8 +6,12 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 import ImageProcessing from './ImageProcessing';
 
+export type TutorialProps = {
+  onClose: () => void;
+};
+
 type TutorialMap = {
-  [key: string]: React.FC;
+  [key: string]: React.FC<TutorialProps>;
 };
 
 const TUTORIALS: TutorialMap = {
@@ -16,7 +20,7 @@ const TUTORIALS: TutorialMap = {
 
 const ProjectTutorial: React.FC = () => {
   const {projectId} = useUrlState();
-  const {viewState} = useUrlQueryState();
+  const {viewState, setUrlFromViewState} = useUrlQueryState();
 
   const [id, setActiveTutorial] = useLocalProjectSettings({
     projectId,
@@ -29,10 +33,15 @@ const ProjectTutorial: React.FC = () => {
     }
   }, [viewState.tutorialId, setActiveTutorial, id]);
 
+  const onClose = () => {
+    setUrlFromViewState({tutorialId: undefined});
+    setActiveTutorial(null);
+  };
+
   if (id) {
     const Tutorial = TUTORIALS[id];
     if (Tutorial) {
-      return <Tutorial />;
+      return <Tutorial onClose={onClose} />;
     }
   }
   return null;
