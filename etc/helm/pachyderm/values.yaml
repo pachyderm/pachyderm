@@ -181,9 +181,6 @@ ingress:
       crt: ""
       key: ""
 
-loki:
-  enabled: true
-
 # locki-stack contains values that will be passed to the loki-stack subchart
 loki-stack:
   loki:
@@ -213,6 +210,7 @@ pachd:
     # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
   logLevel: "info"
+  lokiDeploy: false
   # lokiLogging enables Loki logging if set.
   lokiLogging: false
   metrics:
