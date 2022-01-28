@@ -526,6 +526,7 @@ func (mock *mockComposeFileSet) Use(cb composeFileSetFunc)         { mock.handle
 func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefault) Use(cb runLoadTestDefaultFunc) { mock.handler = cb }
 func (mock *mockCheckStorage) Use(cb checkStorageFunc)             { mock.handler = cb }
+func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)               { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -895,6 +896,7 @@ func (mock *mockActivateAuthPPS) Use(cb activateAuthPPSFunc)             { mock.
 func (mock *mockRunLoadTestPPS) Use(cb runLoadTestPPSFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefaultPPS) Use(cb runLoadTestDefaultPPSFunc) { mock.handler = cb }
 func (mock *mockRenderTemplate) Use(cb renderTemplateFunc)               { mock.handler = cb }
+func (mock *mockListTaskPPS) Use(cb listTaskPPSFunc)                     { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
