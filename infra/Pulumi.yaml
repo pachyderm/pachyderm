@@ -1,0 +1,3 @@
+name: jupyter-test
+runtime: go
+description: test jupyter in gcp
