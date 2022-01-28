@@ -26,7 +26,7 @@ func ParseURL(x string) (*URL, error) {
 	}
 	port, err := strconv.Atoi(u.Port())
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, errors.EnsureStack(errors.Wrapf(err, "parsing url port: %w"))
 	}
 	params := make(map[string]string)
 	for k, v := range u.Query() {

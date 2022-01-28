@@ -822,6 +822,7 @@ type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
 type runLoadTestPPSFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 type runLoadTestDefaultPPSFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
+type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error)
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -851,6 +852,7 @@ type mockGetLogs struct{ handler getLogsFunc }
 type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
 type mockRunLoadTestPPS struct{ handler runLoadTestPPSFunc }
 type mockRunLoadTestDefaultPPS struct{ handler runLoadTestDefaultPPSFunc }
+type mockRenderTemplate struct{ handler renderTemplateFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -880,6 +882,7 @@ func (mock *mockGetLogs) Use(cb getLogsFunc)                             { mock.
 func (mock *mockActivateAuthPPS) Use(cb activateAuthPPSFunc)             { mock.handler = cb }
 func (mock *mockRunLoadTestPPS) Use(cb runLoadTestPPSFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefaultPPS) Use(cb runLoadTestDefaultPPSFunc) { mock.handler = cb }
+func (mock *mockRenderTemplate) Use(cb renderTemplateFunc)               { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
@@ -915,6 +918,7 @@ type mockPPSServer struct {
 	ActivateAuth       mockActivateAuthPPS
 	RunLoadTest        mockRunLoadTestPPS
 	RunLoadTestDefault mockRunLoadTestDefaultPPS
+	RenderTemplate     mockRenderTemplate
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1084,6 +1088,13 @@ func (api *ppsServerAPI) RunLoadTestDefault(ctx context.Context, req *types.Empt
 		return api.mock.RunLoadTestDefault.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.RunLoadTestDefault")
+}
+
+func (api *ppsServerAPI) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error) {
+	if api.mock.RenderTemplate.handler != nil {
+		return api.mock.RenderTemplate.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.RenderTemplate")
 }
 
 /* Transaction Server Mocks */

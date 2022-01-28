@@ -122,7 +122,7 @@ func SQLQueryGeneration(ctx context.Context, params SQLQueryGenerationParams) er
 		return err
 	}
 	timestampComment := fmt.Sprintf("-- %d\n", timestamp)
-	contents := timestampComment + params.Query
+	contents := timestampComment + params.Query + "\n"
 	outputPath := filepath.Join(params.OutputDir, "0000")
 	return errors.EnsureStack(ioutil.WriteFile(outputPath, []byte(contents), 0755))
 }
