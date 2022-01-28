@@ -143,4 +143,19 @@ describe('services/pps', () => {
       expect(updatedPipelines).toHaveLength(2);
     });
   });
+
+  describe('deletePipeline', () => {
+    it('should delete a pipeline', async () => {
+      const {pachClient} = await createSandBox('deletePipeline');
+      const pipelines = await pachClient.pps().listPipeline();
+      expect(pipelines).toHaveLength(1);
+
+      await pachClient.pps().deletePipeline({
+        pipeline: {name: 'deletePipeline'},
+      });
+
+      const updatedPipelines = await pachClient.pps().listPipeline();
+      expect(updatedPipelines).toHaveLength(0);
+    });
+  });
 });

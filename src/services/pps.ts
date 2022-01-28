@@ -49,6 +49,7 @@ import {
   ListJobSetRequest,
   JobSetInfo,
   CreatePipelineRequest,
+  DeletePipelineRequest,
 } from '../proto/pps/pps_pb';
 import {DEFAULT_JOBS_LIMIT} from '../services/constants/pps';
 import streamToObjectArray from '../utils/streamToObjectArray';
@@ -64,6 +65,16 @@ export interface ListJobArgs extends ListArgs {
 
 export interface ListJobSetArgs extends ListArgs {
   details?: boolean;
+}
+
+export interface PipelineArgs {
+  name: string;
+}
+
+export interface DeletePipelineArgs {
+  pipeline: PipelineArgs;
+  keepRepo?: boolean;
+  force?: boolean;
 }
 
 export interface CreatePipelineRequestOptions
@@ -211,6 +222,29 @@ const pps = ({
       );
 
       return streamToObjectArray<PipelineInfo, PipelineInfo.AsObject>(stream);
+    },
+
+    deletePipeline: ({
+      pipeline,
+      keepRepo = false,
+      force = false,
+    }: DeletePipelineArgs) => {
+      const deletePipelineRequest = new DeletePipelineRequest()
+        .setPipeline(new Pipeline().setName(pipeline.name))
+        .setForce(force)
+        .setKeepRepo(keepRepo);
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        client.deletePipeline(
+          deletePipelineRequest,
+          credentialMetadata,
+          (error, res) => {
+            if (error) {
+              reject(error);
+            }
+            return resolve(res.toObject());
+          },
+        );
+      });
     },
 
     listJobs: ({limit, pipelineId}: ListJobArgs = {}) => {
