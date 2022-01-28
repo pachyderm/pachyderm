@@ -180,8 +180,22 @@ ingress:
       create: false
       crt: ""
       key: ""
+
 loki:
   enabled: true
+
+# locki-stack contains values that will be passed to the loki-stack subchart
+loki-stack:
+  loki:
+    persistence:
+      enabled: true
+      accessModes:
+      - ReadWriteOnce
+      size: 5Gi
+      annotations: {}
+  grafana:
+    enabled: false
+
 pachd:
   enabled: true
   affinity: {}
