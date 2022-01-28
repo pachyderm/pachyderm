@@ -266,6 +266,48 @@ func HeartbeatCmd() *cobra.Command {
 	return cmdutil.CreateAlias(heartbeat, "enterprise heartbeat")
 }
 
+// PauseCmd pauses the cluster.
+func PauseCmd() *cobra.Command {
+	pause := &cobra.Command{
+		Short: "Pause the cluster.",
+		Long:  "Pause the cluster.",
+		Run: cmdutil.Run(func(args []string) error {
+			c, err := newClient(true)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			_, err = c.Enterprise.Pause(c.Ctx(), &enterprise.PauseRequest{})
+			if err != nil {
+				return errors.Wrapf(err, "could not sync with license server")
+			}
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(pause, "enterprise pause")
+}
+
+// UnpauseCmd pauses the cluster.
+func UnpauseCmd() *cobra.Command {
+	unpause := &cobra.Command{
+		Short: "Unpause the cluster.",
+		Long:  "Unpause the cluster.",
+		Run: cmdutil.Run(func(args []string) error {
+			c, err := newClient(true)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			_, err = c.Enterprise.Unpause(c.Ctx(), &enterprise.UnpauseRequest{})
+			if err != nil {
+				return errors.Wrapf(err, "could not sync with license server")
+			}
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(unpause, "enterprise unpause")
+}
+
 // Cmds returns pachctl commands related to Pachyderm Enterprise
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
@@ -281,6 +323,8 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, GetStateCmd())
 	commands = append(commands, SyncContextsCmd())
 	commands = append(commands, HeartbeatCmd())
+	commands = append(commands, PauseCmd())
+	commands = append(commands, UnpauseCmd())
 
 	return commands
 }

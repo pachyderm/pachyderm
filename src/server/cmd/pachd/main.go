@@ -538,6 +538,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 }
 
 func doFullMode(config interface{}) (retErr error) {
+	var ctx = context.Background()
 	defer func() {
 		if retErr != nil {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
@@ -569,13 +570,13 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
-	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
+	if err := dbutil.WaitUntilReady(ctx, log.StandardLogger(), env.GetDBClient()); err != nil {
 		return err
 	}
-	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
+	if err := migrations.ApplyMigrations(ctx, env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
-	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
+	if err := migrations.BlockUntil(ctx, env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
 	env.InitDexDB()
@@ -590,7 +591,7 @@ func doFullMode(config interface{}) (retErr error) {
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
 	externalServer, err := grpcutil.NewServer(
-		context.Background(),
+		ctx,
 		true,
 		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
 		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
@@ -621,16 +622,6 @@ func doFullMode(config interface{}) (retErr error) {
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := txnenv.New()
 
-		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
-				identity_server.EnvFromServiceEnv(env),
-				true,
-			)
-			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
@@ -641,6 +632,35 @@ func doFullMode(config interface{}) (retErr error) {
 			}
 			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
 			env.SetAuthServer(authAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		var isPaused bool
+		if err := logGRPCServerSetup("Enterprise API", func() error {
+			e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
+			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+				e,
+				true,
+			)
+			if err != nil {
+				return err
+			}
+			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
+			if isPaused, err = e.IsPaused(ctx); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Identity API", func() error {
+			idAPIServer := identity_server.NewIdentityServer(
+				identity_server.EnvFromServiceEnv(env),
+				true,
+			)
+			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -683,20 +703,6 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			transactionclient.RegisterAPIServer(externalServer.Server, transactionAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("Enterprise API", func() error {
-			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
-				true,
-			)
-			if err != nil {
-				return err
-			}
-			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
-			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -760,7 +766,7 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	// Setup Internal Pachd GRPC Server.
 	internalServer, err := grpcutil.NewServer(
-		context.Background(),
+		ctx,
 		false,
 		grpc.ChainUnaryInterceptor(
 			errorsmw.UnaryServerInterceptor,
@@ -924,7 +930,7 @@ func doFullMode(config interface{}) (retErr error) {
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
 		router := s3.Router(s3.NewMasterDriver(), func() (*client.APIClient, error) {
-			return env.GetPachClient(context.Background()), nil
+			return env.GetPachClient(ctx), nil
 		})
 		server := s3.Server(env.Config().S3GatewayPort, router)
 		certPath, keyPath, err := tls.GetCertPaths()

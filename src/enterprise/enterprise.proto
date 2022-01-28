@@ -25,6 +25,8 @@ message EnterpriseConfig {
   string id = 2;
   // secret is a shared secret between this pachd and the license service
   string secret = 3;
+  // paused is true if this cluster should be paused
+  bool paused = 4;
 }
 
 // EnterpriseRecord is a protobuf we cache in etcd to store the 
@@ -96,6 +98,16 @@ message HeartbeatResponse{}
 message DeactivateRequest{}
 message DeactivateResponse{}
 
+message PauseRequest{}
+message PauseResponse{}
+
+message UnpauseRequest{}
+message UnpauseResponse{}
+
+message PauseRecord {
+  bool isPaused = 1;
+}
+
 service API {
   // Provide a Pachyderm enterprise token, enabling Pachyderm enterprise
   // features, such as the Pachyderm Dashboard and Auth system
@@ -110,5 +122,10 @@ service API {
   // Deactivate removes a cluster's enterprise activation
   // token and sets its enterprise state to NONE.
   rpc Deactivate(DeactivateRequest) returns (DeactivateResponse) {}
+
+  // Pause pauses the cluster.
+  rpc Pause(PauseRequest) returns (PauseResponse) {}
+  // Unpause unpauses the cluser.
+  rpc Unpause(UnpauseRequest) returns (UnpauseResponse) {}
 }
 

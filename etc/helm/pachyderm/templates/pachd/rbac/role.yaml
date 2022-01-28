@@ -47,4 +47,15 @@ rules:
   - update
   - delete
   - deletecollection
+- apiGroups:
+  - "apps"
+  - "extensions"
+  resources:
+  - deployments
+  - deployments/scale
+  verbs:
+  - get
+  - list
+  - patch
+  - update
 {{ end -}}

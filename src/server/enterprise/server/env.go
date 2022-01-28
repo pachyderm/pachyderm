@@ -3,6 +3,9 @@ package server
 import (
 	"context"
 
+	clientv3 "go.etcd.io/etcd/client/v3"
+	kube "k8s.io/client-go/kubernetes"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -11,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/auth"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type Env struct {
@@ -24,6 +26,7 @@ type Env struct {
 
 	AuthServer    auth.APIServer
 	GetPachClient func(context.Context) *client.APIClient
+	GetKubeClient func() *kube.Clientset
 
 	BackgroundContext context.Context
 }
@@ -39,6 +42,7 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txn
 
 		AuthServer:    senv.AuthServer(),
 		GetPachClient: senv.GetPachClient,
+		GetKubeClient: senv.GetKubeClient,
 
 		BackgroundContext: senv.Context(),
 	}
@@ -94,4 +98,20 @@ func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) 
 		}
 	}
 	return nil
+}
+
+// IsPaused returns true if the enterprise configuration indicates that this
+// cluster should be paused.
+func (env Env) IsPaused(ctx context.Context) (bool, error) {
+	var (
+		config    ec.EnterpriseConfig
+		configCol = EnterpriseConfigCollection(env.DB, env.Listener)
+	)
+	if err := configCol.ReadOnly(ctx).Get(configKey, &config); err != nil {
+		if col.IsErrNotFound(err) {
+			return false, nil
+		}
+		return false, errors.EnsureStack(err)
+	}
+	return config.Paused, nil
 }

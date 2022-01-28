@@ -3,12 +3,16 @@ package server
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -329,4 +333,110 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	}
 
 	return &ec.DeactivateResponse{}, nil
+}
+
+func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.PauseResponse, retErr error) {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+		var (
+			config ec.EnterpriseConfig
+			c      = a.configCol.ReadWrite(txCtx.SqlTx)
+		)
+		if err := c.Get(configKey, &config); err != nil {
+			if err != nil && !col.IsErrNotFound(err) {
+				return errors.EnsureStack(err)
+			}
+		}
+
+		if config.Paused {
+			return errors.EnsureStack(errors.New("cluster already paused"))
+		}
+
+		config.Paused = true
+
+		if err := c.Put(configKey, &config); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if err := scaleDownWorkers(ctx, a.env.GetKubeClient()); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if err := rollPachd(ctx, a.env.GetKubeClient()); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	return &ec.PauseResponse{}, nil
+}
+
+func rollPachd(ctx context.Context, kc *kubernetes.Clientset) error {
+	// FIXME: configure namespace
+	dd := kc.AppsV1().Deployments("default")
+	d, err := dd.Get(ctx, "pachd", metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("could not get pachd deployment: %v", err)
+	}
+	// updating the spec rolls the deployment
+	d.Spec.Template.Annotations["kubectl.kubrnetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+	if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("could not update pachd deployment: %v", err)
+	}
+	return nil
+}
+
+func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset) error {
+	// FIXME: configure namespace
+	//ctx context.Context, replicationControllerName string, scale *autoscalingv1.Scale, opts metav1.UpdateOptions
+	rc := kc.CoreV1().ReplicationControllers("default")
+	ww, err := rc.List(ctx, metav1.ListOptions{
+		LabelSelector: "suite=pachyderm,component=worker",
+	})
+	if err != nil {
+		return fmt.Errorf("could not list workers: %v", err)
+	}
+	for _, w := range ww.Items {
+		if _, err := rc.UpdateScale(ctx, w.GetName(), &autoscalingv1.Scale{
+			Spec: autoscalingv1.ScaleSpec{
+				Replicas: 0,
+			},
+		}, metav1.UpdateOptions{
+			FieldManager: "enterprise-server",
+		}); err != nil {
+			return fmt.Errorf("could not scale down %s: %v", w.GetName(), err)
+		}
+	}
+	return nil
+}
+
+func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *ec.UnpauseResponse, retErr error) {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+		var (
+			config ec.EnterpriseConfig
+			c      = a.configCol.ReadWrite(txCtx.SqlTx)
+		)
+		if err := c.Get(configKey, &config); err != nil {
+			if err != nil && !col.IsErrNotFound(err) {
+				return errors.EnsureStack(err)
+			}
+		}
+
+		if !config.Paused {
+			return errors.EnsureStack(errors.New("cluster not paused"))
+		}
+
+		config.Paused = false
+
+		if err := c.Put(configKey, &config); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if err := rollPachd(ctx, a.env.GetKubeClient()); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	return &ec.UnpauseResponse{}, nil
 }

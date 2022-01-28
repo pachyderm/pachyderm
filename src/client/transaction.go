@@ -588,6 +588,12 @@ func (c *enterpriseBuilderClient) Deactivate(ctx context.Context, req *enterpris
 func (c *enterpriseBuilderClient) Heartbeat(ctx context.Context, req *enterprise.HeartbeatRequest, opts ...grpc.CallOption) (*enterprise.HeartbeatResponse, error) {
 	return nil, unsupportedError("Heartbeat")
 }
+func (c *enterpriseBuilderClient) Pause(ctx context.Context, req *enterprise.PauseRequest, opts ...grpc.CallOption) (*enterprise.PauseResponse, error) {
+	return nil, unsupportedError("Pause")
+}
+func (c *enterpriseBuilderClient) Unpause(ctx context.Context, req *enterprise.UnpauseRequest, opts ...grpc.CallOption) (*enterprise.UnpauseResponse, error) {
+	return nil, unsupportedError("Unpause")
+}
 
 func (c *versionBuilderClient) GetVersion(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*versionpb.Version, error) {
 	return nil, unsupportedError("GetVersion")
