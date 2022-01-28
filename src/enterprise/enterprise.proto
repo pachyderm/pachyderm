@@ -98,10 +98,14 @@ message HeartbeatResponse{}
 message DeactivateRequest{}
 message DeactivateResponse{}
 
-message PauseRequest{}
+message PauseRequest{
+  string namespace = 1;
+}
 message PauseResponse{}
 
-message UnpauseRequest{}
+message UnpauseRequest{
+  string namespace = 1;
+}
 message UnpauseResponse{}
 
 message PauseRecord {

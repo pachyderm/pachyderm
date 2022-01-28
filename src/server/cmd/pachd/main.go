@@ -655,6 +655,9 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		if isPaused {
+			return nil
+		}
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),

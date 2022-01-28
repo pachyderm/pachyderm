@@ -262,12 +262,13 @@ func HeartbeatCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	heartbeat.PersistentFlags().BoolVar(&isEnterprise, "enterprise", false, "Make the enterprise server refresh it's state")
+	heartbeat.PersistentFlags().BoolVar(&isEnterprise, "enterprise", false, "Make the enterprise server refresh its state")
 	return cmdutil.CreateAlias(heartbeat, "enterprise heartbeat")
 }
 
 // PauseCmd pauses the cluster.
 func PauseCmd() *cobra.Command {
+	var namespace string
 	pause := &cobra.Command{
 		Short: "Pause the cluster.",
 		Long:  "Pause the cluster.",
@@ -277,18 +278,20 @@ func PauseCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			_, err = c.Enterprise.Pause(c.Ctx(), &enterprise.PauseRequest{})
+			_, err = c.Enterprise.Pause(c.Ctx(), &enterprise.PauseRequest{Namespace: namespace})
 			if err != nil {
 				return errors.Wrapf(err, "could not sync with license server")
 			}
 			return nil
 		}),
 	}
+	pause.PersistentFlags().StringVar(&namespace, "namespace", "default", "Namespace in which pachd runs")
 	return cmdutil.CreateAlias(pause, "enterprise pause")
 }
 
 // UnpauseCmd pauses the cluster.
 func UnpauseCmd() *cobra.Command {
+	var namespace string
 	unpause := &cobra.Command{
 		Short: "Unpause the cluster.",
 		Long:  "Unpause the cluster.",
@@ -298,13 +301,14 @@ func UnpauseCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			_, err = c.Enterprise.Unpause(c.Ctx(), &enterprise.UnpauseRequest{})
+			_, err = c.Enterprise.Unpause(c.Ctx(), &enterprise.UnpauseRequest{Namespace: namespace})
 			if err != nil {
 				return errors.Wrapf(err, "could not sync with license server")
 			}
 			return nil
 		}),
 	}
+	unpause.PersistentFlags().StringVar(&namespace, "namespace", "default", "Namespace in which pachd runs")
 	return cmdutil.CreateAlias(unpause, "enterprise unpause")
 }
 
