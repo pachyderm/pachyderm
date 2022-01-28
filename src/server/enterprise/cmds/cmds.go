@@ -54,7 +54,7 @@ func DeactivateCmd() *cobra.Command {
 			// Deactivate the enterprise server
 			req := &enterprise.DeactivateRequest{}
 			if _, err := c.Enterprise.Deactivate(c.Ctx(), req); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 
 			return nil
@@ -172,7 +172,7 @@ func GetStateCmd() *cobra.Command {
 			defer c.Close()
 			resp, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if resp.State == enterprise.State_NONE {
 				fmt.Println("No Pachyderm Enterprise token was found")
@@ -210,7 +210,7 @@ func SyncContextsCmd() *cobra.Command {
 
 			resp, err := ec.License.ListUserClusters(ec.Ctx(), &license.ListUserClustersRequest{})
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 
 			// update the pach_address of all existing contexts, and add the rest as well.

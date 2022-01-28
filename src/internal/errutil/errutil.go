@@ -1,10 +1,10 @@
 package errutil
 
 import (
-	"errors"
 	"net"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 )
 

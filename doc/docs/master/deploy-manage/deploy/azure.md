@@ -51,7 +51,7 @@ At a minimum, you will need to specify the parameters below:
 |--------|-----------|
 |RESOURCE_GROUP|A unique name for the resource group where Pachyderm is deployed. For example, `pach-resource-group`.|
 |LOCATION|An Azure availability zone where AKS is available. For example, `centralus`.|
-|NODE_SIZE|The size of the Kubernetes virtual machine (VM) instances. To avoid performance issues, Pachyderm recommends that you set this value to at least `Standard_DS4_v2` which gives you 8 CPUs, 28 Gib of Memory, 56 Gib SSD.<br> <br>In any case, use VMs that support **premium storage**. See [Azure VM sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/sizes){target=_blank} for details around which sizes support Premium storage.|
+|NODE_SIZE|The size of the Kubernetes virtual machine (VM) instances. To avoid performance issues, Pachyderm recommends that you set this value to at least `Standard_DS4_v2` which gives you 8 CPUs, 28 Gib of Memory, 56 Gib SSD.<br> <br>In any case, use VMs that support **premium storage**. See [Azure VM sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/sizes){target=_blank}  for details around which sizes support Premium storage.|
 |CLUSTER_NAME|A unique name for the Pachyderm cluster. For example, `pach-aks-cluster`.|
 
 You can choose to follow the guided steps in [Azure Service Portal's Kubernetes Services](https://portal.azure.com/){target=_blank} or use Azure CLI.
@@ -406,7 +406,7 @@ make sure that you are using the right Kubernetes context first.
     STATUS: deployed
     REVISION: 1
     ```
-    Refer to our generic [Helm documentation](../helm_install/#install-the-pachyderm-helm-chart) for more information on how to select your chart version. 
+    Refer to our generic [Helm documentation](../helm_install/#install-pachyderms-helm-chart) for more information on how to select your chart version. 
 
     Pachyderm pulls containers from DockerHub. It might take some time
     before the `pachd` pods start. You can check the status of the
@@ -468,6 +468,7 @@ If you're not exposing `pachd` publicly, you can run:
 # Background this process because it blocks.
 $ pachctl port-forward
 ``` 
+
 ## 8. Check That Your Cluster Is Up And Running
 
 !!! Attention

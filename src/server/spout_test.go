@@ -460,12 +460,12 @@ func testSpout(t *testing.T, usePachctl bool) {
 		backoff.Retry(func() error {
 			raddr, err := net.ResolveTCPAddr("tcp", serviceAddr)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 
 			conn, err := net.DialTCP("tcp", nil, raddr)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			tarwriter := tar.NewWriter(conn)
 			defer func() {
@@ -479,12 +479,12 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 			err = tarwriter.WriteHeader(headerinfo)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 
 			_, err = tarwriter.Write([]byte("foo"))
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			return nil
 		}, backoff.NewTestingBackOff())

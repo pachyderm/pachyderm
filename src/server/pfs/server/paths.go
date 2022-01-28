@@ -22,7 +22,7 @@ func globLiteralPrefix(glob string) string {
 func globMatchFunction(glob string) (func(string) bool, error) {
 	g, err := globlib.Compile(glob, '/')
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return func(path string) bool {
 		// TODO: This does not seem like a good approach for this edge case.

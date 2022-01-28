@@ -1,17 +1,17 @@
-#!/bin/sh
+#!/bin/bash
 
-set -ve
+set -ex;
 
+# shellcheck disable=SC1090
+source "$(dirname "$0")/env.sh";
 
-git checkout "$1" &&
+pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
 
-./etc/testing/circle/build.sh &&
-./etc/testing/circle/launch.sh &&
+# deploy object storage
+kubectl apply -f etc/testing/minio.yaml
 
-git checkout "$2" &&
-go test -v ./src/testing/upgrade -run TestPreUpgrade &&
+helm repo add pach https://helm.pachyderm.com
 
-# build and upgrade to HEAD
-./etc/testing/circle/build.sh &&
-./etc/testing/circle/helm-upgrade.sh &&
-go test -v ./src/testing/upgrade -run TestPostUpgrade
+helm repo update
+
+go test -v ./src/testing/upgrade

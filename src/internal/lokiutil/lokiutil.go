@@ -37,7 +37,7 @@ func forEachLine(resp loki.QueryResponse, f func(t time.Time, line string) error
 
 	for _, e := range allEntries {
 		if err := f(e.entry.Timestamp, e.entry.Line); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -51,7 +51,7 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 	for {
 		resp, err := c.QueryRange(ctx, queryStr, maxLogMessages, from, through, "FORWARD", 0, 0, true)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		nMsgs := 0
 		if err := forEachLine(*resp, func(t time.Time, line string) error {

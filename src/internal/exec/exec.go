@@ -265,7 +265,7 @@ func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 	c.goroutine = append(c.goroutine, func() error {
 		_, err := io.Copy(w, pr)
 		pr.Close() // in case io.Copy stopped due to write error
-		return err
+		return errors.EnsureStack(err)
 	})
 	return pw, nil
 }
@@ -299,19 +299,22 @@ func lookExtensions(path, dir string) (string, error) {
 		path = filepath.Join(".", path)
 	}
 	if dir == "" {
-		return exec.LookPath(path)
+		res, err := exec.LookPath(path)
+		return res, errors.EnsureStack(err)
 	}
 	if filepath.VolumeName(path) != "" {
-		return exec.LookPath(path)
+		res, err := exec.LookPath(path)
+		return res, errors.EnsureStack(err)
 	}
 	if len(path) > 1 && os.IsPathSeparator(path[0]) {
-		return exec.LookPath(path)
+		res, err := exec.LookPath(path)
+		return res, errors.EnsureStack(err)
 	}
 	dirandpath := filepath.Join(dir, path)
 	// We assume that LookPath will only add file extension.
 	lp, err := exec.LookPath(dirandpath)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	ext := strings.TrimPrefix(lp, dirandpath)
 	return path + ext, nil
@@ -344,7 +347,7 @@ func (c *Cmd) Start() error {
 		case <-c.ctx.Done():
 			c.closeDescriptors(c.closeAfterStart)
 			c.closeDescriptors(c.closeAfterWait)
-			return c.ctx.Err()
+			return errors.EnsureStack(c.ctx.Err())
 		default:
 		}
 	}
@@ -371,7 +374,7 @@ func (c *Cmd) Start() error {
 	if err != nil {
 		c.closeDescriptors(c.closeAfterStart)
 		c.closeDescriptors(c.closeAfterWait)
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	c.closeDescriptors(c.closeAfterStart)
@@ -528,7 +531,7 @@ func (c *Cmd) StdinPipe() (io.WriteCloser, error) {
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	c.Stdin = pr
 	c.closeAfterStart = append(c.closeAfterStart, pr)
@@ -593,14 +596,14 @@ func (c *closeOnce) Write(b []byte) (int, error) {
 	c.writers.RLock()
 	n, err := c.File.Write(b)
 	c.writers.RUnlock()
-	return n, err
+	return n, errors.EnsureStack(err)
 }
 
 func (c *closeOnce) WriteString(s string) (int, error) {
 	c.writers.RLock()
 	n, err := c.File.WriteString(s)
 	c.writers.RUnlock()
-	return n, err
+	return n, errors.EnsureStack(err)
 }
 
 // StdoutPipe returns a pipe that will be connected to the command's
@@ -620,7 +623,7 @@ func (c *Cmd) StdoutPipe() (io.ReadCloser, error) {
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	c.Stdout = pw
 	c.closeAfterStart = append(c.closeAfterStart, pw)
@@ -645,7 +648,7 @@ func (c *Cmd) StderrPipe() (io.ReadCloser, error) {
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	c.Stderr = pw
 	c.closeAfterStart = append(c.closeAfterStart, pw)

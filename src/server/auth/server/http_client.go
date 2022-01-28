@@ -1,9 +1,10 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // localhostIdentityServerAddress is the URL we can reach the embedded identity server at
@@ -27,16 +28,16 @@ type RewriteRoundTripper struct {
 func LocalhostRewriteClient(expected string) (*http.Client, error) {
 	expectedURL, err := url.Parse(expected)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse URL %q: %w", expected, err)
+		return nil, errors.Errorf("unable to parse URL %q: %w", expected, err)
 	}
 
 	rewriteURL, err := url.Parse(localhostIdentityServerAddress)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse URL %q: %w", localhostIdentityServerAddress, err)
+		return nil, errors.Errorf("unable to parse URL %q: %w", localhostIdentityServerAddress, err)
 	}
 
 	if rewriteURL.Host == "" || rewriteURL.Scheme == "" {
-		return nil, fmt.Errorf("invalid URL %q is missing host or scheme", err)
+		return nil, errors.Errorf("invalid URL %q is missing host or scheme", err)
 	}
 
 	return &http.Client{
@@ -53,5 +54,6 @@ func (rt RewriteRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 		req.URL.Host = rt.Rewrite.Host
 		req.URL.Scheme = rt.Rewrite.Scheme
 	}
-	return http.DefaultTransport.RoundTrip(req)
+	res, err := http.DefaultTransport.RoundTrip(req)
+	return res, errors.EnsureStack(err)
 }

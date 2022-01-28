@@ -36,7 +36,7 @@ type microsoftClient struct {
 func newMicrosoftClient(container string, accountName string, accountKey string) (*microsoftClient, error) {
 	client, err := storage.NewBasicClient(accountName, accountKey)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	client.HTTPClient.Transport = promutil.InstrumentRoundTripper("azure_storage", client.HTTPClient.Transport)
 	blobSvc := client.GetBlobService()
@@ -49,7 +49,7 @@ func (c *microsoftClient) Put(ctx context.Context, name string, r io.Reader) (re
 	w := newMicrosoftWriter(ctx, c, name)
 	if _, err := io.Copy(w, r); err != nil {
 		w.Close()
-		return err
+		return errors.EnsureStack(err)
 	}
 	return w.Close()
 }
@@ -59,7 +59,7 @@ func (c *microsoftClient) Get(_ context.Context, name string, w io.Writer) (retE
 	defer func() { retErr = c.transformError(retErr, name) }()
 	r, err := c.container.GetBlobReference(name).Get(nil)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := r.Close(); retErr == nil {
@@ -67,13 +67,13 @@ func (c *microsoftClient) Get(_ context.Context, name string, w io.Writer) (retE
 		}
 	}()
 	_, err = io.Copy(w, r)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // TODO: should respect context
 func (c *microsoftClient) Delete(_ context.Context, name string) error {
 	_, err := c.container.GetBlobReference(name).DeleteIfExists(nil)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // TODO: should respect context
@@ -85,7 +85,7 @@ func (c *microsoftClient) Walk(_ context.Context, name string, f func(name strin
 			Marker: marker,
 		})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		for _, file := range blobList.Blobs {
 			if err := f(file.Name); err != nil {
@@ -180,6 +180,7 @@ func (w *microsoftWriter) writeBlock(block []byte) (retErr error) {
 		defer w.limiter.Release()
 		defer bufPool.Put(block[:cap(block)]) //nolint:staticcheck // []byte is sufficiently pointer-like for our purposes
 		if err := w.blob.PutBlock(blockID, block, nil); err != nil {
+			err = errors.EnsureStack(err)
 			w.err = err
 			return err
 		}
@@ -201,12 +202,12 @@ func (w *microsoftWriter) Close() (retErr error) {
 		return err
 	}
 	if err := w.eg.Wait(); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	// Finalize the blocks.
 	blocks := make([]storage.Block, w.numBlocks)
 	for i := range blocks {
 		blocks[i] = storage.Block{ID: blockID(i), Status: storage.BlockStatusUncommitted}
 	}
-	return w.blob.PutBlockList(blocks, nil)
+	return errors.EnsureStack(w.blob.PutBlockList(blocks, nil))
 }

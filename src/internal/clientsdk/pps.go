@@ -3,6 +3,7 @@ package clientsdk
 import (
 	"io"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -14,10 +15,10 @@ func ForEachPipelineInfo(client pps.API_ListPipelineClient, cb func(*pps.Pipelin
 			if err == io.EOF {
 				break
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
-			if err == pacherr.ErrBreak {
+			if errors.Is(err, pacherr.ErrBreak) {
 				err = nil
 			}
 			return err
@@ -44,10 +45,10 @@ func ForEachJobSet(client pps.API_ListJobSetClient, cb func(*pps.JobSetInfo) err
 			if err == io.EOF {
 				break
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := cb(x); err != nil {
-			if err == pacherr.ErrBreak {
+			if errors.Is(err, pacherr.ErrBreak) {
 				err = nil
 			}
 			return err

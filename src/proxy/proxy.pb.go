@@ -155,6 +155,8 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type APIClient interface {
+	// Listen streams database events.
+	// It signals that it is internally set up by sending an initial empty ListenResponse.
 	Listen(ctx context.Context, in *ListenRequest, opts ...grpc.CallOption) (API_ListenClient, error)
 }
 
@@ -200,6 +202,8 @@ func (x *aPIListenClient) Recv() (*ListenResponse, error) {
 
 // APIServer is the server API for API service.
 type APIServer interface {
+	// Listen streams database events.
+	// It signals that it is internally set up by sending an initial empty ListenResponse.
 	Listen(*ListenRequest, API_ListenServer) error
 }
 

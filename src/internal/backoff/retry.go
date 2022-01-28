@@ -2,10 +2,11 @@ package backoff
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // An Operation is executing by Retry() or RetryNotify().
@@ -35,7 +36,7 @@ func NotifyCtx(ctx context.Context, name string) Notify {
 	return func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		default:
 			log.Errorf("error in %s: %v: retrying in: %v", name, err, d)
 		}
@@ -131,7 +132,7 @@ func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notif
 			return nil
 		}
 		if ctx.Err() != nil {
-			return ctx.Err() // return if cancel() was called inside operation()
+			return errors.EnsureStack(ctx.Err()) // return if cancel() was called inside operation()
 		}
 		if errors.Is(err, ErrContinue) {
 			b.Reset()
@@ -148,12 +149,12 @@ func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notif
 		if ctx.Err() != nil {
 			// return if cancel() was called inside notify() (select may not catch it
 			// if 'next' is 0)
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		}
 
 		select {
 		case <-ctx.Done():
-			return ctx.Err() // break early if ctx is cancelled in another goro
+			return errors.EnsureStack(ctx.Err()) // break early if ctx is cancelled in another goro
 		case <-time.After(next):
 		}
 	}

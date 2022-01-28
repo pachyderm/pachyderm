@@ -86,12 +86,14 @@ type loggingConn struct {
 
 // Read implements the corresponding method of net.Conn
 func (l *loggingConn) Read(b []byte) (n int, err error) {
-	return l.r.Read(b)
+	res, err := l.r.Read(b)
+	return res, errors.EnsureStack(err)
 }
 
 // Write implements the corresponding method of net.Conn
 func (l *loggingConn) Write(b []byte) (n int, err error) {
-	return l.w.Write(b)
+	res, err := l.w.Write(b)
+	return res, errors.EnsureStack(err)
 }
 
 // Close implements the corresponding method of net.Conn

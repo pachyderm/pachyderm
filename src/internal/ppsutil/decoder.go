@@ -55,7 +55,7 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 	var holder interface{}
 	if err := r.decoder.Decode(&holder); err != nil {
 		if errors.Is(err, io.EOF) {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		return nil, errors.Wrapf(err, "malformed pipeline spec")
 	}

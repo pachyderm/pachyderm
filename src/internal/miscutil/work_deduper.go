@@ -3,6 +3,8 @@ package miscutil
 import (
 	"context"
 	"sync"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 type WorkDeduper struct {
@@ -44,6 +46,6 @@ func (f future) await(ctx context.Context) error {
 	case <-f.done:
 		return f.err
 	case <-ctx.Done():
-		return ctx.Err()
+		return errors.EnsureStack(ctx.Err())
 	}
 }

@@ -102,7 +102,7 @@ func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, e
 	}
 	oidcProvider, err := oidc.NewProvider(ctx, config.Issuer)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	return &oidcConfig{
@@ -151,9 +151,9 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 	nonce := random.String(30)
 
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
-		return a.oidcStates.ReadWrite(stm).PutTTL(state, &auth.SessionInfo{
+		return errors.EnsureStack(a.oidcStates.ReadWrite(stm).PutTTL(state, &auth.SessionInfo{
 			Nonce: nonce, // read & verified by /authorization-code/callback
-		}, threeMinutes)
+		}, threeMinutes))
 	}); err != nil {
 		return "", "", errors.Wrap(err, "could not create OIDC login session")
 	}
@@ -276,7 +276,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 		context.Background(), code, state)
 	_, txErr := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		var si auth.SessionInfo
-		return a.oidcStates.ReadWrite(stm).Update(state, &si, func() error {
+		err := a.oidcStates.ReadWrite(stm).Update(state, &si, func() error {
 			// nonce can only be checked inside postgres txn, but if nonces don't match
 			// that's a non-retryable authentication error, so set conversionErr as
 			// if handleOIDCExchangeInternal had errored and proceed
@@ -292,6 +292,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 			}
 			return nil
 		})
+		return errors.EnsureStack(err)
 	})
 	// Make exactly one call, to http.Error or http.Write, with either
 	// conversionErr (non-retryable) or txErr (retryable) if either is set
@@ -400,5 +401,5 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, st
 func (a *apiServer) serveOIDC() error {
 	// serve OIDC handler to exchange the auth code
 	http.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
-	return http.ListenAndServe(fmt.Sprintf(":%v", a.env.Config.OidcPort), nil)
+	return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", a.env.Config.OidcPort), nil))
 }

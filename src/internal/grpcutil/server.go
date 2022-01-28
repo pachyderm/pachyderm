@@ -89,7 +89,7 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.S
 func (s *Server) ListenSocket(path string) error {
 	listener, err := net.Listen("unix", path)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	go s.Server.Serve(listener)
 	return nil
@@ -99,11 +99,11 @@ func (s *Server) ListenSocket(path string) error {
 func (s *Server) ListenTCP(host string, port uint16) (net.Listener, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	s.eg.Go(func() error {
-		return s.Server.Serve(listener)
+		return errors.EnsureStack(s.Server.Serve(listener))
 	})
 
 	return listener, nil
@@ -112,5 +112,5 @@ func (s *Server) ListenTCP(host string, port uint16) (net.Listener, error) {
 // Wait causes the gRPC server to wait until it finishes, returning any errors
 // that happened
 func (s *Server) Wait() error {
-	return s.eg.Wait()
+	return errors.EnsureStack(s.eg.Wait())
 }

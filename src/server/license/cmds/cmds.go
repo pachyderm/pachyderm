@@ -51,7 +51,7 @@ func ActivateCmd() *cobra.Command {
 				ActivationCode: key,
 			}
 			if _, err := c.License.Activate(c.Ctx(), req); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 
 			if onlyActivate {
@@ -223,7 +223,7 @@ func DeleteAllCmd() *cobra.Command {
 			defer c.Close()
 
 			if _, err := c.License.DeleteAll(c.Ctx(), &license.DeleteAllRequest{}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			fmt.Printf("All data deleted from license server.")
 			return nil
@@ -247,7 +247,7 @@ func GetStateCmd() *cobra.Command {
 
 			resp, err := c.License.GetActivationCode(c.Ctx(), &license.GetActivationCodeRequest{})
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if resp.State == enterprise.State_NONE {
 				fmt.Println("No Pachyderm Enterprise license is configured")

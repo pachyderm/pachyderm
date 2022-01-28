@@ -13,6 +13,8 @@ import (
 	docker "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/sirupsen/logrus"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 func newDockerClient() docker.APIClient {
@@ -52,7 +54,7 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 	portMap := spec.PortMap
 	if cjson, err := dclient.ContainerInspect(ctx, containerName); err != nil {
 		if !isErrNoSuchContainer(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 	} else {
 		if cjson.State.Running {
@@ -61,7 +63,7 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 		}
 		logrus.Infof("container %s exists, but is not running. deleting...", containerName)
 		if err := dclient.ContainerRemove(ctx, containerName, types.ContainerRemoveOptions{}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	logrus.Infof("container %s does not exist. creating...", containerName)
@@ -96,14 +98,14 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 	}
 	resp, err := dclient.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, containerName)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if len(resp.Warnings) > 0 {
 		logrus.Warn(resp.Warnings)
 	}
 	logrus.Info("created container ", containerName)
 	if err := dclient.ContainerStart(ctx, containerName, types.ContainerStartOptions{}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	logrus.Info("started container ", containerName)
 	return nil
@@ -112,7 +114,7 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 func ensureImage(ctx context.Context, dclient docker.APIClient, imageName string) error {
 	rc, err := dclient.ImagePull(ctx, imageName, types.ImagePullOptions{})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer rc.Close()
 	if err := readResponseBody(rc); err != nil {
@@ -123,7 +125,7 @@ func ensureImage(ctx context.Context, dclient docker.APIClient, imageName string
 
 func readResponseBody(rc io.ReadCloser) error {
 	_, err := io.Copy(os.Stderr, rc)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func isErrNoSuchContainer(err error) bool {

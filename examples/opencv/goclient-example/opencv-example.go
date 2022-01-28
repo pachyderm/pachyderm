@@ -16,9 +16,6 @@ import (
 
 func main() {
 
-	// Replace the IP address with your `pachd` address.
-	// If running in minikube, this will be your minikube
-	// IP.
 	c, err := client.NewOnUserMachine("")
 	if err != nil {
 		panic(err)
