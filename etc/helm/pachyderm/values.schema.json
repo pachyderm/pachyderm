@@ -261,7 +261,7 @@
                     "type": "string"
                 },
                 "tolerations": {
-                    "type": "object"
+                    "type": "array"
                 }
             }
         },
@@ -727,7 +727,7 @@
                     }
                 },
                 "tolerations": {
-                    "type": "object"
+                    "type": "array"
                 },
                 "worker": {
                     "type": "object",
