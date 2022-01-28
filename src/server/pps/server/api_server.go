@@ -3044,12 +3044,12 @@ func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateR
 	switch jsonResult[0] {
 	case '[':
 		if err := json.Unmarshal([]byte(jsonResult), &specs); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	case '{':
 		var spec pps.CreatePipelineRequest
 		if err := jsonpb.Unmarshal(strings.NewReader(jsonResult), &spec); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		specs = append(specs, &spec)
 	default:

@@ -78,13 +78,13 @@ func newHTTPImporter() *httpImporter {
 func (im httpImporter) Import(importedFrom, importedPath string) (contents jsonnet.Contents, from string, err error) {
 	resp, err := im.hc.Get(importedPath)
 	if err != nil {
-		return jsonnet.Contents{}, "", err
+		return jsonnet.Contents{}, "", errors.EnsureStack(err)
 	}
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return jsonnet.Contents{}, "", err
+		return jsonnet.Contents{}, "", errors.EnsureStack(err)
 	}
-	return jsonnet.MakeContents(string(data)), importedPath, err
+	return jsonnet.MakeContents(string(data)), importedPath, nil
 }
 
 type muxRule struct {
@@ -101,5 +101,7 @@ func (im importerMux) Import(importedFrom, importedPath string) (contents jsonne
 			return rule.Importer.Import(importedFrom, importedPath)
 		}
 	}
-	return im[len(im)-1].Importer.Import(importedFrom, importedPath)
+	contents, from, err = im[len(im)-1].Importer.Import(importedFrom, importedPath)
+	err = errors.EnsureStack(err)
+	return contents, from, err
 }
