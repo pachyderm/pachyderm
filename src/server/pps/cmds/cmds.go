@@ -1253,9 +1253,6 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 		pipelineBytes, err = readPipelineBytes(pipelinePath)
 	} else if jsonnetPath != "" {
 		pipelineBytes, err = evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
-		if err != nil {
-			return err
-		}
 	}
 	if err != nil {
 		return err
