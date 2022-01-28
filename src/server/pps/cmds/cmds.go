@@ -690,7 +690,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
-	createPipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "A Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
+	createPipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "BETA: A Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
 	createPipeline.Flags().StringSliceVar(&jsonnetArgs, "arg", nil, "Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arugments are passed). Value must be of the form 'param=value'. For multiple args, --arg may be set more than once, or it may be passed a comma-separated list of 'param=value' pairs.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
@@ -706,7 +706,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
-	updatePipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "A Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
+	updatePipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "BETA: A Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
 	updatePipeline.Flags().StringSliceVar(&jsonnetArgs, "arg", nil, "Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arugments are passed). Value must be of the form 'param=value'. For multiple args, --arg may be set more than once, or it may be passed a comma-separated list of 'param=value' pairs.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
