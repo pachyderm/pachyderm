@@ -15,7 +15,7 @@ jobs:
           service_account_key: ${{ secrets.GCP_KEY }}
           project_id: ${{ env.PROJECT_ID }}
           export_default_credentials: true
-      - name: Pulumi Destroy
+      - name: Pulumi Destroy # The pulumi action was not used here, as it does not download plugins when just using destroy
         run: |
           wget https://get.pulumi.com/releases/sdk/pulumi-v3.22.1-linux-x64.tar.gz
           tar xvf pulumi-v3.22.1-linux-x64.tar.gz
