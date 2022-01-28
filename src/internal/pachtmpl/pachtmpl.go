@@ -98,7 +98,9 @@ func (im importerMux) Import(importedFrom, importedPath string) (contents jsonne
 	for i := 0; i < len(im)-1; i++ {
 		rule := im[i]
 		if strings.HasPrefix(importedPath, rule.Prefix) {
-			return rule.Importer.Import(importedFrom, importedPath)
+			contents, from, err = rule.Importer.Import(importedFrom, importedPath)
+			err = errors.EnsureStack(err)
+			return contents, from, err
 		}
 	}
 	contents, from, err = im[len(im)-1].Importer.Import(importedFrom, importedPath)
