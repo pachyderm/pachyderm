@@ -19,6 +19,7 @@ pachd:
       secret: "minioadmin"
       secure: "false"
       signature: ""
+  lokiDeploy: true
   metrics:
     enabled: false
   resources:
