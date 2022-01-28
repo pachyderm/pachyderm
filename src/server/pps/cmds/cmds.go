@@ -1215,21 +1215,16 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 	return pipelineBytes, nil
 }
 
-func evaluateJsonnetTemplate(ctx context.Context, jsonnetPath string, jsonnetArgs []string) ([]byte, error) {
+func evaluateJsonnetTemplate(client *client.APIClient, jsonnetPath string, jsonnetArgs []string) ([]byte, error) {
 	templateBytes, err := readPipelineBytes(jsonnetPath)
 	if err != nil {
 		return nil, err
 	}
-	client, err := pachdclient.NewOnUserMachine("user")
-	if err != nil {
-		return nil, err
-	}
-	defer client.Close()
 	args, err := pachtmpl.ParseArgs(jsonnetArgs)
 	if err != nil {
 		return nil, err
 	}
-	res, err := client.RenderTemplate(ctx, &ppsclient.RenderTemplateRequest{
+	res, err := client.RenderTemplate(client.Ctx(), &ppsclient.RenderTemplateRequest{
 		Template: string(templateBytes),
 		Args:     args,
 	})
@@ -1247,15 +1242,17 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 	if pipelinePath == "" && jsonnetPath == "" {
 		pipelinePath = "-" // default input
 	}
-
+	pc, err := pachdclient.NewOnUserMachine("user")
+	if err != nil {
+		return errors.Wrapf(err, "error connecting to pachd")
+	}
+	defer pc.Close()
 	// read/compute pipeline spec(s) (file, stdin, url, or via template)
 	var pipelineBytes []byte
-	var err error
 	if pipelinePath != "" {
 		pipelineBytes, err = readPipelineBytes(pipelinePath)
 	} else if jsonnetPath != "" {
-		ctx := context.TODO()
-		pipelineBytes, err = evaluateJsonnetTemplate(ctx, jsonnetPath, jsonnetArgs)
+		pipelineBytes, err = evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
 		if err != nil {
 			return err
 		}
@@ -1263,17 +1260,10 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 	if err != nil {
 		return err
 	}
-
 	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
 	if err != nil {
 		return err
 	}
-	pc, err := pachdclient.NewOnUserMachine("user")
-	if err != nil {
-		return errors.Wrapf(err, "error connecting to pachd")
-	}
-	defer pc.Close()
-
 	for {
 		request, err := pipelineReader.NextCreatePipelineRequest()
 		if errors.Is(err, io.EOF) {
