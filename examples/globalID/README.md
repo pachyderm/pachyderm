@@ -6,44 +6,48 @@
 >![pach_logo](./img/pach_logo.svg) The Global Identifier is available in version **2.0 and higher**.
 
 ## Intro
-Global ID can be seen as **a common TAG for all the commits and jobs created by your data-driven DAG when triggered by an initial change (a put file in a repo, an updated pipeline, a squash commit...)**. 
+Global ID can be seen as **a common TAG for all the commits and jobs created by your data-driven DAG when triggered by an initial change (a put file in a repo, an updated pipeline, a squash commit...)**.
 
-This example will walk you through 3 different user changes (put file, update pipeline edges, update pipeline montage) and illustrate how each of them affects the `origin` of the resulting commits.
+This example will walk you through 3 different user changes (put file, update pipeline edges, update pipeline montage) and illustrate how each affects the `origin` of the resulting commits.
 The example is based on our openCV example.
 
 ## Getting ready
 ***Key concepts***
-Note, as a reminder, that we have **3 types of repos**. 
-Types other than `USER` indicate System Repos, which hold certain auxiliary information about pipelines. 
+As a reminder, we have **3 types of repos**.
+Types other than `USER` indicate System Repos, which contain auxiliary information about pipelines.
 
 - `USER`: That keeps track of your data one commit at a time.
-- `SPEC`: That keeps track of the pipeline's specification version used by a given job. 
+- `SPEC`: That keeps track of the pipeline's specification version used by a given job.
 - `META`: That holds the statistics of your transformation.
 
 Each pipeline comes with one `SPEC` and one `META` repo. Every time a job commits the result of a transformation to a pipeline output repo, it also commits to the pipeline's meta repo. Deleting the output repo of a pipeline (which happens per default when deleting a pipeline) will also delete its `SPEC` and `META` repo.
 
-`pachctl list repo --all` or `pachctl list repo --type=spec` will let you see all repos of all types or the spec system repo only respectively. By default, no flag will give you the list of all user repos.
+`pachctl list repo --all` or `pachctl list repo --type=spec` will let you see all repos of all types or the spec system repo only, respectively. By default, no flag will give you the list of all user repos.
 
-Additionally, **commits have an "origin"**. You can see an origin as the answer to: **"What triggered the production of this commit"**. 
+Additionally, **commits have an "origin"**. You can see an origin as the answer to **"What triggered the production of this commit"**.
+
 - `USER`: The commit is the result of a user change - This is the initial commit that will cascade into either one of the following:
-- `AUTO`: the commit has been automatically triggered in your DAG's chain reaction by the arrival of an initial user commit.
-- `ALIAS`: Neither `USER` nor `AUTO` - `ALIAS` commits are essentially empty commits. An `ALIAS` commit is a new global ID tag on a parent commit. 
+- `AUTO`: The commit has been automatically triggered in your DAG's chain reaction by the arrival of an initial user commit.
+- `ALIAS`: Neither `USER` nor `AUTO` - `ALIAS` commits are essentially empty commits. An `ALIAS` commit is a new global ID tag on a parent commit.
 
 Note that **every initial change is a `USER` change**.
 
-With the introduction of GlobalID, we are adding 2 new definitions, or more precisely, a new scope for commits and jobs.
+With the introduction of GlobalID, we are adding a new scope for commits and jobs.
 We knew commits at the repo level and jobs at the pipeline level. They now have an additional `global` scope:
-- global `commit`: A global commit is the set of all commits (`USER`,`AUTO`, `ALIAS`) connected through provenance relationships. They share a common ID. Note that all jobs triggered by the initial `USER` commit ALSO share this same ID as jobID.
-- global `job`: Similarly, a global job is the set of jobs created due to commits in a global commit. 
+
+- global `commit`: A global commit is a set of all commits (`USER`,`AUTO`, `ALIAS`) connected through provenance relationships. They share a common ID. Note that all jobs triggered by the initial `USER` commit ALSO share this same ID as jobID.
+- global `job`: Similarly, a global job is the set of jobs created due to commits in a global commit.
 
 Find these concepts in our documentation:
 
 -[Repo](https://docs.pachyderm.com/latest/concepts/data-concepts/repo/)
+
 -[Commit](https://docs.pachyderm.com/latest/concepts/data-concepts/commit/)
+
 -[Global ID](https://docs.pachyderm.com/latest/concepts/advanced-concepts/globalID/)
 
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
+- Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
 - [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
 ***Getting started***
@@ -79,16 +83,17 @@ pachctl list commit <commitID>
 Note: Change `commit` in `job` to list all jobs linked to your global commit.
 
 ### 1- Let our initial change be a `put file` in our `images` repository
-You are going to discover how the entirety of the data and pipeline versions 
-involved in the changes resulting from the initial put file can be identified at once. 
-This includes the 2 jobs triggered in the process, each of which will also share the same ID as their job ID.
+You are going to discover how the entirety of the data and pipeline versions
+involved in the changes resulting from the initial `put file` can be identified at once.
+This includes the 2 jobs triggered in the process, also sharing the same ID as their job ID.
+
 - Add a file to your input repo `images`
     ```shell
     pachctl put file images@master -i data/images.txt
     ```	
-    and notice below, that 2 (sub)jobs (one per pipeline) have been created with the same id.
+    and notice below, that 2 (sub)jobs (one per pipeline) have been created with the same ID.
     **Note:** The 2 initial jobs, which each processed no datum (bottom 2), are initialization jobs. Disregard.
-    They will be of no use for our comprehension of Global ID.
+    they will be of no use for our comprehension of Global ID.
 
     ```shell
     pachctl list job
@@ -142,7 +147,7 @@ This includes the 2 jobs triggered in the process, each of which will also share
     "kind": "USER"
      },
     ```
-- Inspect the commit (herev`1e5ceb1d28054da090e455f75b72b1491`) produced in the output repos of the edges pipelines:
+- Inspect the commit (here `1e5ceb1d28054da090e455f75b72b1491`) produced in the output repos of the edges pipelines:
     ```shell
     pachctl inspect commit edges@1e5ceb1d28054da090e455f75b72b149 --raw
     ```
