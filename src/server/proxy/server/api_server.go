@@ -1,10 +1,9 @@
 package server
 
 import (
-	"errors"
-
 	"github.com/lib/pq"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -21,12 +20,22 @@ func NewAPIServer(env serviceenv.ServiceEnv) *APIServer {
 	}
 }
 
+// Listen streams database events.
+// It signals that it is internally set up by sending an initial empty ListenResponse.
 func (a *APIServer) Listen(request *proxy.ListenRequest, server proxy.API_ListenServer) (retErr error) {
 	listener := a.env.GetPostgresListener()
 	notifier := newNotifier(server, request.Channel)
 	if err := listener.Register(notifier); err != nil {
 		return err
 	}
+
+	// send initial empty event to indicate to client that the listener has been registered
+	if err := server.Send(&proxy.ListenResponse{}); err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	go notifier.send()
+
 	defer func() {
 		if err := listener.Unregister(notifier); err != nil {
 			logrus.Errorf("errored while unregistering notifier: %v", err)
@@ -44,15 +53,13 @@ type notifier struct {
 }
 
 func newNotifier(server proxy.API_ListenServer, channel string) *notifier {
-	n := &notifier{
+	return &notifier{
 		server:  server,
 		id:      uuid.NewWithoutDashes(),
 		channel: channel,
 		bufChan: make(chan *pq.Notification, col.ChannelBufferSize),
 		errChan: make(chan error, 1),
 	}
-	go n.send()
-	return n
 }
 
 func (n *notifier) ID() string {
