@@ -5,6 +5,7 @@ import {Helmet} from 'react-helmet';
 import Sidebar from '@dash-frontend/components/Sidebar';
 import View from '@dash-frontend/components/View';
 
+import IntroductionModal from './components/IntroductionModal';
 import LandingHeader from './components/LandingHeader';
 import LandingSkeleton from './components/LandingSkeleton';
 import ProjectPreview from './components/ProjectPreview';
@@ -27,6 +28,8 @@ const Landing: React.FC = () => {
     selectedProject,
     setSelectedProject,
     sortDropdown,
+    introductionEligible,
+    onIntroductionClose,
   } = useLandingView();
 
   if (loading) return <LandingSkeleton />;
@@ -37,6 +40,12 @@ const Landing: React.FC = () => {
         <title>Landing - Pachyderm Console</title>
       </Helmet>
       <LandingHeader />
+      {introductionEligible ? (
+        <IntroductionModal
+          projectId={projects[0].id}
+          onClose={onIntroductionClose}
+        />
+      ) : null}
       <div className={styles.base}>
         <View>
           <TableView title="Projects" errorMessage="Error loading projects">

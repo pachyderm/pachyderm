@@ -1,0 +1,61 @@
+.infoCard {
+  box-shadow: 0px 1px 4px 1px var(--dropshadow);
+  box-sizing: border-box;
+  margin-bottom: 1rem;
+  margin-top: 2rem;
+  font-size: 0.875rem;
+}
+
+.header {
+  margin-top: 0.5rem;
+  padding: 1rem 2rem;
+}
+
+.headerText {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+
+
+.details {
+  padding: 2rem;
+  background-color: var(--cyan-10);
+}
+
+.detailsHeader {
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.details ul {
+  margin-left: 1rem;
+  list-style: none;
+}
+
+.details li::before {
+  content: "\2022";
+  color: var(--cyan-7);
+  font-weight: bold;
+  display: inline-block;
+  font-size: 1.75rem;
+  line-height: 0.875rem;
+  vertical-align: sub;
+  width: 1rem;
+  margin-left: -1rem;
+
+}
+
+.icon {
+  margin-right: 1rem;
+}
+
+.linkSVG {
+  padding-left: 0.75rem;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+}
