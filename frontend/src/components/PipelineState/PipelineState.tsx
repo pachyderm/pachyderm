@@ -11,12 +11,13 @@ interface PipelineStateProps {
 const PipelineState: React.FC<PipelineStateProps> = ({state}) => {
   const color = useMemo(() => {
     switch (state) {
-      case PipelineStateEnum.PIPELINE_PAUSED:
       case PipelineStateEnum.PIPELINE_RESTARTING:
       case PipelineStateEnum.PIPELINE_RUNNING:
       case PipelineStateEnum.PIPELINE_STANDBY:
       case PipelineStateEnum.PIPELINE_STARTING:
         return 'green';
+      case PipelineStateEnum.PIPELINE_PAUSED:
+        return 'yellow';
       default:
         return 'red';
     }
