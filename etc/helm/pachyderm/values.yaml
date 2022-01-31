@@ -189,6 +189,7 @@ loki-stack:
       accessModes:
       - ReadWriteOnce
       size: 5Gi
+      storageClassName: standard
       annotations: {}
   grafana:
     enabled: false
