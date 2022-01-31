@@ -1,4 +1,8 @@
+import {getRandomName} from '@pachyderm/components';
+
 import {useGetAccountQuery} from '@dash-frontend/generated/hooks';
+
+const tutorialId = getRandomName();
 
 interface useAccountArgs {
   skip?: boolean;
@@ -12,9 +16,7 @@ const useAccount = ({skip = false}: useAccountArgs = {}) => {
     account: data?.account,
     displayName: data?.account.name || data?.account.email,
     loading,
-    tutorialId: btoa(JSON.stringify(data?.account))
-      .replaceAll(/[^\w]|_/g, '')
-      .substring(0, 42),
+    tutorialId,
   };
 };
 
