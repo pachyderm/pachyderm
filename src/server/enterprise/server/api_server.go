@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -365,7 +364,7 @@ func (a *apiServer) setPauseState(ctx context.Context, namespace string, state b
 		}
 
 		if config.Paused == state {
-			return errors.EnsureStack(fmt.Errorf("cluster pause state is already %v", state))
+			return errors.EnsureStack(errors.Errorf("cluster pause state is already %v", state))
 		}
 
 		config.Paused = state
@@ -381,12 +380,12 @@ func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string) 
 	dd := kc.AppsV1().Deployments(namespace)
 	d, err := dd.Get(ctx, "pachd", metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("could not get pachd deployment: %v", err)
+		return errors.Errorf("could not get pachd deployment: %v", err)
 	}
 	// updating the spec rolls the deployment
 	d.Spec.Template.Annotations["kubectl.kubrnetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("could not update pachd deployment: %v", err)
+		return errors.Errorf("could not update pachd deployment: %v", err)
 	}
 	return nil
 }
@@ -397,7 +396,7 @@ func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace s
 		LabelSelector: "suite=pachyderm,component=worker",
 	})
 	if err != nil {
-		return fmt.Errorf("could not list workers: %v", err)
+		return errors.Errorf("could not list workers: %v", err)
 	}
 	for _, w := range ww.Items {
 		if _, err := rc.UpdateScale(ctx, w.GetName(), &autoscalingv1.Scale{
@@ -407,7 +406,7 @@ func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace s
 		}, metav1.UpdateOptions{
 			FieldManager: "enterprise-server",
 		}); err != nil {
-			return fmt.Errorf("could not scale down %s: %v", w.GetName(), err)
+			return errors.Errorf("could not scale down %s: %v", w.GetName(), err)
 		}
 	}
 	return nil
