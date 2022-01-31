@@ -25,9 +25,16 @@ import '@testing-library/cypress/add-commands';
 //
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
+Cypress.Commands.add('resetApp', () => {
+  cy.visit('?reset');
+});
+
 Cypress.Commands.add('isAppReady', () => {
   cy.get('[id="main"]').should('exist');
+  // Wait for the splash screen to disappear
   cy.get('[id="jupyterlab-splash"]').should('not.exist');
+  // Wait for main content to load
+  cy.get('li.lm-TabBar-tab.p-TabBar-tab.lm-mod-current').should('exist');
 });
 
 Cypress.Commands.add('jupyterlabCommand', (command) => {
@@ -36,3 +43,20 @@ Cypress.Commands.add('jupyterlabCommand', (command) => {
     app.commands.execute(command);
   });
 });
+
+Cypress.Commands.add('openMountPlugin', () => {
+  cy.get(buildTabSelector('pachyderm-mount')).then((tab) => {
+    if (!tab.hasClass('lm-mod-current')) {
+      cy.get(buildTabSelector('pachyderm-mount')).click();
+    }
+  });
+});
+
+Cypress.Commands.add('unmountAllRepos', (command) => {
+  cy.request('PUT', 'http://localhost:8888/pachyderm/v1/repos/_unmount');
+});
+
+//Taken from galata
+function buildTabSelector(id) {
+  return `.lm-TabBar.jp-SideBar .lm-TabBar-content li.lm-TabBar-tab[data-id="${id}"]`;
+}

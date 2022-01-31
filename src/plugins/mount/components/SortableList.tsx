@@ -1,5 +1,5 @@
 import React, {useCallback} from 'react';
-import {Repo} from '../mount';
+import {Repo} from '../types';
 import ListItem from './ListItem';
 import {caretUpIcon, caretDownIcon} from '@jupyterlab/ui-components';
 import {useSort, stringComparator} from '@pachyderm/components';

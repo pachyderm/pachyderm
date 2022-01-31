@@ -128,7 +128,6 @@ class PythonPachydermMountClient(MountInterface):
                         (repo_name, branch_name), self._default_mount_state()
                     ),
                 }
-
         return result
 
     async def mount(self, repo, branch, mode, name=None):

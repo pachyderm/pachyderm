@@ -6,9 +6,10 @@ import {
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {IFileBrowserFactory} from '@jupyterlab/filebrowser';
 
-import {init} from './mount';
+import {MountPlugin} from './mount';
+import {IMountPlugin} from './types';
 
-const mount: JupyterFrontEndPlugin<void> = {
+const mount: JupyterFrontEndPlugin<IMountPlugin> = {
   id: 'jupyterlab-pachyderm:mount',
   autoStart: true,
   requires: [IDocumentManager, IFileBrowserFactory, ILayoutRestorer],
@@ -17,8 +18,8 @@ const mount: JupyterFrontEndPlugin<void> = {
     manager: IDocumentManager,
     factory: IFileBrowserFactory,
     restorer: ILayoutRestorer,
-  ) => {
-    init(app, manager, factory, restorer);
+  ): IMountPlugin => {
+    return new MountPlugin(app, manager, factory, restorer);
   },
 };
 

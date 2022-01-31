@@ -1,6 +1,6 @@
 describe('examples', () => {
-  before(() => {
-    cy.visit('/lab');
+  beforeEach(() => {
+    cy.resetApp();
     cy.isAppReady();
   });
 

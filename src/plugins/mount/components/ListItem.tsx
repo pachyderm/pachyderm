@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {requestAPI} from '../../../handler';
-import {Repo} from '../mount';
+import {Repo} from '../types';
 
 type ListItemProps = {
   repo: Repo;
@@ -61,7 +61,10 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
 
   if (!hasBranches) {
     return (
-      <li className="pachyderm-mount-sortableList-item">
+      <li
+        className="pachyderm-mount-sortableList-item"
+        data-testid="ListItem__noBranches"
+      >
         <span className="pachyderm-mount-list-item-name pachyderm-mount-sortableList-item-no-branchs">
           {repo.repo}
         </span>
@@ -72,7 +75,10 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
     );
   }
   return (
-    <li className="pachyderm-mount-sortableList-item">
+    <li
+      className="pachyderm-mount-sortableList-item"
+      data-testid="ListItem__branches"
+    >
       <span
         className="pachyderm-mount-list-item-name-branch-wrapper"
         onClick={openFolder}

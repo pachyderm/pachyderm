@@ -2,7 +2,7 @@ import {ISignal, Signal} from '@lumino/signaling';
 import {Poll} from '@lumino/polling';
 import partition from 'lodash/partition';
 import {requestAPI} from '../../handler';
-import {Repo} from './mount';
+import {Repo} from './types';
 
 export class PollRepos {
   constructor(name: string) {

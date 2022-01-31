@@ -102,6 +102,7 @@ jobs:
 
             pachctl create repo images
             pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
+            pachctl put file images@branch:branch.png -f http://imgur.com/46Q8nDz.png
             pachctl list repo
 
             PFS_MOUNT_DIR=$(pwd)/pfs CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e

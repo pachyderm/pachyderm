@@ -74,6 +74,18 @@ jupyter lab --allow-root
 MOUNT_SERVER_ENABLED=1 jupyter lab --allow-root
 ```
 
+Open another bash inside the same container:
+
+```
+docker exec -it <container-id> bash
+```
+
+Within container run:
+
+```
+jlpm run watch
+```
+
 ## Local Virtual Environment Setup 
 When developing in python, it is good practice to set up a virtual environment. A simple guid to set up a virtual environment is as follows:
 create a virtual environment using venv

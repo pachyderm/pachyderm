@@ -4,102 +4,103 @@ import {IDocumentManager} from '@jupyterlab/docmanager';
 import {SplitPanel} from '@lumino/widgets';
 import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
 import {IFileBrowserFactory} from '@jupyterlab/filebrowser';
+
 import {mountLogoIcon} from '../../utils/icons';
-
 import SortableList from './components/SortableList';
-import {MountDrive} from './mountDrive';
 import {PollRepos} from './pollRepos';
+import createCustomFileBrowser from './customFileBrowser';
+import {IMountPlugin, Repo} from './types';
 
-export type Branch = {
-  branch: string;
-  mount: Mount;
-};
+export const MOUNT_BROWSER_NAME = 'mount-browser:';
 
-export type Mount = {
-  name: string | null;
-  state: string | null;
-  mode: string | null;
-};
+export class MountPlugin implements IMountPlugin {
+  private _app: JupyterFrontEnd<JupyterFrontEnd.IShell, 'desktop' | 'mobile'>;
+  private _poller: PollRepos;
+  private _panel: SplitPanel;
 
-export type Repo = {
-  repo: string;
-  branches: Branch[];
-};
+  constructor(
+    app: JupyterFrontEnd,
+    manager: IDocumentManager,
+    factory: IFileBrowserFactory,
+    restorer: ILayoutRestorer,
+  ) {
+    this._app = app;
+    this._poller = new PollRepos('PollRepos');
 
-const createFileBrowser = (
-  app: JupyterFrontEnd,
-  manager: IDocumentManager,
-  factory: IFileBrowserFactory,
-) => {
-  const drive = new MountDrive(app.docRegistry);
-  manager.services.contents.addDrive(drive);
-  const browser = factory.createFileBrowser('jupyterlab-pachyderm-browser', {
-    driveName: drive.name,
-    state: null,
-    refreshInterval: 10000,
-  });
-  return browser;
-};
+    const mountedList = ReactWidget.create(
+      <UseSignal signal={this._poller.mountedSignal}>
+        {(_, mounted) => (
+          <div className="pachyderm-mount-base">
+            <div className="pachyderm-mount-base-title">
+              Mounted Repositories
+            </div>
+            <SortableList
+              open={this.open}
+              repos={mounted ? mounted : this._poller.mounted}
+            />
+          </div>
+        )}
+      </UseSignal>,
+    );
+    mountedList.addClass('pachyderm-mount-react-wrapper');
 
-export const init = async (
-  app: JupyterFrontEnd,
-  manager: IDocumentManager,
-  factory: IFileBrowserFactory,
-  restorer: ILayoutRestorer,
-): Promise<void> => {
-  const open = (path: string) => {
-    app.commands.execute('filebrowser:open-path', {
-      path: 'mount-browser:' + path,
+    const unmountedList = ReactWidget.create(
+      <UseSignal signal={this._poller.unmountedSignal}>
+        {(_, unmounted) => (
+          <div className="pachyderm-mount-base">
+            <div className="pachyderm-mount-base-title">
+              Unmounted Repositories
+            </div>
+            <SortableList
+              open={this.open}
+              repos={unmounted ? unmounted : this._poller.unmounted}
+            />
+          </div>
+        )}
+      </UseSignal>,
+    );
+    unmountedList.addClass('pachyderm-mount-react-wrapper');
+
+    const mountBrowser = createCustomFileBrowser(app, manager, factory);
+
+    this._panel = new SplitPanel();
+    this._panel.orientation = 'vertical';
+    this._panel.spacing = 0;
+    this._panel.title.icon = mountLogoIcon;
+    this._panel.title.caption = 'Pachyderm Mount';
+    this._panel.id = 'pachyderm-mount';
+    this._panel.addWidget(mountedList);
+    this._panel.addWidget(unmountedList);
+    this._panel.addWidget(mountBrowser);
+    SplitPanel.setStretch(mountedList, 1);
+    SplitPanel.setStretch(unmountedList, 1);
+    SplitPanel.setStretch(mountBrowser, 1);
+
+    window.addEventListener('resize', () => {
+      this._panel.update();
+    });
+
+    restorer.add(this._panel, 'jupyterlab-pachyderm');
+    app.shell.add(this._panel, 'left', {rank: 100});
+  }
+
+  open = (path: string): void => {
+    this._app.commands.execute('filebrowser:open-path', {
+      path: MOUNT_BROWSER_NAME + path,
     });
   };
 
-  const mountBrowser = createFileBrowser(app, manager, factory);
+  get mountedRepos(): Repo[] {
+    this._poller.poll.tick;
+    return this._poller.mounted;
+  }
 
-  const poller = new PollRepos('PollRepos');
+  get unmountedRepos(): Repo[] {
+    this._poller.poll.tick;
+    return this._poller.unmounted;
+  }
 
-  const mountedList = ReactWidget.create(
-    <UseSignal signal={poller.mountedSignal}>
-      {(_, mounted) => (
-        <div className="pachyderm-mount-base">
-          <div className="pachyderm-mount-base-title">Mounted Repositories</div>
-          <SortableList open={open} repos={mounted ? mounted : []} />
-        </div>
-      )}
-    </UseSignal>,
-  );
-  mountedList.addClass('pachyderm-mount-react-wrapper');
-
-  const unmountedList = ReactWidget.create(
-    <UseSignal signal={poller.unmountedSignal}>
-      {(_, unmounted) => (
-        <div className="pachyderm-mount-base">
-          <div className="pachyderm-mount-base-title">
-            Unmounted Repositories
-          </div>
-          <SortableList open={open} repos={unmounted ? unmounted : []} />
-        </div>
-      )}
-    </UseSignal>,
-  );
-  unmountedList.addClass('pachyderm-mount-react-wrapper');
-
-  const panel = new SplitPanel();
-  panel.orientation = 'vertical';
-  panel.spacing = 0;
-  panel.title.icon = mountLogoIcon;
-  panel.title.caption = 'Pachyderm Mount';
-  panel.id = 'pachyderm-mount';
-  panel.addWidget(mountedList);
-  panel.addWidget(unmountedList);
-  panel.addWidget(mountBrowser);
-  SplitPanel.setStretch(mountedList, 1);
-  SplitPanel.setStretch(unmountedList, 1);
-  SplitPanel.setStretch(mountBrowser, 1);
-
-  window.addEventListener('resize', () => {
-    panel.update();
-  });
-
-  restorer.add(panel, 'jupyterlab-pachyderm');
-  app.shell.add(panel, 'left', {rank: 100});
-};
+  get layout(): SplitPanel {
+    return this._panel;
+  }
+}
