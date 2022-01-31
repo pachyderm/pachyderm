@@ -4,10 +4,13 @@ import React, {HTMLAttributes} from 'react';
 import {Route} from 'react-router';
 
 import {SidebarSize} from '@dash-frontend/lib/types';
+import DeletePipelineButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeletePipelineButton';
 import DeleteRepoButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeleteRepoButton';
 import {
   PROJECT_REPO_PATH,
+  PROJECT_PIPELINE_PATH,
   LINEAGE_REPO_PATH,
+  LINEAGE_PIPELINE_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
 
 import useSidebar from './hooks/useSidebar';
@@ -81,6 +84,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className={styles.sideBarToolbar}>
             <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
               <DeleteRepoButton />
+            </Route>
+            <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
+              <DeletePipelineButton />
             </Route>
             <ButtonLink className={styles.closeButton} onClick={onClose}>
               <CloseSVG aria-label="Close" className={styles.closeSvg} />

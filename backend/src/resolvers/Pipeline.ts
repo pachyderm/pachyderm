@@ -9,6 +9,7 @@ interface PipelineResolver {
   };
   Mutation: {
     createPipeline: MutationResolvers['createPipeline'];
+    deletePipeline: MutationResolvers['deletePipeline'];
   };
 }
 
@@ -70,6 +71,10 @@ const pipelineResolver: PipelineResolver = {
 
       const pipeline = await pachClient.pps().inspectPipeline(name);
       return pipelineInfoToGQLPipeline(pipeline);
+    },
+    deletePipeline: async (_field, {args: {name}}, {pachClient}) => {
+      await pachClient.pps().deletePipeline({pipeline: {name}});
+      return true;
     },
   },
 };

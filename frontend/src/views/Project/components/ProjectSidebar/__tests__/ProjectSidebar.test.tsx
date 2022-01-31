@@ -68,6 +68,33 @@ describe('ProjectSidebar', () => {
         `/project/1/pipelines/montage/logs`,
       );
     });
+
+    it('should disable the delete button when there are downstream pipelines', async () => {
+      window.history.replaceState('', '', '/lineage/5/pipelines/edges');
+
+      const {findByTestId} = render(<Project />);
+      const deleteButton = await findByTestId('DeletePipelineButton__link');
+      expect(deleteButton).toBeDisabled();
+    });
+
+    it('should allow pipelines to be deleted', async () => {
+      mockServer
+        .getState()
+        .pipelines['8'].push(mockServer.getState().pipelines['5'][0]);
+      window.history.replaceState('', '', '/lineage/8/pipelines/montage');
+
+      const {findByTestId} = render(<Project />);
+      expect(mockServer.getState().pipelines['8']).toHaveLength(1);
+      const deleteButton = await findByTestId('DeletePipelineButton__link');
+      await waitFor(() => expect(deleteButton).not.toBeDisabled());
+      click(deleteButton);
+      const confirmButton = await findByTestId('ModalFooter__confirm');
+      click(confirmButton);
+
+      await waitFor(() =>
+        expect(mockServer.getState().pipelines['8']).toHaveLength(0),
+      );
+    });
   });
 
   describe('repos', () => {

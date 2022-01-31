@@ -413,6 +413,11 @@ input CreatePipelineArgs {
   update: Boolean
 }
 
+input DeletePipelineArgs {
+  name: String!
+  projectId: String!
+}
+
 input CommitInput {
   id: ID!
   branch: BranchInput
@@ -483,6 +488,7 @@ type Mutation {
   createRepo(args: CreateRepoArgs!): Repo!
   deleteRepo(args: DeleteRepoArgs!): Boolean
   createPipeline(args: CreatePipelineArgs!): Pipeline!
+  deletePipeline(args: DeletePipelineArgs!): Boolean
   createBranch(args: CreateBranchArgs!): Branch!
   putFilesFromURLs(args: PutFilesFromURLsArgs!): [String!]!
 }

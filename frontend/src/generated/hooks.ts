@@ -216,6 +216,54 @@ export type CreateRepoMutationOptions = Apollo.BaseMutationOptions<
   Types.CreateRepoMutation,
   Types.CreateRepoMutationVariables
 >;
+export const DeletePipelineDocument = gql`
+  mutation deletePipeline($args: DeletePipelineArgs!) {
+    deletePipeline(args: $args)
+  }
+`;
+export type DeletePipelineMutationFn = Apollo.MutationFunction<
+  Types.DeletePipelineMutation,
+  Types.DeletePipelineMutationVariables
+>;
+
+/**
+ * __useDeletePipelineMutation__
+ *
+ * To run a mutation, you first call `useDeletePipelineMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeletePipelineMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [deletePipelineMutation, { data, loading, error }] = useDeletePipelineMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useDeletePipelineMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.DeletePipelineMutation,
+    Types.DeletePipelineMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.DeletePipelineMutation,
+    Types.DeletePipelineMutationVariables
+  >(DeletePipelineDocument, options);
+}
+export type DeletePipelineMutationHookResult = ReturnType<
+  typeof useDeletePipelineMutation
+>;
+export type DeletePipelineMutationResult =
+  Apollo.MutationResult<Types.DeletePipelineMutation>;
+export type DeletePipelineMutationOptions = Apollo.BaseMutationOptions<
+  Types.DeletePipelineMutation,
+  Types.DeletePipelineMutationVariables
+>;
 export const DeleteRepoDocument = gql`
   mutation deleteRepo($args: DeleteRepoArgs!) {
     deleteRepo(args: $args)

@@ -34,6 +34,7 @@ const pps = () => {
       | 'listJobSet'
       | 'getLogs'
       | 'createPipeline'
+      | 'deletePipeline'
     > => {
       return {
         listPipeline: async (call) => {
@@ -259,6 +260,21 @@ const pps = () => {
               projectRepos.push(newRepo);
             }
           }
+          callback(null, new Empty());
+        },
+        deletePipeline: (call, callback) => {
+          const [projectId] = call.metadata.get('project-id');
+          const pipelineName = call.request.getPipeline()?.getName();
+
+          const projectPipelines = projectId
+            ? MockState.state.pipelines[projectId.toString()]
+            : MockState.state.pipelines['1'];
+
+          MockState.state.pipelines[projectId.toString()] =
+            projectPipelines.filter((pipelineInfo) => {
+              return pipelineName !== pipelineInfo.getPipeline()?.getName();
+            });
+
           callback(null, new Empty());
         },
       };

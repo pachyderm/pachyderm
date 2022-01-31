@@ -126,6 +126,11 @@ export type DagQueryArgs = {
   jobSetId?: Maybe<Scalars['ID']>;
 };
 
+export type DeletePipelineArgs = {
+  name: Scalars['String'];
+  projectId: Scalars['String'];
+};
+
 export type DeleteRepoArgs = {
   repo: RepoInput;
   force?: Maybe<Scalars['Boolean']>;
@@ -278,6 +283,7 @@ export type Mutation = {
   createRepo: Repo;
   deleteRepo?: Maybe<Scalars['Boolean']>;
   createPipeline: Pipeline;
+  deletePipeline?: Maybe<Scalars['Boolean']>;
   createBranch: Branch;
   putFilesFromURLs: Array<Scalars['String']>;
 };
@@ -296,6 +302,10 @@ export type MutationDeleteRepoArgs = {
 
 export type MutationCreatePipelineArgs = {
   args: CreatePipelineArgs;
+};
+
+export type MutationDeletePipelineArgs = {
+  args: DeletePipelineArgs;
 };
 
 export type MutationCreateBranchArgs = {
@@ -782,6 +792,7 @@ export type ResolversTypes = ResolversObject<{
   CreateRepoArgs: CreateRepoArgs;
   CronInput: ResolverTypeWrapper<CronInput>;
   DagQueryArgs: DagQueryArgs;
+  DeletePipelineArgs: DeletePipelineArgs;
   DeleteRepoArgs: DeleteRepoArgs;
   File: ResolverTypeWrapper<File>;
   FileFromURL: FileFromUrl;
@@ -857,6 +868,7 @@ export type ResolversParentTypes = ResolversObject<{
   CreateRepoArgs: CreateRepoArgs;
   CronInput: CronInput;
   DagQueryArgs: DagQueryArgs;
+  DeletePipelineArgs: DeletePipelineArgs;
   DeleteRepoArgs: DeleteRepoArgs;
   File: File;
   FileFromURL: FileFromUrl;
@@ -1152,6 +1164,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationCreatePipelineArgs, 'args'>
+  >;
+  deletePipeline?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
+    ParentType,
+    ContextType,
+    RequireFields<MutationDeletePipelineArgs, 'args'>
   >;
   createBranch?: Resolver<
     ResolversTypes['Branch'],
@@ -1640,6 +1658,15 @@ export type CreateRepoMutation = {__typename?: 'Mutation'} & {
     'createdAt' | 'description' | 'id' | 'name' | 'sizeDisplay'
   >;
 };
+
+export type DeletePipelineMutationVariables = Exact<{
+  args: DeletePipelineArgs;
+}>;
+
+export type DeletePipelineMutation = {__typename?: 'Mutation'} & Pick<
+  Mutation,
+  'deletePipeline'
+>;
 
 export type DeleteRepoMutationVariables = Exact<{
   args: DeleteRepoArgs;
