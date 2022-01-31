@@ -163,9 +163,9 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 		env.dbEg.Go(env.initDirectDBClient)
 	}
 	env.listener = env.newListener()
-	if env.config.LokiHost != "" && env.config.LokiPort != "" {
+	if lokiHost, lokiPort := os.Getenv(env.config.LokiHostVar), os.Getenv(env.config.LokiPortVar); lokiHost != "" && lokiPort != "" {
 		env.lokiClient = &loki.Client{
-			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.config.LokiHost, env.config.LokiPort)),
+			Address: fmt.Sprintf("http://%s", net.JoinHostPort(lokiHost, lokiPort)),
 		}
 	}
 	return env // env is not ready yet
