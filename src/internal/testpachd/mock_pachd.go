@@ -407,6 +407,12 @@ func (api *enterpriseServerAPI) Heartbeat(ctx context.Context, req *enterprise.H
 	}
 	return nil, errors.Errorf("unhandled pachd mock enterprise.Heartbeat")
 }
+func (api *enterpriseServerAPI) Pause(ctx context.Context, req *enterprise.PauseRequest) (*enterprise.PauseResponse, error) {
+	return nil, errors.Errorf("unhandled pachd mock pause")
+}
+func (api *enterpriseServerAPI) Unpause(ctx context.Context, req *enterprise.UnpauseRequest) (*enterprise.UnpauseResponse, error) {
+	return nil, errors.Errorf("unhandled pachd mock unpause")
+}
 
 /* PFS Server Mocks */
 
