@@ -4,16 +4,23 @@
   border-radius: 3px;
   display: flex;
   margin: 1rem 0;
+  overflow: hidden;
 }
 
 .infoLine {
   display: flex;
   margin-top: 0.5rem;
+  overflow: hidden;
+}
+
+.infoLine :first-child {
+  overflow: hidden;
 }
 
 .infoContent {
   padding: 0 1rem;
   font-size: 0.875rem;
+  overflow: hidden;
 }
 
 .infoHeader {

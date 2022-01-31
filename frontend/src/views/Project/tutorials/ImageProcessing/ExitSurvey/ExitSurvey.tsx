@@ -1,11 +1,7 @@
-import {
-  FormModal,
-  InfoSVG,
-  Link,
-  Icon,
-  ExternalLinkSVG,
-} from '@pachyderm/components';
+import {FormModal, InfoSVG, Description} from '@pachyderm/components';
 import React from 'react';
+
+import useAccount from '@dash-frontend/hooks/useAccount';
 
 import ScaleQuestion from './components/ScaleQuestion';
 import styles from './ExitSurvey.module.css';
@@ -18,6 +14,10 @@ type ExitSurveyProps = {
 const ExitSurvey: React.FC<ExitSurveyProps> = ({onTutorialClose}) => {
   const {isOpen, onSubmit, formContext, updating, disabled, onClose, error} =
     useExitSurvey(onTutorialClose);
+
+  const {tutorialId} = useAccount();
+
+  const deleteCommand = `pachctl delete pipeline montage_${tutorialId} && pachctl delete pipeline edges_${tutorialId} && pachctl delete repo images_${tutorialId}`;
 
   return (
     <FormModal
@@ -39,32 +39,14 @@ const ExitSurvey: React.FC<ExitSurveyProps> = ({onTutorialClose}) => {
         <div className={styles.infoContent}>
           <div className={styles.infoHeader}>How to delete this tutorial</div>
           <div className={styles.infoLine}>
-            Delete all repos and pipelines.
-            <Link
-              className={styles.link}
-              small
-              externalLink
-              to="https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete_all/"
+            <Description
+              id="delete-these"
+              title="Delete repos and pipelines created by this tutorial"
+              asListItem={false}
+              copyText={deleteCommand}
             >
-              Pachctl delete all
-              <Icon className={styles.linkSVG} small color="plum">
-                <ExternalLinkSVG />
-              </Icon>
-            </Link>
-          </div>
-          <div className={styles.infoLine}>
-            Select repos and pipelines to delete.
-            <Link
-              className={styles.link}
-              small
-              externalLink
-              to="https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete/"
-            >
-              Pachctl delete all
-              <Icon className={styles.linkSVG} small color="plum">
-                <ExternalLinkSVG />
-              </Icon>
-            </Link>
+              {deleteCommand}
+            </Description>
           </div>
         </div>
       </div>
