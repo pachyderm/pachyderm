@@ -13,7 +13,7 @@ describe('Text Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/txt_spec.txt',
+      '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/txt_spec.txt',
     );
     const {findByText} = render(<FileBrowser />);
     expect(await findByText('name: visualizations')).toBeInTheDocument();
@@ -26,7 +26,7 @@ describe('Text Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/jsonl_people.jsonl',
+      '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/jsonl_people.jsonl',
     );
     const {findByText} = render(<FileBrowser />);
     expect(

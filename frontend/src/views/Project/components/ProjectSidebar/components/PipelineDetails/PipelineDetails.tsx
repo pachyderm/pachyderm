@@ -8,8 +8,6 @@ import {
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
-import {PIPELINE_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
-
 import Title from '../Title';
 
 import PipelineInfo from './components/PipelineInfo';
@@ -20,21 +18,24 @@ import usePipelineDetails from './hooks/usePipelineDetails';
 import styles from './PipelineDetails.module.css';
 
 const PipelineDetails = () => {
-  const {loading, pipelineName, filteredTabIds, pipelineLogsRoute} =
-    usePipelineDetails();
+  const {
+    loading,
+    pipelineName,
+    filteredTabIds,
+    pipelineLogsRoute,
+    tabsBasePath,
+  } = usePipelineDetails();
 
   return (
     <div className={styles.base}>
       <div className={styles.title}>
         {loading ? (
-          <SkeletonDisplayText
-            data-testid={'PipelineDetails__pipelineNameSkeleton'}
-          />
+          <SkeletonDisplayText data-testid="PipelineDetails__pipelineNameSkeleton" />
         ) : (
           <Title>{pipelineName}</Title>
         )}
       </div>
-      <Tabs.RouterTabs basePathTabId={TAB_ID.INFO} basePath={PIPELINE_PATH}>
+      <Tabs.RouterTabs basePathTabId={TAB_ID.INFO} basePath={tabsBasePath}>
         <Tabs.TabsHeader className={styles.tabsHeader}>
           {filteredTabIds.map((tabId) => (
             <Tabs.Tab id={tabId} key={tabId}>

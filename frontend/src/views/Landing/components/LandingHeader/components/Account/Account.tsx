@@ -11,7 +11,7 @@ const Account: React.FC = () => {
 
   if (loading || !loggedIn) {
     return (
-      <div className={styles.loaderContainer} data-testid={'Account__loader'} />
+      <div className={styles.loaderContainer} data-testid="Account__loader" />
     );
   }
 

@@ -36,7 +36,7 @@ describe('useRouteController', () => {
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/repo/likelihoods/branch/master`,
+      `/project/${projectId}/repos/likelihoods/branch/master`,
     );
 
     const {findByText} = render(<TestBed />);
@@ -50,7 +50,7 @@ describe('useRouteController', () => {
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/pipeline/likelihoods`,
+      `/project/${projectId}/pipelines/likelihoods`,
     );
 
     const {findByText} = render(<TestBed />);
@@ -64,7 +64,7 @@ describe('useRouteController', () => {
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/pipeline/likelihoods`,
+      `/project/${projectId}/pipelines/likelihoods`,
     );
 
     const {findByText} = render(<TestBed />);
@@ -80,7 +80,7 @@ describe('useRouteController', () => {
 
     await waitFor(() =>
       expect(window.location.pathname).toBe(
-        `/project/${projectId}/repo/likelihoods/branch/master`,
+        `/project/${projectId}/repos/likelihoods/branch/master`,
       ),
     );
   });
@@ -89,7 +89,7 @@ describe('useRouteController', () => {
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/repo/likelihoods/branch/master`,
+      `/project/${projectId}/repos/likelihoods/branch/master`,
     );
 
     const {findByText} = render(<TestBed />);
@@ -101,7 +101,7 @@ describe('useRouteController', () => {
 
     await waitFor(() =>
       expect(window.location.pathname).toBe(
-        `/project/${projectId}/pipeline/likelihoods`,
+        `/project/${projectId}/pipelines/likelihoods`,
       ),
     );
   });

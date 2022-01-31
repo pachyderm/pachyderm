@@ -8,7 +8,7 @@ import {
   click,
   getUrlState,
 } from '@dash-frontend/testHelpers';
-import {JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+import {PROJECT_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {
   fileBrowserRoute,
   jobRoute,
@@ -18,7 +18,7 @@ import JobDetails from '../';
 
 describe('Job Details', () => {
   const TestBed = withContextProviders(() => {
-    return <Route path={JOB_PATH} component={JobDetails} />;
+    return <Route path={PROJECT_JOB_PATH} component={JobDetails} />;
   });
 
   const projectId = '2';

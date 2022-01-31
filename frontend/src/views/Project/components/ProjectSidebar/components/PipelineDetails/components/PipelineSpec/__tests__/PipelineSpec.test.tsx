@@ -3,14 +3,14 @@ import React from 'react';
 import {Route} from 'react-router';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
-import {PIPELINE_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+import {PROJECT_PIPELINE_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import PipelineSpecComponent from '..';
 
 describe('PipelineSpec', () => {
   const PipelineSpec = withContextProviders(() => (
-    <Route path={PIPELINE_PATH} component={PipelineSpecComponent} />
+    <Route path={PROJECT_PIPELINE_PATH} component={PipelineSpecComponent} />
   ));
 
   it('should correctly render JSON spec', async () => {

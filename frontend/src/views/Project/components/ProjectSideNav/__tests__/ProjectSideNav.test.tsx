@@ -3,10 +3,10 @@ import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
 
-import ProjectHeader from '../../ProjectHeader';
+import ProjectSideNav from '../../ProjectSideNav';
 
-describe('project header', () => {
-  const Header = withContextProviders(ProjectHeader);
+describe('project sidenav', () => {
+  const Header = withContextProviders(ProjectSideNav);
 
   it('should display notification badge if the project has unhealthy jobs', async () => {
     window.history.replaceState('', '', '/project/2');

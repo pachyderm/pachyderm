@@ -13,7 +13,7 @@ describe('JSON Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repo/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/json_mixed.json',
+      '/project/3/repos/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/json_mixed.json',
     );
     const {findByText} = render(<FileBrowser />);
 

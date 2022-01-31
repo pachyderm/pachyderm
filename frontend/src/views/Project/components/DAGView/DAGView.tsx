@@ -15,6 +15,7 @@ import {
   NO_DAG_MESSAGE,
   LETS_START_TITLE,
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
+import View from '@dash-frontend/components/View';
 import {DagDirection, Dag} from '@dash-frontend/lib/types';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 import {useWorkspace} from 'hooks/useWorkspace';
@@ -54,7 +55,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
 
   const noDags = dags?.length === 0;
   return (
-    <>
+    <View className={styles.view}>
       <div className={styles.canvasControls}>
         <RangeSlider
           min={(minScale * 100).toString()}
@@ -200,7 +201,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           </g>
         </svg>
       </HoveredNodeProvider>
-    </>
+    </View>
   );
 };
 

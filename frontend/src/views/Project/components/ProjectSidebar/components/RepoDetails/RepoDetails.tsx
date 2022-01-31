@@ -21,7 +21,7 @@ const RepoDetails = () => {
     <div className={styles.base} ref={repoBaseRef}>
       <div className={styles.title}>
         {loading ? (
-          <SkeletonDisplayText data-testid={'RepoDetails__RepoNameSkeleton'} />
+          <SkeletonDisplayText data-testid="RepoDetails__repoNameSkeleton" />
         ) : (
           <Title>{repo?.name}</Title>
         )}

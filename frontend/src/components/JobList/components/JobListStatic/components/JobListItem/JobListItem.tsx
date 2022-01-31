@@ -1,10 +1,15 @@
-import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
+import {
+  JobOverviewFragment,
+  JobSetFieldsFragment,
+  JobState,
+} from '@graphqlTypes';
 import {ArrowRightSVG, ButtonLink, Tooltip} from '@pachyderm/components';
 import classNames from 'classnames';
 import {formatDistanceToNowStrict, fromUnixTime, format} from 'date-fns';
 import React from 'react';
 import {Link} from 'react-router-dom';
 
+import useUrlState from '@dash-frontend/hooks/useUrlState';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 
@@ -16,13 +21,17 @@ type JobListItemProps = {
   job: JobOverviewFragment | JobSetFieldsFragment;
   projectId: string;
   expandActions?: boolean;
+  cardStyle?: boolean;
 };
 
 const JobListItem: React.FC<JobListItemProps> = ({
   job,
   projectId,
   expandActions = false,
+  cardStyle,
 }) => {
+  const {jobId} = useUrlState();
+
   return (
     <li>
       <Link
@@ -33,9 +42,13 @@ const JobListItem: React.FC<JobListItemProps> = ({
         })}
         className={classNames(styles.base, {
           [styles.expandActions]: expandActions,
+          [styles.cardStyle]: cardStyle,
+          [styles.selected]: job.id === jobId,
+          [styles.error]: job.state === JobState.JOB_FAILURE,
         })}
       >
         <Tooltip
+          disabled={cardStyle}
           tooltipKey="Job Details"
           tooltipText={`See details for Job ID: ${job.id} \n ${
             job.createdAt
@@ -59,6 +72,9 @@ const JobListItem: React.FC<JobListItemProps> = ({
             <span
               className={classNames(styles.timestamp, styles.innerContentItem)}
             >
+              {cardStyle && (
+                <b className={styles.jobId}>{job.id.slice(0, 8)}</b>
+              )}
               {job.createdAt
                 ? `Created ${formatDistanceToNowStrict(
                     fromUnixTime(job.createdAt),
@@ -76,10 +92,12 @@ const JobListItem: React.FC<JobListItemProps> = ({
                 </ButtonLink>
               </>
             ) : (
-              <ArrowRightSVG
-                aria-hidden
-                className={classNames(styles.icon, styles.innerContentItem)}
-              />
+              !cardStyle && (
+                <ArrowRightSVG
+                  aria-hidden
+                  className={classNames(styles.icon, styles.innerContentItem)}
+                />
+              )
             )}
           </div>
         </Tooltip>

@@ -7,6 +7,10 @@ import LoadingSkeleton from '@dash-frontend/components/LoadingSkeleton';
 import AnalyticsProvider from '@dash-frontend/providers/AnalyticsProvier';
 import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 import ErrorView from '@dash-frontend/views/ErrorView';
+import {
+  LINEAGE_PATH,
+  PROJECT_PATH,
+} from '@dash-frontend/views/Project/constants/projectPaths';
 
 import LoggedInProvider from './providers/LoggedInProvider';
 
@@ -34,7 +38,7 @@ const DashUI: React.FC = () => {
                     />
 
                     <Route
-                      path="/project/:projectId"
+                      path={[PROJECT_PATH, LINEAGE_PATH]}
                       component={AuthenticatedRoute(Project)}
                     />
 

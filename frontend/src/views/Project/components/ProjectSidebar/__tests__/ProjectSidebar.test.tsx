@@ -27,7 +27,7 @@ describe('ProjectSidebar', () => {
 
   describe('jobs', () => {
     it('should display job list', async () => {
-      window.history.replaceState('', '', '/project/1/jobs');
+      window.history.replaceState('', '', '/lineage/1/jobs');
 
       const {queryByTestId, findByTestId} = render(<Project />);
 
@@ -45,7 +45,7 @@ describe('ProjectSidebar', () => {
 
   describe('pipelines', () => {
     it('should display pipeline details', async () => {
-      window.history.replaceState('', '', '/project/1/pipeline/montage');
+      window.history.replaceState('', '', '/project/1/pipelines/montage');
 
       const {queryByTestId, findByTestId} = render(<Project />);
 
@@ -59,20 +59,24 @@ describe('ProjectSidebar', () => {
     });
 
     it('should display pipeline logs button', async () => {
-      window.history.replaceState('', '', '/project/1/pipeline/montage');
+      window.history.replaceState('', '', '/project/1/pipelines/montage');
 
       const {getByText} = render(<Project />);
       const logsLink = getByText('Read Logs').parentElement;
       expect(logsLink as HTMLElement).toHaveAttribute(
         'href',
-        `/project/1/pipeline/montage/logs`,
+        `/project/1/pipelines/montage/logs`,
       );
     });
   });
 
   describe('repos', () => {
     it('should display repo details', async () => {
-      window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
+      window.history.replaceState(
+        '',
+        '',
+        '/project/3/repos/cron/branch/master',
+      );
 
       const {findByTestId, getByText} = render(<Project />);
 
@@ -89,7 +93,11 @@ describe('ProjectSidebar', () => {
     });
 
     it('should not show a linked job when there is no job for the commit', async () => {
-      window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
+      window.history.replaceState(
+        '',
+        '',
+        '/project/3/repos/cron/branch/master',
+      );
 
       const {findByTestId, queryByRole} = render(<Project />);
 
@@ -99,7 +107,11 @@ describe('ProjectSidebar', () => {
     });
 
     it('should show a linked job for a commit', async () => {
-      window.history.replaceState('', '', '/project/2/repo/test/branch/master');
+      window.history.replaceState(
+        '',
+        '',
+        '/project/2/repos/test/branch/master',
+      );
 
       const {queryByRole} = render(<Project />);
 
@@ -112,7 +124,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/2/repo/training/branch/master',
+        '/project/2/repos/training/branch/master',
       );
 
       const {queryByRole} = render(<Project />);
@@ -126,7 +138,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/2/repo/training/branch/develop',
+        '/project/2/repos/training/branch/develop',
       );
 
       const {findByText} = render(<Project />);
@@ -142,7 +154,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/3/repo/processor/branch/master',
+        '/project/3/repos/processor/branch/master',
       );
 
       const {findByText} = render(<Project />);
@@ -155,14 +167,22 @@ describe('ProjectSidebar', () => {
     });
 
     it('should not display logs button', async () => {
-      window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
+      window.history.replaceState(
+        '',
+        '',
+        '/project/3/repos/cron/branch/master',
+      );
 
       const {queryByText} = render(<Project />);
       expect(queryByText('Read Logs')).toBeNull();
     });
 
     it('should disable the delete button when there are associated pipelines', async () => {
-      window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
+      window.history.replaceState(
+        '',
+        '',
+        '/project/3/repos/cron/branch/master',
+      );
 
       const {findByTestId} = render(<Project />);
       const deleteButton = await findByTestId('DeleteRepoButton__link');
@@ -173,7 +193,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/8/repo/montage/branch/master',
+        '/project/8/repos/montage/branch/master',
       );
 
       const {findByTestId} = render(<Project />);
@@ -191,7 +211,7 @@ describe('ProjectSidebar', () => {
   });
 
   it('should filter commits by auto origin', async () => {
-    window.history.replaceState('', '', '/project/3/repo/cron/branch/master');
+    window.history.replaceState('', '', '/project/3/repos/cron/branch/master');
 
     const {findByLabelText, queryAllByText} = render(<Project />);
 

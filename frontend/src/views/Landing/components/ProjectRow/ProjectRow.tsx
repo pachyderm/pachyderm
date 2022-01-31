@@ -3,8 +3,14 @@ import {Button, Info} from '@pachyderm/components';
 import classNames from 'classnames';
 import {format, fromUnixTime} from 'date-fns';
 import noop from 'lodash/noop';
-import React from 'react';
+import React, {useCallback} from 'react';
 import {useHistory} from 'react-router';
+
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
+import {
+  projectReposRoute,
+  lineageRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 
 import ProjectStatus from '../ProjectStatus';
 
@@ -24,7 +30,15 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   setSelectedProject = noop,
 }) => {
   const browserHistory = useHistory();
-  const onClick = () => browserHistory.push(`/project/${project.id}`);
+  const [listDefaultView] = useLocalProjectSettings({
+    projectId: project.id,
+    key: 'list_view_default',
+  });
+  const onClick = useCallback(() => {
+    listDefaultView
+      ? browserHistory.push(projectReposRoute({projectId: project.id}))
+      : browserHistory.push(lineageRoute({projectId: project.id}));
+  }, [browserHistory, listDefaultView, project.id]);
   const date = format(fromUnixTime(project.createdAt), 'MM/d/yyyy');
 
   return (

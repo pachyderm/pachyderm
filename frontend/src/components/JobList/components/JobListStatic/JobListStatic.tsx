@@ -17,6 +17,7 @@ type JobListBaseProps = {
   listScroll?: boolean;
   emptyStateTitle: string;
   emptyStateMessage: string;
+  cardStyle?: boolean;
 };
 
 const JobListBase: React.FC<JobListBaseProps> = ({
@@ -27,6 +28,7 @@ const JobListBase: React.FC<JobListBaseProps> = ({
   listScroll = false,
   emptyStateTitle,
   emptyStateMessage,
+  cardStyle,
 }) => {
   if (loading)
     return (
@@ -52,6 +54,7 @@ const JobListBase: React.FC<JobListBaseProps> = ({
           projectId={projectId}
           key={`${job.id}${isPipelineJob(job) ? `__${job.pipelineName}` : ''}`}
           expandActions={expandActions}
+          cardStyle={cardStyle}
         />
       ))}
     </ul>

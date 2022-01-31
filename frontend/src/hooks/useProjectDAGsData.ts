@@ -1,4 +1,5 @@
 import {DagQueryArgs, GetDagsSubscription, NodeType} from '@graphqlTypes';
+import isEqual from 'lodash/isEqual';
 import {useEffect, useState} from 'react';
 import {useHistory} from 'react-router';
 
@@ -99,8 +100,11 @@ export const useProjectDagsData = ({
   }, [error, data]);
 
   useEffect(() => {
-    buildAndSetDags({data, nodeWidth, nodeHeight, direction, jobSetId});
-  }, [data, nodeHeight, nodeWidth, direction, jobSetId]);
+    // only rebuild the dag when subscription data has changed, and not jobSetId
+    if (!isEqual(data, prevData)) {
+      buildAndSetDags({data, nodeWidth, nodeHeight, direction, jobSetId});
+    }
+  }, [data, nodeHeight, nodeWidth, direction, prevData, jobSetId]);
 
   return {
     error,

@@ -27,7 +27,7 @@ jest.mock(
 
 describe('Logs Viewer', () => {
   beforeEach(() => {
-    window.history.replaceState({}, '', '/project/1/pipeline/edges/logs');
+    window.history.replaceState({}, '', '/project/1/pipelines/edges/logs');
   });
 
   afterEach(() => {
@@ -143,13 +143,17 @@ describe('Logs Viewer', () => {
     expect(await queryAllByTestId('LogRow__base')).toHaveLength(0);
     expect(await findAllByTestId('RawLogRow__base')).toHaveLength(2);
 
-    window.history.replaceState({}, '', '/project/1/pipeline/edges/logs');
+    window.history.replaceState({}, '', '/project/1/pipelines/edges/logs');
     expect(await queryAllByTestId('LogRow__base')).toHaveLength(0);
     expect(await findAllByTestId('RawLogRow__base')).toHaveLength(2);
   });
 
   it('should scroll to the latest log on first load', async () => {
-    window.history.replaceState({}, '', '/project/2/pipeline/likelihoods/logs');
+    window.history.replaceState(
+      {},
+      '',
+      '/project/2/pipelines/likelihoods/logs',
+    );
     const {queryByText, findAllByTestId} = render(<PipelineLogsViewer />);
     expect((await findAllByTestId('LogRow__checkbox')).length).toBeGreaterThan(
       2,
@@ -162,7 +166,7 @@ describe('Logs Viewer', () => {
 
   describe('Pipeline Logs Viewer', () => {
     beforeEach(() => {
-      window.history.replaceState({}, '', '/project/1/pipeline/edges/logs');
+      window.history.replaceState({}, '', '/project/1/pipelines/edges/logs');
     });
 
     it('should display pipeline name from url', async () => {
@@ -176,7 +180,7 @@ describe('Logs Viewer', () => {
       click(await findByTestId('FullPageModal__close'));
 
       await waitFor(() =>
-        expect(window.location.pathname).toBe('/project/1/pipeline/edges'),
+        expect(window.location.pathname).toBe('/project/1/pipelines/edges'),
       );
     });
 

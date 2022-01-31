@@ -1,54 +1,49 @@
-import {LoadingDots} from '@pachyderm/components';
-import classnames from 'classnames';
 import React from 'react';
 import {Helmet} from 'react-helmet';
 import {Route} from 'react-router';
-
-import View from '@dash-frontend/components/View';
 
 import FileBrowser from '../FileBrowser';
 import JobLogsViewer from '../LogsViewers/JobLogsViewer/JobLogsViewer';
 import PipelineLogsViewer from '../LogsViewers/PipelineLogsViewer';
 
-import DAGView from './components/DAGView';
+import ProjectDetails from './components/ProjectDetails';
 import ProjectHeader from './components/ProjectHeader';
+import ProjectJobList from './components/ProjectJobList';
 import ProjectSidebar from './components/ProjectSidebar';
-import {NODE_HEIGHT, NODE_WIDTH} from './constants/nodeSizes';
+import ProjectSideNav from './components/ProjectSideNav';
 import {
+  PROJECT_JOBS_PATH,
+  PROJECT_REPOS_PATH,
+  PROJECT_PIPELINES_PATH,
   FILE_BROWSER_PATH,
   LOGS_VIEWER_JOB_PATH,
   LOGS_VIEWER_PIPELINE_PATH,
+  LINEAGE_PATH,
 } from './constants/projectPaths';
-import {useProjectView} from './hooks/useProjectView';
 import styles from './Project.module.css';
-import ProjectTutorial from './tutorials/ProjectTutorial';
 
 const Project: React.FC = () => {
-  const {dags, loading, error, isSidebarOpen, sidebarSize} = useProjectView(
-    NODE_WIDTH,
-    NODE_HEIGHT,
-  );
-
   return (
     <>
       <Helmet>
         <title>Project - Pachyderm Console</title>
       </Helmet>
       <ProjectHeader />
-      <View className={styles.view}>
-        {loading ? (
-          <div
-            className={classnames(styles.loadingContainer, {
-              [styles.isSidebarOpen]: isSidebarOpen,
-              [styles[sidebarSize]]: true,
-            })}
-          >
-            <LoadingDots />
-          </div>
-        ) : (
-          <DAGView dags={dags} loading={loading} error={error} />
-        )}
-        <ProjectSidebar />
+      <div className={styles.view}>
+        <ProjectSideNav />
+        <Route
+          path={[PROJECT_REPOS_PATH, PROJECT_PIPELINES_PATH, LINEAGE_PATH]}
+        >
+          <ProjectDetails />
+        </Route>
+        <Route path={PROJECT_JOBS_PATH}>
+          <ProjectJobList />
+        </Route>
+        <Route
+          path={[PROJECT_REPOS_PATH, PROJECT_PIPELINES_PATH, PROJECT_JOBS_PATH]}
+        >
+          <ProjectSidebar resizable={false} />
+        </Route>
         <Route path={FILE_BROWSER_PATH}>
           <FileBrowser />
         </Route>
@@ -58,8 +53,7 @@ const Project: React.FC = () => {
         <Route path={LOGS_VIEWER_JOB_PATH}>
           <JobLogsViewer />
         </Route>
-        <ProjectTutorial />
-      </View>
+      </div>
     </>
   );
 };

@@ -89,15 +89,33 @@ describe('Landing', () => {
     ).toHaveLength(7);
   });
 
-  it('should allow a user to view a project', async () => {
+  it('should allow a user to view a project based in default lineage view', async () => {
     const {findAllByRole} = render(<Landing />);
 
-    expect(window.location.pathname).not.toEqual('/project/2');
+    expect(window.location.pathname).not.toEqual('/lineage/2');
     const viewProjectButtons = await findAllByRole('button', {
       name: 'View Project',
     });
     userEvent.click(viewProjectButtons[0]);
-    expect(window.location.pathname).toEqual('/project/2');
+    expect(window.location.pathname).toEqual('/lineage/2');
+  });
+
+  it('should allow a user to view a project based on the preferred view', async () => {
+    window.localStorage.setItem(
+      'pachyderm-console-2',
+      '{"list_view_default": true}',
+    );
+
+    const {findAllByRole} = render(<Landing />);
+
+    expect(window.location.pathname).not.toEqual('/project/2/repos');
+    const viewProjectButtons = await findAllByRole('button', {
+      name: 'View Project',
+    });
+    userEvent.click(viewProjectButtons[0]);
+    expect(window.location.pathname).toEqual('/project/2/repos');
+
+    localStorage.removeItem('pachyderm-console-2');
   });
 
   it('should initially sort the projects by creation', async () => {

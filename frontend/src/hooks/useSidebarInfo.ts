@@ -3,19 +3,24 @@ import {useRouteMatch} from 'react-router';
 
 import {SidebarSize} from '@dash-frontend/lib/types';
 import {
-  JOBS_PATH,
-  JOB_PATH,
-  PIPELINE_PATH,
-  REPO_PATH,
+  PROJECT_JOBS_PATH,
+  PROJECT_JOB_PATH,
+  PROJECT_PIPELINE_PATH,
+  PROJECT_REPO_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
 
 const useSidebarInfo = () => {
-  const match = useRouteMatch([JOBS_PATH, JOB_PATH, REPO_PATH, PIPELINE_PATH]);
+  const match = useRouteMatch([
+    PROJECT_JOBS_PATH,
+    PROJECT_JOB_PATH,
+    PROJECT_REPO_PATH,
+    PROJECT_PIPELINE_PATH,
+  ]);
 
   const sidebarSize = useMemo<SidebarSize>(() => {
     switch (match?.path) {
-      case JOBS_PATH:
-      case JOB_PATH:
+      case PROJECT_JOBS_PATH:
+      case PROJECT_JOB_PATH:
         return 'lg';
       default:
         return 'md';
@@ -25,7 +30,7 @@ const useSidebarInfo = () => {
   return {
     sidebarSize,
     isOpen: Boolean(match),
-    overlay: match?.path === JOBS_PATH && match.isExact,
+    overlay: match?.path === PROJECT_JOBS_PATH && match.isExact,
   };
 };
 

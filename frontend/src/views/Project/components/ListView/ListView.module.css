@@ -1,0 +1,5 @@
+.wrapper {
+  margin-bottom: 0.5rem;
+  border: solid 1px var(--grey-4);
+  border-radius: 4px;
+}

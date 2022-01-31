@@ -11,7 +11,7 @@ describe('File Browser', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4',
+      '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4',
     );
   });
   const FileBrowser = withContextProviders(() => {
@@ -30,7 +30,7 @@ describe('File Browser', () => {
         <FileBrowser />,
       );
 
-      const searchBar = await findByRole('searchbox');
+      const searchBar = await findByRole('searchbox', {}, {timeout: 10000});
       expect(await findByText('liberty.png')).toBeInTheDocument();
       expect(await findByText('AT-AT.png')).toBeInTheDocument();
       expect(await findByText('cats')).toBeInTheDocument();
@@ -49,7 +49,7 @@ describe('File Browser', () => {
     it('should show an empty state when there are no results', async () => {
       const {queryByText, findByRole} = render(<FileBrowser />);
 
-      const searchBar = await findByRole('searchbox');
+      const searchBar = await findByRole('searchbox', {}, {timeout: 10000});
       userEvent.type(searchBar, 'notafile');
 
       await waitFor(() =>
@@ -140,7 +140,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F',
+          '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F',
         ),
       );
 
@@ -155,7 +155,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/AT-AT.png',
+          '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/AT-AT.png',
         ),
       );
     });
@@ -192,7 +192,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F',
+          '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F',
         ),
       );
     });
@@ -208,7 +208,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/AT-AT.png',
+          '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/AT-AT.png',
         ),
       );
     });
@@ -232,7 +232,7 @@ describe('File Browser', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/liberty.png',
+        '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/liberty.png',
       );
     });
 

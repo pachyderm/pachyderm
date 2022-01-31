@@ -126,7 +126,7 @@ describe('Search', () => {
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe(
-      '/project/1/repo/images/branch/master',
+      '/project/1/repos/images/branch/master',
     );
   });
 
@@ -138,7 +138,7 @@ describe('Search', () => {
     userEvent.type(searchBar, 'edges');
     assertDropdown().toBeShown();
     click(await findByRole('button', {name: 'See Jobs'}));
-    expect(window.location.pathname).toBe('/project/1/pipeline/edges/jobs');
+    expect(window.location.pathname).toBe('/project/1/pipelines/edges/jobs');
     assertDropdown().toBeHidden();
 
     searchBar.focus();
@@ -147,7 +147,7 @@ describe('Search', () => {
     click(await queryAllByText('edges')[1]);
 
     assertDropdown().toBeHidden();
-    expect(window.location.pathname).toBe('/project/1/pipeline/edges');
+    expect(window.location.pathname).toBe('/project/1/pipelines/edges');
   });
 
   it('should route to jobs for selected id', async () => {

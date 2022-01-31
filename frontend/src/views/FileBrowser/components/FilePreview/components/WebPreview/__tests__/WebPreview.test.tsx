@@ -13,7 +13,7 @@ describe('Web Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repo/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/html_pachyderm.html',
+      '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/html_pachyderm.html',
     );
     const {findByTestId} = render(<FileBrowser />);
 

@@ -1,0 +1,19 @@
+.buttonLink {
+  font-size: var(--font-size-body-medium);
+  margin-left: 1rem;
+  width: calc(100% - 2rem);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.seeJobsBadge {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0.2rem;
+  margin-right: 0.5rem;
+  color: var(--white);
+  text-align: center;
+}

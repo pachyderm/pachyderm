@@ -7,7 +7,10 @@ import {NavLink, Redirect, Route} from 'react-router-dom';
 import {useJobSet} from '@dash-frontend/hooks/useJobSet';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import readableJobState from '@dash-frontend/lib/readableJobState';
-import {PIPELINE_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+import {
+  LINEAGE_PIPELINE_JOB_PATH,
+  PROJECT_PIPELINE_JOB_PATH,
+} from '@dash-frontend/views/Project/constants/projectPaths';
 import {
   jobsRoute,
   jobRoute,
@@ -65,23 +68,25 @@ const JobDetails = () => {
   return (
     <div className={styles.base}>
       <section className={styles.headerSection}>
-        <nav>
-          <Link to={jobsRoute({projectId})} className={styles.seeMoreJobs}>
-            All jobs{pipelineId ? ' >' : ''}
-          </Link>
-          {pipelineId && (
-            <Link
-              className={styles.seeMoreJobs}
-              to={pipelineRoute({
-                projectId,
-                pipelineId,
-                tabId: 'jobs',
-              })}
-            >
-              Pipeline: {pipelineId}
+        <Route path={LINEAGE_PIPELINE_JOB_PATH}>
+          <nav>
+            <Link to={jobsRoute({projectId})} className={styles.seeMoreJobs}>
+              All jobs{pipelineId ? ' >' : ''}
             </Link>
-          )}
-        </nav>
+            {pipelineId && (
+              <Link
+                className={styles.seeMoreJobs}
+                to={pipelineRoute({
+                  projectId,
+                  pipelineId,
+                  tabId: 'jobs',
+                })}
+              >
+                Pipeline: {pipelineId}
+              </Link>
+            )}
+          </nav>
+        </Route>
 
         <h2 className={styles.heading}>Job {jobId}</h2>
       </section>
@@ -145,7 +150,7 @@ const JobDetails = () => {
         )}
 
         <div className={styles.pipelineSpec}>
-          <Route path={PIPELINE_JOB_PATH}>
+          <Route path={[PROJECT_PIPELINE_JOB_PATH, LINEAGE_PIPELINE_JOB_PATH]}>
             <InfoPanel />
           </Route>
         </div>

@@ -5,7 +5,10 @@ import {Route} from 'react-router';
 
 import {SidebarSize} from '@dash-frontend/lib/types';
 import DeleteRepoButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeleteRepoButton';
-import {REPO_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+import {
+  PROJECT_REPO_PATH,
+  LINEAGE_REPO_PATH,
+} from '@dash-frontend/views/Project/constants/projectPaths';
 
 import useSidebar from './hooks/useSidebar';
 import styles from './Sidebar.module.css';
@@ -65,7 +68,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           },
           className,
         )}
-        style={{width: sidebarWidth}}
+        style={{width: resizable ? sidebarWidth : '100%'}}
         {...rest}
       >
         {resizable && (
@@ -76,7 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
         {onClose && (
           <div className={styles.sideBarToolbar}>
-            <Route path={REPO_PATH}>
+            <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
               <DeleteRepoButton />
             </Route>
             <ButtonLink className={styles.closeButton} onClick={onClose}>

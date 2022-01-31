@@ -24,7 +24,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
           "repo": "
     <a
       class="repoLink"
-      href="/project/1/repo/edges/branch/master"
+      href="/project/1/repos/edges/branch/master"
       id="__repoedges"
     >
       edges
@@ -37,7 +37,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
           "repo": "
     <a
       class="repoLink"
-      href="/project/1/repo/images/branch/master"
+      href="/project/1/repos/images/branch/master"
       id="__repoimages"
     >
       images

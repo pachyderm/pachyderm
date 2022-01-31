@@ -13,7 +13,7 @@ import PipelineInfoComponent from '../PipelineInfo';
 describe('PipelineInfo', () => {
   const PipelineInfo = withContextProviders(() => {
     return (
-      <Route path="/project/:projectId/pipeline/:pipelineId">
+      <Route path="/project/:projectId/pipelines/:pipelineId">
         <PipelineInfoComponent />
       </Route>
     );
@@ -26,7 +26,7 @@ describe('PipelineInfo', () => {
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/pipeline/${pipelineId}`,
+      `/project/${projectId}/pipelines/${pipelineId}`,
     );
 
     const {queryByTestId, getByText} = render(<PipelineInfo />);
@@ -49,7 +49,7 @@ describe('PipelineInfo', () => {
     expect(outputRepo).toHaveTextContent(pipelineId);
     expect(within(outputRepo as HTMLElement).getByRole('link')).toHaveAttribute(
       'href',
-      `/project/${projectId}/repo/${pipelineId}/branch/master`,
+      `/project/${projectId}/repos/${pipelineId}/branch/master`,
     );
 
     expect(getByText('Datum Timeout').nextElementSibling).toHaveTextContent(

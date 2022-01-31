@@ -8,7 +8,7 @@ import useIsViewingJob from '@dash-frontend/hooks/useIsViewingJob';
 import {Node} from '@dash-frontend/lib/types';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import {NODE_HEIGHT} from '@dash-frontend/views/Project/constants/nodeSizes';
-import {PIPELINE_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+import {PROJECT_PIPELINE_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import useRouteController from 'hooks/useRouteController';
 import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
 
@@ -16,7 +16,7 @@ const LABEL_WIDTH = 188;
 
 const useNode = (node: Node, isInteractive: boolean) => {
   const {navigateToNode, selectedNode} = useRouteController();
-  const match = useRouteMatch(PIPELINE_JOB_PATH);
+  const match = useRouteMatch(PROJECT_PIPELINE_JOB_PATH);
   const {hoveredNode, setHoveredNode} = useHoveredNode();
   const [showSuccess, setShowSuccess] = useState(false);
   const {copy, supported, copied, reset} = useClipboardCopy(node.name);

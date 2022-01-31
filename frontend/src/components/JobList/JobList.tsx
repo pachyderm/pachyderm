@@ -1,11 +1,17 @@
 import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
-import React from 'react';
+import classnames from 'classnames';
+import React, {useEffect} from 'react';
+import {useHistory} from 'react-router';
+
+import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import EmptyState from '../EmptyState';
 
 import JobListStatic from './components/JobListStatic';
 import JobListStatusFilter from './components/JobListStatusFilter';
 import useJobFilters from './hooks/useJobFilters';
+import styles from './JobList.module.css';
 
 const noJobFiltersTitle = 'Select Job Filters Above :)';
 const noJobFiltersMessage =
@@ -19,6 +25,8 @@ export interface JobListProps {
   jobs: (JobOverviewFragment | JobSetFieldsFragment)[];
   loading: boolean;
   projectId: string;
+  cardStyle?: boolean;
+  selectJobByDefault?: boolean;
 }
 
 const JobList: React.FC<JobListProps> = ({
@@ -29,13 +37,28 @@ const JobList: React.FC<JobListProps> = ({
   emptyStateMessage,
   expandActions,
   projectId,
+  cardStyle,
+  selectJobByDefault,
 }) => {
   const {filteredJobs, selectedFilters, noFiltersSelected} = useJobFilters({
     jobs,
   });
+  const browserHistory = useHistory();
+  const {jobId} = useUrlState();
+
+  useEffect(() => {
+    if (selectJobByDefault && !jobId && jobs.length > 0) {
+      browserHistory.push(
+        jobRoute({
+          projectId,
+          jobId: jobs[0].id,
+        }),
+      );
+    }
+  }, [browserHistory, jobId, jobs, projectId, selectJobByDefault]);
 
   return (
-    <>
+    <div className={classnames(styles.base, {[styles.cardStyle]: cardStyle})}>
       {showStatusFilter && (
         <JobListStatusFilter jobs={jobs} selectedFilters={selectedFilters} />
       )}
@@ -53,9 +76,10 @@ const JobList: React.FC<JobListProps> = ({
           jobs={filteredJobs}
           expandActions={expandActions}
           listScroll
+          cardStyle={cardStyle}
         />
       )}
-    </>
+    </div>
   );
 };
 
