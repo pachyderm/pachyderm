@@ -105,6 +105,7 @@
   --z-index-sheet: 102;
   --z-index-application-banner: 101;
   --z-index-modal-overlay: 1040;
+  --z-index-modal: 1050;
   --z-index-notification-banner: 1051;
   --z-index-dropdown-menu: 1052;
 }
