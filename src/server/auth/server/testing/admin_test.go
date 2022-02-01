@@ -547,7 +547,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 		[]string{"/bin/bash"},
 		[]string{"cp /pfs/time/* /pfs/out/"},
 		nil,
-		client.NewCronInput("time", "@every 10s"),
+		client.NewCronInput("time", "@every 3s"),
 		"",
 		false,
 	))
