@@ -21,7 +21,7 @@ const Page: React.FC<PageProps> = ({
     <>
       {title && (
         <Helmet>
-          <title>{`${title} - Pachyderm Hub`}</title>
+          <title>{`${title} - Pachyderm`}</title>
         </Helmet>
       )}
       <div
