@@ -12,5 +12,7 @@ message ListenResponse {
 }
 
 service API {
+  // Listen streams database events. 
+  // It signals that it is internally set up by sending an initial empty ListenResponse.
   rpc Listen(ListenRequest) returns (stream ListenResponse) {}
 }

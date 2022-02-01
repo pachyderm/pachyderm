@@ -574,7 +574,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	}
 	ro, ok := n.root().repoOpts[name]
 	if !ok {
-		return fmt.Errorf("[download] can't find mount named %s", name)
+		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
 	}
 	repoName := ro.Repo
 	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {

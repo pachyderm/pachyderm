@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
@@ -679,14 +680,18 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var registry string
 	var username string
 	var pipelinePath string
+	var jsonnetPath string
+	var jsonnetArgs []string
 	createPipeline := &cobra.Command{
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(false, pushImages, registry, username, pipelinePath, false)
+			return pipelineHelper(false, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, false)
 		}),
 	}
-	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
+	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
+	createPipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "BETA: A Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
+	createPipeline.Flags().StringSliceVar(&jsonnetArgs, "arg", nil, "Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arugments are passed). Value must be of the form 'param=value'. For multiple args, --arg may be set more than once, or it may be passed a comma-separated list of 'param=value' pairs.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
@@ -697,10 +702,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(reprocess, pushImages, registry, username, pipelinePath, true)
+			return pipelineHelper(reprocess, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, true)
 		}),
 	}
-	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
+	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
+	updatePipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "BETA: A Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
+	updatePipeline.Flags().StringSliceVar(&jsonnetArgs, "arg", nil, "Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arugments are passed). Value must be of the form 'param=value'. For multiple args, --arg may be set more than once, or it may be passed a comma-separated list of 'param=value' pairs.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
@@ -1208,8 +1215,45 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 	return pipelineBytes, nil
 }
 
-func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelinePath string, update bool) error {
-	pipelineBytes, err := readPipelineBytes(pipelinePath)
+func evaluateJsonnetTemplate(client *client.APIClient, jsonnetPath string, jsonnetArgs []string) ([]byte, error) {
+	templateBytes, err := readPipelineBytes(jsonnetPath)
+	if err != nil {
+		return nil, err
+	}
+	args, err := pachtmpl.ParseArgs(jsonnetArgs)
+	if err != nil {
+		return nil, err
+	}
+	res, err := client.RenderTemplate(client.Ctx(), &ppsclient.RenderTemplateRequest{
+		Template: string(templateBytes),
+		Args:     args,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return []byte(res.Json), nil
+}
+
+func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool) error {
+	// validate arguments
+	if pipelinePath != "" && jsonnetPath != "" {
+		return errors.New("cannot set both --file and --jsonnet; exactly one must be set")
+	}
+	if pipelinePath == "" && jsonnetPath == "" {
+		pipelinePath = "-" // default input
+	}
+	pc, err := pachdclient.NewOnUserMachine("user")
+	if err != nil {
+		return errors.Wrapf(err, "error connecting to pachd")
+	}
+	defer pc.Close()
+	// read/compute pipeline spec(s) (file, stdin, url, or via template)
+	var pipelineBytes []byte
+	if pipelinePath != "" {
+		pipelineBytes, err = readPipelineBytes(pipelinePath)
+	} else if jsonnetPath != "" {
+		pipelineBytes, err = evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
+	}
 	if err != nil {
 		return err
 	}
@@ -1217,13 +1261,6 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 	if err != nil {
 		return err
 	}
-
-	pc, err := pachdclient.NewOnUserMachine("user")
-	if err != nil {
-		return errors.Wrapf(err, "error connecting to pachd")
-	}
-	defer pc.Close()
-
 	for {
 		request, err := pipelineReader.NextCreatePipelineRequest()
 		if errors.Is(err, io.EOF) {

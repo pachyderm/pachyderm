@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
+	"github.com/sirupsen/logrus"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
@@ -117,10 +118,13 @@ func mountCmds() []*cobra.Command {
 	var mountDir string
 	mountServer := &cobra.Command{
 		Use:   "{{alias}}",
-		Short: "Start a mount server for controlling FUSE mounts via a local gRPC API.",
+		Short: "Start a mount server for controlling FUSE mounts via a local REST API.",
 		Long:  "Starts a REST mount server, running in the foreground and logging to stdout.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			// TODO: call into pfs/fuse/server.go
+
+			// Show info messages to user by default
+			logrus.SetLevel(logrus.InfoLevel)
+
 			c, err := client.NewOnUserMachine("fuse")
 			if err != nil {
 				return err

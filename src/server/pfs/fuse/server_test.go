@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -27,7 +28,8 @@ func put(path string, body io.Reader) (*http.Response, error) {
 	if err != nil {
 		panic(err)
 	}
-	return client.Do(req)
+	x, err := client.Do(req)
+	return x, errors.EnsureStack(err)
 }
 
 func get(path string) (*http.Response, error) {
@@ -36,7 +38,8 @@ func get(path string) (*http.Response, error) {
 	if err != nil {
 		panic(err)
 	}
-	return client.Do(req)
+	x, err := client.Do(req)
+	return x, errors.EnsureStack(err)
 }
 
 /*
@@ -69,7 +72,6 @@ func TestBasicServerSameNames(t *testing.T) {
 		_, err := put("repos/repo/master/_mount?name=repo&mode=ro", nil)
 		require.NoError(t, err)
 
-		fmt.Printf("=====> MOUNTPOINT IS %s\n", mountPoint)
 		repos, err := ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
@@ -105,7 +107,6 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 		_, err := put("repos/repo/dev/_mount?name=repo&mode=ro", nil)
 		require.NoError(t, err)
 
-		fmt.Printf("=====> MOUNTPOINT IS %s\n", mountPoint)
 		repos, err := ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
@@ -141,7 +142,6 @@ func TestBasicServerDifferingNames(t *testing.T) {
 		_, err := put("repos/repo/master/_mount?name=newname&mode=ro", nil)
 		require.NoError(t, err)
 
-		fmt.Printf("=====> MOUNTPOINT IS %s\n", mountPoint)
 		repos, err := ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
@@ -278,12 +278,9 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 	unmounted := make(chan struct{})
 	var mountErr error
 	defer func() {
-		fmt.Printf("=== IN DEFER FUNC, CLOSING ===\n")
 		close(sopts.Unmount)
-		fmt.Printf("=== IN DEFER FUNC, <-UNMOUNTED ===\n")
 		<-unmounted
 		require.ErrorIs(tb, mountErr, http.ErrServerClosed)
-		fmt.Printf("=== IN DEFER FUNC, DONE ===\n")
 	}()
 	defer func() {
 		// recover because panics leave the mount in a weird state that makes
