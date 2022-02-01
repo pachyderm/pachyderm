@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"runtime/debug"
 	"runtime/pprof"
+	"syscall"
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
@@ -539,6 +541,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 
 func doFullMode(config interface{}) (retErr error) {
 	var ctx = context.Background()
+	interruptChan := make(chan os.Signal, 1)
+	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
 		if retErr != nil {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
@@ -615,6 +619,12 @@ func doFullMode(config interface{}) (retErr error) {
 			loggingInterceptor.StreamServerInterceptor,
 		),
 	)
+	go func(c chan os.Signal) {
+		<-c
+		log.Println("terminating; waiting for enterprise server to gracefully stop")
+		externalServer.Server.GracefulStop()
+		log.Println("gRPC server gracefully stopped")
+	}(interruptChan)
 
 	if err != nil {
 		return err
