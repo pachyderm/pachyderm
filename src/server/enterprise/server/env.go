@@ -29,10 +29,11 @@ type Env struct {
 	GetKubeClient func() *kube.Clientset
 
 	BackgroundContext context.Context
+	Namespace         string
 }
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv) Env {
-	return Env{
+	e := Env{
 		DB:       senv.GetDBClient(),
 		Listener: senv.GetPostgresListener(),
 		TxnEnv:   txEnv,
@@ -45,7 +46,12 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txn
 		GetKubeClient: senv.GetKubeClient,
 
 		BackgroundContext: senv.Context(),
+		Namespace:         senv.Config().Namespace,
 	}
+	if e.Namespace == "" {
+		e.Namespace = "default"
+	}
+	return e
 }
 
 func EnterpriseConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
@@ -114,4 +120,9 @@ func (env Env) IsPaused(ctx context.Context) (bool, error) {
 		return false, errors.EnsureStack(err)
 	}
 	return config.Paused, nil
+}
+
+// StopWorkers stops all workers
+func (env Env) StopWorkers(ctx context.Context) error {
+	return scaleDownWorkers(ctx, env.GetKubeClient(), env.Namespace)
 }

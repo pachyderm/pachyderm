@@ -350,20 +350,20 @@ func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.P
 	if req.Namespace == "" {
 		req.Namespace = "default"
 	}
-	if err := a.setPauseState(ctx, req.Namespace, true); err != nil {
+	if err := a.setPauseState(ctx, true); err != nil {
 		return nil, err
 	}
-	if err := scaleDownWorkers(ctx, a.env.GetKubeClient(), req.Namespace); err != nil {
+	if err := scaleDownWorkers(ctx, a.env.GetKubeClient(), a.env.Namespace); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	if err := rollPachd(ctx, a.env.GetKubeClient(), req.Namespace); err != nil {
+	if err := rollPachd(ctx, a.env.GetKubeClient(), a.env.Namespace); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 
 	return &ec.PauseResponse{}, nil
 }
 
-func (a *apiServer) setPauseState(ctx context.Context, namespace string, state bool) error {
+func (a *apiServer) setPauseState(ctx context.Context, state bool) error {
 	return a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
 		var (
 			config ec.EnterpriseConfig
@@ -394,7 +394,8 @@ func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string) 
 	if err != nil {
 		return errors.Errorf("could not get pachd deployment: %v", err)
 	}
-	// updating the spec rolls the deployment
+	// Updating the spec rolls the deployment, killing each pod and causing
+	// a new one to start.
 	d.Spec.Template.Annotations["kubectl.kubrnetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
 		return errors.Errorf("could not update pachd deployment: %v", err)
@@ -425,13 +426,10 @@ func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace s
 }
 
 func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *ec.UnpauseResponse, retErr error) {
-	if req.Namespace == "" {
-		req.Namespace = "default"
-	}
-	if err := a.setPauseState(ctx, req.Namespace, false); err != nil {
+	if err := a.setPauseState(ctx, false); err != nil {
 		return nil, err
 	}
-	if err := rollPachd(ctx, a.env.GetKubeClient(), req.Namespace); err != nil {
+	if err := rollPachd(ctx, a.env.GetKubeClient(), a.env.Namespace); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 

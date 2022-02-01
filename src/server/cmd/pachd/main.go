@@ -659,6 +659,15 @@ func doFullMode(config interface{}) (retErr error) {
 			if isPaused, err = e.IsPaused(ctx); err != nil {
 				return err
 			}
+			if isPaused {
+				log.Println("cluster is paused")
+				// When paused, stop any running workers and return.
+				// Stop workers because unpaused pachds in the process
+				// of rolling may have started them back up.
+				if err := e.StopWorkers(ctx); err != nil {
+					return err
+				}
+			}
 			return nil
 		}); err != nil {
 			return err
@@ -684,6 +693,8 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if !isPaused {
+			log.Println("cluster is not paused")
+			// when not paused, start up all APIs
 			if err := logGRPCServerSetup("Identity API", func() error {
 				idAPIServer := identity_server.NewIdentityServer(
 					identity_server.EnvFromServiceEnv(env),

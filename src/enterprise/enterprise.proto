@@ -103,14 +103,10 @@ message PauseRequest{
 }
 message PauseResponse{}
 
-message UnpauseRequest{
-  string namespace = 1;
-}
+message UnpauseRequest{}
 message UnpauseResponse{}
 
-message PauseRecord {
-  bool isPaused = 1;
-}
+message PauseRecord {}
 
 service API {
   // Provide a Pachyderm enterprise token, enabling Pachyderm enterprise
