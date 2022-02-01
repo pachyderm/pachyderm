@@ -686,7 +686,7 @@ func (step *pcStep) getRC(ctx context.Context, expectation rcExpectation) (retEr
 			ctx,
 			metav1.ListOptions{LabelSelector: selector})
 		if err != nil && !errutil.IsNotFoundError(err) {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if len(rcs.Items) == 0 {
 			step.rc = nil

@@ -219,7 +219,7 @@ func TestHeartbeatDeleted(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if resp.State != enterprise.State_HEARTBEAT_FAILED {
 			return errors.Errorf("expected enterprise state to be HEARTBEAT_FAILED but was %v", resp.State)
@@ -242,7 +242,7 @@ func TestHeartbeatDeleted(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if resp.State != enterprise.State_ACTIVE {
 			return errors.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
@@ -264,7 +264,7 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 
 	etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &enterprise.EnterpriseConfig{}, nil, nil)
 	_, err := col.NewSTM(context.Background(), etcd, func(stm col.STM) error {
-		return etcdConfigCol.ReadWrite(stm).Put("config", config)
+		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Put("config", config))
 	})
 	require.NoError(t, err)
 

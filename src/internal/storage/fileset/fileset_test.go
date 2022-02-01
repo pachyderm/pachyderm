@@ -47,7 +47,7 @@ func checkFile(t *testing.T, f File, tf *testFile) {
 	r, w := io.Pipe()
 	eg := errgroup.Group{}
 	eg.Go(func() error {
-		return f.Content(context.Background(), w)
+		return errors.EnsureStack(f.Content(context.Background(), w))
 	})
 	eg.Go(func() (retErr error) {
 		defer func() {
@@ -58,9 +58,9 @@ func checkFile(t *testing.T, f File, tf *testFile) {
 		actual := make([]byte, len(tf.data))
 		_, err := io.ReadFull(r, actual)
 		if err != nil && err != io.EOF {
-			return err
+			return errors.EnsureStack(err)
 		}
-		return r.Close()
+		return errors.EnsureStack(r.Close())
 	})
 	require.NoError(t, eg.Wait())
 }
@@ -226,7 +226,7 @@ func TestStableHash(t *testing.T) {
 			found = true
 			var err error
 			hash, err = f.Hash(ctx)
-			return err
+			return errors.EnsureStack(err)
 		}), msg)
 		if !found {
 			t.Fatal("file not found")

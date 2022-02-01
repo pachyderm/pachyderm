@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -73,7 +74,7 @@ func (t *JobStopper) Run() error {
 			if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ppsdb.JobsJobSetIndex, commitset.ID, jobInfo, col.DefaultOptions(), func(string) error {
 				return t.a.stopJob(t.txnCtx, jobInfo.Job, "output commit removed")
 			}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 	}
@@ -112,7 +113,7 @@ func (jf *JobFinisher) Run() error {
 				if col.IsErrNotFound(err) {
 					continue
 				}
-				return err
+				return errors.EnsureStack(err)
 			}
 			if jobInfo.State != pps.JobState_JOB_FINISHING {
 				return nil

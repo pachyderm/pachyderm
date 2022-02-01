@@ -6,6 +6,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 )
 
@@ -31,7 +32,8 @@ func EncodeHash(bytes []byte) string {
 
 // DecodeHash decodes a hash into bytes.
 func DecodeHash(hash string) ([]byte, error) {
-	return hex.DecodeString(hash)
+	res, err := hex.DecodeString(hash)
+	return res, errors.EnsureStack(err)
 }
 
 func (r *Repo) String() string {

@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"golang.org/x/net/context"
@@ -31,25 +32,27 @@ func (d *Differ) Iterate(ctx context.Context, cb func(aFi, bFi *pfs.FileInfo) er
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		defer close(aInfos)
-		return d.a.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+		err := d.a.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return errors.EnsureStack(ctx.Err())
 			case aInfos <- fi:
 				return nil
 			}
 		})
+		return errors.EnsureStack(err)
 	})
 	eg.Go(func() error {
 		defer close(bInfos)
-		return d.b.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+		err := d.b.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return errors.EnsureStack(ctx.Err())
 			case bInfos <- fi:
 				return nil
 			}
 		})
+		return errors.EnsureStack(err)
 	})
 	eg.Go(func() error {
 		aFi, aOpen := <-aInfos
@@ -88,7 +91,7 @@ func (d *Differ) Iterate(ctx context.Context, cb func(aFi, bFi *pfs.FileInfo) er
 		}
 		return nil
 	})
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }
 
 func equalFileInfos(aFi, bFi *pfs.FileInfo) bool {

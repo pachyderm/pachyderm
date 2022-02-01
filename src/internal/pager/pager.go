@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"golang.org/x/sync/errgroup"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 var (
@@ -22,7 +24,7 @@ func Page(noop bool, out io.Writer, run func(out io.Writer) error) error {
 	var eg errgroup.Group
 	r, w := io.Pipe()
 	eg.Go(func() error {
-		return w.CloseWithError(run(w))
+		return errors.EnsureStack(w.CloseWithError(run(w)))
 	})
 	eg.Go(func() error {
 		pager := strings.Fields(os.Getenv("PAGER"))
@@ -33,7 +35,7 @@ func Page(noop bool, out io.Writer, run func(out io.Writer) error) error {
 		cmd.Stdin = r
 		cmd.Stdout = out
 		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		return errors.EnsureStack(cmd.Run())
 	})
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }

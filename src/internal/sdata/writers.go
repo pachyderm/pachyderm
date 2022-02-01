@@ -65,7 +65,7 @@ func (m *CSVWriter) WriteTuple(row Tuple) error {
 	record := m.record
 	if len(m.headers) > 0 && !m.headersWritten {
 		if err := m.cw.Write(m.headers); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		m.headersWritten = true
 	}
@@ -76,7 +76,7 @@ func (m *CSVWriter) WriteTuple(row Tuple) error {
 			return err
 		}
 	}
-	return m.cw.Write(record)
+	return errors.EnsureStack(m.cw.Write(record))
 }
 
 func (m *CSVWriter) format(x interface{}) (string, error) {
@@ -145,7 +145,7 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 
 func (m *CSVWriter) Flush() error {
 	m.cw.Flush()
-	return m.cw.Error()
+	return errors.EnsureStack(m.cw.Error())
 }
 
 // JSONWriter writes tuples as newline separated json objects.
@@ -217,9 +217,9 @@ func (m *JSONWriter) WriteTuple(row Tuple) error {
 		}
 		record[m.fields[i]] = y
 	}
-	return m.enc.Encode(record)
+	return errors.EnsureStack(m.enc.Encode(record))
 }
 
 func (m *JSONWriter) Flush() error {
-	return m.bufw.Flush()
+	return errors.EnsureStack(m.bufw.Flush())
 }

@@ -68,7 +68,7 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer,
 			return err
 		}
 		if err := d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return d.finishCommit(txnCtx, commit, "", "", false)
 	})
@@ -89,7 +89,7 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset
 	if err != nil {
 		return err
 	}
-	return d.commitStore.AddFileSet(ctx, commit, *id)
+	return errors.EnsureStack(d.commitStore.AddFileSet(ctx, commit, *id))
 }
 
 func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
@@ -124,7 +124,7 @@ func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit, opts ...ind
 		return &pfs.CommitInfo{Commit: commit}, fs, nil
 	}
 	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
-		return nil, nil, err
+		return nil, nil, errors.EnsureStack(err)
 	}
 	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 	if err != nil {
@@ -225,7 +225,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 		}
 		return nil
 	}); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return ret, nil
 }
@@ -253,12 +253,13 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 		}),
 	}
 	s := NewSource(commitInfo, fs, opts...)
-	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+	err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if pathIsChild(name, cleanPath(fi.File.Path)) {
 			return cb(fi)
 		}
 		return nil
 	})
+	return errors.EnsureStack(err)
 }
 
 func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.FileInfo) error) (retErr error) {
@@ -306,12 +307,13 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, 
 		}),
 	}
 	s := NewSource(commitInfo, fs, opts...)
-	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+	err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if mf(fi.File.Path) {
 			return cb(fi)
 		}
 		return nil
 	})
+	return errors.EnsureStack(err)
 }
 
 func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb func(oldFi, newFi *pfs.FileInfo) error) error {
@@ -332,12 +334,12 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
 		if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, oldFile.Commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
 		if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, newFile.Commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	newCommitInfo, err := d.inspectCommit(ctx, newFile.Commit, pfs.CommitState_STARTED)
@@ -418,7 +420,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 			if errors.Is(err, errNoTotalFileSet) {
 				return d.storage.Compose(ctx, nil, defaultTTL)
 			}
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		return id, nil
 	}
@@ -443,7 +445,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	}
 	id, err := d.commitStore.GetDiffFileSet(ctx, commitInfo.Commit)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	ids = append(ids, *id)
 	return d.storage.Compose(ctx, ids, defaultTTL)
@@ -458,7 +460,7 @@ func (d *driver) addFileSet(txnCtx *txncontext.TransactionContext, commit *pfs.C
 	if commitInfo.Finishing != nil {
 		return pfsserver.ErrCommitFinished{Commit: commitInfo.Commit}
 	}
-	return d.commitStore.AddFileSetTx(txnCtx.SqlTx, commitInfo.Commit, filesetID)
+	return errors.EnsureStack(d.commitStore.AddFileSetTx(txnCtx.SqlTx, commitInfo.Commit, filesetID))
 }
 
 func (d *driver) renewFileSet(ctx context.Context, id fileset.ID, ttl time.Duration) error {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -49,9 +50,9 @@ Requests:
 {{transactionRequests .Requests .Responses}}
 `)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return template.Execute(os.Stdout, info)
+	return errors.EnsureStack(template.Execute(os.Stdout, info))
 }
 
 func sprintCreateRepo(request *pfs.CreateRepoRequest) string {

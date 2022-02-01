@@ -18,7 +18,7 @@ for file in $(git status --porcelain | grep '^??' | sed 's/^?? //'); do
   skip_paths+=( -o -path "${file%/}" )
 done
 
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.40.1
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.42.1
 ./bin/golangci-lint run --timeout 10m
 
 # shellcheck disable=SC2046

@@ -167,7 +167,7 @@ func (c *amazonClient) Put(ctx context.Context, name string, r io.Reader) (retEr
 		Key:             aws.String(name),
 		ContentEncoding: aws.String("application/octet-stream"),
 	})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (c *amazonClient) Walk(ctx context.Context, name string, fn func(name string) error) (retErr error) {
@@ -192,7 +192,7 @@ func (c *amazonClient) Walk(ctx context.Context, name string, fn func(name strin
 			return true
 		},
 	); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return fnErr
 }
@@ -208,13 +208,13 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 		if c.cloudfrontURLSigner != nil {
 			signedURL, err := c.cloudfrontURLSigner.Sign(url, time.Now().Add(1*time.Hour))
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			url = strings.TrimSpace(signedURL)
 		}
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		backoff.RetryNotify(func() (retErr error) {
@@ -224,7 +224,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 			}()
 			resp, connErr = http.DefaultClient.Do(req)
 			if connErr != nil && errutil.IsNetRetryable(connErr) {
-				return connErr
+				return errors.EnsureStack(connErr)
 			}
 			return nil
 		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
@@ -232,7 +232,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 			return nil
 		})
 		if connErr != nil {
-			return connErr
+			return errors.EnsureStack(connErr)
 		}
 		if resp.StatusCode >= 300 {
 			// Cloudfront returns 200s, and 206s as success codes
@@ -246,7 +246,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 		}
 		getObjectOutput, err := c.s3.GetObjectWithContext(ctx, objIn)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		reader = getObjectOutput.Body
 	}
@@ -256,7 +256,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 		}
 	}()
 	_, err := io.Copy(w, reader)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (c *amazonClient) Delete(ctx context.Context, name string) (retErr error) {
@@ -265,7 +265,7 @@ func (c *amazonClient) Delete(ctx context.Context, name string) (retErr error) {
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
 	})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (c *amazonClient) Exists(ctx context.Context, name string) (bool, error) {

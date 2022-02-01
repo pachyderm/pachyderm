@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/spf13/pflag"
 )
@@ -60,7 +61,7 @@ func readLine(r io.Reader) (string, error) {
 	for string(buf) != "\n" {
 		_, err := r.Read(buf)
 		if err != nil {
-			return "", err
+			return "", errors.EnsureStack(err)
 		}
 		result += string(buf)
 	}

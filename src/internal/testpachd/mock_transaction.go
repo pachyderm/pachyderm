@@ -1,8 +1,7 @@
 package testpachd
 
 import (
-	"fmt"
-
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -136,28 +135,28 @@ func (api *ppsTransactionAPI) StopJobInTransaction(txnCtx *txncontext.Transactio
 	if api.mock.StopJobInTransaction.handler != nil {
 		return api.mock.StopJobInTransaction.handler(txnCtx, req)
 	}
-	return fmt.Errorf("unhandled pachd mock: pps.StopJobInTransaction")
+	return errors.Errorf("unhandled pachd mock: pps.StopJobInTransaction")
 }
 
 func (api *ppsTransactionAPI) UpdateJobStateInTransaction(txnCtx *txncontext.TransactionContext, req *pps.UpdateJobStateRequest) error {
 	if api.mock.UpdateJobStateInTransaction.handler != nil {
 		return api.mock.UpdateJobStateInTransaction.handler(txnCtx, req)
 	}
-	return fmt.Errorf("unhandled pachd mock: pps.UpdateJobStateInTransaction")
+	return errors.Errorf("unhandled pachd mock: pps.UpdateJobStateInTransaction")
 }
 
 func (api *ppsTransactionAPI) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineRequest) error {
 	if api.mock.CreatePipelineInTransaction.handler != nil {
 		return api.mock.CreatePipelineInTransaction.handler(txnCtx, req)
 	}
-	return fmt.Errorf("unhandled pachd mock: pps.CreatePipelineInTransaction")
+	return errors.Errorf("unhandled pachd mock: pps.CreatePipelineInTransaction")
 }
 
 func (api *ppsTransactionAPI) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, pipeline string) (*pps.PipelineInfo, error) {
 	if api.mock.InspectPipelineInTransaction.handler != nil {
 		return api.mock.InspectPipelineInTransaction.handler(txnCtx, pipeline)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock: pps.InspectPipelineInTransaction")
+	return nil, errors.Errorf("unhandled pachd mock: pps.InspectPipelineInTransaction")
 }
 
 // NewMockPPSTransactionServer instantiates a MockPPSTransactionServer

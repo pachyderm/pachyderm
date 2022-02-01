@@ -16,6 +16,7 @@ import (
 
 	minio "github.com/minio/minio-go/v6"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -24,12 +25,12 @@ func getObject(t *testing.T, minioClient *minio.Client, bucket, file string) (st
 
 	obj, err := minioClient.GetObject(bucket, file, minio.GetObjectOptions{})
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	defer func() { err = obj.Close() }()
 	bytes, err := ioutil.ReadAll(obj)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	return string(bytes), err
 }

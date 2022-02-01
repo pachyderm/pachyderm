@@ -32,7 +32,7 @@ func (e ErrNotExist) GRPCStatus() *status.Status {
 
 func IsNotExist(err error) bool {
 	target := ErrNotExist{}
-	return errors.As(err, &target) || os.IsNotExist(err)
+	return errors.As(err, &target) || os.IsNotExist(err) || os.IsNotExist(errors.Unwrap(err))
 }
 
 type ErrExists struct {

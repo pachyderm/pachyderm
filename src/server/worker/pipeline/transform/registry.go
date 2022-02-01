@@ -58,7 +58,7 @@ func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, err
 	// Determine the maximum number of concurrent tasks we will allow
 	concurrency, err := driver.ExpectedNumWorkers()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &registry{
 		driver:      driver,
@@ -90,7 +90,7 @@ func (reg *registry) killJob(pj *pendingJob, reason string) error {
 			Reason: reason,
 		},
 	)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
@@ -123,7 +123,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 	if err := pj.logger.LogStep("waiting for job inputs", func() error {
 		return reg.processJobStarting(pj)
 	}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if err := pj.load(); err != nil {
 		return err
@@ -133,11 +133,11 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 	if pj.ji.Details.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(pj.ji.Started)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		timeout, err := types.DurationFromProto(pj.ji.Details.JobTimeout)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		afterTime = time.Until(startTime.Add(timeout))
 	}
@@ -169,7 +169,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 				}
 				return err
 			})
-			return eg.Wait()
+			return errors.EnsureStack(eg.Wait())
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			pj.logger.Logf("error processing job: %v, retrying in %v", err, d)
 			for err != nil {
@@ -219,15 +219,15 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 				// Delete the job if no other worker has deleted it yet
 				jobInfo := &pps.JobInfo{}
 				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobInfo); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
-				return pj.driver.DeleteJob(sqlTx, jobInfo)
+				return errors.EnsureStack(pj.driver.DeleteJob(sqlTx, jobInfo))
 			}); err != nil && !col.IsErrNotFound(err) {
-				return err
+				return errors.EnsureStack(err)
 			}
 			return nil
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 	return nil
 
@@ -242,13 +242,13 @@ func (reg *registry) processJob(pj *pendingJob) error {
 	case pps.JobState_JOB_STARTING:
 		return errors.New("job should have been moved out of the STARTING state before processJob")
 	case pps.JobState_JOB_RUNNING:
-		return pj.logger.LogStep("processing job running", func() error {
+		return errors.EnsureStack(pj.logger.LogStep("processing job running", func() error {
 			return reg.processJobRunning(pj)
-		})
+		}))
 	case pps.JobState_JOB_EGRESSING:
-		return pj.logger.LogStep("processing job egressing", func() error {
+		return errors.EnsureStack(pj.logger.LogStep("processing job egressing", func() error {
 			return reg.processJobEgressing(pj)
-		})
+		}))
 	}
 	panic(fmt.Sprintf("unrecognized job state: %s", state))
 }
@@ -307,7 +307,7 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 		numDatums++
 		return nil
 	}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	// Set up the datum set spec for the job.
 	// When the datum set spec is not set, evenly distribute the datums.
@@ -345,15 +345,15 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 				select {
 				case inputChan <- input:
 				case <-ctx.Done():
-					return ctx.Err()
+					return errors.EnsureStack(ctx.Err())
 				}
 				return nil
 			})
 		})
 		// Setup goroutine for running and collecting datum set subtasks.
 		eg.Go(func() error {
-			return pj.logger.LogStep("running and collecting datum set subtasks", func() error {
-				return taskDoer.Do(
+			err := pj.logger.LogStep("running and collecting datum set subtasks", func() error {
+				err := taskDoer.Do(
 					ctx,
 					inputChan,
 					func(_ int64, output *types.Any, err error) error {
@@ -389,9 +389,11 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 						return pj.writeJobInfo()
 					},
 				)
+				return errors.EnsureStack(err)
 			})
+			return errors.EnsureStack(err)
 		})
-		return eg.Wait()
+		return errors.EnsureStack(eg.Wait())
 	}); err != nil {
 		return err
 	}
@@ -426,7 +428,7 @@ func createDatumSetTask(pachClient *client.APIClient, pj *pendingJob, upload fun
 func serializeDatumSet(data *DatumSet) (*types.Any, error) {
 	serialized, err := types.MarshalAny(data)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return serialized, nil
 }
@@ -434,7 +436,7 @@ func serializeDatumSet(data *DatumSet) (*types.Any, error) {
 func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
 	data := &DatumSet{}
 	if err := types.UnmarshalAny(any, data); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return data, nil
 }

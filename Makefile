@@ -118,11 +118,13 @@ docker-tag:
 	docker tag pachyderm/pachd pachyderm/pachd:$(VERSION)
 	docker tag pachyderm/worker pachyderm/worker:$(VERSION)
 	docker tag pachyderm/pachctl pachyderm/pachctl:$(VERSION)
+	docker tag pachyderm/pachtf pachyderm/pachtf:$(VERSION)
 
 docker-push: docker-tag
 	$(SKIP) docker push pachyderm/pachd:$(VERSION)
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
+	$(SKIP) docker push pachyderm/pachtf:$(VERSION)
 
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.5.1
@@ -329,10 +331,10 @@ launch-stats:
 	kubectl apply --filename etc/kubernetes-prometheus -R
 
 launch-loki:
-	helm repo remove loki || true
-	helm repo add loki https://grafana.github.io/loki/charts
+	helm repo remove grafana || true
+	helm repo add grafana https://grafana.github.io/helm-charts
 	helm repo update
-	helm upgrade --install loki loki/loki-stack
+	helm upgrade --install loki grafana/loki-stack
 	kubectl wait --for=condition=ready pod -l release=loki --timeout=5m
 
 clean-launch-loki:

@@ -257,7 +257,7 @@ func DeactivateCmd() *cobra.Command {
 				"(ACLs, tokens, and admins) in this cluster, and expose ALL data? yN")
 			confirm, err := bufio.NewReader(os.Stdin).ReadString('\n')
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if !strings.Contains("yY", confirm[:1]) {
 				return errors.Errorf("operation aborted")
@@ -327,7 +327,7 @@ func LoginCmd() *cobra.Command {
 							fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state)))
 					}
 				} else {
-					return fmt.Errorf("no authentication providers are configured")
+					return errors.Errorf("no authentication providers are configured")
 				}
 			}
 			if authErr != nil {
@@ -750,7 +750,7 @@ func RolesForPermissionCmd() *cobra.Command {
 
 			permission, ok := auth.Permission_value[strings.ToUpper(args[0])]
 			if !ok {
-				return fmt.Errorf("unknown permission %q", args[0])
+				return errors.Errorf("unknown permission %q", args[0])
 			}
 
 			resp, err := c.GetRolesForPermission(c.Ctx(), &auth.GetRolesForPermissionRequest{Permission: auth.Permission(permission)})

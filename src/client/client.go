@@ -1,3 +1,4 @@
+//nolint:wrapcheck
 package client
 
 import (
@@ -27,7 +28,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -113,10 +113,6 @@ type APIClient struct {
 	// healthClient is a cached healthcheck client connected to 'addr'
 	healthClient grpc_health_v1.HealthClient
 
-	// streamSemaphore limits the number of concurrent message streams between
-	// this client and pachd
-	limiter limit.ConcurrencyLimiter
-
 	// metricsUserID is an identifier that is included in usage metrics sent to
 	// Pachyderm Inc. and is used to count the number of unique Pachyderm users.
 	// If unset, no usage metrics are sent back to Pachyderm Inc.
@@ -201,7 +197,6 @@ func NewFromPachdAddress(pachdAddress *grpcutil.PachdAddress, options ...Option)
 	c := &APIClient{
 		addr:         pachdAddress,
 		caCerts:      settings.caCerts,
-		limiter:      limit.New(settings.maxConcurrentStreams),
 		gzipCompress: settings.gzipCompress,
 	}
 	if err := c.connect(settings.dialTimeout, settings.unaryInterceptors, settings.streamInterceptors); err != nil {
@@ -599,7 +594,7 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	clusterInfo, err := client.InspectCluster()
 	if err != nil {
 		if strings.Contains("unknown service admin_v2.API", err.Error()) {
-			return nil, fmt.Errorf("this client is for pachyderm 2.x, but the server has a different version - please install the correct client for your server")
+			return nil, errors.Errorf("this client is for pachyderm 2.x, but the server has a different version - please install the correct client for your server")
 
 		}
 		return nil, errors.Wrap(err, "could not get cluster ID")
@@ -752,13 +747,6 @@ func (c APIClient) DeleteAllEnterprise() error {
 		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
-}
-
-// SetMaxConcurrentStreams Sets the maximum number of concurrent streams the
-// client can have. It is not safe to call this operations while operations are
-// outstanding.
-func (c APIClient) SetMaxConcurrentStreams(n int) {
-	c.limiter = limit.New(n)
 }
 
 // DefaultDialOptions is a helper returning a slice of grpc.Dial options

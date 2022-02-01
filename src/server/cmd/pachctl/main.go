@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/cmd"
 	"github.com/spf13/pflag"
@@ -17,7 +18,7 @@ func main() {
 	tracing.InstallJaegerTracerFromEnv()
 	err := func() error {
 		defer tracing.CloseAndReportTraces()
-		return cmd.PachctlCmd().Execute()
+		return errors.EnsureStack(cmd.PachctlCmd().Execute())
 	}()
 	if err != nil {
 		if errString := strings.TrimSpace(err.Error()); errString != "" {
