@@ -953,15 +953,8 @@ func (a *apiServer) GetRoleBinding(ctx context.Context, req *auth.GetRoleBinding
 
 // GetRobotToken implements the protobuf auth.GetRobotToken RPC
 func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRequest) (resp *auth.GetRobotTokenResponse, retErr error) {
-	removeSecret := func(r *auth.GetRobotTokenResponse) *auth.GetRobotTokenResponse {
-		if r == nil {
-			return nil
-		}
-		copyResp := proto.Clone(r).(*auth.GetRobotTokenResponse)
-		return copyResp
-	}
 	a.LogReq(ctx, req)
-	defer func(start time.Time) { a.LogResp(ctx, req, removeSecret(resp), retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(ctx, req, nil, retErr, time.Since(start)) }(time.Now())
 
 	// If the user specified a redundant robot: prefix, strip it. Colons are not permitted in robot names.
 	subject := strings.TrimPrefix(req.Robot, auth.RobotPrefix)
