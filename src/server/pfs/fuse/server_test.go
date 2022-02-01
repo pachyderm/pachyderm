@@ -13,12 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
@@ -263,6 +265,41 @@ func testConfigHelper(t *testing.T, pachdAddressStr string) *os.File {
 	require.NoError(t, err)
 	require.NoError(t, cfgFile.Close())
 	return cfgFile
+}
+
+// Need (1) ENT_ACT_CODE env var set to an enterprise token
+// and (2) auth to be initially deactivated for this test to work
+func TestAuthLoginLogout(t *testing.T) {
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	// Auth is activated in this step
+	tu.ConfigureOIDCProvider(t)
+	c := tu.GetUnauthenticatedPachClient(t)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		authResp, err := put("auth/_login", nil)
+		require.NoError(t, err)
+		defer authResp.Body.Close()
+
+		type AuthLoginResp struct {
+			AuthUrl string `json:"auth_url"`
+		}
+		getAuthLogin := &AuthLoginResp{}
+		json.NewDecoder(authResp.Body).Decode(getAuthLogin)
+
+		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
+		time.Sleep(1 * time.Second)
+
+		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		require.NoError(t, err)
+
+		_, err = put("auth/_logout", nil)
+		require.NoError(t, err)
+
+		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		require.ErrorIs(t, err, auth.ErrNotSignedIn)
+	})
 }
 
 // TODO: pass reference to the MountManager object to the test func, so that the

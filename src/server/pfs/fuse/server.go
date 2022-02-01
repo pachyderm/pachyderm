@@ -20,6 +20,7 @@ import (
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/sirupsen/logrus"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -114,6 +115,17 @@ Config(pachd_address)
 Update the Go client and config to point at the new pachd_address endpoint
 if it's valid. Returns the cluster status and endpoint of the cluster at
 "pachd_address".
+
+
+AuthLogin()
+-----------
+Login to auth service if auth is activated.
+
+
+AuthLogout()
+------------
+Logout of auth service.
+
 
 Plan
 ====
@@ -482,6 +494,58 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			return
 		}
 		w.Write(marshalled)
+	})
+	router.Methods("PUT").Path("/auth/_login").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		authActive, err := mm.Client.IsAuthActive()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !authActive {
+			http.Error(w, "Auth isn't activated on the cluster", http.StatusInternalServerError)
+			return
+		}
+
+		loginInfo, err := mm.Client.GetOIDCLogin(mm.Client.Ctx(), &auth.GetOIDCLoginRequest{})
+		if err != nil {
+			http.Error(w, "No authentication providers configured", http.StatusInternalServerError)
+			return
+		}
+		authUrl := loginInfo.LoginURL
+		state := loginInfo.State
+
+		r := map[string]string{"auth_url": authUrl}
+		marshalled, err := jsonMarshal(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
+
+		go func() {
+			resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			config.WritePachTokenToConfig(resp.PachToken, false)
+			mm.Client.SetAuthToken(resp.PachToken)
+		}()
+	})
+	router.Methods("PUT").Path("/auth/_logout").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		cfg, err := config.Read(false, false)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		_, context, err := cfg.ActiveContext(true)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		context.SessionToken = ""
+		cfg.Write()
+		mm.Client.SetAuthToken("")
 	})
 	// TODO: implement _commit
 
