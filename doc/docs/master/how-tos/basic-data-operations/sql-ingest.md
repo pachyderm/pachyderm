@@ -10,7 +10,7 @@ Specifically, we help you connect to a remote database of your choice and pull t
 ## Use SQL Ingest
 Pachyderm's SQL Ingest uses [pipeline templates](../../pipeline-operations/pipeline-templates) populated with the following parameters to automatically create the pipelines that access, query, and materialize the results in the form of CSV or JSON files.
 
-Pass in the following parameters and get your results committed to an output commit, ready for the following downstream pipeline:
+Pass in the following parameters and get your results committed to an output repo, ready for the following downstream pipeline:
 ```shell
 pachctl update pipeline --jsonnet ./src/templates/sql_ingest_cron.jsonnet
   --arg name=myingest
