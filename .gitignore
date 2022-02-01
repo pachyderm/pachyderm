@@ -60,3 +60,6 @@ __pycache__
 
 # local env vars
 /.envrc
+
+# Dev files
+.vscode/

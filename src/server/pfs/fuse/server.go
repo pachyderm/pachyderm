@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,15 +11,19 @@ import (
 	"os/signal"
 	pathpkg "path"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 
 	"github.com/gorilla/mux"
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
@@ -98,6 +103,17 @@ Persist the current state of the given mount to a new commit in Pachyderm.
 CommitBranch is not supported on repo-branch-commit mounts (as they are not
 writeable?)
 
+
+Config()
+--------
+Returns the current cluster status and endpoint.
+
+
+Config(pachd_address)
+---------------------
+Update the Go client and config to point at the new pachd_address endpoint
+if it's valid. Returns the cluster status and endpoint of the cluster at
+"pachd_address".
 
 Plan
 ====
@@ -429,6 +445,44 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			return
 		}
 	})
+	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		r, err := getClusterStatus(mm.Client)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		marshalled, err := jsonMarshal(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
+	})
+	router.Methods("PUT").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		type ConfigRequest struct {
+			PachdAddress string `json:"pachd_address"`
+		}
+
+		var cfgReq ConfigRequest
+		err := json.NewDecoder(req.Body).Decode(&cfgReq)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		clusterStatus, err := updateClientEndpoint(cfgReq.PachdAddress, mm.Client)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		marshalled, err := jsonMarshal(clusterStatus)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
+	})
 	// TODO: implement _commit
 
 	// TODO: switch http server for gRPC server and bind to a unix socket not a
@@ -451,6 +505,90 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 	}()
 
 	return srv.ListenAndServe()
+}
+
+func getClusterStatus(c *client.APIClient) (map[string]string, error) {
+	var clusterStatus string
+	err := c.Health()
+	if err != nil {
+		clusterStatus = "INVALID"
+	} else {
+		authActive, err := c.IsAuthActive()
+		if err != nil {
+			return nil, err
+		}
+
+		if authActive {
+			clusterStatus = "AUTH_ENABLED"
+		} else {
+			clusterStatus = "AUTH_DISABLED"
+		}
+	}
+
+	pachdAddress := c.GetAddress().Qualified()
+
+	return map[string]string{"cluster_status": clusterStatus, "pachd_address": pachdAddress}, nil
+}
+
+func updateClientEndpoint(reqPachdAddress string, c *client.APIClient) (map[string]string, error) {
+	cfg, err := config.Read(false, false)
+	if err != nil {
+		return nil, err
+	}
+	contextName, _, err := cfg.ActiveContext(true)
+	if err != nil {
+		return nil, err
+	}
+	pachdAddress, err := grpcutil.ParsePachdAddress(reqPachdAddress)
+	if err != nil {
+		return nil, fmt.Errorf("either empty or poorly formatted cluster endpoint")
+	}
+
+	// Check if same pachd address as current client
+	var clusterStatus map[string]string
+	if reflect.DeepEqual(pachdAddress, c.GetAddress()) {
+		clusterStatus, err = getClusterStatus(c)
+		if err != nil {
+			return nil, err
+		}
+		logrus.Infof("New endpoint is same as current endpoint: %s\n", clusterStatus["pachd_address"])
+	} else {
+		// Check if new cluster endpoint is valid
+		newClient, err := client.NewFromPachdAddress(pachdAddress)
+		if err != nil {
+			clusterStatus = map[string]string{"cluster_status": "INVALID", "pachd_address": pachdAddress.Qualified()}
+		} else {
+			defer newClient.Close()
+			clusterStatus, err = getClusterStatus(newClient)
+			if err != nil {
+				return nil, err
+			}
+			if clusterStatus["cluster_address"] != "INVALID" {
+				logrus.Infof("Updating pachd address from %s to %s\n", c.GetAddress().Qualified(), pachdAddress.Qualified())
+				cfg.V2.Contexts[contextName] = &config.Context{PachdAddress: pachdAddress.Qualified()}
+				err = cfg.Write()
+				if err != nil {
+					return nil, err
+				}
+
+				newClientPtr, err := client.NewOnUserMachine("fuse")
+				if err != nil {
+					return nil, err
+				}
+				*c = *(newClientPtr)
+			}
+		}
+	}
+
+	return clusterStatus, nil
+}
+
+func jsonMarshal(t interface{}) ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(t)
+	return buffer.Bytes(), err
 }
 
 type MountState struct {
