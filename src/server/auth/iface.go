@@ -27,6 +27,7 @@ type APIServer interface {
 	// for specific permissions required to use a repo as a pipeline input/output.
 	AddPipelineReaderToRepoInTransaction(*txncontext.TransactionContext, string, string) error
 	AddPipelineWriterToRepoInTransaction(*txncontext.TransactionContext, string) error
+	AddPipelineWriterToSourceRepoInTransaction(*txncontext.TransactionContext, string, string) error
 	RemovePipelineReaderFromRepoInTransaction(*txncontext.TransactionContext, string, string) error
 
 	// Create and Delete are internal-only APIs used by other services when creating/destroying resources.
