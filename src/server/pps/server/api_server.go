@@ -1697,7 +1697,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 
 	for repo := range addWrite {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a writer on the input repo
-		if err := a.env.AuthServer.AddPipelineWriterToSourceRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
+		if err := a.env.AuthServer().AddPipelineWriterToSourceRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
