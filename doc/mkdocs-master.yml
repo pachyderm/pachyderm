@@ -1,7 +1,7 @@
 site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
 site_author: Pachyderm
-site_url: https://docs.pachyderm.com/2.0.x/
+site_url: https://docs.pachyderm.com/2.1.x/
 docs_dir: docs/master/
 site_dir: site/master/
 
@@ -13,10 +13,10 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '2.0.6'
-pach_latest_version: '2.0.6'
-pach_major_minor_version: '2.0'
-search_index_version: '2.0.x'
+pach_featured_version: '2.1.0'
+pach_latest_version: '2.1.0'
+pach_major_minor_version: '2.1'
+search_index_version: 'master'
 
 # Configuration
 theme:
