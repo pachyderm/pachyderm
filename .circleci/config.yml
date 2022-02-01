@@ -173,7 +173,7 @@ jobs:
   build-pachctl:
     resource_class: large
     docker:
-      image: cimg/go:1.17.6
+      - image: cimg/go:1.17.6
     steps:
       - checkout
       - run:
