@@ -12,7 +12,7 @@ Pachyderm's SQL Ingest uses [pipeline templates](../../pipeline-operations/pipel
 
 Pass in the following parameters and get your results committed to an output repo, ready for the following downstream pipeline:
 ```shell
-pachctl update pipeline --jsonnet ./src/templates/sql_ingest_cron.jsonnet
+pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.search_index_version }}/src/templates/sql_ingest_cron.jsonnet 
   --arg name=myingest
   --arg url="mysql://root@mysql:3306/test_db"
   --arg query="SELECT * FROM test_data"
