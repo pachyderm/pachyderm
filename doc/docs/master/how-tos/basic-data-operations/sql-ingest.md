@@ -36,7 +36,7 @@ Where the parameters passed to the template are:
     `pachctl update pipeline` will create pipelines if none exist or update otherwise.
 
 
-The database will be queried on a schedule defined in your `cronSpec` parameter and a result file committed to the `name` output repo when the pipeline template command is run.
+When the pipeline template command is run, the database will be queried on a schedule defined in your `cronSpec` parameter and a result file committed to the output repo named after `name`.
 
 ### Database Secret
 Before you create your SQL Ingest pipelines, make sure to create a [generic secret](../advanced-data-operations/secrets/#create-a-secret) containing your database password in the field `PACHYDERM_SQL_PASSWORD`.
@@ -87,7 +87,7 @@ SQL Ingest's pipeline template [**`sql_ingest_cron.jsonnet`**](https://github.co
 
 The same base image [pachctf](https://hub.docker.com/repository/docker/pachyderm/pachtf) is used in both pipelines.
 
-Find a visualization of the SQL Ingest DAG in Console: 
+Check the visual representation of the SQL Ingest DAG created above in Console: 
 
 ![SQL Ingest DAG](../images/sqlingest-pipelines.png)
 
@@ -95,7 +95,7 @@ In your terminal:
 
 - The list of the DAG's pipelines (`pachctl list pipeline`) looks like this:
 
-     ![List pipelines](../images/sqlingest-list-pipeline.png)
+     ![List pipeline](../images/sqlingest-list-pipeline.png)
 
 - 3 repos are created:
 
