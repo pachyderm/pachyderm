@@ -183,7 +183,7 @@ jobs:
             wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
-            export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
+            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
       - run:
           name: Make release
           command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
