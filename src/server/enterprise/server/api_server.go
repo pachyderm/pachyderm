@@ -178,6 +178,12 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *ec.HeartbeatRequest) (re
 
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp *ec.ActivateResponse, retErr error) {
+	// must not activate while paused
+	if paused, err := a.env.IsPaused(ctx); err != nil {
+		return nil, errors.Errorf("could not retrieve paused state")
+	} else if paused {
+		return nil, errors.New("cannot activate paused cluster; unpause first")
+	}
 	// Try to heartbeat before persisting the configuration
 	heartbeatResp, err := a.heartbeatToServer(ctx, req.LicenseServer, req.Id, req.Secret)
 	if err != nil {
@@ -297,6 +303,12 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 // Deactivate deletes the current cluster's enterprise token, and puts the
 // cluster in the "NONE" enterprise state.
 func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (resp *ec.DeactivateResponse, retErr error) {
+	// must not deactivate while paused
+	if paused, err := a.env.IsPaused(ctx); err != nil {
+		return nil, errors.Errorf("could not retrieve paused state")
+	} else if paused {
+		return nil, errors.New("cannot deactivate paused cluster; unpause first")
+	}
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(enterpriseTokenKey)
 		if err != nil && !col.IsErrNotFound(err) {
