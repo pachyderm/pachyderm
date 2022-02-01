@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,13 +14,11 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 func put(path string, body io.Reader) (*http.Response, error) {
@@ -167,16 +164,13 @@ func TestBasicServerDifferingNames(t *testing.T) {
 	})
 }
 
-// TODO: Add networking front to real env to support testing cluster endpoint
 func TestConfig(t *testing.T) {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	// TODO: What initial pachd_address here?
-	testCfgFile := testConfigHelper(t, "")
-	defer os.Remove(testCfgFile.Name())
-	os.Setenv("PACH_CONFIG", testCfgFile.Name())
-	defer os.Unsetenv("PACH_CONFIG")
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
 		type Config struct {
 			ClusterStatus string `json:"cluster_status"`
 			PachdAddress  string `json:"pachd_address"`
@@ -202,10 +196,9 @@ func TestConfig(t *testing.T) {
 
 		require.Equal(t, invalidCfg.ClusterStatus, putConfig.ClusterStatus)
 		require.Equal(t, invalidCfgParsedPachdAddress.Qualified(), putConfig.PachdAddress)
-		require.NotEqual(t, invalidCfgParsedPachdAddress.Qualified(), env.PachClient.GetAddress().Qualified())
+		require.NotEqual(t, invalidCfgParsedPachdAddress.Qualified(), c.GetAddress().Qualified())
 
-		// TODO: What to set as cluster?
-		cfg := &Config{ClusterStatus: "AUTH_ENABLED", PachdAddress: ""}
+		cfg := &Config{ClusterStatus: "AUTH_ENABLED", PachdAddress: c.GetAddress().Qualified()}
 		m = map[string]string{"pachd_address": cfg.PachdAddress}
 		b = new(bytes.Buffer)
 		json.NewEncoder(b).Encode(m)
@@ -222,7 +215,7 @@ func TestConfig(t *testing.T) {
 
 		require.Equal(t, cfg.ClusterStatus, putConfig.ClusterStatus)
 		require.Equal(t, cfgParsedPachdAddress.Qualified(), putConfig.PachdAddress)
-		require.Equal(t, cfgParsedPachdAddress.Qualified(), env.PachClient.GetAddress().Qualified())
+		require.Equal(t, cfgParsedPachdAddress.Qualified(), c.GetAddress().Qualified())
 
 		// GET
 		getResp, err := get("config")
@@ -237,38 +230,6 @@ func TestConfig(t *testing.T) {
 	})
 }
 
-func testConfigHelper(t *testing.T, pachdAddressStr string) *os.File {
-	t.Helper()
-
-	cfgFile, err := ioutil.TempFile("", "")
-	require.NoError(t, err)
-
-	pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
-	require.NoError(t, err)
-
-	cfg := &config.Config{
-		UserID: uuid.NewWithoutDashes(),
-		V2: &config.ConfigV2{
-			ActiveContext: "test",
-			Contexts: map[string]*config.Context{
-				"test": &config.Context{
-					PachdAddress: pachdAddress.Qualified(),
-				},
-			},
-			Metrics: false,
-		},
-	}
-
-	j, err := json.Marshal(&cfg)
-	require.NoError(t, err)
-	_, err = cfgFile.Write(j)
-	require.NoError(t, err)
-	require.NoError(t, cfgFile.Close())
-	return cfgFile
-}
-
-// Need (1) ENT_ACT_CODE env var set to an enterprise token
-// and (2) auth to be initially deactivated for this test to work
 func TestAuthLoginLogout(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
