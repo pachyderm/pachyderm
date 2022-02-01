@@ -2,11 +2,10 @@ package datum
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -362,9 +361,9 @@ func validateDI(t testing.TB, di Iterator, want ...string) {
 		got = append(got, computeKey(meta))
 		return nil
 	}))
-	if diff := cmp.Diff(got, want, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
-		t.Errorf("diff datums:\n%s", diff)
-	}
+	sort.Strings(got)
+	sort.Strings(want)
+	require.ElementsEqual(t, want, got)
 }
 
 func computeKey(meta *Meta) string {
