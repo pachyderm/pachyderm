@@ -170,70 +170,90 @@ jobs:
       - run: etc/testing/circle/launch-loki.sh
       - run: etc/testing/circle/build.sh
       - run: etc/testing/circle/upgrade_test.sh
+  build-pachctl:
+    resource_class: large
+    docker:
+      image: cimg/go:1.17.6
+    steps:
+      - checkout
+      - run:
+          name: Download goreleaser
+          command: |
+            mkdir -p /home/circleci/bin
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+            rm -rf goreleaser_Linux_x86_64.tar.gz
+            export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
+      - run:
+          name: Make release
+          command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
+
+
 
 workflows:
   circleci:
     jobs:
-      - circleci:
-          matrix:
-            parameters:
-              bucket:
-              - MISC
-              # If you want to update the number of PPS buckets, you'll neet to
-              # update the value of PPS_BUCKETS above
-              - AUTH
-              - ENTERPRISE
-              - PFS
-              - PPS1
-              - PPS2
-              - PPS3
-              - PPS4
-              - PPS5
-              - PPS6
-              - EXAMPLES
-              - INTERNAL
-  helm:
-    jobs:
-      - helm-build:
-          filters:
-            # Note: Not ignoring branches, so will be run on branches as well as tags
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-      - helm-publish:
-          requires:
-            - helm-build
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-  hub_live_tests:
-    jobs:
-      - hub
-  hub_load_tests:
-    triggers:
-      - schedule:
-          cron: "0 6 * * *"
-          filters:
-            branches:
-              only:
-                - master
-                - 2.0.x
-    jobs:
-      - load:
-          matrix:
-            parameters:
-              bucket:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-                - LOAD5
-                - LOAD6
-                - LOAD7
-                - LOAD8
-                - LOAD9
-                - LOAD10
-  upgrade:
-    jobs:
-    - upgrade
+      - build-pachctl
+  #    - circleci:
+  #        matrix:
+  #          parameters:
+  #            bucket:
+  #            - MISC
+  #            # If you want to update the number of PPS buckets, you'll neet to
+  #            # update the value of PPS_BUCKETS above
+  #            - AUTH
+  #            - ENTERPRISE
+  #            - PFS
+  #            - PPS1
+  #            - PPS2
+  #            - PPS3
+  #            - PPS4
+  #            - PPS5
+  #            - PPS6
+  #            - EXAMPLES
+  #            - INTERNAL
+  #helm:
+  #  jobs:
+  #    - helm-build:
+  #        filters:
+  #          # Note: Not ignoring branches, so will be run on branches as well as tags
+  #          tags:
+  #            only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  #    - helm-publish:
+  #        requires:
+  #          - helm-build
+  #        filters:
+  #          branches:
+  #            ignore: /.*/
+  #          tags:
+  #            only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  #hub_live_tests:
+  #  jobs:
+  #    - hub
+  #hub_load_tests:
+  #  triggers:
+  #    - schedule:
+  #        cron: "0 6 * * *"
+  #        filters:
+  #          branches:
+  #            only:
+  #              - master
+  #              - 2.0.x
+  #  jobs:
+  #    - load:
+  #        matrix:
+  #          parameters:
+  #            bucket:
+  #              - LOAD1
+  #              - LOAD2
+  #              - LOAD3
+  #              - LOAD4
+  #              - LOAD5
+  #              - LOAD6
+  #              - LOAD7
+  #              - LOAD8
+  #              - LOAD9
+  #              - LOAD10
+  #upgrade:
+  #  jobs:
+  #  - upgrade
