@@ -30,6 +30,8 @@ import (
 )
 
 func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
+	t.Skip("TODO: pipeline name parsing problems below")
+
 	// We only support simple pfs input pipelines in this test suite at the moment
 	require.NotNil(t, pipelineInfo.Details.Input)
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
@@ -90,13 +92,14 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 
 	// Put the pipeline info into the collection (which is read by the master)
 	err = env.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
-		pipelineInfo := &pps.PipelineInfo{
+		pi := &pps.PipelineInfo{
 			State:       pps.PipelineState_PIPELINE_STARTING,
 			Version:     1,
 			SpecCommit:  specCommit,
 			Parallelism: 1,
 		}
-		err := env.driver.Pipelines().ReadWrite(sqlTx).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+		pi.Pipeline = pipelineInfo.Pipeline
+		err := env.driver.Pipelines().ReadWrite(sqlTx).Put(pipelineInfo.Pipeline.Name+"@master", pi)
 		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
@@ -257,7 +260,6 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 }
 
 func TestTransformPipeline(suite *testing.T) {
-	suite.Skip("TODO: problem with pipeline ids")
 	suite.Parallel()
 
 	suite.Run("TestJobSuccess", func(t *testing.T) {
@@ -297,7 +299,7 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 	})
 
-	suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
+	suite.Run("TestJobSuccessEgressEpty", func(t *testing.T) {
 		t.Parallel()
 		objC := dockertestenv.NewTestObjClient(t)
 		pi := defaultPipelineInfo()
