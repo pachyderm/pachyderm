@@ -220,6 +220,12 @@
                         }
                     }
                 },
+                "maxTxnOps": {
+                    "type": "integer"
+                },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "podLabels": {
                     "type": "object"
                 },
@@ -253,6 +259,9 @@
                 },
                 "storageSize": {
                     "type": "string"
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },
@@ -486,6 +495,9 @@
                         }
                     }
                 },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "oauthClientID": {
                     "type": "string"
                 },
@@ -514,6 +526,9 @@
                             "type": "boolean"
                         }
                     }
+                },
+                "replicas": {
+                    "type": "integer"
                 },
                 "requireCriticalServersOnly": {
                     "type": "boolean"
@@ -710,6 +725,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "tolerations": {
+                    "type": "array"
                 },
                 "worker": {
                     "type": "object",
