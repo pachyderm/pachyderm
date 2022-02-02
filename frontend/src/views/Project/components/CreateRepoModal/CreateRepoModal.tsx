@@ -1,0 +1,84 @@
+import {Group, Input, Label, TextArea, FormModal} from '@pachyderm/components';
+import React, {FunctionComponent} from 'react';
+
+import useCreateRepoModal from './hooks/useCreateRepoModal';
+
+type ModalProps = {
+  show: boolean;
+  onHide?: () => void;
+};
+
+const CreateRepoModal: FunctionComponent<ModalProps> = ({show, onHide}) => {
+  const {
+    formCtx,
+    error,
+    handleSubmit,
+    isFormComplete,
+    loading,
+    validateRepoName,
+  } = useCreateRepoModal(onHide);
+
+  return (
+    <FormModal
+      onHide={onHide}
+      error={error}
+      updating={loading}
+      formContext={formCtx}
+      onSubmit={handleSubmit}
+      loading={loading}
+      confirmText="Create"
+      headerText="Create New Repo"
+      disabled={!isFormComplete}
+      isOpen={show}
+    >
+      <Group data-testid="CreateRepoModal__modal" vertical spacing={16}>
+        <Group vertical spacing={32}>
+          <div>
+            <Label htmlFor="name" label="Repo Name" maxLength={45} />
+            <Input
+              data-testid="CreateRepoModal__name"
+              type="text"
+              id="name"
+              name="name"
+              validationOptions={{
+                maxLength: {
+                  value: 45,
+                  message: 'Repo name exceeds maximum allowed length',
+                },
+                validate: validateRepoName,
+              }}
+              clearable
+              disabled={loading}
+              autoFocus={true}
+            />
+          </div>
+
+          <div>
+            <Label
+              htmlFor="description"
+              optional
+              label="Description"
+              maxLength={90}
+            />
+            <TextArea
+              data-testid="CreateRepoModal__description"
+              id="description"
+              name="description"
+              validationOptions={{
+                maxLength: {
+                  value: 90,
+                  message: 'Repo description exceeds maximum allowed length',
+                },
+              }}
+              autoExpand
+              clearable
+              disabled={loading}
+            />
+          </div>
+        </Group>
+      </Group>
+    </FormModal>
+  );
+};
+
+export default CreateRepoModal;

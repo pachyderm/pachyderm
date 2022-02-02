@@ -7,7 +7,7 @@ import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import deriveRepoNameFromNode from '@dash-frontend/lib/deriveRepoNameFromNode';
-import {DagDirection, Node} from '@dash-frontend/lib/types';
+import {DagDirection, Node, DagNodes} from '@dash-frontend/lib/types';
 import {
   pipelineRoute,
   repoRoute,
@@ -37,23 +37,29 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const nodes = useMemo(
     () =>
       dags
-        ? dags.reduce<{repos: Node[][]; pipelines: Node[][]}>(
+        ? dags.reduce<{repos: DagNodes[]; pipelines: DagNodes[]}>(
             (acc, nextDag) => {
               return nextDag
                 ? {
                     repos: [
                       ...acc.repos,
-                      nextDag.nodes.filter((node) =>
-                        [NodeType.INPUT_REPO, NodeType.OUTPUT_REPO].includes(
-                          node.type,
+                      {
+                        id: nextDag.id,
+                        nodes: nextDag.nodes.filter((node) =>
+                          [NodeType.INPUT_REPO, NodeType.OUTPUT_REPO].includes(
+                            node.type,
+                          ),
                         ),
-                      ),
+                      },
                     ],
                     pipelines: [
                       ...acc.pipelines,
-                      nextDag.nodes.filter(
-                        (node) => node.type === NodeType.PIPELINE,
-                      ),
+                      {
+                        id: nextDag.id,
+                        nodes: nextDag.nodes.filter(
+                          (node) => node.type === NodeType.PIPELINE,
+                        ),
+                      },
                     ],
                   }
                 : acc;

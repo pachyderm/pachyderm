@@ -133,6 +133,7 @@ const pfs = () => {
             const authRepoInfo = authInfo[repoName];
 
             if (
+              authRepoInfo &&
               !authRepoInfo
                 .getPermissionsList()
                 .includes(Permission.REPO_LIST_COMMIT)

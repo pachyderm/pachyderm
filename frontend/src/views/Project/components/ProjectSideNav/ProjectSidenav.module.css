@@ -5,6 +5,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.buttonLink.light svg{
+  color: var(--pachyderm-plum);
   white-space: nowrap;
 }
 

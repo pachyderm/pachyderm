@@ -74,6 +74,10 @@ export type Dag = {
   id: string;
 };
 
+export type DagNodes = {
+  id: string;
+  nodes: Node[];
+};
 export interface LinkInputData
   extends ElkExtendedEdge,
     Pick<Link, 'state' | 'targetState' | 'sourceState' | 'transferring'> {}

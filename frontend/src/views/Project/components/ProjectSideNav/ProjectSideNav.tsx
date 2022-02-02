@@ -5,7 +5,10 @@ import {
   PipelineSVG,
   JobsSVG,
   ViewListSVG,
+  AddCircleSVG,
+  useModal,
 } from '@pachyderm/components';
+import classnames from 'classnames';
 import React from 'react';
 import {Route} from 'react-router';
 
@@ -18,11 +21,13 @@ import {
 import {MEDIUM} from 'constants/breakpoints';
 
 import {LINEAGE_PATH, PROJECT_PATH} from '../../constants/projectPaths';
+import CreateRepoModal from '../CreateRepoModal';
 
 import {useProjectSideNav} from './hooks/useProjectSideNav';
 import styles from './ProjectSidenav.module.css';
 
 const ProjectSideNav: React.FC = () => {
+  const {openModal, closeModal, isOpen} = useModal(false);
   const {projectId, numOfFailedJobs, handleListDefaultView, jobsLink} =
     useProjectSideNav();
 
@@ -54,8 +59,8 @@ const ProjectSideNav: React.FC = () => {
           </SideNav.SideNavButton>
         </Route>
       </SideNav.SideNavList>
-      <Route path={PROJECT_PATH}>
-        <SideNav.SideNavList>
+      <SideNav.SideNavList>
+        <Route path={PROJECT_PATH}>
           <SideNav.SideNavItem>
             <SideNav.SideNavLink
               IconSVG={RepoSVG}
@@ -78,8 +83,21 @@ const ProjectSideNav: React.FC = () => {
               Pipelines
             </SideNav.SideNavLink>
           </SideNav.SideNavItem>
-        </SideNav.SideNavList>
-      </Route>
+        </Route>
+        <SideNav.SideNavItem>
+          <SideNav.SideNavButton
+            IconSVG={AddCircleSVG}
+            onClick={openModal}
+            tooltipContent="Create New Repo"
+            className={classnames(styles.buttonLink, styles.light)}
+            autoWidth
+            buttonType="secondary"
+            styleMode="light"
+          >
+            Create Repo
+          </SideNav.SideNavButton>
+        </SideNav.SideNavItem>
+      </SideNav.SideNavList>
       <SideNav.SideNavList>
         <SideNav.SideNavItem>
           <SideNav.SideNavLink
@@ -101,6 +119,7 @@ const ProjectSideNav: React.FC = () => {
           </SideNav.SideNavLink>
         </SideNav.SideNavItem>
       </SideNav.SideNavList>
+      <CreateRepoModal show={isOpen} onHide={closeModal} />
     </SideNav>
   );
 };
