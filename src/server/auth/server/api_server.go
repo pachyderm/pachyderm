@@ -777,6 +777,19 @@ func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.Tran
 	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: sourceRepo}, auth.PipelinePrefix+pipeline, []string{auth.RepoReaderRole})
 }
 
+// AddPipelineWriterToSourceRepoInTransaction gives a pipeline access to write data to the specified source repo.
+// The only time a pipeline needs write permission for a source repo is in the case of Cron inputs.
+// This is distinct from ModifyRoleBinding because AddPipelineWriter is a less expansive permission
+// that is included in the repoWriter role, versus being able to modify all role bindings which is
+// part of repoOwner. This method is for internal use and is not exposed as an RPC.
+func (a *apiServer) AddPipelineWriterToSourceRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
+	// Check that the user is allowed to add a pipeline to write to the output repo.
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: sourceRepo}, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
+		return err
+	}
+	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: sourceRepo}, auth.PipelinePrefix+pipeline, []string{auth.RepoWriterRole})
+}
+
 // AddPipelineWriterToRepoInTransaction gives a pipeline access to write to it's own output repo.
 // This is distinct from ModifyRoleBinding because AddPipelineWriter is a less expansive permission
 // that is included in the repoWriter role, versus being able to modify all role bindings which is

@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -514,6 +515,95 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 		_, err := rootClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
+}
+
+func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	alice := robot(tu.UniqueString("alice"))
+	aliceClient, rootClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	// Deactivate auth
+	_, err := rootClient.Deactivate(rootClient.Ctx(), &auth.DeactivateRequest{})
+	require.NoError(t, err)
+
+	// Wait for auth to be deactivated
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+		if err != nil && auth.IsErrNotActivated(err) {
+			return nil // WhoAmI should fail when auth is deactivated
+		}
+		return errors.New("auth is not yet deactivated")
+	}, backoff.NewTestingBackOff()))
+
+	// alice creates a pipeline
+	pipeline1 := tu.UniqueString("cron1-")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline1,
+		"",
+		[]string{"/bin/bash"},
+		[]string{"cp /pfs/time/* /pfs/out/"},
+		nil,
+		client.NewCronInput("time", "@every 3s"),
+		"",
+		false,
+	))
+	pipeline2 := tu.UniqueString("cron2-")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"/bin/bash"},
+		[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline1) + " /pfs/out/"},
+		nil,
+		client.NewPFSInput(pipeline1, "/*"),
+		"",
+		false,
+	))
+
+	// subscribe to the pipeline2 cron repo and wait for inputs
+	repo := client.NewRepo(pipeline2)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	defer cancel() //cleanup resources
+
+	checkCronCommits := func(n int) error {
+		count := 0
+		return aliceClient.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+			files, err := aliceClient.ListFileAll(ci.Commit, "")
+			require.NoError(t, err)
+
+			require.Equal(t, count, len(files))
+			count++
+			if count > n {
+				return errutil.ErrBreak
+			}
+			return nil
+		})
+	}
+	// make sure the cron is working
+	require.NoError(t, checkCronCommits(1))
+
+	// activate auth
+	resp, err := rootClient.Activate(rootClient.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
+	require.NoError(t, err)
+	rootClient.SetAuthToken(resp.PachToken)
+
+	// activate auth in PFS
+	_, err = rootClient.PfsAPIClient.ActivateAuth(rootClient.Ctx(), &pfs.ActivateAuthRequest{})
+	require.NoError(t, err)
+
+	// activate auth in PPS
+	_, err = rootClient.PpsAPIClient.ActivateAuth(rootClient.Ctx(), &pps.ActivateAuthRequest{})
+	require.NoError(t, err)
+
+	// re-authenticate, as old tokens were deleted
+	aliceClient = tu.GetAuthenticatedPachClient(t, alice)
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(alice, []string{auth.RepoWriterRole}))
+
+	// make sure the cron is working
+	require.NoError(t, checkCronCommits(5))
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
