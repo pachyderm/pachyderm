@@ -353,6 +353,14 @@
                 }
             }
         },
+        "loki": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                }
+            }
+        },
         "oidc": {
             "type": "object",
             "properties": {
