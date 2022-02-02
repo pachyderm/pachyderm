@@ -66,15 +66,14 @@ func (es *etcdService) List(ctx context.Context, namespace, group string, cb fun
 		}
 		fullKey := path.Join(prefix, key)
 		// namespace/group/doerID/taskID
-		// namespace might have slashes
 		keyParts := strings.Split(fullKey, "/")
-		if len(keyParts) < 4 {
+		if len(keyParts) != 4 {
 			return errors.Errorf("malformed task key %s", fullKey)
 		}
 		return cb(&TaskKey{
 			Key:       fullKey,
-			Namespace: path.Join(keyParts[:len(keyParts)-3]...),
-			Group:     keyParts[len(keyParts)-3],
+			Namespace: keyParts[0],
+			Group:     keyParts[1],
 		}, &taskData, claimed)
 	})
 }
