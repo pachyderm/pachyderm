@@ -83,11 +83,14 @@ content, specifying `"empty_files"` will massively improve its performance.
 
 
 ### Output files:
-`pachctl list file "shuffle@master:*"` will show shuffled file:
+`pachctl glob file shuffle@master:/**` will show shuffled file:
 
-| NAME             | TYPE | SIZE     |
-|------------------|------|----------|
-| /mango/cost.json | file | 22B      |
-| /mango/img.jpeg  | file | 7.029KiB |
-| /apple/cost.json | file | 23B      |
-| /apple/img.jpeg  | file | 4.978KiB |
+|NAME              | TYPE | SIZE    |
+|------------------|------|---------|
+| /apple/          | dir  | 5KiB    |
+| /apple/cost.json | file | 23B     |
+| /apple/img.jpeg  | file | 4.978KiB|
+| /mango/          | dir  | 7.051KiB|
+| /mango/cost.json | file | 22B     |
+| /mango/img.jpeg  | file | 7.029KiB|
+
