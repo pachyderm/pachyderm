@@ -3,6 +3,7 @@ import {ButtonLink, Link, Table, Group} from '@pachyderm/components';
 import React from 'react';
 
 import useFileDisplay from '../../../hooks/useFileDisplay';
+import DeleteFileButton from '../../DeleteFileButton';
 
 type FileTableRowProps = {
   file: File;
@@ -28,6 +29,7 @@ const FileTableRow: React.FC<FileTableRowProps> = ({file}) => {
               <Link to={download} download>
                 Download
               </Link>
+              <DeleteFileButton file={file}>Delete</DeleteFileButton>
             </>
           ) : (
             <Link to={filePath}>See Files</Link>

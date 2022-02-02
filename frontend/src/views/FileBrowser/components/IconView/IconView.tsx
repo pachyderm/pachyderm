@@ -6,10 +6,13 @@ import {
   DownloadSVG,
   Group,
   Tooltip,
+  TrashSVG,
+  Icon,
 } from '@pachyderm/components';
 import React from 'react';
 
 import useFileDisplay from '../../hooks/useFileDisplay';
+import DeleteFileButton from '../DeleteFileButton';
 
 import FileIcon from './components/FileIcon';
 import styles from './IconView.module.css';
@@ -41,16 +44,29 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
         {copySupported && (
           <Tooltip tooltipKey={filePath} tooltipText="Copy Path">
             <ButtonLink onClick={copy} aria-label="Copy">
-              <CopySVG className={styles.actionIcon} />
+              <Icon color="plum">
+                <CopySVG />
+              </Icon>
             </ButtonLink>
           </Tooltip>
         )}
         {file.type === FileType.FILE ? (
           !file.downloadDisabled && file.download ? (
             <>
-              <Link to={file.download} download>
-                <DownloadSVG className={styles.actionIcon} />
+              <Link
+                to={file.download}
+                download
+                aria-label={`Download ${file.path}`}
+              >
+                <Icon color="plum">
+                  <DownloadSVG />
+                </Icon>
               </Link>
+              <DeleteFileButton file={file} aria-label={`Delete ${file.path}`}>
+                <Icon color="plum">
+                  <TrashSVG />
+                </Icon>
+              </DeleteFileButton>
               {previewSupported && <Link to={filePath}>Preview</Link>}
             </>
           ) : (
@@ -60,7 +76,9 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
                 tooltipText="This file is too large to download"
               >
                 <Link>
-                  <DownloadSVG className={styles.actionIcon} />
+                  <Icon color="plum" aria-label={`Download ${file.path}`}>
+                    <DownloadSVG />
+                  </Icon>
                 </Link>
               </Tooltip>
               <Tooltip

@@ -2,7 +2,11 @@ import {render, waitFor, act} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
-import {withContextProviders, click} from '@dash-frontend/testHelpers';
+import {
+  withContextProviders,
+  click,
+  mockServer,
+} from '@dash-frontend/testHelpers';
 
 import FileBrowserComponent from '../FileBrowser';
 
@@ -168,6 +172,23 @@ describe('File Browser', () => {
 
       expect(window.document.execCommand).toHaveBeenCalledWith('copy');
     });
+
+    it('should delete a file on delete button click', async () => {
+      const {findByTestId, findAllByTestId} = render(<FileBrowser />);
+
+      const deleteButton = await findAllByTestId('DeleteFileButton__link');
+      expect(mockServer.getState().files['3']['/']).toHaveLength(16);
+
+      click(deleteButton[0]);
+
+      const deleteConfirm = await findByTestId('ModalFooter__confirm');
+
+      click(deleteConfirm);
+
+      await waitFor(() =>
+        expect(mockServer.getState().files['3']['/']).toHaveLength(15),
+      );
+    });
   });
 
   describe('File Browser icon view', () => {
@@ -225,6 +246,23 @@ describe('File Browser', () => {
 
       expect(window.document.execCommand).toHaveBeenCalledWith('copy');
     });
+
+    it('should delete a file on delete icon click', async () => {
+      const {findByTestId, findAllByTestId} = render(<FileBrowser />);
+
+      const deleteButton = await findAllByTestId('DeleteFileButton__link');
+      expect(mockServer.getState().files['3']['/']).toHaveLength(16);
+
+      click(deleteButton[0]);
+
+      const deleteConfirm = await findByTestId('ModalFooter__confirm');
+
+      click(deleteConfirm);
+
+      await waitFor(() =>
+        expect(mockServer.getState().files['3']['/']).toHaveLength(15),
+      );
+    });
   });
 
   describe('File Browser file preview', () => {
@@ -266,6 +304,23 @@ describe('File Browser', () => {
       await act(async () => click(copyAction));
 
       expect(window.document.execCommand).toHaveBeenCalledWith('copy');
+    });
+
+    it('should delete a file on delete button click', async () => {
+      const {findByTestId} = render(<FileBrowser />);
+
+      const deleteButton = await findByTestId('DeleteFileButton__link');
+      expect(mockServer.getState().files['3']['/']).toHaveLength(16);
+
+      click(deleteButton);
+
+      const deleteConfirm = await findByTestId('ModalFooter__confirm');
+
+      click(deleteConfirm);
+
+      await waitFor(() =>
+        expect(mockServer.getState().files['3']['/']).toHaveLength(15),
+      );
     });
   });
 });

@@ -380,6 +380,8 @@ const pfs = () => {
           call.on('data', async (chunk: ModifyFileRequest) => {
             commit = chunk.hasSetCommit() ? chunk.getSetCommit() : commit;
             const addFile = chunk.getAddFile();
+            const deleteFile = chunk.getDeleteFile();
+
             if (!commit) {
               call.emit(
                 'error',
@@ -445,6 +447,18 @@ const pfs = () => {
                   }),
                 );
               }
+            }
+            if (deleteFile && commit) {
+              const pathToDelete = deleteFile.getPath();
+              const dirPath = path.dirname(pathToDelete);
+              const projectFiles = MockState.state.files[projectId.toString()];
+
+              MockState.state.files[projectId.toString()] = {
+                ...projectFiles,
+                [dirPath]: projectFiles[dirPath].filter((file) => {
+                  return pathToDelete !== file.getFile()?.getPath();
+                }),
+              };
             }
           });
         },

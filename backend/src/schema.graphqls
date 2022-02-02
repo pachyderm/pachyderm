@@ -448,6 +448,14 @@ input PutFilesFromURLsArgs {
   projectId: String!
 }
 
+input DeleteFileArgs {
+  filePath: String!
+  repo: String!
+  branch: String!
+  force: Boolean
+  projectId: String!
+}
+
 type Log {
   message: String!
   timestamp: Timestamp
@@ -491,4 +499,5 @@ type Mutation {
   deletePipeline(args: DeletePipelineArgs!): Boolean
   createBranch(args: CreateBranchArgs!): Branch!
   putFilesFromURLs(args: PutFilesFromURLsArgs!): [String!]!
+  deleteFile(args: DeleteFileArgs!): ID!
 }

@@ -1,42 +1,46 @@
 .base {
-    margin: -1rem;
-    height: 100vh;
-    background-color: var(--background-grey);
+  margin: -1rem;
+  height: 100vh;
+  background-color: var(--background-grey);
 }
 
 .subHeader {
-    width: calc(100% - 4rem);
-    margin: 0.6125rem 2rem;
-    display: inline-flex;
-    align-items: center;
+  width: calc(100% - 4rem);
+  margin: 0.6125rem 2rem;
+  display: inline-flex;
+  align-items: center;
 }
 
 .fileIcons {
-    padding: 1rem;
-    overflow: auto;
-    max-height: calc(100vh - var(--header-height));
-    padding-top: 0;
-    margin-top: 0.6125rem;
+  padding: 1rem;
+  overflow: auto;
+  max-height: calc(100vh - var(--header-height));
+  padding-top: 0;
+  margin-top: 0.6125rem;
 }
 
 .emptyResults {
-    text-align: center;
-    padding-top: 8rem;
+  text-align: center;
+  padding-top: 8rem;
 }
 .emptyHeading {
-    margin-top: 2rem;
-    font-size: var(--font-size-header);
-    line-height: 2rem;
+  margin-top: 2rem;
+  font-size: var(--font-size-header);
+  line-height: 2rem;
 }
 
 .emptySubheading {
-    font-size: var(--font-size-body-medium);
-    line-height: 1.5rem;
-    max-width: 22rem;
-    margin-left: 50%;
-    transform: translateX(-50%);
+  font-size: var(--font-size-body-medium);
+  line-height: 1.5rem;
+  max-width: 22rem;
+  margin-left: 50%;
+  transform: translateX(-50%);
 }
 
 .inactiveIcon {
-    opacity: 0.5;
+  opacity: 0.5;
+}
+
+.fullModal {
+  z-index: var(--z-index-modal-overlay);
 }

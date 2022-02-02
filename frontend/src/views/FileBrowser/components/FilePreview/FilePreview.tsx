@@ -1,8 +1,9 @@
 import {File} from '@graphqlTypes';
-import {Button, Group} from '@pachyderm/components';
+import {Button, Group, Icon, TrashSVG} from '@pachyderm/components';
 import React, {useCallback} from 'react';
 
 import useFileDisplay from '../../hooks/useFileDisplay';
+import DeleteFileButton from '../DeleteFileButton';
 
 import CSVPreview from './components/CSVPreview';
 import IFramePreview from './components/IFramePreview';
@@ -74,15 +75,30 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
           Uploaded: {dateDisplay} ({file.sizeDisplay})
         </p>
         {copySupported && (
-          <Button autoWidth buttonType="secondary" onClick={copy}>
+          <Button
+            autoWidth
+            buttonType="secondary"
+            onClick={copy}
+            aria-label={`Copy Path ${file.path}`}
+          >
             Copy Path
           </Button>
         )}
         {!file.downloadDisabled && file.download && (
-          <Button download href={file.download} autoWidth>
+          <Button
+            download
+            href={file.download}
+            autoWidth
+            aria-label={`Download ${file.path}`}
+          >
             Download
           </Button>
         )}
+        <DeleteFileButton file={file} aria-label={`Delete ${file.path}`}>
+          <Icon color="plum">
+            <TrashSVG />
+          </Icon>
+        </DeleteFileButton>
       </Group>
       {!file.downloadDisabled &&
         file.download &&

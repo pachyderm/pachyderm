@@ -21,9 +21,7 @@ const DeleteRepoButton: React.FC = () => {
           onHide={() => {
             setModalOpen(false);
           }}
-          headerContent={
-            <span>Are you sure you want to delete this Repo?</span>
-          }
+          headerContent="Are you sure you want to delete this Repo?"
           actionable
           small
           confirmText="Delete"

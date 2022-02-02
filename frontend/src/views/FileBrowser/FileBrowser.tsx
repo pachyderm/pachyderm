@@ -61,7 +61,12 @@ const FileBrowser: React.FC = () => {
       <Helmet>
         <title>Files - Pachyderm Console</title>
       </Helmet>
-      <FullPageModal show={isOpen} onHide={handleHide} hideType="exit">
+      <FullPageModal
+        show={isOpen}
+        onHide={handleHide}
+        hideType="exit"
+        className={styles.fullModal}
+      >
         <div className={styles.base}>
           <FileHeader fileFilter={fileFilter} setFileFilter={setFileFilter} />
           <div className={styles.subHeader}>
