@@ -70,16 +70,22 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           className={styles.controlButton}
           onClick={rotateDag}
           disabled={noDags}
+          data-testid="DAGView__flipCanvas"
         >
-          <Icon>
+          <Icon data-testid="DAGView__flipCanvasIcon">
             <FlipSVG
-              aria-label={'Rotate Canvas'}
+              aria-label={'Flip Canvas'}
               className={classnames(styles.rotateSvg, {
                 [styles.flipped]: dagDirection === DagDirection.RIGHT,
               })}
             />
           </Icon>
-          <label className={styles.controlLabel}>Flip Canvas</label>
+          <label
+            className={styles.controlLabel}
+            data-testid="DAGView__flipCanvasLabel"
+          >
+            Flip Canvas
+          </label>
         </button>
         <Tooltip
           className={styles.tooltip}
@@ -92,11 +98,17 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
             className={styles.controlButton}
             onClick={zoomOut}
             disabled={noDags}
+            data-testid="DAGView__resetCanvas"
           >
-            <Icon>
+            <Icon data-testid="DAGView__resetCanvasIcon">
               <FullscreenSVG aria-label="Reset Canvas" />
             </Icon>
-            <label className={styles.controlLabel}>Reset Canvas</label>
+            <label
+              className={styles.controlLabel}
+              data-testid="DAGView__resetCanvasLabel"
+            >
+              Reset Canvas
+            </label>
           </button>
         </Tooltip>
         <Tooltip
@@ -114,21 +126,29 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
               handleChangeCenterOnSelect(!!skipCenterOnSelect);
             }}
             disabled={noDags}
+            data-testid="DAGView__centerSelections"
           >
             <Icon>
               {!skipCenterOnSelect ? (
                 <CheckboxCheckedSVG
                   aria-label="Uncheck Skip Center"
                   className={styles.svgControl}
+                  data-testid="DAGView__centerSelectionsChecked"
                 />
               ) : (
                 <CheckboxSVG
                   aria-label="Check Skip Center"
                   className={styles.svgControl}
+                  data-testid="DAGView__centerSelectionsUnchecked"
                 />
               )}
             </Icon>
-            <label className={styles.controlLabel}>Center Selections</label>
+            <label
+              className={styles.controlLabel}
+              data-testid="DAGView__centerSelectionsLabel"
+            >
+              Center Selections
+            </label>
           </button>
         </Tooltip>
         {error && (

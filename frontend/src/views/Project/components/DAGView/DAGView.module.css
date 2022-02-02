@@ -9,6 +9,7 @@
 
 .controlLabel {
   color: var(--pachyderm-black);
+  cursor: pointer;
   font-weight: 600;
   margin-bottom: 0;
   margin-left: 0.5rem;

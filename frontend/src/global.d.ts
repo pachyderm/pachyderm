@@ -39,3 +39,8 @@ declare global {
     }
   }
 }
+
+declare interface Window {
+  analyticsInitialized?: boolean;
+  analyticsIdentified?: boolean;
+}

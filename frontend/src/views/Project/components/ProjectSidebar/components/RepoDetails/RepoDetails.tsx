@@ -1,6 +1,7 @@
 import {SkeletonDisplayText, Link} from '@pachyderm/components';
 import {format, fromUnixTime} from 'date-fns';
 import React, {useRef} from 'react';
+import {Helmet} from 'react-helmet';
 
 import Description from '@dash-frontend/components/Description';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
@@ -19,6 +20,9 @@ const RepoDetails = () => {
 
   return (
     <div className={styles.base} ref={repoBaseRef}>
+      <Helmet>
+        <title>Repo - Pachyderm Console</title>
+      </Helmet>
       <div className={styles.title}>
         {loading ? (
           <SkeletonDisplayText data-testid="RepoDetails__repoNameSkeleton" />

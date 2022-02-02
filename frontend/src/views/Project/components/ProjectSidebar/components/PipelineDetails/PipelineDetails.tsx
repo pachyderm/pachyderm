@@ -7,6 +7,7 @@ import {
 } from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
+import {Helmet} from 'react-helmet';
 
 import Title from '../Title';
 
@@ -28,6 +29,9 @@ const PipelineDetails = () => {
 
   return (
     <div className={styles.base}>
+      <Helmet>
+        <title>Pipeline - Pachyderm Console</title>
+      </Helmet>
       <div className={styles.title}>
         {loading ? (
           <SkeletonDisplayText data-testid="PipelineDetails__pipelineNameSkeleton" />

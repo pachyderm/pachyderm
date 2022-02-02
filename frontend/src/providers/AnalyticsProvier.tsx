@@ -1,6 +1,7 @@
 import {useAnalytics} from '@pachyderm/components';
 import React from 'react';
 import {useLocation} from 'react-router';
+import {getAnonymousId, identify, page, track} from 'rudder-sdk-js';
 
 import useAccount from '@dash-frontend/hooks/useAccount';
 import useAuth from '@dash-frontend/hooks/useAuth';
@@ -12,6 +13,12 @@ const AnalyticsProvider: React.FC = ({children}) => {
     createdAt: Date.now(),
     email: account?.email,
     id: account?.id,
+    provider: {
+      getAnonymousId,
+      identify,
+      page,
+      track,
+    },
   });
 
   analytics.init();

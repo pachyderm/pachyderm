@@ -1,6 +1,7 @@
 import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
 import classnames from 'classnames';
 import React, {useEffect} from 'react';
+import {Helmet} from 'react-helmet';
 import {useHistory} from 'react-router';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -59,6 +60,10 @@ const JobList: React.FC<JobListProps> = ({
 
   return (
     <div className={classnames(styles.base, {[styles.cardStyle]: cardStyle})}>
+      <Helmet>
+        <title>Jobs - Pachyderm Console</title>
+      </Helmet>
+
       {showStatusFilter && (
         <JobListStatusFilter jobs={jobs} selectedFilters={selectedFilters} />
       )}

@@ -2,6 +2,7 @@ import {JobState} from '@graphqlTypes';
 import {Link, Tooltip, LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
+import {Helmet} from 'react-helmet';
 import {NavLink, Redirect, Route} from 'react-router-dom';
 
 import {useJobSet} from '@dash-frontend/hooks/useJobSet';
@@ -67,6 +68,9 @@ const JobDetails = () => {
 
   return (
     <div className={styles.base}>
+      <Helmet>
+        <title>Job - Pachyderm Console</title>
+      </Helmet>
       <section className={styles.headerSection}>
         <Route path={LINEAGE_PIPELINE_JOB_PATH}>
           <nav>

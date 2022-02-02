@@ -106,16 +106,18 @@ const ProjectSideNav: React.FC = () => {
             styleMode="light"
             showIconWhenExpanded
             to={jobsLink}
+            data-testid="ProjectSideNav__seeJobs"
           >
             {numOfFailedJobs > 0 && (
               <Badge
                 className={styles.seeJobsBadge}
                 aria-label="Number of failed jobs"
+                data-testid="ProjectSideNav__seeJobsBadge"
               >
                 {numOfFailedJobs}
               </Badge>
             )}
-            Jobs
+            <span data-testid="ProjectSideNav__seeJobsLabel">Jobs</span>
           </SideNav.SideNavLink>
         </SideNav.SideNavItem>
       </SideNav.SideNavList>
