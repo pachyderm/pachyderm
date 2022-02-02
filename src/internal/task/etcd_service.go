@@ -59,7 +59,7 @@ func (es *etcdService) List(ctx context.Context, namespace, group string, cb fun
 	etcdCols := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, prefix)
 	var taskData Task
 	var claim Claim
-	return etcdCols.taskCol.ReadOnly(ctx).List(&taskData, col.DefaultOptions(), func(key string) error {
+	return errors.EnsureStack(etcdCols.taskCol.ReadOnly(ctx).List(&taskData, col.DefaultOptions(), func(key string) error {
 		var claimed bool
 		if taskData.State == State_RUNNING && etcdCols.claimCol.ReadOnly(ctx).Get(key, &claim) == nil {
 			claimed = true
@@ -75,7 +75,7 @@ func (es *etcdService) List(ctx context.Context, namespace, group string, cb fun
 			Namespace: keyParts[0],
 			Group:     keyParts[1],
 		}, &taskData, claimed)
-	})
+	}))
 }
 
 type namespaceEtcd struct {
