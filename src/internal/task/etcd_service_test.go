@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"path"
 	"strconv"
 	"strings"
 	"testing"
@@ -213,9 +212,12 @@ func TestListTask(t *testing.T) {
 			}
 		}
 
-		listTask := func(prefix string) ([]*taskapi.TaskInfo, error) {
+		listTask := func(namespace, group string) ([]*taskapi.TaskInfo, error) {
 			var out []*taskapi.TaskInfo
-			req := &taskapi.ListTaskRequest{Namespace: prefix}
+			req := &taskapi.ListTaskRequest{Group: &taskapi.Group{
+				Namespace: namespace,
+				Group:     group,
+			}}
 			if err := HandleList(context.Background(), s, req, func(info *taskapi.TaskInfo) error {
 				out = append(out, info)
 				return nil
@@ -227,7 +229,7 @@ func TestListTask(t *testing.T) {
 
 		var groupTotalClaimed, totalClaimed int
 		for g := 0; g < numGroups; g++ {
-			tasks, err := listTask(path.Join(testNamespace, strconv.Itoa(g)))
+			tasks, err := listTask(testNamespace, strconv.Itoa(g))
 			require.NoError(t, err)
 			for i, info := range tasks {
 				switch info.State {
@@ -241,14 +243,14 @@ func TestListTask(t *testing.T) {
 					require.Equal(t, taskapi.State_RUNNING, info.State)
 				}
 				// namespace/group/random/taskID
-				pathParts := strings.Split(info.FullKey, "/")
+				pathParts := strings.Split(info.Key, "/")
 				require.Equal(t, 4, len(pathParts))
 				asInt, err := strconv.Atoi(pathParts[1])
 				require.NoError(t, err)
 				require.Equal(t, asInt, g)
 			}
 		}
-		allTasks, err := listTask(testNamespace)
+		allTasks, err := listTask(testNamespace, "")
 		require.NoError(t, err)
 
 		for _, info := range allTasks {
