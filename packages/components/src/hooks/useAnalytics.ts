@@ -12,9 +12,17 @@ export type UseAnalyticsProps = {
   createdAt?: number;
   email?: string;
   id?: string;
+  provider: {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    getAnonymousId: (...args: any[]) => void;
+    identify: (...args: any[]) => void;
+    page: (...args: any[]) => void;
+    track: (...args: any[]) => void;
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  };
 };
 
-const useAnalytics = ({createdAt, email, id}: UseAnalyticsProps) => {
+const useAnalytics = ({createdAt, email, id, provider}: UseAnalyticsProps) => {
   const init = useCallback(() => {
     if (window.analyticsInitialized) {
       return;
@@ -26,14 +34,14 @@ const useAnalytics = ({createdAt, email, id}: UseAnalyticsProps) => {
     captureTrackingCookies();
 
     // Track clicks
-    initClickTracker();
+    initClickTracker(provider.track);
 
     // Track UTM
-    fireUTM();
+    fireUTM(provider.track);
 
     // Track page views
-    initPageTracker();
-  }, []);
+    initPageTracker(provider.page);
+  }, [provider]);
 
   useEffect(() => {
     if (window.analyticsIdentified) {
@@ -42,9 +50,16 @@ const useAnalytics = ({createdAt, email, id}: UseAnalyticsProps) => {
 
     if (createdAt && email && id) {
       window.analyticsIdentified = true;
-      fireIdentify(id, email, createdAt);
+      fireIdentify(
+        id,
+        email,
+        createdAt,
+        provider.identify,
+        provider.track,
+        provider.getAnonymousId,
+      );
     }
-  }, [createdAt, id, email]);
+  }, [createdAt, id, email, provider]);
 
   return {init};
 };

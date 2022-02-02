@@ -5,9 +5,15 @@ import debounce from 'lodash/debounce';
 import each from 'lodash/each';
 import isEmpty from 'lodash/isEmpty';
 import omitBy from 'lodash/omitBy';
-import {getAnonymousId, identify, page, track} from 'rudder-sdk-js';
 
 export type EventType = 'identify' | 'page' | 'track';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type Track = (...args: any[]) => void;
+type Page = (...args: any[]) => void;
+type Identify = (...args: any[]) => void;
+type GetAnonymousId = (...args: any[]) => void;
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 enum QueryStringCookies {
   utm_campaign = 'utm_campaign',
@@ -70,12 +76,12 @@ export const captureTrackingCookies = () => {
   });
 };
 
-export const fireClick = (clickId: string) => {
+export const fireClick = (clickId: string, track: Track) => {
   try {
     track('click', {clickId});
   } catch (err) {
     captureException(
-      `[Rudderstack Error]: Operation: track, Event: click, ID: ${clickId}, ${err}`,
+      `[Analytics Error]: Operation: track, Event: click, ID: ${clickId}, ${err}`,
     );
   }
 };
@@ -84,6 +90,9 @@ export const fireIdentify = (
   authId: string,
   authEmail: string,
   authCreatedAt: number,
+  identify: Identify,
+  track: Track,
+  getAnonymousId: GetAnonymousId,
 ) => {
   try {
     const trackingCookies = getTrackingCookies();
@@ -108,37 +117,20 @@ export const fireIdentify = (
     });
   } catch (err) {
     captureException(
-      `[Rudderstack Error]: Operation: track, Event: identify, ID: ${authId}, ${err}`,
+      `[Analytics Error]: Operation: track, Event: identify, ID: ${authId}, ${err}`,
     );
   }
 };
 
-export const firePageView = () => {
+export const firePageView = (page: Page) => {
   try {
     page();
   } catch (err) {
-    captureException(`[Rudderstack Error]: Operation: page, ${err}`);
+    captureException(`[Analytics Error]: Operation: page, ${err}`);
   }
 };
 
-export const firePromoApplied = (promo: string, authId: string) => {
-  try {
-    identify(authId, {hub_promo_code: promo});
-    track('Promo', {
-      context: {
-        traits: {
-          hub_promo_code: promo,
-        },
-      },
-    });
-  } catch (err) {
-    captureException(
-      `[Rudderstack Error]: Operation: track, Event: promo, ID: ${authId}, Promo: ${promo}, ${err}`,
-    );
-  }
-};
-
-export const fireUTM = () => {
+export const fireUTM = (track: Track) => {
   const traits = omitBy(getTrackingCookies(), (_, k) => k.startsWith('source'));
 
   if (!isEmpty(traits)) {
@@ -146,13 +138,13 @@ export const fireUTM = () => {
       track('UTM', {context: {traits}});
     } catch (err) {
       captureException(
-        `[Rudderstack Error]: Operation: track, Event: UTM, ${err}`,
+        `[Analytics Error]: Operation: track, Event: UTM, ${err}`,
       );
     }
   }
 };
 
-export const initClickTracker = () => {
+export const initClickTracker = (track: Track) => {
   window.document.addEventListener(
     'click',
     debounce(
@@ -161,7 +153,7 @@ export const initClickTracker = () => {
         const testId = element.getAttribute('data-testid');
 
         if (testId) {
-          fireClick(testId);
+          fireClick(testId, track);
         }
       },
       CLICK_TIMEOUT,
@@ -173,6 +165,6 @@ export const initClickTracker = () => {
   );
 };
 
-export const initPageTracker = () => {
-  return onTitleChange(() => firePageView());
+export const initPageTracker = (track: Track) => {
+  return onTitleChange(() => firePageView(track));
 };

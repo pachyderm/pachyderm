@@ -53,6 +53,7 @@ const MultiSelectModule: React.FC<MultiSelectModuleProps> = ({
                     disabled={disabled}
                     selected={files[url].selected || files[url].uploaded}
                     name={files[url].name}
+                    data-testid="MultiSelectModule__check"
                     label={
                       <span className={styles.fileCheckboxLabel}>
                         {files[url].name}

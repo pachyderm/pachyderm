@@ -32,7 +32,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     <div className={styles.taskCard}>
       <div className={styles.taskHeaderWrapper}>
         <div
-          className={`${styles.taskHeader} 
+          className={`${styles.taskHeader}
         ${styles.taskHeaderWrapperChild}`}
         >
           <h6 className={styles.task}>{`Task ${index + 1}`}</h6>
@@ -73,6 +73,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 disabled={currentTask < index || disabled}
                 onClick={action}
                 className={styles.button}
+                data-testid={`TaskCard__${actionText}`}
               >
                 {actionText}
               </Button>

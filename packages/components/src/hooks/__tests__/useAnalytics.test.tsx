@@ -18,12 +18,20 @@ jest.mock('../../lib/analytics', () => ({
   fireIdentify: jest.fn(),
 }));
 
-const AnalyticsComponent: React.FC<UseAnalyticsProps> = ({
+type AnalyticsComponentProps = Omit<UseAnalyticsProps, 'provider'>;
+
+const AnalyticsComponent: React.FC<AnalyticsComponentProps> = ({
   createdAt,
   email,
   id,
 }) => {
-  const {init} = useAnalytics({createdAt, email, id});
+  const provider = {
+    getAnonymousId: jest.fn(),
+    identify: jest.fn(),
+    page: jest.fn(),
+    track: jest.fn(),
+  };
+  const {init} = useAnalytics({createdAt, email, id, provider});
 
   useEffect(() => {
     init();

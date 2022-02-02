@@ -4,7 +4,6 @@ import {captureException} from '@sentry/react';
 import {render, waitFor} from '@testing-library/react';
 import Cookies from 'js-cookie';
 import React from 'react';
-import {identify, page, track} from 'rudder-sdk-js';
 import {mocked} from 'ts-jest/utils';
 
 import {click} from 'testHelpers';
@@ -16,30 +15,31 @@ import {
   fireClick,
   fireIdentify,
   firePageView,
-  firePromoApplied,
   fireUTM,
   initClickTracker,
   initPageTracker,
 } from '../analytics';
-
-jest.mock('rudder-sdk-js', () => ({
-  getAnonymousId: jest.fn(() => 'mock-anonymous-id'),
-  identify: jest.fn(),
-  page: jest.fn(),
-  track: jest.fn(),
-}));
 
 jest.mock('@sentry/react', () => ({
   captureException: jest.fn(),
 }));
 
 describe('lib/analytics', () => {
+  let getAnonymousId = jest.fn(),
+    identify = jest.fn(),
+    page = jest.fn(),
+    track = jest.fn();
+
   beforeEach(() => {
     window.history.pushState({}, '', '');
     Cookies.remove('latest_utm_source');
     Cookies.remove('latest_utm_content');
     Cookies.remove('source_utm_source');
     Cookies.remove('source_utm_content');
+    getAnonymousId = jest.fn(() => 'mock-anonymous-id');
+    identify = jest.fn();
+    page = jest.fn();
+    track = jest.fn();
   });
 
   it('should capture and get tracking cookies', () => {
@@ -55,7 +55,7 @@ describe('lib/analytics', () => {
   });
 
   it('should fire a click event', () => {
-    fireClick('mock-click-id');
+    fireClick('mock-click-id', track);
 
     expect(track).toHaveBeenCalledWith('click', {
       clickId: 'mock-click-id',
@@ -70,6 +70,9 @@ describe('lib/analytics', () => {
       '7',
       'cloud@avalanche.org',
       new Date(1605719038392).getTime() / 1000,
+      identify,
+      track,
+      getAnonymousId,
     );
 
     expect(identify).toHaveBeenCalledWith('7', {
@@ -95,7 +98,7 @@ describe('lib/analytics', () => {
   });
 
   it('should fire a page event', () => {
-    firePageView();
+    firePageView(page);
 
     expect(page).toHaveBeenCalledTimes(1);
   });
@@ -103,7 +106,7 @@ describe('lib/analytics', () => {
   it('should fire a page event when the document title changes', async () => {
     document.title = 'Hello World 1';
 
-    const observer = initPageTracker();
+    const observer = initPageTracker(page);
 
     expect(page).toHaveBeenCalledTimes(0);
 
@@ -120,26 +123,11 @@ describe('lib/analytics', () => {
     observer.disconnect();
   });
 
-  it('should fire a promo applied event', () => {
-    firePromoApplied('mock-promo', '1');
-
-    expect(identify).toHaveBeenCalledWith('1', {
-      hub_promo_code: 'mock-promo',
-    });
-    expect(track).toHaveBeenCalledWith('Promo', {
-      context: {
-        traits: {
-          hub_promo_code: 'mock-promo',
-        },
-      },
-    });
-  });
-
   it('should fire a UTM event', () => {
     window.history.pushState({}, '', '?utm_source=google&utm_content=hello');
     captureTrackingCookies();
 
-    fireUTM();
+    fireUTM(track);
 
     expect(track).toHaveBeenCalledWith('UTM', {
       context: {
@@ -161,7 +149,7 @@ describe('lib/analytics', () => {
     const contactButton = getByTestId('Custom__contactUs');
     const randomButton = getByText('Random');
 
-    initClickTracker();
+    initClickTracker(track);
 
     click(randomButton);
     jest.advanceTimersByTime(CLICK_TIMEOUT);
@@ -178,49 +166,41 @@ describe('lib/analytics', () => {
 
   it('should send an event to sentry when a click event fails', () => {
     mocked(track).mockImplementationOnce(() => {
-      throw new Error('Rudderstack exploded!');
+      throw new Error('Analytics exploded!');
     });
 
-    fireClick('Button__click');
+    fireClick('Button__click', track);
     expect(captureException).toHaveBeenCalledWith(
-      '[Rudderstack Error]: Operation: track, Event: click, ID: Button__click, Error: Rudderstack exploded!',
+      '[Analytics Error]: Operation: track, Event: click, ID: Button__click, Error: Analytics exploded!',
     );
   });
 
   it('should send an event to sentry when an identify event fails', () => {
     mocked(track).mockImplementationOnce(() => {
-      throw new Error('Rudderstack exploded!');
+      throw new Error('Analytics exploded!');
     });
 
     fireIdentify(
       '7',
       'cloud@avalanche.org',
       new Date(1605719038392).getTime() / 1000,
+      identify,
+      track,
+      getAnonymousId,
     );
     expect(captureException).toHaveBeenCalledWith(
-      '[Rudderstack Error]: Operation: track, Event: identify, ID: 7, Error: Rudderstack exploded!',
-    );
-  });
-
-  it('should send an event to sentry when a promo event fails', () => {
-    mocked(track).mockImplementationOnce(() => {
-      throw new Error('Rudderstack exploded!');
-    });
-
-    firePromoApplied('mock-promo', '1');
-    expect(captureException).toHaveBeenCalledWith(
-      '[Rudderstack Error]: Operation: track, Event: promo, ID: 1, Promo: mock-promo, Error: Rudderstack exploded!',
+      '[Analytics Error]: Operation: track, Event: identify, ID: 7, Error: Analytics exploded!',
     );
   });
 
   it('should send an event to sentry when a UTM event fails', () => {
     mocked(track).mockImplementationOnce(() => {
-      throw new Error('Rudderstack exploded!');
+      throw new Error('Analytics exploded!');
     });
 
-    fireUTM();
+    fireUTM(track);
     expect(captureException).toHaveBeenCalledWith(
-      '[Rudderstack Error]: Operation: track, Event: UTM, Error: Rudderstack exploded!',
+      '[Analytics Error]: Operation: track, Event: UTM, Error: Analytics exploded!',
     );
   });
 });

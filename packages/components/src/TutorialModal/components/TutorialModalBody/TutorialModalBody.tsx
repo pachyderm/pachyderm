@@ -105,6 +105,7 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
               currentStory === stories.length - 1 ||
               currentTask <= stories[currentStory]?.sections.length - 1
             }
+            data-testid="TutorialModalBody__nextStory"
           >
             Next Story
             <ArrowRightSVG />
@@ -113,6 +114,9 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
             className={styles.button}
             buttonType="secondary"
             onClick={() => setMinimized((prevValue) => !prevValue)}
+            data-testid={`TutorialModalBody__${
+              minimized ? 'maximize' : 'minimize'
+            }`}
           >
             {minimized ? (
               <>
