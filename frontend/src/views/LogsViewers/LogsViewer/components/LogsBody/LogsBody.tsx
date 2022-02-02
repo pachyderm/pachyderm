@@ -1,5 +1,6 @@
+import {ApolloError} from '@apollo/client';
 import {GetLogsQuery} from '@graphqlTypes';
-import {LoadingDots} from '@pachyderm/components';
+import {LoadingDots, Link} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
@@ -26,6 +27,7 @@ type LogsBodyProps = {
   setSelectedLogsMap: React.Dispatch<
     React.SetStateAction<{[key: string]: boolean}>
   >;
+  error?: ApolloError;
 };
 
 const LogsBody: React.FC<LogsBodyProps> = ({
@@ -35,6 +37,7 @@ const LogsBody: React.FC<LogsBodyProps> = ({
   rawLogs,
   selectedLogsMap,
   setSelectedLogsMap,
+  error,
 }) => {
   const {listRef, getSize, setSize} = useLogsBody();
 
@@ -81,6 +84,21 @@ const LogsBody: React.FC<LogsBodyProps> = ({
           </LogsList>
         )}
       </AutoSizer>
+    );
+  }
+
+  if (error) {
+    return (
+      <EmptyState title="No logs found for this pipeline.">
+        If you haven&apos;t already, consider setting up a persistent log
+        aggregator like{' '}
+        <Link
+          externalLink
+          to="https://docs.pachyderm.com/latest/deploy-manage/deploy/loki/"
+        >
+          Loki
+        </Link>
+      </EmptyState>
     );
   }
 

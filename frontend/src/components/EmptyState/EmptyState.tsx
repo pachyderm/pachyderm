@@ -8,11 +8,16 @@ import styles from './EmptyState.module.css';
 
 type EmptyStateProps = {
   title: string;
-  message: string;
+  message?: string;
   connect?: boolean;
 };
 
-const EmptyState: React.FC<EmptyStateProps> = ({title, message, connect}) => {
+const EmptyState: React.FC<EmptyStateProps> = ({
+  title,
+  message = null,
+  connect,
+  children = null,
+}) => {
   const {workspaceName, pachdAddress, pachVersion} = useWorkspace();
   const [connectModalShow, showConnectModal] = useState(false);
 
@@ -24,7 +29,10 @@ const EmptyState: React.FC<EmptyStateProps> = ({title, message, connect}) => {
         alt=""
       />
       <span className={styles.title}>{title}</span>
-      <span className={styles.message}>{message}</span>
+      <span className={styles.message}>
+        {message}
+        {children}
+      </span>
       {connect && (
         <ButtonLink
           onClick={() => showConnectModal(true)}

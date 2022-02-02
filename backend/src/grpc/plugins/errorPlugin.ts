@@ -55,6 +55,10 @@ const errorPlugin: GRPCPlugin = {
         throw new NotFoundError('resource not found');
       }
 
+      if (error.details.startsWith('no pods')) {
+        throw new ApolloError(error.details, 'INVALID_REQUEST');
+      }
+
       // We can transform additional error types below.
       // Unhandled errors will be returned as an INTERNAL_SERVER_ERROR
       throw new ApolloError(error.details, 'INTERNAL_SERVER_ERROR', {

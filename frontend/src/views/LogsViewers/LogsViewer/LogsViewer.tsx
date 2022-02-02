@@ -37,6 +37,7 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
     setSelectedTime,
     rawLogs,
     setRawLogs,
+    error,
   } = useLogsViewer(onCloseCallback, dropdownLabel, startTime);
 
   return (
@@ -69,6 +70,7 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
           logs={logs}
           selectedLogsMap={selectedLogsMap}
           setSelectedLogsMap={setSelectedLogsMap}
+          error={error}
         />
       </div>
     </FullPageModal>

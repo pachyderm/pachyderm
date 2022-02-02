@@ -49,7 +49,7 @@ const useLogsViewer = (
     ...LOGS_DEFAULT_DROPDOWN_OPTIONS,
   ];
 
-  const {logs, loading} = useLogs({
+  const {logs, loading, error} = useLogs({
     projectId: projectId,
     pipelineName: pipelineId,
     jobId: jobId,
@@ -79,6 +79,7 @@ const useLogsViewer = (
     setSelectedTime,
     rawLogs,
     setRawLogs: handleRawLogsChange,
+    error,
   };
 };
 export default useLogsViewer;
