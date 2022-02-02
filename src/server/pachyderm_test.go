@@ -9843,3 +9843,119 @@ func TestLoad(t *testing.T) {
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
 	require.Equal(t, "", resp.Error, buf.String())
 }
+
+func TestPipelineEnvJoinOn(t *testing.T) {
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// create repos
+	repo1 := tu.UniqueString("TestPipelineEnvJoinOn_repo1")
+	require.NoError(t, c.CreateRepo(repo1))
+	repo2 := tu.UniqueString("TestPipelineEnvJoinOn_repo2")
+	require.NoError(t, c.CreateRepo(repo2))
+
+	input := client.NewJoinInput(
+		client.NewPFSInput(repo1, "/(*)"),
+		client.NewPFSInput(repo2, "/(*)"),
+	)
+	input.Join[0].Pfs.Name = "repo1"
+	input.Join[1].Pfs.Name = "repo2"
+	input.Join[0].Pfs.JoinOn = "$1"
+	input.Join[1].Pfs.JoinOn = "$1"
+
+	require.NoError(t, c.PutFile(client.NewCommit(repo1, "master", ""), "a", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(client.NewCommit(repo2, "master", ""), "a", strings.NewReader("bar")))
+
+	// create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"echo $PACH_DATUM_repo1_JOIN_ON> /pfs/out/PACH_DATUM_repo1_JOIN_ON",
+					"echo $PACH_DATUM_repo2_JOIN_ON> /pfs/out/PACH_DATUM_repo2_JOIN_ON",
+				},
+			},
+			Input:  input,
+			Update: true,
+		},
+	)
+	require.NoError(t, err)
+
+	// wait for job and get its datums
+	jobs, err := c.ListJob(pipeline, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	jobInfo, err := c.WaitJob(pipeline, jobs[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+
+	// check for the value of JOIN_ON env variable
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "PACH_DATUM_repo1_JOIN_ON", &buf))
+	require.Equal(t, "a\n", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "PACH_DATUM_repo2_JOIN_ON", &buf))
+	require.Equal(t, "a\n", buf.String())
+}
+
+func TestPipelineEnvGroupBy(t *testing.T) {
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// create repos
+	repo1 := tu.UniqueString("TestPipelineEnvJoinOn_repo1")
+	require.NoError(t, c.CreateRepo(repo1))
+
+	input := client.NewGroupInput(
+		client.NewPFSInput(repo1, "/(*)-*"),
+	)
+	input.Group[0].Pfs.Name = "repo1"
+	input.Group[0].Pfs.GroupBy = "$1"
+
+	commit, err := c.StartCommit(repo1, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "a-1", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(commit, "a-2", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(commit, "b-1", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(commit, "b-2", strings.NewReader("foo")))
+	require.NoError(t, c.FinishCommit(repo1, commit.Branch.Name, commit.ID))
+
+	// create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"mkdir -p /pfs/out/$PACH_DATUM_repo1_GROUP_BY",
+					"echo $PACH_DATUM_repo1_GROUP_BY> /pfs/out/$PACH_DATUM_repo1_GROUP_BY/PACH_DATUM_repo1_GROUP_BY",
+				},
+			},
+			Input:  input,
+			Update: true,
+		},
+	)
+	require.NoError(t, err)
+
+	// wait for job and get its datums
+	jobs, err := c.ListJob(pipeline, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	jobInfo, err := c.WaitJob(pipeline, jobs[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+
+	// check for the value of JOIN_ON env variable
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "a/PACH_DATUM_repo1_GROUP_BY", &buf))
+	require.Equal(t, "a\n", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "b/PACH_DATUM_repo1_GROUP_BY", &buf))
+	require.Equal(t, "b\n", buf.String())
+}
